@@ -20,6 +20,7 @@ pub struct CodeCoverageSensor {
     pub eight_bit_counters: Vec<u16>,
     pub cmp_features: Vec<ComparisonFeature>
 }
+
 impl CodeCoverageSensor {
     pub fn handle_pc_guard_init(&mut self, start: *mut u32, stop: *mut u32) {
         unsafe { // TODO: refine unsafe
@@ -38,11 +39,9 @@ impl CodeCoverageSensor {
         self.eight_bit_counters.resize((self.num_guards + 1) as usize, 0);
     }
 
-    fn handle_trace_cmp <T> (&mut self, pc: PC, arg1: T, arg2: T) 
-        where T: Into<u64>
-    {
+    pub fn handle_trace_cmp(&mut self, pc: PC, arg1: u64, arg2: u64) {
         // TODO: NormalizedPC
-        let f = ComparisonFeature::new(pc, arg1.into(), arg2.into());
+        let f = ComparisonFeature::new(pc, arg1, arg2);
         self.cmp_features.push(f)
     }
 

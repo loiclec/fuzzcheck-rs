@@ -1,6 +1,10 @@
 use crate::fuzzer::code_coverage_sensor::*;
 use std::sync::Once;
 
+extern "C" {
+    fn return_address() -> usize;
+}
+
 static START: Once = Once::new();
 
 #[export_name="__sanitizer_cov_trace_pc_guard_init"]
