@@ -1,5 +1,7 @@
 use std::collections::HashMap;
 
+use crate::fuzzer::input::FuzzerInput;
+
 // TODO: think through derive
 #[derive(PartialEq, Eq, Hash, Clone)]
 pub enum Feature {
@@ -80,7 +82,7 @@ pub struct InputPoolElement <Input: Clone> {
 }
 
 // TODO: think of req for Input
-impl<Input: Clone> InputPoolElement<Input> {
+impl<Input: FuzzerInput> InputPoolElement<Input> {
     fn new(input: Input, complexity: f64, features: Vec<Feature>) -> InputPoolElement<Input> {
         InputPoolElement {
             input: input, 
@@ -92,7 +94,7 @@ impl<Input: Clone> InputPoolElement<Input> {
     }
 }
 
-pub struct InputPool <Input: Clone> {
+pub struct InputPool <Input: FuzzerInput> {
     inputs: Vec<InputPoolElement<Input>>,
     favored_input: Option<InputPoolElement<Input>>,
     cumulative_weights: Vec<f64>,
@@ -100,7 +102,7 @@ pub struct InputPool <Input: Clone> {
     smallest_input_complexity_for_feature: HashMap<Feature, f64>
 }
 
-impl<Input: Clone> InputPool<Input> {
+impl<Input: FuzzerInput> InputPool<Input> {
     fn get(&self, idx: InputPoolIndex) -> &InputPoolElement<Input> {
         match idx {
             InputPoolIndex::Normal(idx) => &self.inputs[idx],
