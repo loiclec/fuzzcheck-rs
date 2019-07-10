@@ -106,7 +106,7 @@ fn trace_switch(val: u64, arg2: *mut u64) {
     let pc = unsafe { return_address() };
     
     let n = unsafe { *arg2 as usize };
-    let mut cases = unsafe { slice::from_raw_parts_mut(arg2, n).iter().take(1) };
+    let mut cases = unsafe { slice::from_raw_parts_mut(arg2, n+2).iter().take(1) };
     
     // val_size_in_bits
     let _ = cases.next();
