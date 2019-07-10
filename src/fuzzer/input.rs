@@ -8,9 +8,9 @@ pub trait FuzzerInput: Hash + Clone {
 pub trait InputProperties {
     type Input: FuzzerInput;
 
-    fn complexity(input: Self::Input) -> f64;
+    fn complexity(input: &Self::Input) -> f64;
 
-    fn adjusted_complexity(input: Self::Input) -> f64 {
+    fn adjusted_complexity(input: &Self::Input) -> f64 {
         Self::complexity(input) + 1.0
     }
 }

@@ -1,6 +1,14 @@
 use std::collections::HashMap;
 
+use rand::rngs::ThreadRng;
+use rand::Rng;
+
+use rand::distributions::{Distribution};
+use rand::distributions::uniform::{UniformFloat, UniformSampler};
+
 use crate::fuzzer::input::FuzzerInput;
+use crate::fuzzer::world::FuzzerWorld;
+use crate::fuzzer::weighted_index::WeightedIndex;
 
 // TODO: think through derive
 #[derive(PartialEq, Eq, Hash, Clone)]
@@ -55,7 +63,7 @@ impl ComparisonFeature {
 }
 
 impl Feature {
-    fn score(self) -> f64 {
+    fn score(&self) -> f64 {
         match self {
             Feature::Edge(_) => 1.0,
             Feature::Comparison(_) => 0.5
@@ -83,7 +91,7 @@ pub struct InputPoolElement <Input: Clone> {
 
 // TODO: think of req for Input
 impl<Input: FuzzerInput> InputPoolElement<Input> {
-    fn new(input: Input, complexity: f64, features: Vec<Feature>) -> InputPoolElement<Input> {
+    pub fn new(input: Input, complexity: f64, features: Vec<Feature>) -> InputPoolElement<Input> {
         InputPoolElement {
             input: input, 
             complexity: complexity,
@@ -98,8 +106,8 @@ pub struct InputPool <Input: FuzzerInput> {
     inputs: Vec<InputPoolElement<Input>>,
     favored_input: Option<InputPoolElement<Input>>,
     cumulative_weights: Vec<f64>,
-    score: f64,
-    smallest_input_complexity_for_feature: HashMap<Feature, f64>
+    pub score: f64,
+    pub smallest_input_complexity_for_feature: HashMap<Feature, f64>
 }
 
 impl<Input: FuzzerInput> InputPool<Input> {
@@ -116,12 +124,65 @@ impl<Input: FuzzerInput> InputPool<Input> {
         }
     }
 
-    fn update_scores(&mut self) -> impl FnOnce(&mut f64) -> () {
-        // TODO
-        |x: &mut f64| -> () { *x += 1.0 }
+    fn complexity_ratio(simplest: f64, other: f64) -> f64 {
+        (|x| x*x)(simplest /  other)
     }
 
-    fn add(&mut self, elements: Vec<InputPoolElement<Input>>) -> impl FnOnce(&mut f64) -> () {
+    fn update_scores <W> (&mut self) -> impl FnOnce(&mut W) -> ()
+        where W: FuzzerWorld<Input=Input>
+    {
+        let mut sum_cplx_ratios: HashMap<Feature, f64> = HashMap::new();
+        for input in self.inputs.iter_mut() {
+            input.flagged_for_deletion = true;
+            input.score = 0.0;
+            for f in input.features.iter() {
+                let simplest_cplx = self.smallest_input_complexity_for_feature[f];
+                let ratio = Self::complexity_ratio(simplest_cplx, input.complexity);
+                assert!(ratio <= 1.0);
+                if simplest_cplx == input.complexity {
+                    input.flagged_for_deletion = false;
+                }
+            }
+            if input.flagged_for_deletion == true { 
+                continue 
+            }
+            for f in input.features.iter() {
+                let simplest_cplx = self.smallest_input_complexity_for_feature[f];
+                let ratio = Self::complexity_ratio(simplest_cplx, input.complexity);
+                *sum_cplx_ratios.entry(f.clone()).or_insert(0.0) += ratio;
+            }
+        }
+
+        for input in self.inputs.iter_mut() {
+            if input.flagged_for_deletion { continue }
+            for f in input.features.iter() {
+                let simplest_cplx = self.smallest_input_complexity_for_feature[f];
+                let sum_ratios = sum_cplx_ratios[f];
+                let base_score = f.score() / sum_ratios;
+                let ratio = Self::complexity_ratio(simplest_cplx, input.complexity);
+                let score = base_score * ratio;
+                input.score += score;
+            }
+        }
+
+        let inputs_to_delete: Vec<Input> = self.inputs.iter().filter_map(|i| { 
+            if i.flagged_for_deletion { None } else { Some(i.input.clone()) }
+        }).collect();
+
+        let _ = self.inputs.drain_filter(|i| i.flagged_for_deletion);
+        self.score = self.inputs.iter().fold(0.0, |x, next| x + next.score);
+
+        return |w| {
+            for i in inputs_to_delete {
+                w.remove_from_output_corpus(i);
+            }
+            // TODO: signal deletions
+        };
+    }
+
+    fn add <W> (&mut self, elements: Vec<InputPoolElement<Input>>) -> impl FnOnce(&mut W) -> () 
+        where W: FuzzerWorld<Input=Input>
+    {
         for element in elements.iter() {
             for f in element.features.iter() {
                 let complexity = self.smallest_input_complexity_for_feature.get(&f);
@@ -133,15 +194,56 @@ impl<Input: FuzzerInput> InputPool<Input> {
         }
         let world_update_1 = self.update_scores();
 
-        self.cumulative_weights = elements.iter().scan(0.0, |state, x| {
+        self.cumulative_weights = self.inputs.iter().scan(0.0, |state, x| {
             *state = *state + x.score;
             Some(*state)
         }).collect();
 
-        |x: &mut f64| -> () { 
-            // TODO
-            world_update_1(x);
-            *x += 1.0 
+        |w: &mut W| -> () { 
+            world_update_1(w);
+            for element in elements {
+
+            }
         }
+    }
+    fn add_one <W> (&mut self, element: InputPoolElement<Input>) -> impl FnOnce(&mut W) -> () 
+        where W: FuzzerWorld<Input=Input>
+    {
+        for f in element.features.iter() {
+            let complexity = self.smallest_input_complexity_for_feature.get(&f);
+            if complexity == Option::None || element.complexity < *complexity.unwrap() {
+                let _ = self.smallest_input_complexity_for_feature.insert(f.clone(), element.complexity);
+            }
+        }
+        self.inputs.push(element.clone());
+        let world_update_1 = self.update_scores();
+
+        self.cumulative_weights = self.inputs.iter().scan(0.0, |state, x| {
+            *state = *state + x.score;
+            Some(*state)
+        }).collect();
+
+        |w: &mut W| -> () { 
+            world_update_1(w);
+            w.add_to_output_corpus(element.input);
+        }
+    }
+
+    fn random_index(&self, rand: &mut ThreadRng) -> InputPoolIndex {
+        if self.favored_input.is_some() && (rand.gen_bool(0.25) || self.inputs.is_empty()) {
+            InputPoolIndex::Favored
+        } else {
+            let weight_distr = UniformFloat::new(0.0, self.cumulative_weights.last().unwrap_or(&0.0));
+            let dist = WeightedIndex { cumulative_weights: self.cumulative_weights.clone(), weight_distribution: weight_distr };
+            let x = dist.sample(rand);
+            InputPoolIndex::Normal(x)
+        }
+    }
+
+    fn empty(&mut self) {
+        self.inputs.clear();
+        self.score = 0.0;
+        self.cumulative_weights.clear();
+        self.smallest_input_complexity_for_feature.clear();
     }
 }

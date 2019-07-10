@@ -45,8 +45,8 @@ impl CodeCoverageSensor {
         self.cmp_features.push(f)
     }
 
-    fn iterate_over_collected_features <F> (&mut self, handle: F) 
-        where F: Fn(Feature) -> ()
+    pub fn iterate_over_collected_features <F> (&mut self, mut handle: F) 
+        where F: FnMut(Feature) -> ()
     {
         for i in 0 .. self.eight_bit_counters.len() {
             let x = self.eight_bit_counters[i];
@@ -64,7 +64,10 @@ impl CodeCoverageSensor {
                 last = Option::Some(*f);
             }
         }
+    }
 
-
+    pub fn clear(&mut self) {
+        self.eight_bit_counters.clear();
+        self.cmp_features.clear();
     }
 }
