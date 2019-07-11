@@ -1,4 +1,4 @@
-use crate::fuzzer::input_pool::*;
+use crate::input_pool::*;
 use std::slice;
 use std::mem::{MaybeUninit};
 

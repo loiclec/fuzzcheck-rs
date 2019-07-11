@@ -6,9 +6,9 @@ use rand::Rng;
 use rand::distributions::{Distribution};
 use rand::distributions::uniform::{UniformFloat, UniformSampler};
 
-use crate::fuzzer::input::FuzzerInput;
-use crate::fuzzer::world::FuzzerWorld;
-use crate::fuzzer::weighted_index::WeightedIndex;
+use crate::input::FuzzerInput;
+use crate::world::FuzzerWorld;
+use crate::weighted_index::WeightedIndex;
 
 // TODO: think through derive
 #[derive(PartialEq, Eq, Hash, Clone)]
@@ -36,7 +36,7 @@ fn score_from_counter(counter: u16) -> u8 {
 impl EdgeFeature {
     pub fn new(pc_guard: usize, counter: u16) -> EdgeFeature {
         EdgeFeature {
-            pc_guard: pc_guard,
+            pc_guard,
             intensity: score_from_counter(counter)
         }
     }
@@ -51,7 +51,7 @@ pub struct ComparisonFeature {
 impl ComparisonFeature {
     pub fn new(pc: usize, arg1: u64, arg2: u64) -> ComparisonFeature {
         ComparisonFeature {
-            pc: pc,
+            pc,
             id: score_from_counter(arg1.wrapping_sub(arg2).count_ones() as u16)
         }
     }
@@ -93,9 +93,9 @@ pub struct InputPoolElement <Input: Clone> {
 impl<Input: FuzzerInput> InputPoolElement<Input> {
     pub fn new(input: Input, complexity: f64, features: Vec<Feature>) -> InputPoolElement<Input> {
         InputPoolElement {
-            input: input, 
-            complexity: complexity,
-            features: features,
+            input, 
+            complexity,
+            features,
             score: -1.0, 
             flagged_for_deletion: false
         }
@@ -125,7 +125,8 @@ impl<Input: FuzzerInput> InputPool<Input> {
     }
 
     fn complexity_ratio(simplest: f64, other: f64) -> f64 {
-        (|x| x*x)(simplest /  other)
+        let square = |x| x*x;
+        square(simplest / other)
     }
 
     fn update_scores <W> (&mut self) -> impl FnOnce(&mut W) -> ()
@@ -139,11 +140,11 @@ impl<Input: FuzzerInput> InputPool<Input> {
                 let simplest_cplx = self.smallest_input_complexity_for_feature[f];
                 let ratio = Self::complexity_ratio(simplest_cplx, input.complexity);
                 assert!(ratio <= 1.0);
-                if simplest_cplx == input.complexity {
+                if (simplest_cplx - input.complexity).abs() < std::f64::EPSILON {
                     input.flagged_for_deletion = false;
                 }
             }
-            if input.flagged_for_deletion == true { 
+            if input.flagged_for_deletion { 
                 continue 
             }
             for f in input.features.iter() {
@@ -172,12 +173,12 @@ impl<Input: FuzzerInput> InputPool<Input> {
         let _ = self.inputs.drain_filter(|i| i.flagged_for_deletion);
         self.score = self.inputs.iter().fold(0.0, |x, next| x + next.score);
 
-        return |w| {
+        |w| {
             for i in inputs_to_delete {
                 w.remove_from_output_corpus(i);
             }
             // TODO: signal deletions
-        };
+        }
     }
 
     fn add <W> (&mut self, elements: Vec<InputPoolElement<Input>>) -> impl FnOnce(&mut W) -> () 
@@ -195,13 +196,13 @@ impl<Input: FuzzerInput> InputPool<Input> {
         let world_update_1 = self.update_scores();
 
         self.cumulative_weights = self.inputs.iter().scan(0.0, |state, x| {
-            *state = *state + x.score;
+            *state += x.score;
             Some(*state)
         }).collect();
 
-        |w: &mut W| -> () { 
+        |w: &mut W| { 
             world_update_1(w);
-            for element in elements {
+            for _ in elements {
 
             }
         }
@@ -219,11 +220,11 @@ impl<Input: FuzzerInput> InputPool<Input> {
         let world_update_1 = self.update_scores();
 
         self.cumulative_weights = self.inputs.iter().scan(0.0, |state, x| {
-            *state = *state + x.score;
+            *state += x.score;
             Some(*state)
         }).collect();
 
-        |w: &mut W| -> () { 
+        |w: &mut W| { 
             world_update_1(w);
             w.add_to_output_corpus(element.input);
         }

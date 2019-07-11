@@ -1,9 +1,9 @@
 
-use crate::fuzzer::input::*;
-use crate::fuzzer::input_pool::*;
-use crate::fuzzer::world::*;
-use crate::fuzzer::code_coverage_sensor::*;
-use crate::fuzzer::artifact::*;
+use crate::input::*;
+use crate::input_pool::*;
+use crate::world::*;
+use crate::code_coverage_sensor::*;
+use crate::artifact::*;
 
 pub type FuzzerSettings = bool;
 
@@ -81,7 +81,7 @@ impl<Input, Generator, World, TestF> Fuzzer<'_, Input, Generator, World, TestF>
     }
 
     fn test_current_inputs(&mut self) {
-        for i in (0 .. self.state.inputs.len()) {
+        for i in 0 .. self.state.inputs.len() {
             self.test_input(i);
         }
     }

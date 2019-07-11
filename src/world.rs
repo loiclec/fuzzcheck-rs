@@ -1,8 +1,8 @@
 use rand::rngs::ThreadRng;
 
-use crate::fuzzer::artifact::*;
-use crate::fuzzer::input::*;
-use crate::fuzzer::input_pool::Feature;
+use crate::artifact::*;
+use crate::input::*;
+use crate::input_pool::Feature;
 
 pub type Signal = bool;
 pub type FuzzerStats = bool;
