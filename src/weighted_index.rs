@@ -1,18 +1,17 @@
-
 //! Weighted index sampling
-//! 
+//!
 //! This module provides two implementations for sampling indices:
-//! 
+//!
 //! *   [`WeightedIndex`] allows `O(log N)` sampling
 //! *   [`alias_method::WeightedIndex`] allows `O(1)` sampling, but with
 //!      much greater set-up cost
-//!      
+//!
 //! [`alias_method::WeightedIndex`]: alias_method/struct.WeightedIndex.html
 
-use rand::Rng;
-use rand::distributions::Distribution;
-use rand::distributions::uniform::{UniformSampler, SampleUniform};
 use core::cmp::PartialOrd;
+use rand::distributions::uniform::{SampleUniform, UniformSampler};
+use rand::distributions::Distribution;
+use rand::Rng;
 
 /// A distribution using weighted sampling to pick a discretely selected
 /// item.
@@ -74,14 +73,22 @@ pub struct WeightedIndex<X: SampleUniform + PartialOrd> {
     pub weight_distribution: X::Sampler,
 }
 
-
-impl<X> Distribution<usize> for WeightedIndex<X> where
-    X: SampleUniform + PartialOrd {
+impl<X> Distribution<usize> for WeightedIndex<X>
+where
+    X: SampleUniform + PartialOrd,
+{
     fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> usize {
         use ::core::cmp::Ordering;
         let chosen_weight = self.weight_distribution.sample(rng);
         // Find the first item which has a weight *higher* than the chosen weight.
-        self.cumulative_weights.binary_search_by(
-            |w| if *w <= chosen_weight { Ordering::Less } else { Ordering::Greater }).unwrap_err()
+        self.cumulative_weights
+            .binary_search_by(|w| {
+                if *w <= chosen_weight {
+                    Ordering::Less
+                } else {
+                    Ordering::Greater
+                }
+            })
+            .unwrap_err()
     }
 }

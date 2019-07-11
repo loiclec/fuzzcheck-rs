@@ -1,11 +1,11 @@
 #![feature(drain_filter)]
 #![allow(dead_code)]
 
-mod fuzzer;
-mod input_pool;
-mod hooks;
-mod code_coverage_sensor;
-mod input;
-mod world;
-mod weighted_index;
 mod artifact;
+mod code_coverage_sensor;
+mod fuzzer;
+mod hooks;
+mod input;
+mod input_pool;
+mod weighted_index;
+mod world;

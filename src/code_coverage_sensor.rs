@@ -1,7 +1,6 @@
 use crate::input_pool::*;
+use std::mem::MaybeUninit;
 use std::slice;
-use std::mem::{MaybeUninit};
-
 
 type PC = usize;
 
@@ -18,14 +17,17 @@ pub struct CodeCoverageSensor {
     pub num_guards: isize,
     pub is_recording: bool,
     pub eight_bit_counters: Vec<u16>,
-    pub cmp_features: Vec<ComparisonFeature>
+    pub cmp_features: Vec<ComparisonFeature>,
 }
 
 impl CodeCoverageSensor {
     pub fn handle_pc_guard_init(&mut self, start: *mut u32, stop: *mut u32) {
-        unsafe { // TODO: refine unsafe
-            if !(start != stop && *start == 0) { return; }
-            
+        unsafe {
+            // TODO: refine unsafe
+            if !(start != stop && *start == 0) {
+                return;
+            }
+
             // TODO: divide by size of u32? or use nightly for offset function
             let dist = ((stop as usize) - (start as usize)) / 4;
             let buffer = slice::from_raw_parts_mut(start, dist);
@@ -45,12 +47,15 @@ impl CodeCoverageSensor {
         self.cmp_features.push(f)
     }
 
-    pub fn iterate_over_collected_features <F> (&mut self, mut handle: F) 
-        where F: FnMut(Feature) -> ()
+    pub fn iterate_over_collected_features<F>(&mut self, mut handle: F)
+    where
+        F: FnMut(Feature) -> (),
     {
-        for i in 0 .. self.eight_bit_counters.len() {
+        for i in 0..self.eight_bit_counters.len() {
             let x = self.eight_bit_counters[i];
-            if x == 0 { continue }
+            if x == 0 {
+                continue;
+            }
 
             let f = EdgeFeature::new(i, self.eight_bit_counters[i]);
             handle(Feature::Edge(f));
@@ -59,7 +64,9 @@ impl CodeCoverageSensor {
 
             let mut last: Option<ComparisonFeature> = None;
             for f in self.cmp_features.iter() {
-                if last == Option::Some(*f) { continue }
+                if last == Option::Some(*f) {
+                    continue;
+                }
                 handle(Feature::Comparison(*f));
                 last = Option::Some(*f);
             }
