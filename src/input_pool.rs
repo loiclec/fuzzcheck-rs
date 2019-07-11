@@ -103,7 +103,7 @@ impl<Input: FuzzerInput> InputPoolElement<Input> {
 }
 
 pub struct InputPool<Input: FuzzerInput> {
-    inputs: Vec<InputPoolElement<Input>>,
+    pub inputs: Vec<InputPoolElement<Input>>,
     favored_input: Option<InputPoolElement<Input>>,
     cumulative_weights: Vec<f64>,
     pub score: f64,
@@ -192,7 +192,7 @@ impl<Input: FuzzerInput> InputPool<Input> {
         }
     }
 
-   pub fn add<W>(&mut self, elements: Vec<InputPoolElement<Input>>) -> impl FnOnce(&mut W) -> ()
+    pub fn add<W>(&mut self, elements: Vec<InputPoolElement<Input>>) -> impl FnOnce(&mut W) -> ()
     where
         W: FuzzerWorld<Input = Input>,
     {

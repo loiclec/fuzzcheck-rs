@@ -1,3 +1,5 @@
+extern crate signal_hook;
+
 use crate::artifact::*;
 use crate::code_coverage_sensor::*;
 use crate::input::*;
@@ -23,7 +25,7 @@ where
     stats: FuzzerStats,
     settings: FuzzerSettings,
     world: World,
-    process_start_time: usize
+    process_start_time: usize,
 }
 
 impl<Input, Properties, World> FuzzerState<Input, Properties, World>
@@ -32,6 +34,20 @@ where
     Properties: InputProperties<Input = Input>,
     World: FuzzerWorld<Input = Input, Properties = Properties>,
 {
+    fn update_stats(&mut self) {
+        let now = self.world.clock();
+        let seconds = (now - self.process_start_time) / 1_000_000;
+        self.stats.exec_per_s = self.stats.total_number_of_runs / seconds;
+        self.stats.pool_size = self.pool.inputs.len();
+        self.stats.score = (self.pool.score * 10.0).round() as usize;
+        let avg_cplx = self
+            .pool
+            .smallest_input_complexity_for_feature
+            .values()
+            .fold(0.0, |x, n| x + n);
+        self.stats.avg_cplx = (avg_cplx * 100.0).round() as usize;
+    }
+
     fn receive_signal(&self, signal: Signal) -> ! {
         self.world.report_event(FuzzerEvent::CaughtSignal(signal), &self.stats);
         // TODO
@@ -143,14 +159,19 @@ where
             let mut new_input = pool_element.input.clone();
 
             let mut cplx = pool_element.complexity - 1.0; // TODO: why - 1.0?
-            for _ in 0 .. self.state.settings.mutate_depth {
+            for _ in 0..self.state.settings.mutate_depth {
                 if self.state.stats.total_number_of_runs >= self.state.settings.max_nbr_of_runs
-                || !self.generator.mutate(&mut new_input, self.state.settings.max_input_cplx - cplx, self.state.world.rand()) {
-                    break
+                    || !self.generator.mutate(
+                        &mut new_input,
+                        self.state.settings.max_input_cplx - cplx,
+                        self.state.world.rand(),
+                    )
+                {
+                    break;
                 }
                 cplx = Generator::complexity(&new_input);
                 if cplx >= self.state.settings.max_input_cplx {
-                    continue
+                    continue;
                 }
                 self.state.inputs.push(new_input.clone());
             }
@@ -161,7 +182,11 @@ where
     fn process_initial_inputs(&mut self) {
         let mut inputs = self.state.world.read_input_corpus();
         if inputs.is_empty() {
-            inputs.append(&mut self.generator.initial_inputs(self.state.settings.max_input_cplx, self.state.world.rand()));
+            inputs.append(
+                &mut self
+                    .generator
+                    .initial_inputs(self.state.settings.max_input_cplx, self.state.world.rand()),
+            );
         }
         inputs.drain_filter(|x| Generator::complexity(x) <= self.state.settings.max_input_cplx);
         self.state.inputs = inputs;
@@ -173,7 +198,9 @@ where
         self.state.process_start_time = self.state.world.clock();
         self.state.world.report_event(FuzzerEvent::Start, &self.state.stats);
         self.process_initial_inputs();
-        self.state.world.report_event(FuzzerEvent::DidReadCorpus, &self.state.stats);
+        self.state
+            .world
+            .report_event(FuzzerEvent::DidReadCorpus, &self.state.stats);
 
         while self.state.stats.total_number_of_runs < self.state.settings.max_nbr_of_runs {
             self.process_next_inputs();

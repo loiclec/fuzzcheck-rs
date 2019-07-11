@@ -7,16 +7,16 @@ use crate::input_pool::Feature;
 pub type Signal = bool;
 
 pub enum FuzzerCommand {
-    Minimize, 
-    Fuzz, 
-    Read
+    Minimize,
+    Fuzz,
+    Read,
 }
 
 pub struct FuzzerSettings {
     pub command: FuzzerCommand,
     pub max_nbr_of_runs: usize,
     pub max_input_cplx: f64,
-    pub mutate_depth: usize
+    pub mutate_depth: usize,
 }
 
 pub struct FuzzerStats {
@@ -24,7 +24,7 @@ pub struct FuzzerStats {
     pub score: usize,
     pub pool_size: usize,
     pub exec_per_s: usize,
-    pub avg_cplx: usize
+    pub avg_cplx: usize,
 }
 
 // public struct FuzzerStats {
@@ -37,18 +37,18 @@ pub struct FuzzerStats {
 // }
 
 // public struct FuzzerSettings {
-    
+
 //     public enum Command: String {
 //         case minimize
 //         case fuzz
 //         case read
 //     }
-    
+
 //     public var command: Command
 //     public var maxNumberOfRuns: Int
 //     public var maxInputComplexity: Double
 //     public var mutateDepth: Int
-    
+
 //     public init(command: Command = .fuzz, maxNumberOfRuns: Int = Int.max, maxInputComplexity: Double = 256.0, mutateDepth: Int = 3) {
 //         self.command = command
 //         self.maxNumberOfRuns = maxNumberOfRuns

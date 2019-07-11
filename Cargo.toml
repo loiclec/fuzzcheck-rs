@@ -6,6 +6,7 @@ edition = "2018"
 
 [dependencies]
 rand = "0.7.0"
+signal-hook = "0.1.9"
 
 [build-dependencies]
 cc = "1.0.37"
