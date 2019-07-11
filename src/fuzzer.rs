@@ -4,8 +4,6 @@ use crate::input::*;
 use crate::input_pool::*;
 use crate::world::*;
 
-pub type FuzzerSettings = bool;
-
 pub enum FuzzerTerminationStatus {
     Success = 0,
     Crash = 1,
@@ -13,7 +11,7 @@ pub enum FuzzerTerminationStatus {
     Unknown = 3,
 }
 
-struct FuzzerState<'a, Input, Properties, World>
+struct FuzzerState<Input, Properties, World>
 where
     Input: FuzzerInput,
     Properties: InputProperties<Input = Input>,
@@ -21,38 +19,39 @@ where
 {
     pool: InputPool<Input>,
     inputs: Vec<Input>,
-    input: &'a Input,
+    input_idx: usize,
     stats: FuzzerStats,
     settings: FuzzerSettings,
-    world: World, //stats, settings, process_start_time
+    world: World,
+    process_start_time: usize
 }
 
-impl<Input, Properties, World> FuzzerState<'_, Input, Properties, World>
+impl<Input, Properties, World> FuzzerState<Input, Properties, World>
 where
     Input: FuzzerInput,
     Properties: InputProperties<Input = Input>,
     World: FuzzerWorld<Input = Input, Properties = Properties>,
 {
     fn receive_signal(&self, signal: Signal) -> ! {
-        self.world.report_event(FuzzerEvent::CaughtSignal(signal), self.stats);
+        self.world.report_event(FuzzerEvent::CaughtSignal(signal), &self.stats);
         // TODO
         std::process::exit(1);
     }
 }
 
-struct Fuzzer<'a, Input, Generator, World, TestF>
+struct Fuzzer<Input, Generator, World, TestF>
 where
     Input: FuzzerInput,
     Generator: InputGenerator<Input = Input>,
     World: FuzzerWorld<Input = Input, Properties = Generator>,
     TestF: Fn(&Input) -> bool,
 {
-    state: FuzzerState<'a, Input, Generator, World>,
+    state: FuzzerState<Input, Generator, World>,
     generator: Generator,
     test: TestF, // signals_handler
 }
 
-impl<Input, Generator, World, TestF> Fuzzer<'_, Input, Generator, World, TestF>
+impl<Input, Generator, World, TestF> Fuzzer<Input, Generator, World, TestF>
 where
     Input: FuzzerInput,
     Generator: InputGenerator<Input = Input>,
@@ -70,7 +69,7 @@ where
         if !success {
             self.state
                 .world
-                .report_event(FuzzerEvent::TestFailure, self.state.stats); /* TODO */
+                .report_event(FuzzerEvent::TestFailure, &self.state.stats);
             let mut features: Vec<Feature> = Vec::new();
             sensor.iterate_over_collected_features(|f| features.push(f)); // TODO use iterator?
             self.state
@@ -92,7 +91,7 @@ where
 
         let mut best_input_for_a_feature = false;
 
-        let cur_input_cplx = Generator::adjusted_complexity(self.state.input);
+        let cur_input_cplx = Generator::adjusted_complexity(&self.state.inputs[self.state.input_idx]);
         let sensor = shared_sensor();
         sensor.iterate_over_collected_features(|feature| {
             if let Some(old_cplx) = self.state.pool.smallest_input_complexity_for_feature.get(&feature) {
@@ -106,7 +105,7 @@ where
         });
         if best_input_for_a_feature {
             Some(InputPoolElement::new(
-                self.state.input.clone(),
+                self.state.inputs[self.state.input_idx].clone(),
                 cur_input_cplx,
                 features,
             ))
@@ -114,4 +113,73 @@ where
             None
         }
     }
+
+    fn process_current_inputs(&mut self) {
+        let mut new_pool_elements: Vec<InputPoolElement<Input>> = Vec::new();
+        for idx in 0..self.state.inputs.len() {
+            self.state.input_idx = idx;
+            self.test_input(idx);
+            if let Some(new_pool_element) = self.analyze() {
+                new_pool_elements.push(new_pool_element);
+            }
+        }
+        if new_pool_elements.is_empty() {
+            return;
+        }
+        let effect = self.state.pool.add::<World>(new_pool_elements);
+        effect(&mut self.state.world);
+
+        // TODO: self.state.update_stats();
+        self.state.world.report_event(FuzzerEvent::New, &self.state.stats);
+    }
+
+    fn process_next_inputs(&mut self) {
+        self.state.inputs.clear();
+        self.state.input_idx = 0;
+
+        while self.state.inputs.len() < 50 {
+            let idx = self.state.pool.random_index(self.state.world.rand());
+            let pool_element = self.state.pool.get(idx);
+            let mut new_input = pool_element.input.clone();
+
+            let mut cplx = pool_element.complexity - 1.0; // TODO: why - 1.0?
+            for _ in 0 .. self.state.settings.mutate_depth {
+                if self.state.stats.total_number_of_runs >= self.state.settings.max_nbr_of_runs
+                || !self.generator.mutate(&mut new_input, self.state.settings.max_input_cplx - cplx, self.state.world.rand()) {
+                    break
+                }
+                cplx = Generator::complexity(&new_input);
+                if cplx >= self.state.settings.max_input_cplx {
+                    continue
+                }
+                self.state.inputs.push(new_input.clone());
+            }
+            self.process_current_inputs();
+        }
+    }
+
+    fn process_initial_inputs(&mut self) {
+        let mut inputs = self.state.world.read_input_corpus();
+        if inputs.is_empty() {
+            inputs.append(&mut self.generator.initial_inputs(self.state.settings.max_input_cplx, self.state.world.rand()));
+        }
+        inputs.drain_filter(|x| Generator::complexity(x) <= self.state.settings.max_input_cplx);
+        self.state.inputs = inputs;
+        self.state.input_idx = 0;
+        self.process_current_inputs();
+    }
+
+    fn main_loop(&mut self) {
+        self.state.process_start_time = self.state.world.clock();
+        self.state.world.report_event(FuzzerEvent::Start, &self.state.stats);
+        self.process_initial_inputs();
+        self.state.world.report_event(FuzzerEvent::DidReadCorpus, &self.state.stats);
+
+        while self.state.stats.total_number_of_runs < self.state.settings.max_nbr_of_runs {
+            self.process_next_inputs();
+        }
+        self.state.world.report_event(FuzzerEvent::Done, &self.state.stats);
+    }
+
+    // TODO: minimizing loop
 }

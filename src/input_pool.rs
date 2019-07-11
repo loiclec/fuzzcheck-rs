@@ -82,8 +82,8 @@ pub struct FuzzerState<Input> {
 
 #[derive(Clone)]
 pub struct InputPoolElement<Input: Clone> {
-    input: Input,
-    complexity: f64,
+    pub input: Input,
+    pub complexity: f64,
     features: Vec<Feature>,
     score: f64,
     flagged_for_deletion: bool,
@@ -111,7 +111,7 @@ pub struct InputPool<Input: FuzzerInput> {
 }
 
 impl<Input: FuzzerInput> InputPool<Input> {
-    fn get(&self, idx: InputPoolIndex) -> &InputPoolElement<Input> {
+    pub fn get(&self, idx: InputPoolIndex) -> &InputPoolElement<Input> {
         match idx {
             InputPoolIndex::Normal(idx) => &self.inputs[idx],
             InputPoolIndex::Favored => &self.favored_input.as_ref().unwrap(),
@@ -192,7 +192,7 @@ impl<Input: FuzzerInput> InputPool<Input> {
         }
     }
 
-    fn add<W>(&mut self, elements: Vec<InputPoolElement<Input>>) -> impl FnOnce(&mut W) -> ()
+   pub fn add<W>(&mut self, elements: Vec<InputPoolElement<Input>>) -> impl FnOnce(&mut W) -> ()
     where
         W: FuzzerWorld<Input = Input>,
     {
@@ -253,7 +253,7 @@ impl<Input: FuzzerInput> InputPool<Input> {
         }
     }
 
-    fn random_index(&self, rand: &mut ThreadRng) -> InputPoolIndex {
+    pub fn random_index(&self, rand: &mut ThreadRng) -> InputPoolIndex {
         if self.favored_input.is_some() && (rand.gen_bool(0.25) || self.inputs.is_empty()) {
             InputPoolIndex::Favored
         } else {
