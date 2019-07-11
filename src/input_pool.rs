@@ -111,6 +111,16 @@ pub struct InputPool<Input: FuzzerInput> {
 }
 
 impl<Input: FuzzerInput> InputPool<Input> {
+    pub fn new() -> InputPool<Input> {
+        InputPool {
+            inputs: vec![],
+            favored_input: None,
+            cumulative_weights: vec![],
+            score: 0.0,
+            smallest_input_complexity_for_feature: HashMap::new(),
+        }
+    }
+
     pub fn get(&self, idx: InputPoolIndex) -> &InputPoolElement<Input> {
         match idx {
             InputPoolIndex::Normal(idx) => &self.inputs[idx],

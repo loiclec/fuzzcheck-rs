@@ -1,10 +1,16 @@
-extern crate signal_hook;
-
 use crate::artifact::*;
 use crate::code_coverage_sensor::*;
 use crate::input::*;
 use crate::input_pool::*;
+use crate::signals_handler::*;
 use crate::world::*;
+use std::cell::UnsafeCell;
+
+struct NotThreadSafe<T> {
+    value: UnsafeCell<T>,
+}
+
+unsafe impl<T> Sync for NotThreadSafe<T> {}
 
 pub enum FuzzerTerminationStatus {
     Success = 0,
@@ -48,10 +54,31 @@ where
         self.stats.avg_cplx = (avg_cplx * 100.0).round() as usize;
     }
 
-    fn receive_signal(&self, signal: Signal) -> ! {
+    fn receive_signal(&self, signal: i32) -> ! {
         self.world.report_event(FuzzerEvent::CaughtSignal(signal), &self.stats);
-        // TODO
-        std::process::exit(1);
+
+        match signal {
+            4 | 6 | 10 | 11 | 8 => {
+                let mut features: Vec<Feature> = Vec::new();
+                let sensor = shared_sensor();
+                sensor.iterate_over_collected_features(|f| features.push(f));
+                self.world
+                    .save_artifact(&self.inputs[self.input_idx], None, ArtifactKind::Crash);
+                std::process::exit(FuzzerTerminationStatus::Crash as i32);
+            }
+            2 | 15 => std::process::exit(FuzzerTerminationStatus::Success as i32),
+            _ => std::process::exit(FuzzerTerminationStatus::Unknown as i32),
+        }
+    }
+    pub fn set_up_signal_handler(&self) {
+        unsafe {
+            let cell = NotThreadSafe {
+                value: UnsafeCell::new(self),
+            };
+            handle_signals(vec![4, 6, 10, 11, 8, 2, 15], |sig| {
+                (*cell.value.get()).receive_signal(sig)
+            })
+        }
     }
 }
 
@@ -64,7 +91,38 @@ where
 {
     state: FuzzerState<Input, Generator, World>,
     generator: Generator,
-    test: TestF, // signals_handler
+    test: TestF,
+}
+
+impl<Input, Generator, World, TestF> Fuzzer<Input, Generator, World, TestF>
+where
+    Input: FuzzerInput,
+    Generator: InputGenerator<Input = Input>,
+    World: FuzzerWorld<Input = Input, Properties = Generator>,
+    TestF: Fn(&Input) -> bool,
+{
+    pub fn new(
+        test: TestF,
+        generator: Generator,
+        settings: FuzzerSettings,
+        world: World,
+    ) -> Fuzzer<Input, Generator, World, TestF> {
+        let f = Fuzzer {
+            state: FuzzerState {
+                pool: InputPool::new(),
+                inputs: vec![generator.base_input()],
+                input_idx: 0,
+                stats: FuzzerStats::new(),
+                settings,
+                world,
+                process_start_time: 0,
+            },
+            generator,
+            test,
+        };
+        f.state.set_up_signal_handler();
+        f
+    }
 }
 
 impl<Input, Generator, World, TestF> Fuzzer<Input, Generator, World, TestF>

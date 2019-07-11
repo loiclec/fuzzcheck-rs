@@ -4,8 +4,6 @@ use crate::artifact::*;
 use crate::input::*;
 use crate::input_pool::Feature;
 
-pub type Signal = bool;
-
 pub enum FuzzerCommand {
     Minimize,
     Fuzz,
@@ -26,36 +24,17 @@ pub struct FuzzerStats {
     pub exec_per_s: usize,
     pub avg_cplx: usize,
 }
-
-// public struct FuzzerStats {
-//     public var totalNumberOfRuns: Int = 0
-//     public var score: Int = 0
-//     public var poolSize: Int = 0
-//     public var executionsPerSecond: Int = 0
-//     public var averageComplexity: Int = 0
-//     public var rss: Int = 0
-// }
-
-// public struct FuzzerSettings {
-
-//     public enum Command: String {
-//         case minimize
-//         case fuzz
-//         case read
-//     }
-
-//     public var command: Command
-//     public var maxNumberOfRuns: Int
-//     public var maxInputComplexity: Double
-//     public var mutateDepth: Int
-
-//     public init(command: Command = .fuzz, maxNumberOfRuns: Int = Int.max, maxInputComplexity: Double = 256.0, mutateDepth: Int = 3) {
-//         self.command = command
-//         self.maxNumberOfRuns = maxNumberOfRuns
-//         self.maxInputComplexity = maxInputComplexity
-//         self.mutateDepth = mutateDepth
-//     }
-// }
+impl FuzzerStats {
+    pub fn new() -> FuzzerStats {
+        FuzzerStats {
+            total_number_of_runs: 0,
+            score: 0,
+            pool_size: 0,
+            exec_per_s: 0,
+            avg_cplx: 0,
+        }
+    }
+}
 
 pub enum FuzzerEvent {
     Start,
@@ -63,7 +42,7 @@ pub enum FuzzerEvent {
     New,
     DidReadCorpus,
     DidResetPool,
-    CaughtSignal(Signal),
+    CaughtSignal(i32),
     TestFailure,
 }
 
