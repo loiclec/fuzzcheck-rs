@@ -4,7 +4,10 @@ use crate::input::*;
 use crate::input_pool::*;
 use crate::signals_handler::*;
 use crate::world::*;
+use serde::Deserialize;
 use std::cell::UnsafeCell;
+use std::result::Result;
+use std::time::{Duration, Instant};
 
 struct NotThreadSafe<T> {
     value: UnsafeCell<T>,
@@ -41,8 +44,7 @@ where
     World: FuzzerWorld<Input = Input, Properties = Properties>,
 {
     fn update_stats(&mut self) {
-        let now = self.world.clock();
-        let seconds = (now - self.process_start_time) / 1_000_000;
+        let seconds = self.world.elapsed_time();
         self.stats.exec_per_s = self.stats.total_number_of_runs / seconds;
         self.stats.pool_size = self.pool.inputs.len();
         self.stats.score = (self.pool.score * 10.0).round() as usize;
@@ -55,7 +57,8 @@ where
     }
 
     fn receive_signal(&self, signal: i32) -> ! {
-        self.world.report_event(FuzzerEvent::CaughtSignal(signal), &self.stats);
+        self.world
+            .report_event(FuzzerEvent::CaughtSignal(signal), Some(&self.stats));
 
         match signal {
             4 | 6 | 10 | 11 | 8 => {
@@ -143,7 +146,7 @@ where
         if !success {
             self.state
                 .world
-                .report_event(FuzzerEvent::TestFailure, &self.state.stats);
+                .report_event(FuzzerEvent::TestFailure, Some(&self.state.stats));
             let mut features: Vec<Feature> = Vec::new();
             sensor.iterate_over_collected_features(|f| features.push(f)); // TODO use iterator?
             self.state
@@ -204,7 +207,7 @@ where
         effect(&mut self.state.world);
 
         // TODO: self.state.update_stats();
-        self.state.world.report_event(FuzzerEvent::New, &self.state.stats);
+        self.state.world.report_event(FuzzerEvent::New, Some(&self.state.stats));
     }
 
     fn process_next_inputs(&mut self) {
@@ -237,8 +240,8 @@ where
         }
     }
 
-    fn process_initial_inputs(&mut self) {
-        let mut inputs = self.state.world.read_input_corpus();
+    fn process_initial_inputs(&mut self) -> Result<(), std::io::Error> {
+        let mut inputs = self.state.world.read_input_corpus()?;
         if inputs.is_empty() {
             inputs.append(
                 &mut self
@@ -250,20 +253,25 @@ where
         self.state.inputs = inputs;
         self.state.input_idx = 0;
         self.process_current_inputs();
+        Ok(())
     }
 
     fn main_loop(&mut self) {
-        self.state.process_start_time = self.state.world.clock();
-        self.state.world.report_event(FuzzerEvent::Start, &self.state.stats);
+        self.state.world.start_process();
+        self.state
+            .world
+            .report_event(FuzzerEvent::Start, Some(&self.state.stats));
         self.process_initial_inputs();
         self.state
             .world
-            .report_event(FuzzerEvent::DidReadCorpus, &self.state.stats);
+            .report_event(FuzzerEvent::DidReadCorpus, Some(&self.state.stats));
 
         while self.state.stats.total_number_of_runs < self.state.settings.max_nbr_of_runs {
             self.process_next_inputs();
         }
-        self.state.world.report_event(FuzzerEvent::Done, &self.state.stats);
+        self.state
+            .world
+            .report_event(FuzzerEvent::Done, Some(&self.state.stats));
     }
 
     // TODO: minimizing loop

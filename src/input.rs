@@ -1,7 +1,9 @@
 use core::hash::Hash;
 use rand::rngs::ThreadRng;
+use serde::de::DeserializeOwned;
+use serde::Serialize;
 
-pub trait FuzzerInput: Hash + Clone {}
+pub trait FuzzerInput: Hash + Clone + Serialize + DeserializeOwned {}
 
 pub trait InputProperties {
     type Input: FuzzerInput;

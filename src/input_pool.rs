@@ -8,6 +8,7 @@ use rand::distributions::Distribution;
 
 use crate::input::FuzzerInput;
 use crate::weighted_index::WeightedIndex;
+use crate::world::FuzzerEvent;
 use crate::world::FuzzerWorld;
 
 // TODO: think through derive
@@ -193,12 +194,14 @@ impl<Input: FuzzerInput> InputPool<Input> {
 
         let _ = self.inputs.drain_filter(|i| i.flagged_for_deletion);
         self.score = self.inputs.iter().fold(0.0, |x, next| x + next.score);
-
-        |w| {
-            for i in inputs_to_delete {
-                w.remove_from_output_corpus(i);
+        let deleted_some = !inputs_to_delete.is_empty();
+        move |w| {
+            //for i in inputs_to_delete {
+            // w.remove_from_output_corpus(i);
+            //}
+            if deleted_some {
+                w.report_event(FuzzerEvent::Deleted(inputs_to_delete.len()), Option::None);
             }
-            // TODO: signal deletions
         }
     }
 
@@ -259,7 +262,7 @@ impl<Input: FuzzerInput> InputPool<Input> {
 
         |w: &mut W| {
             world_update_1(w);
-            w.add_to_output_corpus(element.input);
+            //w.add_to_output_corpus(element.input);
         }
     }
 
