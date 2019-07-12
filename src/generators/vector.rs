@@ -45,7 +45,7 @@ impl<G> VectorGenerator<G> where G: InputGenerator {
     }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub enum VectorMutator {
     AppendNew,
     AppendRecycled,
@@ -129,8 +129,7 @@ impl<G> VectorGenerator<G> where G: InputGenerator {
                     true
                 }
             },
-        };
-        false
+        }
     }
 }
 
@@ -148,7 +147,7 @@ impl<G> InputGenerator for VectorGenerator<G> where G: InputGenerator {
         vec![]
     }
 
-    fn new_input(&self, max_cplx: f64, rand: &mut ThreadRng) -> Self::Input {
+    fn new_input(&self, _max_cplx: f64, _rand: &mut ThreadRng) -> Self::Input {
         vec![]
     }
 

@@ -194,7 +194,7 @@ where
 
     fn process_current_inputs(&mut self) -> Result<(), std::io::Error> {
         let mut new_pool_elements: Vec<InputPoolElement<Input>> = Vec::new();
-        for idx in 0..self.state.inputs.len() {
+        for idx in 0 .. self.state.inputs.len() {
             self.state.input_idx = idx;
             self.test_input(idx)?;
             if let Some(new_pool_element) = self.analyze() {
@@ -245,7 +245,7 @@ where
     }
 
     fn process_initial_inputs(&mut self) -> Result<(), std::io::Error> {
-        let mut inputs = self.state.world.read_input_corpus()?;
+        let mut inputs = self.state.world.read_input_corpus().unwrap_or_default();
         if inputs.is_empty() {
             inputs.append(
                 &mut self
@@ -253,8 +253,9 @@ where
                     .initial_inputs(self.state.settings.max_input_cplx, self.state.world.rand()),
             );
         }
-        inputs.drain_filter(|x| Generator::complexity(x) <= self.state.settings.max_input_cplx);
-        self.state.inputs = inputs;
+        inputs.drain_filter(|x| Generator::complexity(x) > self.state.settings.max_input_cplx);
+
+        self.state.inputs.append(&mut inputs);
         self.state.input_idx = 0;
         self.process_current_inputs()?;
         Ok(())
@@ -283,17 +284,28 @@ where
     // TODO: minimizing loop
 }
 
-impl<G, F> Fuzzer<G::Input, G, CommandLineFuzzerWorld<G::Input, G>, F>
+pub enum CommandLineFuzzer<G, F> 
 where
     G: InputGenerator,
-    F: Fn(&G::Input) -> bool,
+    F: Fn(&G::Input) -> bool
 {
-    fn launch(test: F, generator: G) -> Result<(), std::io::Error> {
-        let settings = FuzzerSettings::from_args();
+    Phantom(std::marker::PhantomData<G>, std::marker::PhantomData<F>)
+}
+impl<G, F> CommandLineFuzzer<G, F> 
+where
+    G: InputGenerator,
+    F: Fn(&G::Input) -> bool
+{
+    pub fn launch(test: F, generator: G) -> Result<(), std::io::Error> {
+        let args = CommandLineArguments::from_args();
+        
+        let settings = args.settings;
+        let world_info = args.world_info;
+        
         let command = settings.command;
-        let world_info = CommandLineFuzzerInfo::from_args();
+        
 
-        let mut fuzzer = Self::new(test, generator, settings, CommandLineFuzzerWorld::new(world_info));
+        let mut fuzzer = Fuzzer::new(test, generator, settings, CommandLineFuzzerWorld::new(world_info));
         match command {
             FuzzerCommand::Fuzz => &fuzzer.main_loop()?,
             _ => unimplemented!("only fuzz command is supported for now"),

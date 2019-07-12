@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use structopt::StructOpt;
 
 #[derive(Debug, Clone, Copy, StructOpt)]
-#[structopt(name = "command")]
+#[structopt(name = "fuzzer-command")]
 pub enum FuzzerCommand {
     #[structopt(name = "minimize")]
     Minimize,
@@ -11,6 +11,14 @@ pub enum FuzzerCommand {
     Fuzz,
     #[structopt(name = "read")]
     Read,
+}
+
+#[derive(Debug, StructOpt)]
+pub struct CommandLineArguments {
+    #[structopt(flatten)]
+    pub settings: FuzzerSettings,
+    #[structopt(flatten)]
+    pub world_info: CommandLineFuzzerInfo
 }
 
 #[derive(Debug, StructOpt)]

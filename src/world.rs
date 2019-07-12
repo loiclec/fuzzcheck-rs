@@ -150,6 +150,8 @@ where
             fs::write(path, s)?;
             Result::Ok(())
         } else {
+            let s = serde_json::to_string(input)?;
+            println!("{}", s);
             Result::Err(io::Error::new(
                 io::ErrorKind::Other,
                 "No artifacts folder was given as argument",
@@ -168,11 +170,11 @@ where
             FuzzerEvent::New => print!("NEW\t"),
             FuzzerEvent::DidReadCorpus => print!("FINISHED READING CORPUS"),
             FuzzerEvent::CaughtSignal(signal) => match signal {
-                4 | 6 | 10 | 11 | 8 => print!("\n================ CRASH DETECTED ================"),
-                2 | 15 => print!("\n================ RUN INTERRUPTED ================"),
-                _ => print!("\n================ SIGNAL {:?} ================", signal),
+                4 | 6 | 10 | 11 | 8 => println!("\n================ CRASH DETECTED ================"),
+                2 | 15 => println!("\n================ RUN INTERRUPTED ================"),
+                _ => println!("\n================ SIGNAL {:?} ================", signal),
             },
-            FuzzerEvent::TestFailure => print!("\n================ TEST FAILED ================"),
+            FuzzerEvent::TestFailure => println!("\n================ TEST FAILED ================"),
             FuzzerEvent::Deleted(_) => unreachable!("Deleted case handled separately above"),
         };
         if let Some(stats) = stats {
@@ -182,6 +184,7 @@ where
             print!("exec/s: {:?}\t", stats.exec_per_s);
             print!("cplx: {:?}\t", stats.avg_cplx);
         }
+        println!();
     }
 
     fn rand(&mut self) -> &mut ThreadRng {

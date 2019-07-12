@@ -74,7 +74,9 @@ impl CodeCoverageSensor {
     }
 
     pub fn clear(&mut self) {
-        self.eight_bit_counters.clear();
+        for x in self.eight_bit_counters.iter_mut() {
+            *x = 0;
+        }
         self.cmp_features.clear();
     }
 }
