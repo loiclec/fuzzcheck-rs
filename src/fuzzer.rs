@@ -44,15 +44,16 @@ where
     World: FuzzerWorld<Input = Input, Properties = Properties>,
 {
     fn update_stats(&mut self) {
-        let seconds = self.world.elapsed_time();
-        self.stats.exec_per_s = self.stats.total_number_of_runs / seconds;
+        let microseconds = self.world.elapsed_time();
+        self.stats.exec_per_s = (((self.stats.total_number_of_runs as f64) / (microseconds as f64)) * 1_000_000.0) as usize;
         self.stats.pool_size = self.pool.inputs.len();
         self.stats.score = (self.pool.score * 10.0).round() as usize;
         let avg_cplx = self
             .pool
             .smallest_input_complexity_for_feature
             .values()
-            .fold(0.0, |x, n| x + n);
+            .fold(0.0, |x, n| x + n)
+            / (self.pool.smallest_input_complexity_for_feature.len() as f64);
         self.stats.avg_cplx = (avg_cplx * 100.0).round() as usize;
     }
 
@@ -207,7 +208,7 @@ where
         let effect = self.state.pool.add::<World>(new_pool_elements);
         effect(&mut self.state.world);
 
-        // TODO: self.state.update_stats();
+        self.state.update_stats();
         self.state.world.report_event(FuzzerEvent::New, Some(&self.state.stats));
 
         Ok(())
@@ -217,7 +218,7 @@ where
         self.state.inputs.clear();
         self.state.input_idx = 0;
 
-        while self.state.inputs.len() < 50 {
+        while self.state.inputs.len() < 10 {
             let idx = self.state.pool.random_index(self.state.world.rand());
             let pool_element = self.state.pool.get(idx);
             let mut new_input = pool_element.input.clone();

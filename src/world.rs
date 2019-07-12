@@ -95,7 +95,7 @@ where
         self.instant = Instant::now();
     }
     fn elapsed_time(&self) -> usize {
-        self.instant.elapsed().as_secs() as usize
+        self.instant.elapsed().as_micros() as usize
     }
 
     fn read_input_corpus(&self) -> Result<Vec<Self::Input>> {
