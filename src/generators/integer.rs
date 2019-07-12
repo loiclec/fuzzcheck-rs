@@ -10,7 +10,6 @@ use std::mem;
 use std::num::Wrapping;
 use std::ops::{Add, BitOr, Shl, Shr, Sub};
 
-use crate::generators::mutator::*;
 use crate::input::*;
 
 impl<T: FuzzerInput> InputProperties for IntegerGenerator<T> {
@@ -20,7 +19,7 @@ impl<T: FuzzerInput> InputProperties for IntegerGenerator<T> {
     }
 }
 
-struct IntegerGenerator<T> {
+pub struct IntegerGenerator<T> {
     max_nudge: usize,
     special_values: Vec<T>,
     mutators: Vec<IntegerMutatorKind>,
@@ -34,18 +33,26 @@ enum IntegerMutatorKind {
     Nudge,
 }
 
+static MUTATORS: &[IntegerMutatorKind] = &[
+    IntegerMutatorKind::Special,
+    IntegerMutatorKind::Random,
+    IntegerMutatorKind::Nudge,
+];
+static WEIGHTS: &[usize] = &[1, 10, 10];
+
+
 impl<T> IntegerGenerator<T>
 where
     T: NumCast + PartialEq + Copy,
     Wrapping<T>: Add<Output = Wrapping<T>> + Sub<Output = Wrapping<T>>,
     Standard: Distribution<T>,
 {
-    fn new(max_nudge: usize, special_values: Vec<T>) -> Self {
+    fn new_with_special_values(max_nudge: usize, special_values: Vec<T>) -> Self {
         Self {
             max_nudge,
             special_values,
-            mutators: Self::static_mutators().to_vec(),
-            weighted_index: WeightedIndex::new(Self::static_weights().to_vec()).unwrap(),
+            mutators: MUTATORS.to_vec(),
+            weighted_index: WeightedIndex::new(WEIGHTS.to_vec()).unwrap(),
         }
     }
 
@@ -68,35 +75,18 @@ where
         *input = *self.special_values.choose(rng).unwrap();
         old != *input
     }
-    fn static_mutators() -> &'static [IntegerMutatorKind] {
-        &[
-            IntegerMutatorKind::Special,
-            IntegerMutatorKind::Random,
-            IntegerMutatorKind::Nudge,
-        ]
-    }
-    fn static_weights() -> &'static [usize] {
-        &[1, 10, 10]
-    }
 }
 
-impl<T> WeightedMutators for IntegerGenerator<T>
+impl<T> IntegerGenerator<T>
 where
     T: Num + FuzzerInput + NumCast + PartialEq + Copy,
     Wrapping<T>: Add<Output = Wrapping<T>> + Sub<Output = Wrapping<T>>,
     Standard: Distribution<T>,
 {
-    type Input = T;
-    type Mutator = IntegerMutatorKind;
-
-    fn mutators(&self) -> &Vec<Self::Mutator> {
-        &self.mutators
-    }
-
     fn mutate_with(
         &self,
-        input: &mut Self::Input,
-        mutator: &Self::Mutator,
+        input: &mut T,
+        mutator: IntegerMutatorKind,
         _spare_cplx: f64,
         rng: &mut ThreadRng,
     ) -> bool {
@@ -105,10 +95,6 @@ where
             IntegerMutatorKind::Random => self.random(input, rng),
             IntegerMutatorKind::Nudge => self.nudge(input, rng),
         }
-    }
-
-    fn weighted_index(&self) -> &WeightedIndex<usize> {
-        &self.weighted_index
     }
 }
 
@@ -127,7 +113,13 @@ where
     }
 
     fn mutate(&self, input: &mut Self::Input, spare_cplx: f64, rng: &mut ThreadRng) -> bool {
-        WeightedMutators::mutate(self, input, spare_cplx, rng)
+        for _ in 0..MUTATORS.len() {
+            let pick = self.weighted_index.sample(rng);
+            if self.mutate_with(input, MUTATORS[pick], spare_cplx, rng) {
+                return true;
+            }
+        }
+        false
     }
 }
 
@@ -205,3 +197,100 @@ impl FuzzerInput for i32 {}
 impl FuzzerInput for i64 {}
 impl FuzzerInput for i128 {}
 impl FuzzerInput for isize {}
+
+impl IntegerGenerator<u8> {
+    pub fn new(max_nudge: usize) -> Self {
+        Self::new_with_special_values(
+            max_nudge,
+            Self::special_values_unsigned()
+        )
+    }
+}
+impl IntegerGenerator<u16> {
+    pub fn new(max_nudge: usize) -> Self {
+        Self::new_with_special_values(
+            max_nudge,
+            Self::special_values_unsigned()
+        )
+    }
+}
+impl IntegerGenerator<u32> {
+    pub fn new(max_nudge: usize) -> Self {
+        Self::new_with_special_values(
+            max_nudge,
+            Self::special_values_unsigned()
+        )
+    }
+}
+impl IntegerGenerator<u64> {
+    pub fn new(max_nudge: usize) -> Self {
+        Self::new_with_special_values(
+            max_nudge,
+            Self::special_values_unsigned()
+        )
+    }
+}
+impl IntegerGenerator<u128> {
+    pub fn new(max_nudge: usize) -> Self {
+        Self::new_with_special_values(
+            max_nudge,
+            Self::special_values_unsigned()
+        )
+    }
+}
+impl IntegerGenerator<usize> {
+    pub fn new(max_nudge: usize) -> Self {
+        Self::new_with_special_values(
+            max_nudge,
+            Self::special_values_unsigned()
+        )
+    }
+}
+impl IntegerGenerator<i8> {
+    pub fn new(max_nudge: usize) -> Self {
+        Self::new_with_special_values(
+            max_nudge,
+            Self::special_values_signed(|x: u8| x as i8)
+        )
+    }
+}
+impl IntegerGenerator<i16> {
+    pub fn new(max_nudge: usize) -> Self {
+        Self::new_with_special_values(
+            max_nudge,
+            Self::special_values_signed(|x: u16| x as i16)
+        )
+    }
+}
+impl IntegerGenerator<i32> {
+    pub fn new(max_nudge: usize) -> Self {
+        Self::new_with_special_values(
+            max_nudge,
+            Self::special_values_signed(|x: u32| x as i32)
+        )
+    }
+}
+impl IntegerGenerator<i64> {
+    pub fn new(max_nudge: usize) -> Self {
+        Self::new_with_special_values(
+            max_nudge,
+            Self::special_values_signed(|x: u64| x as i64)
+        )
+    }
+}
+impl IntegerGenerator<i128> {
+    pub fn new(max_nudge: usize) -> Self {
+        Self::new_with_special_values(
+            max_nudge,
+            Self::special_values_signed(|x: u128| x as i128)
+        )
+    }
+}
+impl IntegerGenerator<isize> {
+    pub fn new(max_nudge: usize) -> Self {
+        Self::new_with_special_values(
+            max_nudge,
+            Self::special_values_signed(|x: usize| x as isize)
+        )
+    }
+}

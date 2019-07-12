@@ -1,3 +1,2 @@
-mod integer;
-mod mutator;
-mod vector;
+pub mod integer;
+pub mod vector;

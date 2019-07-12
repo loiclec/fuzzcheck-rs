@@ -11,6 +11,7 @@ use std::io::{self, Result};
 use std::marker::PhantomData;
 use std::time::Instant;
 
+#[derive(Default)]
 pub struct FuzzerStats {
     pub total_number_of_runs: usize,
     pub score: usize,
@@ -18,6 +19,7 @@ pub struct FuzzerStats {
     pub exec_per_s: usize,
     pub avg_cplx: usize,
 }
+
 impl FuzzerStats {
     pub fn new() -> FuzzerStats {
         FuzzerStats {

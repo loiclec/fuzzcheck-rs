@@ -86,7 +86,7 @@ where
     }
 }
 
-struct Fuzzer<Input, Generator, World, TestF>
+pub struct Fuzzer<Input, Generator, World, TestF>
 where
     Input: FuzzerInput,
     Generator: InputGenerator<Input = Input>,

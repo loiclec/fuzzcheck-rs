@@ -37,7 +37,7 @@ pub struct VectorGenerator<G> where G: InputGenerator {
 }
 
 impl<G> VectorGenerator<G> where G: InputGenerator {
-    fn new(g: G) -> Self {
+    pub fn new(g: G) -> Self {
         Self {
             g,
             weighted_index: WeightedIndex::new(WEIGHTS).unwrap()
