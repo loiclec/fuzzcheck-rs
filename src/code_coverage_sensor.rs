@@ -1,5 +1,6 @@
 use crate::input_pool::*;
 use std::mem::MaybeUninit;
+use std::collections::HashMap;
 use std::slice;
 
 type PC = usize;
@@ -16,7 +17,7 @@ static MAX_NUM_GUARDS: isize = 1 << 21;
 pub struct CodeCoverageSensor {
     pub num_guards: isize,
     pub is_recording: bool,
-    pub eight_bit_counters: Vec<u16>,
+    pub eight_bit_counters: HashMap<usize, u16>,
     pub cmp_features: Vec<ComparisonFeature>,
 }
 
@@ -38,11 +39,9 @@ impl CodeCoverageSensor {
             }
         }
         self.eight_bit_counters.clear();
-        self.eight_bit_counters.resize((self.num_guards + 1) as usize, 0);
     }
 
     pub fn handle_trace_cmp(&mut self, pc: PC, arg1: u64, arg2: u64) {
-        // TODO: NormalizedPC
         let f = ComparisonFeature::new(pc, arg1, arg2);
         self.cmp_features.push(f)
     }
@@ -51,32 +50,24 @@ impl CodeCoverageSensor {
     where
         F: FnMut(Feature) -> (),
     {
-        for i in 0..self.eight_bit_counters.len() {
-            let x = self.eight_bit_counters[i];
-            if x == 0 {
+        for (i, x) in self.eight_bit_counters.iter() {
+            let f = EdgeFeature::new(*i, *x);
+            handle(Feature::Edge(f));
+        }
+        self.cmp_features.sort_unstable();
+
+        let mut last: Option<ComparisonFeature> = None;
+        for f in self.cmp_features.iter() {
+            if last == Option::Some(*f) {
                 continue;
             }
-
-            let f = EdgeFeature::new(i, self.eight_bit_counters[i]);
-            handle(Feature::Edge(f));
-
-            self.cmp_features.sort_unstable();
-
-            let mut last: Option<ComparisonFeature> = None;
-            for f in self.cmp_features.iter() {
-                if last == Option::Some(*f) {
-                    continue;
-                }
-                handle(Feature::Comparison(*f));
-                last = Option::Some(*f);
-            }
+            handle(Feature::Comparison(*f));
+            last = Option::Some(*f);
         }
     }
 
     pub fn clear(&mut self) {
-        for x in self.eight_bit_counters.iter_mut() {
-            *x = 0;
-        }
+        self.eight_bit_counters.clear();
         self.cmp_features.clear();
     }
 }
