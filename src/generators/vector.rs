@@ -147,8 +147,23 @@ impl<G> InputGenerator for VectorGenerator<G> where G: InputGenerator {
         vec![]
     }
 
-    fn new_input(&self, _max_cplx: f64, _rand: &mut ThreadRng) -> Self::Input {
-        vec![]
+    fn new_input(&self, max_cplx: f64, rng: &mut ThreadRng) -> Self::Input {
+        if max_cplx <= 0.0 { return vec![]; }
+        let target_cplx: f64 = rng.gen_range(0.0, max_cplx);
+        let mut result: Self::Input = vec![];
+        let mut cur_cplx = Self::complexity(&result);
+        loop {
+            self.mutate_with(VectorMutator::AppendNew, &mut result, target_cplx - cur_cplx, rng);
+            cur_cplx = Self::complexity(&result);
+            while cur_cplx >= target_cplx {
+                self.mutate_with(VectorMutator::RemoveRandom, &mut result, target_cplx - cur_cplx, rng);
+                cur_cplx = Self::complexity(&result);
+                if cur_cplx <= target_cplx {
+                    result.shuffle(rng);
+                    return result
+                }
+            }
+        }
     }
 
     fn mutate(&self, input: &mut Self::Input, spare_cplx: f64, rng: &mut ThreadRng) -> bool {
