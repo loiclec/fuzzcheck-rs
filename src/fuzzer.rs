@@ -1,13 +1,13 @@
 use crate::artifact::*;
 use crate::code_coverage_sensor::*;
+use crate::command_line::*;
 use crate::input::*;
 use crate::input_pool::*;
 use crate::signals_handler::*;
+use crate::structopt::StructOpt;
 use crate::world::*;
-use serde::Deserialize;
 use std::cell::UnsafeCell;
 use std::result::Result;
-use std::time::{Duration, Instant};
 
 struct NotThreadSafe<T> {
     value: UnsafeCell<T>,
@@ -66,7 +66,8 @@ where
                 let sensor = shared_sensor();
                 sensor.iterate_over_collected_features(|f| features.push(f));
                 self.world
-                    .save_artifact(&self.inputs[self.input_idx], None, ArtifactKind::Crash);
+                    .save_artifact(&self.inputs[self.input_idx], ArtifactKind::Crash)
+                    .unwrap();
                 std::process::exit(FuzzerTerminationStatus::Crash as i32);
             }
             2 | 15 => std::process::exit(FuzzerTerminationStatus::Success as i32),
@@ -135,7 +136,7 @@ where
     World: FuzzerWorld<Input = Input, Properties = Generator>,
     TestF: Fn(&Input) -> bool,
 {
-    fn test_input(&mut self, i: usize) {
+    fn test_input(&mut self, i: usize) -> Result<(), std::io::Error> {
         let sensor = shared_sensor();
         sensor.clear();
         let input = &self.state.inputs[i];
@@ -149,18 +150,18 @@ where
                 .report_event(FuzzerEvent::TestFailure, Some(&self.state.stats));
             let mut features: Vec<Feature> = Vec::new();
             sensor.iterate_over_collected_features(|f| features.push(f)); // TODO use iterator?
-            self.state
-                .world
-                .save_artifact(input, Some(features), ArtifactKind::TestFailure); /* TODO */
+            self.state.world.save_artifact(input, ArtifactKind::TestFailure)?;
             std::process::exit(FuzzerTerminationStatus::TestFailure as i32);
         }
-        // self.state.stats.total_number_of_runs += 1;
+        self.state.stats.total_number_of_runs += 1;
+        Ok(())
     }
 
-    fn test_current_inputs(&mut self) {
+    fn test_current_inputs(&mut self) -> Result<(), std::io::Error> {
         for i in 0..self.state.inputs.len() {
-            self.test_input(i);
+            self.test_input(i)?;
         }
+        Ok(())
     }
 
     fn analyze(&mut self) -> Option<InputPoolElement<Input>> {
@@ -191,26 +192,28 @@ where
         }
     }
 
-    fn process_current_inputs(&mut self) {
+    fn process_current_inputs(&mut self) -> Result<(), std::io::Error> {
         let mut new_pool_elements: Vec<InputPoolElement<Input>> = Vec::new();
         for idx in 0..self.state.inputs.len() {
             self.state.input_idx = idx;
-            self.test_input(idx);
+            self.test_input(idx)?;
             if let Some(new_pool_element) = self.analyze() {
                 new_pool_elements.push(new_pool_element);
             }
         }
         if new_pool_elements.is_empty() {
-            return;
+            return Ok(());
         }
         let effect = self.state.pool.add::<World>(new_pool_elements);
         effect(&mut self.state.world);
 
         // TODO: self.state.update_stats();
         self.state.world.report_event(FuzzerEvent::New, Some(&self.state.stats));
+
+        Ok(())
     }
 
-    fn process_next_inputs(&mut self) {
+    fn process_next_inputs(&mut self) -> Result<(), std::io::Error> {
         self.state.inputs.clear();
         self.state.input_idx = 0;
 
@@ -236,8 +239,9 @@ where
                 }
                 self.state.inputs.push(new_input.clone());
             }
-            self.process_current_inputs();
+            self.process_current_inputs()?;
         }
+        Ok(())
     }
 
     fn process_initial_inputs(&mut self) -> Result<(), std::io::Error> {
@@ -252,27 +256,48 @@ where
         inputs.drain_filter(|x| Generator::complexity(x) <= self.state.settings.max_input_cplx);
         self.state.inputs = inputs;
         self.state.input_idx = 0;
-        self.process_current_inputs();
+        self.process_current_inputs()?;
         Ok(())
     }
 
-    fn main_loop(&mut self) {
+    fn main_loop(&mut self) -> Result<(), std::io::Error> {
         self.state.world.start_process();
         self.state
             .world
             .report_event(FuzzerEvent::Start, Some(&self.state.stats));
-        self.process_initial_inputs();
+        self.process_initial_inputs()?;
         self.state
             .world
             .report_event(FuzzerEvent::DidReadCorpus, Some(&self.state.stats));
 
         while self.state.stats.total_number_of_runs < self.state.settings.max_nbr_of_runs {
-            self.process_next_inputs();
+            self.process_next_inputs()?;
         }
         self.state
             .world
             .report_event(FuzzerEvent::Done, Some(&self.state.stats));
+
+        Ok(())
     }
 
     // TODO: minimizing loop
+}
+
+impl<G, F> Fuzzer<G::Input, G, CommandLineFuzzerWorld<G::Input, G>, F>
+where
+    G: InputGenerator,
+    F: Fn(&G::Input) -> bool,
+{
+    fn launch(test: F, generator: G) -> Result<(), std::io::Error> {
+        let settings = FuzzerSettings::from_args();
+        let command = settings.command;
+        let world_info = CommandLineFuzzerInfo::from_args();
+
+        let mut fuzzer = Self::new(test, generator, settings, CommandLineFuzzerWorld::new(world_info));
+        match command {
+            FuzzerCommand::Fuzz => &fuzzer.main_loop()?,
+            _ => unimplemented!("only fuzz command is supported for now"),
+        };
+        Ok(())
+    }
 }

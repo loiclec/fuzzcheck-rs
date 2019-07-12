@@ -7,9 +7,11 @@ extern crate libc;
 
 #[macro_use]
 extern crate lazy_static;
+extern crate structopt;
 
 mod artifact;
 mod code_coverage_sensor;
+mod command_line;
 mod fuzzer;
 mod hooks;
 mod input;
