@@ -161,7 +161,7 @@ where
 
     fn report_event(&self, event: FuzzerEvent, stats: Option<&FuzzerStats>) {
         if let FuzzerEvent::Deleted(count) = event {
-            print!("DELETED {:?}", count);
+            println!("DELETED {:?}", count);
             return;
         }
         match event {

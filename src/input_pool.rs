@@ -185,9 +185,9 @@ impl<Input: FuzzerInput> InputPool<Input> {
             .iter()
             .filter_map(|i| {
                 if i.flagged_for_deletion {
-                    None
-                } else {
                     Some(i.input.clone())
+                } else {
+                    None
                 }
             })
             .collect();
