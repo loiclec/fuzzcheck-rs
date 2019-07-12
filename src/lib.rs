@@ -13,6 +13,7 @@ mod artifact;
 mod code_coverage_sensor;
 mod command_line;
 mod fuzzer;
+mod generators;
 mod hooks;
 mod input;
 mod input_pool;
