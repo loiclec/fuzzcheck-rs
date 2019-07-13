@@ -11,7 +11,7 @@ use std::io::{self, Result};
 use std::marker::PhantomData;
 use std::time::Instant;
 
-#[derive(Default)]
+#[derive(Clone, Copy, Default)]
 pub struct FuzzerStats {
     pub total_number_of_runs: usize,
     pub score: usize,
@@ -52,7 +52,7 @@ pub trait FuzzerWorld {
     fn read_input_file(&self) -> Result<Self::Input>;
 
     fn save_artifact(&self, input: &Self::Input, kind: ArtifactKind) -> Result<()>;
-    fn report_event(&self, event: FuzzerEvent, stats: Option<&FuzzerStats>);
+    fn report_event(&self, event: FuzzerEvent, stats: Option<FuzzerStats>);
 
     fn rand(&mut self) -> &mut ThreadRng;
 }
@@ -159,7 +159,7 @@ where
         }
     }
 
-    fn report_event(&self, event: FuzzerEvent, stats: Option<&FuzzerStats>) {
+    fn report_event(&self, event: FuzzerEvent, stats: Option<FuzzerStats>) {
         if let FuzzerEvent::Deleted(count) = event {
             println!("DELETED {:?}", count);
             return;

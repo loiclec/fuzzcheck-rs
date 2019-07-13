@@ -6,14 +6,16 @@ use crate::input_pool::*;
 use crate::signals_handler::*;
 use crate::structopt::StructOpt;
 use crate::world::*;
-use std::cell::UnsafeCell;
 use std::result::Result;
 
-struct NotThreadSafe<T> {
-    value: UnsafeCell<T>,
+struct NotThreadSafe<T>(T);
+struct NotUnwindSafe<T> {
+    value: T
 }
 
-unsafe impl<T> Sync for NotThreadSafe<T> {}
+unsafe impl<T> Send for NotThreadSafe<T> {}
+impl<T> std::panic::UnwindSafe for NotUnwindSafe<T> {}
+impl<T> std::panic::RefUnwindSafe for NotUnwindSafe<T> {}
 
 pub enum FuzzerTerminationStatus {
     Success = 0,
@@ -59,31 +61,26 @@ where
 
     fn receive_signal(&self, signal: i32) -> ! {
         self.world
-            .report_event(FuzzerEvent::CaughtSignal(signal), Some(&self.stats));
+            .report_event(FuzzerEvent::CaughtSignal(signal), Some(self.stats));
 
         match signal {
             4 | 6 | 10 | 11 | 8 => {
-                let mut features: Vec<Feature> = Vec::new();
-                let sensor = shared_sensor();
-                sensor.iterate_over_collected_features(|f| features.push(f));
-                self.world
-                    .save_artifact(&self.inputs[self.input_idx], ArtifactKind::Crash)
-                    .unwrap();
+                let _ = self.world
+                    .save_artifact(&self.inputs[self.input_idx], ArtifactKind::Crash);
                 std::process::exit(FuzzerTerminationStatus::Crash as i32);
             }
-            2 | 15 => std::process::exit(FuzzerTerminationStatus::Success as i32),
+            2 | 15 => {
+                std::process::exit(FuzzerTerminationStatus::Success as i32)
+            },
             _ => std::process::exit(FuzzerTerminationStatus::Unknown as i32),
         }
     }
-    pub fn set_up_signal_handler(&self) {
-        unsafe {
-            let cell = NotThreadSafe {
-                value: UnsafeCell::new(self),
-            };
-            handle_signals(vec![4, 6, 10, 11, 8, 2, 15], |sig| {
-                (*cell.value.get()).receive_signal(sig)
-            })
-        }
+
+    unsafe fn set_up_signal_handler(&self) {
+        let ptr = NotThreadSafe(self as *const Self);
+        handle_signals(vec![4, 6, 10, 11, 8, 2, 15], move |sig| {
+            (&*ptr.0).receive_signal(sig)
+        });
     }
 }
 
@@ -112,7 +109,7 @@ where
         settings: FuzzerSettings,
         world: World,
     ) -> Fuzzer<Input, Generator, World, TestF> {
-        let f = Fuzzer {
+        Fuzzer {
             state: FuzzerState {
                 pool: InputPool::new(),
                 inputs: vec![generator.base_input()],
@@ -124,9 +121,7 @@ where
             },
             generator,
             test,
-        };
-        f.state.set_up_signal_handler();
-        f
+        }
     }
 }
 
@@ -142,13 +137,22 @@ where
         sensor.clear();
         let input = &self.state.inputs[i];
         sensor.is_recording = true;
-        let success = (self.test)(input);
+        
+        let cell = NotUnwindSafe {
+            value: &self,
+        };
+        let input_cell = NotUnwindSafe {
+            value: input,
+        };
+        let result = std::panic::catch_unwind(|| {
+            (cell.value.test)(input_cell.value)
+        });
         sensor.is_recording = false;
 
-        if !success {
+        if result.is_err() || !result.unwrap() {
             self.state
                 .world
-                .report_event(FuzzerEvent::TestFailure, Some(&self.state.stats));
+                .report_event(FuzzerEvent::TestFailure, Some(self.state.stats));
             let mut features: Vec<Feature> = Vec::new();
             sensor.iterate_over_collected_features(|f| features.push(f)); // TODO use iterator?
             self.state.world.save_artifact(input, ArtifactKind::TestFailure)?;
@@ -209,7 +213,7 @@ where
         effect(&mut self.state.world);
 
         self.state.update_stats();
-        self.state.world.report_event(FuzzerEvent::New, Some(&self.state.stats));
+        self.state.world.report_event(FuzzerEvent::New, Some(self.state.stats));
 
         Ok(())
     }
@@ -266,18 +270,18 @@ where
         self.state.world.start_process();
         self.state
             .world
-            .report_event(FuzzerEvent::Start, Some(&self.state.stats));
+            .report_event(FuzzerEvent::Start, Some(self.state.stats));
         self.process_initial_inputs()?;
         self.state
             .world
-            .report_event(FuzzerEvent::DidReadCorpus, Some(&self.state.stats));
+            .report_event(FuzzerEvent::DidReadCorpus, Some(self.state.stats));
 
         while self.state.stats.total_number_of_runs < self.state.settings.max_nbr_of_runs {
             self.process_next_inputs()?;
         }
         self.state
             .world
-            .report_event(FuzzerEvent::Done, Some(&self.state.stats));
+            .report_event(FuzzerEvent::Done, Some(self.state.stats));
 
         Ok(())
     }
@@ -307,6 +311,7 @@ where
         
 
         let mut fuzzer = Fuzzer::new(test, generator, settings, CommandLineFuzzerWorld::new(world_info));
+        unsafe { fuzzer.state.set_up_signal_handler() };
         match command {
             FuzzerCommand::Fuzz => &fuzzer.main_loop()?,
             _ => unimplemented!("only fuzz command is supported for now"),
