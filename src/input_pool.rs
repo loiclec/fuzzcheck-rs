@@ -105,7 +105,7 @@ impl<Input: FuzzerInput> InputPoolElement<Input> {
 
 pub struct InputPool<Input: FuzzerInput> {
     pub inputs: Vec<InputPoolElement<Input>>,
-    favored_input: Option<InputPoolElement<Input>>,
+    pub favored_input: Option<InputPoolElement<Input>>,
     cumulative_weights: Vec<f64>,
     pub score: f64,
     pub smallest_input_complexity_for_feature: HashMap<Feature, f64>,
@@ -140,7 +140,7 @@ impl<Input: FuzzerInput> InputPool<Input> {
         square(simplest / other)
     }
 
-    fn update_scores<W>(&mut self) -> impl FnOnce(&mut W) -> ()
+    pub fn update_scores<W>(&mut self) -> impl FnOnce(&mut W) -> ()
     where
         W: FuzzerWorld<Input = Input>,
     {

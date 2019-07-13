@@ -286,7 +286,27 @@ where
         Ok(())
     }
 
-    // TODO: minimizing loop
+    fn minimize_loop(&mut self) -> Result<(), std::io::Error> {
+        // TODO: change name of this function
+        self.state.world.start_process();
+
+        self.state.world.report_event(FuzzerEvent::Start, Some(self.state.stats));
+        let input = self.state.world.read_input_file()?;
+        
+        let complexity = Generator::complexity(&input);
+        let adjusted_complexity = Generator::adjusted_complexity(&input);
+
+        let favored_input = InputPoolElement::new(input, adjusted_complexity, vec![]);
+        self.state.pool.favored_input = Some(favored_input);
+        let effect = self.state.pool.update_scores();
+        effect(&mut self.state.world);
+        self.state.settings.max_input_cplx = complexity - 0.01;
+        while self.state.stats.total_number_of_runs < self.state.settings.max_nbr_of_runs {
+            self.process_next_inputs()?;
+        }
+        self.state.world.report_event(FuzzerEvent::Done, Some(self.state.stats));
+        Ok(())
+    }
 }
 
 pub enum CommandLineFuzzer<G, F> 
