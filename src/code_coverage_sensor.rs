@@ -1,6 +1,6 @@
 use crate::input_pool::*;
-use std::mem::MaybeUninit;
 use std::collections::HashMap;
+use std::mem::MaybeUninit;
 use std::slice;
 
 type PC = usize;

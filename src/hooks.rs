@@ -1,7 +1,7 @@
 use crate::code_coverage_sensor::*;
+use std::collections::HashMap;
 use std::slice;
 use std::sync::Once;
-use std::collections::HashMap;
 
 extern "C" {
     fn return_address() -> usize;

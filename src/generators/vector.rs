@@ -1,10 +1,9 @@
-
-use rand::Rng;
-use rand::seq::SliceRandom;
-use rand::seq::index;
-use rand::rngs::ThreadRng;
+use rand::distributions::Distribution;
 use rand::distributions::WeightedIndex;
-use rand::distributions::{Distribution};
+use rand::rngs::ThreadRng;
+use rand::seq::index;
+use rand::seq::SliceRandom;
+use rand::Rng;
 
 use rand_distr::Exp1;
 
@@ -20,27 +19,24 @@ static MUTATORS: &[VectorMutator] = &[
     VectorMutator::RemoveLast,
     VectorMutator::RemoveRandom,
 ];
-static WEIGHTS: &[usize] = &[
-    5,
-    5,
-    5,
-    5,
-    15,
-    5,
-    5,
-    5,
-];
+static WEIGHTS: &[usize] = &[5, 5, 5, 5, 15, 5, 5, 5];
 
-pub struct VectorGenerator<G> where G: InputGenerator {
+pub struct VectorGenerator<G>
+where
+    G: InputGenerator,
+{
     g: G,
-    weighted_index: WeightedIndex<usize>
+    weighted_index: WeightedIndex<usize>,
 }
 
-impl<G> VectorGenerator<G> where G: InputGenerator {
+impl<G> VectorGenerator<G>
+where
+    G: InputGenerator,
+{
     pub fn new(g: G) -> Self {
         Self {
             g,
-            weighted_index: WeightedIndex::new(WEIGHTS).unwrap()
+            weighted_index: WeightedIndex::new(WEIGHTS).unwrap(),
         }
     }
 }
@@ -57,98 +53,107 @@ pub enum VectorMutator {
     RemoveRandom,
 }
 
-impl<G> VectorGenerator<G> where G: InputGenerator {
-    fn mutate_with(&self, mutator: VectorMutator, input: &mut Vec<G::Input>, spare_cplx: f64, rng: &mut ThreadRng) -> bool {
+impl<G> VectorGenerator<G>
+where
+    G: InputGenerator,
+{
+    fn mutate_with(
+        &self,
+        mutator: VectorMutator,
+        input: &mut Vec<G::Input>,
+        spare_cplx: f64,
+        rng: &mut ThreadRng,
+    ) -> bool {
         match mutator {
             VectorMutator::AppendNew => {
                 let add_cplx = rng.sample(Exp1);
                 input.push(self.g.new_input(add_cplx, rng));
                 true
-            },
+            }
             VectorMutator::AppendRecycled => {
-                if input.is_empty() { 
-                    false 
-                }
-                else {
+                if input.is_empty() {
+                    false
+                } else {
                     let pick = input.choose(rng).unwrap().clone();
                     input.push(pick);
                     true
                 }
-            },
+            }
             VectorMutator::InsertNew => {
-                if input.is_empty() { 
+                if input.is_empty() {
                     self.mutate_with(VectorMutator::AppendNew, input, spare_cplx, rng)
-                }
-                else {
+                } else {
                     let add_cplx = rng.sample(Exp1);
                     let idx = rng.gen_range(0, input.len());
                     input.insert(idx, self.g.new_input(add_cplx, rng));
                     true
                 }
-            },
+            }
             VectorMutator::InsertRecycled => {
-                if input.is_empty() { 
-                    false 
-                }
-                else {
+                if input.is_empty() {
+                    false
+                } else {
                     let pick = input.choose(rng).unwrap().clone();
                     let idx = rng.gen_range(0, input.len());
                     input.insert(idx, pick);
                     true
                 }
-            },
+            }
             VectorMutator::MutateElement => {
-                if input.is_empty() { 
-                    false 
-                }
-                else {
+                if input.is_empty() {
+                    false
+                } else {
                     let idx = rng.gen_range(0, input.len());
                     self.g.mutate(&mut input[idx], spare_cplx, rng)
                 }
-            },
+            }
             VectorMutator::Swap => {
-                if input.len() < 2 { 
-                    false 
-                }
-                else {
+                if input.len() < 2 {
+                    false
+                } else {
                     let idxs = index::sample(rng, input.len(), 2);
                     input.swap(idxs.index(0), idxs.index(1));
                     true
                 }
-            },
-            VectorMutator::RemoveLast => {    
-                input.pop().is_some()
-            },
+            }
+            VectorMutator::RemoveLast => input.pop().is_some(),
             VectorMutator::RemoveRandom => {
-                if input.is_empty() { 
-                    false 
-                }
-                else {
+                if input.is_empty() {
+                    false
+                } else {
                     let idx = rng.gen_range(0, input.len());
                     input.remove(idx);
                     true
                 }
-            },
+            }
         }
     }
 }
 
 impl<T: FuzzerInput> FuzzerInput for Vec<T> {}
 
-impl<G> InputProperties for VectorGenerator<G> where G: InputGenerator {
+impl<G> InputProperties for VectorGenerator<G>
+where
+    G: InputGenerator,
+{
     type Input = Vec<G::Input>;
 
     fn complexity(input: &Self::Input) -> f64 {
         input.iter().fold(0.0, |c, n| c + G::complexity(n))
     }
 }
-impl<G> InputGenerator for VectorGenerator<G> where G: InputGenerator {
+impl<G> InputGenerator for VectorGenerator<G>
+where
+    G: InputGenerator,
+{
     fn base_input(&self) -> Self::Input {
         vec![]
     }
 
     fn new_input(&self, max_cplx: f64, rng: &mut ThreadRng) -> Self::Input {
-        if max_cplx <= 0.0 { return vec![]; }
+        if max_cplx <= 0.0 {
+            return vec![];
+        }
         let target_cplx: f64 = rng.gen_range(0.0, max_cplx);
         let mut result: Self::Input = vec![];
         let mut cur_cplx = Self::complexity(&result);
@@ -160,7 +165,7 @@ impl<G> InputGenerator for VectorGenerator<G> where G: InputGenerator {
                 cur_cplx = Self::complexity(&result);
                 if cur_cplx <= target_cplx {
                     result.shuffle(rng);
-                    return result
+                    return result;
                 }
             }
         }
@@ -176,4 +181,3 @@ impl<G> InputGenerator for VectorGenerator<G> where G: InputGenerator {
         false
     }
 }
-

@@ -1,10 +1,9 @@
-
 extern crate serde_json;
-use std::cmp::Ordering;
-use std::process::Command;
-use std::path::{Path, PathBuf};
-use std::string::String;
 use fuzzcheck::command_line::*;
+use std::cmp::Ordering;
+use std::path::{Path, PathBuf};
+use std::process::Command;
+use std::string::String;
 use structopt::StructOpt;
 
 fn main() {
@@ -21,7 +20,7 @@ struct ToolArguments {
     #[structopt(long = "exec", help = "Help: TODO")]
     executable: PathBuf,
     #[structopt(flatten)]
-    args: CommandLineArguments
+    args: CommandLineArguments,
 }
 
 fn fuzz_command(executable: &Path, arguments: CommandLineArguments) {
@@ -46,14 +45,17 @@ fn minimize_command(executable: &Path, mut arguments: CommandLineArguments) -> !
     arguments.world_info.artifacts_folder = Some(artifacts_folder.clone());
 
     fn simplest_input_file(folder: &Path) -> Option<PathBuf> {
-        let files_with_complexity = std::fs::read_dir(folder).unwrap().filter_map(|path| -> Option<(PathBuf, f64)> {
-            let path = path.ok()?.path();
-            let data = std::fs::read_to_string(&path).ok()?;
-            let json = serde_json::from_str::<serde_json::Value>(&data).ok()?;
-            let complexity = json["cplx"].as_f64()?;
-            Some((path.to_path_buf(), complexity))
-        });
-        let (file, _) = files_with_complexity.min_by(|x, y| std::cmp::PartialOrd::partial_cmp(&x.1, &y.1).unwrap_or(Ordering::Equal))?;
+        let files_with_complexity = std::fs::read_dir(folder)
+            .unwrap()
+            .filter_map(|path| -> Option<(PathBuf, f64)> {
+                let path = path.ok()?.path();
+                let data = std::fs::read_to_string(&path).ok()?;
+                let json = serde_json::from_str::<serde_json::Value>(&data).ok()?;
+                let complexity = json["cplx"].as_f64()?;
+                Some((path.to_path_buf(), complexity))
+            });
+        let (file, _) = files_with_complexity
+            .min_by(|x, y| std::cmp::PartialOrd::partial_cmp(&x.1, &y.1).unwrap_or(Ordering::Equal))?;
         Some(file)
     }
 
@@ -87,9 +89,8 @@ fn minimize_command(executable: &Path, mut arguments: CommandLineArguments) -> !
 }
 
 fn args_to_string(args: &CommandLineArguments) -> Vec<String> {
-    
     let mut s: Vec<String> = Vec::new();
-    
+
     // TODO: that doesn't seem like the best way to do it
     if let Some(f) = &args.world_info.input_file {
         s.push(String::from("--input-file"));
@@ -115,13 +116,11 @@ fn args_to_string(args: &CommandLineArguments) -> Vec<String> {
     s.push(String::from("--mutation-depth"));
     s.push(args.settings.mutate_depth.to_string());
 
-    s.push(String::from(
-        match args.settings.command {
-            FuzzerCommand::Read => "read",
-            FuzzerCommand::Minimize => "minimize",
-            FuzzerCommand::Fuzz => "fuzz"
-        }
-    ));
+    s.push(String::from(match args.settings.command {
+        FuzzerCommand::Read => "read",
+        FuzzerCommand::Minimize => "minimize",
+        FuzzerCommand::Fuzz => "fuzz",
+    }));
 
     s
 }

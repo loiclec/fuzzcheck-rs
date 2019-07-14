@@ -10,8 +10,8 @@ use std::fs;
 use std::hash::Hasher;
 use std::io::{self, Result};
 use std::marker::PhantomData;
-use std::time::Instant;
 use std::path::Path;
+use std::time::Instant;
 
 #[derive(Clone, Copy, Default)]
 pub struct FuzzerStats {
@@ -146,7 +146,7 @@ where
     fn save_artifact(&self, input: &Self::Input, cplx: Option<f64>, kind: ArtifactKind) -> Result<()> {
         let default = Path::new("./artifacts/").to_path_buf();
         let artifacts_folder = self.info.artifacts_folder.as_ref().unwrap_or(&default).as_path();
-        
+
         if !artifacts_folder.is_dir() {
             std::fs::create_dir_all(artifacts_folder)?;
         }
@@ -154,13 +154,11 @@ where
         let mut hasher = DefaultHasher::new();
         input.hash(&mut hasher);
         let hash = hasher.finish();
-        let s = 
-            if let Some(cplx) = cplx {
-                serde_json::to_string(&json!({"input": input, "cplx": cplx}))?
-            } else {
-                serde_json::to_string(input)?
-            };
-            
+        let s = if let Some(cplx) = cplx {
+            serde_json::to_string(&json!({"input": input, "cplx": cplx}))?
+        } else {
+            serde_json::to_string(input)?
+        };
 
         let name = format!("{:x}", hash);
         let path = artifacts_folder.join(name).with_extension("json");

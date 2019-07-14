@@ -18,7 +18,7 @@ pub struct CommandLineArguments {
     #[structopt(flatten)]
     pub settings: FuzzerSettings,
     #[structopt(flatten)]
-    pub world_info: CommandLineFuzzerInfo
+    pub world_info: CommandLineFuzzerInfo,
 }
 
 #[derive(Debug, StructOpt)]

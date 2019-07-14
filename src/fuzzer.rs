@@ -10,7 +10,7 @@ use std::result::Result;
 
 struct NotThreadSafe<T>(T);
 struct NotUnwindSafe<T> {
-    value: T
+    value: T,
 }
 
 unsafe impl<T> Send for NotThreadSafe<T> {}
@@ -47,7 +47,8 @@ where
 {
     fn update_stats(&mut self) {
         let microseconds = self.world.elapsed_time();
-        self.stats.exec_per_s = (((self.stats.total_number_of_runs as f64) / (microseconds as f64)) * 1_000_000.0) as usize;
+        self.stats.exec_per_s =
+            (((self.stats.total_number_of_runs as f64) / (microseconds as f64)) * 1_000_000.0) as usize;
         self.stats.pool_size = self.pool.inputs.len();
         self.stats.score = (self.pool.score * 10.0).round() as usize;
         let avg_cplx = self
@@ -67,29 +68,25 @@ where
             4 | 6 | 10 | 11 | 8 => {
                 let input = &self.inputs[self.input_idx];
                 let _ = self.world.save_artifact(
-                    input, 
+                    input,
                     if let FuzzerCommand::Minimize | FuzzerCommand::Read = self.settings.command {
                         Some(Properties::complexity(input))
                     } else {
                         None
-                    }, 
-                    ArtifactKind::Crash
+                    },
+                    ArtifactKind::Crash,
                 );
-                
+
                 std::process::exit(FuzzerTerminationStatus::Crash as i32);
             }
-            2 | 15 => {
-                std::process::exit(FuzzerTerminationStatus::Success as i32)
-            },
+            2 | 15 => std::process::exit(FuzzerTerminationStatus::Success as i32),
             _ => std::process::exit(FuzzerTerminationStatus::Unknown as i32),
         }
     }
 
     unsafe fn set_up_signal_handler(&self) {
         let ptr = NotThreadSafe(self as *const Self);
-        handle_signals(vec![4, 6, 10, 11, 8, 2, 15], move |sig| {
-            (&*ptr.0).receive_signal(sig)
-        });
+        handle_signals(vec![4, 6, 10, 11, 8, 2, 15], move |sig| (&*ptr.0).receive_signal(sig));
     }
 }
 
@@ -146,16 +143,10 @@ where
         sensor.clear();
         let input = &self.state.inputs[i];
         sensor.is_recording = true;
-        
-        let cell = NotUnwindSafe {
-            value: &self,
-        };
-        let input_cell = NotUnwindSafe {
-            value: input,
-        };
-        let result = std::panic::catch_unwind(|| {
-            (cell.value.test)(input_cell.value)
-        });
+
+        let cell = NotUnwindSafe { value: &self };
+        let input_cell = NotUnwindSafe { value: input };
+        let result = std::panic::catch_unwind(|| (cell.value.test)(input_cell.value));
         sensor.is_recording = false;
 
         if result.is_err() || !result.unwrap() {
@@ -165,13 +156,13 @@ where
             let mut features: Vec<Feature> = Vec::new();
             sensor.iterate_over_collected_features(|f| features.push(f));
             self.state.world.save_artifact(
-                input, 
+                input,
                 if let FuzzerCommand::Minimize | FuzzerCommand::Read = self.state.settings.command {
                     Some(Generator::complexity(&input))
                 } else {
                     None
-                }, 
-                ArtifactKind::TestFailure
+                },
+                ArtifactKind::TestFailure,
             )?;
             std::process::exit(FuzzerTerminationStatus::TestFailure as i32);
         }
@@ -216,7 +207,7 @@ where
 
     fn process_current_inputs(&mut self) -> Result<(), std::io::Error> {
         let mut new_pool_elements: Vec<InputPoolElement<Input>> = Vec::new();
-        for idx in 0 .. self.state.inputs.len() {
+        for idx in 0..self.state.inputs.len() {
             self.state.input_idx = idx;
             self.test_input(idx)?;
             if let Some(new_pool_element) = self.analyze() {
@@ -295,9 +286,7 @@ where
         while self.state.stats.total_number_of_runs < self.state.settings.max_nbr_of_runs {
             self.process_next_inputs()?;
         }
-        self.state
-            .world
-            .report_event(FuzzerEvent::Done, Some(self.state.stats));
+        self.state.world.report_event(FuzzerEvent::Done, Some(self.state.stats));
 
         Ok(())
     }
@@ -306,7 +295,9 @@ where
         // TODO: change name of this function
         self.state.world.start_process();
 
-        self.state.world.report_event(FuzzerEvent::Start, Some(self.state.stats));
+        self.state
+            .world
+            .report_event(FuzzerEvent::Start, Some(self.state.stats));
         let input = self.state.world.read_input_file()?;
 
         let complexity = Generator::complexity(&input);
@@ -324,24 +315,24 @@ where
     }
 }
 
-pub enum CommandLineFuzzer<G, F> 
+pub enum CommandLineFuzzer<G, F>
 where
     G: InputGenerator,
-    F: Fn(&G::Input) -> bool
+    F: Fn(&G::Input) -> bool,
 {
-    Phantom(std::marker::PhantomData<G>, std::marker::PhantomData<F>)
+    Phantom(std::marker::PhantomData<G>, std::marker::PhantomData<F>),
 }
-impl<G, F> CommandLineFuzzer<G, F> 
+impl<G, F> CommandLineFuzzer<G, F>
 where
     G: InputGenerator,
-    F: Fn(&G::Input) -> bool
+    F: Fn(&G::Input) -> bool,
 {
     pub fn launch(test: F, generator: G) -> Result<(), std::io::Error> {
         let args = CommandLineArguments::from_args();
-        
+
         let settings = args.settings;
         let world_info = args.world_info;
-        
+
         let command = settings.command;
 
         let mut fuzzer = Fuzzer::new(test, generator, settings, CommandLineFuzzerWorld::new(world_info));

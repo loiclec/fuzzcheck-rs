@@ -1,6 +1,5 @@
-
-use rand::distributions::WeightedIndex;
 use rand::distributions::uniform::SampleUniform;
+use rand::distributions::WeightedIndex;
 use rand::distributions::{Distribution, Standard};
 use rand::rngs::ThreadRng;
 use rand::seq::SliceRandom;
@@ -39,7 +38,6 @@ static MUTATORS: &[IntegerMutatorKind] = &[
     IntegerMutatorKind::Nudge,
 ];
 static WEIGHTS: &[usize] = &[1, 10, 10];
-
 
 impl<T> IntegerGenerator<T>
 where
@@ -83,13 +81,7 @@ where
     Wrapping<T>: Add<Output = Wrapping<T>> + Sub<Output = Wrapping<T>>,
     Standard: Distribution<T>,
 {
-    fn mutate_with(
-        &self,
-        input: &mut T,
-        mutator: IntegerMutatorKind,
-        _spare_cplx: f64,
-        rng: &mut ThreadRng,
-    ) -> bool {
+    fn mutate_with(&self, input: &mut T, mutator: IntegerMutatorKind, _spare_cplx: f64, rng: &mut ThreadRng) -> bool {
         match mutator {
             IntegerMutatorKind::Special => self.special(input, rng),
             IntegerMutatorKind::Random => self.random(input, rng),
@@ -139,25 +131,19 @@ impl FuzzerInput for isize {}
 
 impl IntegerGenerator<u8> {
     pub fn new(max_nudge: u8) -> Self {
-        Self::new_with_special_values(
-            max_nudge,
-            vec![0x0, 0x1, 0xff, 0x7f]
-        )
+        Self::new_with_special_values(max_nudge, vec![0x0, 0x1, 0xff, 0x7f])
     }
 }
 impl IntegerGenerator<u16> {
     pub fn new(max_nudge: u16) -> Self {
-        Self::new_with_special_values(
-            max_nudge,
-            vec![0x0, 0x1, 0xff, 0x7f, 0xffff, 0x7fff]
-        )
+        Self::new_with_special_values(max_nudge, vec![0x0, 0x1, 0xff, 0x7f, 0xffff, 0x7fff])
     }
 }
 impl IntegerGenerator<u32> {
     pub fn new(max_nudge: u32) -> Self {
         Self::new_with_special_values(
             max_nudge,
-            vec![0x0, 0x1, 0xff, 0x7f, 0xffff, 0x7fff, 0xffff_ffff, 0x7fff_ffff]
+            vec![0x0, 0x1, 0xff, 0x7f, 0xffff, 0x7fff, 0xffff_ffff, 0x7fff_ffff],
         )
     }
 }
@@ -165,7 +151,18 @@ impl IntegerGenerator<u64> {
     pub fn new(max_nudge: u64) -> Self {
         Self::new_with_special_values(
             max_nudge,
-            vec![0x0, 0x1, 0xff, 0x7f, 0xffff, 0x7fff, 0xffff_ffff, 0x7fff_ffff, 0xffff_ffff_ffff_ffff, 0x7fff_ffff_ffff_ffff]
+            vec![
+                0x0,
+                0x1,
+                0xff,
+                0x7f,
+                0xffff,
+                0x7fff,
+                0xffff_ffff,
+                0x7fff_ffff,
+                0xffff_ffff_ffff_ffff,
+                0x7fff_ffff_ffff_ffff,
+            ],
         )
     }
 }
@@ -173,7 +170,20 @@ impl IntegerGenerator<u128> {
     pub fn new(max_nudge: u128) -> Self {
         Self::new_with_special_values(
             max_nudge,
-            vec![0x0, 0x1, 0xff, 0x7f, 0xffff, 0x7fff, 0xffff_ffff, 0x7fff_ffff, 0xffff_ffff_ffff_ffff, 0x7fff_ffff_ffff_ffff, 0xffff_ffff_ffff_ffff_ffff_ffff_ffff_ffff, 0x7fff_ffff_ffff_ffff_ffff_ffff_ffff_ffff]
+            vec![
+                0x0,
+                0x1,
+                0xff,
+                0x7f,
+                0xffff,
+                0x7fff,
+                0xffff_ffff,
+                0x7fff_ffff,
+                0xffff_ffff_ffff_ffff,
+                0x7fff_ffff_ffff_ffff,
+                0xffff_ffff_ffff_ffff_ffff_ffff_ffff_ffff,
+                0x7fff_ffff_ffff_ffff_ffff_ffff_ffff_ffff,
+            ],
         )
     }
 }
@@ -181,31 +191,49 @@ impl IntegerGenerator<usize> {
     pub fn new(max_nudge: usize) -> Self {
         Self::new_with_special_values(
             max_nudge,
-            vec![0x0, 0x1, 0xff, 0x7f, 0xffff, 0x7fff, 0xffff_ffff, 0x7fff_ffff, 0xffff_ffff_ffff_ffff, 0x7fff_ffff_ffff_ffff]
+            vec![
+                0x0,
+                0x1,
+                0xff,
+                0x7f,
+                0xffff,
+                0x7fff,
+                0xffff_ffff,
+                0x7fff_ffff,
+                0xffff_ffff_ffff_ffff,
+                0x7fff_ffff_ffff_ffff,
+            ],
         )
     }
 }
 impl IntegerGenerator<i8> {
     pub fn new(max_nudge: i8) -> Self {
-        Self::new_with_special_values(
-            max_nudge,
-            vec![0x0, -0x1, 0x7f, -0x80]
-        )
+        Self::new_with_special_values(max_nudge, vec![0x0, -0x1, 0x7f, -0x80])
     }
 }
 impl IntegerGenerator<i16> {
     pub fn new(max_nudge: i16) -> Self {
-        Self::new_with_special_values(
-            max_nudge,
-            vec![0x0, -0x1, 0xff, 0x7f, -0x100, -0x80, 0x7fff, -0x8000]
-        )
+        Self::new_with_special_values(max_nudge, vec![0x0, -0x1, 0xff, 0x7f, -0x100, -0x80, 0x7fff, -0x8000])
     }
 }
 impl IntegerGenerator<i32> {
     pub fn new(max_nudge: i32) -> Self {
         Self::new_with_special_values(
             max_nudge,
-            vec![0x0, -0x1, 0xff, 0x7f, -0x100, -0x80, 0xffff, 0x7fff, -0x10000, -0x8000, 0x7fff_ffff, -0x8000_0000]
+            vec![
+                0x0,
+                -0x1,
+                0xff,
+                0x7f,
+                -0x100,
+                -0x80,
+                0xffff,
+                0x7fff,
+                -0x10000,
+                -0x8000,
+                0x7fff_ffff,
+                -0x8000_0000,
+            ],
         )
     }
 }
@@ -213,7 +241,24 @@ impl IntegerGenerator<i64> {
     pub fn new(max_nudge: i64) -> Self {
         Self::new_with_special_values(
             max_nudge,
-            vec![0x0, -0x1, 0xff, 0x7f, -0x100, -0x80, 0xffff, 0x7fff, -0x10000, -0x8000, 0xffff_ffff, 0x7fff_ffff, -0x1_0000_0000, -0x8000_0000, 0x7fff_ffff_ffff_ffff, -0x8000_0000_0000_0000]
+            vec![
+                0x0,
+                -0x1,
+                0xff,
+                0x7f,
+                -0x100,
+                -0x80,
+                0xffff,
+                0x7fff,
+                -0x10000,
+                -0x8000,
+                0xffff_ffff,
+                0x7fff_ffff,
+                -0x1_0000_0000,
+                -0x8000_0000,
+                0x7fff_ffff_ffff_ffff,
+                -0x8000_0000_0000_0000,
+            ],
         )
     }
 }
@@ -221,7 +266,28 @@ impl IntegerGenerator<i128> {
     pub fn new(max_nudge: i128) -> Self {
         Self::new_with_special_values(
             max_nudge,
-            vec![0x0, -0x1, 0xff, 0x7f, -0x100, -0x80, 0xffff, 0x7fff, -0x10000, -0x8000, 0xffff_ffff, 0x7fff_ffff, -0x1_0000_0000, -0x8000_0000, 0xffff_ffff_ffff_ffff, 0x7fff_ffff_ffff_ffff, -0x1_0000_0000_0000_0000, -0x8000_0000_0000_0000, 0x7fff_ffff_ffff_ffff_ffff_ffff_ffff_ffff, -0x8000_0000_0000_0000_0000_0000_0000_0000]
+            vec![
+                0x0,
+                -0x1,
+                0xff,
+                0x7f,
+                -0x100,
+                -0x80,
+                0xffff,
+                0x7fff,
+                -0x10000,
+                -0x8000,
+                0xffff_ffff,
+                0x7fff_ffff,
+                -0x1_0000_0000,
+                -0x8000_0000,
+                0xffff_ffff_ffff_ffff,
+                0x7fff_ffff_ffff_ffff,
+                -0x1_0000_0000_0000_0000,
+                -0x8000_0000_0000_0000,
+                0x7fff_ffff_ffff_ffff_ffff_ffff_ffff_ffff,
+                -0x8000_0000_0000_0000_0000_0000_0000_0000,
+            ],
         )
     }
 }
@@ -229,7 +295,24 @@ impl IntegerGenerator<isize> {
     pub fn new(max_nudge: isize) -> Self {
         Self::new_with_special_values(
             max_nudge,
-            vec![0x0, -0x1, 0xff, 0x7f, -0x100, -0x80, 0xffff, 0x7fff, -0x10000, -0x8000, 0xffff_ffff, 0x7fff_ffff, -0x1_0000_0000, -0x8000_0000, 0x7fff_ffff_ffff_ffff, -0x8000_0000_0000_0000]
+            vec![
+                0x0,
+                -0x1,
+                0xff,
+                0x7f,
+                -0x100,
+                -0x80,
+                0xffff,
+                0x7fff,
+                -0x10000,
+                -0x8000,
+                0xffff_ffff,
+                0x7fff_ffff,
+                -0x1_0000_0000,
+                -0x8000_0000,
+                0x7fff_ffff_ffff_ffff,
+                -0x8000_0000_0000_0000,
+            ],
         )
     }
 }
