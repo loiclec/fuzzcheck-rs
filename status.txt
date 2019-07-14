@@ -1,0 +1,33 @@
+# Status
+
+## Bugs
+
+* the minimize command does not handle any special case
+    * if the input file does not exist
+    * if the input file is of complexity zero
+
+* the command line app does not catch signals, so it can't tell
+the user which file is the most minimized at the end. This may be
+solved by only keeping the most minimal version of a file at any point,
+or by catching signals and displaying a message
+
+* all file errors are ignored, they should be displayed and explained
+to the usere
+
+## Features
+
+* support more kind of tracing
+    * level 4
+    * indir?
+    * gep?
+
+* build a cargo fuzzcheck tool that manage the fuzzcheck dependency automatically
+
+* use clap to build a proper command line app with a good interface
+
+* create default generators for most basic types 
+
+## Documentation
+
+* there is none currently, but most of it can be ported from the Swift project
+    * ensure it builds correctly with rust doc
