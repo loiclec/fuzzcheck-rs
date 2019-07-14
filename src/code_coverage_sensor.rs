@@ -29,12 +29,11 @@ impl CodeCoverageSensor {
                 return;
             }
 
-            // TODO: divide by size of u32? or use nightly for offset function
-            let dist = ((stop as usize) - (start as usize)) / 4;
+            let dist = stop.offset_from(start) as usize;
             let buffer = slice::from_raw_parts_mut(start, dist);
             for x in buffer.iter_mut() {
                 self.num_guards += 1;
-                // TODO: precondition
+                assert!(self.num_guards < MAX_NUM_GUARDS);
                 *x = self.num_guards as u32;
             }
         }

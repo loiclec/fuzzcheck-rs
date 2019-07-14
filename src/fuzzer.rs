@@ -163,7 +163,7 @@ where
                 .world
                 .report_event(FuzzerEvent::TestFailure, Some(self.state.stats));
             let mut features: Vec<Feature> = Vec::new();
-            sensor.iterate_over_collected_features(|f| features.push(f)); // TODO use iterator?
+            sensor.iterate_over_collected_features(|f| features.push(f));
             self.state.world.save_artifact(
                 input, 
                 if let FuzzerCommand::Minimize | FuzzerCommand::Read = self.state.settings.command {

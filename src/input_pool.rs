@@ -11,7 +11,6 @@ use crate::weighted_index::WeightedIndex;
 use crate::world::FuzzerEvent;
 use crate::world::FuzzerWorld;
 
-// TODO: think through derive
 #[derive(PartialEq, Eq, Hash, Clone)]
 pub enum Feature {
     Edge(EdgeFeature),

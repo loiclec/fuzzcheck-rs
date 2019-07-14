@@ -25,7 +25,7 @@ struct ToolArguments {
 }
 
 fn fuzz_command(executable: &Path, arguments: CommandLineArguments) {
-    let o = Command::new(executable)
+    Command::new(executable)
         .args(args_to_string(&arguments))
         .stdout(std::process::Stdio::inherit())
         .output()
@@ -50,7 +50,6 @@ fn minimize_command(executable: &Path, mut arguments: CommandLineArguments) -> !
             let path = path.ok()?.path();
             let data = std::fs::read_to_string(&path).ok()?;
             let json = serde_json::from_str::<serde_json::Value>(&data).ok()?;
-            // TODO: encode complexity
             let complexity = json["cplx"].as_f64()?;
             Some((path.to_path_buf(), complexity))
         });
@@ -65,13 +64,13 @@ fn minimize_command(executable: &Path, mut arguments: CommandLineArguments) -> !
 
     println!("{:?}", args_to_string(&arguments));
 
-    Command::new(executable)
+    let o = Command::new(executable)
         .args(args_to_string(&arguments))
         .stdout(std::process::Stdio::inherit())
         .output()
         .expect("failed to execute process");
 
-    // assert!(o.status.success() == false);
+    assert!(o.status.success() == false);
 
     arguments.settings.command = FuzzerCommand::Minimize;
 
@@ -79,7 +78,7 @@ fn minimize_command(executable: &Path, mut arguments: CommandLineArguments) -> !
         arguments.world_info.input_file = simplest_input_file(&artifacts_folder);
         println!("{:?}", args_to_string(&arguments));
 
-        let o = Command::new(executable)
+        Command::new(executable)
             .args(args_to_string(&arguments))
             .stdout(std::process::Stdio::inherit())
             .output()

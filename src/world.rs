@@ -151,8 +151,6 @@ where
             std::fs::create_dir_all(artifacts_folder)?;
         }
 
-        println!("saving artifact for input of cplx {:?}", cplx);
-
         let mut hasher = DefaultHasher::new();
         input.hash(&mut hasher);
         let hash = hasher.finish();

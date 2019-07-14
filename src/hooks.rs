@@ -30,11 +30,10 @@ fn trace_pc_guard(pc: *mut u32) {
     if !sensor.is_recording {
         return;
     }
-    // TODO: check
     let idx = unsafe { *pc as usize };
     let counter = sensor.eight_bit_counters.entry(idx).or_insert(0);
-    // TODO: overflow check
-    *counter += 1;
+
+    *counter = counter.wrapping_add(1);
 }
 
 #[export_name = "__sanitizer_cov_trace_cmp1"]
