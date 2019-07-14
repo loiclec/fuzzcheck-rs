@@ -14,6 +14,14 @@ or by catching signals and displaying a message
 * all file errors are ignored, they should be displayed and explained
 to the usere
 
+* too much complexity, try to simplify stuff
+    * much of the complexity is carried over from when I did not know
+    what the fuzzer should support or how to do it best, but now I can 
+    remove most of it
+
+* I feel like the analyze function is too slow and I should rethink
+how to handle the trace_cmp instruction
+
 ## Features
 
 * support more kind of tracing
@@ -21,11 +29,13 @@ to the usere
     * indir?
     * gep?
 
-* build a cargo fuzzcheck tool that manage the fuzzcheck dependency automatically
+* build a cargo fuzzcheck tool that manages the fuzzcheck dependency automatically
 
 * use clap to build a proper command line app with a good interface
 
-* create default generators for most basic types 
+* create default generators for most basic types
+
+* support reading initial inputs from an input corpus
 
 ## Documentation
 
