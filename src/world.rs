@@ -4,12 +4,14 @@ use crate::artifact::*;
 use crate::command_line::*;
 use crate::input::*;
 use serde_json;
+use serde_json::Value;
 use std::collections::hash_map::DefaultHasher;
 use std::fs;
 use std::hash::Hasher;
 use std::io::{self, Result};
 use std::marker::PhantomData;
 use std::time::Instant;
+use std::path::Path;
 
 #[derive(Clone, Copy, Default)]
 pub struct FuzzerStats {
@@ -51,7 +53,7 @@ pub trait FuzzerWorld {
     fn read_input_corpus(&self) -> Result<Vec<Self::Input>>;
     fn read_input_file(&self) -> Result<Self::Input>;
 
-    fn save_artifact(&self, input: &Self::Input, kind: ArtifactKind) -> Result<()>;
+    fn save_artifact(&self, input: &Self::Input, cplx: Option<f64>, kind: ArtifactKind) -> Result<()>;
     fn report_event(&self, event: FuzzerEvent, stats: Option<FuzzerStats>);
 
     fn rand(&mut self) -> &mut ThreadRng;
@@ -129,7 +131,10 @@ where
         if let Some(input_file) = &self.info.input_file {
             let data = fs::read(input_file)?;
             let string = String::from_utf8(data).unwrap();
-            Ok(serde_json::from_str(&string)?)
+            let content: &Value = &serde_json::from_str(&string)?;
+            let input_content = content.get("input").unwrap_or(content);
+            let i = serde_json::from_value(input_content.clone())?;
+            Ok(i)
         } else {
             Result::Err(io::Error::new(
                 io::ErrorKind::Other,
@@ -138,25 +143,32 @@ where
         }
     }
 
-    fn save_artifact(&self, input: &Self::Input, kind: ArtifactKind) -> Result<()> {
-        if let Some(artifacts_folder) = &self.info.artifacts_folder {
-            let mut hasher = DefaultHasher::new();
-            input.hash(&mut hasher);
-            let hash = hasher.finish();
-            let s = serde_json::to_string(input)?;
-            let name = format!("{:x}", hash);
-            let path = artifacts_folder.join(name);
-            println!("Saving {:?} at {:?}", kind, path);
-            fs::write(path, s)?;
-            Result::Ok(())
-        } else {
-            let s = serde_json::to_string(input)?;
-            println!("{}", s);
-            Result::Err(io::Error::new(
-                io::ErrorKind::Other,
-                "No artifacts folder was given as argument",
-            ))
+    fn save_artifact(&self, input: &Self::Input, cplx: Option<f64>, kind: ArtifactKind) -> Result<()> {
+        let default = Path::new("./artifacts/").to_path_buf();
+        let artifacts_folder = self.info.artifacts_folder.as_ref().unwrap_or(&default).as_path();
+        
+        if !artifacts_folder.is_dir() {
+            std::fs::create_dir_all(artifacts_folder)?;
         }
+
+        println!("saving artifact for input of cplx {:?}", cplx);
+
+        let mut hasher = DefaultHasher::new();
+        input.hash(&mut hasher);
+        let hash = hasher.finish();
+        let s = 
+            if let Some(cplx) = cplx {
+                serde_json::to_string(&json!({"input": input, "cplx": cplx}))?
+            } else {
+                serde_json::to_string(input)?
+            };
+            
+
+        let name = format!("{:x}", hash);
+        let path = artifacts_folder.join(name).with_extension("json");
+        println!("Saving {:?} at {:?}", kind, path);
+        fs::write(path, s)?;
+        Result::Ok(())
     }
 
     fn report_event(&self, event: FuzzerEvent, stats: Option<FuzzerStats>) {

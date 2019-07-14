@@ -28,15 +28,15 @@ pub struct FuzzerSettings {
 
     #[structopt(
         long = "max-number-of-runs",
-        short = "runs",
-        default_value = "18446744073709551615",
+        short = "r",
+        default_value = "100000000000",
         help = "The number of fuzzer iterations to run before exiting"
     )]
     pub max_nbr_of_runs: usize,
 
     #[structopt(
         long = "max-complexity",
-        short = "cplx",
+        short = "c",
         default_value = "256",
         help = "The upper bound on the complexity of the test inputs"
     )]
@@ -44,7 +44,7 @@ pub struct FuzzerSettings {
 
     #[structopt(
         long = "mutation-depth",
-        short = "depth",
+        short = "d",
         default_value = "3",
         help = "The number of consecutive mutations applied to an input in a single iteration"
     )]
