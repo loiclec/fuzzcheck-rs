@@ -24,11 +24,11 @@ pub enum FuzzerTerminationStatus {
     Unknown = 3,
 }
 
-struct FuzzerState<Input, Properties, World>
+struct FuzzerState<Input, Generator, World>
 where
     Input: FuzzerInput,
-    Properties: InputProperties<Input = Input>,
-    World: FuzzerWorld<Input = Input, Properties = Properties>,
+    Generator: InputGenerator<Input = Input>,
+    World: FuzzerWorld<Input = Input, Generator = Generator>,
 {
     pool: InputPool<Input>,
     inputs: Vec<Input>,
@@ -39,11 +39,11 @@ where
     process_start_time: usize,
 }
 
-impl<Input, Properties, World> FuzzerState<Input, Properties, World>
+impl<Input, Generator, World> FuzzerState<Input, Generator, World>
 where
     Input: FuzzerInput,
-    Properties: InputProperties<Input = Input>,
-    World: FuzzerWorld<Input = Input, Properties = Properties>,
+    Generator: InputGenerator<Input = Input>,
+    World: FuzzerWorld<Input = Input, Generator = Generator>,
 {
     fn update_stats(&mut self) {
         let microseconds = self.world.elapsed_time();
@@ -70,11 +70,10 @@ where
                 let _ = self.world.save_artifact(
                     input,
                     if let FuzzerCommand::Minimize | FuzzerCommand::Read = self.settings.command {
-                        Some(Properties::complexity(input))
+                        Some(Generator::complexity(input))
                     } else {
                         None
-                    },
-                    ArtifactKind::Crash,
+                    }
                 );
 
                 std::process::exit(FuzzerTerminationStatus::Crash as i32);
@@ -94,7 +93,7 @@ pub struct Fuzzer<Input, Generator, World, TestF>
 where
     Input: FuzzerInput,
     Generator: InputGenerator<Input = Input>,
-    World: FuzzerWorld<Input = Input, Properties = Generator>,
+    World: FuzzerWorld<Input = Input, Generator = Generator>,
     TestF: Fn(&Input) -> bool,
 {
     state: FuzzerState<Input, Generator, World>,
@@ -106,7 +105,7 @@ impl<Input, Generator, World, TestF> Fuzzer<Input, Generator, World, TestF>
 where
     Input: FuzzerInput,
     Generator: InputGenerator<Input = Input>,
-    World: FuzzerWorld<Input = Input, Properties = Generator>,
+    World: FuzzerWorld<Input = Input, Generator = Generator>,
     TestF: Fn(&Input) -> bool,
 {
     pub fn new(
@@ -135,7 +134,7 @@ impl<Input, Generator, World, TestF> Fuzzer<Input, Generator, World, TestF>
 where
     Input: FuzzerInput,
     Generator: InputGenerator<Input = Input>,
-    World: FuzzerWorld<Input = Input, Properties = Generator>,
+    World: FuzzerWorld<Input = Input, Generator = Generator>,
     TestF: Fn(&Input) -> bool,
 {
     fn test_input(&mut self, i: usize) -> Result<(), std::io::Error> {
@@ -161,8 +160,7 @@ where
                     Some(Generator::complexity(&input))
                 } else {
                     None
-                },
-                ArtifactKind::TestFailure,
+                }
             )?;
             std::process::exit(FuzzerTerminationStatus::TestFailure as i32);
         }

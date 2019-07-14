@@ -12,7 +12,6 @@ extern crate serde_json;
 
 extern crate structopt;
 
-pub mod artifact;
 mod code_coverage_sensor;
 pub mod command_line;
 pub mod fuzzer;

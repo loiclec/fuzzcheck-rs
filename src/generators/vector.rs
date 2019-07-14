@@ -132,7 +132,7 @@ where
 
 impl<T: FuzzerInput> FuzzerInput for Vec<T> {}
 
-impl<G> InputProperties for VectorGenerator<G>
+impl<G> InputGenerator for VectorGenerator<G>
 where
     G: InputGenerator,
 {
@@ -141,11 +141,7 @@ where
     fn complexity(input: &Self::Input) -> f64 {
         input.iter().fold(0.0, |c, n| c + G::complexity(n))
     }
-}
-impl<G> InputGenerator for VectorGenerator<G>
-where
-    G: InputGenerator,
-{
+
     fn base_input(&self) -> Self::Input {
         vec![]
     }

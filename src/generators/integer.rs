@@ -11,13 +11,6 @@ use std::ops::{Add, Sub};
 
 use crate::input::*;
 
-impl<T: FuzzerInput> InputProperties for IntegerGenerator<T> {
-    type Input = T;
-    fn complexity(_input: &T) -> f64 {
-        mem::size_of::<T>() as f64
-    }
-}
-
 pub struct IntegerGenerator<T> {
     max_nudge: T,
     special_values: Vec<T>,
@@ -96,6 +89,11 @@ where
     Wrapping<T>: Add<Output = Wrapping<T>> + Sub<Output = Wrapping<T>>,
     Standard: Distribution<T>,
 {
+    type Input = T;
+    fn complexity(_input: &T) -> f64 {
+        mem::size_of::<T>() as f64
+    }
+
     fn base_input(&self) -> T {
         T::default()
     }

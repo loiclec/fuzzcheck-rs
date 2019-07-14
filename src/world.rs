@@ -46,34 +46,34 @@ pub enum FuzzerEvent {
 
 pub trait FuzzerWorld {
     type Input: FuzzerInput;
-    type Properties: InputProperties<Input = Self::Input>;
+    type Generator: InputGenerator<Input = Self::Input>;
 
     fn start_process(&mut self);
     fn elapsed_time(&self) -> usize;
     fn read_input_corpus(&self) -> Result<Vec<Self::Input>>;
     fn read_input_file(&self) -> Result<Self::Input>;
 
-    fn save_artifact(&self, input: &Self::Input, cplx: Option<f64>, kind: ArtifactKind) -> Result<()>;
+    fn save_artifact(&self, input: &Self::Input, cplx: Option<f64>) -> Result<()>;
     fn report_event(&self, event: FuzzerEvent, stats: Option<FuzzerStats>);
 
     fn rand(&mut self) -> &mut ThreadRng;
 }
 
-pub struct CommandLineFuzzerWorld<Input, Properties>
+pub struct CommandLineFuzzerWorld<Input, Generator>
 where
     Input: FuzzerInput,
-    Properties: InputProperties<Input = Input>,
+    Generator: InputGenerator<Input = Input>,
 {
     info: CommandLineFuzzerInfo,
     rng: ThreadRng,
     instant: Instant,
-    data: std::marker::PhantomData<Properties>,
+    data: std::marker::PhantomData<Generator>,
 }
 
-impl<Input, Properties> CommandLineFuzzerWorld<Input, Properties>
+impl<Input, Generator> CommandLineFuzzerWorld<Input, Generator>
 where
     Input: FuzzerInput,
-    Properties: InputProperties<Input = Input>,
+    Generator: InputGenerator<Input = Input>,
 {
     pub fn new(info: CommandLineFuzzerInfo) -> Self {
         Self {
@@ -88,10 +88,10 @@ where
 impl<I, P> FuzzerWorld for CommandLineFuzzerWorld<I, P>
 where
     I: FuzzerInput,
-    P: InputProperties<Input = I>,
+    P: InputGenerator<Input = I>,
 {
     type Input = I;
-    type Properties = P;
+    type Generator = P;
 
     fn start_process(&mut self) {
         self.instant = Instant::now();
@@ -143,7 +143,7 @@ where
         }
     }
 
-    fn save_artifact(&self, input: &Self::Input, cplx: Option<f64>, kind: ArtifactKind) -> Result<()> {
+    fn save_artifact(&self, input: &Self::Input, cplx: Option<f64>) -> Result<()> {
         let default = Path::new("./artifacts/").to_path_buf();
         let artifacts_folder = self.info.artifacts_folder.as_ref().unwrap_or(&default).as_path();
 
