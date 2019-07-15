@@ -52,6 +52,9 @@ pub trait FuzzerWorld {
     fn read_input_corpus(&self) -> Result<Vec<Self::Input>>;
     fn read_input_file(&self) -> Result<Self::Input>;
 
+    fn add_to_output_corpus(&self, input: Self::Input) -> Result<()>;
+    fn remove_from_output_corpus(&self, input: Self::Input) -> Result<()>;
+
     fn save_artifact(&self, input: &Self::Input, cplx: Option<f64>) -> Result<()>;
     fn report_event(&self, event: FuzzerEvent, stats: Option<FuzzerStats>);
 
@@ -63,7 +66,7 @@ where
     Input: FuzzerInput,
     Generator: InputGenerator<Input = Input>,
 {
-    info: CommandLineArguments,
+    settings: CommandLineArguments,
     rng: ThreadRng,
     instant: Instant,
     data: std::marker::PhantomData<Generator>,
@@ -74,9 +77,9 @@ where
     Input: FuzzerInput,
     Generator: InputGenerator<Input = Input>,
 {
-    pub fn new(info: CommandLineArguments) -> Self {
+    pub fn new(settings: CommandLineArguments) -> Self {
         Self {
-            info,
+            settings,
             rng: rand::thread_rng(),
             instant: std::time::Instant::now(),
             data: PhantomData,
@@ -100,34 +103,32 @@ where
     }
 
     fn read_input_corpus(&self) -> Result<Vec<Self::Input>> {
-        if let Some(dir) = &self.info.corpus_in {
-            if !dir.is_dir() {
-                return Result::Err(io::Error::new(
-                    io::ErrorKind::Other,
-                    "The path to the file containing the input is actually a directory.",
-                ));
-            }
-            let mut inputs: Vec<Self::Input> = Vec::new();
-            for entry in fs::read_dir(dir)? {
-                let entry = entry?;
-                if entry.path().is_dir() {
-                    continue;
-                }
-                let data = fs::read(entry.path())?;
-                let string = String::from_utf8(data).unwrap();
-                let i: Self::Input = serde_json::from_str(&string)?;
-                inputs.push(i);
-            }
-            Ok(inputs)
-        } else {
-            Result::Err(io::Error::new(
-                io::ErrorKind::Other,
-                "No input file was given as argument",
-            ))
+        if self.settings.corpus_in.is_none() {
+            return Result::Ok(vec![]);
         }
+        let corpus = self.settings.corpus_in.as_ref().unwrap().as_path();
+
+        if !corpus.is_dir() {
+            return Result::Err(io::Error::new(
+                io::ErrorKind::Other,
+                "The path to the file containing the input is actually a directory.",
+            ));
+        }
+        let mut inputs: Vec<Self::Input> = Vec::new();
+        for entry in fs::read_dir(corpus)? {
+            let entry = entry?;
+            if entry.path().is_dir() {
+                continue;
+            }
+            let data = fs::read(entry.path())?;
+            let string = String::from_utf8(data).unwrap();
+            let i: Self::Input = serde_json::from_str(&string)?;
+            inputs.push(i);
+        }
+        Ok(inputs)
     }
     fn read_input_file(&self) -> Result<Self::Input> {
-        if let Some(input_file) = &self.info.input_file {
+        if let Some(input_file) = &self.settings.input_file {
             let data = fs::read(input_file)?;
             let string = String::from_utf8(data).unwrap();
             let content: &Value = &serde_json::from_str(&string)?;
@@ -142,9 +143,47 @@ where
         }
     }
 
+    fn add_to_output_corpus(&self, input: Self::Input) -> Result<()> {
+        if self.settings.corpus_out.is_none() {
+            return Ok(());
+        }
+        let corpus = self.settings.corpus_out.as_ref().unwrap().as_path();
+
+        if !corpus.is_dir() {
+            std::fs::create_dir_all(corpus)?;
+        }
+
+        let mut hasher = DefaultHasher::new();
+        input.hash(&mut hasher);
+        let hash = hasher.finish();
+        let name = format!("{:x}", hash);
+
+        let content = serde_json::to_string(&input)?;
+        let path = corpus.join(name).with_extension("json");
+        fs::write(path, content)?;
+        Ok(())
+    }
+
+    fn remove_from_output_corpus(&self, input: Self::Input) -> Result<()> {
+        if self.settings.corpus_out.is_none() {
+            return Ok(());
+        }
+        let corpus = self.settings.corpus_out.as_ref().unwrap().as_path();
+
+        let mut hasher = DefaultHasher::new();
+        input.hash(&mut hasher);
+        let hash = hasher.finish();
+        let name = format!("{:x}", hash);
+
+        let path = corpus.join(name).with_extension("json");
+        fs::remove_file(path)?;
+        Ok(())
+    }
+
+
     fn save_artifact(&self, input: &Self::Input, cplx: Option<f64>) -> Result<()> {
         let default = Path::new("./artifacts/").to_path_buf();
-        let artifacts_folder = self.info.artifacts_folder.as_ref().unwrap_or(&default).as_path();
+        let artifacts_folder = self.settings.artifacts_folder.as_ref().unwrap_or(&default).as_path();
 
         if !artifacts_folder.is_dir() {
             std::fs::create_dir_all(artifacts_folder)?;

@@ -91,7 +91,6 @@ pub struct InputPoolElement<Input: Clone> {
     flagged_for_deletion: bool,
 }
 
-// TODO: think of req for Input
 impl<Input: FuzzerInput> InputPoolElement<Input> {
     pub fn new(input: Input, complexity: f64, features: Vec<Feature>) -> InputPoolElement<Input> {
         InputPoolElement {
@@ -197,9 +196,10 @@ impl<Input: FuzzerInput> InputPool<Input> {
         self.score = self.inputs.iter().fold(0.0, |x, next| x + next.score);
         let deleted_some = !inputs_to_delete.is_empty();
         move |w| {
-            //for i in inputs_to_delete {
-            // w.remove_from_output_corpus(i);
-            //}
+            for i in &inputs_to_delete {
+                // TODO: handle error
+                let _ = w.remove_from_output_corpus(i.clone());
+            }
             if deleted_some {
                 w.report_event(FuzzerEvent::Deleted(inputs_to_delete.len()), Option::None);
             }
@@ -234,7 +234,10 @@ impl<Input: FuzzerInput> InputPool<Input> {
 
         |w: &mut W| {
             world_update_1(w);
-            for _ in elements {}
+            for i in elements {
+                // TODO
+                let _ = w.add_to_output_corpus(i.input);
+            }
         }
     }
     fn add_one<W>(&mut self, element: InputPoolElement<Input>) -> impl FnOnce(&mut W) -> ()
@@ -263,7 +266,8 @@ impl<Input: FuzzerInput> InputPool<Input> {
 
         |w: &mut W| {
             world_update_1(w);
-            //w.add_to_output_corpus(element.input);
+            // TODO
+            let _ = w.add_to_output_corpus(element.input);
         }
     }
 
