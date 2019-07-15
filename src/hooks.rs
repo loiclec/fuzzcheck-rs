@@ -17,7 +17,7 @@ fn trace_pc_guard_init(start: *mut u32, stop: *mut u32) {
                 num_guards: 0,
                 is_recording: false,
                 eight_bit_counters: HashMap::new(),
-                cmp_features: Vec::new(),
+                features: std::collections::HashSet::new()
             });
         });
     }
@@ -34,6 +34,16 @@ fn trace_pc_guard(pc: *mut u32) {
     let counter = sensor.eight_bit_counters.entry(idx).or_insert(0);
 
     *counter = counter.wrapping_add(1);
+}
+
+#[export_name = "__sanitizer_cov_trace_pc_indir"]
+fn trace_pc_indir(callee: usize) {
+    let sensor = shared_sensor();
+    if !sensor.is_recording {
+        return;
+    }
+    let caller =  unsafe { return_address() };
+    sensor.handle_trace_indir(caller, callee);
 }
 
 #[export_name = "__sanitizer_cov_trace_cmp1"]
@@ -138,4 +148,34 @@ fn trace_switch(val: u64, arg2: *mut u64) {
         .fold((0 as usize, 0 as u64), |x, next| (x.0 + 1, val ^ *next));
 
     sensor.handle_trace_cmp(pc + i, token, 0);
+}
+
+#[export_name = "__sanitizer_cov_trace_div4"]
+fn trace_div4(val: u32) {
+    let sensor = shared_sensor();
+    if !sensor.is_recording {
+        return;
+    }
+    let pc = unsafe { return_address() };
+    sensor.handle_trace_cmp(pc, u64::from(val), 0);
+}
+
+#[export_name = "__sanitizer_cov_trace_div8"]
+fn trace_div8(val: u64) {
+    let sensor = shared_sensor();
+    if !sensor.is_recording {
+        return;
+    }
+    let pc = unsafe { return_address() };
+    sensor.handle_trace_cmp(pc, val, 0);
+}
+
+#[export_name = "__sanitizer_cov_trace_gep"]
+fn trace_gep(idx: libc::uintptr_t) {
+        let sensor = shared_sensor();
+    if !sensor.is_recording {
+        return;
+    }
+    let pc = unsafe { return_address() };
+    sensor.handle_trace_cmp(pc, idx as u64, 0);
 }

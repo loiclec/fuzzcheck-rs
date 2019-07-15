@@ -15,12 +15,18 @@ use crate::world::FuzzerWorld;
 pub enum Feature {
     Edge(EdgeFeature),
     Comparison(ComparisonFeature),
+    Indir(IndirFeature)
 }
 
 #[derive(PartialEq, Eq, Hash, Clone)]
 pub struct EdgeFeature {
     pc_guard: usize,
     intensity: u8,
+}
+#[derive(PartialEq, Eq, Hash, Clone)]
+pub struct IndirFeature {
+    pub caller: usize,
+    pub callee: usize,
 }
 
 fn score_from_counter(counter: u16) -> u8 {
@@ -55,11 +61,6 @@ impl ComparisonFeature {
             id: score_from_counter(arg1.wrapping_sub(arg2).count_ones() as u16),
         }
     }
-    /*
-    init(pc: UInt, arg1: UInt64, arg2: UInt64) {
-            self.init(pc: pc, argxordist: scoreFromCounter(UInt8((arg1 &- arg2).nonzeroBitCount)))
-        }
-    */
 }
 
 impl Feature {
@@ -67,6 +68,7 @@ impl Feature {
         match self {
             Feature::Edge(_) => 1.0,
             Feature::Comparison(_) => 0.5,
+            Feature::Indir(_) => 1.0,
         }
     }
 }

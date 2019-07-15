@@ -18,31 +18,34 @@ pub struct CodeCoverageSensor {
     pub num_guards: isize,
     pub is_recording: bool,
     pub eight_bit_counters: HashMap<usize, u16>,
-    pub cmp_features: Vec<ComparisonFeature>,
+    pub features: std::collections::HashSet<Feature>
 }
 
 impl CodeCoverageSensor {
     pub fn handle_pc_guard_init(&mut self, start: *mut u32, stop: *mut u32) {
-        unsafe {
-            // TODO: refine unsafe
-            if !(start != stop && *start == 0) {
-                return;
-            }
 
-            let dist = stop.offset_from(start) as usize;
-            let buffer = slice::from_raw_parts_mut(start, dist);
-            for x in buffer.iter_mut() {
-                self.num_guards += 1;
-                assert!(self.num_guards < MAX_NUM_GUARDS);
-                *x = self.num_guards as u32;
-            }
+        if !(start != stop && unsafe { *start == 0 }) {
+            return;
         }
+
+        let dist = unsafe { stop.offset_from(start) as usize };
+        let buffer = unsafe { slice::from_raw_parts_mut(start, dist) };
+        for x in buffer.iter_mut() {
+            self.num_guards += 1;
+            assert!(self.num_guards < MAX_NUM_GUARDS);
+            *x = self.num_guards as u32;
+        }
+    
         self.eight_bit_counters.clear();
     }
 
     pub fn handle_trace_cmp(&mut self, pc: PC, arg1: u64, arg2: u64) {
         let f = ComparisonFeature::new(pc, arg1, arg2);
-        self.cmp_features.push(f)
+        self.features.insert(Feature::Comparison(f));
+    }
+    pub fn handle_trace_indir(&mut self, caller: PC, callee: PC) {
+        let f = IndirFeature { caller, callee };
+        self.features.insert(Feature::Indir(f));
     }
 
     pub fn iterate_over_collected_features<F>(&mut self, mut handle: F)
@@ -53,20 +56,13 @@ impl CodeCoverageSensor {
             let f = EdgeFeature::new(*i, *x);
             handle(Feature::Edge(f));
         }
-        self.cmp_features.sort_unstable();
-
-        let mut last: Option<ComparisonFeature> = None;
-        for f in self.cmp_features.iter() {
-            if last == Option::Some(*f) {
-                continue;
-            }
-            handle(Feature::Comparison(*f));
-            last = Option::Some(*f);
+        for f in self.features.iter() {
+            handle(f.clone());
         }
     }
 
     pub fn clear(&mut self) {
         self.eight_bit_counters.clear();
-        self.cmp_features.clear();
+        self.features.clear();
     }
 }
