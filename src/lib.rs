@@ -2,6 +2,7 @@
 #![feature(never_type)]
 #![feature(thread_spawn_unchecked)]
 #![feature(ptr_offset_from)]
+#![feature(option_flattening)]
 #![allow(dead_code)]
 
 #[macro_use]
@@ -9,8 +10,6 @@ extern crate lazy_static;
 
 #[macro_use]
 extern crate serde_json;
-
-extern crate structopt;
 
 mod code_coverage_sensor;
 pub mod command_line;

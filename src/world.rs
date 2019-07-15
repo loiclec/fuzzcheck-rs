@@ -1,6 +1,5 @@
 use rand::rngs::ThreadRng;
 
-use crate::artifact::*;
 use crate::command_line::*;
 use crate::input::*;
 use serde_json;
@@ -64,7 +63,7 @@ where
     Input: FuzzerInput,
     Generator: InputGenerator<Input = Input>,
 {
-    info: CommandLineFuzzerInfo,
+    info: CommandLineArguments,
     rng: ThreadRng,
     instant: Instant,
     data: std::marker::PhantomData<Generator>,
@@ -75,7 +74,7 @@ where
     Input: FuzzerInput,
     Generator: InputGenerator<Input = Input>,
 {
-    pub fn new(info: CommandLineFuzzerInfo) -> Self {
+    pub fn new(info: CommandLineArguments) -> Self {
         Self {
             info,
             rng: rand::thread_rng(),
@@ -101,7 +100,7 @@ where
     }
 
     fn read_input_corpus(&self) -> Result<Vec<Self::Input>> {
-        if let Some(dir) = &self.info.input_folder {
+        if let Some(dir) = &self.info.corpus_in {
             if !dir.is_dir() {
                 return Result::Err(io::Error::new(
                     io::ErrorKind::Other,
@@ -162,7 +161,7 @@ where
 
         let name = format!("{:x}", hash);
         let path = artifacts_folder.join(name).with_extension("json");
-        println!("Saving {:?} at {:?}", kind, path);
+        println!("Saving at {:?}", path);
         fs::write(path, s)?;
         Result::Ok(())
     }

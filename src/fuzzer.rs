@@ -1,10 +1,8 @@
-use crate::artifact::*;
 use crate::code_coverage_sensor::*;
 use crate::command_line::*;
 use crate::input::*;
 use crate::input_pool::*;
 use crate::signals_handler::*;
-use crate::structopt::StructOpt;
 use crate::world::*;
 use std::result::Result;
 
@@ -34,7 +32,7 @@ where
     inputs: Vec<Input>,
     input_idx: usize,
     stats: FuzzerStats,
-    settings: FuzzerSettings,
+    settings: CommandLineArguments,
     world: World,
     process_start_time: usize,
 }
@@ -111,7 +109,7 @@ where
     pub fn new(
         test: TestF,
         generator: Generator,
-        settings: FuzzerSettings,
+        settings: CommandLineArguments,
         world: World,
     ) -> Fuzzer<Input, Generator, World, TestF> {
         Fuzzer {
@@ -137,6 +135,14 @@ where
     World: FuzzerWorld<Input = Input, Generator = Generator>,
     TestF: Fn(&Input) -> bool,
 {
+    fn max_iter(&self) -> usize {
+        if self.state.settings.max_nbr_of_runs == 0 {
+            usize::max_value()
+        } else {
+            self.state.settings.max_nbr_of_runs
+        }
+    }
+
     fn test_input(&mut self, i: usize) -> Result<(), std::io::Error> {
         let sensor = shared_sensor();
         sensor.clear();
@@ -234,7 +240,7 @@ where
 
             let mut cplx = pool_element.complexity - 1.0; // TODO: why - 1.0?
             for _ in 0..self.state.settings.mutate_depth {
-                if self.state.stats.total_number_of_runs >= self.state.settings.max_nbr_of_runs
+                if self.state.stats.total_number_of_runs >= self.max_iter()
                     || !self.generator.mutate(
                         &mut new_input,
                         self.state.settings.max_input_cplx - cplx,
@@ -281,7 +287,7 @@ where
             .world
             .report_event(FuzzerEvent::DidReadCorpus, Some(self.state.stats));
 
-        while self.state.stats.total_number_of_runs < self.state.settings.max_nbr_of_runs {
+        while self.state.stats.total_number_of_runs < self.max_iter() {
             self.process_next_inputs()?;
         }
         self.state.world.report_event(FuzzerEvent::Done, Some(self.state.stats));
@@ -313,37 +319,28 @@ where
     }
 }
 
-pub enum CommandLineFuzzer<G, F>
-where
+pub fn launch<G, F>(test: F, generator: G) -> Result<(), std::io::Error> 
+    where
     G: InputGenerator,
-    F: Fn(&G::Input) -> bool,
+    F: Fn(&G::Input) -> bool
 {
-    Phantom(std::marker::PhantomData<G>, std::marker::PhantomData<F>),
+    let app = setup_app();
+
+    let args = CommandLineArguments::from_arg_matches(&app.get_matches());
+
+    let command = args.command;
+
+    let mut fuzzer = Fuzzer::new(test, generator, args.clone(), CommandLineFuzzerWorld::new(args));
+    unsafe { fuzzer.state.set_up_signal_handler() };
+    match command {
+        FuzzerCommand::Fuzz => fuzzer.main_loop()?,
+        FuzzerCommand::Minimize => fuzzer.minimize_loop()?,
+        FuzzerCommand::Read => {
+            fuzzer.state.inputs = vec![fuzzer.state.world.read_input_file()?];
+            fuzzer.state.input_idx = 0;
+            fuzzer.test_current_inputs()?;
+        }
+    };
+    Ok(())
 }
-impl<G, F> CommandLineFuzzer<G, F>
-where
-    G: InputGenerator,
-    F: Fn(&G::Input) -> bool,
-{
-    pub fn launch(test: F, generator: G) -> Result<(), std::io::Error> {
-        let args = CommandLineArguments::from_args();
 
-        let settings = args.settings;
-        let world_info = args.world_info;
-
-        let command = settings.command;
-
-        let mut fuzzer = Fuzzer::new(test, generator, settings, CommandLineFuzzerWorld::new(world_info));
-        unsafe { fuzzer.state.set_up_signal_handler() };
-        match command {
-            FuzzerCommand::Fuzz => fuzzer.main_loop()?,
-            FuzzerCommand::Minimize => fuzzer.minimize_loop()?,
-            FuzzerCommand::Read => {
-                fuzzer.state.inputs = vec![fuzzer.state.world.read_input_file()?];
-                fuzzer.state.input_idx = 0;
-                fuzzer.test_current_inputs()?;
-            }
-        };
-        Ok(())
-    }
-}
