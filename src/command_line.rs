@@ -79,7 +79,7 @@ pub fn setup_app<'a, 'b>() -> App<'a, 'b> {
         Arg::with_name(ARTIFACTS_FLAG) 
         .long(ARTIFACTS_FLAG)
         .value_name("path")
-        .default_value("./")
+        .default_value("./artifacts/")
         .help("Folder where artifacts will be written");
 
     let input_arg =
@@ -125,7 +125,7 @@ pub fn setup_app<'a, 'b>() -> App<'a, 'b> {
             match v.parse::<u32>() {
                 Ok(x) if x < 1 => Err(String::from("must be greater than 0")),
                 Err(_) => Err(String::from("must be a valid integer greater than 0")),
-                _ => return Ok(()),
+                _ => Ok(()),
             }
         )
         .help("The number of consecutive mutations for each input");
@@ -139,7 +139,7 @@ pub fn setup_app<'a, 'b>() -> App<'a, 'b> {
                 match v.parse::<u32>() {
                     Ok(x) if x < 1 => Err(String::from("must be greater than 0")),
                     Err(_) => Err(String::from("must be a valid integer greater than 0")),
-                    _ => return Ok(()),
+                    _ => Ok(()),
                 }
             )
         .help("The maximum allowed complexity of inputs.")

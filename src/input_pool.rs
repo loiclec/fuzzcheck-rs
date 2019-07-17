@@ -1,4 +1,6 @@
 use std::collections::HashMap;
+use std::hash::Hash;
+use std::marker::PhantomData;
 
 use rand::rngs::ThreadRng;
 use rand::Rng;
@@ -6,10 +8,10 @@ use rand::Rng;
 use rand::distributions::uniform::{UniformFloat, UniformSampler};
 use rand::distributions::Distribution;
 
-use crate::input::FuzzerInput;
 use crate::weighted_index::WeightedIndex;
 use crate::world::FuzzerEvent;
-use crate::world::FuzzerWorld;
+use crate::world::World;
+use crate::input::InputGenerator;
 
 #[derive(PartialEq, Eq, Hash, Clone)]
 pub enum Feature {
@@ -67,7 +69,7 @@ impl Feature {
     fn score(&self) -> f64 {
         match self {
             Feature::Edge(_) => 1.0,
-            Feature::Comparison(_) => 0.5,
+            Feature::Comparison(_) => 0.1,
             Feature::Indir(_) => 1.0,
         }
     }
@@ -78,21 +80,18 @@ pub enum InputPoolIndex {
     Favored,
 }
 
-pub struct FuzzerState<Input> {
-    input: Input,
-}
 
 #[derive(Clone)]
-pub struct InputPoolElement<Input: Clone> {
-    pub input: Input,
+pub struct InputPoolElement<T: Hash + Clone> {
+    pub input: T,
     pub complexity: f64,
     features: Vec<Feature>,
     score: f64,
     flagged_for_deletion: bool,
 }
 
-impl<Input: FuzzerInput> InputPoolElement<Input> {
-    pub fn new(input: Input, complexity: f64, features: Vec<Feature>) -> InputPoolElement<Input> {
+impl<T: Hash + Clone> InputPoolElement<T> {
+    pub fn new(input: T, complexity: f64, features: Vec<Feature>) -> InputPoolElement<T> {
         InputPoolElement {
             input,
             complexity,
@@ -103,32 +102,36 @@ impl<Input: FuzzerInput> InputPoolElement<Input> {
     }
 }
 
-pub struct InputPool<Input: FuzzerInput> {
-    pub inputs: Vec<InputPoolElement<Input>>,
-    pub favored_input: Option<InputPoolElement<Input>>,
+pub struct InputPool<T: Hash + Clone, R> {
+    pub inputs: Vec<InputPoolElement<T>>,
+    pub favored_input: Option<InputPoolElement<T>>,
     cumulative_weights: Vec<f64>,
     pub score: f64,
     pub smallest_input_complexity_for_feature: HashMap<Feature, f64>,
+    rng: ThreadRng,
+    phantom: PhantomData<R>,
 }
 
-impl<Input: FuzzerInput> InputPool<Input> {
-    pub fn new() -> InputPool<Input> {
+impl<T: Hash + Clone, R> InputPool<T, R> {
+    pub fn new() -> Self {
         InputPool {
             inputs: vec![],
             favored_input: None,
             cumulative_weights: vec![],
             score: 0.0,
             smallest_input_complexity_for_feature: HashMap::new(),
+            rng: rand::thread_rng(),
+            phantom: PhantomData
         }
     }
 
-    pub fn get(&self, idx: InputPoolIndex) -> &InputPoolElement<Input> {
+    pub fn get(&self, idx: InputPoolIndex) -> &InputPoolElement<T> {
         match idx {
             InputPoolIndex::Normal(idx) => &self.inputs[idx],
             InputPoolIndex::Favored => &self.favored_input.as_ref().unwrap(),
         }
     }
-    fn set(&mut self, idx: InputPoolIndex, element: InputPoolElement<Input>) {
+    fn set(&mut self, idx: InputPoolIndex, element: InputPoolElement<T>) {
         match idx {
             InputPoolIndex::Normal(idx) => self.inputs[idx] = element,
             InputPoolIndex::Favored => panic!("Cannot change the favored input"),
@@ -140,9 +143,8 @@ impl<Input: FuzzerInput> InputPool<Input> {
         square(simplest / other)
     }
 
-    pub fn update_scores<W>(&mut self) -> impl FnOnce(&mut W) -> ()
-    where
-        W: FuzzerWorld<Input = Input>,
+    pub fn update_scores<G>(&mut self) -> impl FnOnce(&mut World<T, G>) -> ()
+        where G: InputGenerator<Input=T>
     {
         let mut sum_cplx_ratios: HashMap<Feature, f64> = HashMap::new();
         for input in self.inputs.iter_mut() {
@@ -180,7 +182,7 @@ impl<Input: FuzzerInput> InputPool<Input> {
             }
         }
 
-        let inputs_to_delete: Vec<Input> = self
+        let inputs_to_delete: Vec<T> = self
             .inputs
             .iter()
             .filter_map(|i| {
@@ -206,9 +208,8 @@ impl<Input: FuzzerInput> InputPool<Input> {
         }
     }
 
-    pub fn add<W>(&mut self, elements: Vec<InputPoolElement<Input>>) -> impl FnOnce(&mut W) -> ()
-    where
-        W: FuzzerWorld<Input = Input>,
+    pub fn add<G>(&mut self, elements: Vec<InputPoolElement<T>>) -> impl FnOnce(&mut World<T, G>) -> ()
+        where G: InputGenerator<Input=T>
     {
         for element in elements.iter() {
             for f in element.features.iter() {
@@ -232,7 +233,7 @@ impl<Input: FuzzerInput> InputPool<Input> {
             })
             .collect();
 
-        |w: &mut W| {
+        |w: &mut World<T, G>| {
             world_update_1(w);
             for i in elements {
                 // TODO
@@ -240,9 +241,8 @@ impl<Input: FuzzerInput> InputPool<Input> {
             }
         }
     }
-    fn add_one<W>(&mut self, element: InputPoolElement<Input>) -> impl FnOnce(&mut W) -> ()
-    where
-        W: FuzzerWorld<Input = Input>,
+    fn add_one<G>(&mut self, element: InputPoolElement<T>) -> impl FnOnce(&mut World<T, G>) -> ()
+        where G: InputGenerator<Input=T>
     {
         for f in element.features.iter() {
             let complexity = self.smallest_input_complexity_for_feature.get(&f);
@@ -264,15 +264,15 @@ impl<Input: FuzzerInput> InputPool<Input> {
             })
             .collect();
 
-        |w: &mut W| {
+        |w: &mut World<T, G>| {
             world_update_1(w);
             // TODO
             let _ = w.add_to_output_corpus(element.input);
         }
     }
 
-    pub fn random_index(&self, rand: &mut ThreadRng) -> InputPoolIndex {
-        if self.favored_input.is_some() && (rand.gen_bool(0.25) || self.inputs.is_empty()) {
+    pub fn random_index(&mut self) -> InputPoolIndex {
+        if self.favored_input.is_some() && (self.rng.gen_bool(0.25) || self.inputs.is_empty()) {
             InputPoolIndex::Favored
         } else {
             let weight_distr = UniformFloat::new(0.0, self.cumulative_weights.last().unwrap_or(&0.0));
@@ -280,7 +280,7 @@ impl<Input: FuzzerInput> InputPool<Input> {
                 cumulative_weights: self.cumulative_weights.clone(),
                 weight_distribution: weight_distr,
             };
-            let x = dist.sample(rand);
+            let x = dist.sample(&mut self.rng);
             InputPoolIndex::Normal(x)
         }
     }

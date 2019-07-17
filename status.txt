@@ -11,8 +11,8 @@ the user which file is the most minimized at the end. This may be
 solved by only keeping the most minimal version of a file at any point,
 or by catching signals and displaying a message
 
-* all file errors are ignored, they should be displayed and explained
-to the usere
+* some file errors are ignored, they should be displayed and explained
+to the user
 
 * too much complexity, try to simplify stuff
     * much of the complexity is carried over from when I did not know
@@ -24,18 +24,9 @@ how to handle the trace_cmp instruction
 
 ## Features
 
-* support more kind of tracing
-    * level 4
-    * indir?
-    * gep?
-
 * build a cargo fuzzcheck tool that manages the fuzzcheck dependency automatically
 
-* use clap to build a proper command line app with a good interface
-
 * create default generators for most basic types
-
-* support reading initial inputs from an input corpus
 
 ## Documentation
 

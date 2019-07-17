@@ -1,16 +1,17 @@
-use rand::rngs::ThreadRng;
 
 use crate::command_line::*;
-use crate::input::*;
-use serde_json;
-use serde_json::Value;
 use std::collections::hash_map::DefaultHasher;
 use std::fs;
+use std::hash::Hash;
 use std::hash::Hasher;
 use std::io::{self, Result};
-use std::marker::PhantomData;
+
 use std::path::Path;
 use std::time::Instant;
+
+use std::marker::PhantomData;
+
+use crate::input::InputGenerator;
 
 #[derive(Clone, Copy, Default)]
 pub struct FuzzerStats {
@@ -43,66 +44,45 @@ pub enum FuzzerEvent {
     TestFailure,
 }
 
-pub trait FuzzerWorld {
-    type Input: FuzzerInput;
-    type Generator: InputGenerator<Input = Self::Input>;
-
-    fn start_process(&mut self);
-    fn elapsed_time(&self) -> usize;
-    fn read_input_corpus(&self) -> Result<Vec<Self::Input>>;
-    fn read_input_file(&self) -> Result<Self::Input>;
-
-    fn add_to_output_corpus(&self, input: Self::Input) -> Result<()>;
-    fn remove_from_output_corpus(&self, input: Self::Input) -> Result<()>;
-
-    fn save_artifact(&self, input: &Self::Input, cplx: Option<f64>) -> Result<()>;
-    fn report_event(&self, event: FuzzerEvent, stats: Option<FuzzerStats>);
-
-    fn rand(&mut self) -> &mut ThreadRng;
-}
-
-pub struct CommandLineFuzzerWorld<Input, Generator>
+pub struct World<T, G>
 where
-    Input: FuzzerInput,
-    Generator: InputGenerator<Input = Input>,
+    T: Hash + Clone,
+    G: InputGenerator<Input=T>
 {
     settings: CommandLineArguments,
-    rng: ThreadRng,
+    rng: G::Rng,
     instant: Instant,
-    data: std::marker::PhantomData<Generator>,
+    phantom: PhantomData<G>
 }
 
-impl<Input, Generator> CommandLineFuzzerWorld<Input, Generator>
-where
-    Input: FuzzerInput,
-    Generator: InputGenerator<Input = Input>,
+impl<T, G> World<T, G>
+    where
+    T: Hash + Clone,
+    G: InputGenerator<Input=T>
 {
-    pub fn new(settings: CommandLineArguments) -> Self {
+    pub fn new(settings: CommandLineArguments, rng: G::Rng) -> Self {
         Self {
             settings,
-            rng: rand::thread_rng(),
+            rng,
             instant: std::time::Instant::now(),
-            data: PhantomData,
+            phantom: PhantomData
         }
     }
 }
 
-impl<I, P> FuzzerWorld for CommandLineFuzzerWorld<I, P>
-where
-    I: FuzzerInput,
-    P: InputGenerator<Input = I>,
+impl<T, G> World<T, G>
+ where
+    T: Hash + Clone,
+    G: InputGenerator<Input=T>
 {
-    type Input = I;
-    type Generator = P;
-
-    fn start_process(&mut self) {
+    pub fn start_process(&mut self) {
         self.instant = Instant::now();
     }
-    fn elapsed_time(&self) -> usize {
+    pub fn elapsed_time(&self) -> usize {
         self.instant.elapsed().as_micros() as usize
     }
 
-    fn read_input_corpus(&self) -> Result<Vec<Self::Input>> {
+    pub fn read_input_corpus(&self) -> Result<Vec<T>> {
         if self.settings.corpus_in.is_none() {
             return Result::Ok(vec![]);
         }
@@ -114,27 +94,35 @@ where
                 "The path to the file containing the input is actually a directory.",
             ));
         }
-        let mut inputs: Vec<Self::Input> = Vec::new();
+        let mut inputs: Vec<T> = Vec::new();
         for entry in fs::read_dir(corpus)? {
             let entry = entry?;
             if entry.path().is_dir() {
                 continue;
             }
             let data = fs::read(entry.path())?;
-            let string = String::from_utf8(data).unwrap();
-            let i: Self::Input = serde_json::from_str(&string)?;
-            inputs.push(i);
+            if let Some(i) = G::from_data(&data) {
+                inputs.push(i);
+            } else {
+                return Result::Err(io::Error::new(
+                    io::ErrorKind::Other,
+                    "The file could not be decoded into a valid input.",
+                ));
+            }
         }
         Ok(inputs)
     }
-    fn read_input_file(&self) -> Result<Self::Input> {
+    pub fn read_input_file(&self) -> Result<T> {
         if let Some(input_file) = &self.settings.input_file {
             let data = fs::read(input_file)?;
-            let string = String::from_utf8(data).unwrap();
-            let content: &Value = &serde_json::from_str(&string)?;
-            let input_content = content.get("input").unwrap_or(content);
-            let i = serde_json::from_value(input_content.clone())?;
-            Ok(i)
+            if let Some(input) = G::from_data(&data) {
+                Ok(input)
+            } else {
+                Result::Err(io::Error::new(
+                    io::ErrorKind::Other,
+                    "The file could not be decoded into a valid input.",
+                ))
+            }
         } else {
             Result::Err(io::Error::new(
                 io::ErrorKind::Other,
@@ -143,7 +131,7 @@ where
         }
     }
 
-    fn add_to_output_corpus(&self, input: Self::Input) -> Result<()> {
+    pub fn add_to_output_corpus(&self, input: T) -> Result<()> {
         if self.settings.corpus_out.is_none() {
             return Ok(());
         }
@@ -158,13 +146,13 @@ where
         let hash = hasher.finish();
         let name = format!("{:x}", hash);
 
-        let content = serde_json::to_string(&input)?;
+        let content = G::to_data(&input);
         let path = corpus.join(name).with_extension("json");
         fs::write(path, content)?;
         Ok(())
     }
 
-    fn remove_from_output_corpus(&self, input: Self::Input) -> Result<()> {
+    pub fn remove_from_output_corpus(&self, input: T) -> Result<()> {
         if self.settings.corpus_out.is_none() {
             return Ok(());
         }
@@ -181,7 +169,7 @@ where
     }
 
 
-    fn save_artifact(&self, input: &Self::Input, cplx: Option<f64>) -> Result<()> {
+    pub fn save_artifact(&self, input: &T, cplx: Option<f64>) -> Result<()> {
         let default = Path::new("./artifacts/").to_path_buf();
         let artifacts_folder = self.settings.artifacts_folder.as_ref().unwrap_or(&default).as_path();
 
@@ -192,20 +180,21 @@ where
         let mut hasher = DefaultHasher::new();
         input.hash(&mut hasher);
         let hash = hasher.finish();
-        let s = if let Some(cplx) = cplx {
-            serde_json::to_string(&json!({"input": input, "cplx": cplx}))?
+        let content = G::to_data(&input);
+
+        let name = if let Some(cplx) = cplx {
+            format!("{:.0}--{:x}", cplx * 100.0, hash)
         } else {
-            serde_json::to_string(input)?
+            format!("{:x}", hash)
         };
 
-        let name = format!("{:x}", hash);
         let path = artifacts_folder.join(name).with_extension("json");
         println!("Saving at {:?}", path);
-        fs::write(path, s)?;
+        fs::write(path, content)?;
         Result::Ok(())
     }
 
-    fn report_event(&self, event: FuzzerEvent, stats: Option<FuzzerStats>) {
+    pub fn report_event(&self, event: FuzzerEvent, stats: Option<FuzzerStats>) {
         if let FuzzerEvent::Deleted(count) = event {
             println!("DELETED {:?}", count);
             return;
@@ -233,7 +222,7 @@ where
         println!();
     }
 
-    fn rand(&mut self) -> &mut ThreadRng {
+    pub fn rand(&mut self) -> &mut G::Rng {
         &mut self.rng
     }
 }

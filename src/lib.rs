@@ -8,15 +8,11 @@
 #[macro_use]
 extern crate lazy_static;
 
-#[macro_use]
-extern crate serde_json;
-
 mod code_coverage_sensor;
 pub mod command_line;
 pub mod fuzzer;
-pub mod generators;
-mod hooks;
 pub mod input;
+mod hooks;
 mod input_pool;
 mod signals_handler;
 mod weighted_index;

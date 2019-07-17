@@ -1,5 +1,4 @@
 extern crate clap;
-extern crate serde_json;
 use fuzzcheck::command_line::*;
 use std::cmp::Ordering;
 use std::path::{Path, PathBuf};
@@ -70,10 +69,13 @@ fn minimize_command(executable: &Path, mut arguments: CommandLineArguments) -> !
             .unwrap()
             .filter_map(|path| -> Option<(PathBuf, f64)> {
                 let path = path.ok()?.path();
-                let data = std::fs::read_to_string(&path).ok()?;
-                let json = serde_json::from_str::<serde_json::Value>(&data).ok()?;
-                let complexity = json["cplx"].as_f64()?;
-                Some((path.to_path_buf(), complexity))
+                let name_components: Vec<&str> = path.file_stem()?.to_str()?.splitn(2, "--").collect();
+                if name_components.len() == 2 { 
+                    let cplx = name_components[0].parse::<f64>().ok()?;
+                    Some((path.to_path_buf(), cplx))
+                } else {
+                    None
+                }
             });
         let (file, _) = files_with_complexity
             .min_by(|x, y| std::cmp::PartialOrd::partial_cmp(&x.1, &y.1).unwrap_or(Ordering::Equal))?;
