@@ -1,35 +1,33 @@
 extern crate clap;
+use clap::Arg;
 use fuzzcheck::command_line::*;
 use std::cmp::Ordering;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::string::String;
-use clap::Arg;
 static TARGET_FLAG: &str = "target";
 
 fn main() {
-    let app = 
-        setup_app().arg(Arg::with_name(TARGET_FLAG)
-                .long(TARGET_FLAG)
-                .takes_value(true)
-                .value_name("executable path")
-                .display_order(1)
-                .validator(|v| {
-                    match v.parse::<PathBuf>() {
-                    Ok(p) => {
-                        let p = p.as_path();
-                        if !p.is_file() {
-                            Err(String::from("path does not point to an executable file"))
-                        } else {
-                            Ok(())
-                        }
+    let app = setup_app().arg(
+        Arg::with_name(TARGET_FLAG)
+            .long(TARGET_FLAG)
+            .takes_value(true)
+            .value_name("executable path")
+            .display_order(1)
+            .validator(|v| match v.parse::<PathBuf>() {
+                Ok(p) => {
+                    let p = p.as_path();
+                    if !p.is_file() {
+                        Err(String::from("path does not point to an executable file"))
+                    } else {
+                        Ok(())
                     }
-                    Err(_) => Err(String::from("must be a valid path to an executable file"))
-                    }
-                })
-                .required(true)
-                .help("The fuzz target is the executable file containing launching a fuzzcheck fuzzer.")
-            );
+                }
+                Err(_) => Err(String::from("must be a valid path to an executable file")),
+            })
+            .required(true)
+            .help("The fuzz target is the executable file containing launching a fuzzcheck fuzzer."),
+    );
     let app_m = app.get_matches();
     let args = CommandLineArguments::from_arg_matches(&app_m);
     let target = Path::new(app_m.value_of(TARGET_FLAG).unwrap());
@@ -70,7 +68,7 @@ fn minimize_command(executable: &Path, mut arguments: CommandLineArguments) -> !
             .filter_map(|path| -> Option<(PathBuf, f64)> {
                 let path = path.ok()?.path();
                 let name_components: Vec<&str> = path.file_stem()?.to_str()?.splitn(2, "--").collect();
-                if name_components.len() == 2 { 
+                if name_components.len() == 2 {
                     let cplx = name_components[0].parse::<f64>().ok()?;
                     Some((path.to_path_buf(), cplx))
                 } else {
@@ -121,10 +119,30 @@ fn minimize_command(executable: &Path, mut arguments: CommandLineArguments) -> !
 fn args_to_string(args: &CommandLineArguments) -> Vec<String> {
     let mut s: Vec<String> = Vec::new();
 
-    let input_file_args = args.input_file.clone().map(|f| vec!["--".to_owned() + INPUT_FILE_FLAG, f.as_path().to_str().unwrap().to_string()]);
-    let corpus_in_args = args.corpus_in.clone().map(|f| vec!["--".to_owned() + CORPUS_IN_FLAG, f.as_path().to_str().unwrap().to_string()]);
-    let corpus_out_args = args.corpus_out.clone().map(|f| vec!["--".to_owned() + CORPUS_OUT_FLAG, f.as_path().to_str().unwrap().to_string()]);
-    let artifacts_args = args.artifacts_folder.clone().map(|f| vec!["--".to_owned() + ARTIFACTS_FLAG, f.as_path().to_str().unwrap().to_string()]);
+    let input_file_args = args.input_file.clone().map(|f| {
+        vec![
+            "--".to_owned() + INPUT_FILE_FLAG,
+            f.as_path().to_str().unwrap().to_string(),
+        ]
+    });
+    let corpus_in_args = args.corpus_in.clone().map(|f| {
+        vec![
+            "--".to_owned() + CORPUS_IN_FLAG,
+            f.as_path().to_str().unwrap().to_string(),
+        ]
+    });
+    let corpus_out_args = args.corpus_out.clone().map(|f| {
+        vec![
+            "--".to_owned() + CORPUS_OUT_FLAG,
+            f.as_path().to_str().unwrap().to_string(),
+        ]
+    });
+    let artifacts_args = args.artifacts_folder.clone().map(|f| {
+        vec![
+            "--".to_owned() + ARTIFACTS_FLAG,
+            f.as_path().to_str().unwrap().to_string(),
+        ]
+    });
 
     match args.command {
         FuzzerCommand::Read => {
@@ -135,7 +153,7 @@ fn args_to_string(args: &CommandLineArguments) -> Vec<String> {
             if let Some(artifacts_args) = artifacts_args {
                 s.append(&mut artifacts_args.clone());
             }
-        },
+        }
         FuzzerCommand::Minimize => {
             s.push("minimize".to_owned());
             if let Some(input_file_args) = input_file_args {
@@ -146,7 +164,7 @@ fn args_to_string(args: &CommandLineArguments) -> Vec<String> {
             }
             s.push("--".to_owned() + MUT_DEPTH_FLAG);
             s.push(args.mutate_depth.to_string());
-        },
+        }
         FuzzerCommand::Fuzz => {
             s.push("fuzz".to_owned());
             if let Some(corpus_in_args) = corpus_in_args {
@@ -164,7 +182,7 @@ fn args_to_string(args: &CommandLineArguments) -> Vec<String> {
             s.push(args.max_input_cplx.to_string());
             s.push("--".to_owned() + MUT_DEPTH_FLAG);
             s.push(args.mutate_depth.to_string());
-        },
+        }
     }
     s
 }

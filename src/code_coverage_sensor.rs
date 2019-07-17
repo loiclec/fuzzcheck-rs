@@ -18,12 +18,11 @@ pub struct CodeCoverageSensor {
     pub num_guards: isize,
     pub is_recording: bool,
     pub eight_bit_counters: HashMap<usize, u16>,
-    pub features: std::collections::HashSet<Feature>
+    pub features: std::collections::HashSet<Feature>,
 }
 
 impl CodeCoverageSensor {
     pub fn handle_pc_guard_init(&mut self, start: *mut u32, stop: *mut u32) {
-
         if !(start != stop && unsafe { *start == 0 }) {
             return;
         }
@@ -35,7 +34,7 @@ impl CodeCoverageSensor {
             assert!(self.num_guards < MAX_NUM_GUARDS);
             *x = self.num_guards as u32;
         }
-    
+
         self.eight_bit_counters.clear();
     }
 

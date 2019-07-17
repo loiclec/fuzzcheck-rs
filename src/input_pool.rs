@@ -8,16 +8,16 @@ use rand::Rng;
 use rand::distributions::uniform::{UniformFloat, UniformSampler};
 use rand::distributions::Distribution;
 
+use crate::input::InputGenerator;
 use crate::weighted_index::WeightedIndex;
 use crate::world::FuzzerEvent;
 use crate::world::World;
-use crate::input::InputGenerator;
 
 #[derive(PartialEq, Eq, Hash, Clone)]
 pub enum Feature {
     Edge(EdgeFeature),
     Comparison(ComparisonFeature),
-    Indir(IndirFeature)
+    Indir(IndirFeature),
 }
 
 #[derive(PartialEq, Eq, Hash, Clone)]
@@ -80,7 +80,6 @@ pub enum InputPoolIndex {
     Favored,
 }
 
-
 #[derive(Clone)]
 pub struct InputPoolElement<T: Hash + Clone> {
     pub input: T,
@@ -121,7 +120,7 @@ impl<T: Hash + Clone, R> InputPool<T, R> {
             score: 0.0,
             smallest_input_complexity_for_feature: HashMap::new(),
             rng: rand::thread_rng(),
-            phantom: PhantomData
+            phantom: PhantomData,
         }
     }
 
@@ -144,7 +143,8 @@ impl<T: Hash + Clone, R> InputPool<T, R> {
     }
 
     pub fn update_scores<G>(&mut self) -> impl FnOnce(&mut World<T, G>) -> ()
-        where G: InputGenerator<Input=T>
+    where
+        G: InputGenerator<Input = T>,
     {
         let mut sum_cplx_ratios: HashMap<Feature, f64> = HashMap::new();
         for input in self.inputs.iter_mut() {
@@ -209,7 +209,8 @@ impl<T: Hash + Clone, R> InputPool<T, R> {
     }
 
     pub fn add<G>(&mut self, elements: Vec<InputPoolElement<T>>) -> impl FnOnce(&mut World<T, G>) -> ()
-        where G: InputGenerator<Input=T>
+    where
+        G: InputGenerator<Input = T>,
     {
         for element in elements.iter() {
             for f in element.features.iter() {
@@ -242,7 +243,8 @@ impl<T: Hash + Clone, R> InputPool<T, R> {
         }
     }
     fn add_one<G>(&mut self, element: InputPoolElement<T>) -> impl FnOnce(&mut World<T, G>) -> ()
-        where G: InputGenerator<Input=T>
+    where
+        G: InputGenerator<Input = T>,
     {
         for f in element.features.iter() {
             let complexity = self.smallest_input_complexity_for_feature.get(&f);

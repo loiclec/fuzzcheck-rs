@@ -1,4 +1,3 @@
-
 use crate::command_line::*;
 use std::collections::hash_map::DefaultHasher;
 use std::fs;
@@ -47,33 +46,33 @@ pub enum FuzzerEvent {
 pub struct World<T, G>
 where
     T: Hash + Clone,
-    G: InputGenerator<Input=T>
+    G: InputGenerator<Input = T>,
 {
     settings: CommandLineArguments,
     rng: G::Rng,
     instant: Instant,
-    phantom: PhantomData<G>
+    phantom: PhantomData<G>,
 }
 
 impl<T, G> World<T, G>
-    where
+where
     T: Hash + Clone,
-    G: InputGenerator<Input=T>
+    G: InputGenerator<Input = T>,
 {
     pub fn new(settings: CommandLineArguments, rng: G::Rng) -> Self {
         Self {
             settings,
             rng,
             instant: std::time::Instant::now(),
-            phantom: PhantomData
+            phantom: PhantomData,
         }
     }
 }
 
 impl<T, G> World<T, G>
- where
+where
     T: Hash + Clone,
-    G: InputGenerator<Input=T>
+    G: InputGenerator<Input = T>,
 {
     pub fn start_process(&mut self) {
         self.instant = Instant::now();
@@ -167,7 +166,6 @@ impl<T, G> World<T, G>
         fs::remove_file(path)?;
         Ok(())
     }
-
 
     pub fn save_artifact(&self, input: &T, cplx: Option<f64>) -> Result<()> {
         let default = Path::new("./artifacts/").to_path_buf();

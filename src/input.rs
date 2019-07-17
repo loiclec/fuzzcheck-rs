@@ -1,4 +1,3 @@
-
 use core::hash::Hash;
 
 pub trait InputGenerator {
@@ -23,4 +22,3 @@ pub trait InputGenerator {
     fn from_data(data: &Vec<u8>) -> Option<Self::Input>;
     fn to_data(input: &Self::Input) -> Vec<u8>;
 }
-

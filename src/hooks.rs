@@ -17,7 +17,7 @@ fn trace_pc_guard_init(start: *mut u32, stop: *mut u32) {
                 num_guards: 0,
                 is_recording: false,
                 eight_bit_counters: HashMap::new(),
-                features: std::collections::HashSet::new()
+                features: std::collections::HashSet::new(),
             });
         });
     }
@@ -42,7 +42,7 @@ fn trace_pc_indir(callee: usize) {
     if !sensor.is_recording {
         return;
     }
-    let caller =  unsafe { return_address() };
+    let caller = unsafe { return_address() };
     sensor.handle_trace_indir(caller, callee);
 }
 
@@ -172,7 +172,7 @@ fn trace_div8(val: u64) {
 
 #[export_name = "__sanitizer_cov_trace_gep"]
 fn trace_gep(idx: libc::uintptr_t) {
-        let sensor = shared_sensor();
+    let sensor = shared_sensor();
     if !sensor.is_recording {
         return;
     }

@@ -1,9 +1,9 @@
 use crate::code_coverage_sensor::*;
 use crate::command_line::*;
+use crate::input::*;
 use crate::input_pool::*;
 use crate::signals_handler::*;
 use crate::world::*;
-use crate::input::*;
 use std::hash::Hash;
 use std::result::Result;
 
@@ -24,9 +24,9 @@ pub enum FuzzerTerminationStatus {
 }
 
 struct FuzzerState<T, G>
-    where
+where
     T: Hash + Clone,
-    G: InputGenerator<Input=T>
+    G: InputGenerator<Input = T>,
 {
     pool: InputPool<T, G::Rng>,
     inputs: Vec<T>,
@@ -38,9 +38,9 @@ struct FuzzerState<T, G>
 }
 
 impl<T, G> FuzzerState<T, G>
-    where
+where
     T: Hash + Clone,
-    G: InputGenerator<Input=T>
+    G: InputGenerator<Input = T>,
 {
     fn update_stats(&mut self) {
         let microseconds = self.world.elapsed_time();
@@ -70,7 +70,7 @@ impl<T, G> FuzzerState<T, G>
                         Some(G::complexity(input))
                     } else {
                         None
-                    }
+                    },
                 );
 
                 std::process::exit(FuzzerTerminationStatus::Crash as i32);
@@ -86,29 +86,24 @@ impl<T, G> FuzzerState<T, G>
     }
 }
 
-pub struct Fuzzer<T, F, G> 
- where 
+pub struct Fuzzer<T, F, G>
+where
     T: Hash + Clone,
     F: Fn(&T) -> bool,
-    G: InputGenerator<Input=T>
+    G: InputGenerator<Input = T>,
 {
     state: FuzzerState<T, G>,
     generator: G,
     test: F,
 }
 
-impl<T, F, G>  Fuzzer<T, F, G> 
- where 
+impl<T, F, G> Fuzzer<T, F, G>
+where
     T: Hash + Clone,
     F: Fn(&T) -> bool,
-    G: InputGenerator<Input=T>
+    G: InputGenerator<Input = T>,
 {
-    pub fn new(
-        test: F,
-        generator: G,
-        settings: CommandLineArguments,
-        world: World<T, G>,
-    ) -> Self {
+    pub fn new(test: F, generator: G, settings: CommandLineArguments, world: World<T, G>) -> Self {
         Fuzzer {
             state: FuzzerState {
                 pool: InputPool::new(),
@@ -155,7 +150,7 @@ impl<T, F, G>  Fuzzer<T, F, G>
                     Some(G::complexity(&input))
                 } else {
                     None
-                }
+                },
             )?;
             std::process::exit(FuzzerTerminationStatus::TestFailure as i32);
         }
@@ -308,11 +303,11 @@ impl<T, F, G>  Fuzzer<T, F, G>
     }
 }
 
-pub fn launch<T, F, G> (test: F, generator: G, rng: G::Rng) -> Result<(), std::io::Error> 
-    where 
+pub fn launch<T, F, G>(test: F, generator: G, rng: G::Rng) -> Result<(), std::io::Error>
+where
     T: Hash + Clone,
     F: Fn(&T) -> bool,
-    G: InputGenerator<Input=T>
+    G: InputGenerator<Input = T>,
 {
     let app = setup_app();
 
@@ -333,4 +328,3 @@ pub fn launch<T, F, G> (test: F, generator: G, rng: G::Rng) -> Result<(), std::i
     };
     Ok(())
 }
-
