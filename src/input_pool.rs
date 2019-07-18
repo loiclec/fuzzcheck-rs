@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::hash::Hash;
 use std::marker::PhantomData;
+use std::cmp::Ordering;
 
 use rand::rngs::ThreadRng;
 use rand::Rng;
@@ -242,36 +243,6 @@ impl<T: Hash + Clone, R> InputPool<T, R> {
             }
         }
     }
-    fn add_one<G>(&mut self, element: InputPoolElement<T>) -> impl FnOnce(&mut World<T, G>) -> ()
-    where
-        G: InputGenerator<Input = T>,
-    {
-        for f in element.features.iter() {
-            let complexity = self.smallest_input_complexity_for_feature.get(&f);
-            if complexity == Option::None || element.complexity < *complexity.unwrap() {
-                let _ = self
-                    .smallest_input_complexity_for_feature
-                    .insert(f.clone(), element.complexity);
-            }
-        }
-        self.inputs.push(element.clone());
-        let world_update_1 = self.update_scores();
-
-        self.cumulative_weights = self
-            .inputs
-            .iter()
-            .scan(0.0, |state, x| {
-                *state += x.score;
-                Some(*state)
-            })
-            .collect();
-
-        |w: &mut World<T, G>| {
-            world_update_1(w);
-            // TODO
-            let _ = w.add_to_output_corpus(element.input);
-        }
-    }
 
     pub fn random_index(&mut self) -> InputPoolIndex {
         if self.favored_input.is_some() && (self.rng.gen_bool(0.25) || self.inputs.is_empty()) {
@@ -285,12 +256,5 @@ impl<T: Hash + Clone, R> InputPool<T, R> {
             let x = dist.sample(&mut self.rng);
             InputPoolIndex::Normal(x)
         }
-    }
-
-    fn empty(&mut self) {
-        self.inputs.clear();
-        self.score = 0.0;
-        self.cumulative_weights.clear();
-        self.smallest_input_complexity_for_feature.clear();
     }
 }
