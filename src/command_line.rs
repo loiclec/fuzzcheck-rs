@@ -149,8 +149,7 @@ pub fn setup_app<'a, 'b>() -> App<'a, 'b> {
             Err(_) => Err(String::from("must be a valid integer greater than 0")),
             _ => Ok(()),
         })
-        .help("The maximum allowed complexity of inputs.")
-        .hidden(true);
+        .help("The maximum allowed complexity of inputs.");
 
     App::new("fuzzcheck-target")
         .version(option_env!("CARGO_PKG_VERSION").unwrap_or("0.0.0"))
