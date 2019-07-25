@@ -154,9 +154,9 @@ impl<T: Hash + Clone, R> InputPool<T, R> {
             input.score = 0.0;
             for f in input.features.iter() {
                 let simplest_cplx = self.smallest_input_complexity_for_feature[f];
-                let ratio = Self::complexity_ratio(simplest_cplx, input.complexity);
-                assert!(ratio <= 1.0);
-                if (simplest_cplx - input.complexity).abs() < std::f64::EPSILON {
+                // let ratio = Self::complexity_ratio(simplest_cplx, input.complexity);
+                // assert!(ratio <= 1.0);
+                if simplest_cplx == input.complexity {
                     input.flagged_for_deletion = false;
                 }
             }
@@ -306,5 +306,12 @@ impl<T: Hash + Clone, R> InputPool<T, R> {
             }
             Ok(())
         }
+    }
+
+     pub fn empty(&mut self) {
+        self.inputs.clear();
+        self.score = 0.0;
+        self.cumulative_weights.clear();
+        self.smallest_input_complexity_for_feature.clear();
     }
 }

@@ -7,6 +7,9 @@ use crate::world::*;
 use std::hash::Hash;
 use std::result::Result;
 
+use rand::seq::SliceRandom;
+use rand::thread_rng;
+
 struct NotThreadSafe<T>(T);
 struct NotUnwindSafe<T> {
     value: T,
@@ -271,7 +274,21 @@ where
             .world
             .report_event(FuzzerEvent::DidReadCorpus, Some(self.state.stats));
 
+        // TODO: explain reset_pool_time
+        let mut reset_pool_time = self.state.pool.inputs.len();
         while self.state.stats.total_number_of_runs < self.max_iter() {
+            if self.state.pool.inputs.len() >= reset_pool_time {
+                for _ in 0 .. 3 {
+                    self.state.inputs = self.state.pool.inputs.iter().map(|x| x.input.clone()).collect();
+                    self.state.pool.empty();
+                    let mut rng = thread_rng();
+                    self.state.inputs.shuffle(&mut rng);
+                    self.state.input_idx = 0;
+                    self.process_current_inputs()?;
+                }
+                // Arbitrary
+                reset_pool_time = self.state.pool.inputs.len() + 10;
+            }
             self.process_next_inputs()?;
         }
         self.state.world.report_event(FuzzerEvent::Done, Some(self.state.stats));
