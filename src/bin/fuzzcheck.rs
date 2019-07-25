@@ -36,10 +36,21 @@ fn main() {
         FuzzerCommand::Fuzz => fuzz_command(&target, args),
         FuzzerCommand::Minimize => minimize_command(&target, args),
         FuzzerCommand::Read => panic!("unimplemented"),
+        FuzzerCommand::Shrink => shrink_command(&target, args),
     }
 }
 
 fn fuzz_command(executable: &Path, arguments: CommandLineArguments) {
+    println!("{:?}", args_to_string(&arguments));
+    Command::new(executable)
+        .args(args_to_string(&arguments))
+        .stdout(std::process::Stdio::inherit())
+        .stderr(std::process::Stdio::inherit())
+        .output()
+        .expect("failed to execute process");
+}
+
+fn shrink_command(executable: &Path, arguments: CommandLineArguments) {
     println!("{:?}", args_to_string(&arguments));
     Command::new(executable)
         .args(args_to_string(&arguments))
@@ -164,6 +175,17 @@ fn args_to_string(args: &CommandLineArguments) -> Vec<String> {
             }
             s.push("--".to_owned() + MUT_DEPTH_FLAG);
             s.push(args.mutate_depth.to_string());
+        }
+        FuzzerCommand::Shrink => {
+            s.push("shrink".to_owned());
+             if let Some(corpus_in_args) = corpus_in_args {
+                s.append(&mut corpus_in_args.clone());
+            }
+            if let Some(corpus_out_args) = corpus_out_args {
+                s.append(&mut corpus_out_args.clone());
+            }
+            s.push("--".to_owned() + CORPUS_SIZE_FLAG);
+            s.push(args.corpus_size.to_string());
         }
         FuzzerCommand::Fuzz => {
             s.push("fuzz".to_owned());

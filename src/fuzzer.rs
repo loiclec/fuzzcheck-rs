@@ -206,7 +206,7 @@ where
             return Ok(());
         }
         let effect = self.state.pool.add(new_pool_elements);
-        effect(&mut self.state.world);
+        effect(&mut self.state.world)?;
 
         self.state.update_stats();
         self.state.world.report_event(FuzzerEvent::New, Some(self.state.stats));
@@ -279,6 +279,25 @@ where
         Ok(())
     }
 
+    fn shrink_loop(&mut self) -> Result<(), std::io::Error> {
+        self.state.world.start_process();
+        self.state
+            .world
+            .report_event(FuzzerEvent::Start, Some(self.state.stats));
+        self.process_initial_inputs()?;
+        self.state
+            .world
+            .report_event(FuzzerEvent::DidReadCorpus, Some(self.state.stats));
+        while self.state.pool.inputs.len() > self.state.settings.corpus_size {
+            let effect = self.state.pool.remove_lowest();
+            effect(&mut self.state.world)?;
+            self.state.update_stats();
+        }
+        self.state.world.report_event(FuzzerEvent::Done, Some(self.state.stats));
+        Ok(())
+
+    }
+
     fn minimize_loop(&mut self) -> Result<(), std::io::Error> {
         // TODO: change name of this function
         self.state.world.start_process();
@@ -295,7 +314,7 @@ where
         let favored_input = InputPoolElement::new(input, adjusted_complexity, vec![]);
         self.state.pool.favored_input = Some(favored_input);
         let effect = self.state.pool.update_scores();
-        effect(&mut self.state.world);
+        effect(&mut self.state.world)?;
         self.state.settings.max_input_cplx = complexity - 0.01;
         loop {
             self.process_next_inputs()?;
@@ -324,7 +343,8 @@ where
             fuzzer.state.inputs = vec![fuzzer.state.world.read_input_file()?];
             fuzzer.state.input_idx = 0;
             fuzzer.test_current_inputs()?;
-        }
+        },
+        FuzzerCommand::Shrink => fuzzer.shrink_loop()?,
     };
     Ok(())
 }

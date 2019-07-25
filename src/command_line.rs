@@ -7,6 +7,7 @@ pub enum FuzzerCommand {
     Minimize,
     Fuzz,
     Read,
+    Shrink
 }
 
 pub static MAX_NBR_RUNS_FLAG: &str = "max-iter";
@@ -16,6 +17,7 @@ pub static INPUT_FILE_FLAG: &str = "input-file";
 pub static CORPUS_IN_FLAG: &str = "corpus_in";
 pub static CORPUS_OUT_FLAG: &str = "corpus_out";
 pub static ARTIFACTS_FLAG: &str = "artifacts";
+pub static CORPUS_SIZE_FLAG: &str = "corpus_size";
 
 #[derive(Debug, Clone)]
 pub struct CommandLineArguments {
@@ -23,6 +25,7 @@ pub struct CommandLineArguments {
     pub max_nbr_of_runs: usize,
     pub max_input_cplx: f64,
     pub mutate_depth: usize,
+    pub corpus_size: usize,
     pub input_file: Option<PathBuf>,
     pub corpus_in: Option<PathBuf>,
     pub corpus_out: Option<PathBuf>,
@@ -34,6 +37,7 @@ impl CommandLineArguments {
             Some("fuzz") => (FuzzerCommand::Fuzz, "fuzz"),
             Some("read") => (FuzzerCommand::Read, "read"),
             Some("minimize") => (FuzzerCommand::Minimize, "minimize"),
+            Some("shrink") => (FuzzerCommand::Shrink, "shrink"),
             _ => (FuzzerCommand::Fuzz, "fuzz"),
         };
         let app_m = app_m.subcommand_matches(command_name).unwrap_or(app_m);
@@ -57,6 +61,11 @@ impl CommandLineArguments {
             .value_of(INPUT_FILE_FLAG)
             .map(|x| x.parse::<PathBuf>().ok())
             .flatten();
+        let corpus_size: usize = app_m
+            .value_of(CORPUS_SIZE_FLAG)
+            .map(|x| x.parse::<usize>().ok())
+            .flatten()
+            .unwrap_or(100);
         let corpus_in: Option<PathBuf> = app_m
             .value_of(CORPUS_IN_FLAG)
             .map(|x| x.parse::<PathBuf>().ok())
@@ -76,6 +85,7 @@ impl CommandLineArguments {
             max_input_cplx: max_input_cplx as f64,
             mutate_depth,
             input_file,
+            corpus_size,
             corpus_in,
             corpus_out,
             artifacts_folder,
@@ -151,6 +161,18 @@ pub fn setup_app<'a, 'b>() -> App<'a, 'b> {
         })
         .help("The maximum allowed complexity of inputs.");
 
+    let corpus_size_arg = Arg::with_name(CORPUS_SIZE_FLAG)
+        .long(CORPUS_SIZE_FLAG)
+        .value_name("n")
+        .default_value("100")
+        .validator(|v| match v.parse::<u32>() {
+            Ok(x) if x < 1 => Err(String::from("must be greater than 0")),
+            Err(_) => Err(String::from("must be a valid integer greater than 0")),
+            _ => Ok(()),
+        })
+        .help("The target size of the corpus.");
+
+
     App::new("fuzzcheck-target")
         .version(option_env!("CARGO_PKG_VERSION").unwrap_or("0.0.0"))
         .about(option_env!("CARGO_PKG_DESCRIPTION").unwrap_or(""))
@@ -178,5 +200,12 @@ pub fn setup_app<'a, 'b>() -> App<'a, 'b> {
                 .about("Read a crashing input")
                 .arg(&input_arg)
                 .arg(&artifacts_arg),
+        )
+        .subcommand(
+            SubCommand::with_name("shrink")
+                .about("Shrink the size of a corpus")
+                .arg(&corpus_in_arg)
+                .arg(&corpus_out_arg)
+                .arg(&corpus_size_arg)
         )
 }

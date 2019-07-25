@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::hash::Hash;
 use std::marker::PhantomData;
 use std::cmp::Ordering;
+use std::cmp::PartialOrd;
 
 use rand::rngs::ThreadRng;
 use rand::Rng;
@@ -143,7 +144,7 @@ impl<T: Hash + Clone, R> InputPool<T, R> {
         square(simplest / other)
     }
 
-    pub fn update_scores<G>(&mut self) -> impl FnOnce(&mut World<T, G>) -> ()
+    pub fn update_scores<G>(&mut self) -> impl FnOnce(&mut World<T, G>) -> Result<(), std::io::Error>
     where
         G: InputGenerator<Input = T>,
     {
@@ -200,29 +201,35 @@ impl<T: Hash + Clone, R> InputPool<T, R> {
         let deleted_some = !inputs_to_delete.is_empty();
         move |w| {
             for i in &inputs_to_delete {
-                // TODO: handle error
-                let _ = w.remove_from_output_corpus(i.clone());
+                w.remove_from_output_corpus(i.clone())?;
             }
             if deleted_some {
                 w.report_event(FuzzerEvent::Deleted(inputs_to_delete.len()), Option::None);
             }
+            Ok(())
         }
     }
 
-    pub fn add<G>(&mut self, elements: Vec<InputPoolElement<T>>) -> impl FnOnce(&mut World<T, G>) -> ()
+    pub fn add<G>(&mut self, elements: Vec<InputPoolElement<T>>) -> impl FnOnce(&mut World<T, G>) -> Result<(), std::io::Error>
     where
         G: InputGenerator<Input = T>,
     {
+        let mut new_elements: Vec<InputPoolElement<T>> = vec![];
         for element in elements.iter() {
+            let mut useful = false;
             for f in element.features.iter() {
                 let complexity = self.smallest_input_complexity_for_feature.get(&f);
                 if complexity == Option::None || element.complexity < *complexity.unwrap() {
                     let _ = self
                         .smallest_input_complexity_for_feature
                         .insert(f.clone(), element.complexity);
+                    useful = true;
                 }
             }
-            self.inputs.push(element.clone());
+            if useful {
+                self.inputs.push(element.clone());
+                new_elements.push(element.clone());
+            }
         }
         let world_update_1 = self.update_scores();
 
@@ -236,11 +243,11 @@ impl<T: Hash + Clone, R> InputPool<T, R> {
             .collect();
 
         |w: &mut World<T, G>| {
-            world_update_1(w);
-            for i in elements {
-                // TODO
-                let _ = w.add_to_output_corpus(i.input);
+            for i in new_elements {
+                w.add_to_output_corpus(i.input)?;
             }
+            world_update_1(w)?;
+            Ok(())
         }
     }
 
@@ -255,6 +262,49 @@ impl<T: Hash + Clone, R> InputPool<T, R> {
             };
             let x = dist.sample(&mut self.rng);
             InputPoolIndex::Normal(x)
+        }
+    }
+
+    pub fn remove_lowest<G>(&mut self) -> impl FnOnce(&mut World<T, G>) -> Result<(), std::io::Error>
+        where
+        G: InputGenerator<Input = T>,
+    {
+        let input_to_delete: Option<T>;
+
+        if let Some((lowest_input_idx, _)) = self.inputs.iter().enumerate().min_by(|x, y| 
+            PartialOrd::partial_cmp(&x.1.score, &y.1.score).unwrap_or(Ordering::Equal)
+        ) {
+            let lowest_input = self.inputs[lowest_input_idx].clone();
+
+            self.inputs.remove(lowest_input_idx);
+
+            for f in lowest_input.features.iter() {
+                let complexity = self.smallest_input_complexity_for_feature.get(&f).unwrap();
+                if lowest_input.complexity == *complexity {
+                    self.smallest_input_complexity_for_feature.remove(f);
+                }
+            }
+            for element in self.inputs.iter() {
+                for f in element.features.iter() {
+                    // use entry
+                    let complexity = self.smallest_input_complexity_for_feature.get(&f);
+                    if complexity == Option::None || element.complexity < *complexity.unwrap() {
+                        let _ = self
+                            .smallest_input_complexity_for_feature
+                            .insert(f.clone(), element.complexity);
+                    }
+                }
+            }
+            input_to_delete = Some(lowest_input.input);
+
+        } else {
+            input_to_delete = None;
+        }
+        move |w: &mut World<T, G>| {
+            if let Some(input_to_delete) = input_to_delete {
+                w.remove_from_output_corpus(input_to_delete)?
+            }
+            Ok(())
         }
     }
 }

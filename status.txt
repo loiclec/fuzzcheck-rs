@@ -22,11 +22,17 @@ to the user
 * I feel like the analyze function is too slow and I should rethink
 how to handle the trace_cmp instruction
 
+* shrink command does not remove enough inputs if corpus_in == corpus_out 
+because it doesn't add all the initial ones to the pool
+
 ## Features
 
 * build a cargo fuzzcheck tool that manages the fuzzcheck dependency automatically
 
 * create default generators for most basic types
+
+* limit maximum size of corpus
+    * automatically throw out an input every time another one is added
 
 ## Documentation
 
