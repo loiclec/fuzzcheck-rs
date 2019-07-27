@@ -11,6 +11,7 @@ use std::time::Instant;
 use std::marker::PhantomData;
 
 use crate::input::InputGenerator;
+use crate::input_pool::Feature;
 
 #[derive(Clone, Copy, Default)]
 pub struct FuzzerStats {
@@ -103,10 +104,7 @@ where
             if let Some(i) = G::from_data(&data) {
                 inputs.push(i);
             } else {
-                return Result::Err(io::Error::new(
-                    io::ErrorKind::Other,
-                    "The file could not be decoded into a valid input.",
-                ));
+                continue;
             }
         }
         Ok(inputs)
@@ -130,7 +128,7 @@ where
         }
     }
 
-    pub fn add_to_output_corpus(&self, input: T) -> Result<()> {
+    pub fn add_to_output_corpus(&self, input: T, features: Vec<Feature>) -> Result<()> {
         if self.settings.corpus_out.is_none() {
             return Ok(());
         }
@@ -148,6 +146,14 @@ where
         let content = G::to_data(&input);
         let path = corpus.join(name).with_extension("json");
         fs::write(path, content)?;
+
+        if self.settings.debug {
+            let name = format!("{:x}-features", hash);
+            let content = serde_json::to_vec_pretty(&features).unwrap();
+            let path = corpus.join(name).with_extension("json");
+            fs::write(path, content)?;
+        }
+
         Ok(())
     }
 
@@ -164,10 +170,17 @@ where
 
         let path = corpus.join(name).with_extension("json");
         fs::remove_file(path)?;
+
+        if self.settings.debug {
+            let name = format!("{:x}-features", hash);
+            let path = corpus.join(name).with_extension("json");
+            let _ = fs::remove_file(path);
+        }
+
         Ok(())
     }
 
-    pub fn save_artifact(&self, input: &T, cplx: Option<f64>) -> Result<()> {
+    pub fn save_artifact(&self, input: &T, cplx: f64) -> Result<()> {
         let default = Path::new("./artifacts/").to_path_buf();
         let artifacts_folder = self.settings.artifacts_folder.as_ref().unwrap_or(&default).as_path();
 
@@ -180,7 +193,7 @@ where
         let hash = hasher.finish();
         let content = G::to_data(&input);
 
-        let name = if let Some(cplx) = cplx {
+        let name = if let FuzzerCommand::Minimize | FuzzerCommand::Read = self.settings.command {
             format!("{:.0}--{:x}", cplx * 100.0, hash)
         } else {
             format!("{:x}", hash)

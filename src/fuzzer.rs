@@ -67,14 +67,7 @@ where
         match signal {
             4 | 6 | 10 | 11 | 8 => {
                 let input = &self.inputs[self.input_idx];
-                let _ = self.world.save_artifact(
-                    input,
-                    if let FuzzerCommand::Minimize | FuzzerCommand::Read = self.settings.command {
-                        Some(G::complexity(input))
-                    } else {
-                        None
-                    },
-                );
+                let _ = self.world.save_artifact(input, G::complexity(input));
 
                 std::process::exit(FuzzerTerminationStatus::Crash as i32);
             }
@@ -147,14 +140,7 @@ where
                 .report_event(FuzzerEvent::TestFailure, Some(self.state.stats));
             let mut features: Vec<Feature> = Vec::new();
             sensor.iterate_over_collected_features(|f| features.push(f));
-            self.state.world.save_artifact(
-                input,
-                if let FuzzerCommand::Minimize | FuzzerCommand::Read = self.state.settings.command {
-                    Some(G::complexity(&input))
-                } else {
-                    None
-                },
-            )?;
+            self.state.world.save_artifact(input, G::complexity(&input))?;
             std::process::exit(FuzzerTerminationStatus::TestFailure as i32);
         }
         self.state.stats.total_number_of_runs += 1;

@@ -18,6 +18,7 @@ pub static CORPUS_IN_FLAG: &str = "corpus_in";
 pub static CORPUS_OUT_FLAG: &str = "corpus_out";
 pub static ARTIFACTS_FLAG: &str = "artifacts";
 pub static CORPUS_SIZE_FLAG: &str = "corpus_size";
+pub static DEBUG_FLAG: &str = "debug";
 
 #[derive(Debug, Clone)]
 pub struct CommandLineArguments {
@@ -26,6 +27,7 @@ pub struct CommandLineArguments {
     pub max_input_cplx: f64,
     pub mutate_depth: usize,
     pub corpus_size: usize,
+    pub debug: bool,
     pub input_file: Option<PathBuf>,
     pub corpus_in: Option<PathBuf>,
     pub corpus_out: Option<PathBuf>,
@@ -66,6 +68,8 @@ impl CommandLineArguments {
             .map(|x| x.parse::<usize>().ok())
             .flatten()
             .unwrap_or(100);
+        let debug: bool = app_m
+            .is_present(DEBUG_FLAG);
         let corpus_in: Option<PathBuf> = app_m
             .value_of(CORPUS_IN_FLAG)
             .map(|x| x.parse::<PathBuf>().ok())
@@ -84,8 +88,9 @@ impl CommandLineArguments {
             max_nbr_of_runs,
             max_input_cplx: max_input_cplx as f64,
             mutate_depth,
-            input_file,
             corpus_size,
+            debug,
+            input_file,
             corpus_in,
             corpus_out,
             artifacts_folder,
@@ -171,7 +176,10 @@ pub fn setup_app<'a, 'b>() -> App<'a, 'b> {
             _ => Ok(()),
         })
         .help("The target size of the corpus.");
-
+    
+    let debug_arg = Arg::with_name(DEBUG_FLAG)
+        .long(DEBUG_FLAG)
+        .takes_value(false);
 
     App::new("fuzzcheck-target")
         .version(option_env!("CARGO_PKG_VERSION").unwrap_or("0.0.0"))
@@ -186,7 +194,8 @@ pub fn setup_app<'a, 'b>() -> App<'a, 'b> {
                 .arg(&artifacts_arg)
                 .arg(&max_cplx_arg)
                 .arg(&max_iter_arg)
-                .arg(&mut_depth_arg),
+                .arg(&mut_depth_arg)
+                .arg(&debug_arg),
         )
         .subcommand(
             SubCommand::with_name("minimize")
@@ -207,5 +216,6 @@ pub fn setup_app<'a, 'b>() -> App<'a, 'b> {
                 .arg(&corpus_in_arg)
                 .arg(&corpus_out_arg)
                 .arg(&corpus_size_arg)
+                .arg(&debug_arg),
         )
 }

@@ -184,6 +184,9 @@ fn args_to_string(args: &CommandLineArguments) -> Vec<String> {
             if let Some(corpus_out_args) = corpus_out_args {
                 s.append(&mut corpus_out_args.clone());
             }
+            if args.debug {
+                s.push("--debug".to_string());
+            }
             s.push("--".to_owned() + CORPUS_SIZE_FLAG);
             s.push(args.corpus_size.to_string());
         }
@@ -197,6 +200,9 @@ fn args_to_string(args: &CommandLineArguments) -> Vec<String> {
             }
             if let Some(artifacts_args) = artifacts_args {
                 s.append(&mut artifacts_args.clone());
+            }
+            if args.debug {
+                s.push("--debug".to_string());
             }
             s.push("--".to_owned() + MAX_NBR_RUNS_FLAG);
             s.push(args.max_nbr_of_runs.to_string());

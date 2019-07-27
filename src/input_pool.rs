@@ -10,24 +10,26 @@ use rand::Rng;
 use rand::distributions::uniform::{UniformFloat, UniformSampler};
 use rand::distributions::Distribution;
 
+use serde::{Serialize, Deserialize};
+
 use crate::input::InputGenerator;
 use crate::weighted_index::WeightedIndex;
 use crate::world::FuzzerEvent;
 use crate::world::World;
 
-#[derive(PartialEq, Eq, Hash, Clone)]
+#[derive(PartialEq, Eq, Hash, Clone, Serialize, Deserialize)]
 pub enum Feature {
     Edge(EdgeFeature),
     Comparison(ComparisonFeature),
     Indir(IndirFeature),
 }
 
-#[derive(PartialEq, Eq, Hash, Clone)]
+#[derive(PartialEq, Eq, Hash, Clone, Serialize, Deserialize)]
 pub struct EdgeFeature {
     pc_guard: usize,
     intensity: u8,
 }
-#[derive(PartialEq, Eq, Hash, Clone)]
+#[derive(PartialEq, Eq, Hash, Clone, Serialize, Deserialize)]
 pub struct IndirFeature {
     pub caller: usize,
     pub callee: usize,
@@ -52,7 +54,7 @@ impl EdgeFeature {
     }
 }
 
-#[derive(PartialEq, Eq, Hash, Copy, Clone, PartialOrd, Ord)]
+#[derive(PartialEq, Eq, Hash, Copy, Clone, Serialize, Deserialize)]
 pub struct ComparisonFeature {
     pc: usize,
     id: u8,
@@ -215,6 +217,7 @@ impl<T: Hash + Clone, R> InputPool<T, R> {
         G: InputGenerator<Input = T>,
     {
         let mut new_elements: Vec<InputPoolElement<T>> = vec![];
+
         for element in elements.iter() {
             let mut useful = false;
             for f in element.features.iter() {
@@ -244,7 +247,7 @@ impl<T: Hash + Clone, R> InputPool<T, R> {
 
         |w: &mut World<T, G>| {
             for i in new_elements {
-                w.add_to_output_corpus(i.input)?;
+                w.add_to_output_corpus(i.input, i.features)?;
             }
             world_update_1(w)?;
             Ok(())
