@@ -2,17 +2,12 @@
 
 ## Bugs
 
-* the minimize command does not handle any special case
-    * if the input file does not exist
-    * if the input file is of complexity zero
+* errors are not gracefully handled, or even properly explained
 
 * the command line app does not catch signals, so it can't tell
 the user which file is the most minimized at the end. This may be
 solved by only keeping the most minimal version of a file at any point,
 or by catching signals and displaying a message
-
-* some file errors are ignored, they should be displayed and explained
-to the user
 
 * too much complexity, try to simplify stuff
     * much of the complexity is carried over from when I did not know
@@ -22,17 +17,48 @@ to the user
 * I feel like the analyze function is too slow and I should rethink
 how to handle the trace_cmp instruction
 
-* shrink command does not remove enough inputs if corpus_in == corpus_out 
-because it doesn't add all the initial ones to the pool
+* shrink command does not work perfectly, it needs to be run a few times
+to properly shrink the corpus
 
 ## Features
 
-* build a cargo fuzzcheck tool that manages the fuzzcheck dependency automatically
+* build a cargo tool that manages the fuzzcheck dependency automatically
 
 * create default generators for most basic types
 
 * limit maximum size of corpus
     * automatically throw out an input every time another one is added
+
+* rethink how to calculate the score of the inputs
+    * a problem is that traced CMP instructions are passed through an arbitrary
+    filter (only the number of ones in the XOR of the arguments is taken in 
+    consideration, and even then different values may still be considered the 
+    same). So potentially useful ComparisonFeature are ignored.
+    
+    * another problem is that trace_cmp features will either be underrated 
+    (if only one comparison was recorded -> score = 0.5), or overrated (if 
+    many different comparisons were recorded, combined score of features for a
+    single PC may go up to 8.0 I think). Ideally, a single trace_cmp would have
+    a fixed score and each trace_cmp would share that score. This means we need
+    to introduce the concept of “feature groups”. For example, every 
+    ComparisonFeature for PC 13 would be placed in the same 
+    ComparisonFeatureGroup which has a score of 1.0. So that if only one
+    feature was recorded for a given PC, its score would be 1.0, but if 15 
+    features were recorded, their average score would be (1/15). This is a bit
+    difficult to implement in practice, but should be doable.
+
+    * handling the two problems described before would mean that a different 
+    condition for admitting inputs to the pool should be used, as many more
+    comparison features would then be recorded, and the current condition 
+    (that the input is the simplest to contain any feature) would admit way too
+    many inputs. A possible solution is to run a quick estimate of the input’s 
+    worth and to only admit high-ranking ones.
+
+    * fixing these problems would also lead to a more correct shrink commnand
+
+    * but it would also slow down the fuzzer significantly, which I think may
+    not be bad if the improvements lead to a reduction in the number of 
+    iterations needed to find a bug.
 
 ## Documentation
 
