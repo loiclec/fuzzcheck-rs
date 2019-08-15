@@ -64,7 +64,7 @@ impl ComparisonFeature {
     pub fn new(pc: usize, arg1: u64, arg2: u64) -> ComparisonFeature {
         ComparisonFeature {
             pc,
-            id: score_from_counter(arg1.wrapping_sub(arg2).count_ones() as u16),
+            id: score_from_counter((arg1 ^ arg2).count_ones() as u16),
         }
     }
 }
@@ -73,7 +73,7 @@ impl Feature {
     fn score(&self) -> f64 {
         match self {
             Feature::Edge(_) => 1.0,
-            Feature::Comparison(_) => 0.1,
+            Feature::Comparison(_) => 0.5,
             Feature::Indir(_) => 1.0,
         }
     }
