@@ -303,6 +303,16 @@ impl<T: Hash + Clone, R> InputPool<T, R> {
         } else {
             input_to_delete = None;
         }
+
+        self.cumulative_weights = self
+            .inputs
+            .iter()
+            .scan(0.0, |state, x| {
+                *state += x.score;
+                Some(*state)
+            })
+            .collect();
+
         move |w: &mut World<T, G>| {
             if let Some(input_to_delete) = input_to_delete {
                 w.remove_from_output_corpus(input_to_delete)?

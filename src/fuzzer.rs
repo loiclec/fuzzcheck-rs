@@ -261,7 +261,7 @@ where
             .report_event(FuzzerEvent::DidReadCorpus, Some(self.state.stats));
 
         // TODO: explain reset_pool_time
-        let mut reset_pool_time = self.state.pool.inputs.len();
+        let mut reset_pool_time = self.state.pool.inputs.len() + 10;
         while self.state.stats.total_number_of_runs < self.max_iter() {
             if self.state.pool.inputs.len() >= reset_pool_time {
                 for _ in 0 .. 3 {
@@ -272,8 +272,10 @@ where
                     self.state.input_idx = 0;
                     self.process_current_inputs()?;
                 }
+               
                 // Arbitrary
                 reset_pool_time = self.state.pool.inputs.len() + 10;
+                continue;
             }
             self.process_next_inputs()?;
         }
