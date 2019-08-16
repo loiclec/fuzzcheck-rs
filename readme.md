@@ -98,9 +98,7 @@ fn main() {
 Then, we add a dependency to `Cargo.toml`:
 ```toml
 [dependencies]
-# Todo use git version, as I don't think fuzzcheck-input will be 
-# published to crates.io
-fuzzcheck_input = "0.1.0"
+fuzzcheck_input = { git = "https://github.com/loiclec/fuzzcheck-input.git", branch = "master" }
 ```
 
 `fuzzcheck_input` is a library that contains useful mutators to use
@@ -340,7 +338,7 @@ implementation of `to_data` could be:
   }
   ```
 
-## TODO: related works and acknowledgements 
+## Previous work on fuzzing engines
 
 As far as I know, evolutionary, coverage-guided fuzzing engines were
 popularized by [American Fuzzy Lop (AFL)](http://lcamtuf.coredump.cx/afl/).
