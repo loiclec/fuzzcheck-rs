@@ -341,14 +341,14 @@ implementation of `to_data` could be:
 ## Previous work on fuzzing engines
 
 As far as I know, evolutionary, coverage-guided fuzzing engines were
-popularized by [American Fuzzy Lop (AFL)](http://lcamtuf.coredump.cx/afl/).
+popularized by [American Fuzzy Lop (AFL)](http://lcamtuf.coredump.cx/afl/).  
 Fuzzcheck is also evolutionary and coverage-guided.
 
 Later on, LLVM released its own fuzzing engine, 
 [libFuzzer](https://www.llvm.org/docs/LibFuzzer.html), which is based on the
 same ideas as AFL, but it uses Clang’s 
 [SanitizerCoverage](https://clang.llvm.org/docs/SanitizerCoverage.html) and is
-in-process (it lives in the same process as the program being fuzz-tested
+in-process (it lives in the same process as the program being fuzz-tested.  
 Fuzzcheck is also in-process and also uses SanitizerCoverage.
 
 Both AFL and libFuzzer work by manipulating bitstrings (e.g. `1011101011`).
