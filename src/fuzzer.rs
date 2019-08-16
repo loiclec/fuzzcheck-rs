@@ -103,7 +103,7 @@ where
         Fuzzer {
             state: FuzzerState {
                 pool: InputPool::new(),
-                inputs: vec![generator.base_input()],
+                inputs: vec![],
                 input_idx: 0,
                 stats: FuzzerStats::new(),
                 settings,

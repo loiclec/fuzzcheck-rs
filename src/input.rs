@@ -9,7 +9,6 @@ pub trait InputGenerator {
         Self::complexity(input) + 1.0
     }
 
-    fn base_input(&self) -> Self::Input;
     fn new_input(&mut self, max_cplx: f64) -> Self::Input;
 
     fn initial_inputs(&mut self, max_cplx: f64) -> Vec<Self::Input> {
