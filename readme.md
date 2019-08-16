@@ -54,7 +54,7 @@ loop {
 ## Usage
 
 You can find an example project using Fuzzcheck 
-[here](https:://github.com/loiclec/fuzzcheck-rs-example).
+[here](https://github.com/loiclec/fuzzcheck-rs-example).
 
 The first step is to clone Fuzzcheck somewhere on your computer and
 build it with cargo nightly.
