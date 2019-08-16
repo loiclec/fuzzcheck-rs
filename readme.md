@@ -60,7 +60,7 @@ The first step is to clone Fuzzcheck somewhere on your computer and
 build it with cargo nightly.
 
 ```bash
-git clone https:://github.com/loiclec/fuzzcheck-rs
+git clone https://github.com/loiclec/fuzzcheck-rs
 cd fuzzcheck-rs
 cargo +nightly build --release
 ```
