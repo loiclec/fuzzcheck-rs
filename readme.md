@@ -195,7 +195,7 @@ And then build with cargo:
 cargo build --release
 ```
 
-You can launch the fuzzer either by launching the executable directly (not recommended, as you won't have access to every feature):
+You can launch the fuzzer either by running the executable directly (not recommended, as you won't have access to every feature):
 
 ```bash
 cargo run --release
@@ -205,12 +205,68 @@ or via the `fuzzcheck` executable (if you didn't install it to your $PATH, you s
 `/Users/loiclecrenier/Documents/rust/fuzzcheck/target/release/fuzzcheck`).
 
 ```bash
-fuzzcheck --target target/x86_64-apple-darwin/release/fuzzcheck-test
+fuzzcheck --target ./target/x86_64-apple-darwin/release/fuzzcheck-test
 ```
 
-## TODO: Commands
+This starts a loop that will stop when a failing test has been found.
+A line will be printed whenever a newsworthy event happened, along with some
+statistics. For example:
 
-## TODO: Flags
+```
+NEW     100848  score: 380      pool: 21        exec/s: 133345  cplx: 3162
+```
+
+* `NEW` means that a new input was added to the pool of interesting inputs
+* `100848` is the number of iterations that were performed so far
+* `score: 380` is a measure of the total code coverage caused by all inputs
+in the pool
+* `pool: 21` is the number of inputs in the pool
+* `exec/s: 133345` is the average number of iterations performed every second
+* `cplx: 3162` is a measure of the complexity of the inputs in the pool
+
+When a failing test has been found, the following is printed:
+```
+================ TEST FAILED ================
+3696671 score: 2565     pool: 170       exec/s: 71038   cplx: 4050
+Saving at "./artifacts/36847bc18a955330.json"
+```
+
+Here, the path to the artifact file, which contains a JSON-encoding of the
+input that fails the test, is `./artifacts/36847bc18a955330.json`.
+
+Moreover, the fuzzer can maintain a copy of its input pool in the file system,
+which is located by default at `fuzz-corpus/`. Fuzzing corpora are useful to
+kick-start a fuzzing process by providing a list of known interesting inputs.
+
+## Minimize
+
+The `fuzzcheck` executable can also be used to *minimize* a large input that
+fails the test.
+
+Let's say you have a file `crash.json` containing an input that you would like
+to minimize:
+
+```json
+[0,78,56,2,76,7,100,102,102,0,0,78,56,2,76,
+7,100,102,102,0,234,169,95,18,254,102,81,
+41,212,142,0,78,56,2,76,7,100,102,102,0]
+```
+
+Launch the `fuzzcheck` executable and use the `minimize` command along with the required `--input-file` flag and the path to the file.
+
+```bash
+fuzzcheck --target "target/x86_64-apple-darwin/release/fuzzcheck-example" minimize --input-file "crash.json"
+```
+
+This will repeatedly launch the fuzzer in “minimize” mode and save the
+artifacts in the folder `crash.json.minimized`. The name of each artifact will
+be prefixed with the complexity of its input. For example,
+`crash.json.minimized/4380-9cc4d69e50b2cb80.json` has a complexity of `43.80`.
+
+You can stop the minimizing fuzzer at any point and look for the least complex
+input in the artifacts folder.
+
+## TODO: Commands
 
 ## TODO: Creating an InputGenerator
 
