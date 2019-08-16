@@ -50,7 +50,6 @@ where
     G: InputGenerator<Input = T>,
 {
     settings: CommandLineArguments,
-    rng: G::Rng,
     instant: Instant,
     phantom: PhantomData<G>,
 }
@@ -60,10 +59,9 @@ where
     T: Hash + Clone,
     G: InputGenerator<Input = T>,
 {
-    pub fn new(settings: CommandLineArguments, rng: G::Rng) -> Self {
+    pub fn new(settings: CommandLineArguments) -> Self {
         Self {
             settings,
-            rng,
             instant: std::time::Instant::now(),
             phantom: PhantomData,
         }
@@ -206,34 +204,38 @@ where
     }
 
     pub fn report_event(&self, event: FuzzerEvent, stats: Option<FuzzerStats>) {
-        if let FuzzerEvent::Deleted(count) = event {
-            println!("DELETED {:?}", count);
-            return;
-        }
         match event {
-            FuzzerEvent::Start => print!("START"),
-            FuzzerEvent::Done => print!("DONE"),
+            FuzzerEvent::Start => {
+                println!("START");
+                return
+            },
+            FuzzerEvent::Done => {
+                println!("DONE");
+                return
+            },
             FuzzerEvent::New => print!("NEW\t"),
-            FuzzerEvent::DidReadCorpus => print!("FINISHED READING CORPUS"),
+            FuzzerEvent::DidReadCorpus => {
+                println!("FINISHED READING CORPUS");
+                return
+            },
             FuzzerEvent::CaughtSignal(signal) => match signal {
                 4 | 6 | 10 | 11 | 8 => println!("\n================ CRASH DETECTED ================"),
                 2 | 15 => println!("\n================ RUN INTERRUPTED ================"),
                 _ => println!("\n================ SIGNAL {:?} ================", signal),
             },
             FuzzerEvent::TestFailure => println!("\n================ TEST FAILED ================"),
-            FuzzerEvent::Deleted(_) => unreachable!("Deleted case handled separately above"),
+            FuzzerEvent::Deleted(count) => {
+                println!("DELETED {:?}", count);
+                return
+            }
         };
         if let Some(stats) = stats {
             print!("{:?}\t", stats.total_number_of_runs);
             print!("score: {:?}\t", stats.score);
-            print!("corp: {:?}\t", stats.pool_size);
+            print!("pool: {:?}\t", stats.pool_size);
             print!("exec/s: {:?}\t", stats.exec_per_s);
             print!("cplx: {:?}\t", stats.avg_cplx);
+            println!();
         }
-        println!();
-    }
-
-    pub fn rand(&mut self) -> &mut G::Rng {
-        &mut self.rng
     }
 }

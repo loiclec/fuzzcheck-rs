@@ -1,6 +1,5 @@
 use std::collections::HashMap;
 use std::hash::Hash;
-use std::marker::PhantomData;
 use std::cmp::Ordering;
 use std::cmp::PartialOrd;
 
@@ -105,17 +104,16 @@ impl<T: Hash + Clone> InputPoolElement<T> {
     }
 }
 
-pub struct InputPool<T: Hash + Clone, R> {
+pub struct InputPool<T: Hash + Clone> {
     pub inputs: Vec<InputPoolElement<T>>,
     pub favored_input: Option<InputPoolElement<T>>,
     cumulative_weights: Vec<f64>,
     pub score: f64,
     pub smallest_input_complexity_for_feature: HashMap<Feature, f64>,
-    rng: ThreadRng,
-    phantom: PhantomData<R>,
+    rng: ThreadRng
 }
 
-impl<T: Hash + Clone, R> InputPool<T, R> {
+impl<T: Hash + Clone> InputPool<T> {
     pub fn new() -> Self {
         InputPool {
             inputs: vec![],
@@ -124,7 +122,6 @@ impl<T: Hash + Clone, R> InputPool<T, R> {
             score: 0.0,
             smallest_input_complexity_for_feature: HashMap::new(),
             rng: rand::thread_rng(),
-            phantom: PhantomData,
         }
     }
 

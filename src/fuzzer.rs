@@ -31,7 +31,7 @@ where
     T: Hash + Clone,
     G: InputGenerator<Input = T>,
 {
-    pool: InputPool<T, G::Rng>,
+    pool: InputPool<T>,
     inputs: Vec<T>,
     input_idx: usize,
     stats: FuzzerStats,
@@ -216,8 +216,7 @@ where
                 if self.state.stats.total_number_of_runs >= self.max_iter()
                     || !self.generator.mutate(
                         &mut new_input,
-                        self.state.settings.max_input_cplx - cplx,
-                        self.state.world.rand(),
+                        self.state.settings.max_input_cplx - cplx
                     )
                 {
                     break;
@@ -239,7 +238,7 @@ where
             inputs.append(
                 &mut self
                     .generator
-                    .initial_inputs(self.state.settings.max_input_cplx, self.state.world.rand()),
+                    .initial_inputs(self.state.settings.max_input_cplx),
             );
         }
         inputs.drain_filter(|x| G::complexity(x) > self.state.settings.max_input_cplx);
@@ -327,7 +326,7 @@ where
     }
 }
 
-pub fn launch<T, F, G>(test: F, generator: G, rng: G::Rng) -> Result<(), std::io::Error>
+pub fn launch<T, F, G>(test: F, generator: G) -> Result<(), std::io::Error>
 where
     T: Hash + Clone,
     F: Fn(&T) -> bool,
@@ -339,7 +338,7 @@ where
 
     let command = args.command;
 
-    let mut fuzzer = Fuzzer::new(test, generator, args.clone(), World::new(args, rng));
+    let mut fuzzer = Fuzzer::new(test, generator, args.clone(), World::new(args));
     unsafe { fuzzer.state.set_up_signal_handler() };
     match command {
         FuzzerCommand::Fuzz => fuzzer.main_loop()?,

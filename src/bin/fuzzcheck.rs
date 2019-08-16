@@ -26,7 +26,7 @@ fn main() {
                 Err(_) => Err(String::from("must be a valid path to an executable file")),
             })
             .required(true)
-            .help("The fuzz target is the executable file containing launching a fuzzcheck fuzzer."),
+            .help("The fuzz target is the executable file containing the fuzz test."),
     );
     let app_m = app.get_matches();
     let args = CommandLineArguments::from_arg_matches(&app_m);
