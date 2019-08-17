@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use std::hash::Hash;
+
 use std::cmp::Ordering;
 use std::cmp::PartialOrd;
 
@@ -72,7 +72,7 @@ impl Feature {
     fn score(&self) -> f64 {
         match self {
             Feature::Edge(_) => 1.0,
-            Feature::Comparison(_) => 0.5,
+            Feature::Comparison(_) => 0.05,
             Feature::Indir(_) => 1.0,
         }
     }
@@ -84,7 +84,7 @@ pub enum InputPoolIndex {
 }
 
 #[derive(Clone)]
-pub struct InputPoolElement<T: Hash + Clone> {
+pub struct InputPoolElement<T: Clone> {
     pub input: T,
     pub complexity: f64,
     features: Vec<Feature>,
@@ -92,7 +92,7 @@ pub struct InputPoolElement<T: Hash + Clone> {
     flagged_for_deletion: bool,
 }
 
-impl<T: Hash + Clone> InputPoolElement<T> {
+impl<T: Clone> InputPoolElement<T> {
     pub fn new(input: T, complexity: f64, features: Vec<Feature>) -> InputPoolElement<T> {
         InputPoolElement {
             input,
@@ -104,7 +104,7 @@ impl<T: Hash + Clone> InputPoolElement<T> {
     }
 }
 
-pub struct InputPool<T: Hash + Clone> {
+pub struct InputPool<T: Clone> {
     pub inputs: Vec<InputPoolElement<T>>,
     pub favored_input: Option<InputPoolElement<T>>,
     cumulative_weights: Vec<f64>,
@@ -113,7 +113,7 @@ pub struct InputPool<T: Hash + Clone> {
     rng: ThreadRng
 }
 
-impl<T: Hash + Clone> InputPool<T> {
+impl<T: Clone> InputPool<T> {
     pub fn new() -> Self {
         InputPool {
             inputs: vec![],

@@ -4,7 +4,7 @@ use crate::input::*;
 use crate::input_pool::*;
 use crate::signals_handler::*;
 use crate::world::*;
-use std::hash::Hash;
+
 use std::result::Result;
 
 use rand::seq::SliceRandom;
@@ -28,7 +28,7 @@ pub enum FuzzerTerminationStatus {
 
 struct FuzzerState<T, G>
 where
-    T: Hash + Clone,
+    T: Clone,
     G: InputGenerator<Input = T>,
 {
     pool: InputPool<T>,
@@ -42,7 +42,7 @@ where
 
 impl<T, G> FuzzerState<T, G>
 where
-    T: Hash + Clone,
+    T: Clone,
     G: InputGenerator<Input = T>,
 {
     fn update_stats(&mut self) {
@@ -84,7 +84,7 @@ where
 
 pub struct Fuzzer<T, F, G>
 where
-    T: Hash + Clone,
+    T: Clone,
     F: Fn(&T) -> bool,
     G: InputGenerator<Input = T>,
 {
@@ -95,7 +95,7 @@ where
 
 impl<T, F, G> Fuzzer<T, F, G>
 where
-    T: Hash + Clone,
+    T: Clone,
     F: Fn(&T) -> bool,
     G: InputGenerator<Input = T>,
 {
@@ -260,7 +260,7 @@ where
             .report_event(FuzzerEvent::DidReadCorpus, Some(self.state.stats));
 
         // TODO: explain reset_pool_time
-        let mut reset_pool_time = self.state.pool.inputs.len() + 10;
+        let mut reset_pool_time = self.state.pool.inputs.len() + 100;
         while self.state.stats.total_number_of_runs < self.max_iter() {
             if self.state.pool.inputs.len() >= reset_pool_time {
                 for _ in 0 .. 3 {
@@ -273,7 +273,7 @@ where
                 }
                
                 // Arbitrary
-                reset_pool_time = self.state.pool.inputs.len() + 10;
+                reset_pool_time = self.state.pool.inputs.len() + 100;
                 continue;
             }
             self.process_next_inputs()?;
@@ -328,7 +328,7 @@ where
 
 pub fn launch<T, F, G>(test: F, generator: G) -> Result<(), std::io::Error>
 where
-    T: Hash + Clone,
+    T: Clone,
     F: Fn(&T) -> bool,
     G: InputGenerator<Input = T>,
 {

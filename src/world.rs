@@ -1,7 +1,7 @@
 use crate::command_line::*;
 use std::collections::hash_map::DefaultHasher;
 use std::fs;
-use std::hash::Hash;
+
 use std::hash::Hasher;
 use std::io::{self, Result};
 
@@ -46,7 +46,7 @@ pub enum FuzzerEvent {
 
 pub struct World<T, G>
 where
-    T: Hash + Clone,
+    T: Clone,
     G: InputGenerator<Input = T>,
 {
     settings: CommandLineArguments,
@@ -56,7 +56,7 @@ where
 
 impl<T, G> World<T, G>
 where
-    T: Hash + Clone,
+    T: Clone,
     G: InputGenerator<Input = T>,
 {
     pub fn new(settings: CommandLineArguments) -> Self {
@@ -70,7 +70,7 @@ where
 
 impl<T, G> World<T, G>
 where
-    T: Hash + Clone,
+    T: Clone,
     G: InputGenerator<Input = T>,
 {
     pub fn start_process(&mut self) {
@@ -137,7 +137,7 @@ where
         }
 
         let mut hasher = DefaultHasher::new();
-        input.hash(&mut hasher);
+        G::hash(&input, &mut hasher);
         let hash = hasher.finish();
         let name = format!("{:x}", hash);
 
@@ -162,12 +162,12 @@ where
         let corpus = self.settings.corpus_out.as_ref().unwrap().as_path();
 
         let mut hasher = DefaultHasher::new();
-        input.hash(&mut hasher);
+        G::hash(&input, &mut hasher);
         let hash = hasher.finish();
         let name = format!("{:x}", hash);
 
         let path = corpus.join(name).with_extension("json");
-        fs::remove_file(path)?;
+        let _ = fs::remove_file(path);
 
         if self.settings.debug {
             let name = format!("{:x}-features", hash);
@@ -187,7 +187,7 @@ where
         }
 
         let mut hasher = DefaultHasher::new();
-        input.hash(&mut hasher);
+        G::hash(&input, &mut hasher);
         let hash = hasher.finish();
         let content = G::to_data(&input);
 

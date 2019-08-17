@@ -1,7 +1,7 @@
-use core::hash::Hash;
+use std::hash::Hasher;
 
 pub trait InputGenerator {
-    type Input: Hash + Clone;
+    type Input: Clone;
 
     /**
      * Returns the complexity of the given input.
@@ -14,6 +14,11 @@ pub trait InputGenerator {
      * - an integer might have a complexity equal to the number of bytes used to represent it
      */
     fn complexity(input: &Self::Input) -> f64;
+
+    /**
+     * Feeds the input into the Hasher.
+     */
+    fn hash<H>(input: &Self::Input, state: &mut H) where H: Hasher;
 
     fn adjusted_complexity(input: &Self::Input) -> f64 {
         Self::complexity(input) + 1.0
