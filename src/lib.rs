@@ -4,6 +4,7 @@
 #![feature(ptr_offset_from)]
 #![feature(option_flattening)]
 #![allow(dead_code)]
+#![feature(vec_remove_item)]
 
 #[macro_use]
 extern crate lazy_static;

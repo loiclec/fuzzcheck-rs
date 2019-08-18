@@ -49,10 +49,9 @@ where
         let microseconds = self.world.elapsed_time();
         self.stats.exec_per_s =
             (((self.stats.total_number_of_runs as f64) / (microseconds as f64)) * 1_000_000.0) as usize;
-        self.stats.pool_size = self.pool.inputs.len();
-        self.stats.score = (self.pool.score * 10.0).round() as usize;
-        let avg_cplx: f64 = 0.0;
-        self.stats.avg_cplx = (avg_cplx * 100.0).round() as usize;
+        self.stats.pool_size = self.pool.inputs.iter().fold(0, |c, x| if x.is_some() { c + 1 } else { c });
+        self.stats.score = (self.pool.score() * 10.0).round() as usize;
+        self.stats.avg_cplx = (self.pool.average_complexity * 10000.0).round() as usize;
     }
 
     fn receive_signal(&self, signal: i32) -> ! {
@@ -299,16 +298,11 @@ where
             .report_event(FuzzerEvent::Start, Some(self.state.stats));
         let input = self.state.world.read_input_file()?;
 
-        let complexity = G::complexity(&input);
-
         let adjusted_complexity = G::adjusted_complexity(&input);
 
-        let favored_input = InputPoolElement::new(input, adjusted_complexity, vec![]);
-        self.state.pool.favored_input = Some(favored_input);
-        // TODO: proper handling of favored_input
-        // let effect = self.state.pool.update_scores();
-        // effect(&mut self.state.world)?;
-        self.state.settings.max_input_cplx = complexity - 0.01;
+        self.state.pool.favored_input = Some(InputPoolElement::new(input, adjusted_complexity, vec![]););
+
+        self.state.settings.max_input_cplx = G::complexity(&input) - 0.01;
         loop {
             self.process_next_inputs()?;
         }
