@@ -51,12 +51,7 @@ where
             (((self.stats.total_number_of_runs as f64) / (microseconds as f64)) * 1_000_000.0) as usize;
         self.stats.pool_size = self.pool.inputs.len();
         self.stats.score = (self.pool.score * 10.0).round() as usize;
-        let avg_cplx = self
-            .pool
-            .smallest_input_complexity_for_feature
-            .values()
-            .fold(0.0, |x, n| x + n)
-            / (self.pool.smallest_input_complexity_for_feature.len() as f64);
+        let avg_cplx: f64 = 0.0;
         self.stats.avg_cplx = (avg_cplx * 100.0).round() as usize;
     }
 
@@ -161,9 +156,14 @@ where
 
         let cur_input_cplx = G::adjusted_complexity(&self.state.inputs[self.state.input_idx]);
         let sensor = shared_sensor();
-        sensor.iterate_over_collected_features(|feature| {
-            if let Some(old_cplx) = self.state.pool.smallest_input_complexity_for_feature.get(&feature) {
-                if cur_input_cplx < *old_cplx {
+        sensor.iterate_over_collected_features( |feature| {
+            // TODO: here I use the elements_for_feature instead
+            // and maybe I can save the references and pass it to the `add` function to speed up things
+            // and I could even estimate the score of the input!
+            // it won't be correct but may be good enough
+            if let Some(old_input_idx) = self.state.pool.inputs_of_feature.entry(feature.clone()).or_default().last() {
+                let old_cplx = self.state.pool.inputs[*old_input_idx].as_ref().unwrap().complexity;
+                if cur_input_cplx < old_cplx {
                     best_input_for_a_feature = true;
                 }
             } else {
@@ -194,8 +194,11 @@ where
         if new_pool_elements.is_empty() {
             return Ok(());
         }
-        let effect = self.state.pool.add(new_pool_elements);
-        effect(&mut self.state.world)?;
+        // TODO: not ideal
+        for e in new_pool_elements {
+            let effect = self.state.pool.add(e);
+            effect(&mut self.state.world)?;
+        }
 
         self.state.update_stats();
         self.state.world.report_event(FuzzerEvent::New, Some(self.state.stats));
@@ -260,22 +263,7 @@ where
             .report_event(FuzzerEvent::DidReadCorpus, Some(self.state.stats));
 
         // TODO: explain reset_pool_time
-        let mut reset_pool_time = self.state.pool.inputs.len() + 100;
         while self.state.stats.total_number_of_runs < self.max_iter() {
-            if self.state.pool.inputs.len() >= reset_pool_time {
-                for _ in 0 .. 3 {
-                    self.state.inputs = self.state.pool.inputs.iter().map(|x| x.input.clone()).collect();
-                    self.state.pool.empty();
-                    let mut rng = thread_rng();
-                    self.state.inputs.shuffle(&mut rng);
-                    self.state.input_idx = 0;
-                    self.process_current_inputs()?;
-                }
-               
-                // Arbitrary
-                reset_pool_time = self.state.pool.inputs.len() + 100;
-                continue;
-            }
             self.process_next_inputs()?;
         }
         self.state.world.report_event(FuzzerEvent::Done, Some(self.state.stats));
@@ -317,8 +305,9 @@ where
 
         let favored_input = InputPoolElement::new(input, adjusted_complexity, vec![]);
         self.state.pool.favored_input = Some(favored_input);
-        let effect = self.state.pool.update_scores();
-        effect(&mut self.state.world)?;
+        // TODO: proper handling of favored_input
+        // let effect = self.state.pool.update_scores();
+        // effect(&mut self.state.world)?;
         self.state.settings.max_input_cplx = complexity - 0.01;
         loop {
             self.process_next_inputs()?;
