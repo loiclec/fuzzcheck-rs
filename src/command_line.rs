@@ -7,7 +7,7 @@ pub enum FuzzerCommand {
     Minimize,
     Fuzz,
     Read,
-    Shrink
+    Shrink,
 }
 
 pub static MAX_NBR_RUNS_FLAG: &str = "max-iter";
@@ -68,8 +68,7 @@ impl CommandLineArguments {
             .map(|x| x.parse::<usize>().ok())
             .flatten()
             .unwrap_or(100);
-        let debug: bool = app_m
-            .is_present(DEBUG_FLAG);
+        let debug: bool = app_m.is_present(DEBUG_FLAG);
         let corpus_in: Option<PathBuf> = app_m
             .value_of(CORPUS_IN_FLAG)
             .map(|x| x.parse::<PathBuf>().ok())
@@ -176,10 +175,8 @@ pub fn setup_app<'a, 'b>() -> App<'a, 'b> {
             _ => Ok(()),
         })
         .help("The target size of the corpus.");
-    
-    let debug_arg = Arg::with_name(DEBUG_FLAG)
-        .long(DEBUG_FLAG)
-        .takes_value(false);
+
+    let debug_arg = Arg::with_name(DEBUG_FLAG).long(DEBUG_FLAG).takes_value(false);
 
     App::new("fuzzcheck-target")
         .version(option_env!("CARGO_PKG_VERSION").unwrap_or("0.0.0"))

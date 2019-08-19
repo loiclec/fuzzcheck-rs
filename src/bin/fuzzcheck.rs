@@ -178,7 +178,7 @@ fn args_to_string(args: &CommandLineArguments) -> Vec<String> {
         }
         FuzzerCommand::Shrink => {
             s.push("shrink".to_owned());
-             if let Some(corpus_in_args) = corpus_in_args {
+            if let Some(corpus_in_args) = corpus_in_args {
                 s.append(&mut corpus_in_args.clone());
             }
             if let Some(corpus_out_args) = corpus_out_args {

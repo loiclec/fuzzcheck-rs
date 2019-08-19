@@ -5,10 +5,10 @@ pub trait InputGenerator {
 
     /**
      * Returns the complexity of the given input.
-     * 
+     *
      * Fuzzcheck will prefer using inputs with a smaller complexity.
      * Important: The return value must be >= 0.0
-     * 
+     *
      * ## Examples
      * - an array might have a complexity equal to the sum of complexities of its elements
      * - an integer might have a complexity equal to the number of bytes used to represent it
@@ -18,7 +18,9 @@ pub trait InputGenerator {
     /**
      * Feeds the input into the Hasher.
      */
-    fn hash<H>(input: &Self::Input, state: &mut H) where H: Hasher;
+    fn hash<H>(input: &Self::Input, state: &mut H)
+    where
+        H: Hasher;
 
     fn adjusted_complexity(input: &Self::Input) -> f64 {
         Self::complexity(input) + 1.0
@@ -38,14 +40,14 @@ pub trait InputGenerator {
 
     /**
      * Mutate the given input.
-     * 
+     *
      * Fuzzcheck will call this method repeatedly in order to explore all the
      * possible values of Input. It is therefore important that it is implemented
      * efficiently.
-     * 
+     *
      * It should be theoretically possible to mutate any arbitrary input `u1` into any
      * other arbitrary input `u2` by calling `mutate` repeatedly.
-     * 
+     *
      * Moreover, the result of `mutate` should try to be “interesting” to Fuzzcheck.
      * That is, it should be likely to trigger new code paths when passed to the
      * test function.

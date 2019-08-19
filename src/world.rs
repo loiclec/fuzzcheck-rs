@@ -207,17 +207,17 @@ where
         match event {
             FuzzerEvent::Start => {
                 println!("START");
-                return
-            },
+                return;
+            }
             FuzzerEvent::Done => {
                 println!("DONE");
-                return
-            },
+                return;
+            }
             FuzzerEvent::New => print!("NEW\t"),
             FuzzerEvent::DidReadCorpus => {
                 println!("FINISHED READING CORPUS");
-                return
-            },
+                return;
+            }
             FuzzerEvent::CaughtSignal(signal) => match signal {
                 4 | 6 | 10 | 11 | 8 => println!("\n================ CRASH DETECTED ================"),
                 2 | 15 => println!("\n================ RUN INTERRUPTED ================"),
@@ -226,7 +226,7 @@ where
             FuzzerEvent::TestFailure => println!("\n================ TEST FAILED ================"),
             FuzzerEvent::Deleted(count) => {
                 println!("DELETED {:?}", count);
-                return
+                return;
             }
         };
         if let Some(stats) = stats {

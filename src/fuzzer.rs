@@ -46,7 +46,11 @@ where
         let microseconds = self.world.elapsed_time();
         self.stats.exec_per_s =
             (((self.stats.total_number_of_runs as f64) / (microseconds as f64)) * 1_000_000.0) as usize;
-        self.stats.pool_size = self.pool.inputs.iter().fold(0, |c, x| if x.is_some() { c + 1 } else { c });
+        self.stats.pool_size = self
+            .pool
+            .inputs
+            .iter()
+            .fold(0, |c, x| if x.is_some() { c + 1 } else { c });
         self.stats.score = (self.pool.score() * 10.0).round() as usize;
         self.stats.avg_cplx = (self.pool.average_complexity * 10000.0).round() as usize;
     }
@@ -152,9 +156,16 @@ where
 
         let cur_input_cplx = G::adjusted_complexity(&self.state.inputs[self.state.input_idx]);
         let sensor = shared_sensor();
-        
-        sensor.iterate_over_collected_features( |feature| {
-            if let Some(old_input_idx) = self.state.pool.inputs_of_feature.entry(feature.clone()).or_default().last() {
+
+        sensor.iterate_over_collected_features(|feature| {
+            if let Some(old_input_idx) = self
+                .state
+                .pool
+                .inputs_of_feature
+                .entry(feature.clone())
+                .or_default()
+                .last()
+            {
                 let old_cplx = self.state.pool.inputs[*old_input_idx].as_ref().unwrap().complexity;
                 if cur_input_cplx < old_cplx {
                     best_input_for_a_feature = true;
@@ -210,10 +221,9 @@ where
             let mut cplx = pool_element.complexity - 1.0;
             for _ in 0..self.state.settings.mutate_depth {
                 if self.state.stats.total_number_of_runs >= self.max_iter()
-                    || !self.generator.mutate(
-                        &mut new_input,
-                        self.state.settings.max_input_cplx - cplx
-                    )
+                    || !self
+                        .generator
+                        .mutate(&mut new_input, self.state.settings.max_input_cplx - cplx)
                 {
                     break;
                 }
@@ -231,11 +241,7 @@ where
     fn process_initial_inputs(&mut self) -> Result<(), std::io::Error> {
         let mut inputs = self.state.world.read_input_corpus().unwrap_or_default();
         if inputs.is_empty() {
-            inputs.append(
-                &mut self
-                    .generator
-                    .initial_inputs(self.state.settings.max_input_cplx),
-            );
+            inputs.append(&mut self.generator.initial_inputs(self.state.settings.max_input_cplx));
         }
         inputs.drain_filter(|x| G::complexity(x) > self.state.settings.max_input_cplx);
 
@@ -280,7 +286,6 @@ where
         }
         self.state.world.report_event(FuzzerEvent::Done, Some(self.state.stats));
         Ok(())
-
     }
 
     fn minimize_loop(&mut self) -> Result<(), std::io::Error> {
@@ -325,7 +330,7 @@ where
             fuzzer.state.inputs = vec![fuzzer.state.world.read_input_file()?];
             fuzzer.state.input_idx = 0;
             fuzzer.test_current_inputs()?;
-        },
+        }
         FuzzerCommand::Shrink => fuzzer.shrink_loop()?,
     };
     Ok(())
