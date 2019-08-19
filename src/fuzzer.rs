@@ -29,8 +29,7 @@ where
     G: InputGenerator<Input = T>,
 {
     pool: InputPool<T>,
-    inputs: Vec<T>,
-    input_idx: usize,
+    input: T,
     stats: FuzzerStats,
     settings: CommandLineArguments,
     world: World<T, G>,
@@ -61,8 +60,7 @@ where
 
         match signal {
             4 | 6 | 10 | 11 | 8 => {
-                let input = &self.inputs[self.input_idx];
-                let _ = self.world.save_artifact(input, G::complexity(input));
+                let _ = self.world.save_artifact(&self.input, G::complexity(&self.input));
 
                 std::process::exit(FuzzerTerminationStatus::Crash as i32);
             }
@@ -98,8 +96,7 @@ where
         Fuzzer {
             state: FuzzerState {
                 pool: InputPool::new(),
-                inputs: vec![],
-                input_idx: 0,
+                input: G::base_input(),
                 stats: FuzzerStats::new(),
                 settings,
                 world,
@@ -118,15 +115,17 @@ where
         }
     }
 
-    fn test_input(&mut self, i: usize) -> Result<(), std::io::Error> {
+    fn test_input(&mut self) -> Result<(), std::io::Error> {
+        
         let sensor = shared_sensor();
         sensor.clear();
-        let input = &self.state.inputs[i];
+
         sensor.is_recording = true;
 
         let cell = NotUnwindSafe { value: &self };
-        let input_cell = NotUnwindSafe { value: input };
+        let input_cell = NotUnwindSafe { value: &self.state.input };
         let result = std::panic::catch_unwind(|| (cell.value.test)(input_cell.value));
+        
         sensor.is_recording = false;
 
         if result.is_err() || !result.unwrap() {
@@ -135,17 +134,10 @@ where
                 .report_event(FuzzerEvent::TestFailure, Some(self.state.stats));
             let mut features: Vec<Feature> = Vec::new();
             sensor.iterate_over_collected_features(|f| features.push(f));
-            self.state.world.save_artifact(input, G::complexity(&input))?;
+            self.state.world.save_artifact(&self.state.input, G::complexity(&self.state.input))?;
             std::process::exit(FuzzerTerminationStatus::TestFailure as i32);
         }
         self.state.stats.total_number_of_runs += 1;
-        Ok(())
-    }
-
-    fn test_current_inputs(&mut self) -> Result<(), std::io::Error> {
-        for i in 0..self.state.inputs.len() {
-            self.test_input(i)?;
-        }
         Ok(())
     }
 
@@ -154,7 +146,7 @@ where
 
         let mut best_input_for_a_feature = false;
 
-        let cur_input_cplx = G::adjusted_complexity(&self.state.inputs[self.state.input_idx]);
+        let cur_input_cplx = G::adjusted_complexity(&self.state.input);
         let sensor = shared_sensor();
 
         sensor.iterate_over_collected_features(|feature| {
@@ -178,7 +170,7 @@ where
 
         if best_input_for_a_feature {
             Some(InputPoolElement::new(
-                self.state.inputs[self.state.input_idx].clone(),
+                self.state.input.clone(),
                 cur_input_cplx,
                 features,
             ))
@@ -187,21 +179,15 @@ where
         }
     }
 
-    fn process_current_inputs(&mut self) -> Result<(), std::io::Error> {
-        let mut new_pool_elements: Vec<InputPoolElement<T>> = Vec::new();
-        for idx in 0..self.state.inputs.len() {
-            self.state.input_idx = idx;
-            self.test_input(idx)?;
-            if let Some(new_pool_element) = self.analyze() {
-                new_pool_elements.push(new_pool_element);
-            }
-        }
-        if new_pool_elements.is_empty() {
-            return Ok(());
-        }
-        for e in new_pool_elements {
-            let effect = self.state.pool.add(e);
+    fn test_input_and_analyze(&mut self) -> Result<(), std::io::Error> {
+        
+        self.test_input()?;
+        
+        if let Some(new_pool_element) = self.analyze() {
+            let effect = self.state.pool.add(new_pool_element);
             effect(&mut self.state.world)?;
+        } else {
+            return Ok(());
         }
 
         self.state.update_stats();
@@ -211,30 +197,28 @@ where
     }
 
     fn process_next_inputs(&mut self) -> Result<(), std::io::Error> {
-        self.state.inputs.clear();
-        self.state.input_idx = 0;
-        while self.state.inputs.len() < 10 {
-            let idx = self.state.pool.random_index();
-            let pool_element = self.state.pool.get(idx);
-            let mut new_input = pool_element.input.clone();
+        
+        let idx = self.state.pool.random_index();
+        let pool_element = self.state.pool.get(idx);
+        self.state.input = pool_element.input.clone();
 
-            let mut cplx = pool_element.complexity - 1.0;
-            for _ in 0..self.state.settings.mutate_depth {
-                if self.state.stats.total_number_of_runs >= self.max_iter()
-                    || !self
-                        .generator
-                        .mutate(&mut new_input, self.state.settings.max_input_cplx - cplx)
-                {
-                    break;
-                }
-                cplx = G::complexity(&new_input);
-                if cplx >= self.state.settings.max_input_cplx {
-                    continue;
-                }
-                self.state.inputs.push(new_input.clone());
+        let mut cplx = pool_element.complexity - 1.0;
+        
+        for _ in 0..self.state.settings.mutate_depth {
+            if self.state.stats.total_number_of_runs >= self.max_iter()
+                || !self
+                    .generator
+                    .mutate(&mut self.state.input, self.state.settings.max_input_cplx - cplx)
+            {
+                break;
             }
-            self.process_current_inputs()?;
+            cplx = G::complexity(&self.state.input);
+            if cplx >= self.state.settings.max_input_cplx {
+                continue;
+            }
+            self.test_input_and_analyze()?;
         }
+    
         Ok(())
     }
 
@@ -245,9 +229,11 @@ where
         }
         inputs.drain_filter(|x| G::complexity(x) > self.state.settings.max_input_cplx);
 
-        self.state.inputs.append(&mut inputs);
-        self.state.input_idx = 0;
-        self.process_current_inputs()?;
+        for input in inputs {
+            self.state.input = input;
+            self.test_input_and_analyze()?;
+        }
+        
         Ok(())
     }
 
@@ -327,9 +313,8 @@ where
         FuzzerCommand::Fuzz => fuzzer.main_loop()?,
         FuzzerCommand::Minimize => fuzzer.minimize_loop()?,
         FuzzerCommand::Read => {
-            fuzzer.state.inputs = vec![fuzzer.state.world.read_input_file()?];
-            fuzzer.state.input_idx = 0;
-            fuzzer.test_current_inputs()?;
+            fuzzer.state.input = fuzzer.state.world.read_input_file()?;
+            fuzzer.test_input()?;
         }
         FuzzerCommand::Shrink => fuzzer.shrink_loop()?,
     };

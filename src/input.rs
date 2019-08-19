@@ -26,6 +26,8 @@ pub trait InputGenerator {
         Self::complexity(input) + 1.0
     }
 
+    fn base_input() -> Self::Input;
+
     /**
      * Return a new input to test.
      *

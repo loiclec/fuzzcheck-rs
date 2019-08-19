@@ -863,6 +863,9 @@ mod tests {
         {
             input.hash(state)
         }
+        fn base_input() -> Self::Input {
+            0
+        }
         fn new_input(&mut self, _max_cplx: f64) -> Self::Input {
             0
         }
