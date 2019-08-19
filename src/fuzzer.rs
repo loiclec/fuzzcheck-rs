@@ -7,9 +7,6 @@ use crate::world::*;
 
 use std::result::Result;
 
-use rand::seq::SliceRandom;
-use rand::thread_rng;
-
 struct NotThreadSafe<T>(T);
 struct NotUnwindSafe<T> {
     value: T,
@@ -155,11 +152,8 @@ where
 
         let cur_input_cplx = G::adjusted_complexity(&self.state.inputs[self.state.input_idx]);
         let sensor = shared_sensor();
+        
         sensor.iterate_over_collected_features( |feature| {
-            // TODO: here I use the elements_for_feature instead
-            // and maybe I can save the references and pass it to the `add` function to speed up things
-            // and I could even estimate the score of the input!
-            // it won't be correct but may be good enough
             if let Some(old_input_idx) = self.state.pool.inputs_of_feature.entry(feature.clone()).or_default().last() {
                 let old_cplx = self.state.pool.inputs[*old_input_idx].as_ref().unwrap().complexity;
                 if cur_input_cplx < old_cplx {
@@ -170,6 +164,7 @@ where
             }
             features.push(feature);
         });
+
         if best_input_for_a_feature {
             Some(InputPoolElement::new(
                 self.state.inputs[self.state.input_idx].clone(),
@@ -193,7 +188,6 @@ where
         if new_pool_elements.is_empty() {
             return Ok(());
         }
-        // TODO: not ideal
         for e in new_pool_elements {
             let effect = self.state.pool.add(e);
             effect(&mut self.state.world)?;
@@ -213,7 +207,7 @@ where
             let pool_element = self.state.pool.get(idx);
             let mut new_input = pool_element.input.clone();
 
-            let mut cplx = pool_element.complexity - 1.0; // TODO: why - 1.0?
+            let mut cplx = pool_element.complexity - 1.0;
             for _ in 0..self.state.settings.mutate_depth {
                 if self.state.stats.total_number_of_runs >= self.max_iter()
                     || !self.generator.mutate(
@@ -298,11 +292,12 @@ where
             .report_event(FuzzerEvent::Start, Some(self.state.stats));
         let input = self.state.world.read_input_file()?;
 
+        self.state.settings.max_input_cplx = G::complexity(&input) - 0.01;
+
         let adjusted_complexity = G::adjusted_complexity(&input);
 
-        self.state.pool.favored_input = Some(InputPoolElement::new(input, adjusted_complexity, vec![]););
+        self.state.pool.favored_input = Some(InputPoolElement::new(input, adjusted_complexity, vec![]));
 
-        self.state.settings.max_input_cplx = G::complexity(&input) - 0.01;
         loop {
             self.process_next_inputs()?;
         }

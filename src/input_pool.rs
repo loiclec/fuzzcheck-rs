@@ -107,8 +107,6 @@ impl<T: Clone> InputPoolElement<T> {
     }
 }
 
-// TODO: avg complexity
-
 #[derive(Debug)]
 pub struct InputPool<T: Clone> {
     pub inputs: Vec<Option<InputPoolElement<T>>>,
@@ -146,105 +144,124 @@ impl<T: Clone> InputPool<T> {
     where
         G: InputGenerator<Input = T>,
     {
-        /* THINGS TO DO:
-        - Update the score of every element that shares a common feature
-        - Update the list of inputs for each feature
-        - Make sure the multiplicities of each feature are correct
-            - it can only increase by 1, stay the same, or be reduced 
-
+        /* Goals:
+        1. Find for which of its features the new element is the least complex (TODO: phrasing)
+        2. Delete elements that are not worth keeping anymore
+        3. Update the score of every element that shares a common feature with the new one
+        4. Update the list of inputs for each feature
+        5. Find the score of the new element
+        6. Keep the metadata of the pool consistent (cumulative weights, average_complexity)
+        7. Inform the external world of the actions taken in this function
         */
-        // This should be faster than the old because I use fewer HashMap subscripts 
-        // and only modify elements that should be modified 
+        
+        // An element's id is its index in the pool. We already know that the element
+        // will be added at the end of the pool, so its id is the length of the pool.
+        element.id = self.inputs.len();
 
-        // will be the size of element.features after the following loop
+        // The following loop is for Goal 1 and 2. 
         let mut to_delete: Vec<usize> = vec![];
-
         for feature in element.features.iter() {
             let inputs_of_feature = self.inputs_of_feature.entry(*feature).or_default();
                         
-            // go through every element affected by the addition of the new input to the pool
-
+            // This loop also computes for which features the new element is the least 
+            // complex in the pool to contain them (TODO: phrasing)
             let mut least_complex_for_this_feature = true;
 
-            for idx in inputs_of_feature.iter() {
-                let element_with_feature = &mut self.inputs[*idx].as_mut().unwrap();
+            // Go through every element affected by the addition of the new input to the pool
+            // which is every element that shares a common feature with it.
+            for id in inputs_of_feature.iter() {
+                
+                // Note that it is likely that affected_element has already been
+                // processed for a previous feature, and has already been marked
+                // for deletion. We go through the loop anyway and will add it
+                // again to the `to_delete` list. Then, duplicate elements in the
+                // list will be removed. Ref: #PBeq2fKehxcEz
+                let affected_element = &mut self.inputs[*id].as_mut().unwrap();
+                
                 // if the complexity of that element is higher than the new input,
                 // myaybe it needs to be deleted. We need to make sure it is still the
-                // smallest for a feature and is worth keeping.
+                // smallest for any feature and is worth keeping.
+                if affected_element.complexity >= element.complexity {
+                    // The following line will not do anything in most cases, because
+                    // it is unlikely that the affected element is the least complex
+                    // for any particular feature.
+                    affected_element.least_complex_for_features.remove(feature);
 
-                // Note that there is still the problem of having two elements of the same
-                // complexity being kept in the pool because they are both the smallest for 
-                // the same feature. I should think about that carefully. It can be resolved
-                // by comparing the scores of the candidates.
-                if element_with_feature.complexity >= element.complexity {
-
-                    // will not do anything in most cases
-                    element_with_feature.least_complex_for_features.remove(feature);
-                    if element_with_feature.least_complex_for_features.is_empty() {
-                        to_delete.push(*idx);
+                    // If the element is not worth keeping, we add its `id` to a list of
+                    // elements to delete. We batch deletions for simplicity and speed.
+                    if affected_element.least_complex_for_features.is_empty() {
+                        // Goal 2.
+                        to_delete.push(*id);
                     }
                 } else {
+                    // One of the affected element for this feature is less complex than the new one.
+                    // This means the new element is not the least complex for this feature.
                     least_complex_for_this_feature = false;
                 }
             }
 
             if least_complex_for_this_feature {
+                // Goal 1.
                 element.least_complex_for_features.insert(*feature);
             }
         }
-
+        // Goal 2. 
+        
+        // See: #PBeq2fKehxcEz
         to_delete.sort();
         to_delete.dedup();
 
+        // Goal 7: We save the inputs that are deleted in order to inform the external world of that action later
         let inputs_to_delete: Vec<_> = to_delete.iter().map(|idx| self.inputs[*idx].as_ref().unwrap().input.clone()).collect();
 
-        for id in to_delete.iter() {
-            self.remove_input_id(*id);
-        }
+        // Actually delete the elements marked for deletion
+        to_delete.iter().for_each(|id| self.remove_input_id(*id));    
 
-        element.id = self.inputs.len();
-        let mut i = 0;
+        // The following loop is for Goal 3, 4, and 5.
         for feature in element.features.iter() {
             let inputs_of_feature = self.inputs_of_feature.entry(*feature).or_default();
-            
-            let mut keep: Vec<bool> = vec![];
-            for idx in inputs_of_feature.iter() {
-                keep.push(self.inputs[*idx].is_some());
+
+            // Goal 3.
+            // Updating the score of each affected element is done by subtracting the
+            // previous portion of the score caused by the feature, and adding the new one
+            // The portion of the score caused by a feature is `feature.score() / nbr_inputs_containing_feature`
+            for id in inputs_of_feature.iter() {
+                let element_with_feature = &mut self.inputs[*id].as_mut().unwrap();
+                element_with_feature.score = element_with_feature.score
+                                            - feature.score() / (inputs_of_feature.len() as f64)
+                                            + feature.score() / ((inputs_of_feature.len()+1) as f64);
             }
 
-            let old_mult = inputs_of_feature.len();
-
-            let mut j = 0;
-            inputs_of_feature.retain(|_| (keep[j], j += 1).0);   
-
-            for idx in inputs_of_feature.iter() {
-                if let Some(element_with_feature) = &mut self.inputs[*idx].as_mut() {
-                    // we adjust the score of the element by removing the old score from the 
-                    // feature and adding the new one
-                    element_with_feature.score = element_with_feature.score
-                                                - feature.score() / (old_mult as f64)
-                                                + feature.score() / ((inputs_of_feature.len() + 1) as f64)
-                }
-            }
-            
+            // Goal 4.
             // Push, assuming sorted array, then I have as sorted list of all
-            // the inputs containing the feature, which is handy
-            let mut insertion = 0;
-            for e in inputs_of_feature.iter() {
-                if self.inputs[*e].as_ref().map(|x| x.complexity).unwrap_or(-1.0) < element.complexity {
-                    break
-                }
-                insertion += 1;
-            }
-            inputs_of_feature.insert(insertion, element.id);
+            // the inputs containing the feature, which is handy for other opeartions
+            let inputs = &mut self.inputs; 
+            sorted_push(inputs_of_feature, element.id, |e| 
+                inputs[*e].as_ref().map(|x| x.complexity).unwrap_or(-1.0) < element.complexity
+            );
 
+            // Goal 5.
             element.score += feature.score() / (inputs_of_feature.len() as f64);
-
-            i += 1
         }
         
         self.inputs.push(Some(element.clone()));
 
+        // Goal 6.
+        self.update_metadata();
+
+        // Goal 7.
+        move |w: &mut World<T, G>| {
+            for i in &inputs_to_delete {
+                w.remove_from_output_corpus(i.clone())?;
+            }
+            if !inputs_to_delete.is_empty() {
+                w.report_event(FuzzerEvent::Deleted(inputs_to_delete.len()), Option::None);
+            }
+            Ok(())
+        }
+    }
+
+    fn update_metadata(&mut self) {
         self.cumulative_weights = self
             .inputs
             .iter()
@@ -259,16 +276,6 @@ impl<T: Clone> InputPool<T> {
             self.average_complexity = 0.0;
         } else {
             self.average_complexity = self.inputs.iter().filter_map(|x| x.as_ref()).fold(0.0, |c, x| c + x.complexity) / len as f64;
-        }
-
-        move |w: &mut World<T, G>| {
-            for i in &inputs_to_delete {
-                w.remove_from_output_corpus(i.clone())?;
-            }
-            if !inputs_to_delete.is_empty() {
-                w.report_event(FuzzerEvent::Deleted(inputs_to_delete.len()), Option::None);
-            }
-            Ok(())
         }
     }
 
@@ -303,7 +310,7 @@ impl<T: Clone> InputPool<T> {
 
             for f in e.features.iter() {
                 if let Some(new_lowest_cplx_id_for_f) = self.inputs_of_feature.get(f).map(|x| x.last().copied()).flatten() {
-                    let mut new_lowest_e_for_f = &mut self.inputs[new_lowest_cplx_id_for_f].as_mut().unwrap();
+                    let new_lowest_e_for_f = &mut self.inputs[new_lowest_cplx_id_for_f].as_mut().unwrap();
                     if new_lowest_e_for_f.least_complex_for_features.contains(f) { continue }
                     new_lowest_e_for_f.least_complex_for_features.insert(*f);
                 }
@@ -312,21 +319,7 @@ impl<T: Clone> InputPool<T> {
             input_to_delete = None;
         }
 
-        self.cumulative_weights = self
-            .inputs
-            .iter()
-            .scan(0.0, |state, x| {
-                *state += x.as_ref().map(|x| x.score).unwrap_or(0.0);
-                Some(*state)
-            })
-            .collect();
-
-        let len = self.inputs.iter().fold(0, |c, x| if x.is_some() { c + 1 } else { c });
-        if len == 0 {
-            self.average_complexity = 0.0;
-        } else {
-            self.average_complexity = self.inputs.iter().filter_map(|x| x.as_ref()).fold(0.0, |c, x| c + x.complexity) / len as f64;
-        }
+        self.update_metadata();
 
         move |w: &mut World<T, G>| {
             if let Some(input_to_delete) = input_to_delete {
@@ -340,7 +333,9 @@ impl<T: Clone> InputPool<T> {
         let e = self.inputs[id].as_ref().unwrap().clone();
         assert_eq!(e.id, id);
         for f in e.features.iter() {
-            self.inputs_of_feature.entry(*f).and_modify(|x| { x.remove_item(&e.id); });
+            self.inputs_of_feature.entry(*f).and_modify(|x| { 
+                x.remove_item(&e.id); 
+            });
             let new_mult = self.inputs_of_feature[f].len();
             for j in self.inputs_of_feature[f].iter() {
                 let mut e = &mut self.inputs[*j].as_mut().unwrap();
@@ -352,6 +347,15 @@ impl<T: Clone> InputPool<T> {
         }
         self.inputs[e.id] = None;
     }
+}
+
+fn sorted_push<T: PartialEq, F>(vec: &mut Vec<T>, element: T, is_before: F) where F: Fn(&T) -> bool {
+    let mut insertion = 0;
+    for e in vec.iter() {
+        if is_before(e) { break }
+        insertion += 1;
+    }
+    vec.insert(insertion, element);
 }
 
 #[cfg(test)]
@@ -388,7 +392,7 @@ mod tests {
         let features = vec![f1, f2];
         let element = InputPoolElement::<u8>::new(255, 10.0, features.clone());
 
-        pool.add::<U8Gen>(element.clone());
+        let _ = pool.add::<U8Gen>(element.clone());
 
         let predicted_element_in_pool = InputPoolElement::<u8> {
             id: 0,
@@ -425,8 +429,8 @@ mod tests {
         let features_2 = vec![f3, f4];
         let element_2 = InputPoolElement::<u8>::new(254, 25.0, features_2.clone());
 
-        pool.add::<U8Gen>(element_1.clone());
-        pool.add::<U8Gen>(element_2.clone());
+        let _ = pool.add::<U8Gen>(element_1.clone());
+        let _ = pool.add::<U8Gen>(element_2.clone());
 
 
         let predicted_element_1_in_pool = InputPoolElement::<u8> {
@@ -477,8 +481,8 @@ mod tests {
         let features_2 = vec![f1, f3];
         let element_2 = InputPoolElement::<u8>::new(254, 25.0, features_2.clone());
 
-        pool.add::<U8Gen>(element_1.clone());
-        pool.add::<U8Gen>(element_2.clone());
+        let _ = pool.add::<U8Gen>(element_1.clone());
+        let _ = pool.add::<U8Gen>(element_2.clone());
 
 
         let predicted_element_1_in_pool = InputPoolElement::<u8> {
@@ -528,8 +532,8 @@ mod tests {
         let features_2 = vec![f1, f3];
         let element_2 = InputPoolElement::<u8>::new(254, 10.0, features_2.clone());
 
-        pool.add::<U8Gen>(element_1.clone());
-        pool.add::<U8Gen>(element_2.clone());
+        let _ = pool.add::<U8Gen>(element_1.clone());
+        let _ = pool.add::<U8Gen>(element_2.clone());
 
 
         let predicted_element_1_in_pool = InputPoolElement::<u8> {
@@ -578,8 +582,8 @@ mod tests {
 
         let element_2 = InputPoolElement::<u8>::new(254, 10.0, features.clone());
 
-        pool.add::<U8Gen>(element_1.clone());
-        pool.add::<U8Gen>(element_2.clone());
+        let _ = pool.add::<U8Gen>(element_1.clone());
+        let _ = pool.add::<U8Gen>(element_2.clone());
 
         let predicted_element_in_pool = InputPoolElement::<u8> {
             id: 1,
@@ -620,9 +624,9 @@ mod tests {
         let features_3 = vec![f1, f2, f3, f4];
         let element_3 = InputPoolElement::<u8>::new(253, 15.0, features_3.clone());
 
-        pool.add::<U8Gen>(element_1.clone());
-        pool.add::<U8Gen>(element_2.clone());
-        pool.add::<U8Gen>(element_3.clone());
+        let _ = pool.add::<U8Gen>(element_1.clone());
+        let _ = pool.add::<U8Gen>(element_2.clone());
+        let _ = pool.add::<U8Gen>(element_3.clone());
 
         let predicted_element_in_pool = InputPoolElement::<u8> {
             id: 2,
@@ -666,9 +670,9 @@ mod tests {
         let features_3 = vec![f2, f3];
         let element_3 = InputPoolElement::<u8>::new(253, 20.0, features_3.clone());
 
-        pool.add::<U8Gen>(element_1.clone());
-        pool.add::<U8Gen>(element_2.clone());
-        pool.add::<U8Gen>(element_3.clone());
+        let _ = pool.add::<U8Gen>(element_1.clone());
+        let _ = pool.add::<U8Gen>(element_2.clone());
+        let _ = pool.add::<U8Gen>(element_3.clone());
 
         let predicted_element_1_in_pool = InputPoolElement::<u8> {
             id: 1,
@@ -719,9 +723,9 @@ mod tests {
         let features_3 = vec![f1, f2];
         let element_3 = InputPoolElement::<u8>::new(253, 20.0, features_3.clone());
 
-        pool.add::<U8Gen>(element_1.clone());
-        pool.add::<U8Gen>(element_2.clone());
-        pool.add::<U8Gen>(element_3.clone());
+        let _ = pool.add::<U8Gen>(element_1.clone());
+        let _ = pool.add::<U8Gen>(element_2.clone());
+        let _ = pool.add::<U8Gen>(element_3.clone());
 
         let predicted_element_1_in_pool = InputPoolElement::<u8> {
             id: 1,
@@ -766,7 +770,7 @@ mod tests {
         let features = vec![f1, f2];
         let element = InputPoolElement::<u8>::new(255, 10.0, features.clone());
 
-        pool.add::<U8Gen>(element.clone());
+        let _ = pool.add::<U8Gen>(element.clone());
 
         let _ = pool.remove_lowest::<U8Gen>();
 
@@ -789,9 +793,9 @@ mod tests {
         let element_1 = InputPoolElement::<u8>::new(255, 10.0, features_1.clone());
         let element_2 = InputPoolElement::<u8>::new(254, 10.0, features_2.clone());
 
-        pool.add::<U8Gen>(element_1.clone());
-        pool.add::<U8Gen>(element_2.clone());
-        pool.remove_lowest::<U8Gen>();
+        let _ = pool.add::<U8Gen>(element_1.clone());
+        let _ = pool.add::<U8Gen>(element_2.clone());
+        let _ = pool.remove_lowest::<U8Gen>();
 
         let predicted_element_in_pool = InputPoolElement::<u8> {
             id: 0,
@@ -820,10 +824,10 @@ mod tests {
 
     impl InputGenerator for U8Gen {
         type Input = u8;
-        fn complexity(input: &Self::Input) -> f64 { 1.0 }
+        fn complexity(_input: &Self::Input) -> f64 { 1.0 }
         fn hash<H>(input: &Self::Input, state: &mut H) where H: Hasher { input.hash(state) }
-        fn new_input(&mut self, max_cplx: f64) -> Self::Input { 0 }
-        fn mutate(&mut self, input: &mut Self::Input, spare_cplx: f64) -> bool { true }
+        fn new_input(&mut self, _max_cplx: f64) -> Self::Input { 0 }
+        fn mutate(&mut self, _input: &mut Self::Input, _spare_cplx: f64) -> bool { true }
         fn from_data(data: &Vec<u8>) -> Option<Self::Input> { data.first().copied() }
         fn to_data(input: &Self::Input) -> Vec<u8> { vec![*input] }
     }
