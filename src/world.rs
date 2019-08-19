@@ -34,6 +34,7 @@ impl FuzzerStats {
     }
 }
 
+#[derive(Clone)]
 pub enum FuzzerEvent {
     Start,
     Done,
@@ -42,6 +43,13 @@ pub enum FuzzerEvent {
     DidReadCorpus,
     CaughtSignal(i32),
     TestFailure,
+}
+
+#[derive(Clone)]
+pub enum WorldAction<T> {
+    Remove(T),
+    Add(T, Vec<Feature>),
+    ReportEvent(FuzzerEvent),
 }
 
 pub struct World<T, G>
@@ -65,6 +73,23 @@ where
             instant: std::time::Instant::now(),
             phantom: PhantomData,
         }
+    }
+
+    pub fn do_actions(&self, actions: Vec<WorldAction<T>>) -> Result<()>{
+        for a in actions {
+            match a {
+                WorldAction::Add(x, fs) => {
+                    self.add_to_output_corpus(x, fs)?;
+                },
+                WorldAction::Remove(x) => {
+                    self.remove_from_output_corpus(x)?;    
+                },
+                WorldAction::ReportEvent(e) => {
+                    self.report_event(e, None);
+                }
+            }
+        }
+        Ok(())
     }
 }
 

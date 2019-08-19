@@ -1,5 +1,6 @@
 use crate::code_coverage_sensor::*;
-use std::collections::HashMap;
+use hashbrown::HashMap;
+use hashbrown::HashSet;
 use std::slice;
 use std::sync::Once;
 
@@ -17,7 +18,7 @@ fn trace_pc_guard_init(start: *mut u32, stop: *mut u32) {
                 num_guards: 0,
                 is_recording: false,
                 eight_bit_counters: HashMap::new(),
-                features: std::collections::HashSet::new(),
+                features: HashSet::new(),
             });
         });
     }

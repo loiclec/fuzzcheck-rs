@@ -141,7 +141,7 @@ where
         Ok(())
     }
 
-    fn analyze(&mut self) -> Option<InputPoolElement<T>> {
+    fn analyze(&mut self) -> Option<(f64, Vec<Feature>)> {
         let mut features: Vec<Feature> = Vec::new();
 
         let mut best_input_for_a_feature = false;
@@ -150,27 +150,15 @@ where
         let sensor = shared_sensor();
 
         sensor.iterate_over_collected_features(|feature| {
-            if let Some(old_input_idx) = self
-                .state
-                .pool
-                .inputs_of_feature
-                .entry(feature.clone())
-                .or_default()
-                .last()
-            {
-                let old_cplx = self.state.pool.inputs[*old_input_idx].as_ref().unwrap().complexity;
-                if cur_input_cplx < old_cplx {
-                    best_input_for_a_feature = true;
-                }
-            } else {
+            let old_cplx = self.state.pool.least_complex_input_for_feature(feature);
+            if cur_input_cplx < old_cplx {
                 best_input_for_a_feature = true;
-            }
+            }        
             features.push(feature);
         });
 
         if best_input_for_a_feature {
-            Some(InputPoolElement::new(
-                self.state.input.clone(),
+            Some((
                 cur_input_cplx,
                 features,
             ))
@@ -183,9 +171,9 @@ where
         
         self.test_input()?;
         
-        if let Some(new_pool_element) = self.analyze() {
-            let effect = self.state.pool.add(new_pool_element);
-            effect(&mut self.state.world)?;
+        if let Some((cplx, input)) = self.analyze() {
+            let actions = self.state.pool.add(self.state.input.clone(), cplx, input);
+            self.state.world.do_actions(actions);
         } else {
             return Ok(());
         }
@@ -199,11 +187,10 @@ where
     fn process_next_inputs(&mut self) -> Result<(), std::io::Error> {
         
         let idx = self.state.pool.random_index();
-        let pool_element = self.state.pool.get(idx);
-        self.state.input = pool_element.input.clone();
+        let (i, c) = self.state.pool.get(idx);
+        self.state.input = i;
+        let mut cplx = c;
 
-        let mut cplx = pool_element.complexity - 1.0;
-        
         for _ in 0..self.state.settings.mutate_depth {
             if self.state.stats.total_number_of_runs >= self.max_iter()
                 || !self
@@ -247,7 +234,6 @@ where
             .world
             .report_event(FuzzerEvent::DidReadCorpus, Some(self.state.stats));
 
-        // TODO: explain reset_pool_time
         while self.state.stats.total_number_of_runs < self.max_iter() {
             self.process_next_inputs()?;
         }
@@ -266,8 +252,8 @@ where
             .world
             .report_event(FuzzerEvent::DidReadCorpus, Some(self.state.stats));
         while self.state.pool.inputs.len() > self.state.settings.corpus_size {
-            let effect = self.state.pool.remove_lowest();
-            effect(&mut self.state.world)?;
+            let actions = self.state.pool.remove_lowest();
+            self.state.world.do_actions(actions);
             self.state.update_stats();
         }
         self.state.world.report_event(FuzzerEvent::Done, Some(self.state.stats));
@@ -285,9 +271,7 @@ where
 
         self.state.settings.max_input_cplx = G::complexity(&input) - 0.01;
 
-        let adjusted_complexity = G::adjusted_complexity(&input);
-
-        self.state.pool.favored_input = Some(InputPoolElement::new(input, adjusted_complexity, vec![]));
+        self.state.pool.add_favored_input(input.clone(), self.state.settings.max_input_cplx);
 
         loop {
             self.process_next_inputs()?;

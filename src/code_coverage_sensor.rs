@@ -1,5 +1,6 @@
 use crate::input_pool::*;
-use std::collections::HashMap;
+use hashbrown::HashMap;
+use hashbrown::HashSet;
 use std::mem::MaybeUninit;
 use std::slice;
 
@@ -18,7 +19,7 @@ pub struct CodeCoverageSensor {
     pub num_guards: isize,
     pub is_recording: bool,
     pub eight_bit_counters: HashMap<usize, u16>,
-    pub features: std::collections::HashSet<Feature>,
+    pub features: HashSet<Feature>
 }
 
 impl CodeCoverageSensor {
@@ -39,12 +40,12 @@ impl CodeCoverageSensor {
     }
 
     pub fn handle_trace_cmp(&mut self, pc: PC, arg1: u64, arg2: u64) {
-        let f = ComparisonFeature::new(pc, arg1, arg2);
-        self.features.insert(Feature::Comparison(f));
+        let f = Feature::comparison(pc, arg1, arg2);
+        self.features.insert(f);
     }
     pub fn handle_trace_indir(&mut self, caller: PC, callee: PC) {
-        let f = IndirFeature { caller, callee };
-        self.features.insert(Feature::Indir(f));
+        let f = Feature::indir(caller ^ callee);
+        self.features.insert(f);
     }
 
     pub fn iterate_over_collected_features<F>(&mut self, mut handle: F)
@@ -52,8 +53,8 @@ impl CodeCoverageSensor {
         F: FnMut(Feature) -> (),
     {
         for (i, x) in self.eight_bit_counters.iter() {
-            let f = EdgeFeature::new(*i, *x);
-            handle(Feature::Edge(f));
+            let f = Feature::edge(*i, *x);
+            handle(f);
         }
         for f in self.features.iter() {
             handle(f.clone());
