@@ -12,12 +12,10 @@ use rand::distributions::Distribution;
 
 use serde::{Deserialize, Serialize};
 
-use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 
-use crate::input::InputGenerator;
 use crate::weighted_index::WeightedIndex;
-use crate::world::{World, WorldAction, FuzzerEvent};
+use crate::world::{WorldAction, FuzzerEvent};
 
 #[derive(Clone)]
 enum MetadataChange {
@@ -125,6 +123,7 @@ pub struct InputPool<T: Clone> {
     pub inputs: Vec<Option<T>>,
     pub favored_input: Option<(T, f64)>,
     metadata: InputMetadataPool,
+    pub size: usize,
     pub average_complexity: f64,
     pub cumulative_weights: Vec<f64>,
     rng: ThreadRng,
@@ -136,6 +135,7 @@ impl<T: Clone> InputPool<T> {
             inputs: vec![],
             favored_input: None,
             metadata: InputMetadataPool::new(),
+            size: 0,
             average_complexity: 0.0,
             cumulative_weights: vec![],
             rng: rand::thread_rng(),
@@ -165,7 +165,7 @@ impl<T: Clone> InputPool<T> {
     pub fn add(&mut self, input: T, cplx: f64, features: Vec<Feature>) -> Vec<WorldAction<T>> {
         let actions = self.metadata.add(InputMetadata::new(cplx, features));
         self.inputs.push(Some(input));
-        self.update_metadata();
+        self.update_stats();
 
         let full_actions = self.convert_partial_world_actions(&actions);
         for a in actions.iter() {
@@ -179,7 +179,7 @@ impl<T: Clone> InputPool<T> {
 
     pub fn remove_lowest(&mut self) -> Vec<WorldAction<T>> {
         let actions = self.metadata.remove_lowest();
-        self.update_metadata();
+        self.update_stats();
 
         let full_actions = self.convert_partial_world_actions(&actions);
         for a in actions.iter() {
@@ -209,7 +209,7 @@ impl<T: Clone> InputPool<T> {
         }
     }
 
-    fn update_metadata(&mut self) {
+    fn update_stats(&mut self) {
         self.cumulative_weights = self
             .metadata
             .inputs
@@ -232,6 +232,7 @@ impl<T: Clone> InputPool<T> {
                 .fold(0.0, |c, x| c + x.complexity)
                 / len as f64;
         }
+        self.size = len;
     }
 
     pub fn get(&self, idx: InputPoolIndex) -> (T, f64) {
@@ -448,6 +449,9 @@ where
     vec.insert(insertion, element);
 }
 
+
+// TODO: tests on InputPool, not InputMetadataPool. Including testing the returned WorldAction 
+// TODO: write unit tests as data, read them from files
 #[cfg(test)]
 mod tests {
     use super::*;

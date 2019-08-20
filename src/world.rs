@@ -98,7 +98,7 @@ where
     T: Clone,
     G: InputGenerator<Input = T>,
 {
-    pub fn start_process(&mut self) {
+    pub fn set_start_time(&mut self) {
         self.instant = Instant::now();
     }
     pub fn elapsed_time(&self) -> usize {

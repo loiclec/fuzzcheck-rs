@@ -5,23 +5,9 @@ use crate::input_pool::*;
 use crate::signals_handler::*;
 use crate::world::*;
 
+use std::process::exit;
 use std::result::Result;
-
-struct NotThreadSafe<T>(T);
-struct NotUnwindSafe<T> {
-    value: T,
-}
-
-unsafe impl<T> Send for NotThreadSafe<T> {}
-impl<T> std::panic::UnwindSafe for NotUnwindSafe<T> {}
-impl<T> std::panic::RefUnwindSafe for NotUnwindSafe<T> {}
-
-pub enum FuzzerTerminationStatus {
-    Success = 0,
-    Crash = 1,
-    TestFailure = 2,
-    Unknown = 3,
-}
+use std::panic::{UnwindSafe, RefUnwindSafe, catch_unwind};
 
 struct FuzzerState<T, G>
 where
@@ -45,11 +31,7 @@ where
         let microseconds = self.world.elapsed_time();
         self.stats.exec_per_s =
             (((self.stats.total_number_of_runs as f64) / (microseconds as f64)) * 1_000_000.0) as usize;
-        self.stats.pool_size = self
-            .pool
-            .inputs
-            .iter()
-            .fold(0, |c, x| if x.is_some() { c + 1 } else { c });
+        self.stats.pool_size = self.pool.size;
         self.stats.score = (self.pool.score() * 10.0).round() as usize;
         self.stats.avg_cplx = (self.pool.average_complexity * 10000.0).round() as usize;
     }
@@ -62,10 +44,10 @@ where
             4 | 6 | 10 | 11 | 8 => {
                 let _ = self.world.save_artifact(&self.input, G::complexity(&self.input));
 
-                std::process::exit(FuzzerTerminationStatus::Crash as i32);
+                exit(FuzzerTerminationStatus::Crash as i32);
             }
-            2 | 15 => std::process::exit(FuzzerTerminationStatus::Success as i32),
-            _ => std::process::exit(FuzzerTerminationStatus::Unknown as i32),
+            2 | 15 => exit(FuzzerTerminationStatus::Success as i32),
+            _ => exit(FuzzerTerminationStatus::Unknown as i32),
         }
     }
 
@@ -124,7 +106,7 @@ where
 
         let cell = NotUnwindSafe { value: &self };
         let input_cell = NotUnwindSafe { value: &self.state.input };
-        let result = std::panic::catch_unwind(|| (cell.value.test)(input_cell.value));
+        let result = catch_unwind(|| (cell.value.test)(input_cell.value));
         
         sensor.is_recording = false;
 
@@ -135,7 +117,7 @@ where
             let mut features: Vec<Feature> = Vec::new();
             sensor.iterate_over_collected_features(|f| features.push(f));
             self.state.world.save_artifact(&self.state.input, G::complexity(&self.state.input))?;
-            std::process::exit(FuzzerTerminationStatus::TestFailure as i32);
+            exit(FuzzerTerminationStatus::TestFailure as i32);
         }
         self.state.stats.total_number_of_runs += 1;
         Ok(())
@@ -173,7 +155,7 @@ where
         
         if let Some((cplx, input)) = self.analyze() {
             let actions = self.state.pool.add(self.state.input.clone(), cplx, input);
-            self.state.world.do_actions(actions);
+            self.state.world.do_actions(actions)?;
         } else {
             return Ok(());
         }
@@ -225,7 +207,7 @@ where
     }
 
     fn main_loop(&mut self) -> Result<(), std::io::Error> {
-        self.state.world.start_process();
+        self.state.world.set_start_time();
         self.state
             .world
             .report_event(FuzzerEvent::Start, Some(self.state.stats));
@@ -243,7 +225,7 @@ where
     }
 
     fn shrink_loop(&mut self) -> Result<(), std::io::Error> {
-        self.state.world.start_process();
+        self.state.world.set_start_time();
         self.state
             .world
             .report_event(FuzzerEvent::Start, Some(self.state.stats));
@@ -253,7 +235,7 @@ where
             .report_event(FuzzerEvent::DidReadCorpus, Some(self.state.stats));
         while self.state.pool.inputs.len() > self.state.settings.corpus_size {
             let actions = self.state.pool.remove_lowest();
-            self.state.world.do_actions(actions);
+            self.state.world.do_actions(actions)?;
             self.state.update_stats();
         }
         self.state.world.report_event(FuzzerEvent::Done, Some(self.state.stats));
@@ -261,8 +243,7 @@ where
     }
 
     fn minimize_loop(&mut self) -> Result<(), std::io::Error> {
-        // TODO: change name of this function
-        self.state.world.start_process();
+        self.state.world.set_start_time();
 
         self.state
             .world
@@ -304,3 +285,21 @@ where
     };
     Ok(())
 }
+
+
+struct NotThreadSafe<T>(T);
+struct NotUnwindSafe<T> {
+    value: T,
+}
+
+unsafe impl<T> Send for NotThreadSafe<T> {}
+impl<T> UnwindSafe for NotUnwindSafe<T> {}
+impl<T> RefUnwindSafe for NotUnwindSafe<T> {}
+
+pub enum FuzzerTerminationStatus {
+    Success = 0,
+    Crash = 1,
+    TestFailure = 2,
+    Unknown = 3,
+}
+
