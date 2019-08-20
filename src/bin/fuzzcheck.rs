@@ -1,67 +1,85 @@
 extern crate clap;
-use clap::Arg;
+use clap::{SubCommand};
 use fuzzcheck::command_line::*;
 use std::cmp::Ordering;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::string::String;
-static TARGET_FLAG: &str = "target";
+
+static FUZZCHECK_PATH: &str = "https://github.com/loiclec/fuzzcheck-rs";
+// static FUZZCHECK_REVISION: &str = "bf7948bb2b1f911197ca66af094ac20021fdd7f9";
+
+/// The default target to pass to cargo, to workaround issue #11.
+#[cfg(target_os="macos")]
+pub fn default_target() -> &'static str {
+    "x86_64-apple-darwin"
+}
+
+/// The default target to pass to cargo, to workaround issue #11.
+#[cfg(not(target_os="macos"))]
+pub fn default_target() -> &'static str {
+    "x86_64-unknown-linux-gnu"
+}
+
 
 fn main() {
-    let app = setup_app().arg(
-        Arg::with_name(TARGET_FLAG)
-            .long(TARGET_FLAG)
-            .takes_value(true)
-            .value_name("executable path")
-            .display_order(1)
-            .validator(|v| match v.parse::<PathBuf>() {
-                Ok(p) => {
-                    let p = p.as_path();
-                    if !p.is_file() {
-                        Err(String::from("path does not point to an executable file"))
-                    } else {
-                        Ok(())
-                    }
-                }
-                Err(_) => Err(String::from("must be a valid path to an executable file")),
-            })
-            .required(true)
-            .help("The fuzz target is the executable file containing the fuzz test."),
-    );
-    let app_m = app.get_matches();
-    let args = CommandLineArguments::from_arg_matches(&app_m);
-    let target = Path::new(app_m.value_of(TARGET_FLAG).unwrap());
+    let app = setup_app()
+        .subcommand(
+            SubCommand::with_name("setup")
+                .about("Setup Fuzzcheck"));
 
-    match args.command {
-        FuzzerCommand::Fuzz => fuzz_command(&target, args),
-        FuzzerCommand::Minimize => minimize_command(&target, args),
-        FuzzerCommand::Read => panic!("unimplemented"),
-        FuzzerCommand::Shrink => shrink_command(&target, args),
+    let app_m = app.get_matches();
+    let target_triple = default_target();
+
+    let args = CommandLineArguments::from_arg_matches(&app_m);
+
+    if app_m.subcommand_name() == Some("setup") {
+        setup_command()
+    } else {
+        match args.command {
+            FuzzerCommand::Fuzz => fuzz_command(args, target_triple),
+            FuzzerCommand::Minimize => minimize_command(args, target_triple),
+            FuzzerCommand::Read => panic!("unimplemented"),
+            FuzzerCommand::Shrink => shrink_command(args, target_triple),
+        }
     }
 }
 
-fn fuzz_command(executable: &Path, arguments: CommandLineArguments) {
-    println!("{:?}", args_to_string(&arguments));
-    Command::new(executable)
-        .args(args_to_string(&arguments))
+fn setup_command() {
+    Command::new("git")
+        .args(vec!["clone", FUZZCHECK_PATH])
+        .stdout(std::process::Stdio::inherit())
+        .stderr(std::process::Stdio::inherit())
+        .output()
+        .expect("failed to execute process");
+
+    // Command::new("git")
+    //     .current_dir("fuzzcheck-rs")
+    //     .args(vec!["checkout", FUZZCHECK_REVISION])
+    //     .stdout(std::process::Stdio::inherit())
+    //     .stderr(std::process::Stdio::inherit())
+    //     .output()
+    //     .expect("failed to execute process");
+
+    Command::new("cargo")
+        .current_dir("fuzzcheck-rs")
+        .args(vec!["build", "--release",])
         .stdout(std::process::Stdio::inherit())
         .stderr(std::process::Stdio::inherit())
         .output()
         .expect("failed to execute process");
 }
 
-fn shrink_command(executable: &Path, arguments: CommandLineArguments) {
-    println!("{:?}", args_to_string(&arguments));
-    Command::new(executable)
-        .args(args_to_string(&arguments))
-        .stdout(std::process::Stdio::inherit())
-        .stderr(std::process::Stdio::inherit())
-        .output()
-        .expect("failed to execute process");
+fn fuzz_command(arguments: CommandLineArguments, target_triple: &str) {    
+    run_command(&arguments, target_triple);
+}
+
+fn shrink_command(arguments: CommandLineArguments, target_triple: &str) {
+    run_command(&arguments, target_triple);
 }
 
 // TODO: rename CommandLineArguments
-fn minimize_command(executable: &Path, mut arguments: CommandLineArguments) -> ! {
+fn minimize_command(mut arguments: CommandLineArguments, target_triple: &str) -> ! {
     let file_to_minimize = (&arguments.input_file).as_ref().unwrap().clone();
 
     let artifacts_folder = {
@@ -96,15 +114,8 @@ fn minimize_command(executable: &Path, mut arguments: CommandLineArguments) -> !
     }
     arguments.command = FuzzerCommand::Read;
 
-    println!("{:?}", args_to_string(&arguments));
 
-    let o = Command::new(executable)
-        .args(args_to_string(&arguments))
-        .stdout(std::process::Stdio::inherit())
-        .stderr(std::process::Stdio::inherit())
-        .output()
-        .expect("failed to execute process");
-
+    let o = run_command(&arguments, target_triple);
     assert!(o.status.success() == false);
 
     // hjhjb.minimized/hshs.parent() != hjhjb.minimized/ -> copy hshs to hjhjb.minimized/hshs
@@ -117,17 +128,12 @@ fn minimize_command(executable: &Path, mut arguments: CommandLineArguments) -> !
 
     loop {
         arguments.input_file = simplest_input_file(&artifacts_folder).or(arguments.input_file);
-        println!("{:?}", args_to_string(&arguments));
 
-        Command::new(executable)
-            .args(args_to_string(&arguments))
-            .stdout(std::process::Stdio::inherit())
-            .output()
-            .expect("failed to execute process");
+        run_command(&arguments, target_triple);
     }
 }
 
-fn args_to_string(args: &CommandLineArguments) -> Vec<String> {
+fn run_command(args: &CommandLineArguments, target_triple: &str) -> std::process::Output {
     let mut s: Vec<String> = Vec::new();
 
     let input_file_args = args.input_file.clone().map(|f| {
@@ -212,5 +218,30 @@ fn args_to_string(args: &CommandLineArguments) -> Vec<String> {
             s.push(args.mutate_depth.to_string());
         }
     }
-    s
+    let cur_dir = std::env::current_dir().expect("");
+    let fuzzcheck_lib = cur_dir.join("fuzzcheck-rs/target/release/deps");
+
+    let rustflags: String = format!(
+        "--cfg fuzzing \
+        -Cpasses=sancov \
+        -Cllvm-args=-sanitizer-coverage-level=4 \
+        -Cllvm-args=-sanitizer-coverage-trace-pc-guard \
+        -Cllvm-args=-sanitizer-coverage-trace-compares \
+        -Cllvm-args=-sanitizer-coverage-trace-divs \
+        -Cllvm-args=-sanitizer-coverage-trace-geps \
+        -Cllvm-args=-sanitizer-coverage-prune-blocks=0 \
+        -L {}", fuzzcheck_lib.display()
+    );
+
+    Command::new("cargo")
+        .env("RUSTFLAGS", rustflags)
+        .arg("run")
+        .arg("--release")
+        .arg("--target").arg(target_triple)
+        .arg("--")
+        .args(s)
+        .stdout(std::process::Stdio::inherit())
+        .stderr(std::process::Stdio::inherit())
+        .output()
+        .expect("failed to execute process")
 }
