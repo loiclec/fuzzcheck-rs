@@ -56,13 +56,10 @@ loop {
 You can find an example project using Fuzzcheck 
 [here](https://github.com/loiclec/fuzzcheck-rs-example).
 
-The first step is to clone Fuzzcheck somewhere on your computer and
-build it with cargo nightly.
+The first step is to install the `fuzzcheck` executable using cargo nightly. 
 
 ```bash
-git clone https://github.com/loiclec/fuzzcheck-rs
-cd fuzzcheck-rs
-cargo +nightly build --release
+cargo +nightly install --git https://github.com/loiclec/fuzzcheck-rs
 ```
 
 Then, somewhere else, create a new cargo binary crate. It will contain the
@@ -78,52 +75,15 @@ rustup override set nightly
 cargo init --bin
 ```
 
-Then, we need to tell cargo where to find the fuzzcheck library that we just
-built. This is done by creating a `build.rs` file, which will expect
-the `FUZZCHECK_LIB` environment variable to be set to the 
-`./target/release/deps` folder inside `fuzzcheck-rs`. On my computer, it is 
-`/Users/loiclecrenier/Documents/rust/fuzzcheck-rs/target/release/deps`.
-
-```rust
-// ./build.rs
-use std::env;
-
-fn main() {
-    let lib = env::var("FUZZCHECK_LIB").unwrap();
-    println!("cargo:rustc-link-search=all={}", lib);
-    println!("cargo:rerun-if-changed={}", lib);
-}
-```
-
-Then, we add a dependency to `Cargo.toml`:
+Then, we add a dependency to `fuzzcheck_input`:
 ```toml
 [dependencies]
-fuzzcheck_input = { git = "https://github.com/loiclec/fuzzcheck-input.git", branch = "master" }
+fuzzcheck_input = { git = "https://github.com/loiclec/fuzzcheck-input.git" }
 ```
 
-`fuzzcheck_input` is a library that contains useful mutators to use
-with Fuzzcheck. For now, it only supports integers and vectors, but I intend
+`fuzzcheck_input` is a library that contains useful mutators to use with 
+Fuzzcheck. For now, it only supports integers and vectors, but I intend
 to add more generators over time.
-
-Then, we tell cargo which instrumentation to use when building the project,
-such that its code coverage can be analyzed. This can be done by adding a
-file `.cargo/config`:
-
-```toml
-[build]
-rustflags = [
-    "-Cpasses=sancov",
-    "-Cllvm-args=-sanitizer-coverage-level=4",
-    "-Cllvm-args=-sanitizer-coverage-trace-compares",
-    "-Cllvm-args=-sanitizer-coverage-trace-divs",
-    "-Cllvm-args=-sanitizer-coverage-trace-geps",
-    "-Cllvm-args=-sanitizer-coverage-prune-blocks=0"
-]
-target = "x86_64-apple-darwin"
-```
-
-Note that the `target` key is important. Replace its value with the correct
-triple if you are not using macOS.
 
 We can now write the test function and the code that will launch the
 fuzzing process in `main.rs`.
@@ -190,36 +150,19 @@ generators are defined in a separate crate called `fuzzcheck_input`.
 Then, I call the function `fuzzcheck::fuzzer::launch`, and pass it the test
 function and the input generator.
 
-The final step is to compile the executable and use it via the `fuzzcheck`
-command line tool.
+The final step is to launch the executable via the `fuzzcheck` command line 
+tool.
 
-To compile it, define the environment variable `FUZZCHECK_LIB` to your own
-absolute path pointing to `fuzzcheck-rs/target/release/deps`.
+If this is the first time you use fuzzcheck for this project, run
+`fuzzcheck setup`. It will download the fuzzcheck library and compile it. 
 
 ```bash
-# Do not copy and paste. Replace the path with the correct value for your computer
-export FUZZCHECK_LIB="/Users/loiclecrenier/Documents/rust/fuzzcheck-rs/target/release/deps/"
+fuzzcheck setup 
 ```
 
-And then build with cargo:
-
-```bash
-cargo build --release
+Then simply run:
 ```
-
-You can launch the fuzzer either by running the executable directly (**not 
-recommended, because you won't have access to every feature**):
-
-```bash
-cargo run --release
-```
-
-or via the `fuzzcheck` executable (if you didn't install it to your $PATH, you
-should use the full path to the executable, such as 
-`/Users/loiclecrenier/Documents/rust/fuzzcheck/target/release/fuzzcheck`).
-
-```bash
-fuzzcheck --target ./target/x86_64-apple-darwin/release/fuzzcheck-test
+fuzzcheck
 ```
 
 This starts a loop that will stop when a failing test has been found.
@@ -237,7 +180,7 @@ NEW     100848  score: 380      pool: 21        exec/s: 133345  cplx: 3162
 in the pool
 * `pool: 21` is the number of inputs in the pool
 * `exec/s: 133345` is the average number of iterations performed every second
-* `cplx: 3162` is a measure of the complexity of the inputs in the pool
+* `cplx: 3162` is the average complexity of the inputs in the pool
 
 When a failing test has been found, the following is printed:
 ```
@@ -279,7 +222,7 @@ Launch the `fuzzcheck` executable and use the `minimize` command along with the
 required `--input-file` flag and the path to the file.
 
 ```bash
-fuzzcheck --target "target/x86_64-apple-darwin/release/fuzzcheck-example" minimize --input-file "crash.json"
+fuzzcheck minimize --input-file "crash.json"
 ```
 
 This will repeatedly launch the fuzzer in “minimize” mode and save the
@@ -298,8 +241,11 @@ the `InputGenerator` trait.
 
 ```rust
 pub trait InputGenerator {
-    type Input: Hash + Clone;
+    type Input: Clone;
 
+    fn hash<H>(input: &Self::Input, state: &mut H) where H: Hasher;
+
+    fn base_input() -> Self::Input;
     fn complexity(input: &Self::Input) -> f64;
     
     fn new_input(&mut self, max_cplx: f64) -> Self::Input;
@@ -311,7 +257,13 @@ pub trait InputGenerator {
 }
 ```
 
-* `Input` is the type being tested, it must be hashable and cloneable.
+* `Input` is the type being tested, it must be cloneable.
+
+* `hash` should be implemented in the same way as the `hash` associated function 
+of the `Hash` trait.
+
+* `base_input` is the simplest value of type `Input` that you can think of.
+It may be `0` for numbers or an empty vector `Vec`.
 
 * `complexity` returns a float that estimates how “complex” the input is. For
 an integer, this might be the number of bytes used to represent it. For an 
@@ -368,3 +320,5 @@ need to encode and decode inputs at each iteration. Second, the complexity of
 the input is given by a user-defined function, which will be more accurate than
 counting the bytes of the protobuf encoding. Third, the artifact files and the
 fuzzing corpora can be JSON-encoded, which is more user-friendly than protobuf.
+
+TODO: mention FuzzChick for Coq

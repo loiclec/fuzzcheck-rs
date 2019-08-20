@@ -20,6 +20,8 @@ to properly shrink the corpus
 ## Features
 
 * build a cargo tool that manages the fuzzcheck dependency automatically
+    * for now, that tool performs almost no checks and is not configurable
+    at all. I should improve that. Take inspiration from `cargo-fuzz`.
 
 * create default generators for most basic types
 
@@ -55,7 +57,9 @@ to properly shrink the corpus
 
     * but it would also slow down the fuzzer significantly, which I think may
     not be bad if the improvements lead to a reduction in the number of 
-    iterations needed to find a bug.
+    iterations needed to find a bug. I have to be careful about the performance 
+    though, and should wait until I have set up enough benchmarks to be sure it 
+    is worth it.
 
 * the serde dependency is big and useless most of the time, make it optional
 
