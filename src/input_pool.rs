@@ -171,7 +171,7 @@ impl<T: Clone> InputPool<T> {
         for a in actions.iter() {
             match a {
                 MetadataChange::Remove(i) => self.inputs[*i] = None,
-                _ => break,
+                _ => continue,
             }
         }
         full_actions
@@ -185,7 +185,7 @@ impl<T: Clone> InputPool<T> {
         for a in actions.iter() {
             match a {
                 MetadataChange::Remove(i) => self.inputs[*i] = None,
-                _ => break,
+                _ => continue,
             }
         }
         full_actions
@@ -368,6 +368,8 @@ impl InputMetadataPool {
 
         // Goal 6.
         let mut actions: Vec<MetadataChange> = Vec::new();
+        
+        actions.push(MetadataChange::Add(element.id, vec![]));
 
         for i in &inputs_to_delete {
             actions.push(MetadataChange::Remove(i.clone()));
