@@ -12,12 +12,12 @@ or by catching signals and displaying a message
 * too much complexity, try to simplify stuff
     * much of the complexity is carried over from when I did not know
     what the fuzzer should support or how to do it best, but now I can 
-    remove most of it
+    remove most of it (TODO: reevaluate this)
 
 * shrink command does not work perfectly, it needs to be run a few times
-to properly shrink the corpus
+to properly shrink the corpus (TODO: verify that it is fixed)
 
-## Features
+## Misc
 
 * build a cargo tool that manages the fuzzcheck dependency automatically
     * for now, that tool performs almost no checks and is not configurable
@@ -63,6 +63,18 @@ to properly shrink the corpus
 
 * the serde dependency is big and useless most of the time, make it optional
 
+* do not always push inputs to the end of the pool. Instead, try to fill the 
+gaps. Maybe every time an input is deleted, I can push its index to a stack.
+When I need to add an input to the pool, I pop the index from the stack first
+to check if I can fill a gap isntead of pushing it to the end.
+
+* the names of the shrink and minimize commands do not make sense, they are
+synonyms!
+
+* adjusted_complexity is not needed anymore
+
+* make an InputGenerator for [u8; N]
+
 ## Documentation
 
 * there is none currently, but most of it can be ported from the Swift project
@@ -76,3 +88,16 @@ tests on InputPool and verify more properties
 * I'd like to fuzz-check Fuzzcheck. It shouldn't be that complicated in terms
 of code. But the logistics of it may be tricky. In particular, I should have 
 the option to compile it without sanitizer coverage hooks. 
+
+* try to find out how fuzzcheck handles this kind of program:
+  ```
+  if x == a { counter += 1 }
+  if x == b { counter += 1 }
+  if x == c { counter += 1 }
+  .
+  .
+  .
+  if counter >= N { crash }
+  ```
+  My intuition is that it will perform better than before. And that feature groups
+  would make it perform even better.
