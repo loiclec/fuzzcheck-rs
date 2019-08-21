@@ -181,11 +181,11 @@ where
 
     fn process_next_inputs(&mut self) -> Result<(), std::io::Error> {
         let idx = self.state.pool.random_index();
-        let (i, c) = self.state.pool.get(idx);
+        let i = self.state.pool.get(idx);
         self.state.input = i;
-        let mut cplx = c;
 
         for _ in 0..self.state.settings.mutate_depth {
+            let cplx = G::complexity(&self.state.input);
             if self.state.stats.total_number_of_runs >= self.max_iter()
                 || !self
                     .generator
@@ -193,7 +193,6 @@ where
             {
                 break;
             }
-            cplx = G::complexity(&self.state.input);
             if cplx >= self.state.settings.max_input_cplx {
                 continue;
             }
@@ -264,9 +263,7 @@ where
 
         self.state.settings.max_input_cplx = G::complexity(&input) - 0.01;
 
-        self.state
-            .pool
-            .add_favored_input(input.clone(), G::complexity(&input));
+        self.state.pool.add_favored_input(input.clone());
 
         loop {
             self.process_next_inputs()?;

@@ -120,7 +120,7 @@ impl InputMetadata {
 
 pub struct InputPool<T: Clone> {
     pub inputs: Vec<Option<T>>,
-    pub favored_input: Option<(T, f64)>,
+    pub favored_input: Option<T>,
     metadata: InputMetadataPool,
     pub size: usize,
     pub average_complexity: f64,
@@ -141,8 +141,8 @@ impl<T: Clone> InputPool<T> {
         }
     }
 
-    pub fn add_favored_input(&mut self, input: T, cplx: f64) {
-        self.favored_input = Some((input, cplx));
+    pub fn add_favored_input(&mut self, input: T) {
+        self.favored_input = Some(input);
     }
 
     fn convert_partial_world_actions(&self, actions: &Vec<MetadataChange>) -> Vec<WorldAction<T>> {
@@ -229,12 +229,9 @@ impl<T: Clone> InputPool<T> {
         self.size = len;
     }
 
-    pub fn get(&self, idx: InputPoolIndex) -> (T, f64) {
+    pub fn get(&self, idx: InputPoolIndex) -> (T) {
         match idx {
-            InputPoolIndex::Normal(idx) => (
-                self.inputs[idx].as_ref().unwrap().clone(),
-                self.metadata.inputs[idx].as_ref().unwrap().complexity - 1.0,
-            ),
+            InputPoolIndex::Normal(idx) => self.inputs[idx].as_ref().unwrap().clone(),
             InputPoolIndex::Favored => self.favored_input.as_ref().unwrap().clone(),
         }
     }
