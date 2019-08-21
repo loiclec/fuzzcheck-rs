@@ -169,13 +169,13 @@ where
         let content = G::to_data(&input);
         let path = corpus.join(name).with_extension("json");
         fs::write(path, content)?;
-
+        /*
         if self.settings.debug {
             let name = format!("{:x}-features", hash);
-            let content = serde_json::to_vec_pretty(&features).unwrap();
+            //let content = serde_json::to_vec_pretty(&features).unwrap();
             let path = corpus.join(name).with_extension("json");
             fs::write(path, content)?;
-        }
+        }*/
 
         Ok(())
     }

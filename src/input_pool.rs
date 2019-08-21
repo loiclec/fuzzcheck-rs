@@ -10,7 +10,7 @@ use rand::Rng;
 use rand::distributions::uniform::{UniformFloat, UniformSampler};
 use rand::distributions::Distribution;
 
-use serde::{Deserialize, Serialize};
+// use serde::{Deserialize, Serialize};
 
 use std::hash::{Hash, Hasher};
 
@@ -24,7 +24,7 @@ enum MetadataChange {
     ReportEvent(FuzzerEvent),
 }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy/*, Serialize, Deserialize*/)]
 pub struct Feature {
     id: u32,
     payload: u16,
