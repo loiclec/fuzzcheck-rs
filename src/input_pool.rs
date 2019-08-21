@@ -15,7 +15,7 @@ use rand::distributions::Distribution;
 use std::hash::{Hash, Hasher};
 
 use crate::weighted_index::WeightedIndex;
-use crate::world::{WorldAction, FuzzerEvent};
+use crate::world::{FuzzerEvent, WorldAction};
 
 #[derive(Clone)]
 enum MetadataChange {
@@ -24,7 +24,7 @@ enum MetadataChange {
     ReportEvent(FuzzerEvent),
 }
 
-#[derive(Debug, Clone, Copy/*, Serialize, Deserialize*/)]
+#[derive(Debug, Clone, Copy)]
 pub struct Feature {
     id: u32,
     payload: u16,
@@ -33,16 +33,16 @@ pub struct Feature {
 
 impl PartialEq for Feature {
     fn eq(&self, other: &Self) -> bool {
-        let a = unsafe { & *(self as *const Feature as *const u64) };
-        let b = unsafe { & *(other as *const Feature as *const u64) };
+        let a = unsafe { &*(self as *const Feature as *const u64) };
+        let b = unsafe { &*(other as *const Feature as *const u64) };
         *a == *b
     }
 }
-impl Eq for Feature { }
+impl Eq for Feature {}
 
 impl Hash for Feature {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        let a = unsafe { & *(self as *const Feature as *const u64) };
+        let a = unsafe { &*(self as *const Feature as *const u64) };
         (*a).hash(state);
     }
 }
@@ -64,7 +64,7 @@ impl Feature {
     }
     pub fn comparison(pc: usize, arg1: u64, arg2: u64) -> Feature {
         Feature {
-            id: (pc % core::u32::MAX as usize) as u32 ,
+            id: (pc % core::u32::MAX as usize) as u32,
             payload: score_from_counter((arg1 ^ arg2).count_ones() as u16) as u16,
             tag: 2,
         }
@@ -91,7 +91,6 @@ impl Feature {
         }
     }
 }
-
 
 pub enum InputPoolIndex {
     Normal(usize),
@@ -147,19 +146,14 @@ impl<T: Clone> InputPool<T> {
     }
 
     fn convert_partial_world_actions(&self, actions: &Vec<MetadataChange>) -> Vec<WorldAction<T>> {
-        actions.into_iter().map(|p| {
-            match p {
-                MetadataChange::Add(x, fs) => {
-                    WorldAction::Add(self.inputs[*x].as_ref().unwrap().clone(), fs.clone())
-                },
-                MetadataChange::Remove(x) => {
-                    WorldAction::Remove(self.inputs[*x].as_ref().unwrap().clone())
-                },
-                MetadataChange::ReportEvent(e) => {
-                    WorldAction::ReportEvent(e.clone())
-                }
-            }
-        }).collect()
+        actions
+            .into_iter()
+            .map(|p| match p {
+                MetadataChange::Add(x, fs) => WorldAction::Add(self.inputs[*x].as_ref().unwrap().clone(), fs.clone()),
+                MetadataChange::Remove(x) => WorldAction::Remove(self.inputs[*x].as_ref().unwrap().clone()),
+                MetadataChange::ReportEvent(e) => WorldAction::ReportEvent(e.clone()),
+            })
+            .collect()
     }
 
     pub fn add(&mut self, input: T, cplx: f64, features: Vec<Feature>) -> Vec<WorldAction<T>> {
@@ -237,14 +231,22 @@ impl<T: Clone> InputPool<T> {
 
     pub fn get(&self, idx: InputPoolIndex) -> (T, f64) {
         match idx {
-            InputPoolIndex::Normal(idx) => (self.inputs[idx].as_ref().unwrap().clone(), self.metadata.inputs[idx].as_ref().unwrap().complexity - 1.0),
+            InputPoolIndex::Normal(idx) => (
+                self.inputs[idx].as_ref().unwrap().clone(),
+                self.metadata.inputs[idx].as_ref().unwrap().complexity - 1.0,
+            ),
             InputPoolIndex::Favored => self.favored_input.as_ref().unwrap().clone(),
         }
     }
 
     pub fn least_complex_input_for_feature(&mut self, f: Feature) -> Option<(f64, f64)> {
         let inputs = &self.metadata.inputs;
-        if let Some(input) = self.metadata.inputs_of_feature.get(&f).map(|x| inputs[*x.last().unwrap()].as_ref().unwrap()) {
+        if let Some(input) = self
+            .metadata
+            .inputs_of_feature
+            .get(&f)
+            .map(|x| inputs[*x.last().unwrap()].as_ref().unwrap())
+        {
             Some((input.complexity, input.score))
         } else {
             None
@@ -252,7 +254,8 @@ impl<T: Clone> InputPool<T> {
     }
 
     pub fn predicted_feature_score(&self, f: Feature) -> f64 {
-        self.metadata.inputs_of_feature
+        self.metadata
+            .inputs_of_feature
             .get(&f)
             .map(|x| f.score() / (x.len() + 1) as f64)
             .unwrap_or(f.score())
@@ -379,16 +382,18 @@ impl InputMetadataPool {
 
         // Goal 6.
         let mut actions: Vec<MetadataChange> = Vec::new();
-        
+
         actions.push(MetadataChange::Add(element.id, vec![]));
 
         for i in &inputs_to_delete {
             actions.push(MetadataChange::Remove(i.clone()));
         }
         if !inputs_to_delete.is_empty() {
-            actions.push(MetadataChange::ReportEvent(FuzzerEvent::Deleted(inputs_to_delete.len())));
+            actions.push(MetadataChange::ReportEvent(FuzzerEvent::Deleted(
+                inputs_to_delete.len(),
+            )));
         }
-        
+
         actions
     }
 
@@ -462,8 +467,7 @@ where
     vec.insert(insertion, element);
 }
 
-
-// TODO: tests on InputPool, not InputMetadataPool. Including testing the returned WorldAction 
+// TODO: tests on InputPool, not InputMetadataPool. Including testing the returned WorldAction
 // TODO: write unit tests as data, read them from files
 #[cfg(test)]
 mod tests {
@@ -551,7 +555,6 @@ mod tests {
         assert_eq!(pool.inputs[0].as_ref().unwrap().clone(), predicted_element_1_in_pool);
         assert_eq!(pool.inputs[1].as_ref().unwrap().clone(), predicted_element_2_in_pool);
 
-
         let mut predicted_inputs_of_feature = HashMap::<Feature, Vec<usize>>::new();
         predicted_inputs_of_feature.insert(f1, vec![0]);
         predicted_inputs_of_feature.insert(f2, vec![0]);
@@ -596,7 +599,6 @@ mod tests {
         assert_eq!(pool.inputs[0].as_ref().unwrap().clone(), predicted_element_1_in_pool);
         assert_eq!(pool.inputs[1].as_ref().unwrap().clone(), predicted_element_2_in_pool);
 
-
         let mut predicted_inputs_of_feature = HashMap::<Feature, Vec<usize>>::new();
         predicted_inputs_of_feature.insert(f1, vec![1, 0]);
         predicted_inputs_of_feature.insert(f2, vec![0]);
@@ -640,7 +642,6 @@ mod tests {
         assert_eq!(pool.inputs[0].as_ref().unwrap().clone(), predicted_element_1_in_pool);
         assert_eq!(pool.inputs[1].as_ref().unwrap().clone(), predicted_element_2_in_pool);
 
-
         let mut predicted_inputs_of_feature = HashMap::<Feature, Vec<usize>>::new();
         predicted_inputs_of_feature.insert(f1, vec![0, 1]);
         predicted_inputs_of_feature.insert(f2, vec![0]);
@@ -674,7 +675,6 @@ mod tests {
         assert_eq!(pool.inputs.len(), 2);
         assert!(pool.inputs[0].is_none());
         assert_eq!(pool.inputs[1].as_ref().unwrap().clone(), predicted_element_in_pool);
-
 
         let mut predicted_inputs_of_feature = HashMap::<Feature, Vec<usize>>::new();
         predicted_inputs_of_feature.insert(f1, vec![1]);
@@ -714,7 +714,6 @@ mod tests {
         assert!(pool.inputs[0].is_none());
         assert!(pool.inputs[1].is_none());
         assert_eq!(pool.inputs[2].as_ref().unwrap().clone(), predicted_element_in_pool);
-
 
         let mut predicted_inputs_of_feature = HashMap::<Feature, Vec<usize>>::new();
         predicted_inputs_of_feature.insert(f1, vec![2]);
@@ -764,7 +763,6 @@ mod tests {
         assert_eq!(pool.inputs[1].as_ref().unwrap().clone(), predicted_element_1_in_pool);
         assert_eq!(pool.inputs[2].as_ref().unwrap().clone(), predicted_element_2_in_pool);
 
-
         let mut predicted_inputs_of_feature = HashMap::<Feature, Vec<usize>>::new();
         predicted_inputs_of_feature.insert(f1, vec![1]);
         predicted_inputs_of_feature.insert(f2, vec![2]);
@@ -811,7 +809,6 @@ mod tests {
         assert!(pool.inputs[0].is_none());
         assert_eq!(pool.inputs[1].as_ref().unwrap().clone(), predicted_element_1_in_pool);
         assert_eq!(pool.inputs[2].as_ref().unwrap().clone(), predicted_element_2_in_pool);
-
 
         let mut predicted_inputs_of_feature = HashMap::<Feature, Vec<usize>>::new();
         predicted_inputs_of_feature.insert(f1, vec![2]);

@@ -75,15 +75,15 @@ where
         }
     }
 
-    pub fn do_actions(&self, actions: Vec<WorldAction<T>>) -> Result<()>{
+    pub fn do_actions(&self, actions: Vec<WorldAction<T>>) -> Result<()> {
         for a in actions {
             match a {
                 WorldAction::Add(x, fs) => {
                     self.add_to_output_corpus(x, fs)?;
-                },
+                }
                 WorldAction::Remove(x) => {
-                    self.remove_from_output_corpus(x)?;    
-                },
+                    self.remove_from_output_corpus(x)?;
+                }
                 WorldAction::ReportEvent(e) => {
                     self.report_event(e, None);
                 }

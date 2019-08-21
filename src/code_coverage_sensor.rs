@@ -19,7 +19,7 @@ pub struct CodeCoverageSensor {
     pub num_guards: isize,
     pub is_recording: bool,
     pub eight_bit_counters: HashMap<usize, u16>,
-    pub features: HashSet<Feature>
+    pub features: HashSet<Feature>,
 }
 
 impl CodeCoverageSensor {

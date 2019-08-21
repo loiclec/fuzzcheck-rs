@@ -1,5 +1,5 @@
 extern crate clap;
-use clap::{SubCommand};
+use clap::SubCommand;
 use fuzzcheck::command_line::*;
 use std::cmp::Ordering;
 use std::path::{Path, PathBuf};
@@ -10,23 +10,19 @@ static FUZZCHECK_PATH: &str = "https://github.com/loiclec/fuzzcheck-rs";
 // static FUZZCHECK_REVISION: &str = "bf7948bb2b1f911197ca66af094ac20021fdd7f9";
 
 /// The default target to pass to cargo, to workaround issue #11.
-#[cfg(target_os="macos")]
+#[cfg(target_os = "macos")]
 pub fn default_target() -> &'static str {
     "x86_64-apple-darwin"
 }
 
 /// The default target to pass to cargo, to workaround issue #11.
-#[cfg(not(target_os="macos"))]
+#[cfg(not(target_os = "macos"))]
 pub fn default_target() -> &'static str {
     "x86_64-unknown-linux-gnu"
 }
 
-
 fn main() {
-    let app = setup_app()
-        .subcommand(
-            SubCommand::with_name("setup")
-                .about("Setup Fuzzcheck"));
+    let app = setup_app().subcommand(SubCommand::with_name("setup").about("Setup Fuzzcheck"));
 
     let app_m = app.get_matches();
     let target_triple = default_target();
@@ -63,14 +59,14 @@ fn setup_command() {
 
     Command::new("cargo")
         .current_dir("fuzzcheck-rs")
-        .args(vec!["build", "--release",])
+        .args(vec!["build", "--release"])
         .stdout(std::process::Stdio::inherit())
         .stderr(std::process::Stdio::inherit())
         .output()
         .expect("failed to execute process");
 }
 
-fn fuzz_command(arguments: CommandLineArguments, target_triple: &str) {    
+fn fuzz_command(arguments: CommandLineArguments, target_triple: &str) {
     run_command(&arguments, target_triple);
 }
 
@@ -113,7 +109,6 @@ fn minimize_command(mut arguments: CommandLineArguments, target_triple: &str) ->
         arguments.input_file = Some(simplest);
     }
     arguments.command = FuzzerCommand::Read;
-
 
     let o = run_command(&arguments, target_triple);
     assert!(o.status.success() == false);
@@ -223,21 +218,23 @@ fn run_command(args: &CommandLineArguments, target_triple: &str) -> std::process
 
     let rustflags: String = format!(
         "--cfg fuzzing \
-        -Cpasses=sancov \
-        -Cllvm-args=-sanitizer-coverage-level=4 \
-        -Cllvm-args=-sanitizer-coverage-trace-pc-guard \
-        -Cllvm-args=-sanitizer-coverage-trace-compares \
-        -Cllvm-args=-sanitizer-coverage-trace-divs \
-        -Cllvm-args=-sanitizer-coverage-trace-geps \
-        -Cllvm-args=-sanitizer-coverage-prune-blocks=0 \
-        -L {}", fuzzcheck_lib.display()
+         -Cpasses=sancov \
+         -Cllvm-args=-sanitizer-coverage-level=4 \
+         -Cllvm-args=-sanitizer-coverage-trace-pc-guard \
+         -Cllvm-args=-sanitizer-coverage-trace-compares \
+         -Cllvm-args=-sanitizer-coverage-trace-divs \
+         -Cllvm-args=-sanitizer-coverage-trace-geps \
+         -Cllvm-args=-sanitizer-coverage-prune-blocks=0 \
+         -L {}",
+        fuzzcheck_lib.display()
     );
 
     Command::new("cargo")
         .env("RUSTFLAGS", rustflags)
         .arg("run")
         .arg("--release")
-        .arg("--target").arg(target_triple)
+        .arg("--target")
+        .arg(target_triple)
         .arg("--")
         .args(s)
         .stdout(std::process::Stdio::inherit())

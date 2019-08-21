@@ -5,9 +5,9 @@ use crate::input_pool::*;
 use crate::signals_handler::*;
 use crate::world::*;
 
+use std::panic::{catch_unwind, RefUnwindSafe, UnwindSafe};
 use std::process::exit;
 use std::result::Result;
-use std::panic::{UnwindSafe, RefUnwindSafe, catch_unwind};
 
 struct FuzzerState<T, G>
 where
@@ -98,16 +98,17 @@ where
     }
 
     fn test_input(&mut self) -> Result<(), std::io::Error> {
-        
         let sensor = shared_sensor();
         sensor.clear();
 
         sensor.is_recording = true;
 
         let cell = NotUnwindSafe { value: &self };
-        let input_cell = NotUnwindSafe { value: &self.state.input };
+        let input_cell = NotUnwindSafe {
+            value: &self.state.input,
+        };
         let result = catch_unwind(|| (cell.value.test)(input_cell.value));
-        
+
         sensor.is_recording = false;
 
         if result.is_err() || !result.unwrap() {
@@ -116,7 +117,9 @@ where
                 .report_event(FuzzerEvent::TestFailure, Some(self.state.stats));
             let mut features: Vec<Feature> = Vec::new();
             sensor.iterate_over_collected_features(|f| features.push(f));
-            self.state.world.save_artifact(&self.state.input, G::complexity(&self.state.input))?;
+            self.state
+                .world
+                .save_artifact(&self.state.input, G::complexity(&self.state.input))?;
             exit(FuzzerTerminationStatus::TestFailure as i32);
         }
         self.state.stats.total_number_of_runs += 1;
@@ -142,8 +145,8 @@ where
                 if cur_input_cplx < old_cplx {
                     best_input_for_a_feature = true;
                 } else if cur_input_cplx == old_cplx {
-                     matched_least_complex = true;
-                     score_to_exceed = score_to_exceed.min(cur_input_score);
+                    matched_least_complex = true;
+                    score_to_exceed = score_to_exceed.min(cur_input_score);
                 }
             } else {
                 best_input_for_a_feature = true;
@@ -152,24 +155,17 @@ where
         });
 
         if best_input_for_a_feature {
-            Some((
-                cur_input_cplx,
-                features,
-            ))
+            Some((cur_input_cplx, features))
         } else if matched_least_complex && score_estimate > score_to_exceed {
-            Some((
-                cur_input_cplx,
-                features,
-            ))
+            Some((cur_input_cplx, features))
         } else {
             None
         }
     }
 
     fn test_input_and_analyze(&mut self) -> Result<(), std::io::Error> {
-        
         self.test_input()?;
-        
+
         if let Some((cplx, input)) = self.analyze() {
             let actions = self.state.pool.add(self.state.input.clone(), cplx, input);
             self.state.world.do_actions(actions)?;
@@ -184,7 +180,6 @@ where
     }
 
     fn process_next_inputs(&mut self) -> Result<(), std::io::Error> {
-        
         let idx = self.state.pool.random_index();
         let (i, c) = self.state.pool.get(idx);
         self.state.input = i;
@@ -204,7 +199,7 @@ where
             }
             self.test_input_and_analyze()?;
         }
-    
+
         Ok(())
     }
 
@@ -219,7 +214,7 @@ where
             self.state.input = input;
             self.test_input_and_analyze()?;
         }
-        
+
         Ok(())
     }
 
@@ -269,7 +264,9 @@ where
 
         self.state.settings.max_input_cplx = G::complexity(&input) - 0.01;
 
-        self.state.pool.add_favored_input(input.clone(), self.state.settings.max_input_cplx);
+        self.state
+            .pool
+            .add_favored_input(input.clone(), self.state.settings.max_input_cplx);
 
         loop {
             self.process_next_inputs()?;
@@ -303,7 +300,6 @@ where
     Ok(())
 }
 
-
 struct NotThreadSafe<T>(T);
 struct NotUnwindSafe<T> {
     value: T,
@@ -319,4 +315,3 @@ pub enum FuzzerTerminationStatus {
     TestFailure = 2,
     Unknown = 3,
 }
-
