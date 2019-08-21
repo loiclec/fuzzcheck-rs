@@ -242,9 +242,20 @@ impl<T: Clone> InputPool<T> {
         }
     }
 
-    pub fn least_complex_input_for_feature(&mut self, f: Feature) -> f64 {
+    pub fn least_complex_input_for_feature(&mut self, f: Feature) -> Option<(f64, f64)> {
         let inputs = &self.metadata.inputs;
-        self.metadata.inputs_of_feature.get(&f).map(|x| inputs[*x.last().unwrap()].as_ref().unwrap().complexity).unwrap_or(core::f64::INFINITY)
+        if let Some(input) = self.metadata.inputs_of_feature.get(&f).map(|x| inputs[*x.last().unwrap()].as_ref().unwrap()) {
+            Some((input.complexity, input.score))
+        } else {
+            None
+        }
+    }
+
+    pub fn predicted_feature_score(&self, f: Feature) -> f64 {
+        self.metadata.inputs_of_feature
+            .get(&f)
+            .map(|x| f.score() / (x.len() + 1) as f64)
+            .unwrap_or(f.score())
     }
 }
 

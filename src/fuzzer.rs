@@ -131,15 +131,32 @@ where
         let cur_input_cplx = G::adjusted_complexity(&self.state.input);
         let sensor = shared_sensor();
 
+        let mut score_estimate: f64 = 0.0;
+        let mut score_to_exceed: f64 = core::f64::INFINITY;
+        let mut matched_least_complex = false;
+
         sensor.iterate_over_collected_features(|feature| {
-            let old_cplx = self.state.pool.least_complex_input_for_feature(feature);
-            if cur_input_cplx < old_cplx {
+            score_estimate += self.state.pool.predicted_feature_score(feature);
+
+            if let Some((old_cplx, cur_input_score)) = self.state.pool.least_complex_input_for_feature(feature) {
+                if cur_input_cplx < old_cplx {
+                    best_input_for_a_feature = true;
+                } else if cur_input_cplx == old_cplx {
+                     matched_least_complex = true;
+                     score_to_exceed = score_to_exceed.min(cur_input_score);
+                }
+            } else {
                 best_input_for_a_feature = true;
-            }        
+            }
             features.push(feature);
         });
 
         if best_input_for_a_feature {
+            Some((
+                cur_input_cplx,
+                features,
+            ))
+        } else if matched_least_complex && score_estimate > score_to_exceed {
             Some((
                 cur_input_cplx,
                 features,
