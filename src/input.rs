@@ -22,10 +22,6 @@ pub trait InputGenerator {
     where
         H: Hasher;
 
-    fn adjusted_complexity(input: &Self::Input) -> f64 {
-        Self::complexity(input) + 1.0
-    }
-
     fn base_input() -> Self::Input;
 
     /**

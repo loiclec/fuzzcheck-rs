@@ -131,7 +131,7 @@ where
 
         let mut best_input_for_a_feature = false;
 
-        let cur_input_cplx = G::adjusted_complexity(&self.state.input);
+        let cur_input_cplx = G::complexity(&self.state.input);
         let sensor = shared_sensor();
 
         let mut score_estimate: f64 = 0.0;
@@ -266,7 +266,7 @@ where
 
         self.state
             .pool
-            .add_favored_input(input.clone(), self.state.settings.max_input_cplx);
+            .add_favored_input(input.clone(), G::complexity(&input));
 
         loop {
             self.process_next_inputs()?;
