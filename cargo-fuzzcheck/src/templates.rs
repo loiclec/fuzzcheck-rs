@@ -13,8 +13,9 @@ cargo-fuzz = true
 
 [dependencies.{0}]
 path = ".."
-[dependencies.libfuzzer-sys]
-git = "https://github.com/rust-fuzz/libfuzzer-sys.git"
+
+[dependencies.fuzzcheck_input]
+"git" = "https://github.com/loiclec/fuzzcheck-rs"
 
 # Prevent this from interfering with workspaces
 [workspace]
@@ -45,6 +46,7 @@ macro_rules! gitignore_template {
 target
 corpus
 artifacts
+fuzzcheck-rs
 "##
         )
     };
@@ -52,15 +54,44 @@ artifacts
 
 macro_rules! target_template {
     ($name: expr) => {
-        format_args!(
-            r##"#![no_main]
-#[macro_use] extern crate libfuzzer_sys;
+        format_args!(r#"
 extern crate {};
 
-fuzz_target!(|data: &[u8]| {{
+extern crate fuzzcheck;
+use fuzzcheck::fuzzer;
+
+extern crate fuzzcheck_input;
+use fuzzcheck_input::integer::IntegerGenerator;
+use fuzzcheck_input::vector::VectorGenerator;
+
+fn test(input: &Vec<u8>) -> bool {{
+    // property test goes here
+    if 
+        input.len() > 7 &&
+        input[0] == 0 &&
+        input[1] == 167 &&
+        input[2] == 200 &&
+        input[3] == 103 &&
+        input[4] == 56 &&
+        input[5] == 78 &&
+        input[6] == 2 &&
+        input[7] == 254
+    {{
+        false
+    }}
+    else {{
+        true
+    }}
+}}
+
+fn main() {{
     // fuzzed code goes here
-}});
-"##,
+    let u8_gen = IntegerGenerator::<u8>::new();
+    let vec_gen = VectorGenerator::new(u8_gen);
+    let result = fuzzer::launch(test, vec_gen);
+    println!("{{:?}}", result);
+}}
+"#,
             $name
         )
     };

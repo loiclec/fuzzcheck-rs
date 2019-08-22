@@ -32,9 +32,9 @@ pub const DEFAULT_MAX_NBR_RUNS: usize = core::usize::MAX;
 pub const DEFAULT_MAX_INPUT_CPLX: usize = 256;
 pub const DEFAULT_MUT_DEPTH: usize = 5;
 pub const DEFAULT_CORPUS_SIZE: usize = 10;
-pub const DEFAULT_ARTIFACTS: &str = "./artifacts";
-pub const DEFAULT_IN_CORPUS: &str = "./fuzz-corpus";
-pub const DEFAULT_OUT_CORPUS: &str = "./fuzz-corpus";
+pub const DEFAULT_ARTIFACTS: &str = "artifacts";
+pub const DEFAULT_IN_CORPUS: &str = "fuzz-corpus";
+pub const DEFAULT_OUT_CORPUS: &str = "fuzz-corpus";
 
 #[derive(Debug, Clone)]
 pub struct CommandLineArguments {

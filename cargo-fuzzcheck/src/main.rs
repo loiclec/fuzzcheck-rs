@@ -76,12 +76,12 @@ SUBCOMMANDS:
 
 ## Examples:
 
-fuzzcheck {init}
+cargo-fuzzcheck {init}
 
-fuzzcheck {run} target1 {fuzz}
+cargo-fuzzcheck {run} target1 {fuzz}
     Launch the fuzzer on “target1” with default options.
 
-fuzzcheck {run} target1 {tmin} --{input_file} "artifacts/crash.json"
+cargo-fuzzcheck {run} target1 {tmin} --{input_file} "artifacts/crash.json"
 
     Using “target1”, minify the test input defined in the file 
     "artifacts/crash.json". It will put minified inputs in the folder 
@@ -89,7 +89,7 @@ fuzzcheck {run} target1 {tmin} --{input_file} "artifacts/crash.json"
     For example, artifacts/crash.minified/4213--8cd7777109b57b8c.json
     is a minified input of complexity 42.13.
 
-fuzzcheck {run} target1 {cmin} --{in_corpus} "fuzz-corpus" --{corpus_size} 25
+cargo-fuzzcheck {run} target1 {cmin} --{in_corpus} "fuzz-corpus" --{corpus_size} 25
 
     Using “target1”, minify the corpus defined by the folder "fuzz-corpus",
     which should contain JSON-encoded test inputs.
@@ -112,25 +112,34 @@ fuzzcheck {run} target1 {cmin} --{in_corpus} "fuzz-corpus" --{corpus_size} 25
         return;
     }
 
-    if env_args[1] == COMMAND_INIT {
+    let start_idx = if env_args[1] == "fuzzcheck" { 2 } else { 1 };
+
+    if env_args.len() <= start_idx {
+        println!("{}", help);
+        return;
+    }
+
+    if env_args[start_idx] == COMMAND_INIT {
         let result = init_command();
         println!("{:#?}", result);
         return;
     }
 
-    if env_args[1] != COMMAND_RUN {
+    if env_args[start_idx] != COMMAND_RUN {
         println!("Invalid command: {}", env_args[1]);
         println!();
         println!("{}", help);
         return;
-    } else if env_args.len() <= 2 {
+    } else if env_args.len() <= start_idx+1 {
         println!("No fuzz target was given.");
         println!();
         println!("{}", help);
         return;
     }
 
-    let args = match CommandLineArguments::from_parser(&parser, &env_args[3..]) {
+    let target = &env_args[start_idx+1];
+
+    let args = match CommandLineArguments::from_parser(&parser, &env_args[start_idx+2..]) {
         Ok(r) => r,
         Err(e) => {
             println!("{}", e);
@@ -139,48 +148,15 @@ fuzzcheck {run} target1 {cmin} --{in_corpus} "fuzz-corpus" --{corpus_size} 25
             return;
         }
     };
-    match args.command {
-        FuzzerCommand::Fuzz => fuzz_command(args, target_triple),
-        FuzzerCommand::Minimize => minimize_command(args, target_triple),
-        FuzzerCommand::Read => panic!("unimplemented"),
-        FuzzerCommand::Shrink => shrink_command(args, target_triple),
+    let r = match args.command {
+        FuzzerCommand::Fuzz => exec_normal_command(args, &target, target_triple),
+        FuzzerCommand::Minimize => exec_input_minify_command(args, &target, target_triple),
+        FuzzerCommand::Read => { panic!("unimplemented"); },
+        FuzzerCommand::Shrink => exec_normal_command(args, &target, target_triple),
+    };
+    if let Err(e) = r {
+        println!("{}", e);
     }
-}
-
-fn is_fuzz_manifest(value: &toml::Value) -> bool {
-    let is_fuzz = value
-        .as_table()
-        .and_then(|v| v.get("package"))
-        .and_then(toml::Value::as_table)
-        .and_then(|v| v.get("metadata"))
-        .and_then(toml::Value::as_table)
-        .and_then(|v| v.get("cargo-fuzz"))
-        .and_then(toml::Value::as_bool);
-    is_fuzz == Some(true)
-}
-/// Returns the path for the first found non-fuzz Cargo package
-fn find_package() -> Result<PathBuf> {
-    let mut dir = env::current_dir()?;
-    let mut data = Vec::new();
-    loop {
-        let manifest_path = dir.join("Cargo.toml");
-        match fs::File::open(&manifest_path) {
-            Err(_) => {}
-            Ok(mut f) => {
-                f.read_to_end(&mut data)?;
-                let value: toml::Value = toml::from_slice(&data)
-                    .chain_err(|| format!("could not decode the manifest file at {:?}", manifest_path))?;
-                if !is_fuzz_manifest(&value) {
-                    // Not a cargo-fuzz project => must be a proper cargo project :)
-                    return Ok(dir);
-                }
-            }
-        }
-        if !dir.pop() {
-            break;
-        }
-    }
-    Err("could not find a cargo project".into())
 }
 
 fn root_package_name(root_folder: &PathBuf) -> Result<String> {
@@ -206,11 +182,12 @@ fn root_package_name(root_folder: &PathBuf) -> Result<String> {
 fn create_target_template(
     root_package_name: &str,
     fuzz_folder: &PathBuf,
-    fuzzed_targets_folder: &PathBuf,
+    fuzz_targets_folder: &PathBuf,
     target: &str,
 ) -> Result<()> {
-    let mut target_path = fuzzed_targets_folder.clone();
+    let mut target_path = fuzz_targets_folder.clone();
     target_path.push(target);
+    let fuzzer_output_folder = target_path.clone();
     target_path.set_extension("rs");
 
     let mut script = fs::OpenOptions::new()
@@ -220,6 +197,8 @@ fn create_target_template(
         .chain_err(|| format!("could not create target script file at {:?}", target_path))?;
 
     script.write_fmt(target_template!(root_package_name.replace("-", "_")))?;
+
+    fs::create_dir(fuzzer_output_folder)?;
 
     let mut cargo_toml_path = fuzz_folder.clone();
     cargo_toml_path.push("Cargo.toml");
@@ -232,18 +211,17 @@ fn create_target_template(
 fn init_command() -> Result<()> {
     let target = "target1";
 
-    let root_folder = find_package()?;
+    let root_folder = std::env::current_dir()?;
     let root_package_name = root_package_name(&root_folder)?;
 
     let fuzz_folder = root_folder.join("fuzz");
-
-    clone_and_compile_fuzzcheck_library(&fuzz_folder);
-
-    let fuzzed_targets_folder = fuzz_folder.join("fuzzed_projects");
+    let fuzz_targets_folder = fuzz_folder.join("fuzz_targets");
 
     // TODO: check if the project is already initialized
     fs::create_dir(&fuzz_folder)?;
-    fs::create_dir(&fuzzed_targets_folder)?;
+    fs::create_dir(&fuzz_targets_folder)?;
+
+    clone_and_compile_fuzzcheck_library(&fuzz_folder);
 
     let mut cargo = fs::File::create(fuzz_folder.join("Cargo.toml"))?;
     cargo.write_fmt(toml_template!(root_package_name))?;
@@ -251,26 +229,26 @@ fn init_command() -> Result<()> {
     let mut ignore = fs::File::create(fuzz_folder.join(".gitignore"))?;
     ignore.write_fmt(gitignore_template!())?;
 
-    create_target_template(&root_package_name, &fuzz_folder, &fuzzed_targets_folder, target)
+    create_target_template(&root_package_name, &fuzz_folder, &fuzz_targets_folder, target)
         .chain_err(|| format!("could not create template file for target {:?}", target))?;
 
     Ok(())
 }
 
-fn collect_targets(manifest: &toml::Value) -> Vec<String> {
-    let bins = manifest
-        .as_table()
-        .and_then(|v| v.get("bin"))
-        .and_then(toml::Value::as_array);
-    if let Some(bins) = bins {
-        bins.iter()
-            .map(|bin| bin.as_table().and_then(|v| v.get("name")).and_then(toml::Value::as_str))
-            .filter_map(|name| name.map(String::from))
-            .collect()
-    } else {
-        Vec::new()
-    }
-}
+// fn collect_targets(manifest: &toml::Value) -> Vec<String> {
+//     let bins = manifest
+//         .as_table()
+//         .and_then(|v| v.get("bin"))
+//         .and_then(toml::Value::as_array);
+//     if let Some(bins) = bins {
+//         bins.iter()
+//             .map(|bin| bin.as_table().and_then(|v| v.get("name")).and_then(toml::Value::as_str))
+//             .filter_map(|name| name.map(String::from))
+//             .collect()
+//     } else {
+//         Vec::new()
+//     }
+// }
 
 fn clone_and_compile_fuzzcheck_library(fuzz_folder: &PathBuf) {
     Command::new("git")
@@ -301,16 +279,26 @@ fn clone_and_compile_fuzzcheck_library(fuzz_folder: &PathBuf) {
         .expect("failed to execute process");
 }
 
-fn fuzz_command(arguments: CommandLineArguments, target_triple: &str) {
-    run_command(&arguments, target_triple);
-}
+fn exec_normal_command(arguments: CommandLineArguments, target: &str, target_triple: &str) -> Result<()> {
+    let root_folder = std::env::current_dir()?;
+    //let root_package_name = root_package_name(&root_folder)?;
 
-fn shrink_command(arguments: CommandLineArguments, target_triple: &str) {
-    run_command(&arguments, target_triple);
+    let fuzz_folder = root_folder.join("fuzz");
+    let fuzz_targets_folder = fuzz_folder.join("fuzz_targets");
+    let target_folder = fuzz_targets_folder.join(target);
+
+    run_command(&arguments, &fuzz_folder, &target_folder, target_triple)?;
+
+    Ok(())
 }
 
 // TODO: rename CommandLineArguments
-fn minimize_command(mut arguments: CommandLineArguments, target_triple: &str) -> ! {
+fn exec_input_minify_command(mut arguments: CommandLineArguments, target: &str, target_triple: &str) -> Result<()> {
+    let root_folder = std::env::current_dir()?;
+    let fuzz_folder = &root_folder.join("fuzz");
+    let fuzz_targets_folder = fuzz_folder.join("fuzz_targets");
+    let target_folder = &fuzz_targets_folder.join(target);
+
     let file_to_minimize = (&arguments.input_file).as_ref().unwrap().clone();
 
     let artifacts_folder = {
@@ -319,12 +307,12 @@ fn minimize_command(mut arguments: CommandLineArguments, target_triple: &str) ->
         x = x.with_extension("minimized");
         x
     };
-    let _ = std::fs::create_dir(&artifacts_folder);
+    std::fs::create_dir(&artifacts_folder)?;
     arguments.artifacts_folder = Some(artifacts_folder.clone());
 
     fn simplest_input_file(folder: &Path) -> Option<PathBuf> {
-        let files_with_complexity = std::fs::read_dir(folder)
-            .unwrap()
+        let files_with_complexity = 
+            std::fs::read_dir(folder).ok()?
             .filter_map(|path| -> Option<(PathBuf, f64)> {
                 let path = path.ok()?.path();
                 let name_components: Vec<&str> = path.file_stem()?.to_str()?.splitn(2, "--").collect();
@@ -335,9 +323,10 @@ fn minimize_command(mut arguments: CommandLineArguments, target_triple: &str) ->
                     None
                 }
             });
-        let (file, _) = files_with_complexity
-            .min_by(|x, y| std::cmp::PartialOrd::partial_cmp(&x.1, &y.1).unwrap_or(Ordering::Equal))?;
-        Some(file)
+        
+        files_with_complexity.min_by(|x, y| 
+            std::cmp::PartialOrd::partial_cmp(&x.1, &y.1).unwrap_or(Ordering::Equal)
+        ).map(|x| x.0)
     }
 
     if let Some(simplest) = simplest_input_file(&artifacts_folder.as_path()) {
@@ -345,7 +334,7 @@ fn minimize_command(mut arguments: CommandLineArguments, target_triple: &str) ->
     }
     arguments.command = FuzzerCommand::Read;
 
-    let o = run_command(&arguments, target_triple);
+    let o = run_command(&arguments, fuzz_folder, target_folder, target_triple)?;
     assert!(o.status.success() == false);
 
     // hjhjb.minimized/hshs.parent() != hjhjb.minimized/ -> copy hshs to hjhjb.minimized/hshs
@@ -359,93 +348,66 @@ fn minimize_command(mut arguments: CommandLineArguments, target_triple: &str) ->
     loop {
         arguments.input_file = simplest_input_file(&artifacts_folder).or(arguments.input_file);
 
-        run_command(&arguments, target_triple);
+        run_command(&arguments, fuzz_folder, target_folder, target_triple)?;
     }
 }
 
-fn run_command(args: &CommandLineArguments, target_triple: &str) -> std::process::Output {
+fn prepended_with_if_relative(path: PathBuf, to_prepend: &PathBuf) -> String {
+    if path.is_relative() {
+        let mut new_path = to_prepend.clone();
+        new_path.push(path);
+        new_path
+    } else {
+        path
+    }.as_path().to_str().unwrap().to_owned()
+}
+
+fn run_command(args: &CommandLineArguments, fuzz_folder: &PathBuf, target_folder: &PathBuf, target_triple: &str) -> Result<std::process::Output> {
     let mut s: Vec<String> = Vec::new();
 
     let input_file_args = args.input_file.clone().map(|f| {
-        vec![
-            "--".to_owned() + INPUT_FILE_FLAG,
-            f.as_path().to_str().unwrap().to_string(),
-        ]
+        vec!["--".to_owned() + INPUT_FILE_FLAG, prepended_with_if_relative(f, target_folder)]
     });
+    
     let corpus_in_args = args.corpus_in.clone().map(|f| {
-        vec![
-            "--".to_owned() + IN_CORPUS_FLAG,
-            f.as_path().to_str().unwrap().to_string(),
-        ]
-    });
+        vec!["--".to_owned() + IN_CORPUS_FLAG, prepended_with_if_relative(f, target_folder)]
+    }).unwrap_or_else(|| 
+        vec!["--".to_owned() + NO_IN_CORPUS_FLAG]
+    );
+
     let corpus_out_args = args.corpus_out.clone().map(|f| {
-        vec![
-            "--".to_owned() + OUT_CORPUS_FLAG,
-            f.as_path().to_str().unwrap().to_string(),
-        ]
-    });
+         vec!["--".to_owned() + OUT_CORPUS_FLAG, prepended_with_if_relative(f, target_folder)]
+    }).unwrap_or_else(|| 
+        vec!["--".to_owned() + NO_OUT_CORPUS_FLAG]
+    );
+    
     let artifacts_args = args.artifacts_folder.clone().map(|f| {
-        vec![
-            "--".to_owned() + ARTIFACTS_FLAG,
-            f.as_path().to_str().unwrap().to_string(),
-        ]
-    });
+         vec!["--".to_owned() + ARTIFACTS_FLAG, prepended_with_if_relative(f, target_folder)]
+    }).unwrap_or_else(|| 
+        vec!["--".to_owned() + NO_ARTIFACTS_FLAG]
+    );
 
     match args.command {
-        FuzzerCommand::Read => {
-            s.push("-c read".to_owned());
-            if let Some(input_file_args) = input_file_args {
-                s.append(&mut input_file_args.clone());
-            }
-            if let Some(artifacts_args) = artifacts_args {
-                s.append(&mut artifacts_args.clone());
-            }
-        }
-        FuzzerCommand::Minimize => {
-            s.push("-c tmin".to_owned());
-            if let Some(input_file_args) = input_file_args {
-                s.append(&mut input_file_args.clone());
-            }
-            if let Some(artifacts_args) = artifacts_args {
-                s.append(&mut artifacts_args.clone());
-            }
-            s.push("--".to_owned() + MUT_DEPTH_FLAG);
-            s.push(args.mutate_depth.to_string());
-        }
-        FuzzerCommand::Shrink => {
-            s.push("-c cmin".to_owned());
-            if let Some(corpus_in_args) = corpus_in_args {
-                s.append(&mut corpus_in_args.clone());
-            }
-            if let Some(corpus_out_args) = corpus_out_args {
-                s.append(&mut corpus_out_args.clone());
-            }
-            s.push("--".to_owned() + CORPUS_SIZE_FLAG);
-            s.push(args.corpus_size.to_string());
-        }
-        FuzzerCommand::Fuzz => {
-            s.push("fuzz".to_owned());
-            if let Some(corpus_in_args) = corpus_in_args {
-                s.append(&mut corpus_in_args.clone());
-            }
-            if let Some(corpus_out_args) = corpus_out_args {
-                s.append(&mut corpus_out_args.clone());
-            }
-            if let Some(artifacts_args) = artifacts_args {
-                s.append(&mut artifacts_args.clone());
-            }
-            // TODO: no-corpus-in, no-corpus-out, no-artifacts
+        FuzzerCommand::Read => s.push(COMMAND_READ.to_owned()),
+        FuzzerCommand::Minimize => s.push(COMMAND_MINIFY_INPUT.to_owned()),
+        FuzzerCommand::Shrink => s.push(COMMAND_MINIFY_CORPUS.to_owned()),
+        FuzzerCommand::Fuzz => s.push(COMMAND_FUZZ.to_owned()),
+    };
 
-            s.push("--".to_owned() + MAX_NBR_RUNS_FLAG);
-            s.push(args.max_nbr_of_runs.to_string());
-            s.push("--".to_owned() + MAX_INPUT_CPLX_FLAG);
-            s.push(args.max_input_cplx.to_string());
-            s.push("--".to_owned() + MUT_DEPTH_FLAG);
-            s.push(args.mutate_depth.to_string());
-        }
+    if let Some(input_file_args) = input_file_args {
+        s.append(&mut input_file_args.clone());
     }
-    let cur_dir = std::env::current_dir().expect("");
-    let fuzzcheck_lib = cur_dir.join("fuzzcheck-rs/target/release/deps");
+    s.append(&mut vec!["--".to_owned() + CORPUS_SIZE_FLAG, args.corpus_size.to_string()]);
+
+    s.append(&mut corpus_in_args.clone());
+    s.append(&mut corpus_out_args.clone());
+    s.append(&mut artifacts_args.clone());
+    s.append(&mut vec!["--".to_owned(), MAX_INPUT_CPLX_FLAG.to_owned(), args.max_input_cplx.to_string()]);
+
+    s.append(&mut vec!["--".to_owned(), MUT_DEPTH_FLAG.to_owned(), args.mutate_depth.to_string()]);    
+    s.append(&mut vec!["--".to_owned(), MAX_NBR_RUNS_FLAG.to_owned(), args.max_nbr_of_runs.to_string()]);    
+    
+    let fuzzcheck_lib = fuzz_folder.join("fuzzcheck-rs/target/release/deps");
 
     let rustflags: String = format!(
         "--cfg fuzzing \
@@ -456,12 +418,14 @@ fn run_command(args: &CommandLineArguments, target_triple: &str) -> std::process
          -Cllvm-args=-sanitizer-coverage-trace-divs \
          -Cllvm-args=-sanitizer-coverage-trace-geps \
          -Cllvm-args=-sanitizer-coverage-prune-blocks=0 \
-         -L /Users/loiclecrenier/Documents/rust/real_world_fuzzcheck/fuzzcheck-rs/target/release/deps",
+         -L {}", fuzzcheck_lib.display()
     );
 
     Command::new("cargo")
         .env("RUSTFLAGS", rustflags)
         .arg("run")
+        .arg("--manifest-path").arg(fuzz_folder.join("Cargo.toml"))
+        .arg("--bin").arg(target_folder.file_name().unwrap())
         .arg("--release")
         .arg("--target")
         .arg(target_triple)
@@ -470,5 +434,5 @@ fn run_command(args: &CommandLineArguments, target_triple: &str) -> std::process
         .stdout(std::process::Stdio::inherit())
         .stderr(std::process::Stdio::inherit())
         .output()
-        .expect("failed to execute process")
+        .map_err(|x| x.into())
 }

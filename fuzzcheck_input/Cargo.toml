@@ -8,6 +8,10 @@ edition = "2018"
 
 [dependencies]
 miniserde = "0.1.11"
-fuzzcheck = { path = "../fuzzcheck" }
+# will be linked by cargo-fuzzcheck
+# fuzzcheck = { path = "../fuzzcheck" }
 rand = "0.7.0"
 rand_distr = "0.2.1"
+
+[target.'cfg(not(fuzzing))'.dependencies]
+fuzzcheck = { path = "../fuzzcheck" }
