@@ -18,3 +18,4 @@ mod input_pool;
 mod signals_handler;
 mod weighted_index;
 pub mod world;
+mod hasher;

@@ -277,9 +277,59 @@ where
     F: Fn(&T) -> bool,
     G: InputGenerator<Input = T>,
 {
-    let app = setup_app();
+    let env_args: Vec<_> = std::env::args().collect();
+    let parser = options_parser();
+    let mut help = format!(r#""
+fuzzcheck <SUBCOMMAND> [OPTIONS]
 
-    let args = CommandLineArguments::from_arg_matches(&app.get_matches());
+SUBCOMMANDS:
+    {fuzz}    Run the fuzz test
+    {tmin}    Minify a crashing test input, requires --{input_file}
+    {cmin}    Minify a corpus of test inputs, requires --{in_corpus}
+"#,
+        fuzz=COMMAND_FUZZ,
+        tmin=COMMAND_MINIFY_INPUT,
+        input_file=INPUT_FILE_FLAG,
+        cmin=COMMAND_MINIFY_CORPUS,
+        in_corpus=CORPUS_IN_FLAG,
+    );
+    help += parser.usage("").as_str();
+    help += format!(r#""
+## Examples:
+
+fuzzcheck {fuzz}
+    Launch the fuzzer with default options.
+
+fuzzcheck {tmin} --{input_file} "artifacts/crash.json"
+
+    Minify the test input defined in the file "artifacts/crash.json".
+    It will put minified inputs in the folder artifacts/crash.minified/
+    and name them {{complexity}}-{{hash}}.json. 
+    For example, artifacts/crash.minified/4213--8cd7777109b57b8c.json
+    is a minified input of complexity 42.13.
+
+fuzzcheck {cmin} --{in_corpus} "fuzz-corpus" --{corpus_size} 25
+
+    Minify the corpus defined by the folder "fuzz-corpus", which should
+    contain JSON-encoded test inputs.
+    It will remove files from that folder until only the 25 most important
+    test inputs remain.
+"#,
+        fuzz=COMMAND_FUZZ,
+        tmin=COMMAND_MINIFY_INPUT,
+        input_file=INPUT_FILE_FLAG,
+        cmin=COMMAND_MINIFY_CORPUS,
+        in_corpus=CORPUS_IN_FLAG,
+        corpus_size=CORPUS_SIZE_FLAG
+    ).as_str();
+
+    let args = match CommandLineArguments::from_parser(&parser, &env_args[1..]) {
+        Ok(r) => r,
+        Err(e) => {
+            println!("{}\n\n{}", e, help);
+            std::process::exit(1);
+        }
+    };
 
     let command = args.command;
 

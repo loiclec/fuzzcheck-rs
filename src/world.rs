@@ -78,8 +78,8 @@ where
     pub fn do_actions(&self, actions: Vec<WorldAction<T>>) -> Result<()> {
         for a in actions {
             match a {
-                WorldAction::Add(x, fs) => {
-                    self.add_to_output_corpus(x, fs)?;
+                WorldAction::Add(x, _) => {
+                    self.add_to_output_corpus(x)?;
                 }
                 WorldAction::Remove(x) => {
                     self.remove_from_output_corpus(x)?;
@@ -151,7 +151,7 @@ where
         }
     }
 
-    pub fn add_to_output_corpus(&self, input: T, features: Vec<Feature>) -> Result<()> {
+    pub fn add_to_output_corpus(&self, input: T) -> Result<()> {
         if self.settings.corpus_out.is_none() {
             return Ok(());
         }
@@ -169,13 +169,6 @@ where
         let content = G::to_data(&input);
         let path = corpus.join(name).with_extension("json");
         fs::write(path, content)?;
-        /*
-        if self.settings.debug {
-            let name = format!("{:x}-features", hash);
-            //let content = serde_json::to_vec_pretty(&features).unwrap();
-            let path = corpus.join(name).with_extension("json");
-            fs::write(path, content)?;
-        }*/
 
         Ok(())
     }
@@ -193,12 +186,6 @@ where
 
         let path = corpus.join(name).with_extension("json");
         let _ = fs::remove_file(path);
-
-        if self.settings.debug {
-            let name = format!("{:x}-features", hash);
-            let path = corpus.join(name).with_extension("json");
-            let _ = fs::remove_file(path);
-        }
 
         Ok(())
     }

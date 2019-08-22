@@ -1,12 +1,16 @@
-extern crate clap;
-use clap::SubCommand;
 use fuzzcheck::command_line::*;
 use std::cmp::Ordering;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::string::String;
 
-static FUZZCHECK_PATH: &str = "https://github.com/loiclec/fuzzcheck-rs";
+use getopts::Options;
+
+pub const COMMAND_INIT: &str = "init";
+pub const COMMAND_RUN: &str = "run";
+
+
+const FUZZCHECK_PATH: &str = "https://github.com/loiclec/fuzzcheck-rs";
 // static FUZZCHECK_REVISION: &str = "bf7948bb2b1f911197ca66af094ac20021fdd7f9";
 
 /// The default target to pass to cargo, to workaround issue #11.
@@ -21,17 +25,119 @@ pub fn default_target() -> &'static str {
     "x86_64-unknown-linux-gnu"
 }
 
-fn main() {
-    let app = setup_app().subcommand(SubCommand::with_name("setup").about("Setup Fuzzcheck"));
+fn parse_args(options: &Options) -> &str {
+                    r#""
+fuzzcheck <SUBCOMMAND> [OPTIONS]
 
-    let app_m = app.get_matches();
+## Examples:
+
+fuzzcheck {fuzz}
+    Launch the fuzzer with default options.
+
+fuzzcheck {tmin} --{input_file} "artifacts/crash.json"
+
+    Minify the test input defined in the file "artifacts/crash.json".
+    It will put minified inputs in the folder artifacts/crash.minified/
+    and name them {{complexity}}-{{hash}}.json. 
+    For example, artifacts/crash.minified/4213--8cd7777109b57b8c.json
+    is a minified input of complexity 42.13.
+
+fuzzcheck {cmin} --{in_corpus} "fuzz-corpus" --{corpus_size} 25
+
+    Minify the corpus defined by the folder "fuzz-corpus", which should
+    contain JSON-encoded test inputs.
+    It will remove files from that folder until only the 25 most important
+    test inputs remain.
+
+SUBCOMMANDS:
+    {fuzz}    Run the fuzz test
+    {tmin}    Minify a crashing test input, requires --{input_file}
+    {cmin}    Minify a corpus of test inputs, requires --{in_corpus}
+                "#
+}
+
+
+fn main() {
     let target_triple = default_target();
 
-    let args = CommandLineArguments::from_arg_matches(&app_m);
+    let parser = options_parser();
 
-    if app_m.subcommand_name() == Some("setup") {
+    let env_args: Vec<String> = std::env::args().collect();
+    
+    let mut help = format!(r#""
+USAGE:
+    fuzzcheck {init}
+    => Initialize the fuzz folder
+
+    fuzzcheck {run} <TARGET> <SUBCOMMAND> [OPTIONS]
+    => Execute the subcommand on the given fuzz target.
+       The target name is the name of its folder in fuzz/fuzz_targets/.
+
+SUBCOMMANDS:
+    {fuzz}    Run the fuzz test
+    {tmin}    Minify a crashing test input, requires --{input_file}
+    {cmin}    Minify a corpus of test inputs, requires --{in_corpus}
+"#,
+        init=COMMAND_INIT,
+        run=COMMAND_RUN,
+        fuzz=COMMAND_FUZZ,
+        tmin=COMMAND_MINIFY_INPUT,
+        input_file=INPUT_FILE_FLAG,
+        cmin=COMMAND_MINIFY_CORPUS,
+        in_corpus=CORPUS_IN_FLAG,
+    );
+    help += parser.usage("").as_str();
+    help += format!(r#""
+## Examples:
+
+fuzzcheck {init}
+
+fuzzcheck {run} target1 {fuzz}
+    Launch the fuzzer on “target1” with default options.
+
+fuzzcheck {run} target1 {tmin} --{input_file} "artifacts/crash.json"
+
+    Using “target1”, minify the test input defined in the file 
+    "artifacts/crash.json". It will put minified inputs in the folder 
+    artifacts/crash.minified/ and name them {{complexity}}-{{hash}}.json. 
+    For example, artifacts/crash.minified/4213--8cd7777109b57b8c.json
+    is a minified input of complexity 42.13.
+
+fuzzcheck {run} target1 {cmin} --{in_corpus} "fuzz-corpus" --{corpus_size} 25
+
+    Using “target1”, minify the corpus defined by the folder "fuzz-corpus",
+    which should contain JSON-encoded test inputs.
+    It will remove files from that folder until only the 25 most important
+    test inputs remain.
+"#,
+        init=COMMAND_INIT,
+        run=COMMAND_RUN,
+        fuzz=COMMAND_FUZZ,
+        tmin=COMMAND_MINIFY_INPUT,
+        input_file=INPUT_FILE_FLAG,
+        cmin=COMMAND_MINIFY_CORPUS,
+        in_corpus=CORPUS_IN_FLAG,
+        corpus_size=CORPUS_SIZE_FLAG
+    ).as_str();
+
+    let args = match CommandLineArguments::from_parser(&parser, &env_args[1..]) {
+        Ok(r) => r,
+        Err(e) => {
+            println!("{}\n\n{}", e, help);
+            std::process::exit(1);
+        }
+    };
+
+    if env_args.get(1) == Some(&"setup".to_owned()) {
         setup_command()
     } else {
+        let args = match CommandLineArguments::from_parser(&parser, &env_args[1..]) {
+            Ok(r) => r,
+            Err(e) => {
+                println!("{}", e);
+                std::process::exit(1);
+            }
+        };
         match args.command {
             FuzzerCommand::Fuzz => fuzz_command(args, target_triple),
             FuzzerCommand::Minimize => minimize_command(args, target_triple),
@@ -158,7 +264,7 @@ fn run_command(args: &CommandLineArguments, target_triple: &str) -> std::process
 
     match args.command {
         FuzzerCommand::Read => {
-            s.push("read".to_owned());
+            s.push("-c read".to_owned());
             if let Some(input_file_args) = input_file_args {
                 s.append(&mut input_file_args.clone());
             }
@@ -167,7 +273,7 @@ fn run_command(args: &CommandLineArguments, target_triple: &str) -> std::process
             }
         }
         FuzzerCommand::Minimize => {
-            s.push("minimize".to_owned());
+            s.push("-c tmin".to_owned());
             if let Some(input_file_args) = input_file_args {
                 s.append(&mut input_file_args.clone());
             }
@@ -178,15 +284,12 @@ fn run_command(args: &CommandLineArguments, target_triple: &str) -> std::process
             s.push(args.mutate_depth.to_string());
         }
         FuzzerCommand::Shrink => {
-            s.push("shrink".to_owned());
+            s.push("-c cmin".to_owned());
             if let Some(corpus_in_args) = corpus_in_args {
                 s.append(&mut corpus_in_args.clone());
             }
             if let Some(corpus_out_args) = corpus_out_args {
                 s.append(&mut corpus_out_args.clone());
-            }
-            if args.debug {
-                s.push("--debug".to_string());
             }
             s.push("--".to_owned() + CORPUS_SIZE_FLAG);
             s.push(args.corpus_size.to_string());
@@ -202,9 +305,8 @@ fn run_command(args: &CommandLineArguments, target_triple: &str) -> std::process
             if let Some(artifacts_args) = artifacts_args {
                 s.append(&mut artifacts_args.clone());
             }
-            if args.debug {
-                s.push("--debug".to_string());
-            }
+            // TODO: no-corpus-in, no-corpus-out, no-artifacts
+
             s.push("--".to_owned() + MAX_NBR_RUNS_FLAG);
             s.push(args.max_nbr_of_runs.to_string());
             s.push("--".to_owned() + MAX_INPUT_CPLX_FLAG);
@@ -225,8 +327,7 @@ fn run_command(args: &CommandLineArguments, target_triple: &str) -> std::process
          -Cllvm-args=-sanitizer-coverage-trace-divs \
          -Cllvm-args=-sanitizer-coverage-trace-geps \
          -Cllvm-args=-sanitizer-coverage-prune-blocks=0 \
-         -L {}",
-        fuzzcheck_lib.display()
+         -L /Users/loiclecrenier/Documents/rust/real_world_fuzzcheck/fuzzcheck-rs/target/release/deps",
     );
 
     Command::new("cargo")

@@ -1,5 +1,5 @@
-use hashbrown::HashMap;
-use hashbrown::HashSet;
+use std::collections::HashMap;
+use std::collections::HashSet;
 
 use std::cmp::Ordering;
 use std::cmp::PartialOrd;
@@ -10,6 +10,8 @@ use rand::Rng;
 use rand::distributions::uniform::{UniformFloat, UniformSampler};
 use rand::distributions::Distribution;
 
+
+use crate::hasher::FuzzcheckHash;
 // use serde::{Deserialize, Serialize};
 
 use std::hash::{Hash, Hasher};
@@ -262,14 +264,14 @@ impl<T: Clone> InputPool<T> {
 #[derive(Debug)]
 struct InputMetadataPool {
     inputs: Vec<Option<InputMetadata>>,
-    inputs_of_feature: HashMap<Feature, Vec<usize>>,
+    inputs_of_feature: HashMap<Feature, Vec<usize>, FuzzcheckHash>,
 }
 
 impl InputMetadataPool {
     fn new() -> Self {
         InputMetadataPool {
             inputs: Vec::new(),
-            inputs_of_feature: HashMap::new(),
+            inputs_of_feature: HashMap::with_hasher(FuzzcheckHash{}),
         }
     }
 
@@ -511,7 +513,7 @@ mod tests {
         assert_eq!(pool.inputs.len(), 1);
         assert_eq!(pool.inputs[0].as_ref().unwrap().clone(), predicted_element_in_pool);
 
-        let mut predicted_inputs_of_feature = HashMap::<Feature, Vec<usize>>::new();
+        let mut predicted_inputs_of_feature = HashMap::<Feature, Vec<usize>, FuzzcheckHash>::with_hasher(FuzzcheckHash{});
         predicted_inputs_of_feature.insert(f1, vec![0]);
         predicted_inputs_of_feature.insert(f2, vec![0]);
         assert_eq!(pool.inputs_of_feature, predicted_inputs_of_feature);
@@ -552,7 +554,7 @@ mod tests {
         assert_eq!(pool.inputs[0].as_ref().unwrap().clone(), predicted_element_1_in_pool);
         assert_eq!(pool.inputs[1].as_ref().unwrap().clone(), predicted_element_2_in_pool);
 
-        let mut predicted_inputs_of_feature = HashMap::<Feature, Vec<usize>>::new();
+        let mut predicted_inputs_of_feature = HashMap::<Feature, Vec<usize>, FuzzcheckHash>::with_hasher(FuzzcheckHash{});
         predicted_inputs_of_feature.insert(f1, vec![0]);
         predicted_inputs_of_feature.insert(f2, vec![0]);
         predicted_inputs_of_feature.insert(f3, vec![1]);
@@ -596,7 +598,7 @@ mod tests {
         assert_eq!(pool.inputs[0].as_ref().unwrap().clone(), predicted_element_1_in_pool);
         assert_eq!(pool.inputs[1].as_ref().unwrap().clone(), predicted_element_2_in_pool);
 
-        let mut predicted_inputs_of_feature = HashMap::<Feature, Vec<usize>>::new();
+        let mut predicted_inputs_of_feature = HashMap::<Feature, Vec<usize>, FuzzcheckHash>::with_hasher(FuzzcheckHash{});
         predicted_inputs_of_feature.insert(f1, vec![1, 0]);
         predicted_inputs_of_feature.insert(f2, vec![0]);
         predicted_inputs_of_feature.insert(f3, vec![1]);
@@ -639,7 +641,7 @@ mod tests {
         assert_eq!(pool.inputs[0].as_ref().unwrap().clone(), predicted_element_1_in_pool);
         assert_eq!(pool.inputs[1].as_ref().unwrap().clone(), predicted_element_2_in_pool);
 
-        let mut predicted_inputs_of_feature = HashMap::<Feature, Vec<usize>>::new();
+        let mut predicted_inputs_of_feature = HashMap::<Feature, Vec<usize>, FuzzcheckHash>::with_hasher(FuzzcheckHash{});
         predicted_inputs_of_feature.insert(f1, vec![0, 1]);
         predicted_inputs_of_feature.insert(f2, vec![0]);
         predicted_inputs_of_feature.insert(f3, vec![1]);
@@ -673,7 +675,7 @@ mod tests {
         assert!(pool.inputs[0].is_none());
         assert_eq!(pool.inputs[1].as_ref().unwrap().clone(), predicted_element_in_pool);
 
-        let mut predicted_inputs_of_feature = HashMap::<Feature, Vec<usize>>::new();
+        let mut predicted_inputs_of_feature = HashMap::<Feature, Vec<usize>, FuzzcheckHash>::with_hasher(FuzzcheckHash{});
         predicted_inputs_of_feature.insert(f1, vec![1]);
         predicted_inputs_of_feature.insert(f2, vec![1]);
 
@@ -712,7 +714,7 @@ mod tests {
         assert!(pool.inputs[1].is_none());
         assert_eq!(pool.inputs[2].as_ref().unwrap().clone(), predicted_element_in_pool);
 
-        let mut predicted_inputs_of_feature = HashMap::<Feature, Vec<usize>>::new();
+        let mut predicted_inputs_of_feature = HashMap::<Feature, Vec<usize>, FuzzcheckHash>::with_hasher(FuzzcheckHash{});
         predicted_inputs_of_feature.insert(f1, vec![2]);
         predicted_inputs_of_feature.insert(f2, vec![2]);
         predicted_inputs_of_feature.insert(f3, vec![2]);
@@ -760,7 +762,7 @@ mod tests {
         assert_eq!(pool.inputs[1].as_ref().unwrap().clone(), predicted_element_1_in_pool);
         assert_eq!(pool.inputs[2].as_ref().unwrap().clone(), predicted_element_2_in_pool);
 
-        let mut predicted_inputs_of_feature = HashMap::<Feature, Vec<usize>>::new();
+        let mut predicted_inputs_of_feature = HashMap::<Feature, Vec<usize>, FuzzcheckHash>::with_hasher(FuzzcheckHash{});
         predicted_inputs_of_feature.insert(f1, vec![1]);
         predicted_inputs_of_feature.insert(f2, vec![2]);
         predicted_inputs_of_feature.insert(f3, vec![1, 2]);
@@ -807,7 +809,7 @@ mod tests {
         assert_eq!(pool.inputs[1].as_ref().unwrap().clone(), predicted_element_1_in_pool);
         assert_eq!(pool.inputs[2].as_ref().unwrap().clone(), predicted_element_2_in_pool);
 
-        let mut predicted_inputs_of_feature = HashMap::<Feature, Vec<usize>>::new();
+        let mut predicted_inputs_of_feature = HashMap::<Feature, Vec<usize>, FuzzcheckHash>::with_hasher(FuzzcheckHash{});
         predicted_inputs_of_feature.insert(f1, vec![2]);
         predicted_inputs_of_feature.insert(f2, vec![1, 2]);
         predicted_inputs_of_feature.insert(f3, vec![1]);
@@ -857,7 +859,7 @@ mod tests {
             least_complex_for_features: vec![f1, f2].iter().cloned().collect(),
         };
 
-        let mut predicted_inputs_of_feature = HashMap::<Feature, Vec<usize>>::new();
+        let mut predicted_inputs_of_feature = HashMap::<Feature, Vec<usize>, FuzzcheckHash>::with_hasher(FuzzcheckHash{});
         predicted_inputs_of_feature.insert(f1, vec![0]);
         predicted_inputs_of_feature.insert(f2, vec![0]);
 

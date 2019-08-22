@@ -1,8 +1,11 @@
 use crate::input_pool::*;
-use hashbrown::HashMap;
-use hashbrown::HashSet;
+use std::collections::HashMap;
+use std::collections::HashSet;
 use std::mem::MaybeUninit;
 use std::slice;
+
+
+use crate::hasher::FuzzcheckHash;
 
 type PC = usize;
 
@@ -12,13 +15,13 @@ pub fn shared_sensor() -> &'static mut CodeCoverageSensor {
     unsafe { &mut *SHARED_SENSOR.as_mut_ptr() }
 }
 
-static MAX_NUM_GUARDS: isize = 1 << 21;
+const MAX_NUM_GUARDS: isize = 1 << 21;
 
 #[derive(Clone)]
 pub struct CodeCoverageSensor {
     pub num_guards: isize,
     pub is_recording: bool,
-    pub eight_bit_counters: HashMap<usize, u16>,
+    pub eight_bit_counters: HashMap<usize, u16, FuzzcheckHash>,
     pub features: HashSet<Feature>,
 }
 

@@ -1,14 +1,16 @@
 use crate::code_coverage_sensor::*;
-use hashbrown::HashMap;
-use hashbrown::HashSet;
+use std::collections::HashMap;
+use std::collections::HashSet;
 use std::slice;
 use std::sync::Once;
+
+use crate::hasher::FuzzcheckHash;
 
 extern "C" {
     fn return_address() -> usize;
 }
 
-static START: Once = Once::new();
+const START: Once = Once::new();
 
 #[export_name = "__sanitizer_cov_trace_pc_guard_init"]
 fn trace_pc_guard_init(start: *mut u32, stop: *mut u32) {
@@ -17,7 +19,7 @@ fn trace_pc_guard_init(start: *mut u32, stop: *mut u32) {
             SHARED_SENSOR.as_mut_ptr().write(CodeCoverageSensor {
                 num_guards: 0,
                 is_recording: false,
-                eight_bit_counters: HashMap::new(),
+                eight_bit_counters: HashMap::with_hasher(FuzzcheckHash{}),
                 features: HashSet::new(),
             });
         });
