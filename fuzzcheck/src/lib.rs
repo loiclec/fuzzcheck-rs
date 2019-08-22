@@ -11,10 +11,10 @@ extern crate lazy_static;
 
 mod code_coverage_sensor;
 pub mod fuzzer;
+mod hasher;
 mod hooks;
 pub mod input;
 mod input_pool;
 mod signals_handler;
 mod weighted_index;
 pub mod world;
-mod hasher;

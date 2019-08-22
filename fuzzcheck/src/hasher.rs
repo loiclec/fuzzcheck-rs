@@ -1,8 +1,7 @@
-
 use std::hash::BuildHasher;
 
 #[derive(Clone, Copy)]
-pub struct FuzzcheckHash { }
+pub struct FuzzcheckHash {}
 
 impl BuildHasher for FuzzcheckHash {
     type Hasher = seahash::SeaHasher;

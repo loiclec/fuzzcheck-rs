@@ -1,5 +1,3 @@
-
-
 use rand::distributions::Distribution;
 use rand::distributions::WeightedIndex;
 use rand::rngs::ThreadRng;
@@ -69,12 +67,7 @@ impl<G> VectorGenerator<G>
 where
     G: InputGenerator,
 {
-    fn mutate_with(
-        &mut self,
-        mutator: VectorMutator,
-        input: &mut Vec<G::Input>,
-        spare_cplx: f64
-    ) -> bool {
+    fn mutate_with(&mut self, mutator: VectorMutator, input: &mut Vec<G::Input>, spare_cplx: f64) -> bool {
         match mutator {
             VectorMutator::AppendNew => {
                 let add_cplx = self.rng.sample(Exp1);
@@ -144,11 +137,14 @@ where
 impl<G> InputGenerator for VectorGenerator<G>
 where
     G: InputGenerator,
-    Vec<G::Input>: Hash + miniserde::Serialize + miniserde::Deserialize
+    Vec<G::Input>: Hash + miniserde::Serialize + miniserde::Deserialize,
 {
     type Input = Vec<G::Input>;
 
-    fn hash<H>(input: &Self::Input, state: &mut H) where H: Hasher {
+    fn hash<H>(input: &Self::Input, state: &mut H)
+    where
+        H: Hasher,
+    {
         input.hash(state);
     }
 

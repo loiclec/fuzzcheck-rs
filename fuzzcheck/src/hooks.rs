@@ -19,7 +19,7 @@ fn trace_pc_guard_init(start: *mut u32, stop: *mut u32) {
             SHARED_SENSOR.as_mut_ptr().write(CodeCoverageSensor {
                 num_guards: 0,
                 is_recording: false,
-                eight_bit_counters: HashMap::with_hasher(FuzzcheckHash{}),
+                eight_bit_counters: HashMap::with_hasher(FuzzcheckHash {}),
                 features: HashSet::new(),
             });
         });

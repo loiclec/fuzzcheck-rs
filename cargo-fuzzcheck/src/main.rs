@@ -7,8 +7,8 @@ use std::string::String;
 
 use std::env;
 use std::fs;
-use std::io::Write;
 use std::io::Read;
+use std::io::Write;
 
 pub const COMMAND_INIT: &str = "init";
 pub const COMMAND_RUN: &str = "run";
@@ -46,8 +46,9 @@ fn main() {
     let parser = options_parser();
 
     let env_args: Vec<String> = std::env::args().collect();
-    
-    let mut help = format!(r#"
+
+    let mut help = format!(
+        r#"
 USAGE:
     fuzzcheck {init}
     => Initialize the fuzz folder
@@ -61,16 +62,17 @@ SUBCOMMANDS:
     {tmin}    Minify a crashing test input, requires --{input_file}
     {cmin}    Minify a corpus of test inputs, requires --{in_corpus}
 "#,
-        init=COMMAND_INIT,
-        run=COMMAND_RUN,
-        fuzz=COMMAND_FUZZ,
-        tmin=COMMAND_MINIFY_INPUT,
-        input_file=INPUT_FILE_FLAG,
-        cmin=COMMAND_MINIFY_CORPUS,
-        in_corpus=IN_CORPUS_FLAG,
+        init = COMMAND_INIT,
+        run = COMMAND_RUN,
+        fuzz = COMMAND_FUZZ,
+        tmin = COMMAND_MINIFY_INPUT,
+        input_file = INPUT_FILE_FLAG,
+        cmin = COMMAND_MINIFY_CORPUS,
+        in_corpus = IN_CORPUS_FLAG,
     );
     help += parser.usage("").as_str();
-    help += format!(r#"
+    help += format!(
+        r#"
 
 ## Examples:
 
@@ -94,27 +96,28 @@ fuzzcheck {run} target1 {cmin} --{in_corpus} "fuzz-corpus" --{corpus_size} 25
     It will remove files from that folder until only the 25 most important
     test inputs remain.
 "#,
-        init=COMMAND_INIT,
-        run=COMMAND_RUN,
-        fuzz=COMMAND_FUZZ,
-        tmin=COMMAND_MINIFY_INPUT,
-        input_file=INPUT_FILE_FLAG,
-        cmin=COMMAND_MINIFY_CORPUS,
-        in_corpus=IN_CORPUS_FLAG,
-        corpus_size=CORPUS_SIZE_FLAG
-    ).as_str();
+        init = COMMAND_INIT,
+        run = COMMAND_RUN,
+        fuzz = COMMAND_FUZZ,
+        tmin = COMMAND_MINIFY_INPUT,
+        input_file = INPUT_FILE_FLAG,
+        cmin = COMMAND_MINIFY_CORPUS,
+        in_corpus = IN_CORPUS_FLAG,
+        corpus_size = CORPUS_SIZE_FLAG
+    )
+    .as_str();
 
     if env_args.len() <= 1 {
         println!("{}", help);
-        return
+        return;
     }
 
     if env_args[1] == COMMAND_INIT {
         let result = init_command();
         println!("{:#?}", result);
-        return
+        return;
     }
-    
+
     if env_args[1] != COMMAND_RUN {
         println!("Invalid command: {}", env_args[1]);
         println!();
@@ -123,7 +126,7 @@ fuzzcheck {run} target1 {cmin} --{in_corpus} "fuzz-corpus" --{corpus_size} 25
     } else if env_args.len() <= 2 {
         println!("No fuzz target was given.");
         println!();
-        println!("{}", help);    
+        println!("{}", help);
         return;
     }
 
@@ -144,14 +147,15 @@ fuzzcheck {run} target1 {cmin} --{in_corpus} "fuzz-corpus" --{corpus_size} 25
     }
 }
 
-
 fn is_fuzz_manifest(value: &toml::Value) -> bool {
-    let is_fuzz = value.as_table().and_then(|v| v.get("package"))
-                                  .and_then(toml::Value::as_table)
-                                  .and_then(|v| v.get("metadata"))
-                                  .and_then(toml::Value::as_table)
-                                  .and_then(|v| v.get("cargo-fuzz"))
-                                  .and_then(toml::Value::as_bool);
+    let is_fuzz = value
+        .as_table()
+        .and_then(|v| v.get("package"))
+        .and_then(toml::Value::as_table)
+        .and_then(|v| v.get("metadata"))
+        .and_then(toml::Value::as_table)
+        .and_then(|v| v.get("cargo-fuzz"))
+        .and_then(toml::Value::as_bool);
     is_fuzz == Some(true)
 }
 /// Returns the path for the first found non-fuzz Cargo package
@@ -161,20 +165,20 @@ fn find_package() -> Result<PathBuf> {
     loop {
         let manifest_path = dir.join("Cargo.toml");
         match fs::File::open(&manifest_path) {
-            Err(_) => {},
+            Err(_) => {}
             Ok(mut f) => {
                 f.read_to_end(&mut data)?;
                 let value: toml::Value = toml::from_slice(&data)
-                    .chain_err(||
-                        format!("could not decode the manifest file at {:?}", manifest_path)
-                    )?;
+                    .chain_err(|| format!("could not decode the manifest file at {:?}", manifest_path))?;
                 if !is_fuzz_manifest(&value) {
                     // Not a cargo-fuzz project => must be a proper cargo project :)
                     return Ok(dir);
                 }
             }
         }
-        if !dir.pop() { break; }
+        if !dir.pop() {
+            break;
+        }
     }
     Err("could not find a cargo project".into())
 }
@@ -185,10 +189,12 @@ fn root_package_name(root_folder: &PathBuf) -> Result<String> {
     let mut data = Vec::new();
     file.read_to_end(&mut data)?;
     let value: toml::Value = toml::from_slice(&data)?;
-    let name = value.as_table().and_then(|v| v.get("package"))
-                                .and_then(toml::Value::as_table)
-                                .and_then(|v| v.get("name"))
-                                .and_then(toml::Value::as_str);
+    let name = value
+        .as_table()
+        .and_then(|v| v.get("package"))
+        .and_then(toml::Value::as_table)
+        .and_then(|v| v.get("name"))
+        .and_then(toml::Value::as_str);
     if let Some(name) = name {
         Ok(String::from(name))
     } else {
@@ -197,21 +203,29 @@ fn root_package_name(root_folder: &PathBuf) -> Result<String> {
 }
 
 /// Add a new fuzz target script with a given name
-fn create_target_template(root_package_name: &str, fuzz_folder: &PathBuf, fuzzed_targets_folder: &PathBuf, target: &str) -> Result<()> {
+fn create_target_template(
+    root_package_name: &str,
+    fuzz_folder: &PathBuf,
+    fuzzed_targets_folder: &PathBuf,
+    target: &str,
+) -> Result<()> {
     let mut target_path = fuzzed_targets_folder.clone();
     target_path.push(target);
     target_path.set_extension("rs");
 
-    let mut script = fs::OpenOptions::new().write(true).create_new(true).open(&target_path)
+    let mut script = fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(&target_path)
         .chain_err(|| format!("could not create target script file at {:?}", target_path))?;
-    
+
     script.write_fmt(target_template!(root_package_name.replace("-", "_")))?;
 
     let mut cargo_toml_path = fuzz_folder.clone();
     cargo_toml_path.push("Cargo.toml");
 
     let mut cargo = fs::OpenOptions::new().append(true).open(cargo_toml_path)?;
-    
+
     Ok(cargo.write_fmt(toml_bin_template!(target))?)
 }
 
@@ -244,12 +258,15 @@ fn init_command() -> Result<()> {
 }
 
 fn collect_targets(manifest: &toml::Value) -> Vec<String> {
-    let bins = manifest.as_table().and_then(|v| v.get("bin"))
-                                  .and_then(toml::Value::as_array);
+    let bins = manifest
+        .as_table()
+        .and_then(|v| v.get("bin"))
+        .and_then(toml::Value::as_array);
     if let Some(bins) = bins {
-        bins.iter().map(|bin|
-            bin.as_table().and_then(|v| v.get("name")).and_then(toml::Value::as_str)
-        ).filter_map(|name| name.map(String::from)).collect()
+        bins.iter()
+            .map(|bin| bin.as_table().and_then(|v| v.get("name")).and_then(toml::Value::as_str))
+            .filter_map(|name| name.map(String::from))
+            .collect()
     } else {
         Vec::new()
     }

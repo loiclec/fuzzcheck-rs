@@ -6,13 +6,13 @@ use rand::seq::SliceRandom;
 use rand::Rng;
 
 use std::cmp::PartialEq;
+use std::hash::Hash;
+use std::hash::Hasher;
 use std::mem;
 use std::num::Wrapping;
 use std::ops::{Add, Sub};
-use std::hash::Hash;
-use std::hash::Hasher;
 
-use miniserde::{json, Serialize, Deserialize};
+use miniserde::{json, Deserialize, Serialize};
 
 extern crate fuzzcheck;
 use fuzzcheck::input::*;
@@ -25,7 +25,6 @@ pub struct IntegerGenerator<T> {
     rng: ThreadRng,
     weighted_index: WeightedIndex<usize>,
 }
-
 
 #[derive(Clone, Copy)]
 enum IntegerMutatorKind {
@@ -100,7 +99,10 @@ where
 {
     type Input = T;
 
-    fn hash<H>(input: &Self::Input, state: &mut H) where H: Hasher {
+    fn hash<H>(input: &Self::Input, state: &mut H)
+    where
+        H: Hasher,
+    {
         input.hash(state);
     }
 
@@ -150,10 +152,7 @@ impl IntegerGenerator<u16> {
 }
 impl IntegerGenerator<u32> {
     pub fn new() -> Self {
-        Self::new_with_special_values(
-            10,
-            vec![0x0, 0x1, 0xff, 0x7f, 0xffff, 0x7fff, 0xffff_ffff, 0x7fff_ffff],
-        )
+        Self::new_with_special_values(10, vec![0x0, 0x1, 0xff, 0x7f, 0xffff, 0x7fff, 0xffff_ffff, 0x7fff_ffff])
     }
 }
 impl IntegerGenerator<u64> {

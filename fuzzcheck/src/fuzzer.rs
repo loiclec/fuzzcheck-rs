@@ -280,7 +280,8 @@ where
 {
     let env_args: Vec<_> = std::env::args().collect();
     let parser = options_parser();
-    let mut help = format!(r#""
+    let mut help = format!(
+        r#""
 fuzzcheck <SUBCOMMAND> [OPTIONS]
 
 SUBCOMMANDS:
@@ -288,14 +289,15 @@ SUBCOMMANDS:
     {tmin}    Minify a crashing test input, requires --{input_file}
     {cmin}    Minify a corpus of test inputs, requires --{in_corpus}
 "#,
-        fuzz=COMMAND_FUZZ,
-        tmin=COMMAND_MINIFY_INPUT,
-        input_file=INPUT_FILE_FLAG,
-        cmin=COMMAND_MINIFY_CORPUS,
-        in_corpus=IN_CORPUS_FLAG,
+        fuzz = COMMAND_FUZZ,
+        tmin = COMMAND_MINIFY_INPUT,
+        input_file = INPUT_FILE_FLAG,
+        cmin = COMMAND_MINIFY_CORPUS,
+        in_corpus = IN_CORPUS_FLAG,
     );
     help += parser.usage("").as_str();
-    help += format!(r#""
+    help += format!(
+        r#""
 ## Examples:
 
 fuzzcheck {fuzz}
@@ -316,13 +318,14 @@ fuzzcheck {cmin} --{in_corpus} "fuzz-corpus" --{corpus_size} 25
     It will remove files from that folder until only the 25 most important
     test inputs remain.
 "#,
-        fuzz=COMMAND_FUZZ,
-        tmin=COMMAND_MINIFY_INPUT,
-        input_file=INPUT_FILE_FLAG,
-        cmin=COMMAND_MINIFY_CORPUS,
-        in_corpus=IN_CORPUS_FLAG,
-        corpus_size=CORPUS_SIZE_FLAG
-    ).as_str();
+        fuzz = COMMAND_FUZZ,
+        tmin = COMMAND_MINIFY_INPUT,
+        input_file = INPUT_FILE_FLAG,
+        cmin = COMMAND_MINIFY_CORPUS,
+        in_corpus = IN_CORPUS_FLAG,
+        corpus_size = CORPUS_SIZE_FLAG
+    )
+    .as_str();
 
     let args = match CommandLineArguments::from_parser(&parser, &env_args[1..]) {
         Ok(r) => r,
