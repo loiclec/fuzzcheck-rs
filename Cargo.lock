@@ -30,6 +30,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "cargo-fuzzcheck"
+version = "0.1.0"
+dependencies = [
+ "error-chain 0.10.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "fuzzcheck_arg_parser 0.1.0",
+ "getopts 0.2.21 (registry+https://github.com/rust-lang/crates.io-index)",
+ "toml 0.4.10 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
 name = "cc"
 version = "1.0.40"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -109,16 +119,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 name = "libc"
 version = "0.2.62"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-
-[[package]]
-name = "libfuzzcheck"
-version = "0.1.0"
-dependencies = [
- "error-chain 0.10.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "fuzzcheck_arg_parser 0.1.0",
- "getopts 0.2.21 (registry+https://github.com/rust-lang/crates.io-index)",
- "toml 0.4.10 (registry+https://github.com/rust-lang/crates.io-index)",
-]
 
 [[package]]
 name = "mini-internal"
