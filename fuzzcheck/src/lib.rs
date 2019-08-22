@@ -10,7 +10,6 @@
 extern crate lazy_static;
 
 mod code_coverage_sensor;
-pub mod command_line;
 pub mod fuzzer;
 mod hooks;
 pub mod input;

@@ -1,23 +1,24 @@
+#![feature(option_flattening)]
 
 use getopts::Options;
 use std::path::PathBuf;
 
 #[derive(Debug, Clone, Copy)]
 pub enum FuzzerCommand {
-    Minimize,
+    Minimize, // TODO: rename to minify input
     Fuzz,
     Read,
-    Shrink,
+    Shrink, // TODO: rename to minify corpus
 }
 
 pub const MAX_NBR_RUNS_FLAG: &str = "max-iter";
 pub const MAX_INPUT_CPLX_FLAG: &str = "max-cplx";
 pub const MUT_DEPTH_FLAG: &str = "mut-depth";
 pub const INPUT_FILE_FLAG: &str = "input-file";
-pub const CORPUS_IN_FLAG: &str = "in-corpus";
-pub const NO_CORPUS_IN_FLAG: &str = "no-in-corpus";
-pub const CORPUS_OUT_FLAG: &str = "out-corpus";
-pub const NO_CORPUS_OUT_FLAG: &str = "no-out-corpus";
+pub const IN_CORPUS_FLAG: &str = "in-corpus";
+pub const NO_IN_CORPUS_FLAG: &str = "no-in-corpus";
+pub const OUT_CORPUS_FLAG: &str = "out-corpus";
+pub const NO_OUT_CORPUS_FLAG: &str = "no-out-corpus";
 pub const ARTIFACTS_FLAG: &str = "artifacts";
 pub const NO_ARTIFACTS_FLAG: &str = "no-artifacts";
 pub const CORPUS_SIZE_FLAG: &str = "corpus-size";
@@ -52,13 +53,13 @@ pub fn options_parser() -> Options {
     let mut options = Options::new();
     options
         .long_only(true)
-        .optopt("", CORPUS_IN_FLAG, "folder for the input corpus", "PATH")
-        .optflag("", NO_CORPUS_IN_FLAG, 
-            format!("do not use an input corpus, overrides --{in_corpus}", in_corpus=CORPUS_IN_FLAG).as_str()
+        .optopt("", IN_CORPUS_FLAG, "folder for the input corpus", "PATH")
+        .optflag("", NO_IN_CORPUS_FLAG, 
+            format!("do not use an input corpus, overrides --{in_corpus}", in_corpus=IN_CORPUS_FLAG).as_str()
         )
-        .optopt("", CORPUS_OUT_FLAG, "folder for the output corpus", "PATH")
-        .optflag("", NO_CORPUS_OUT_FLAG, 
-            format!("do not use an output corpus, overrides --{out_corpus}", out_corpus=CORPUS_OUT_FLAG).as_str()
+        .optopt("", OUT_CORPUS_FLAG, "folder for the output corpus", "PATH")
+        .optflag("", NO_OUT_CORPUS_FLAG, 
+            format!("do not use an output corpus, overrides --{out_corpus}", out_corpus=OUT_CORPUS_FLAG).as_str()
         )
         .optopt("", ARTIFACTS_FLAG, "folder where the artifacts will be written (default: ./fuzz-artifacts)", "PATH")        
         .optflag("", NO_ARTIFACTS_FLAG, 
@@ -124,8 +125,8 @@ The command {c} is not supported. It can either be ‘{fuzz}’, ‘{tmin}’, o
             .unwrap_or(DEFAULT_CORPUS_SIZE);
         
         let corpus_in: Option<PathBuf> = 
-            if !matches.opt_present(NO_CORPUS_IN_FLAG) { 
-                matches.opt_str(CORPUS_IN_FLAG)
+            if !matches.opt_present(NO_IN_CORPUS_FLAG) { 
+                matches.opt_str(IN_CORPUS_FLAG)
                     .unwrap_or(DEFAULT_IN_CORPUS.to_string())
                     .parse::<PathBuf>().ok()
             } else {
@@ -143,8 +144,8 @@ The command {c} is not supported. It can either be ‘{fuzz}’, ‘{tmin}’, o
         }
 
         let corpus_out: Option<PathBuf> = 
-            if !matches.opt_present(NO_CORPUS_OUT_FLAG) { 
-                matches.opt_str(CORPUS_OUT_FLAG)
+            if !matches.opt_present(NO_OUT_CORPUS_FLAG) { 
+                matches.opt_str(OUT_CORPUS_FLAG)
                     .unwrap_or(DEFAULT_OUT_CORPUS.to_string())
                     .parse::<PathBuf>().ok()
             } else {

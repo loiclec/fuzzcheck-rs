@@ -4,7 +4,6 @@ use std::collections::HashSet;
 use std::mem::MaybeUninit;
 use std::slice;
 
-
 use crate::hasher::FuzzcheckHash;
 
 type PC = usize;

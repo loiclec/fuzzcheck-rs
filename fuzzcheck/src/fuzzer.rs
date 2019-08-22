@@ -1,9 +1,10 @@
 use crate::code_coverage_sensor::*;
-use crate::command_line::*;
 use crate::input::*;
 use crate::input_pool::*;
 use crate::signals_handler::*;
 use crate::world::*;
+
+use fuzzcheck_arg_parser::*;
 
 use std::panic::{catch_unwind, RefUnwindSafe, UnwindSafe};
 use std::process::exit;
@@ -291,7 +292,7 @@ SUBCOMMANDS:
         tmin=COMMAND_MINIFY_INPUT,
         input_file=INPUT_FILE_FLAG,
         cmin=COMMAND_MINIFY_CORPUS,
-        in_corpus=CORPUS_IN_FLAG,
+        in_corpus=IN_CORPUS_FLAG,
     );
     help += parser.usage("").as_str();
     help += format!(r#""
@@ -319,7 +320,7 @@ fuzzcheck {cmin} --{in_corpus} "fuzz-corpus" --{corpus_size} 25
         tmin=COMMAND_MINIFY_INPUT,
         input_file=INPUT_FILE_FLAG,
         cmin=COMMAND_MINIFY_CORPUS,
-        in_corpus=CORPUS_IN_FLAG,
+        in_corpus=IN_CORPUS_FLAG,
         corpus_size=CORPUS_SIZE_FLAG
     ).as_str();
 

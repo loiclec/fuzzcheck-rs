@@ -1,0 +1,13 @@
+[package]
+name = "fuzzcheck_arg_parser"
+version = "0.1.0"
+authors = ["Loïc Lecrenier <loic.lecrenier@me.com>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+getopts = "0.2"
+
+[lib]
+name = "fuzzcheck_arg_parser"

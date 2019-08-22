@@ -1,17 +1,15 @@
-[package]
-name = "fuzzcheck"
-version = "0.1.0"
-authors = ["Loïc Lecrenier <loic.lecrenier@me.com>"]
-edition = "2018"
+[workspace]
 
-[dependencies]
-rand = "0.7.0"
-rand_distr = "0.2.1"
-libc = "0.2"
-lazy_static = "1.3.0"
-seahash = "3.0.6"
-getopts = "0.2"
+members = [
+    "fuzzcheck_arg_parser",
+    "cargo-fuzzcheck",
+    "fuzzcheck"
+]
 
-[[bin]]
-name = "fuzzcheck"
-path = "src/bin/fuzzcheck.rs"
+# [lib]
+# name = "fuzzcheck"
+# path = "main_library/src/lib.rs"
+
+# [[bin]]
+# name = "fuzzcheck_"
+# path = "command_line_tool/src/main.rs"

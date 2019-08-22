@@ -1,4 +1,4 @@
-use crate::command_line::*;
+use fuzzcheck_arg_parser::*;
 use std::collections::hash_map::DefaultHasher;
 use std::fs;
 
