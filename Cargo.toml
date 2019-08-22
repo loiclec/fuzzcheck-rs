@@ -3,13 +3,6 @@
 members = [
     "fuzzcheck_arg_parser",
     "cargo-fuzzcheck",
-    "fuzzcheck"
+    "fuzzcheck",
+    "fuzzcheck_input"
 ]
-
-# [lib]
-# name = "fuzzcheck"
-# path = "main_library/src/lib.rs"
-
-# [[bin]]
-# name = "fuzzcheck_"
-# path = "command_line_tool/src/main.rs"
