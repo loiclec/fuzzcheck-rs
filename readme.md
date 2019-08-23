@@ -13,7 +13,8 @@
 > I would also greatly appreciate any contribution to the code. Unfortunately,
 > I am still in the process of adding precise documentation. But you can open 
 > an issue or contact me by email to ask for an explanation about Fuzzcheck 
-> or propose an idea.
+> or propose an idea. For now, the best way to contribute is to write generators
+> for more types of inputs. Or, even better, to write a generator-generator.
 
 Fuzzcheck is a structure-aware, in-process, coverage-guided, evolutionary 
 fuzzing engine for Rust functions. 
@@ -24,7 +25,7 @@ Detecting security flaws in an application is a non-goal.
 Given a function `test: (T) -> Bool`, it tries to find a value of type `T` that
 fails the test or leads to a crash.
 
-Unlike other fuzzing engines, it doesn't work with bitstrings but instead work 
+Unlike other fuzzing engines, it doesn't work with bitstrings but instead works
 with values of any type `T` directly. The complexity of the inputs and the way
 to mutate them is given by functions defined by the user.
 
@@ -53,72 +54,67 @@ loop {
 
 ## Usage
 
-You can find an example project using Fuzzcheck 
-[here](https://github.com/loiclec/fuzzcheck-rs-example).
-
-The first step is to install the `fuzzcheck` executable using cargo nightly. 
+The first step is to install the `cargo-fuzzcheck` executable using cargo nightly. 
 
 ```bash
 cargo +nightly install --git https://github.com/loiclec/fuzzcheck-rs
 ```
 
-Then, somewhere else, create a new cargo binary crate. It will contain the
-test function and the code necessary to launch the fuzzer.
+Then, somewhere else, create a new cargo library crate. It will contain the
+library code that you want to fuzz-test. Also do not forget to set the rust
+version to nightly.
 
 ```bash
-# Create the directory
-mkdir fuzzcheck-test
-cd fuzzcheck-test
-# Set the cargo version to nightly
+cargo new --lib my_library
+cd my_library
 rustup override set nightly
-# Create the crate
-cargo init --bin
 ```
 
-Then, we add a dependency to `fuzzcheck_input`:
-```toml
-[dependencies]
-fuzzcheck_input = { git = "https://github.com/loiclec/fuzzcheck-input.git" }
+Then, run `cargo fuzzcheck init` to install the fuzzcheck library and 
+initialize a `fuzz` folder that will contain all future fuzz tests.
+
+```
+cargo fuzzcheck init
 ```
 
-`fuzzcheck_input` is a library that contains useful mutators to use with 
-Fuzzcheck. For now, it only supports integers and vectors, but I intend
-to add more generators over time.
+An executable script was created at `fuzz/fuzz_targets/target1.rs`. It contains
+a basic fuzz test that works with values of type `Vec<u8>`.
 
-We can now write the test function and the code that will launch the
-fuzzing process in `main.rs`.
-
-We will need to use two dependencies: `fuzzcheck`, `fuzzcheck_input`.
 ```rust
-// main.rs
+extern crate my_library;
+
 extern crate fuzzcheck;
 use fuzzcheck::fuzzer;
 
-use fuzzcheck_input::integer::*;
-use fuzzcheck_input::vector::*;
-```
+extern crate fuzzcheck_input;
+use fuzzcheck_input::integer::IntegerGenerator;
+use fuzzcheck_input::vector::VectorGenerator;
 
-Let's define a function `fn test(input: Vec<u8>) -> bool` that fails under
-very specific conditions.
-
-```rust
-//main.rs
-fn test(data: &Vec<u8>) -> bool {
+fn test(input: &Vec<u8>) -> bool {
+    // property test goes here
     if 
-        data.len() > 7 &&
-        data[0] == 0 &&
-        data[1] == 78 &&
-        data[2] == 56 &&
-        data[3] == 2 &&
-        data[4] == 76 &&
-        data[5] == 7 &&
-        data[6] == 100 &&
-        data[7] == 102
+        input.len() > 7 &&
+        input[0] == 0 &&
+        input[1] == 167 &&
+        input[2] == 200 &&
+        input[3] == 103 &&
+        input[4] == 56 &&
+        input[5] == 78 &&
+        input[6] == 2 &&
+        input[7] == 254
     {
         false
-    } else {
+    }
+    else {
         true
     }
+}
+
+fn main() {
+    let u8_gen = IntegerGenerator::<u8>::new();
+    let vec_gen = VectorGenerator::new(u8_gen);
+    
+    let _ = fuzzer::launch(test, vec_gen);
 }
 ```
 
@@ -127,42 +123,10 @@ anything such as `String`, `HashMap<T, U>`, etc. The example linked at the
 beginning of the readme tests a function working with a Graph data structure
 defined by a third-party library.
 
-Then, in the body of the `main` function, launch the fuzzing process:
+You can already try launching this test: 
 
-```rust
-fn main() {
-    let u8_gen = IntegerGenerator::<u8>::new();
-    let vec_gen = VectorGenerator::new(u8_gen);
-    let result = fuzzer::launch(test, vec_gen);
-    println!("{:?}", result);
-}
 ```
-
-The first step is to create an `InputGenerator`, which is something that can
-determine the complexity of an input, generate a random input, mutate it, as
-well as decode it and encode it to a file in order to save the result of the
-fuzzing process.
-
-To create an `InputGenerator` that manipulates values of type `Vec<u8>`, I
-compose a `VectorGenerator` with an `IntegerGenerator` of `u8`. These
-generators are defined in a separate crate called `fuzzcheck_input`.
-
-Then, I call the function `fuzzcheck::fuzzer::launch`, and pass it the test
-function and the input generator.
-
-The final step is to launch the executable via the `fuzzcheck` command line 
-tool.
-
-If this is the first time you use fuzzcheck for this project, run
-`fuzzcheck setup`. It will download the fuzzcheck library and compile it. 
-
-```bash
-fuzzcheck setup 
-```
-
-Then simply run:
-```
-fuzzcheck
+cargo fuzzcheck run target1
 ```
 
 This starts a loop that will stop when a failing test has been found.
@@ -171,46 +135,44 @@ A line will be printed whenever a newsworthy event happened, along with some
 statistics. For example:
 
 ```
-NEW     100848  score: 380      pool: 21        exec/s: 133345  cplx: 3162
+NEW     180086  score: 493      pool: 48        exec/s: 132713  cplx: 79792
 ```
 
 * `NEW` means that a new input was added to the pool of interesting inputs
-* `100848` is the number of iterations that were performed so far
-* `score: 380` is a measure of the total code coverage caused by all inputs
+* `180086` is the number of iterations that were performed so far
+* `score: 493` is a measure of the total code coverage caused by all inputs
 in the pool
-* `pool: 21` is the number of inputs in the pool
-* `exec/s: 133345` is the average number of iterations performed every second
-* `cplx: 3162` is the average complexity of the inputs in the pool
+* `pool: 48` is the number of inputs in the pool
+* `exec/s: 132713` is the average number of iterations performed every second
+* `cplx: 79792` is the average complexity of the inputs in the pool
 
 When a failing test has been found, the following is printed:
 ```
 ================ TEST FAILED ================
-3696671 score: 2565     pool: 170       exec/s: 71038   cplx: 4050
-Saving at "./artifacts/36847bc18a955330.json"
+188241  score: 495      pool: 51        exec/s: 132659  cplx: 81373
+Saving at "./fuzz/fuzz_targets/target1/artifacts/1c10daa13e9b1721.json"
 ```
 
-Here, the path to the artifact file is `./artifacts/36847bc18a955330.json`. 
+Here, the path to the artifact file is `./fuzz/fuzz_targets/target1/artifacts/1c10daa13e9b1721.json`. 
 It contains a JSON-encoding of the input that failed the test.
 
 ```json
-[0,78,56,2,76,7,100,102]
+[0, 167, 200, 103, 56, 78, 2, 254]
 ```
 
 Moreover, the fuzzer can maintain a copy of its input pool in the file system,
-which is located by default at `fuzz-corpus/`. Fuzzing corpora are useful to
-kick-start a fuzzing process by providing a list of known interesting inputs.
-If you try to run the fuzzer again, you will see that it finds the problematic
-input much quicker. This is because it first read the values written inside 
-`fuzz-corpus` and used them as starting points. (*Only works out-of-the-box
-if the fuzzcheck executable is used.*)
+which is located by default at `fuzz_targets/<target>/fuzz-corpus/`. Fuzzing corpora 
+are useful to kick-start a fuzzing process by providing a list of known interesting inputs.
+If you try to run the fuzzer again, you will see that it finds the problematic input much 
+quicker. This is because it first read the values written inside `fuzz-corpus` and used 
+them as starting points.
 
-## Minimize
+## Minifying failing test inputs
 
-The `fuzzcheck` executable can also be used to *minimize* a large input that
-fails the test.
+Fuzzcheck can also be used to *minify* a large input that fails a test.
 
 Let's say you have a file `crash.json` containing an input that you would like
-to minimize:
+to minify:
 
 ```json
 [0,78,56,2,76,7,100,102,102,0,0,78,56,2,76,
@@ -218,20 +180,19 @@ to minimize:
 41,212,142,0,78,56,2,76,7,100,102,102,0]
 ```
 
-Launch the `fuzzcheck` executable and use the `minimize` command along with the
-required `--input-file` flag and the path to the file.
+Launch `cargo-fuzzcheck run` on your target with the `tmin` command and an `--input-file` flag.
 
 ```bash
-fuzzcheck minimize --input-file "crash.json"
+cargo fuzzcheck run target1 tmin --input-file "artifacts/crash.json"
 ```
 
-This will repeatedly launch the fuzzer in “minimize” mode and save the
-artifacts in the folder `crash.minimized`. The name of each artifact will
+This will repeatedly launch the fuzzer in “minify” mode and save the
+artifacts in the folder `artifacts/crash.minified`. The name of each artifact will
 be prefixed with the complexity of its input. For example,
-`crash.minimized/800--fe958d4f003bd4f5.json` has a complexity of `8.00`.
+`crash.minified/800--fe958d4f003bd4f5.json` has a complexity of `8.00`.
 
-You can stop the minimizing fuzzer at any point and look for the least complex
-input in the artifacts folder.
+You can stop the minifying fuzzer at any point and look for the least complex
+input in the `crash.minified` folder.
 
 ## Creating an InputGenerator
 
@@ -263,17 +224,17 @@ pub trait InputGenerator {
 of the `Hash` trait.
 
 * `base_input` is the simplest value of type `Input` that you can think of.
-It may be `0` for numbers or an empty vector `Vec`.
+It may be `0` for numbers or an empty vector for `Vec`.
 
 * `complexity` returns a float that estimates how “complex” the input is. For
 an integer, this might be the number of bytes used to represent it. For an 
 array, it might be the sum of complexities of each of its elements.
 
-* `new_input` returns a random input with a smaller complexity than `max_cplx`
+* `new_input` returns a random input with a complexity smaller than `max_cplx`
 
 * `mutate` mutates the given input without increasing its complexity by more
 than `spare_cplx` (otherwise, the fuzzer will ignore the result and skip the
-current iteration, which is not too bad but slows down the fuzzer). 
+current iteration, which is not too bad but slows it down). 
 The mutation should ideally be small, but meaningful. For example, it could:
      * append a random element to an array
      * mutate a random element in an array
@@ -304,11 +265,11 @@ in-process (it lives in the same process as the program being fuzz-tested.
 Fuzzcheck is also in-process and also uses SanitizerCoverage.
 
 Both AFL and libFuzzer work by manipulating bitstrings (e.g. `1011101011`).
-However, real-world programs work on structured data, and mutations at the
+However, many programs work on structured data, and mutations at the
 bitstring level may not map to meaningful mutations at the level of the
 structured data. This problem can be partially addresses by using a compact
 binary encoding such as protobuf and providing custom mutation functions to
-libFuzzer that work on the structured data itself. This is called
+libFuzzer that work on the structured data itself. This is a way to perform
 “structure-aware fuzzing” ([talk](https://www.youtube.com/watch?v=U60hC16HEDY),
 [tutorial](https://github.com/google/fuzzer-test-suite/blob/master/tutorial/structure-aware-fuzzing.md)).
 

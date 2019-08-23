@@ -85,11 +85,10 @@ fn test(input: &Vec<u8>) -> bool {{
 }}
 
 fn main() {{
-    // fuzzed code goes here
     let u8_gen = IntegerGenerator::<u8>::new();
     let vec_gen = VectorGenerator::new(u8_gen);
-    let result = fuzzer::launch(test, vec_gen);
-    println!("{{:?}}", result);
+    
+    let _ = fuzzer::launch(test, vec_gen);
 }}
 "#,
             $name
