@@ -254,7 +254,7 @@ where
         Ok(())
     }
 
-    fn minimize_loop(&mut self) -> Result<(), std::io::Error> {
+    fn input_minifying_loop(&mut self) -> Result<(), std::io::Error> {
         self.state.world.set_start_time();
 
         self.state
@@ -341,12 +341,12 @@ fuzzcheck {cmin} --{in_corpus} "fuzz-corpus" --{corpus_size} 25
     unsafe { fuzzer.state.set_up_signal_handler() };
     match command {
         FuzzerCommand::Fuzz => fuzzer.main_loop()?,
-        FuzzerCommand::Minimize => fuzzer.minimize_loop()?,
+        FuzzerCommand::MinifyInput => fuzzer.input_minifying_loop()?,
         FuzzerCommand::Read => {
             fuzzer.state.input = fuzzer.state.world.read_input_file()?;
             fuzzer.test_input()?;
         }
-        FuzzerCommand::Shrink => fuzzer.shrink_loop()?,
+        FuzzerCommand::MinifyCorpus => fuzzer.shrink_loop()?,
     };
     Ok(())
 }

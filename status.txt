@@ -5,7 +5,7 @@
 * errors are not gracefully handled, or even properly explained
 
 * the command line app does not catch signals, so it can't tell
-the user which file is the most minimized at the end. This may be
+the user which file is the most minified at the end. This may be
 solved by only keeping the most minimal version of a file at any point,
 or by catching signals and displaying a message
 
@@ -67,9 +67,6 @@ to properly shrink the corpus (TODO: verify that it is fixed)
 gaps. Maybe every time an input is deleted, I can push its index to a stack.
 When I need to add an input to the pool, I pop the index from the stack first
 to check if I can fill a gap isntead of pushing it to the end.
-
-* the names of the shrink and minimize commands do not make sense, they are
-synonyms!
 
 * adjusted_complexity is not needed anymore
 

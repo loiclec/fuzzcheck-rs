@@ -150,9 +150,9 @@ cargo-fuzzcheck {run} target1 {cmin} --{in_corpus} "fuzz-corpus" --{corpus_size}
     };
     let r = match args.command {
         FuzzerCommand::Fuzz => exec_normal_command(args, &target, target_triple),
-        FuzzerCommand::Minimize => exec_input_minify_command(args, &target, target_triple),
+        FuzzerCommand::MinifyInput => exec_input_minify_command(args, &target, target_triple),
         FuzzerCommand::Read => { panic!("unimplemented"); },
-        FuzzerCommand::Shrink => exec_normal_command(args, &target, target_triple),
+        FuzzerCommand::MinifyCorpus => exec_normal_command(args, &target, target_triple),
     };
     if let Err(e) = r {
         println!("{}", e);
@@ -299,12 +299,12 @@ fn exec_input_minify_command(mut arguments: CommandLineArguments, target: &str, 
     let fuzz_targets_folder = fuzz_folder.join("fuzz_targets");
     let target_folder = &fuzz_targets_folder.join(target);
 
-    let file_to_minimize = (&arguments.input_file).as_ref().unwrap().clone();
+    let file_to_minify = (&arguments.input_file).as_ref().unwrap().clone();
 
     let artifacts_folder = {
-        let mut x = file_to_minimize.parent().unwrap().to_path_buf();
-        x.push(file_to_minimize.file_stem().unwrap());
-        x = x.with_extension("minimized");
+        let mut x = file_to_minify.parent().unwrap().to_path_buf();
+        x.push(file_to_minify.file_stem().unwrap());
+        x = x.with_extension("minified");
         x
     };
     std::fs::create_dir(&artifacts_folder)?;
@@ -337,13 +337,13 @@ fn exec_input_minify_command(mut arguments: CommandLineArguments, target: &str, 
     let o = run_command(&arguments, fuzz_folder, target_folder, target_triple)?;
     assert!(o.status.success() == false);
 
-    // hjhjb.minimized/hshs.parent() != hjhjb.minimized/ -> copy hshs to hjhjb.minimized/hshs
+    // hjhjb.minifyd/hshs.parent() != hjhjb.minifyd/ -> copy hshs to hjhjb.minifyd/hshs
     //let destination = artifacts_folder.join(arguments.input_file.file_name());
     // if arguments.input_file.unwrap().parent() != Some(artifacts_folder.as_path()) {
     //     std::fs::copy(arguments.input_file, artifacts_folder.to_owned() + arguments.input_file);
     // }
 
-    arguments.command = FuzzerCommand::Minimize;
+    arguments.command = FuzzerCommand::MinifyInput;
 
     loop {
         arguments.input_file = simplest_input_file(&artifacts_folder).or(arguments.input_file);
@@ -389,8 +389,8 @@ fn run_command(args: &CommandLineArguments, fuzz_folder: &PathBuf, target_folder
 
     match args.command {
         FuzzerCommand::Read => s.push(COMMAND_READ.to_owned()),
-        FuzzerCommand::Minimize => s.push(COMMAND_MINIFY_INPUT.to_owned()),
-        FuzzerCommand::Shrink => s.push(COMMAND_MINIFY_CORPUS.to_owned()),
+        FuzzerCommand::MinifyInput => s.push(COMMAND_MINIFY_INPUT.to_owned()),
+        FuzzerCommand::MinifyCorpus => s.push(COMMAND_MINIFY_CORPUS.to_owned()),
         FuzzerCommand::Fuzz => s.push(COMMAND_FUZZ.to_owned()),
     };
 

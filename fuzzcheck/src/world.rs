@@ -203,7 +203,7 @@ where
         let hash = hasher.finish();
         let content = G::to_data(&input);
 
-        let name = if let FuzzerCommand::Minimize | FuzzerCommand::Read = self.settings.command {
+        let name = if let FuzzerCommand::MinifyInput | FuzzerCommand::Read = self.settings.command {
             format!("{:.0}--{:x}", cplx * 100.0, hash)
         } else {
             format!("{:x}", hash)

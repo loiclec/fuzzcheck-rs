@@ -5,10 +5,10 @@ use std::path::PathBuf;
 
 #[derive(Debug, Clone, Copy)]
 pub enum FuzzerCommand {
-    Minimize, // TODO: rename to minify input
+    MinifyInput,
     Fuzz,
     Read,
-    Shrink, // TODO: rename to minify corpus
+    MinifyCorpus,
 }
 
 pub const MAX_NBR_RUNS_FLAG: &str = "max-iter";
@@ -137,8 +137,8 @@ impl CommandLineArguments {
         let command: FuzzerCommand = match args[0].as_str() {
             COMMAND_FUZZ => Ok(FuzzerCommand::Fuzz),
             COMMAND_READ => Ok(FuzzerCommand::Read),
-            COMMAND_MINIFY_INPUT => Ok(FuzzerCommand::Minimize),
-            COMMAND_MINIFY_CORPUS => Ok(FuzzerCommand::Shrink),
+            COMMAND_MINIFY_INPUT => Ok(FuzzerCommand::MinifyInput),
+            COMMAND_MINIFY_CORPUS => Ok(FuzzerCommand::MinifyCorpus),
             _ => Err(format!(
                 r#"
 The command {c} is not supported. It can either be ‘{fuzz}’, ‘{tmin}’, or ‘{cmin}’.
@@ -178,10 +178,10 @@ The command {c} is not supported. It can either be ‘{fuzz}’, ‘{tmin}’, o
         };
 
         match (command, &input_file, &corpus_in) {
-            (FuzzerCommand::Minimize, &None, _) => {
+            (FuzzerCommand::MinifyInput, &None, _) => {
                 return Err("An input file must be given when minifying a test case".to_owned())
             }
-            (FuzzerCommand::Shrink, _, &None) => {
+            (FuzzerCommand::MinifyCorpus, _, &None) => {
                 return Err("An input corpus must be given when minifying a corpus".to_owned())
             }
             _ => (),
