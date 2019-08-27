@@ -18,12 +18,8 @@ impl InputGenerator for VoidGenerator {
     {
     }
 
-    fn base_input() -> Self::Input {
-        
-    }
-    fn new_input(&mut self, _max_cplx: f64) -> Self::Input {
-        
-    }
+    fn base_input() -> Self::Input {}
+    fn new_input(&mut self, _max_cplx: f64) -> Self::Input {}
 
     fn mutate(&mut self, _input: &mut Self::Input, _spare_cplx: f64) -> bool {
         true

@@ -36,19 +36,18 @@ pub struct DefaultArguments<'a> {
     pub max_nbr_of_runs: usize,
     pub max_input_cplx: usize,
     pub mut_depth: usize,
-    pub corpus_size: usize
+    pub corpus_size: usize,
 }
 
-pub const DEFAULT_ARGUMENTS: DefaultArguments<'static> = 
-    DefaultArguments {
-        in_corpus: "fuzz-corpus",
-        out_corpus: "fuzz-corpus",
-        artifacts: "artifacts",
-        max_nbr_of_runs: core::usize::MAX,
-        max_input_cplx: 256,
-        mut_depth: 5,
-        corpus_size: 10
-    };
+pub const DEFAULT_ARGUMENTS: DefaultArguments<'static> = DefaultArguments {
+    in_corpus: "fuzz-corpus",
+    out_corpus: "fuzz-corpus",
+    artifacts: "artifacts",
+    max_nbr_of_runs: core::usize::MAX,
+    max_input_cplx: 256,
+    mut_depth: 5,
+    corpus_size: 10,
+};
 
 #[derive(Debug, Clone)]
 pub struct CommandLineArguments {

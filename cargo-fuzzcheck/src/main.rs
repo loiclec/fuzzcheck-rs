@@ -356,44 +356,27 @@ fn run_command(
 ) -> Result<std::process::Output> {
     let mut s: Vec<String> = Vec::new();
 
-    let input_file_args = args.input_file.clone().map(|f| {
-        vec![
-            "--".to_owned() + INPUT_FILE_FLAG,
-            path_str(f),
-        ]
-    });
+    let input_file_args = args
+        .input_file
+        .clone()
+        .map(|f| vec!["--".to_owned() + INPUT_FILE_FLAG, path_str(f)]);
 
     let corpus_in_args = args
         .corpus_in
         .clone()
-        .map(|f| {
-            vec![
-                "--".to_owned() + IN_CORPUS_FLAG,
-                path_str(f),
-            ]
-        })
+        .map(|f| vec!["--".to_owned() + IN_CORPUS_FLAG, path_str(f)])
         .unwrap_or_else(|| vec!["--".to_owned() + NO_IN_CORPUS_FLAG]);
 
     let corpus_out_args = args
         .corpus_out
         .clone()
-        .map(|f| {
-            vec![
-                "--".to_owned() + OUT_CORPUS_FLAG,
-                path_str(f),
-            ]
-        })
+        .map(|f| vec!["--".to_owned() + OUT_CORPUS_FLAG, path_str(f)])
         .unwrap_or_else(|| vec!["--".to_owned() + NO_OUT_CORPUS_FLAG]);
 
     let artifacts_args = args
         .artifacts_folder
         .clone()
-        .map(|f| {
-            vec![
-                "--".to_owned() + ARTIFACTS_FLAG,
-                path_str(f),
-            ]
-        })
+        .map(|f| vec!["--".to_owned() + ARTIFACTS_FLAG, path_str(f)])
         .unwrap_or_else(|| vec!["--".to_owned() + NO_ARTIFACTS_FLAG]);
 
     match args.command {

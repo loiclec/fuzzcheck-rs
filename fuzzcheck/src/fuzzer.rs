@@ -157,7 +157,7 @@ where
 
         if best_input_for_a_feature || (matched_least_complex && score_estimate > score_to_exceed) {
             Some((cur_input_cplx, features))
-        }  else {
+        } else {
             None
         }
     }
