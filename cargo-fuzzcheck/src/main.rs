@@ -242,21 +242,6 @@ fn init_command() -> Result<()> {
     Ok(())
 }
 
-// fn collect_targets(manifest: &toml::Value) -> Vec<String> {
-//     let bins = manifest
-//         .as_table()
-//         .and_then(|v| v.get("bin"))
-//         .and_then(toml::Value::as_array);
-//     if let Some(bins) = bins {
-//         bins.iter()
-//             .map(|bin| bin.as_table().and_then(|v| v.get("name")).and_then(toml::Value::as_str))
-//             .filter_map(|name| name.map(String::from))
-//             .collect()
-//     } else {
-//         Vec::new()
-//     }
-// }
-
 fn clone_and_compile_fuzzcheck_library(fuzz_folder: &PathBuf) {
     Command::new("git")
         .current_dir(fuzz_folder)
@@ -362,20 +347,6 @@ fn exec_input_minify_command(mut arguments: CommandLineArguments, target: &str, 
 fn path_str(p: PathBuf) -> String {
     p.as_path().to_str().unwrap().to_owned()
 }
-
-// fn prepended_with_if_relative_to_target_folder(path: PathBuf, to_prepend: &PathBuf) -> String {
-//     if path.is_relative() && !(path.starts_with("fuzz/fuzz_targets")) {
-//         let mut new_path = to_prepend.clone();
-//         new_path.push(path);
-//         new_path
-//     } else {
-//         path
-//     }
-//     .as_path()
-//     .to_str()
-//     .unwrap()
-//     .to_owned()
-// }
 
 fn run_command(
     args: &CommandLineArguments,
