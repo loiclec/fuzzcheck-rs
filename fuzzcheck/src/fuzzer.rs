@@ -182,9 +182,8 @@ where
         let idx = self.state.pool.random_index();
         let i = self.state.pool.get(idx);
         self.state.input = i;
-
+        let mut cplx = G::complexity(&self.state.input);
         for _ in 0..self.state.settings.mutate_depth {
-            let cplx = G::complexity(&self.state.input);
             if self.state.stats.total_number_of_runs >= self.max_iter()
                 || !self
                     .generator
@@ -192,10 +191,12 @@ where
             {
                 break;
             }
+            cplx = G::complexity(&self.state.input);
             if cplx >= self.state.settings.max_input_cplx {
                 continue;
+            } else {
+                self.test_input_and_analyze()?;
             }
-            self.test_input_and_analyze()?;
         }
 
         Ok(())
