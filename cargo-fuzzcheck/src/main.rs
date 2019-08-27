@@ -138,7 +138,15 @@ cargo-fuzzcheck {run} target1 {cmin} --{in_corpus} "fuzz-corpus" --{corpus_size}
 
     let target = &env_args[start_idx + 1];
 
-    let args = match CommandLineArguments::from_parser(&parser, &env_args[start_idx + 2..]) {
+    let mut defaults = DEFAULT_ARGUMENTS.clone();
+    let defaults_in_corpus = format!("fuzz/fuzz_targets/{}/", target) + defaults.in_corpus;
+    let defaults_out_corpus = format!("fuzz/fuzz_targets/{}/", target) + defaults.out_corpus;
+    let defaults_artifacts = format!("fuzz/fuzz_targets/{}/", target) + defaults.artifacts;
+    defaults.in_corpus = &defaults_in_corpus;
+    defaults.out_corpus = &defaults_out_corpus;
+    defaults.artifacts = &defaults_artifacts;
+
+    let args = match CommandLineArguments::from_parser(&parser, &env_args[start_idx + 2..], defaults) {
         Ok(r) => r,
         Err(e) => {
             println!("{}", e);
@@ -308,7 +316,7 @@ fn exec_input_minify_command(mut arguments: CommandLineArguments, target: &str, 
         x = x.with_extension("minified");
         x
     };
-    std::fs::create_dir(&artifacts_folder)?;
+    let _ = std::fs::create_dir(&artifacts_folder);
     arguments.artifacts_folder = Some(artifacts_folder.clone());
 
     fn simplest_input_file(folder: &Path) -> Option<PathBuf> {
@@ -353,19 +361,23 @@ fn exec_input_minify_command(mut arguments: CommandLineArguments, target: &str, 
     }
 }
 
-fn prepended_with_if_relative(path: PathBuf, to_prepend: &PathBuf) -> String {
-    if path.is_relative() {
-        let mut new_path = to_prepend.clone();
-        new_path.push(path);
-        new_path
-    } else {
-        path
-    }
-    .as_path()
-    .to_str()
-    .unwrap()
-    .to_owned()
+fn path_str(p: PathBuf) -> String {
+    p.as_path().to_str().unwrap().to_owned()
 }
+
+// fn prepended_with_if_relative_to_target_folder(path: PathBuf, to_prepend: &PathBuf) -> String {
+//     if path.is_relative() && !(path.starts_with("fuzz/fuzz_targets")) {
+//         let mut new_path = to_prepend.clone();
+//         new_path.push(path);
+//         new_path
+//     } else {
+//         path
+//     }
+//     .as_path()
+//     .to_str()
+//     .unwrap()
+//     .to_owned()
+// }
 
 fn run_command(
     args: &CommandLineArguments,
@@ -378,7 +390,7 @@ fn run_command(
     let input_file_args = args.input_file.clone().map(|f| {
         vec![
             "--".to_owned() + INPUT_FILE_FLAG,
-            prepended_with_if_relative(f, target_folder),
+            path_str(f),
         ]
     });
 
@@ -388,7 +400,7 @@ fn run_command(
         .map(|f| {
             vec![
                 "--".to_owned() + IN_CORPUS_FLAG,
-                prepended_with_if_relative(f, target_folder),
+                path_str(f),
             ]
         })
         .unwrap_or_else(|| vec!["--".to_owned() + NO_IN_CORPUS_FLAG]);
@@ -399,7 +411,7 @@ fn run_command(
         .map(|f| {
             vec![
                 "--".to_owned() + OUT_CORPUS_FLAG,
-                prepended_with_if_relative(f, target_folder),
+                path_str(f),
             ]
         })
         .unwrap_or_else(|| vec!["--".to_owned() + NO_OUT_CORPUS_FLAG]);
@@ -410,7 +422,7 @@ fn run_command(
         .map(|f| {
             vec![
                 "--".to_owned() + ARTIFACTS_FLAG,
-                prepended_with_if_relative(f, target_folder),
+                path_str(f),
             ]
         })
         .unwrap_or_else(|| vec!["--".to_owned() + NO_ARTIFACTS_FLAG]);
@@ -434,19 +446,16 @@ fn run_command(
     s.append(&mut corpus_out_args.clone());
     s.append(&mut artifacts_args.clone());
     s.append(&mut vec![
-        "--".to_owned(),
-        MAX_INPUT_CPLX_FLAG.to_owned(),
+        "--".to_owned() + MAX_INPUT_CPLX_FLAG,
         args.max_input_cplx.to_string(),
     ]);
 
     s.append(&mut vec![
-        "--".to_owned(),
-        MUT_DEPTH_FLAG.to_owned(),
+        "--".to_owned() + MUT_DEPTH_FLAG,
         args.mutate_depth.to_string(),
     ]);
     s.append(&mut vec![
-        "--".to_owned(),
-        MAX_NBR_RUNS_FLAG.to_owned(),
+        "--".to_owned() + MAX_NBR_RUNS_FLAG,
         args.max_nbr_of_runs.to_string(),
     ]);
 

@@ -326,7 +326,7 @@ fuzzcheck {cmin} --{in_corpus} "fuzz-corpus" --{corpus_size} 25
     )
     .as_str();
 
-    let args = match CommandLineArguments::from_parser(&parser, &env_args[1..]) {
+    let args = match CommandLineArguments::from_parser(&parser, &env_args[1..], DEFAULT_ARGUMENTS) {
         Ok(r) => r,
         Err(e) => {
             println!("{}\n\n{}", e, help);

@@ -28,13 +28,27 @@ pub const COMMAND_MINIFY_INPUT: &str = "tmin";
 pub const COMMAND_MINIFY_CORPUS: &str = "cmin";
 pub const COMMAND_READ: &str = "read";
 
-pub const DEFAULT_MAX_NBR_RUNS: usize = core::usize::MAX;
-pub const DEFAULT_MAX_INPUT_CPLX: usize = 256;
-pub const DEFAULT_MUT_DEPTH: usize = 5;
-pub const DEFAULT_CORPUS_SIZE: usize = 10;
-pub const DEFAULT_ARTIFACTS: &str = "artifacts";
-pub const DEFAULT_IN_CORPUS: &str = "fuzz-corpus";
-pub const DEFAULT_OUT_CORPUS: &str = "fuzz-corpus";
+#[derive(Clone)]
+pub struct DefaultArguments<'a> {
+    pub in_corpus: &'a str,
+    pub out_corpus: &'a str,
+    pub artifacts: &'a str,
+    pub max_nbr_of_runs: usize,
+    pub max_input_cplx: usize,
+    pub mut_depth: usize,
+    pub corpus_size: usize
+}
+
+pub const DEFAULT_ARGUMENTS: DefaultArguments<'static> = 
+    DefaultArguments {
+        in_corpus: "fuzz-corpus",
+        out_corpus: "fuzz-corpus",
+        artifacts: "artifacts",
+        max_nbr_of_runs: core::usize::MAX,
+        max_input_cplx: 256,
+        mut_depth: 5,
+        corpus_size: 10
+    };
 
 #[derive(Debug, Clone)]
 pub struct CommandLineArguments {
@@ -94,7 +108,7 @@ pub fn options_parser() -> Options {
             CORPUS_SIZE_FLAG,
             format!(
                 "target size of the corpus (default: {default})",
-                default = DEFAULT_CORPUS_SIZE
+                default = DEFAULT_ARGUMENTS.corpus_size
             )
             .as_str(),
             "N",
@@ -104,7 +118,7 @@ pub fn options_parser() -> Options {
             MAX_INPUT_CPLX_FLAG,
             format!(
                 "maximum allowed complexity of inputs (default: {default})",
-                default = DEFAULT_MAX_INPUT_CPLX
+                default = DEFAULT_ARGUMENTS.max_input_cplx
             )
             .as_str(),
             "N",
@@ -114,7 +128,7 @@ pub fn options_parser() -> Options {
             MUT_DEPTH_FLAG,
             format!(
                 "number of times inputs are mutated each iteration (default: {default})",
-                default = DEFAULT_MUT_DEPTH
+                default = DEFAULT_ARGUMENTS.mut_depth
             )
             .as_str(),
             "N",
@@ -126,7 +140,7 @@ pub fn options_parser() -> Options {
 }
 
 impl CommandLineArguments {
-    pub fn from_parser(options: &Options, args: &[String]) -> Result<Self, String> {
+    pub fn from_parser(options: &Options, args: &[String], defaults: DefaultArguments) -> Result<Self, String> {
         let matches = options.parse(args).map_err(|e| e.to_string())?;
 
         // TODO: factor that out and make it prettier/more useful
@@ -154,7 +168,7 @@ The command {c} is not supported. It can either be ‘{fuzz}’, ‘{tmin}’, o
             .opt_str(MAX_INPUT_CPLX_FLAG)
             .map(|x| x.parse::<usize>().ok())
             .flatten()
-            .unwrap_or(DEFAULT_MAX_INPUT_CPLX) as f64;
+            .unwrap_or(defaults.max_input_cplx) as f64;
 
         let input_file: Option<PathBuf> = matches
             .opt_str(INPUT_FILE_FLAG)
@@ -165,12 +179,12 @@ The command {c} is not supported. It can either be ‘{fuzz}’, ‘{tmin}’, o
             .opt_str(CORPUS_SIZE_FLAG)
             .map(|x| x.parse::<usize>().ok())
             .flatten()
-            .unwrap_or(DEFAULT_CORPUS_SIZE);
+            .unwrap_or(defaults.corpus_size);
 
         let corpus_in: Option<PathBuf> = if !matches.opt_present(NO_IN_CORPUS_FLAG) {
             matches
                 .opt_str(IN_CORPUS_FLAG)
-                .unwrap_or(DEFAULT_IN_CORPUS.to_string())
+                .unwrap_or_else(|| defaults.in_corpus.to_string())
                 .parse::<PathBuf>()
                 .ok()
         } else {
@@ -190,7 +204,7 @@ The command {c} is not supported. It can either be ‘{fuzz}’, ‘{tmin}’, o
         let corpus_out: Option<PathBuf> = if !matches.opt_present(NO_OUT_CORPUS_FLAG) {
             matches
                 .opt_str(OUT_CORPUS_FLAG)
-                .unwrap_or(DEFAULT_OUT_CORPUS.to_string())
+                .unwrap_or_else(|| defaults.out_corpus.to_string())
                 .parse::<PathBuf>()
                 .ok()
         } else {
@@ -200,7 +214,7 @@ The command {c} is not supported. It can either be ‘{fuzz}’, ‘{tmin}’, o
         let artifacts_folder: Option<PathBuf> = if !matches.opt_present(NO_ARTIFACTS_FLAG) {
             matches
                 .opt_str(ARTIFACTS_FLAG)
-                .unwrap_or(DEFAULT_ARTIFACTS.to_string())
+                .unwrap_or_else(|| defaults.artifacts.to_string())
                 .parse::<PathBuf>()
                 .ok()
         } else {
@@ -217,7 +231,7 @@ The command {c} is not supported. It can either be ‘{fuzz}’, ‘{tmin}’, o
             .opt_str(MUT_DEPTH_FLAG)
             .map(|x| x.parse::<usize>().ok())
             .flatten()
-            .unwrap_or(DEFAULT_MUT_DEPTH);
+            .unwrap_or(defaults.mut_depth);
 
         Ok(Self {
             command,
