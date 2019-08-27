@@ -54,7 +54,8 @@ fuzzcheck-rs
 
 macro_rules! target_template {
     ($name: expr) => {
-        format_args!(r#"
+        format_args!(
+            r#"
 extern crate {};
 
 extern crate fuzzcheck;
