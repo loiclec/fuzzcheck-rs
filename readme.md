@@ -213,7 +213,7 @@ pub trait InputGenerator {
 
     fn mutate(&mut self, input: &mut Self::Input, spare_cplx: f64) -> bool;
 
-    fn from_data(data: &Vec<u8>) -> Option<Self::Input>;
+    fn from_data(data: &[u8]) -> Option<Self::Input>;
     fn to_data(input: &Self::Input) -> Vec<u8>;
 }
 ```
