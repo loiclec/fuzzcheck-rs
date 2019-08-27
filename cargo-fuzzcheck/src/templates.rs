@@ -44,7 +44,7 @@ macro_rules! gitignore_template {
         format_args!(
             r##"
 target
-corpus
+fuzz-corpus
 artifacts
 fuzzcheck-rs
 "##
