@@ -10,7 +10,7 @@ extern "C" {
     fn return_address() -> usize;
 }
 
-const START: Once = Once::new();
+static START: Once = Once::new();
 
 #[export_name = "__sanitizer_cov_trace_pc_guard_init"]
 fn trace_pc_guard_init(start: *mut u32, stop: *mut u32) {

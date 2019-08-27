@@ -59,7 +59,7 @@ impl CodeCoverageSensor {
             handle(f);
         }
         for f in self.features.iter() {
-            handle(f.clone());
+            handle(*f);
         }
     }
 

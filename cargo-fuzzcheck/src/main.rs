@@ -5,7 +5,6 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::string::String;
 
-use std::env;
 use std::fs;
 use std::io::Read;
 use std::io::Write;

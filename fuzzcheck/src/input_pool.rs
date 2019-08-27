@@ -25,6 +25,7 @@ enum MetadataChange {
     ReportEvent(FuzzerEvent),
 }
 
+#[repr(align(8))]
 #[derive(Debug, Clone, Copy)]
 pub struct Feature {
     id: u32,
@@ -52,7 +53,7 @@ impl Feature {
     pub fn edge(pc_guard: usize, counter: u16) -> Feature {
         Feature {
             id: (pc_guard % core::u32::MAX as usize) as u32,
-            payload: score_from_counter(counter) as u16,
+            payload: u16::from(score_from_counter(counter)),
             tag: 0,
         }
     }
@@ -66,7 +67,7 @@ impl Feature {
     pub fn comparison(pc: usize, arg1: u64, arg2: u64) -> Feature {
         Feature {
             id: (pc % core::u32::MAX as usize) as u32,
-            payload: score_from_counter((arg1 ^ arg2).count_ones() as u16) as u16,
+            payload: u16::from(score_from_counter((arg1 ^ arg2).count_ones() as u16)),
             tag: 2,
         }
     }
@@ -83,7 +84,7 @@ fn score_from_counter(counter: u16) -> u8 {
 }
 
 impl Feature {
-    fn score(&self) -> f64 {
+    fn score(self) -> f64 {
         match self.tag {
             0 => 1.0,
             1 => 1.0,
@@ -146,9 +147,9 @@ impl<T: Clone> InputPool<T> {
         self.favored_input = Some(input);
     }
 
-    fn convert_partial_world_actions(&self, actions: &Vec<MetadataChange>) -> Vec<WorldAction<T>> {
+    fn convert_partial_world_actions(&self, actions: &[MetadataChange]) -> Vec<WorldAction<T>> {
         actions
-            .into_iter()
+            .iter()
             .map(|p| match p {
                 MetadataChange::Add(x, fs) => WorldAction::Add(self.inputs[*x].as_ref().unwrap().clone(), fs.clone()),
                 MetadataChange::Remove(x) => WorldAction::Remove(self.inputs[*x].as_ref().unwrap().clone()),
@@ -256,7 +257,7 @@ impl<T: Clone> InputPool<T> {
             .inputs_of_feature
             .get(&f)
             .map(|x| f.score() / (x.len() + 1) as f64)
-            .unwrap_or(f.score())
+            .unwrap_or_else(|| f.score())
     }
 }
 
@@ -384,7 +385,7 @@ impl InputMetadataPool {
         actions.push(MetadataChange::Add(element.id, vec![]));
 
         for i in &inputs_to_delete {
-            actions.push(MetadataChange::Remove(i.clone()));
+            actions.push(MetadataChange::Remove(*i));
         }
         if !inputs_to_delete.is_empty() {
             actions.push(MetadataChange::ReportEvent(FuzzerEvent::Deleted(
@@ -839,7 +840,7 @@ mod tests {
 
         assert_eq!(pool.inputs.len(), 1);
         assert!(pool.inputs[0].is_none());
-        assert_eq!(pool.inputs_of_feature, HashMap::new());
+        assert_eq!(pool.inputs_of_feature, HashMap::with_hasher(FuzzcheckHash {}));
     }
 
     #[test]

@@ -128,8 +128,8 @@ where
         false
     }
 
-    fn from_data(data: &Vec<u8>) -> Option<Self::Input> {
-        if let Some(s) = std::str::from_utf8(data).ok() {
+    fn from_data(data: &[u8]) -> Option<Self::Input> {
+        if let Ok(s) = std::str::from_utf8(data) {
             json::from_str(s).ok()
         } else {
             None
@@ -140,23 +140,23 @@ where
     }
 }
 
-impl IntegerGenerator<u8> {
-    pub fn new() -> Self {
+impl Default for IntegerGenerator<u8> {
+    fn default() -> Self {
         Self::new_with_special_values(10, vec![0x0, 0x1, 0xff, 0x7f])
     }
 }
-impl IntegerGenerator<u16> {
-    pub fn new() -> Self {
+impl Default for IntegerGenerator<u16> {
+    fn default() -> Self {
         Self::new_with_special_values(10, vec![0x0, 0x1, 0xff, 0x7f, 0xffff, 0x7fff])
     }
 }
-impl IntegerGenerator<u32> {
-    pub fn new() -> Self {
+impl Default for IntegerGenerator<u32> {
+    fn default() -> Self {
         Self::new_with_special_values(10, vec![0x0, 0x1, 0xff, 0x7f, 0xffff, 0x7fff, 0xffff_ffff, 0x7fff_ffff])
     }
 }
-impl IntegerGenerator<u64> {
-    pub fn new() -> Self {
+impl Default for IntegerGenerator<u64> {
+    fn default() -> Self {
         Self::new_with_special_values(
             10,
             vec![
@@ -175,8 +175,8 @@ impl IntegerGenerator<u64> {
     }
 }
 
-impl IntegerGenerator<usize> {
-    pub fn new() -> Self {
+impl Default for IntegerGenerator<usize> {
+    fn default() -> Self {
         Self::new_with_special_values(
             10,
             vec![
@@ -194,18 +194,18 @@ impl IntegerGenerator<usize> {
         )
     }
 }
-impl IntegerGenerator<i8> {
-    pub fn new() -> Self {
+impl Default for IntegerGenerator<i8> {
+    fn default() -> Self {
         Self::new_with_special_values(10, vec![0x0, -0x1, 0x7f, -0x80])
     }
 }
-impl IntegerGenerator<i16> {
-    pub fn new() -> Self {
+impl Default for IntegerGenerator<i16> {
+    fn default() -> Self {
         Self::new_with_special_values(10, vec![0x0, -0x1, 0xff, 0x7f, -0x100, -0x80, 0x7fff, -0x8000])
     }
 }
-impl IntegerGenerator<i32> {
-    pub fn new() -> Self {
+impl Default for IntegerGenerator<i32> {
+    fn default() -> Self {
         Self::new_with_special_values(
             10,
             vec![
@@ -225,8 +225,8 @@ impl IntegerGenerator<i32> {
         )
     }
 }
-impl IntegerGenerator<i64> {
-    pub fn new() -> Self {
+impl Default for IntegerGenerator<i64> {
+    fn default() -> Self {
         Self::new_with_special_values(
             10,
             vec![
@@ -250,8 +250,8 @@ impl IntegerGenerator<i64> {
         )
     }
 }
-impl IntegerGenerator<isize> {
-    pub fn new() -> Self {
+impl Default for IntegerGenerator<isize> {
+    fn default() -> Self {
         Self::new_with_special_values(
             10,
             vec![

@@ -145,7 +145,7 @@ where
             if let Some((old_cplx, cur_input_score)) = self.state.pool.least_complex_input_for_feature(feature) {
                 if cur_input_cplx < old_cplx {
                     best_input_for_a_feature = true;
-                } else if cur_input_cplx == old_cplx {
+                } else if (cur_input_cplx - old_cplx).abs() < std::f64::EPSILON {
                     matched_least_complex = true;
                     score_to_exceed = score_to_exceed.min(cur_input_score);
                 }
@@ -155,11 +155,9 @@ where
             features.push(feature);
         });
 
-        if best_input_for_a_feature {
+        if best_input_for_a_feature || (matched_least_complex && score_estimate > score_to_exceed) {
             Some((cur_input_cplx, features))
-        } else if matched_least_complex && score_estimate > score_to_exceed {
-            Some((cur_input_cplx, features))
-        } else {
+        }  else {
             None
         }
     }

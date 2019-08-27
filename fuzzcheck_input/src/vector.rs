@@ -186,8 +186,8 @@ where
         }
         false
     }
-    fn from_data(data: &Vec<u8>) -> Option<Self::Input> {
-        if let Some(s) = std::str::from_utf8(data).ok() {
+    fn from_data(data: &[u8]) -> Option<Self::Input> {
+        if let Ok(s) = std::str::from_utf8(data) {
             json::from_str(s).ok()
         } else {
             None
