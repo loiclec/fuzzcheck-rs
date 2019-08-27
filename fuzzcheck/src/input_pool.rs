@@ -487,8 +487,8 @@ mod tests {
     fn new_element() {
         let features = vec![edge_f(0, 1), edge_f(1, 1)];
         let element = InputMetadata::new(10.0, features);
-
-        assert_eq!(element.score, 0.0);
+        
+        assert_eq!(element.score.classify(), std::num::FpCategory::Zero);
     }
 
     #[test]
