@@ -86,7 +86,7 @@ fn test(input: &Vec<u8>) -> bool {{
 }}
 
 fn main() {{
-    let u8_gen = IntegerGenerator::<u8>::new();
+    let u8_gen = IntegerGenerator::<u8>::default();
     let vec_gen = VectorGenerator::new(u8_gen);
     
     let _ = fuzzer::launch(test, vec_gen);

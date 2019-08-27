@@ -336,7 +336,7 @@ fn exec_input_minify_command(mut arguments: CommandLineArguments, target: &str, 
     arguments.command = FuzzerCommand::Read;
 
     let o = run_command(&arguments, fuzz_folder, target_folder, target_triple)?;
-    assert!(o.status.success() == false);
+    assert!(!o.status.success());
 
     // hjhjb.minifyd/hshs.parent() != hjhjb.minifyd/ -> copy hshs to hjhjb.minifyd/hshs
     //let destination = artifacts_folder.join(arguments.input_file.file_name());
