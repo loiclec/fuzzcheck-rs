@@ -197,22 +197,29 @@ fn create_target_template(
     let fuzzer_output_folder = target_path.clone();
     target_path.set_extension("rs");
 
-    let mut script = fs::OpenOptions::new()
-        .write(true)
-        .create_new(true)
-        .open(&target_path)
-        .chain_err(|| format!("could not create target script file at {:?}", target_path))?;
+    if !target_path.is_file() {
+        let mut script = fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&target_path)
+            .chain_err(|| format!("could not create target script file at {:?}", target_path))?;
 
-    script.write_fmt(target_template!(root_package_name.replace("-", "_")))?;
+        script.write_fmt(target_template!(root_package_name.replace("-", "_")))?;
+    }
 
-    fs::create_dir(fuzzer_output_folder)?;
+    if !fuzzer_output_folder.as_path().is_dir() {
+        fs::create_dir(fuzzer_output_folder)?;
+    }
 
     let mut cargo_toml_path = fuzz_folder.clone();
     cargo_toml_path.push("Cargo.toml");
 
-    let mut cargo = fs::OpenOptions::new().append(true).open(cargo_toml_path)?;
-
-    Ok(cargo.write_fmt(toml_bin_template!(target))?)
+    if !cargo_toml_path.is_file() {
+        let mut cargo = fs::OpenOptions::new().append(true).open(cargo_toml_path)?;
+        Ok(cargo.write_fmt(toml_bin_template!(target))?)
+    } else {
+        Ok(())
+    }
 }
 
 fn init_command() -> Result<()> {
@@ -224,17 +231,26 @@ fn init_command() -> Result<()> {
     let fuzz_folder = root_folder.join("fuzz");
     let fuzz_targets_folder = fuzz_folder.join("fuzz_targets");
 
-    // TODO: check if the project is already initialized
-    fs::create_dir(&fuzz_folder)?;
-    fs::create_dir(&fuzz_targets_folder)?;
+    if !fuzz_folder.as_path().is_dir() {
+        fs::create_dir(&fuzz_folder)?;
+    }
+    if !fuzz_targets_folder.as_path().is_dir() {
+        fs::create_dir(&fuzz_targets_folder)?;
+    }
 
     clone_and_compile_fuzzcheck_library(&fuzz_folder);
 
-    let mut cargo = fs::File::create(fuzz_folder.join("Cargo.toml"))?;
-    cargo.write_fmt(toml_template!(root_package_name))?;
+    let cargo_toml_file = fuzz_folder.join("Cargo.toml");
+    if !cargo_toml_file.as_path().is_file() {
+        let mut cargo = fs::File::create(cargo_toml_file)?;
+        cargo.write_fmt(toml_template!(root_package_name))?;
+    }
 
-    let mut ignore = fs::File::create(fuzz_folder.join(".gitignore"))?;
-    ignore.write_fmt(gitignore_template!())?;
+    let gitignore_file = fuzz_folder.join(".gitignore");
+    if !gitignore_file.as_path().is_file() {
+        let mut ignore = fs::File::create(gitignore_file)?;
+        ignore.write_fmt(gitignore_template!())?;
+    }
 
     create_target_template(&root_package_name, &fuzz_folder, &fuzz_targets_folder, target)
         .chain_err(|| format!("could not create template file for target {:?}", target))?;
@@ -243,13 +259,19 @@ fn init_command() -> Result<()> {
 }
 
 fn clone_and_compile_fuzzcheck_library(fuzz_folder: &PathBuf) {
-    Command::new("git")
-        .current_dir(fuzz_folder)
-        .args(vec!["clone", FUZZCHECK_PATH])
-        .stdout(std::process::Stdio::inherit())
-        .stderr(std::process::Stdio::inherit())
-        .output()
-        .expect("failed to execute process");
+    let mut fuzzcheck_clone_folder = fuzz_folder.clone();
+    fuzzcheck_clone_folder.push("fuzzcheck-rs");
+
+    // TODO: better checks
+    if !fuzzcheck_clone_folder.is_dir() {
+        Command::new("git")
+            .current_dir(fuzz_folder)
+            .args(vec!["clone", FUZZCHECK_PATH])
+            .stdout(std::process::Stdio::inherit())
+            .stderr(std::process::Stdio::inherit())
+            .output()
+            .expect("failed to execute process");
+    }
 
     // Command::new("git")
     //     .current_dir("fuzzcheck-rs")
@@ -258,9 +280,6 @@ fn clone_and_compile_fuzzcheck_library(fuzz_folder: &PathBuf) {
     //     .stderr(std::process::Stdio::inherit())
     //     .output()
     //     .expect("failed to execute process");
-
-    let mut fuzzcheck_clone_folder = fuzz_folder.clone();
-    fuzzcheck_clone_folder.push("fuzzcheck-rs");
 
     Command::new("cargo")
         .current_dir(fuzzcheck_clone_folder)
