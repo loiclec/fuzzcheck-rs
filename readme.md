@@ -119,9 +119,7 @@ fn main() {
 ```
 
 Note that while the input is of type `Vec<u8>`, it could equally easily be
-anything such as `String`, `HashMap<T, U>`, etc. The example linked at the
-beginning of the readme tests a function working with a Graph data structure
-defined by a third-party library.
+anything such as `String`, `HashMap<T, U>`, etc. 
 
 You can already try launching this test: 
 
