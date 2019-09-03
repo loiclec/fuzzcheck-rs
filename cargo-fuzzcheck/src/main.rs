@@ -214,12 +214,8 @@ fn create_target_template(
     let mut cargo_toml_path = fuzz_folder.clone();
     cargo_toml_path.push("Cargo.toml");
 
-    if !cargo_toml_path.is_file() {
-        let mut cargo = fs::OpenOptions::new().append(true).open(cargo_toml_path)?;
-        Ok(cargo.write_fmt(toml_bin_template!(target))?)
-    } else {
-        Ok(())
-    }
+    let mut cargo = fs::OpenOptions::new().append(true).open(cargo_toml_path)?;
+    Ok(cargo.write_fmt(toml_bin_template!(target))?)
 }
 
 fn init_command() -> Result<()> {
