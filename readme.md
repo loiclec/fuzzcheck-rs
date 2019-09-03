@@ -126,7 +126,7 @@ defined by a third-party library.
 You can already try launching this test: 
 
 ```
-cargo fuzzcheck run target1
+cargo fuzzcheck run target1 fuzz
 ```
 
 This starts a loop that will stop when a failing test has been found.
