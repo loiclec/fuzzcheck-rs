@@ -5,16 +5,10 @@
 > discussed in a [talk at the Functional Swift conference](https://www.youtube.com/watch?v=23_qZePMQjA). 
 > There are many, many ways in which it could be improved such that it
 > becomes a powerful, easy-to-use tool for any Rust programmer. I would love 
-> to keep working on it, but I have to go back to university in a week, and I
+> to keep working on it, but I am now back to university, and I
 > find it hard to justify spending a significant amount of time on it.
 > If you would like me to keep developing Fuzzcheck or help your company use
 > it, please hire me and help me pay for my studies :)
->
-> I would also greatly appreciate any contribution to the code. Unfortunately,
-> I am still in the process of adding precise documentation. But you can open 
-> an issue or contact me by email to ask for an explanation about Fuzzcheck 
-> or propose an idea. For now, the best way to contribute is to write generators
-> for more types of inputs. Or, even better, to write a generator-generator.
 
 Fuzzcheck is a structure-aware, in-process, coverage-guided, evolutionary 
 fuzzing engine for Rust functions. 
@@ -241,8 +235,8 @@ The mutation should ideally be small, but meaningful. For example, it could:
      * replace a substring by a keyword relevant to the test function
      * add a node to a graph data structure, and connect it to a random node
 
-* `from_data` and `to_data` decode/encode the input. For example, a simple 
-implementation of `to_data` could be:
+* `from_data` and `to_data` decode/encode the input. They do not have to be fast 
+or memory efficient. For example, a simple implementation of `to_data` could be:
   ```rust
   fn to_data(input: &Self::Input) -> Vec<u8> {
       serde_json::to_vec(input).unwrap()
@@ -280,4 +274,7 @@ the input is given by a user-defined function, which will be more accurate than
 counting the bytes of the protobuf encoding. Third, the artifact files and the
 fuzzing corpora can be JSON-encoded, which is more user-friendly than protobuf.
 
-TODO: mention FuzzChick for Coq
+As I was developing Fuzzcheck, a few researchers developed Fuzzchick for Coq 
+([paper](https://www.cs.umd.edu/~mwh/papers/fuzzchick-draft.pdf)). It is a
+coverage-guided property-based testing tool implemented as an extension to
+Quickchick.
