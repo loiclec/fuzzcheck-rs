@@ -244,7 +244,7 @@ where
         self.state
             .world
             .report_event(FuzzerEvent::DidReadCorpus, Some(self.state.stats));
-        while self.state.pool.inputs.len() > self.state.settings.corpus_size {
+        while self.state.pool.size > self.state.settings.corpus_size {
             let actions = self.state.pool.remove_lowest();
             self.state.world.do_actions(actions)?;
             self.state.update_stats();
