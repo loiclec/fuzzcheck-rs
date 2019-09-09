@@ -1,3 +1,79 @@
+//! The `InputPool` is responsible for storing and updating inputs along with
+//! their associated code coverage information. It assigns a score for each
+//! input based on how unique its associated code coverage is. And it can 
+//! randomly select an input with a probability that is proportional to its 
+//! score relative to all the other ones.
+//! 
+//! # Feature: a unit of code coverage
+//!
+//! The code coverage of an input is a set of `Feature`. A `Feature` is a value
+//! that identifies some behavior of the code that was run. For example, it 
+//! could say “This edge was reached this many times” or “This comparison 
+//! instruction was called with these arguments”. In practice, features are not
+//! perfectly precise. They won't count the exact number of times a code edge
+//! was reached, or record the exact arguments passed to an instruction.
+//! This is purely due to performance reasons. The end consequence is that the 
+//! fuzzer may think that an input is less interesting than it really is.
+//! 
+//! # Policy for adding and removing inputs from the pool
+//! 
+//! The input pool will strive to keep as few inputs as possible, and will
+//! prioritize small high-scoring inputs over large low-scoring ones. It does
+//! so in a couple ways. 
+//! 
+//! First, an input will only be added if:
+//! 
+//! 1. It contains a new feature, not seen by any other input in the pool; or
+//! 2. It is the smallest input that contains a particular Feature; or
+//! 3. It has the same size as the smallest input containing a particular
+//! Feature, but it is estimated that it will be higher-scoring than that 
+//! previous smallest input.
+//! 
+//! Second, following a pool update, any input in the pool that does not meet 
+//! the above conditions anymore will be removed from the pool.
+//! 
+//! # Scoring of an input
+//! 
+//! The score of an input is computed to be as fair as possible. This
+//! is currently done by assigning a score to each Feature and distributing 
+//! that score to each input containing that feature. For example, if a 
+//! thousand inputs all contain the feature F1, then they will all derive
+//! a thousandth of F1’s score from it. On the other hand, if only two inputs
+//! contain the feature F2, then they will each get half of F2’s score from it.
+//! In short, an input’s final score is the sum of the score of each of its 
+//! features divided by their frequencies.
+//! 
+//! It is not a perfectly fair system because the score of each feature is 
+//! currently wrong in many cases. For example, a single comparison instruction
+//! can currently yield 16 different features for just one input. If that 
+//! happens, the score of those features will be too high and the input will be
+//! over-rated. On the other hand, if it yields only 1 feature, it will be 
+//! under-rated. My intuition is that all these features could be grouped by
+//! the address of their common comparison instruction, and that they should
+//! share a common score that increases sub-linearly with the number of 
+//! features in the group. But it is difficult to implement efficiently.
+//! 
+//! # Why does `InputMetadataPool` exist?
+//! 
+//! The input pool has to store each input, and therefore must be generic over
+//! their type, which will only be known by the consumers of the fuzzcheck
+//! crate. Because Rust performs monomorphization, the methods of generic
+//! types are not fully compiled until their generic type parameters
+//! are known. This means the compilation of `InputPool` cannot be finished
+//! by compiling the `fuzzcheck` crate alone. Instead, it is fully compiled
+//! only after compiling each fuzz test. But fuzz tests are compiled with
+//! SanitizerCoverage instrumentation. Therefore, if `InputPool` is generic, 
+//! it will also be compiled with instrumentation, which will significantly 
+//! slow it down. For this reason, we split the `InputPool` into two parts.
+//! The first part is generic and contains the list of inputs, it doesn't
+//! perform any expensive tasks. The second  part, called `InputMetadataPool`,
+//! is not generic and contains information about each input that allows it
+//! to compute their score and determine which input to add or delete. Every
+//! computationally expensive methods is written on `InputMetadataPool`. The 
+//! `InputPool` and `InputMetadataPool` are kept in sync by the 
+//! `InputMetadataPool` returning a list of `MetadataChanges` to inform the 
+//! pool of the updates it performed.
+
 use std::collections::HashMap;
 use std::collections::HashSet;
 
@@ -11,13 +87,13 @@ use rand::distributions::uniform::{UniformFloat, UniformSampler};
 use rand::distributions::Distribution;
 
 use crate::hasher::FuzzcheckHash;
-// use serde::{Deserialize, Serialize};
 
 use std::hash::{Hash, Hasher};
 
 use crate::weighted_index::WeightedIndex;
 use crate::world::{FuzzerEvent, WorldAction};
 
+/// An action taken by the `InputMetadataPool` that must be communicated to other parts of the program
 #[derive(Clone)]
 enum MetadataChange {
     Remove(usize),
@@ -25,11 +101,28 @@ enum MetadataChange {
     ReportEvent(FuzzerEvent),
 }
 
+/// A unit of code coverage
 #[repr(align(8))]
 #[derive(Debug, Clone, Copy)]
 pub struct Feature {
+    /// Identifier for a group of features.
+    /// 
+    /// For example, it could uniquely identify a control flow edge,
+    /// or a specific instruction in the text of the program.
     id: u32,
+    
+    /// Data associated with the feature.
+    /// 
+    /// For example, it could contain the arguments to the instruction
+    /// specified by `id`, or the number of times that the edge specified
+    /// by `id` was reached.
     payload: u16,
+    /// An identifier for the type of the feature
+    ///
+    /// * `0` control flow edge feature
+    /// * `1`: indirect call feature
+    /// * `2`: instruction feature
+    /// * `3..`: undefined
     tag: u16,
 }
 
@@ -50,6 +143,8 @@ impl Hash for Feature {
 }
 
 impl Feature {
+    /// Create a “control flow edge” feature identified by the given `pc_guard`
+    /// whose payload is the intensity of the given `counter`.
     pub fn edge(pc_guard: usize, counter: u16) -> Feature {
         Feature {
             id: (pc_guard % core::u32::MAX as usize) as u32,
@@ -57,6 +152,7 @@ impl Feature {
             tag: 0,
         }
     }
+    /// Create an “indirect call” feature identified by the given `caller_xor_callee`
     pub fn indir(caller_xor_callee: usize) -> Feature {
         Feature {
             id: (caller_xor_callee % core::u32::MAX as usize) as u32,
@@ -64,6 +160,8 @@ impl Feature {
             tag: 1,
         }
     }
+    /// Create an “instructon” feature identified by the given `pc` whose payload
+    /// is a ~hash of the two arguments.
     pub fn comparison(pc: usize, arg1: u64, arg2: u64) -> Feature {
         Feature {
             id: (pc % core::u32::MAX as usize) as u32,
@@ -84,6 +182,7 @@ fn score_from_counter(counter: u16) -> u8 {
 }
 
 impl Feature {
+    /// Returns the code coverage score associated with the feature
     fn score(self) -> f64 {
         match self.tag {
             0 => 1.0,
@@ -101,10 +200,14 @@ pub enum InputPoolIndex {
 
 #[derive(Debug, PartialEq, Clone)]
 struct InputMetadata {
+    /// Index of the input in the `InputPool`
     id: usize,
     complexity: f64,
+    /// Set of features triggered by feeding the input to the test function
     features: Vec<Feature>,
+    /// Code coverage score of the input
     score: f64,
+    /// Subset of the input‘s features for which there is no simpler input in the pool that also contains them
     least_complex_for_features: HashSet<Feature>,
 }
 
@@ -120,12 +223,37 @@ impl InputMetadata {
     }
 }
 
+/// The `InputPool` stores and rates inputs based on their associated code coverage.
 pub struct InputPool<T: Clone> {
+    /// List of all the inputs. 
+    /// 
+    /// A None in this vector is an input that was removed.
     pub inputs: Vec<Option<T>>,
+    /// A special input that is given an artificially high score.
+    /// 
+    /// It is used for the input minifying function.
     pub favored_input: Option<T>,
+    /// A mirror of the `InputPool` that contains the associated information for
+    /// each input, in order to compute their code coveraeg score.
+    /// 
+    /// See the module’s documentation for more explanation on why the data inside
+    /// `InputMetadataPool` cannot be included in `InputPool` directly.
     metadata: InputMetadataPool,
+    /// Number of inputs in the pool.
+    /// 
+    /// It is equal to the number of `Some` values in `self.inputs`
     pub size: usize,
+    /// The average complexity of the inputs
     pub average_complexity: f64,
+    /// Vector used to randomly pick an input from the pool, favorizing high-scoring inputs.
+    /// 
+    /// Each element is the sum of the last element and the score of the input at the 
+    /// corresponding index. For example, if we have three inputs with scores: 1.0, 3.2, 1.5.
+    /// Then `cumulative_weights` will be `[1.0, 4.2, 5,7]`.
+    /// 
+    /// Selecting an input is then done by choosing a random number between 0 and 5.7,
+    /// and then returning the index of the first element in `cumulative_weights` that is 
+    /// greater than that random number.
     pub cumulative_weights: Vec<f64>,
     rng: ThreadRng,
 }
@@ -147,6 +275,7 @@ impl<T: Clone> InputPool<T> {
         self.favored_input = Some(input);
     }
 
+    /// Convert a list of `MetadataChange` into `WorldAction`
     fn convert_partial_world_actions(&self, actions: &[MetadataChange]) -> Vec<WorldAction<T>> {
         actions
             .iter()
@@ -294,11 +423,9 @@ impl InputMetadataPool {
         for feature in element.features.iter() {
             let inputs_of_feature = self.inputs_of_feature.entry(*feature).or_default();
 
-            // This loop also computes for which features the new element is the least
-            // complex in the pool to contain them (TODO: phrasing)
             let mut least_complex_for_this_feature = true;
 
-            // Go through every element affected by the addition of the new input to the pool
+            // Go through every element affected by the addition of the new input to the pool,
             // which is every element that shares a common feature with it.
             for id in inputs_of_feature.iter() {
                 // Note that it is likely that affected_element has already been
@@ -468,6 +595,7 @@ where
 
 // TODO: tests on InputPool, not InputMetadataPool. Including testing the returned WorldAction
 // TODO: write unit tests as data, read them from files
+// TODO: write tests for adding inputs that are not simplest for any feature but are predicted to have a greater score
 #[cfg(test)]
 mod tests {
     use super::*;

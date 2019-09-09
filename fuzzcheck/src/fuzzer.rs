@@ -235,7 +235,7 @@ where
         Ok(())
     }
 
-    fn shrink_loop(&mut self) -> Result<(), std::io::Error> {
+    fn corpus_minifying_loop(&mut self) -> Result<(), std::io::Error> {
         self.state.world.set_start_time();
         self.state
             .world
@@ -345,7 +345,7 @@ fuzzcheck {cmin} --{in_corpus} "fuzz-corpus" --{corpus_size} 25
             fuzzer.state.input = fuzzer.state.world.read_input_file()?;
             fuzzer.test_input()?;
         }
-        FuzzerCommand::MinifyCorpus => fuzzer.shrink_loop()?,
+        FuzzerCommand::MinifyCorpus => fuzzer.corpus_minifying_loop()?,
     };
     Ok(())
 }

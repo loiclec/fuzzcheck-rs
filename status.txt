@@ -61,16 +61,17 @@ to properly shrink the corpus (TODO: verify that it is fixed)
     though, and should wait until I have set up enough benchmarks to be sure it 
     is worth it.
 
-* the serde dependency is big and useless most of the time, make it optional
-
 * do not always push inputs to the end of the pool. Instead, try to fill the 
 gaps. Maybe every time an input is deleted, I can push its index to a stack.
 When I need to add an input to the pool, I pop the index from the stack first
 to check if I can fill a gap isntead of pushing it to the end.
 
-* adjusted_complexity is not needed anymore
-
 * make an InputGenerator for [u8; N]
+
+* rename Feature::comparison to Feature::instruction
+
+* redesign MetadatChange/convert_partial_world_actions. I wrote these things 
+quickly and it is a mess
 
 ## Documentation
 
