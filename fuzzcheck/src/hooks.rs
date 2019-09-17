@@ -211,6 +211,7 @@ fn trace_const_cmp1(arg1: u8, arg2: u8) {
         return;
     }
     let pc = unsafe { return_address() };
+
     sensor.handle_trace_cmp(pc, u64::from(arg1), u64::from(arg2));
 }
 

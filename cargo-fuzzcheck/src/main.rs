@@ -11,6 +11,7 @@ use std::io::Write;
 
 pub const COMMAND_INIT: &str = "init";
 pub const COMMAND_RUN: &str = "run";
+pub const COMMAND_CLEAN: &str = "clean";
 
 #[macro_use]
 extern crate error_chain;
@@ -25,7 +26,7 @@ error_chain! {
     }
 }
 
-const FUZZCHECK_PATH: &str = "https://github.com/loiclec/fuzzcheck-rs";
+// const FUZZCHECK_PATH: &str = "https://github.com/loiclec/fuzzcheck-rs";
 // static FUZZCHECK_REVISION: &str = "bf7948bb2b1f911197ca66af094ac20021fdd7f9";
 
 #[cfg(target_os = "macos")]
@@ -47,8 +48,11 @@ fn main() {
     let mut help = format!(
         r#"
 USAGE:
-    fuzzcheck {init}
+    fuzzcheck {init} <optional path to fuzzcheck-rs git repo>
     => Initialize the fuzz folder
+
+    fuzzcheck {clean}
+    => Clean all build artifacts
 
     fuzzcheck {run} <TARGET> <SUBCOMMAND> [OPTIONS]
     => Execute the subcommand on the given fuzz target.
@@ -60,6 +64,7 @@ SUBCOMMANDS:
     {cmin}    Minify a corpus of test inputs, requires --{in_corpus}
 "#,
         init = COMMAND_INIT,
+        clean = COMMAND_CLEAN,
         run = COMMAND_RUN,
         fuzz = COMMAND_FUZZ,
         tmin = COMMAND_MINIFY_INPUT,
@@ -116,53 +121,67 @@ cargo-fuzzcheck {run} target1 {cmin} --{in_corpus} "fuzz-corpus" --{corpus_size}
         return;
     }
 
-    if env_args[start_idx] == COMMAND_INIT {
-        let result = init_command();
-        println!("{:#?}", result);
-        return;
-    }
+    match env_args[start_idx].as_str() {
+        COMMAND_INIT => {
+            let fuzzcheck_path = if env_args.len() > (start_idx + 1) {
+                env_args[start_idx+1].as_str()
+            } else {
+                "https://github.com/loiclec/fuzzcheck-rs"
+            };
 
-    if env_args[start_idx] != COMMAND_RUN {
-        println!("Invalid command: {}", env_args[1]);
-        println!();
-        println!("{}", help);
-        return;
-    } else if env_args.len() <= start_idx + 1 {
-        println!("No fuzz target was given.");
-        println!();
-        println!("{}", help);
-        return;
-    }
+            let result = init_command(fuzzcheck_path);
+            println!("{:#?}", result);
+            return;
+        },
+        COMMAND_CLEAN => {
+            let result = clean_command();
+            println!("{:#?}", result);
+            return;
+        },
+        COMMAND_RUN => {
+            if env_args.len() <= start_idx + 1 {
+                println!("No fuzz target was given.");
+                println!();
+                println!("{}", help);
+                return;
+            }
+            let target = &env_args[start_idx + 1];
 
-    let target = &env_args[start_idx + 1];
+            let mut defaults = DEFAULT_ARGUMENTS.clone();
+            let defaults_in_corpus = format!("fuzz/fuzz_targets/{}/", target) + defaults.in_corpus;
+            let defaults_out_corpus = format!("fuzz/fuzz_targets/{}/", target) + defaults.out_corpus;
+            let defaults_artifacts = format!("fuzz/fuzz_targets/{}/", target) + defaults.artifacts;
+            defaults.in_corpus = &defaults_in_corpus;
+            defaults.out_corpus = &defaults_out_corpus;
+            defaults.artifacts = &defaults_artifacts;
 
-    let mut defaults = DEFAULT_ARGUMENTS.clone();
-    let defaults_in_corpus = format!("fuzz/fuzz_targets/{}/", target) + defaults.in_corpus;
-    let defaults_out_corpus = format!("fuzz/fuzz_targets/{}/", target) + defaults.out_corpus;
-    let defaults_artifacts = format!("fuzz/fuzz_targets/{}/", target) + defaults.artifacts;
-    defaults.in_corpus = &defaults_in_corpus;
-    defaults.out_corpus = &defaults_out_corpus;
-    defaults.artifacts = &defaults_artifacts;
-
-    let args = match CommandLineArguments::from_parser(&parser, &env_args[start_idx + 2..], defaults) {
-        Ok(r) => r,
-        Err(e) => {
-            println!("{}", e);
+            let args = match CommandLineArguments::from_parser(&parser, &env_args[start_idx + 2..], defaults) {
+                Ok(r) => r,
+                Err(e) => {
+                    println!("{}", e);
+                    println!();
+                    println!("{}", help);
+                    return;
+                }
+            };
+            let r = match args.command {
+                FuzzerCommand::Fuzz => exec_normal_command(args, &target, target_triple),
+                FuzzerCommand::MinifyInput => exec_input_minify_command(args, &target, target_triple),
+                FuzzerCommand::Read => {
+                    panic!("unimplemented");
+                }
+                FuzzerCommand::MinifyCorpus => exec_normal_command(args, &target, target_triple),
+            };
+            if let Err(e) = r {
+                println!("{}", e);
+            }
+        },
+        _ => {
+            println!("Invalid command: {}", env_args[1]);
             println!();
             println!("{}", help);
             return;
         }
-    };
-    let r = match args.command {
-        FuzzerCommand::Fuzz => exec_normal_command(args, &target, target_triple),
-        FuzzerCommand::MinifyInput => exec_input_minify_command(args, &target, target_triple),
-        FuzzerCommand::Read => {
-            panic!("unimplemented");
-        }
-        FuzzerCommand::MinifyCorpus => exec_normal_command(args, &target, target_triple),
-    };
-    if let Err(e) = r {
-        println!("{}", e);
     }
 }
 
@@ -218,7 +237,38 @@ fn create_target_template(
     Ok(cargo.write_fmt(toml_bin_template!(target))?)
 }
 
-fn init_command() -> Result<()> {
+fn clean_command() -> Result<()> {
+    let fuzz_folder = std::env::current_dir()?.join("fuzz");
+    let mut fuzzcheck_clone_folder = fuzz_folder.clone();
+    fuzzcheck_clone_folder.push("fuzzcheck-rs");
+
+    Command::new("cargo")
+        .args(vec!["clean"])
+        .stdout(std::process::Stdio::inherit())
+        .stderr(std::process::Stdio::inherit())
+        .output()
+        .expect("failed to execute process");
+    
+    Command::new("cargo")
+        .current_dir(fuzz_folder)
+        .args(vec!["clean"])
+        .stdout(std::process::Stdio::inherit())
+        .stderr(std::process::Stdio::inherit())
+        .output()
+        .expect("failed to execute process");
+    
+    Command::new("cargo")
+        .current_dir(fuzzcheck_clone_folder)
+        .args(vec!["clean"])
+        .stdout(std::process::Stdio::inherit())
+        .stderr(std::process::Stdio::inherit())
+        .output()
+        .expect("failed to execute process");
+
+    Ok(())
+}
+
+fn init_command(fuzzcheck_path: &str) -> Result<()> {
     let target = "target1";
 
     let root_folder = std::env::current_dir()?;
@@ -234,12 +284,12 @@ fn init_command() -> Result<()> {
         fs::create_dir(&fuzz_targets_folder)?;
     }
 
-    clone_and_compile_fuzzcheck_library(&fuzz_folder);
+    clone_and_compile_fuzzcheck_library(&fuzz_folder, fuzzcheck_path);
 
     let cargo_toml_file = fuzz_folder.join("Cargo.toml");
     if !cargo_toml_file.as_path().is_file() {
         let mut cargo = fs::File::create(cargo_toml_file)?;
-        cargo.write_fmt(toml_template!(root_package_name))?;
+        cargo.write_fmt(toml_template!(root_package_name, fuzzcheck_path))?;
     }
 
     let gitignore_file = fuzz_folder.join(".gitignore");
@@ -254,15 +304,43 @@ fn init_command() -> Result<()> {
     Ok(())
 }
 
-fn clone_and_compile_fuzzcheck_library(fuzz_folder: &PathBuf) {
+fn use_gold_linker() -> bool {
+    match Command::new("which") // check if the gold linker is available
+            .args(&["ld.gold"])
+            .status() {
+        Err(_) => false,
+        Ok(status) => {
+            match status.code() {
+                Some(0) => true,
+                _       => false
+            }
+        }
+    }
+}
+
+fn compile_fuzzcheck_library(fuzz_folder: &PathBuf) {
+
+    Command::new("cargo")
+        .current_dir(fuzz_folder.join("fuzzcheck-rs"))
+        .env("RUSTFLAGS", if use_gold_linker() { "-Clink-arg=-fuse-ld=gold -Cforce-frame-pointers=yes" } else { "-Cforce-frame-pointers=yes" })
+        .args(vec!["build", "--package", "fuzzcheck", "--release"])
+        .arg("--verbose")
+        .stdout(std::process::Stdio::inherit())
+        .stderr(std::process::Stdio::inherit())
+        .output()
+        .expect("failed to execute process");
+}
+
+fn clone_and_compile_fuzzcheck_library(fuzz_folder: &PathBuf, fuzzcheck_path: &str) {
     let mut fuzzcheck_clone_folder = fuzz_folder.clone();
     fuzzcheck_clone_folder.push("fuzzcheck-rs");
 
     // TODO: better checks
     if !fuzzcheck_clone_folder.is_dir() {
+        // TODO: it is not always the case that this path is actually a folder
         Command::new("git")
             .current_dir(fuzz_folder)
-            .args(vec!["clone", FUZZCHECK_PATH])
+            .args(vec!["clone", fuzzcheck_path])
             .stdout(std::process::Stdio::inherit())
             .stderr(std::process::Stdio::inherit())
             .output()
@@ -277,13 +355,7 @@ fn clone_and_compile_fuzzcheck_library(fuzz_folder: &PathBuf) {
     //     .output()
     //     .expect("failed to execute process");
 
-    Command::new("cargo")
-        .current_dir(fuzzcheck_clone_folder)
-        .args(vec!["build", "--package", "fuzzcheck", "--release"])
-        .stdout(std::process::Stdio::inherit())
-        .stderr(std::process::Stdio::inherit())
-        .output()
-        .expect("failed to execute process");
+    compile_fuzzcheck_library(fuzz_folder);
 }
 
 fn exec_normal_command(arguments: CommandLineArguments, target: &str, target_triple: &str) -> Result<()> {
@@ -426,9 +498,11 @@ fn run_command(
         args.max_nbr_of_runs.to_string(),
     ]);
 
-    let fuzzcheck_lib = fuzz_folder.join("fuzzcheck-rs/target/release/deps");
+    compile_fuzzcheck_library(fuzz_folder);
 
-    let rustflags: String = format!(
+    let fuzzcheck_lib = fuzz_folder.join("fuzzcheck-rs/target/release/deps/");
+
+    let mut rustflags: String = format!(
         "--cfg fuzzing \
          -Cpasses=sancov \
          -Cllvm-args=-sanitizer-coverage-level=4 \
@@ -437,9 +511,14 @@ fn run_command(
          -Cllvm-args=-sanitizer-coverage-trace-divs \
          -Cllvm-args=-sanitizer-coverage-trace-geps \
          -Cllvm-args=-sanitizer-coverage-prune-blocks=0 \
+         -Cforce-frame-pointers=yes \
          -L {}",
         fuzzcheck_lib.display()
     );
+
+    if use_gold_linker() {
+        rustflags.push_str(" -Clink-arg=-fuse-ld=gold");
+    }
 
     Command::new("cargo")
         .env("RUSTFLAGS", rustflags)
@@ -451,6 +530,7 @@ fn run_command(
         .arg("--release")
         .arg("--target")
         .arg(target_triple)
+        .arg("--verbose")
         .arg("--")
         .args(s)
         .stdout(std::process::Stdio::inherit())

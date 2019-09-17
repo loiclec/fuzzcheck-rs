@@ -1,5 +1,5 @@
 macro_rules! toml_template {
-    ($name: expr) => {
+    ($name: expr, $fuzzcheck_path: expr) => {
         format_args!(
             r##"
 [package]
@@ -15,13 +15,13 @@ cargo-fuzz = true
 path = ".."
 
 [dependencies.fuzzcheck_input]
-"git" = "https://github.com/loiclec/fuzzcheck-rs"
+"git" = "{1}"
 
 # Prevent this from interfering with workspaces
 [workspace]
 members = ["."]
 "##,
-            $name
+            $name, $fuzzcheck_path
         )
     };
 }
