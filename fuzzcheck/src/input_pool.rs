@@ -172,7 +172,7 @@ impl Feature {
 }
 
 /// “Hash” a u16 into a number between 0 and 16.
-/// 
+///
 /// So that similar numbers have the same hash, and greater
 /// numbers have a greater hash.
 fn score_from_counter(counter: u16) -> u8 {
@@ -295,9 +295,9 @@ impl<T: Clone> InputPool<T> {
     }
 
     /// Add the given input to the pool.
-    /// 
+    ///
     /// Recomputes the score of every input in the pool following the deletion.
-    /// 
+    ///
     /// Returns the list of actions that the world has to handle to stay in sync with the pool
     pub fn add(&mut self, input: T, cplx: f64, features: Vec<Feature>) -> Vec<WorldAction<T>> {
         let actions = self.metadata.add(InputMetadata::new(cplx, features));
@@ -315,9 +315,9 @@ impl<T: Clone> InputPool<T> {
     }
 
     /// Removes the lowest ranking input in the pool
-    /// 
+    ///
     /// Recomputes the score of every input in the pool following the deletion.
-    /// 
+    ///
     /// Returns the list of actions that the world has to handle to stay in sync with the pool
     pub fn remove_lowest(&mut self) -> Vec<WorldAction<T>> {
         let actions = self.metadata.remove_lowest();
@@ -334,7 +334,7 @@ impl<T: Clone> InputPool<T> {
     }
 
     /// Returns the combined score of every input in the pool
-    /// 
+    ///
     /// It can be interpreted as the total score of the fuzzing process
     pub fn score(&self) -> f64 {
         *self.cumulative_weights.last().unwrap_or(&0.0)
@@ -391,7 +391,7 @@ impl<T: Clone> InputPool<T> {
     }
 
     /// Get the least complex input in the pool that contains a certain feature, alongside its score
-    /// 
+    ///
     /// Returns Some((input, score)) or None if no input contains this feature
     pub fn least_complex_input_for_feature(&mut self, f: Feature) -> Option<(f64, f64)> {
         let inputs = &self.metadata.inputs;
@@ -408,7 +408,7 @@ impl<T: Clone> InputPool<T> {
     }
 
     /// Get an approximation of the score attributed to the given feature
-    /// 
+    ///
     /// if an input that contains that feature is added to the pool
     pub fn predicted_feature_score(&self, f: Feature) -> f64 {
         self.metadata
@@ -420,7 +420,7 @@ impl<T: Clone> InputPool<T> {
 }
 
 /// The part of the InputPool that is not generic over the type of the Input
-/// 
+///
 /// See module documentation for more information about why such a type must exist.
 #[derive(Debug)]
 struct InputMetadataPool {
@@ -437,9 +437,9 @@ impl InputMetadataPool {
     }
 
     /// Add the given input to the pool.
-    /// 
+    ///
     /// Recomputes the score of every input in the pool following the deletion.
-    /// 
+    ///
     /// Returns the list of actions that the pool has to handle to stay in sync with its metadata component
     fn add(&mut self, mut element: InputMetadata) -> Vec<MetadataChange> {
         /* Goals:
@@ -561,9 +561,9 @@ impl InputMetadataPool {
     }
 
     /// Removes the lowest ranking input in the pool
-    /// 
+    ///
     /// Recomputes the score of every input in the pool following the deletion.
-    /// 
+    ///
     /// Returns the list of actions that the pool has to handle to stay in sync with its metadata component
     fn remove_lowest(&mut self) -> Vec<MetadataChange> {
         let input_to_delete: Option<usize>;
