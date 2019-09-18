@@ -56,4 +56,4 @@ jobs:
         with:
           toolchain: nightly
           override: true
-      - run: ./usage_tests/basic_example.sh
+      - run: sh ./usage_tests/basic_example.sh
