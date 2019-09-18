@@ -15,7 +15,7 @@
 //! For these hooks, I also just record the arguments and pass them to the code
 //! coverage sensor. Here is the documentation for these hooks from
 //! SanitizerCoverage:
-//! ```
+//! ```text
 //! // Called before a comparison instruction.
 //! // Arg1 and Arg2 are arguments of the comparison.
 //! void __sanitizer_cov_trace_cmp1(uint8_t Arg1, uint8_t Arg2);
@@ -101,12 +101,12 @@ fn trace_pc_guard_init(start: *mut u32, stop: *mut u32) {
 /// > This callback is inserted by the compiler on every edge in the
 /// > control flow (some optimizations apply).
 /// > Typically, the compiler will emit the code like this:
-/// > ```
+/// > ```text
 /// > if(*guard)
 /// >      __sanitizer_cov_trace_pc_guard(guard);
 /// > ```
 /// > But for large functions it will emit a simple call:
-/// > ```
+/// > ```text
 /// > __sanitizer_cov_trace_pc_guard(guard);
 /// > ```
 /// 
