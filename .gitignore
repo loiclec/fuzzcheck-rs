@@ -2,3 +2,4 @@
 **/*.rs.bk
 /fuzz-corpus
 /artifacts
+/usage_tests/*/

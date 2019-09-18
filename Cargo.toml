@@ -6,3 +6,7 @@ members = [
     "fuzzcheck",
     "fuzzcheck_input"
 ]
+
+exclude = [
+    "usage_tests"
+]
