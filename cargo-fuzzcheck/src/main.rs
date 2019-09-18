@@ -124,7 +124,7 @@ cargo-fuzzcheck {run} target1 {cmin} --{in_corpus} "fuzz-corpus" --{corpus_size}
     match env_args[start_idx].as_str() {
         COMMAND_INIT => {
             let fuzzcheck_path = if env_args.len() > (start_idx + 1) {
-                env_args[start_idx+1].as_str()
+                env_args[start_idx + 1].as_str()
             } else {
                 "https://github.com/loiclec/fuzzcheck-rs"
             };
@@ -132,12 +132,12 @@ cargo-fuzzcheck {run} target1 {cmin} --{in_corpus} "fuzz-corpus" --{corpus_size}
             let result = init_command(fuzzcheck_path);
             println!("{:#?}", result);
             return;
-        },
+        }
         COMMAND_CLEAN => {
             let result = clean_command();
             println!("{:#?}", result);
             return;
-        },
+        }
         COMMAND_RUN => {
             if env_args.len() <= start_idx + 1 {
                 println!("No fuzz target was given.");
@@ -175,7 +175,7 @@ cargo-fuzzcheck {run} target1 {cmin} --{in_corpus} "fuzz-corpus" --{corpus_size}
             if let Err(e) = r {
                 println!("{}", e);
             }
-        },
+        }
         _ => {
             println!("Invalid command: {}", env_args[1]);
             println!();
@@ -248,7 +248,7 @@ fn clean_command() -> Result<()> {
         .stderr(std::process::Stdio::inherit())
         .output()
         .expect("failed to execute process");
-    
+
     Command::new("cargo")
         .current_dir(fuzz_folder)
         .args(vec!["clean"])
@@ -256,7 +256,7 @@ fn clean_command() -> Result<()> {
         .stderr(std::process::Stdio::inherit())
         .output()
         .expect("failed to execute process");
-    
+
     Command::new("cargo")
         .current_dir(fuzzcheck_clone_folder)
         .args(vec!["clean"])
@@ -306,23 +306,28 @@ fn init_command(fuzzcheck_path: &str) -> Result<()> {
 
 fn use_gold_linker() -> bool {
     match Command::new("which") // check if the gold linker is available
-            .args(&["ld.gold"])
-            .status() {
+        .args(&["ld.gold"])
+        .status()
+    {
         Err(_) => false,
-        Ok(status) => {
-            match status.code() {
-                Some(0) => true,
-                _       => false
-            }
-        }
+        Ok(status) => match status.code() {
+            Some(0) => true,
+            _ => false,
+        },
     }
 }
 
 fn compile_fuzzcheck_library(fuzz_folder: &PathBuf) {
-
     Command::new("cargo")
         .current_dir(fuzz_folder.join("fuzzcheck-rs"))
-        .env("RUSTFLAGS", if use_gold_linker() { "-Clink-arg=-fuse-ld=gold -Cforce-frame-pointers=yes" } else { "-Cforce-frame-pointers=yes" })
+        .env(
+            "RUSTFLAGS",
+            if use_gold_linker() {
+                "-Clink-arg=-fuse-ld=gold -Cforce-frame-pointers=yes"
+            } else {
+                "-Cforce-frame-pointers=yes"
+            },
+        )
         .args(vec!["build", "--package", "fuzzcheck", "--release"])
         .arg("--verbose")
         .stdout(std::process::Stdio::inherit())

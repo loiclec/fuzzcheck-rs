@@ -1,60 +1,60 @@
 //! The `InputPool` is responsible for storing and updating inputs along with
 //! their associated code coverage information. It assigns a score for each
-//! input based on how unique its associated code coverage is. And it can 
-//! randomly select an input with a probability that is proportional to its 
+//! input based on how unique its associated code coverage is. And it can
+//! randomly select an input with a probability that is proportional to its
 //! score relative to all the other ones.
-//! 
+//!
 //! # Feature: a unit of code coverage
 //!
 //! The code coverage of an input is a set of `Feature`. A `Feature` is a value
-//! that identifies some behavior of the code that was run. For example, it 
-//! could say “This edge was reached this many times” or “This comparison 
+//! that identifies some behavior of the code that was run. For example, it
+//! could say “This edge was reached this many times” or “This comparison
 //! instruction was called with these arguments”. In practice, features are not
 //! perfectly precise. They won't count the exact number of times a code edge
 //! was reached, or record the exact arguments passed to an instruction.
-//! This is purely due to performance reasons. The end consequence is that the 
+//! This is purely due to performance reasons. The end consequence is that the
 //! fuzzer may think that an input is less interesting than it really is.
-//! 
+//!
 //! # Policy for adding and removing inputs from the pool
-//! 
+//!
 //! The input pool will strive to keep as few inputs as possible, and will
 //! prioritize small high-scoring inputs over large low-scoring ones. It does
-//! so in a couple ways. 
-//! 
+//! so in a couple ways.
+//!
 //! First, an input will only be added if:
-//! 
+//!
 //! 1. It contains a new feature, not seen by any other input in the pool; or
 //! 2. It is the smallest input that contains a particular Feature; or
 //! 3. It has the same size as the smallest input containing a particular
-//! Feature, but it is estimated that it will be higher-scoring than that 
+//! Feature, but it is estimated that it will be higher-scoring than that
 //! previous smallest input.
-//! 
-//! Second, following a pool update, any input in the pool that does not meet 
+//!
+//! Second, following a pool update, any input in the pool that does not meet
 //! the above conditions anymore will be removed from the pool.
-//! 
+//!
 //! # Scoring of an input
-//! 
+//!
 //! The score of an input is computed to be as fair as possible. This
-//! is currently done by assigning a score to each Feature and distributing 
-//! that score to each input containing that feature. For example, if a 
+//! is currently done by assigning a score to each Feature and distributing
+//! that score to each input containing that feature. For example, if a
 //! thousand inputs all contain the feature F1, then they will all derive
 //! a thousandth of F1’s score from it. On the other hand, if only two inputs
 //! contain the feature F2, then they will each get half of F2’s score from it.
-//! In short, an input’s final score is the sum of the score of each of its 
+//! In short, an input’s final score is the sum of the score of each of its
 //! features divided by their frequencies.
-//! 
-//! It is not a perfectly fair system because the score of each feature is 
+//!
+//! It is not a perfectly fair system because the score of each feature is
 //! currently wrong in many cases. For example, a single comparison instruction
-//! can currently yield 16 different features for just one input. If that 
+//! can currently yield 16 different features for just one input. If that
 //! happens, the score of those features will be too high and the input will be
-//! over-rated. On the other hand, if it yields only 1 feature, it will be 
+//! over-rated. On the other hand, if it yields only 1 feature, it will be
 //! under-rated. My intuition is that all these features could be grouped by
 //! the address of their common comparison instruction, and that they should
-//! share a common score that increases sub-linearly with the number of 
+//! share a common score that increases sub-linearly with the number of
 //! features in the group. But it is difficult to implement efficiently.
-//! 
+//!
 //! # Why does `InputMetadataPool` exist?
-//! 
+//!
 //! The input pool has to store each input, and therefore must be generic over
 //! their type, which will only be known by the consumers of the fuzzcheck
 //! crate. Because Rust performs monomorphization, the methods of generic
@@ -62,16 +62,16 @@
 //! are known. This means the compilation of `InputPool` cannot be finished
 //! by compiling the `fuzzcheck` crate alone. Instead, it is fully compiled
 //! only after compiling each fuzz test. But fuzz tests are compiled with
-//! SanitizerCoverage instrumentation. Therefore, if `InputPool` is generic, 
-//! it will also be compiled with instrumentation, which will significantly 
+//! SanitizerCoverage instrumentation. Therefore, if `InputPool` is generic,
+//! it will also be compiled with instrumentation, which will significantly
 //! slow it down. For this reason, we split the `InputPool` into two parts.
 //! The first part is generic and contains the list of inputs, it doesn't
 //! perform any expensive tasks. The second  part, called `InputMetadataPool`,
 //! is not generic and contains information about each input that allows it
 //! to compute their score and determine which input to add or delete. Every
-//! computationally expensive methods is written on `InputMetadataPool`. The 
-//! `InputPool` and `InputMetadataPool` are kept in sync by the 
-//! `InputMetadataPool` returning a list of `MetadataChanges` to inform the 
+//! computationally expensive methods is written on `InputMetadataPool`. The
+//! `InputPool` and `InputMetadataPool` are kept in sync by the
+//! `InputMetadataPool` returning a list of `MetadataChanges` to inform the
 //! pool of the updates it performed.
 
 use std::collections::HashMap;
@@ -106,13 +106,13 @@ enum MetadataChange {
 #[derive(Debug, Clone, Copy)]
 pub struct Feature {
     /// Identifier for a group of features.
-    /// 
+    ///
     /// For example, it could uniquely identify a control flow edge,
     /// or a specific instruction in the text of the program.
     id: u32,
-    
+
     /// Data associated with the feature.
-    /// 
+    ///
     /// For example, it could contain the arguments to the instruction
     /// specified by `id`, or the number of times that the edge specified
     /// by `id` was reached.
@@ -225,34 +225,34 @@ impl InputMetadata {
 
 /// The `InputPool` stores and rates inputs based on their associated code coverage.
 pub struct InputPool<T: Clone> {
-    /// List of all the inputs. 
-    /// 
+    /// List of all the inputs.
+    ///
     /// A None in this vector is an input that was removed.
     pub inputs: Vec<Option<T>>,
     /// A special input that is given an artificially high score.
-    /// 
+    ///
     /// It is used for the input minifying function.
     pub favored_input: Option<T>,
     /// A mirror of the `InputPool` that contains the associated information for
     /// each input, in order to compute their code coveraeg score.
-    /// 
+    ///
     /// See the module’s documentation for more explanation on why the data inside
     /// `InputMetadataPool` cannot be included in `InputPool` directly.
     metadata: InputMetadataPool,
     /// Number of inputs in the pool.
-    /// 
+    ///
     /// It is equal to the number of `Some` values in `self.inputs`
     pub size: usize,
     /// The average complexity of the inputs
     pub average_complexity: f64,
     /// Vector used to randomly pick an input from the pool, favorizing high-scoring inputs.
-    /// 
-    /// Each element is the sum of the last element and the score of the input at the 
+    ///
+    /// Each element is the sum of the last element and the score of the input at the
     /// corresponding index. For example, if we have three inputs with scores: 1.0, 3.2, 1.5.
     /// Then `cumulative_weights` will be `[1.0, 4.2, 5,7]`.
-    /// 
+    ///
     /// Selecting an input is then done by choosing a random number between 0 and 5.7,
-    /// and then returning the index of the first element in `cumulative_weights` that is 
+    /// and then returning the index of the first element in `cumulative_weights` that is
     /// greater than that random number.
     pub cumulative_weights: Vec<f64>,
     rng: ThreadRng,
