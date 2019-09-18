@@ -5,10 +5,7 @@ name: Continuous integration
 jobs:
   check:
     name: Check
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [ubuntu-latest, macOS-latest]
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@master
       - uses: actions-rs/toolchain@v1
@@ -21,10 +18,7 @@ jobs:
 
   test:
     name: Test Suite
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [ubuntu-latest, macOS-latest]
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@master
       - uses: actions-rs/toolchain@v1
@@ -37,10 +31,7 @@ jobs:
 
   fmt:
     name: Rustfmt
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [ubuntu-latest, macOS-latest]
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@master
       - uses: actions-rs/toolchain@v1
