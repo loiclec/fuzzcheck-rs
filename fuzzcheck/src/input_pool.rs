@@ -66,7 +66,7 @@
 //! it will also be compiled with instrumentation, which will significantly
 //! slow it down. For this reason, we split the `InputPool` into two parts.
 //! The first part is generic and contains the list of inputs, it doesn't
-//! perform any expensive tasks. The second  part, called `InputMetadataPool`,
+//! perform any expensive tasks. The second part, called `InputMetadataPool`,
 //! is not generic and contains information about each input that allows it
 //! to compute their score and determine which input to add or delete. Every
 //! computationally expensive methods is written on `InputMetadataPool`. The
@@ -162,7 +162,7 @@ impl Feature {
     }
     /// Create an “instructon” feature identified by the given `pc` whose payload
     /// is a ~hash of the two arguments.
-    pub fn comparison(pc: usize, arg1: u64, arg2: u64) -> Feature {
+    pub fn instruction(pc: usize, arg1: u64, arg2: u64) -> Feature {
         Feature {
             id: (pc % core::u32::MAX as usize) as u32,
             payload: u16::from(score_from_counter((arg1 ^ arg2).count_ones() as u16)),
@@ -171,6 +171,10 @@ impl Feature {
     }
 }
 
+/// “Hash” a u16 into a number between 0 and 16.
+/// 
+/// So that similar numbers have the same hash, and greater
+/// numbers have a greater hash.
 fn score_from_counter(counter: u16) -> u8 {
     if counter == core::u16::MAX {
         16
@@ -193,15 +197,18 @@ impl Feature {
     }
 }
 
+/// Index of an input in the InputPool
 pub enum InputPoolIndex {
     Normal(usize),
     Favored,
 }
 
+/// Cached information about an input that is useful for analyzing it
 #[derive(Debug, PartialEq, Clone)]
 struct InputMetadata {
     /// Index of the input in the `InputPool`
     id: usize,
+    /// Complexity of the input, as determined by its InputGenerator
     complexity: f64,
     /// Set of features triggered by feeding the input to the test function
     features: Vec<Feature>,
@@ -287,6 +294,11 @@ impl<T: Clone> InputPool<T> {
             .collect()
     }
 
+    /// Add the given input to the pool.
+    /// 
+    /// Recomputes the score of every input in the pool following the deletion.
+    /// 
+    /// Returns the list of actions that the world has to handle to stay in sync with the pool
     pub fn add(&mut self, input: T, cplx: f64, features: Vec<Feature>) -> Vec<WorldAction<T>> {
         let actions = self.metadata.add(InputMetadata::new(cplx, features));
         self.inputs.push(Some(input));
@@ -302,6 +314,11 @@ impl<T: Clone> InputPool<T> {
         full_actions
     }
 
+    /// Removes the lowest ranking input in the pool
+    /// 
+    /// Recomputes the score of every input in the pool following the deletion.
+    /// 
+    /// Returns the list of actions that the world has to handle to stay in sync with the pool
     pub fn remove_lowest(&mut self) -> Vec<WorldAction<T>> {
         let actions = self.metadata.remove_lowest();
         self.update_stats();
@@ -316,10 +333,14 @@ impl<T: Clone> InputPool<T> {
         full_actions
     }
 
+    /// Returns the combined score of every input in the pool
+    /// 
+    /// It can be interpreted as the total score of the fuzzing process
     pub fn score(&self) -> f64 {
         *self.cumulative_weights.last().unwrap_or(&0.0)
     }
 
+    /// Returns the index of an interesting input in the pool
     pub fn random_index(&mut self) -> InputPoolIndex {
         if self.favored_input.is_some() && (self.rng.gen_bool(0.25) || self.metadata.inputs.is_empty()) {
             InputPoolIndex::Favored
@@ -334,6 +355,7 @@ impl<T: Clone> InputPool<T> {
         }
     }
 
+    /// Update global statistics of the input pool following a change in its content
     fn update_stats(&mut self) {
         self.cumulative_weights = self
             .metadata
@@ -360,13 +382,17 @@ impl<T: Clone> InputPool<T> {
         self.size = len;
     }
 
-    pub fn get(&self, idx: InputPoolIndex) -> (T) {
+    /// Get the input at the given index
+    pub fn get(&self, idx: InputPoolIndex) -> T {
         match idx {
             InputPoolIndex::Normal(idx) => self.inputs[idx].as_ref().unwrap().clone(),
             InputPoolIndex::Favored => self.favored_input.as_ref().unwrap().clone(),
         }
     }
 
+    /// Get the least complex input in the pool that contains a certain feature, alongside its score
+    /// 
+    /// Returns Some((input, score)) or None if no input contains this feature
     pub fn least_complex_input_for_feature(&mut self, f: Feature) -> Option<(f64, f64)> {
         let inputs = &self.metadata.inputs;
         if let Some(input) = self
@@ -381,6 +407,9 @@ impl<T: Clone> InputPool<T> {
         }
     }
 
+    /// Get an approximation of the score attributed to the given feature
+    /// 
+    /// if an input that contains that feature is added to the pool
     pub fn predicted_feature_score(&self, f: Feature) -> f64 {
         self.metadata
             .inputs_of_feature
@@ -390,6 +419,9 @@ impl<T: Clone> InputPool<T> {
     }
 }
 
+/// The part of the InputPool that is not generic over the type of the Input
+/// 
+/// See module documentation for more information about why such a type must exist.
 #[derive(Debug)]
 struct InputMetadataPool {
     inputs: Vec<Option<InputMetadata>>,
@@ -404,6 +436,11 @@ impl InputMetadataPool {
         }
     }
 
+    /// Add the given input to the pool.
+    /// 
+    /// Recomputes the score of every input in the pool following the deletion.
+    /// 
+    /// Returns the list of actions that the pool has to handle to stay in sync with its metadata component
     fn add(&mut self, mut element: InputMetadata) -> Vec<MetadataChange> {
         /* Goals:
         1. Find for which of its features the new element is the least complex (TODO: phrasing)
@@ -496,7 +533,7 @@ impl InputMetadataPool {
             // Push, assuming sorted array, then I have as sorted list of all
             // the inputs containing the feature, which is handy for other opeartions
             let inputs = &mut self.inputs;
-            sorted_push(inputs_of_feature, element.id, |e| {
+            sorted_insert(inputs_of_feature, element.id, |e| {
                 inputs[*e].as_ref().map(|x| x.complexity).unwrap_or(-1.0) < element.complexity
             });
 
@@ -523,6 +560,11 @@ impl InputMetadataPool {
         actions
     }
 
+    /// Removes the lowest ranking input in the pool
+    /// 
+    /// Recomputes the score of every input in the pool following the deletion.
+    /// 
+    /// Returns the list of actions that the pool has to handle to stay in sync with its metadata component
     fn remove_lowest(&mut self) -> Vec<MetadataChange> {
         let input_to_delete: Option<usize>;
 
@@ -579,7 +621,8 @@ impl InputMetadataPool {
     }
 }
 
-fn sorted_push<T: PartialEq, F>(vec: &mut Vec<T>, element: T, is_before: F)
+/// Add the element in the correct place in the sorted vector
+fn sorted_insert<T: PartialEq, F>(vec: &mut Vec<T>, element: T, is_before: F)
 where
     F: Fn(&T) -> bool,
 {

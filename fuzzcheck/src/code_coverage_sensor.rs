@@ -42,7 +42,7 @@ impl CodeCoverageSensor {
     }
 
     pub fn handle_trace_cmp(&mut self, pc: PC, arg1: u64, arg2: u64) {
-        let f = Feature::comparison(pc, arg1, arg2);
+        let f = Feature::instruction(pc, arg1, arg2);
         self.features.insert(f);
     }
     pub fn handle_trace_indir(&mut self, caller: PC, callee: PC) {

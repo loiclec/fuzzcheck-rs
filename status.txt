@@ -68,8 +68,6 @@ to check if I can fill a gap isntead of pushing it to the end.
 
 * make an InputGenerator for [u8; N]
 
-* rename Feature::comparison to Feature::instruction
-
 * redesign MetadatChange/convert_partial_world_actions. I wrote these things 
 quickly and it is a mess
 
