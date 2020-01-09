@@ -62,7 +62,7 @@ static START: Once = Once::new();
 
 #[export_name = "__sanitizer_cov_8bit_counters_init"]
 fn counters_init(start: *mut u8, stop: *mut u8) {
-     unsafe {
+    unsafe {
         if !(start != stop && *start == 0) {
             return;
         }

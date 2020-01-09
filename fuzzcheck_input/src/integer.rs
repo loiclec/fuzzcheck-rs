@@ -9,7 +9,7 @@ use fuzzcheck::input::*;
 use crate::FuzzedJsonInput;
 
 #[derive(Clone)]
-pub enum FuzzedU8 { }
+pub enum FuzzedU8 {}
 
 impl FuzzedJsonInput for FuzzedU8 {
     fn from_json(json: &json::JsonValue) -> Option<Self::Value> {
@@ -52,7 +52,6 @@ impl FuzzedInput for FuzzedU8 {
     fn hash_value<H: Hasher>(value: &Self::Value, state: &mut H) {
         value.hash(state);
     }
-
 
     fn mutate(value: &mut Self::Value, state: &mut Self::State, _max_cplx: f64) -> Self::UnmutateToken {
         let token = *value;

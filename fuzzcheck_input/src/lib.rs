@@ -27,7 +27,6 @@ pub trait FuzzedJsonInput: FuzzedInput {
     }
 }
 
-
 pub fn arbitrary_binary(low: usize, high: usize, step: usize) -> usize {
     if high == low {
         return low;

@@ -63,7 +63,7 @@ use rand::{Rng, SeedableRng};
 use rand::distributions::uniform::{UniformFloat, UniformSampler};
 use rand::distributions::Distribution;
 
-use ahash::{AHashSet, AHashMap};
+use ahash::{AHashMap, AHashSet};
 
 use std::hash::{Hash, Hasher};
 
@@ -236,12 +236,12 @@ pub struct InputPool<I: FuzzedInput> {
     /// The average complexity of the inputs
     pub average_complexity: f64,
     /// A map that lists all the inputs that contain a particular feature
-    /// 
+    ///
     /// The keys contain all encountered features.
     /// The values are the ids of the inputs that contain the corresponding feature
     inputs_of_feature: AHashMap<Feature, Vec<usize>>,
     /// A vector used to quickly pick a random input based on its relative score
-    /// 
+    ///
     /// The value at index i is equal to the value at i-1, plus the score of self.inputs[i].
     /// So it is a scan of the scores of the inputs.
     pub cumulative_weights: Vec<f64>,
@@ -280,7 +280,7 @@ impl<I: FuzzedInput> InputPool<I> {
         5. Find the score of the new element
         6. Return the actions taken in this function
 
-        The update to the pool is incremental. Not everything is recomputed from scratch. 
+        The update to the pool is incremental. Not everything is recomputed from scratch.
         This is why (3) says:
             “Update the score of every element that shares a common feature with the new one”
         instead of:
@@ -500,52 +500,40 @@ impl<I: FuzzedInput> InputPool<I> {
         self.size = len;
     }
 
-     /// Get the input at the given index along with its complexity and the number of mutations tried on this input
-     pub fn get_ref(&self, idx: InputPoolIndex) -> &'_ UnifiedFuzzedInput<I> {
+    /// Get the input at the given index along with its complexity and the number of mutations tried on this input
+    pub fn get_ref(&self, idx: InputPoolIndex) -> &'_ UnifiedFuzzedInput<I> {
         match idx {
-            InputPoolIndex::Normal(idx) => {
-                &self.inputs[idx].as_ref().unwrap().data
-            }
-            InputPoolIndex::Favored => {
-                self.favored_input.as_ref().unwrap()
-            }
+            InputPoolIndex::Normal(idx) => &self.inputs[idx].as_ref().unwrap().data,
+            InputPoolIndex::Favored => self.favored_input.as_ref().unwrap(),
         }
     }
     /// Get the input at the given index along with its complexity and the number of mutations tried on this input
     pub fn get(&mut self, idx: InputPoolIndex) -> &'_ mut UnifiedFuzzedInput<I> {
         match idx {
-            InputPoolIndex::Normal(idx) => {
-                &mut self.inputs[idx].as_mut().unwrap().data
-            }
-            InputPoolIndex::Favored => {
-                self.favored_input.as_mut().unwrap()
-            }
+            InputPoolIndex::Normal(idx) => &mut self.inputs[idx].as_mut().unwrap().data,
+            InputPoolIndex::Favored => self.favored_input.as_mut().unwrap(),
         }
     }
     /// Get the input at the given index along with its complexity and the number of mutations tried on this input
     pub fn get_opt(&mut self, idx: InputPoolIndex) -> Option<&'_ mut UnifiedFuzzedInput<I>> {
         match idx {
-            InputPoolIndex::Normal(idx) => {
-                self.inputs[idx].as_mut().map(|x| &mut x.data)
-            }
-            InputPoolIndex::Favored => {
-                self.favored_input.as_mut()
-            }
+            InputPoolIndex::Normal(idx) => self.inputs[idx].as_mut().map(|x| &mut x.data),
+            InputPoolIndex::Favored => self.favored_input.as_mut(),
         }
     }
 
-    /// Return the predicted feature score for the given feature, as well as the 
+    /// Return the predicted feature score for the given feature, as well as the
     /// complexity of the simplest input that contains this feature.
-    /// 
+    ///
     /// The predicted score is an underestimate. It is based on the scenario where the
     /// multiplicity of the feature would grow by 1 following a new addition in the pool.
     /// But in reality, a new addition into the pool may delete existing inputs, which would
     /// decrease the multiplicity of the feature, and lead to a higher score.
-    pub fn predicted_feature_score_and_least_complex_input_for_feature(&mut self, f: Feature) -> (f64, Option<(f64, f64)>) {
-        if let Some(inputs_of_feature) = self
-            .inputs_of_feature
-            .get(&f)
-        {
+    pub fn predicted_feature_score_and_least_complex_input_for_feature(
+        &mut self,
+        f: Feature,
+    ) -> (f64, Option<(f64, f64)>) {
+        if let Some(inputs_of_feature) = self.inputs_of_feature.get(&f) {
             let x = self.inputs[*inputs_of_feature.last().unwrap()].as_ref().unwrap();
             let predicted_score = f.score() / (inputs_of_feature.len() + 1) as f64;
             let least_complex = Some((x.complexity, x.score));
@@ -556,25 +544,23 @@ impl<I: FuzzedInput> InputPool<I> {
     }
 
     /// Removes the input of the given id from the pool
-    /// 
+    ///
     /// Updates the pool accordingly to keep the scores correct,
     /// but does not update the global statistics managed by `self.update_stats()`
     fn remove_input_id(&mut self, id: usize) {
-
         let input_features = self.inputs[id].as_ref().unwrap().features.clone();
 
         for f in input_features.iter() {
-            
             let f_score = f.score();
             let pool_inputs = &mut self.inputs;
-            
+
             let mut mult: usize = 0;
             // For every input that shares a common feature with the one that's being deleted,
             // we update its score accordingly. We know that its score will increase because the
-            // multiplicity of one of its features, `f`, went down by one. 
-            
+            // multiplicity of one of its features, `f`, went down by one.
+
             // At this point, inputs_of_feature has not been updated to remove the deletd input. So we
-            // do that. Then, we update the score of each affected input by removing the old score 
+            // do that. Then, we update the score of each affected input by removing the old score
             // attributed to that feature (f_score / old_mult) and adding the new score (f_score / new_mult)
             // to that feature, f_score / (new_mult+1), then add the new score, f_score / new_mult.
             self.inputs_of_feature.entry(*f).and_modify(|x| {
@@ -587,7 +573,7 @@ impl<I: FuzzedInput> InputPool<I> {
                 }
                 mult = new_mult;
             });
-            
+
             if mult == 0 {
                 self.inputs_of_feature.remove(f);
             }
@@ -618,14 +604,15 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     fn equal_input(a: Input<FuzzedVoid>, b: Input<FuzzedVoid>) -> bool {
-        a.id == b.id &&
-        a.features == b.features &&
-        a.score == b.score &&
-        a.least_complex_for_features == b.least_complex_for_features &&
-        a.data.value == b.data.value && a.data.state == b.data.state &&
-        a.complexity == b.complexity
+        a.id == b.id
+            && a.features == b.features
+            && a.score == b.score
+            && a.least_complex_for_features == b.least_complex_for_features
+            && a.data.value == b.data.value
+            && a.data.state == b.data.state
+            && a.complexity == b.complexity
     }
 
     fn mock(cplx: f64) -> UnifiedFuzzedInput<FuzzedVoid> {
@@ -672,7 +659,10 @@ mod tests {
         };
 
         assert_eq!(pool.inputs.len(), 1);
-        assert!(equal_input(pool.inputs[0].as_ref().unwrap().clone(), predicted_element_in_pool));
+        assert!(equal_input(
+            pool.inputs[0].as_ref().unwrap().clone(),
+            predicted_element_in_pool
+        ));
 
         let mut predicted_inputs_of_feature = AHashMap::<Feature, Vec<usize>>::new();
         predicted_inputs_of_feature.insert(f1, vec![0]);
@@ -714,8 +704,14 @@ mod tests {
         };
 
         assert_eq!(pool.inputs.len(), 2);
-        assert!(equal_input(pool.inputs[0].as_ref().unwrap().clone(), predicted_element_1_in_pool));
-        assert!(equal_input(pool.inputs[1].as_ref().unwrap().clone(), predicted_element_2_in_pool));
+        assert!(equal_input(
+            pool.inputs[0].as_ref().unwrap().clone(),
+            predicted_element_1_in_pool
+        ));
+        assert!(equal_input(
+            pool.inputs[1].as_ref().unwrap().clone(),
+            predicted_element_2_in_pool
+        ));
 
         let mut predicted_inputs_of_feature = AHashMap::<Feature, Vec<usize>>::new();
         predicted_inputs_of_feature.insert(f1, vec![0]);
@@ -760,8 +756,14 @@ mod tests {
         };
 
         assert_eq!(pool.inputs.len(), 2);
-        assert!(equal_input(pool.inputs[0].as_ref().unwrap().clone(), predicted_element_1_in_pool));
-        assert!(equal_input(pool.inputs[1].as_ref().unwrap().clone(), predicted_element_2_in_pool));
+        assert!(equal_input(
+            pool.inputs[0].as_ref().unwrap().clone(),
+            predicted_element_1_in_pool
+        ));
+        assert!(equal_input(
+            pool.inputs[1].as_ref().unwrap().clone(),
+            predicted_element_2_in_pool
+        ));
 
         let mut predicted_inputs_of_feature = AHashMap::<Feature, Vec<usize>>::new();
         predicted_inputs_of_feature.insert(f1, vec![1, 0]);
@@ -805,8 +807,14 @@ mod tests {
         };
 
         assert_eq!(pool.inputs.len(), 2);
-        assert!(equal_input(pool.inputs[0].as_ref().unwrap().clone(), predicted_element_1_in_pool));
-        assert!(equal_input(pool.inputs[1].as_ref().unwrap().clone(), predicted_element_2_in_pool));
+        assert!(equal_input(
+            pool.inputs[0].as_ref().unwrap().clone(),
+            predicted_element_1_in_pool
+        ));
+        assert!(equal_input(
+            pool.inputs[1].as_ref().unwrap().clone(),
+            predicted_element_2_in_pool
+        ));
 
         let mut predicted_inputs_of_feature = AHashMap::<Feature, Vec<usize>>::new();
         predicted_inputs_of_feature.insert(f1, vec![0, 1]);
@@ -841,7 +849,10 @@ mod tests {
 
         assert_eq!(pool.inputs.len(), 2);
         assert!(pool.inputs[0].is_none());
-        assert!(equal_input(pool.inputs[1].as_ref().unwrap().clone(), predicted_element_in_pool));
+        assert!(equal_input(
+            pool.inputs[1].as_ref().unwrap().clone(),
+            predicted_element_in_pool
+        ));
 
         let mut predicted_inputs_of_feature = AHashMap::<Feature, Vec<usize>>::new();
         predicted_inputs_of_feature.insert(f1, vec![1]);
@@ -881,7 +892,10 @@ mod tests {
         assert_eq!(pool.inputs.len(), 3);
         assert!(pool.inputs[0].is_none());
         assert!(pool.inputs[1].is_none());
-        assert!(equal_input(pool.inputs[2].as_ref().unwrap().clone(), predicted_element_in_pool));
+        assert!(equal_input(
+            pool.inputs[2].as_ref().unwrap().clone(),
+            predicted_element_in_pool
+        ));
 
         let mut predicted_inputs_of_feature = AHashMap::<Feature, Vec<usize>>::new();
         predicted_inputs_of_feature.insert(f1, vec![2]);
@@ -930,8 +944,14 @@ mod tests {
 
         assert_eq!(pool.inputs.len(), 3);
         assert!(pool.inputs[0].is_none());
-        assert!(equal_input(pool.inputs[1].as_ref().unwrap().clone(), predicted_element_1_in_pool));
-        assert!(equal_input(pool.inputs[2].as_ref().unwrap().clone(), predicted_element_2_in_pool));
+        assert!(equal_input(
+            pool.inputs[1].as_ref().unwrap().clone(),
+            predicted_element_1_in_pool
+        ));
+        assert!(equal_input(
+            pool.inputs[2].as_ref().unwrap().clone(),
+            predicted_element_2_in_pool
+        ));
 
         let mut predicted_inputs_of_feature = AHashMap::<Feature, Vec<usize>>::new();
         predicted_inputs_of_feature.insert(f1, vec![1]);
@@ -979,8 +999,14 @@ mod tests {
 
         assert_eq!(pool.inputs.len(), 3);
         assert!(pool.inputs[0].is_none());
-        assert!(equal_input(pool.inputs[1].as_ref().unwrap().clone(), predicted_element_1_in_pool));
-        assert!(equal_input(pool.inputs[2].as_ref().unwrap().clone(), predicted_element_2_in_pool));
+        assert!(equal_input(
+            pool.inputs[1].as_ref().unwrap().clone(),
+            predicted_element_1_in_pool
+        ));
+        assert!(equal_input(
+            pool.inputs[2].as_ref().unwrap().clone(),
+            predicted_element_2_in_pool
+        ));
 
         let mut predicted_inputs_of_feature = AHashMap::<Feature, Vec<usize>>::new();
         predicted_inputs_of_feature.insert(f1, vec![2]);
@@ -1038,7 +1064,10 @@ mod tests {
         predicted_inputs_of_feature.insert(f2, vec![0]);
 
         assert_eq!(pool.inputs.len(), 2);
-        assert!(equal_input(pool.inputs[0].as_ref().unwrap().clone(), predicted_element_in_pool));
+        assert!(equal_input(
+            pool.inputs[0].as_ref().unwrap().clone(),
+            predicted_element_in_pool
+        ));
         assert!(pool.inputs[1].is_none());
         assert_eq!(pool.inputs_of_feature, predicted_inputs_of_feature);
     }
@@ -1046,7 +1075,7 @@ mod tests {
     use std::hash::Hasher;
 
     #[derive(Clone, Copy, Debug)]
-    pub enum FuzzedVoid { }
+    pub enum FuzzedVoid {}
 
     impl FuzzedInput for FuzzedVoid {
         type Value = f64;
@@ -1057,9 +1086,7 @@ mod tests {
             0.0
         }
 
-        fn state_from_value(_value: &Self::Value) -> Self::State {
-
-        }
+        fn state_from_value(_value: &Self::Value) -> Self::State {}
 
         fn arbitrary(_seed: usize, _max_cplx: f64) -> Self::Value {
             0.0
@@ -1073,20 +1100,15 @@ mod tests {
             0.0
         }
 
-        fn hash_value<H: Hasher>(_value: &Self::Value, _state: &mut H) {
-
-        }
+        fn hash_value<H: Hasher>(_value: &Self::Value, _state: &mut H) {}
 
         fn complexity(value: &Self::Value, _state: &Self::State) -> f64 {
             *value
         }
 
-        fn mutate(_value: &mut Self::Value, _state: &mut Self::State, _max_cplx: f64) -> Self::UnmutateToken {
+        fn mutate(_value: &mut Self::Value, _state: &mut Self::State, _max_cplx: f64) -> Self::UnmutateToken {}
 
-        }
-
-        fn unmutate(_value: &mut Self::Value, _state: &mut Self::State, _t: Self::UnmutateToken) {
-        }
+        fn unmutate(_value: &mut Self::Value, _state: &mut Self::State, _t: Self::UnmutateToken) {}
 
         fn from_data(_data: &[u8]) -> Option<Self::Value> {
             None
@@ -1096,5 +1118,5 @@ mod tests {
         }
     }
 
-    impl Copy for UnifiedFuzzedInput<FuzzedVoid> { }
+    impl Copy for UnifiedFuzzedInput<FuzzedVoid> {}
 }

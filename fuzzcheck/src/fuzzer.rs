@@ -12,7 +12,7 @@ use std::result::Result;
 
 enum FuzzerInputIndex<I: FuzzedInput> {
     Temporary(UnifiedFuzzedInput<I>),
-    Pool(InputPoolIndex)
+    Pool(InputPoolIndex),
 }
 
 struct FuzzerState<I: FuzzedInput> {
@@ -27,7 +27,7 @@ impl<I: FuzzedInput> FuzzerState<I> {
     fn get_input(&self) -> &UnifiedFuzzedInput<I> {
         match &self.input_idx {
             FuzzerInputIndex::Temporary(input) => &input,
-            FuzzerInputIndex::Pool(idx) => self.pool.get_ref(*idx)
+            FuzzerInputIndex::Pool(idx) => self.pool.get_ref(*idx),
         }
     }
 }
@@ -100,7 +100,12 @@ where
         }
     }
 
-    fn test_input(test: &F, input: &UnifiedFuzzedInput<I>, world: &World<I>, stats: FuzzerStats) -> Result<(), std::io::Error> {
+    fn test_input(
+        test: &F,
+        input: &UnifiedFuzzedInput<I>,
+        world: &World<I>,
+        stats: FuzzerStats,
+    ) -> Result<(), std::io::Error> {
         let sensor = shared_sensor();
         sensor.clear();
 
@@ -119,7 +124,7 @@ where
             world.save_artifact(&input.value, input.complexity())?;
             exit(FuzzerTerminationStatus::TestFailure as i32);
         }
-        
+
         Ok(())
     }
 
@@ -133,8 +138,10 @@ where
         let mut matched_least_complex = false;
 
         sensor.iterate_over_collected_features(|feature| {
-            
-            let (predicted, least_complex) = self.state.pool.predicted_feature_score_and_least_complex_input_for_feature(feature);
+            let (predicted, least_complex) = self
+                .state
+                .pool
+                .predicted_feature_score_and_least_complex_input_for_feature(feature);
 
             score_estimate += predicted;
 
@@ -173,7 +180,7 @@ where
             self.state.world.do_actions(actions)?;
             self.state.update_stats();
             self.state.world.report_event(FuzzerEvent::New, Some(self.state.stats));
-        
+
             Ok(())
         } else {
             Ok(())
@@ -185,17 +192,17 @@ where
         self.state.input_idx = FuzzerInputIndex::Pool(idx);
         let input = self.state.pool.get(idx);
         // let cloned_input = input.clone();
-        
+
         let mutate_token = input.mutate(self.state.settings.max_input_cplx);
-        let cplx = input.complexity(); 
+        let cplx = input.complexity();
 
         if cplx < self.state.settings.max_input_cplx {
             self.test_input_and_analyze()?;
         }
         if let Some(input) = self.state.pool.get_opt(idx) {
             input.unmutate(mutate_token);
-            // assert_eq!(input.value, cloned_input.value);
-            // assert_eq!(cloned_input.complexity(), input.complexity());
+        // assert_eq!(input.value, cloned_input.value);
+        // assert_eq!(cloned_input.complexity(), input.complexity());
         } else {
             // println!("deleted the source input");
         }
@@ -290,7 +297,6 @@ where
     }
 }
 
-
 pub fn launch<F, I>(test: F) -> Result<(), std::io::Error>
 where
     F: Fn(&I::Value) -> bool,
@@ -362,7 +368,7 @@ fuzzcheck {cmin} --{in_corpus} "fuzz-corpus" --{corpus_size} 25
         FuzzerCommand::MinifyInput => fuzzer.input_minifying_loop()?,
         FuzzerCommand::Read => {
             let value = fuzzer.state.world.read_input_file()?;
-            let state = I::state_from_value(&value); 
+            let state = I::state_from_value(&value);
             fuzzer.state.input_idx = FuzzerInputIndex::Temporary(UnifiedFuzzedInput::new((value, state)));
             let input = fuzzer.state.get_input();
             Fuzzer::test_input(&fuzzer.test, &input, &fuzzer.state.world, fuzzer.state.stats)?;

@@ -7,7 +7,7 @@ use fuzzcheck::input::*;
 use crate::FuzzedJsonInput;
 
 #[derive(Clone)]
-pub enum FuzzedBool { }
+pub enum FuzzedBool {}
 
 impl FuzzedJsonInput for FuzzedBool {
     fn from_json(json: &json::JsonValue) -> Option<Self::Value> {

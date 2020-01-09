@@ -35,7 +35,7 @@ impl CodeCoverageSensor {
     {
         for (i, x) in self.eight_bit_counters.iter().enumerate() {
             if *x == 0 {
-                continue
+                continue;
             } else {
                 let f = Feature::edge(i, *x as u16);
                 handle(f);

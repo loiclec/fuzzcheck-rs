@@ -24,7 +24,7 @@ pub trait FuzzedInput {
 
     /// Feeds the input into the Hasher.
     fn hash_value<H: Hasher>(value: &Self::Value, state: &mut H);
-    
+
     /// The complexity of the current input
     fn complexity(value: &Self::Value, state: &Self::State) -> f64;
 
@@ -36,24 +36,26 @@ pub trait FuzzedInput {
     fn to_data(value: &Self::Value) -> Vec<u8>;
 }
 
-
 pub struct UnifiedFuzzedInput<I: FuzzedInput> {
-    pub value: I::Value, 
-    pub state: I::State
+    pub value: I::Value,
+    pub state: I::State,
 }
 
 impl<I: FuzzedInput> Clone for UnifiedFuzzedInput<I> {
     fn clone(&self) -> Self {
         UnifiedFuzzedInput {
             value: self.value.clone(),
-            state: self.state.clone()
+            state: self.state.clone(),
         }
     }
 }
 
 impl<I: FuzzedInput> UnifiedFuzzedInput<I> {
     pub fn new(data: (I::Value, I::State)) -> Self {
-        Self { value: data.0, state: data.1 }
+        Self {
+            value: data.0,
+            state: data.1,
+        }
     }
     pub fn default() -> Self {
         let value = I::default();

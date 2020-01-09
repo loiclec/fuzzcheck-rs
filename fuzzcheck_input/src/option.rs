@@ -8,8 +8,11 @@ use crate::FuzzedJsonInput;
 
 use std::marker::PhantomData;
 
-pub struct FuzzedOption<V: FuzzedInput> where V::Value: Hash { 
-    phantom: PhantomData<V>
+pub struct FuzzedOption<V: FuzzedInput>
+where
+    V::Value: Hash,
+{
+    phantom: PhantomData<V>,
 }
 
 pub enum FuzzedOptionUnmutateToken<Value, Token> {
@@ -28,19 +31,22 @@ pub struct FuzzedOptionState<State> {
 
 struct FuzzedOptionArbitrarySeed {
     check_none: bool,
-    inner_seed: usize
+    inner_seed: usize,
 }
 
 impl FuzzedOptionArbitrarySeed {
     fn new(seed: usize) -> Self {
         Self {
             check_none: seed == 0,
-            inner_seed: seed.saturating_sub(1)
+            inner_seed: seed.saturating_sub(1),
         }
     }
 }
 
-impl<V: FuzzedJsonInput> FuzzedJsonInput for FuzzedOption<V> where V::Value: Hash {
+impl<V: FuzzedJsonInput> FuzzedJsonInput for FuzzedOption<V>
+where
+    V::Value: Hash,
+{
     fn from_json(json: &json::JsonValue) -> Option<Self::Value> {
         if json.is_null() {
             Some(None)
@@ -59,7 +65,10 @@ impl<V: FuzzedJsonInput> FuzzedJsonInput for FuzzedOption<V> where V::Value: Has
     }
 }
 
-impl<V: FuzzedJsonInput> FuzzedInput for FuzzedOption<V> where V::Value : Hash {
+impl<V: FuzzedJsonInput> FuzzedInput for FuzzedOption<V>
+where
+    V::Value: Hash,
+{
     type Value = Option<V::Value>;
     type State = FuzzedOptionState<V::State>;
     type UnmutateToken = FuzzedOptionUnmutateToken<V::Value, V::UnmutateToken>;
@@ -117,7 +126,7 @@ impl<V: FuzzedJsonInput> FuzzedInput for FuzzedOption<V> where V::Value : Hash {
 
     fn mutate(value: &mut Self::Value, state: &mut Self::State, max_cplx: f64) -> Self::UnmutateToken {
         let inner_max_cplx = max_cplx - 1.0;
-        
+
         if let Some(inner_value) = value {
             if !state.did_check_none {
                 let mut old_value = None;
@@ -136,17 +145,17 @@ impl<V: FuzzedJsonInput> FuzzedInput for FuzzedOption<V> where V::Value : Hash {
             ToNone
         }
     }
-    
+
     fn unmutate(value: &mut Self::Value, state: &mut Self::State, t: Self::UnmutateToken) {
         match t {
             UnmutateSome(t) => {
                 let inner_value = value.as_mut().unwrap();
                 let inner_state = state.inner_state.as_mut().unwrap();
                 V::unmutate(inner_value, inner_state, t);
-            },
+            }
             ToSome(v) => {
                 *value = Some(v);
-            },
+            }
             ToNone => {
                 *value = None;
             }

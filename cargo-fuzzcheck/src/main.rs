@@ -362,9 +362,9 @@ fn instrumented_compile(instrumented_folder: &PathBuf, target_triple: &str) -> R
                                  -Clto=yes -Ccodegen-units=1"
         .into();
 
-//                                 -Cllvm-args=-sanitizer-coverage-trace-compares \
-//                                 -Cllvm-args=-sanitizer-coverage-trace-divs \
-//                                 -Cllvm-args=-sanitizer-coverage-trace-geps \
+    //                                 -Cllvm-args=-sanitizer-coverage-trace-compares \
+    //                                 -Cllvm-args=-sanitizer-coverage-trace-divs \
+    //                                 -Cllvm-args=-sanitizer-coverage-trace-geps \
 
     if use_gold_linker() {
         rustflags.push_str(" -Clink-arg=-fuse-ld=gold");

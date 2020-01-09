@@ -13,31 +13,37 @@ use crate::FuzzedJsonInput;
 // TODO: should go back to InputFuzzer trait and put rng in it?
 // it acts as the “configuration” thing, common to all inputs
 pub struct FuzzedVector<V: FuzzedInput> {
-    phantom: PhantomData<V>
+    phantom: PhantomData<V>,
 }
 
 struct FuzzedVectorArbitrarySeed {
     complexity_step: usize,
     len_step: usize,
-    rng: SmallRng
+    rng: SmallRng,
 }
 
 impl FuzzedVectorArbitrarySeed {
     fn new(step: usize) -> Self {
-        
         let mut rng = SmallRng::from_entropy();
         if step == 0 {
-            Self { complexity_step: 0, len_step: 0, rng }
+            Self {
+                complexity_step: 0,
+                len_step: 0,
+                rng,
+            }
         } else {
-            let (complexity_step, len_step) = 
-                if step < 100 {
-                    // deterministic phase for 100 first steps
-                    (step % 10, step / 10)
-                } else {
-                    // default
-                    (step, rng.gen())
-                };
-            Self { complexity_step, len_step, rng }
+            let (complexity_step, len_step) = if step < 100 {
+                // deterministic phase for 100 first steps
+                (step % 10, step / 10)
+            } else {
+                // default
+                (step, rng.gen())
+            };
+            Self {
+                complexity_step,
+                len_step,
+                rng,
+            }
         }
     }
 }
@@ -47,7 +53,7 @@ struct MutationStep {
     category: MutationCategory,
     remove_idx: usize,
     insert_idx: usize,
-    vec_operations: Vec<VecOperation>, 
+    vec_operations: Vec<VecOperation>,
     cycle: usize,
 }
 
@@ -60,16 +66,19 @@ enum VecOperation {
 impl MutationStep {
     fn new(len: usize) -> Self {
         let (category, vec_operations) = if len > 0 {
-            (MutationCategory::Element(0), vec![VecOperation::Insert, VecOperation::Remove])
+            (
+                MutationCategory::Element(0),
+                vec![VecOperation::Insert, VecOperation::Remove],
+            )
         } else {
             (MutationCategory::Empty, vec![VecOperation::Insert])
         };
-        Self { 
+        Self {
             category,
-            remove_idx: len.saturating_sub(1), 
-            insert_idx: 0, 
+            remove_idx: len.saturating_sub(1),
+            insert_idx: 0,
             vec_operations,
-            cycle: 0 
+            cycle: 0,
         }
     }
 }
@@ -87,41 +96,40 @@ pub struct FuzzedVectorState<State> {
     inner_states: Vec<State>,
     sum_cplx: f64,
     step: MutationStep,
-    rng: SmallRng
+    rng: SmallRng,
 }
 impl<State> FuzzedVectorState<State> {
     fn increment_mutation_step_category(&mut self) {
         match self.step.category {
-            Empty => { 
-                if !self.inner_states.is_empty() { 
+            Empty => {
+                if !self.inner_states.is_empty() {
                     self.step.category = MutationCategory::Element(0)
-                } else { 
+                } else {
                     self.step.category = MutationCategory::Vector(0)
                 }
-            },
+            }
             Element(idx) => {
-                let new_idx = idx+1;
+                let new_idx = idx + 1;
                 if new_idx < self.inner_states.len() {
                     self.step.category = MutationCategory::Element(new_idx)
                 } else {
                     self.step.category = MutationCategory::Vector(0)
                 }
-            },
+            }
             Vector(step) => {
                 let new_step = step + 1;
                 if new_step < self.step.vec_operations.len() {
                     self.step.category = MutationCategory::Vector(new_step)
                 } else {
                     self.step.cycle += 1;
-                    if !self.inner_states.is_empty() { 
+                    if !self.inner_states.is_empty() {
                         self.step.category = MutationCategory::Element(0)
-                    } else { 
+                    } else {
                         self.step.category = MutationCategory::Vector(0)
                     }
                 }
             }
         }
-
     }
 }
 
@@ -129,11 +137,16 @@ pub enum UnmutateVecToken<V, T> {
     Element(usize, T, f64),
     Remove(usize, f64),
     Insert(usize, V, f64),
-    Replace(Vec<V>, f64)
+    Replace(Vec<V>, f64),
 }
 
 impl<V: FuzzedJsonInput> FuzzedVector<V> {
-    fn mutate_element(value: &mut Vec<V::Value>, state: &mut FuzzedVectorState<V::State>, idx: usize, spare_cplx: f64) -> UnmutateVecToken<V::Value, V::UnmutateToken> {
+    fn mutate_element(
+        value: &mut Vec<V::Value>,
+        state: &mut FuzzedVectorState<V::State>,
+        idx: usize,
+        spare_cplx: f64,
+    ) -> UnmutateVecToken<V::Value, V::UnmutateToken> {
         let el = &mut value[idx];
         let el_state = &mut state.inner_states[idx];
 
@@ -150,9 +163,13 @@ impl<V: FuzzedJsonInput> FuzzedVector<V> {
         UnmutateVecToken::Element(idx, token, old_cplx - new_cplx)
     }
 
-    fn insert_element(value: &mut Vec<V::Value>, state: &mut FuzzedVectorState<V::State>, spare_cplx: f64) -> UnmutateVecToken<V::Value, V::UnmutateToken> {
+    fn insert_element(
+        value: &mut Vec<V::Value>,
+        state: &mut FuzzedVectorState<V::State>,
+        spare_cplx: f64,
+    ) -> UnmutateVecToken<V::Value, V::UnmutateToken> {
         let (idx, cycle) = (state.step.insert_idx, state.step.cycle);
-        
+
         // TODO: For now I assume that the complexity given by the length of the vector does not change
         // Should I take it into account instead?
         let el = V::arbitrary(cycle, spare_cplx);
@@ -161,7 +178,7 @@ impl<V: FuzzedJsonInput> FuzzedVector<V> {
 
         value.insert(idx, el);
         let token = UnmutateVecToken::Remove(idx, el_cplx); // TODO: is that always right?
-        
+
         state.sum_cplx += el_cplx;
         // TODO: what is happening here?
         state.step.insert_idx = (state.step.insert_idx + 1) % (state.inner_states.len() + 1);
@@ -170,15 +187,18 @@ impl<V: FuzzedJsonInput> FuzzedVector<V> {
         token
     }
 
-    fn remove_element(value: &mut Vec<V::Value>, state: &mut FuzzedVectorState<V::State>) -> UnmutateVecToken<V::Value, V::UnmutateToken> {
+    fn remove_element(
+        value: &mut Vec<V::Value>,
+        state: &mut FuzzedVectorState<V::State>,
+    ) -> UnmutateVecToken<V::Value, V::UnmutateToken> {
         let idx = state.step.remove_idx;
 
         let el = &value[idx];
         let el_cplx = V::complexity(&el, &state.inner_states[idx]);
-        
+
         let removed = value.remove(idx);
         let token = UnmutateVecToken::Insert(idx, removed, el_cplx);
-        
+
         state.sum_cplx -= el_cplx;
 
         if state.step.remove_idx == 0 {
@@ -186,7 +206,7 @@ impl<V: FuzzedJsonInput> FuzzedVector<V> {
         } else {
             state.step.remove_idx -= 1;
         }
-        
+
         state.increment_mutation_step_category();
 
         // TODO: what to do to state.inner_states?
@@ -196,7 +216,6 @@ impl<V: FuzzedJsonInput> FuzzedVector<V> {
 }
 
 impl<V: FuzzedJsonInput> FuzzedJsonInput for FuzzedVector<V> {
-    
     fn from_json(json: &json::JsonValue) -> Option<Self::Value> {
         if let json::JsonValue::Array(json_values) = json {
             let mut result = vec![];
@@ -213,11 +232,7 @@ impl<V: FuzzedJsonInput> FuzzedJsonInput for FuzzedVector<V> {
         }
     }
     fn to_json(value: &Self::Value) -> json::JsonValue {
-        json::JsonValue::Array(
-            value.iter().map(|x| 
-                V::to_json(x)
-            ).collect()
-        )
+        json::JsonValue::Array(value.iter().map(|x| V::to_json(x)).collect())
     }
 }
 
@@ -226,8 +241,8 @@ impl<V: FuzzedJsonInput> FuzzedInput for FuzzedVector<V> {
     type State = FuzzedVectorState<V::State>;
     type UnmutateToken = UnmutateVecToken<V::Value, V::UnmutateToken>;
 
-    fn max_complexity() -> f64 { 
-        std::f64::INFINITY 
+    fn max_complexity() -> f64 {
+        std::f64::INFINITY
     }
 
     fn min_complexity() -> f64 {
@@ -235,7 +250,7 @@ impl<V: FuzzedJsonInput> FuzzedInput for FuzzedVector<V> {
     }
 
     fn complexity(value: &Self::Value, state: &Self::State) -> f64 {
-                          // TODO: should I really bother with this?
+        // TODO: should I really bother with this?
         1.0 + state.sum_cplx + crate::size_to_cplxity(value.len() + 1)
     }
 
@@ -251,21 +266,28 @@ impl<V: FuzzedJsonInput> FuzzedInput for FuzzedVector<V> {
 
     fn state_from_value(value: &Self::Value) -> Self::State {
         let inner_states: Vec<_> = value.iter().map(|x| V::state_from_value(x)).collect();
-        let sum_cplx = value.iter().zip(inner_states.iter()).fold(0.0, |c, (v, s)| c + V::complexity(v, s));
-        let step = MutationStep::new(value.len()); 
+        let sum_cplx = value
+            .iter()
+            .zip(inner_states.iter())
+            .fold(0.0, |c, (v, s)| c + V::complexity(v, s));
+        let step = MutationStep::new(value.len());
         let rng = SmallRng::from_entropy();
 
         Self::State {
             inner_states,
             sum_cplx,
             step,
-            rng
+            rng,
         }
     }
 
     fn arbitrary(seed: usize, max_cplx: f64) -> Self::Value {
-        let FuzzedVectorArbitrarySeed { complexity_step, len_step, mut rng } = FuzzedVectorArbitrarySeed::new(seed);
-        
+        let FuzzedVectorArbitrarySeed {
+            complexity_step,
+            len_step,
+            mut rng,
+        } = FuzzedVectorArbitrarySeed::new(seed);
+
         if seed == 0 || max_cplx <= 1.0 {
             return Self::default();
         }
@@ -354,19 +376,13 @@ impl<V: FuzzedJsonInput> FuzzedInput for FuzzedVector<V> {
                 // TODO: anything else?
                 UnmutateVecToken::Replace(old_value, old_sum_cplx)
             }
-            MutationCategory::Element(idx) => {
-                Self::mutate_element(value, state, idx, spare_cplx)
-            },
+            MutationCategory::Element(idx) => Self::mutate_element(value, state, idx, spare_cplx),
             MutationCategory::Vector(step) => {
                 let operation_idx = step % state.step.vec_operations.len();
                 let operation = state.step.vec_operations[operation_idx];
                 match operation {
-                    VecOperation::Insert => {
-                        Self::insert_element(value, state, spare_cplx)
-                    },
-                    VecOperation::Remove => {
-                        Self::remove_element(value, state)
-                    }
+                    VecOperation::Insert => Self::insert_element(value, state, spare_cplx),
+                    VecOperation::Remove => Self::remove_element(value, state),
                 }
             }
         }
@@ -379,16 +395,16 @@ impl<V: FuzzedJsonInput> FuzzedInput for FuzzedVector<V> {
                 let el_state = &mut state.inner_states[idx];
                 V::unmutate(el, el_state, inner_t);
                 state.sum_cplx += diff_cplx;
-            },
+            }
             UnmutateVecToken::Insert(idx, el, el_cplx) => {
                 value.insert(idx, el);
                 state.sum_cplx += el_cplx;
                 // TODO: anything else?
-            },
+            }
             UnmutateVecToken::Remove(idx, el_cplx) => {
                 value.remove(idx);
                 state.sum_cplx -= el_cplx;
-            },
+            }
             UnmutateVecToken::Replace(vec, sum_cplx) => {
                 let _ = std::mem::replace(value, vec);
                 state.sum_cplx = sum_cplx;
@@ -399,7 +415,7 @@ impl<V: FuzzedJsonInput> FuzzedInput for FuzzedVector<V> {
     fn from_data(data: &[u8]) -> Option<Self::Value> {
         <Self as FuzzedJsonInput>::from_data(data)
     }
-    
+
     fn to_data(value: &Self::Value) -> Vec<u8> {
         <Self as FuzzedJsonInput>::to_data(value)
     }
