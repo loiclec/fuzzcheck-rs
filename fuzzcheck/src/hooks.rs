@@ -48,12 +48,10 @@
 //! ```
 
 use crate::code_coverage_sensor::*;
-use std::collections::HashMap;
-use std::collections::HashSet;
 use std::slice;
 use std::sync::Once;
 
-use crate::hasher::FuzzcheckHash;
+use ahash::AHashSet;
 
 extern "C" {
     /// Returns the address of the calling function
@@ -62,68 +60,24 @@ extern "C" {
 
 static START: Once = Once::new();
 
-/// __sanitizer_cov_trace_pc_guard_init
-///
-/// SanitizerCoverage documentation:
-///
-/// > This callback is inserted by the compiler as a module constructor
-/// > into every DSO. 'start' and 'stop' correspond to the
-/// > beginning and end of the section with the guards for the entire
-/// > binary (executable or DSO). The callback will be called at least
-/// > once per DSO and may be called multiple times with the same parameters.
-///
-/// Fuzzcheck documentation:
-///
-/// The implementation of this hook is largely based on SanitizerCoverage’s
-/// example. It initializes a unique id to each guard in [start, stop). These
-/// ids will be used by the `trace_pc_guard` hook to identify which part
-/// of the program has been reached.
-#[export_name = "__sanitizer_cov_trace_pc_guard_init"]
-fn trace_pc_guard_init(start: *mut u32, stop: *mut u32) {
-    unsafe {
+#[export_name = "__sanitizer_cov_8bit_counters_init"]
+fn counters_init(start: *mut u8, stop: *mut u8) {
+     unsafe {
+        if !(start != stop && *start == 0) {
+            return;
+        }
+
+        let dist = stop.offset_from(start) as usize;
+
         START.call_once(|| {
             SHARED_SENSOR.as_mut_ptr().write(CodeCoverageSensor {
                 num_guards: 0,
                 is_recording: false,
-                eight_bit_counters: HashMap::with_hasher(FuzzcheckHash {}),
-                features: HashSet::new(),
+                eight_bit_counters: slice::from_raw_parts_mut(start, dist),
+                features: AHashSet::new(),
             });
         });
     }
-    shared_sensor().handle_pc_guard_init(start, stop);
-}
-
-/// __sanitizer_cov_trace_pc_guard
-///
-/// SanitizerCoverage documentation:
-///
-/// > This callback is inserted by the compiler on every edge in the
-/// > control flow (some optimizations apply).
-/// > Typically, the compiler will emit the code like this:
-/// > ```text
-/// > if(*guard)
-/// >      __sanitizer_cov_trace_pc_guard(guard);
-/// > ```
-/// > But for large functions it will emit a simple call:
-/// > ```text
-/// > __sanitizer_cov_trace_pc_guard(guard);
-/// > ```
-///
-/// Fuzzcheck documentation:
-///
-/// The counter associated with the given guard is incremented.
-/// That allows us to know how many times that portion of the code
-/// represented by the guard has been reached.
-#[export_name = "__sanitizer_cov_trace_pc_guard"]
-fn trace_pc_guard(pc: *mut u32) {
-    let sensor = shared_sensor();
-    if !sensor.is_recording {
-        return;
-    }
-    let idx = unsafe { *pc as usize };
-    let counter = sensor.eight_bit_counters.entry(idx).or_insert(0);
-
-    *counter = counter.wrapping_add(1);
 }
 
 /// __sanitizer_cov_trace_pc_indir

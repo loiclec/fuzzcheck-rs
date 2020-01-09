@@ -11,7 +11,7 @@ rand = "0.7.0"
 rand_distr = "0.2.1"
 libc = "0.2"
 lazy_static = "1.3.0"
-seahash = "3.0.6"
+ahash = { version = "0.2", default_features = false, features = ["std"] }
 getopts = "0.2"
 fuzzcheck_arg_parser = { path = "../fuzzcheck_arg_parser" }
 

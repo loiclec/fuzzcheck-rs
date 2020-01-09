@@ -11,7 +11,6 @@ extern crate lazy_static;
 
 mod code_coverage_sensor;
 pub mod fuzzer;
-mod hasher;
 mod hooks;
 pub mod input;
 mod input_pool;
