@@ -10,7 +10,7 @@ use std::time::Instant;
 
 use std::marker::PhantomData;
 
-use crate::input::InputGenerator;
+use crate::input::FuzzedInput;
 use crate::input_pool::Feature;
 
 #[derive(Clone, Copy, Default)]
@@ -52,21 +52,13 @@ pub enum WorldAction<T> {
     ReportEvent(FuzzerEvent),
 }
 
-pub struct World<T, G>
-where
-    T: Clone,
-    G: InputGenerator<Input = T>,
-{
+pub struct World<I: FuzzedInput> {
     settings: CommandLineArguments,
     instant: Instant,
-    phantom: PhantomData<G>,
+    phantom: PhantomData<I>,
 }
 
-impl<T, G> World<T, G>
-where
-    T: Clone,
-    G: InputGenerator<Input = T>,
-{
+impl<I: FuzzedInput> World<I> {
     pub fn new(settings: CommandLineArguments) -> Self {
         Self {
             settings,
@@ -75,7 +67,7 @@ where
         }
     }
 
-    pub fn do_actions(&self, actions: Vec<WorldAction<T>>) -> Result<()> {
+    pub fn do_actions(&self, actions: Vec<WorldAction<I::Value>>) -> Result<()> {
         for a in actions {
             match a {
                 WorldAction::Add(x, _) => {
@@ -93,11 +85,7 @@ where
     }
 }
 
-impl<T, G> World<T, G>
-where
-    T: Clone,
-    G: InputGenerator<Input = T>,
-{
+impl<I: FuzzedInput> World<I> {
     pub fn set_start_time(&mut self) {
         self.instant = Instant::now();
     }
@@ -105,7 +93,7 @@ where
         self.instant.elapsed().as_micros() as usize
     }
 
-    pub fn read_input_corpus(&self) -> Result<Vec<T>> {
+    pub fn read_input_corpus(&self) -> Result<Vec<I::Value>> {
         if self.settings.corpus_in.is_none() {
             return Result::Ok(vec![]);
         }
@@ -117,14 +105,14 @@ where
                 "The path to the file containing the input is actually a directory.",
             ));
         }
-        let mut inputs: Vec<T> = Vec::new();
+        let mut inputs: Vec<I::Value> = Vec::new();
         for entry in fs::read_dir(corpus)? {
             let entry = entry?;
             if entry.path().is_dir() {
                 continue;
             }
             let data = fs::read(entry.path())?;
-            if let Some(i) = G::from_data(&data) {
+            if let Some(i) = I::from_data(&data) {
                 inputs.push(i);
             } else {
                 continue;
@@ -132,10 +120,10 @@ where
         }
         Ok(inputs)
     }
-    pub fn read_input_file(&self) -> Result<T> {
+    pub fn read_input_file(&self) -> Result<I::Value> {
         if let Some(input_file) = &self.settings.input_file {
             let data = fs::read(input_file)?;
-            if let Some(input) = G::from_data(&data) {
+            if let Some(input) = I::from_data(&data) {
                 Ok(input)
             } else {
                 Result::Err(io::Error::new(
@@ -151,7 +139,7 @@ where
         }
     }
 
-    pub fn add_to_output_corpus(&self, input: T) -> Result<()> {
+    pub fn add_to_output_corpus(&self, input: I::Value) -> Result<()> {
         if self.settings.corpus_out.is_none() {
             return Ok(());
         }
@@ -162,25 +150,25 @@ where
         }
 
         let mut hasher = DefaultHasher::new();
-        G::hash(&input, &mut hasher);
+        I::hash_value(&input, &mut hasher);
         let hash = hasher.finish();
         let name = format!("{:x}", hash);
 
-        let content = G::to_data(&input);
+        let content = I::to_data(&input);
         let path = corpus.join(name).with_extension("json");
         fs::write(path, content)?;
 
         Ok(())
     }
 
-    pub fn remove_from_output_corpus(&self, input: T) -> Result<()> {
+    pub fn remove_from_output_corpus(&self, input: I::Value) -> Result<()> {
         if self.settings.corpus_out.is_none() {
             return Ok(());
         }
         let corpus = self.settings.corpus_out.as_ref().unwrap().as_path();
 
         let mut hasher = DefaultHasher::new();
-        G::hash(&input, &mut hasher);
+        I::hash_value(&input, &mut hasher);
         let hash = hasher.finish();
         let name = format!("{:x}", hash);
 
@@ -190,7 +178,7 @@ where
         Ok(())
     }
 
-    pub fn save_artifact(&self, input: &T, cplx: f64) -> Result<()> {
+    pub fn save_artifact(&self, input: &I::Value, cplx: f64) -> Result<()> {
         let default = Path::new("./artifacts/").to_path_buf();
         let artifacts_folder = self.settings.artifacts_folder.as_ref().unwrap_or(&default).as_path();
 
@@ -199,9 +187,9 @@ where
         }
 
         let mut hasher = DefaultHasher::new();
-        G::hash(&input, &mut hasher);
+        I::hash_value(&input, &mut hasher);
         let hash = hasher.finish();
-        let content = G::to_data(&input);
+        let content = I::to_data(&input);
 
         let name = if let FuzzerCommand::MinifyInput | FuzzerCommand::Read = self.settings.command {
             format!("{:.0}--{:x}", cplx * 100.0, hash)
