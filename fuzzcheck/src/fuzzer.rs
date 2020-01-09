@@ -21,14 +21,13 @@ struct FuzzerState<I: FuzzedInput> {
     stats: FuzzerStats,
     settings: CommandLineArguments,
     world: World<I>,
-    process_start_time: usize,
 }
 
 impl<I: FuzzedInput> FuzzerState<I> {
     fn get_input(&self) -> &UnifiedFuzzedInput<I> {
         match &self.input_idx {
             FuzzerInputIndex::Temporary(input) => &input,
-            FuzzerInputIndex::Pool(idx) => self.pool.get_ref(*idx) // TODO: implement get_ref
+            FuzzerInputIndex::Pool(idx) => self.pool.get_ref(*idx)
         }
     }
 }
@@ -88,7 +87,6 @@ where
                 stats: FuzzerStats::new(),
                 settings,
                 world,
-                process_start_time: 0,
             },
             test,
         }
@@ -125,9 +123,7 @@ where
         Ok(())
     }
 
-    fn analyze(&mut self, cur_input_cplx: f64) -> Option<(f64, Vec<Feature>)> {
-        let mut features: Vec<Feature> = Vec::new();
-
+    fn analyze(&mut self, cur_input_cplx: f64) -> Option<Vec<Feature>> {
         let mut best_input_for_a_feature = false;
 
         let sensor = shared_sensor();
@@ -137,9 +133,12 @@ where
         let mut matched_least_complex = false;
 
         sensor.iterate_over_collected_features(|feature| {
-            score_estimate += self.state.pool.predicted_feature_score(feature);
+            
+            let (predicted, least_complex) = self.state.pool.predicted_feature_score_and_least_complex_input_for_feature(feature);
 
-            if let Some((old_cplx, cur_input_score)) = self.state.pool.least_complex_input_for_feature(feature) {
+            score_estimate += predicted;
+
+            if let Some((old_cplx, cur_input_score)) = least_complex {
                 if cur_input_cplx < old_cplx {
                     best_input_for_a_feature = true;
                 } else if (cur_input_cplx - old_cplx).abs() < std::f64::EPSILON {
@@ -149,11 +148,14 @@ where
             } else {
                 best_input_for_a_feature = true;
             }
-            features.push(feature);
         });
 
         if best_input_for_a_feature || (matched_least_complex && score_estimate > score_to_exceed) {
-            Some((cur_input_cplx, features))
+            let mut features: Vec<Feature> = Vec::new();
+            sensor.iterate_over_collected_features(|feature| {
+                features.push(feature);
+            });
+            Some(features)
         } else {
             None
         }
@@ -165,7 +167,7 @@ where
         Self::test_input(&self.test, &input, &self.state.world, self.state.stats)?;
         self.state.stats.total_number_of_runs += 1;
 
-        if let Some((cplx, features)) = self.analyze(cplx) {
+        if let Some(features) = self.analyze(cplx) {
             let input_cloned = self.state.get_input().new_source();
             let actions = self.state.pool.add(input_cloned, features);
             self.state.world.do_actions(actions)?;
@@ -181,7 +183,7 @@ where
     fn process_next_inputs(&mut self) -> Result<(), std::io::Error> {
         let idx = self.state.pool.random_index();
         self.state.input_idx = FuzzerInputIndex::Pool(idx);
-        let input = self.state.pool.get(idx); // TODO: return Unified input instead of value
+        let input = self.state.pool.get(idx);
         // let cloned_input = input.clone();
         
         let mutate_token = input.mutate(self.state.settings.max_input_cplx);
@@ -190,7 +192,7 @@ where
         if cplx < self.state.settings.max_input_cplx {
             self.test_input_and_analyze()?;
         }
-        if let Some(input) = self.state.pool.get_opt(idx) { // TODO: implement get_opt
+        if let Some(input) = self.state.pool.get_opt(idx) {
             input.unmutate(mutate_token);
             // assert_eq!(input.value, cloned_input.value);
             // assert_eq!(cloned_input.complexity(), input.complexity());
@@ -203,16 +205,16 @@ where
 
     fn process_initial_inputs(&mut self) -> Result<(), std::io::Error> {
         let mut inputs: Vec<UnifiedFuzzedInput<I>> = self
-        .state
-        .world
-        .read_input_corpus()
-        .unwrap_or_default()
-        .into_iter()
-        .map(|value| {
-           let state = I::state_from_value(&value);
-           UnifiedFuzzedInput { value, state }
-        })
-        .collect();
+            .state
+            .world
+            .read_input_corpus()
+            .unwrap_or_default()
+            .into_iter()
+            .map(|value| {
+                let state = I::state_from_value(&value);
+                UnifiedFuzzedInput { value, state }
+            })
+            .collect();
 
         if inputs.is_empty() {
             for i in 0..100 {

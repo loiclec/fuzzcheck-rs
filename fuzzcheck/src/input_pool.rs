@@ -169,6 +169,7 @@ impl Feature {
 }
 
 /// Index of an input in the InputPool
+#[derive(Copy)]
 pub enum InputPoolIndex {
     Normal(usize),
     Favored,
@@ -532,19 +533,24 @@ impl<I: FuzzedInput> InputPool<I> {
         }
     }
 
-    /// Get the least complex input in the pool that contains a certain feature, alongside its score
-    ///
-    /// Returns Some((input, score)) or None if no input contains this feature
-    pub fn least_complex_input_for_feature(&mut self, f: Feature) -> Option<(f64, f64)> {
-        let inputs = &self.inputs;
-        if let Some(input) = self
+    /// Return the predicted feature score for the given feature, as well as the 
+    /// complexity of the simplest input that contains this feature.
+    /// 
+    /// The predicted score is an underestimate. It is based on the scenario where the
+    /// multiplicity of the feature would grow by 1 following a new addition in the pool.
+    /// But in reality, a new addition into the pool may delete existing inputs, which would
+    /// decrease the multiplicity of the feature, and lead to a higher score.
+    pub fn predicted_feature_score_and_least_complex_input_for_feature(&mut self, f: Feature) -> (f64, Option<(f64, f64)>) {
+        if let Some(inputs_of_feature) = self
             .inputs_of_feature
             .get(&f)
-            .map(|x| inputs[*x.last().unwrap()].as_ref().unwrap())
         {
-            Some((input.complexity, input.score))
+            let x = self.inputs[*inputs_of_feature.last().unwrap()].as_ref().unwrap();
+            let predicted_score = f.score() / (inputs_of_feature.len() + 1) as f64;
+            let least_complex = Some((x.complexity, x.score));
+            (predicted_score, least_complex)
         } else {
-            None
+            (f.score(), None)
         }
     }
 
