@@ -57,8 +57,8 @@
 use std::cmp::Ordering;
 use std::cmp::PartialOrd;
 
-use rand::rngs::ThreadRng;
-use rand::Rng;
+use rand::rngs::SmallRng;
+use rand::{Rng, SeedableRng};
 
 use rand::distributions::uniform::{UniformFloat, UniformSampler};
 use rand::distributions::Distribution;
@@ -66,6 +66,7 @@ use rand::distributions::Distribution;
 use ahash::{AHashSet, AHashMap};
 
 use std::hash::{Hash, Hasher};
+
 use crate::input::FuzzedInput;
 use crate::input::UnifiedFuzzedInput;
 
@@ -144,7 +145,7 @@ impl Feature {
 
 /// “Hash” a u16 into a number between 0 and 16.
 ///
-/// So that similar numbers have the same hash, and greater
+/// So that similar numbers have the same hash, and very different
 /// numbers have a greater hash.
 fn score_from_counter(counter: u16) -> u8 {
     if counter == core::u16::MAX {
@@ -157,7 +158,7 @@ fn score_from_counter(counter: u16) -> u8 {
 }
 
 impl Feature {
-    /// Returns the code coverage score associated with the feature
+    // Returns the code coverage score associated with the feature
     fn score(self) -> f64 {
         match self.tag {
             0 => 1.0,
@@ -169,12 +170,11 @@ impl Feature {
 }
 
 /// Index of an input in the InputPool
-#[derive(Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 pub enum InputPoolIndex {
     Normal(usize),
     Favored,
 }
-
 
 /// Cached information about an input that is useful for analyzing it
 // #[derive(Debug)]
@@ -204,6 +204,7 @@ impl<I: FuzzedInput> Clone for Input<I> {
         }
     }
 }
+
 impl<I: FuzzedInput> Input<I> {
     pub fn new(data: UnifiedFuzzedInput<I>, features: Vec<Feature>) -> Self {
         let complexity = data.complexity();
@@ -244,7 +245,8 @@ pub struct InputPool<I: FuzzedInput> {
     /// The value at index i is equal to the value at i-1, plus the score of self.inputs[i].
     /// So it is a scan of the scores of the inputs.
     pub cumulative_weights: Vec<f64>,
-    rng: ThreadRng,
+    /// A random number generator, used for picking random inputs.
+    rng: SmallRng,
 }
 
 impl<I: FuzzedInput> InputPool<I> {
@@ -255,15 +257,14 @@ impl<I: FuzzedInput> InputPool<I> {
             size: 0,
             average_complexity: 0.0,
             inputs_of_feature: AHashMap::new(),
-            cumulative_weights: vec![],
-            rng: rand::thread_rng(),
+            cumulative_weights: Vec::new(),
+            rng: SmallRng::from_entropy(),
         }
     }
 
     pub fn add_favored_input(&mut self, data: UnifiedFuzzedInput<I>) {
         self.favored_input = Some(data);
     }
-
 
     /// Add the given input to the pool.
     ///
@@ -466,7 +467,7 @@ impl<I: FuzzedInput> InputPool<I> {
         } else {
             let weight_distr = UniformFloat::new(0.0, self.cumulative_weights.last().unwrap_or(&0.0));
             let dist = WeightedIndex {
-                cumulative_weights: self.cumulative_weights.clone(),
+                cumulative_weights: &self.cumulative_weights,
                 weight_distribution: weight_distr,
             };
             let x = dist.sample(&mut self.rng);
@@ -553,17 +554,6 @@ impl<I: FuzzedInput> InputPool<I> {
             (f.score(), None)
         }
     }
-
-    /// Get an approximation of the score attributed to the given feature
-    ///
-    /// if an input that contains that feature is added to the pool
-    pub fn predicted_feature_score(&self, f: Feature) -> f64 {
-        self.inputs_of_feature
-            .get(&f)
-            .map(|x| f.score() / (x.len() + 1) as f64)
-            .unwrap_or_else(|| f.score())
-    }
-
 
     /// Removes the input of the given id from the pool
     /// 
