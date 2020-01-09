@@ -16,7 +16,7 @@ enum FuzzerInputIndex<I: FuzzedInput> {
 }
 
 struct FuzzerState<I: FuzzedInput> {
-    pool: InputPool<I::Value>,
+    pool: InputPool<I>,
     input_idx: FuzzerInputIndex<I>,
     stats: FuzzerStats,
     settings: CommandLineArguments,
@@ -166,16 +166,16 @@ where
         self.state.stats.total_number_of_runs += 1;
 
         if let Some((cplx, features)) = self.analyze(cplx) {
-            let actions = self.state.pool.add(input.value.clone(), cplx, features);
+            let input_cloned = self.state.get_input().new_source();
+            let actions = self.state.pool.add(input_cloned, features);
             self.state.world.do_actions(actions)?;
+            self.state.update_stats();
+            self.state.world.report_event(FuzzerEvent::New, Some(self.state.stats));
+        
+            Ok(())
         } else {
-            return Ok(());
+            Ok(())
         }
-
-        self.state.update_stats();
-        self.state.world.report_event(FuzzerEvent::New, Some(self.state.stats));
-
-        Ok(())
     }
 
     fn process_next_inputs(&mut self) -> Result<(), std::io::Error> {

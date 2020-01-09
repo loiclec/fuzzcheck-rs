@@ -53,29 +53,6 @@
 //! share a common score that increases sub-linearly with the number of
 //! features in the group. But it is difficult to implement efficiently.
 //!
-//! # Why does `InputMetadataPool` exist?
-//!
-//! The input pool has to store each input, and therefore must be generic over
-//! their type, which will only be known by the consumers of the fuzzcheck
-//! crate. Because Rust performs monomorphization, the methods of generic
-//! types are not fully compiled until their generic type parameters
-//! are known. This means the compilation of `InputPool` cannot be finished
-//! by compiling the `fuzzcheck` crate alone. Instead, it is fully compiled
-//! only after compiling each fuzz test. But fuzz tests are compiled with
-//! SanitizerCoverage instrumentation. Therefore, if `InputPool` is generic,
-//! it will also be compiled with instrumentation, which will significantly
-//! slow it down. For this reason, we split the `InputPool` into two parts.
-//! The first part is generic and contains the list of inputs, it doesn't
-//! perform any expensive tasks. The second part, called `InputMetadataPool`,
-//! is not generic and contains information about each input that allows it
-//! to compute their score and determine which input to add or delete. Every
-//! computationally expensive methods is written on `InputMetadataPool`. The
-//! `InputPool` and `InputMetadataPool` are kept in sync by the
-//! `InputMetadataPool` returning a list of `MetadataChanges` to inform the
-//! pool of the updates it performed.
-
-use std::collections::HashMap;
-use std::collections::HashSet;
 
 use std::cmp::Ordering;
 use std::cmp::PartialOrd;
@@ -89,17 +66,11 @@ use rand::distributions::Distribution;
 use ahash::{AHashSet, AHashMap};
 
 use std::hash::{Hash, Hasher};
+use crate::input::FuzzedInput;
+use crate::input::UnifiedFuzzedInput;
 
 use crate::weighted_index::WeightedIndex;
 use crate::world::{FuzzerEvent, WorldAction};
-
-/// An action taken by the `InputMetadataPool` that must be communicated to other parts of the program
-#[derive(Clone)]
-enum MetadataChange {
-    Remove(usize),
-    Add(usize, Vec<Feature>),
-    ReportEvent(FuzzerEvent),
-}
 
 /// A unit of code coverage
 #[repr(align(8))]
@@ -203,256 +174,124 @@ pub enum InputPoolIndex {
     Favored,
 }
 
+
 /// Cached information about an input that is useful for analyzing it
-#[derive(Debug, PartialEq, Clone)]
-struct InputMetadata {
+// #[derive(Debug)]
+pub struct Input<I: FuzzedInput> {
     /// Index of the input in the `InputPool`
     id: usize,
-    /// Complexity of the input, as determined by its InputGenerator
-    complexity: f64,
     /// Set of features triggered by feeding the input to the test function
     features: Vec<Feature>,
     /// Code coverage score of the input
     score: f64,
     /// Subset of the input‘s features for which there is no simpler input in the pool that also contains them
     least_complex_for_features: AHashSet<Feature>,
-}
 
-impl InputMetadata {
-    pub fn new(complexity: f64, features: Vec<Feature>) -> InputMetadata {
-        InputMetadata {
+    data: UnifiedFuzzedInput<I>,
+
+    complexity: f64,
+}
+impl<I: FuzzedInput> Clone for Input<I> {
+    fn clone(&self) -> Self {
+        Input {
+            id: self.id,
+            features: self.features.clone(),
+            score: self.score,
+            least_complex_for_features: self.least_complex_for_features.clone(),
+            data: self.data.clone(),
+            complexity: self.complexity,
+        }
+    }
+}
+impl<I: FuzzedInput> Input<I> {
+    pub fn new(data: UnifiedFuzzedInput<I>, features: Vec<Feature>) -> Self {
+        let complexity = data.complexity();
+        Self {
             id: 0,
-            complexity,
             features,
             score: 0.0,
             least_complex_for_features: AHashSet::new(),
+            data,
+            complexity,
         }
     }
 }
 
 /// The `InputPool` stores and rates inputs based on their associated code coverage.
-pub struct InputPool<T: Clone> {
+pub struct InputPool<I: FuzzedInput> {
     /// List of all the inputs.
     ///
     /// A None in this vector is an input that was removed.
-    pub inputs: Vec<Option<T>>,
-    /// A special input that is given an artificially high score.
+    pub inputs: Vec<Option<Input<I>>>,
+    /// A special input that is given an artificially high score
     ///
     /// It is used for the input minifying function.
-    pub favored_input: Option<T>,
-    /// A mirror of the `InputPool` that contains the associated information for
-    /// each input, in order to compute their code coveraeg score.
-    ///
-    /// See the module’s documentation for more explanation on why the data inside
-    /// `InputMetadataPool` cannot be included in `InputPool` directly.
-    metadata: InputMetadataPool,
+    pub favored_input: Option<UnifiedFuzzedInput<I>>,
     /// Number of inputs in the pool.
     ///
     /// It is equal to the number of `Some` values in `self.inputs`
     pub size: usize,
     /// The average complexity of the inputs
     pub average_complexity: f64,
-    /// Vector used to randomly pick an input from the pool, favorizing high-scoring inputs.
-    ///
-    /// Each element is the sum of the last element and the score of the input at the
-    /// corresponding index. For example, if we have three inputs with scores: 1.0, 3.2, 1.5.
-    /// Then `cumulative_weights` will be `[1.0, 4.2, 5,7]`.
-    ///
-    /// Selecting an input is then done by choosing a random number between 0 and 5.7,
-    /// and then returning the index of the first element in `cumulative_weights` that is
-    /// greater than that random number.
+    /// A map that lists all the inputs that contain a particular feature
+    /// 
+    /// The keys contain all encountered features.
+    /// The values are the ids of the inputs that contain the corresponding feature
+    inputs_of_feature: AHashMap<Feature, Vec<usize>>,
+    /// A vector used to quickly pick a random input based on its relative score
+    /// 
+    /// The value at index i is equal to the value at i-1, plus the score of self.inputs[i].
+    /// So it is a scan of the scores of the inputs.
     pub cumulative_weights: Vec<f64>,
     rng: ThreadRng,
 }
 
-impl<T: Clone> InputPool<T> {
+impl<I: FuzzedInput> InputPool<I> {
     pub fn new() -> Self {
         Self {
             inputs: vec![],
             favored_input: None,
-            metadata: InputMetadataPool::new(),
             size: 0,
             average_complexity: 0.0,
+            inputs_of_feature: AHashMap::new(),
             cumulative_weights: vec![],
             rng: rand::thread_rng(),
         }
     }
 
-    pub fn add_favored_input(&mut self, input: T) {
-        self.favored_input = Some(input);
+    pub fn add_favored_input(&mut self, data: UnifiedFuzzedInput<I>) {
+        self.favored_input = Some(data);
     }
 
-    /// Convert a list of `MetadataChange` into `WorldAction`
-    fn convert_partial_world_actions(&self, actions: &[MetadataChange]) -> Vec<WorldAction<T>> {
-        actions
-            .iter()
-            .map(|p| match p {
-                MetadataChange::Add(x, fs) => WorldAction::Add(self.inputs[*x].as_ref().unwrap().clone(), fs.clone()),
-                MetadataChange::Remove(x) => WorldAction::Remove(self.inputs[*x].as_ref().unwrap().clone()),
-                MetadataChange::ReportEvent(e) => WorldAction::ReportEvent(e.clone()),
-            })
-            .collect()
-    }
 
     /// Add the given input to the pool.
     ///
     /// Recomputes the score of every input in the pool following the deletion.
     ///
     /// Returns the list of actions that the world has to handle to stay in sync with the pool
-    pub fn add(&mut self, input: T, cplx: f64, features: Vec<Feature>) -> Vec<WorldAction<T>> {
-        let actions = self.metadata.add(InputMetadata::new(cplx, features));
-        self.inputs.push(Some(input));
-        self.update_stats();
-
-        let full_actions = self.convert_partial_world_actions(&actions);
-        for a in actions.iter() {
-            match a {
-                MetadataChange::Remove(i) => self.inputs[*i] = None,
-                _ => continue,
-            }
-        }
-        full_actions
-    }
-
-    /// Removes the lowest ranking input in the pool
-    ///
-    /// Recomputes the score of every input in the pool following the deletion.
-    ///
-    /// Returns the list of actions that the world has to handle to stay in sync with the pool
-    pub fn remove_lowest(&mut self) -> Vec<WorldAction<T>> {
-        let actions = self.metadata.remove_lowest();
-        self.update_stats();
-
-        let full_actions = self.convert_partial_world_actions(&actions);
-        for a in actions.iter() {
-            match a {
-                MetadataChange::Remove(i) => self.inputs[*i] = None,
-                _ => continue,
-            }
-        }
-        full_actions
-    }
-
-    /// Returns the combined score of every input in the pool
-    ///
-    /// It can be interpreted as the total score of the fuzzing process
-    pub fn score(&self) -> f64 {
-        *self.cumulative_weights.last().unwrap_or(&0.0)
-    }
-
-    /// Returns the index of an interesting input in the pool
-    pub fn random_index(&mut self) -> InputPoolIndex {
-        if self.favored_input.is_some() && (self.rng.gen_bool(0.25) || self.metadata.inputs.is_empty()) {
-            InputPoolIndex::Favored
-        } else {
-            let weight_distr = UniformFloat::new(0.0, self.cumulative_weights.last().unwrap_or(&0.0));
-            let dist = WeightedIndex {
-                cumulative_weights: self.cumulative_weights.clone(),
-                weight_distribution: weight_distr,
-            };
-            let x = dist.sample(&mut self.rng);
-            InputPoolIndex::Normal(x)
-        }
-    }
-
-    /// Update global statistics of the input pool following a change in its content
-    fn update_stats(&mut self) {
-        self.cumulative_weights = self
-            .metadata
-            .inputs
-            .iter()
-            .scan(0.0, |state, x| {
-                *state += x.as_ref().map(|x| x.score).unwrap_or(0.0);
-                Some(*state)
-            })
-            .collect();
-
-        let len = self.inputs.iter().fold(0, |c, x| if x.is_some() { c + 1 } else { c });
-        if len == 0 {
-            self.average_complexity = 0.0;
-        } else {
-            self.average_complexity = self
-                .metadata
-                .inputs
-                .iter()
-                .filter_map(|x| x.as_ref())
-                .fold(0.0, |c, x| c + x.complexity)
-                / len as f64;
-        }
-        self.size = len;
-    }
-
-    /// Get the input at the given index
-    pub fn get(&self, idx: InputPoolIndex) -> T {
-        match idx {
-            InputPoolIndex::Normal(idx) => self.inputs[idx].as_ref().unwrap().clone(),
-            InputPoolIndex::Favored => self.favored_input.as_ref().unwrap().clone(),
-        }
-    }
-
-    /// Get the least complex input in the pool that contains a certain feature, alongside its score
-    ///
-    /// Returns Some((input, score)) or None if no input contains this feature
-    pub fn least_complex_input_for_feature(&mut self, f: Feature) -> Option<(f64, f64)> {
-        let inputs = &self.metadata.inputs;
-        if let Some(input) = self
-            .metadata
-            .inputs_of_feature
-            .get(&f)
-            .map(|x| inputs[*x.last().unwrap()].as_ref().unwrap())
-        {
-            Some((input.complexity, input.score))
-        } else {
-            None
-        }
-    }
-
-    /// Get an approximation of the score attributed to the given feature
-    ///
-    /// if an input that contains that feature is added to the pool
-    pub fn predicted_feature_score(&self, f: Feature) -> f64 {
-        self.metadata
-            .inputs_of_feature
-            .get(&f)
-            .map(|x| f.score() / (x.len() + 1) as f64)
-            .unwrap_or_else(|| f.score())
-    }
-}
-
-/// The part of the InputPool that is not generic over the type of the Input
-///
-/// See module documentation for more information about why such a type must exist.
-#[derive(Debug)]
-struct InputMetadataPool {
-    inputs: Vec<Option<InputMetadata>>,
-    inputs_of_feature: AHashMap<Feature, Vec<usize>>,
-}
-
-impl InputMetadataPool {
-    fn new() -> Self {
-        InputMetadataPool {
-            inputs: Vec::new(),
-            inputs_of_feature: AHashMap::new(),
-        }
-    }
-
-    /// Add the given input to the pool.
-    ///
-    /// Recomputes the score of every input in the pool following the deletion.
-    ///
-    /// Returns the list of actions that the pool has to handle to stay in sync with its metadata component
-    fn add(&mut self, mut element: InputMetadata) -> Vec<MetadataChange> {
+    pub fn add(&mut self, data: UnifiedFuzzedInput<I>, features: Vec<Feature>) -> Vec<WorldAction<I::Value>> {
         /* Goals:
-        1. Find for which of its features the new element is the least complex (TODO: phrasing)
+        1. Find for which of its features the new element is the least complex
         2. Delete elements that are not worth keeping anymore
         3. Update the score of every element that shares a common feature with the new one
         4. Update the list of inputs for each feature
         5. Find the score of the new element
         6. Return the actions taken in this function
+
+        The update to the pool is incremental. Not everything is recomputed from scratch. 
+        This is why (3) says:
+            “Update the score of every element that shares a common feature with the new one”
+        instead of:
+            “Recompute the score of every input”
+
+        TODO: insert new input in a gap instead of adding it to the end
         */
+
+        let mut element = Input::new(data, features);
 
         // An element's id is its index in the pool. We already know that the element
         // will be added at the end of the pool, so its id is the length of the pool.
+        // TODO: change that
         element.id = self.inputs.len();
 
         // The following loop is for Goal 1 and 2.
@@ -473,7 +312,7 @@ impl InputMetadataPool {
                 let affected_element = &mut self.inputs[*id].as_mut().unwrap();
 
                 // if the complexity of that element is higher than the new input,
-                // myaybe it needs to be deleted. We need to make sure it is still the
+                // maybe it needs to be deleted. We need to make sure it is still the
                 // smallest for any feature and is worth keeping.
                 if affected_element.complexity >= element.complexity {
                     // The following line will not do anything in most cases, because
@@ -500,7 +339,8 @@ impl InputMetadataPool {
             }
         }
         // Goal 2.
-
+        // TODO: this could be replaced by iterating over every input and removing those are not
+        // simplest for any feature. Would this be simpler/faster? Maybe in some case.
         // See: #PBeq2fKehxcEz
         to_delete.sort();
         to_delete.dedup();
@@ -508,7 +348,7 @@ impl InputMetadataPool {
         // Goal 7: We save the inputs that are deleted in order to inform the external world of that action later
         let inputs_to_delete: Vec<_> = to_delete
             .iter()
-            .map(|idx| self.inputs[*idx].as_ref().unwrap().id)
+            .map(|idx| self.inputs[*idx].as_ref().unwrap().data.value.clone())
             .collect();
 
         // Actually delete the elements marked for deletion
@@ -522,11 +362,13 @@ impl InputMetadataPool {
             // Updating the score of each affected element is done by subtracting the
             // previous portion of the score caused by the feature, and adding the new one
             // The portion of the score caused by a feature is `feature.score() / nbr_inputs_containing_feature`
+            let feature_score = feature.score();
+            let number_of_inputs_sharing_feature = inputs_of_feature.len() as f64;
             for id in inputs_of_feature.iter() {
                 let element_with_feature = &mut self.inputs[*id].as_mut().unwrap();
                 element_with_feature.score = element_with_feature.score
-                    - feature.score() / (inputs_of_feature.len() as f64)
-                    + feature.score() / ((inputs_of_feature.len() + 1) as f64);
+                    - feature_score / number_of_inputs_sharing_feature
+                    + feature_score / (number_of_inputs_sharing_feature + 1.0)
             }
 
             // Goal 4.
@@ -537,25 +379,27 @@ impl InputMetadataPool {
                 inputs[*e].as_ref().map(|x| x.complexity).unwrap_or(-1.0) < element.complexity
             });
 
-            // Goal 5.
-            element.score += feature.score() / (inputs_of_feature.len() as f64);
+            // Goal 5.                      // equivalent to the current number of inputs sharing the feature
+            element.score += feature_score / (number_of_inputs_sharing_feature + 1.0);
         }
 
-        self.inputs.push(Some(element.clone()));
+        let value = element.data.value.clone();
+        self.inputs.push(Some(element));
 
         // Goal 6.
-        let mut actions: Vec<MetadataChange> = Vec::new();
+        let mut actions: Vec<WorldAction<I::Value>> = Vec::new();
 
-        actions.push(MetadataChange::Add(element.id, vec![]));
+        actions.push(WorldAction::Add(value, vec![]));
 
-        for i in &inputs_to_delete {
-            actions.push(MetadataChange::Remove(*i));
-        }
         if !inputs_to_delete.is_empty() {
-            actions.push(MetadataChange::ReportEvent(FuzzerEvent::Deleted(
-                inputs_to_delete.len(),
-            )));
+            actions.push(WorldAction::ReportEvent(FuzzerEvent::Deleted(inputs_to_delete.len())));
         }
+
+        for i in inputs_to_delete.into_iter() {
+            actions.push(WorldAction::Remove(i));
+        }
+
+        self.update_stats();
 
         actions
     }
@@ -564,60 +408,196 @@ impl InputMetadataPool {
     ///
     /// Recomputes the score of every input in the pool following the deletion.
     ///
-    /// Returns the list of actions that the pool has to handle to stay in sync with its metadata component
-    fn remove_lowest(&mut self) -> Vec<MetadataChange> {
-        let input_to_delete: Option<usize>;
+    /// Returns the list of actions that the world has to handle to stay in sync with the pool
+    pub fn remove_lowest(&mut self) -> Vec<WorldAction<I::Value>> {
+        let actions = {
+            let input_to_delete: Option<I::Value>;
 
-        let e = self
-            .inputs
-            .iter()
-            .filter_map(|x| x.as_ref())
-            .min_by(|x, y| PartialOrd::partial_cmp(&x.score, &y.score).unwrap_or(Ordering::Equal))
-            .cloned();
+            let e = self
+                .inputs
+                .iter()
+                .filter_map(|x| x.as_ref())
+                .min_by(|x, y| PartialOrd::partial_cmp(&x.score, &y.score).unwrap_or(Ordering::Equal))
+                .cloned(); // TODO: not ideal? don't care?
 
-        if let Some(e) = e {
-            self.remove_input_id(e.id);
-            input_to_delete = Some(e.id);
+            if let Some(e) = e {
+                self.remove_input_id(e.id);
+                input_to_delete = Some(e.data.value);
 
-            for f in e.features.iter() {
-                if let Some(new_lowest_cplx_id_for_f) =
-                    self.inputs_of_feature.get(f).map(|x| x.last().copied()).flatten()
-                {
-                    let new_lowest_e_for_f = &mut self.inputs[new_lowest_cplx_id_for_f].as_mut().unwrap();
-                    if new_lowest_e_for_f.least_complex_for_features.contains(f) {
-                        continue;
+                for f in e.features.iter() {
+                    if let Some(new_lowest_cplx_id_for_f) =
+                        self.inputs_of_feature.get(f).map(|x| x.last().copied()).flatten()
+                    {
+                        let new_lowest_e_for_f = &mut self.inputs[new_lowest_cplx_id_for_f].as_mut().unwrap();
+                        if new_lowest_e_for_f.least_complex_for_features.contains(f) {
+                            continue;
+                        }
+                        new_lowest_e_for_f.least_complex_for_features.insert(*f);
                     }
-                    new_lowest_e_for_f.least_complex_for_features.insert(*f);
                 }
+            } else {
+                input_to_delete = None;
             }
-        } else {
-            input_to_delete = None;
-        }
 
-        if let Some(input_to_delete) = input_to_delete {
-            vec![MetadataChange::Remove(input_to_delete)]
+            if let Some(input_to_delete) = input_to_delete {
+                vec![WorldAction::Remove(input_to_delete)]
+            } else {
+                vec![]
+            }
+        };
+
+        self.update_stats();
+
+        actions
+    }
+
+    /// Returns the combined score of every input in the pool
+    ///
+    /// It can be interpreted as the total score of the fuzzing process
+    pub fn score(&self) -> f64 {
+        *self.cumulative_weights.last().unwrap_or(&0.0)
+    }
+
+    /// Returns the index of an interesting input in the pool
+    pub fn random_index(&mut self) -> InputPoolIndex {
+        if self.favored_input.is_some() && (self.rng.gen_bool(0.25) || self.inputs.is_empty()) {
+            InputPoolIndex::Favored
         } else {
-            vec![]
+            let weight_distr = UniformFloat::new(0.0, self.cumulative_weights.last().unwrap_or(&0.0));
+            let dist = WeightedIndex {
+                cumulative_weights: self.cumulative_weights.clone(),
+                weight_distribution: weight_distr,
+            };
+            let x = dist.sample(&mut self.rng);
+            InputPoolIndex::Normal(x)
         }
     }
 
-    fn remove_input_id(&mut self, id: usize) {
-        let e = self.inputs[id].as_ref().unwrap().clone();
-        assert_eq!(e.id, id);
-        for f in e.features.iter() {
-            self.inputs_of_feature.entry(*f).and_modify(|x| {
-                x.remove_item(&e.id);
-            });
-            let new_mult = self.inputs_of_feature[f].len();
-            for j in self.inputs_of_feature[f].iter() {
-                let mut e = &mut self.inputs[*j].as_mut().unwrap();
-                e.score = e.score - (f.score() / (new_mult + 1) as f64) + (f.score() / new_mult as f64);
+    /// Update global statistics of the input pool following a change in its content
+    fn update_stats(&mut self) {
+        self.cumulative_weights = self
+            .inputs
+            .iter()
+            .scan(0.0, |state, x| {
+                *state += x.as_ref().map(|x| x.score).unwrap_or(0.0);
+                Some(*state)
+            })
+            .collect();
+
+        let len = self.inputs.iter().fold(0, |c, x| if x.is_some() { c + 1 } else { c });
+        if len == 0 {
+            self.average_complexity = 0.0;
+        } else {
+            self.average_complexity = self
+                .inputs
+                .iter()
+                .filter_map(|x| x.as_ref())
+                .fold(0.0, |c, x| c + x.complexity)
+                / len as f64;
+        }
+        self.size = len;
+    }
+
+     /// Get the input at the given index along with its complexity and the number of mutations tried on this input
+     pub fn get_ref(&self, idx: InputPoolIndex) -> &'_ UnifiedFuzzedInput<I> {
+        match idx {
+            InputPoolIndex::Normal(idx) => {
+                &self.inputs[idx].as_ref().unwrap().data
             }
-            if new_mult == 0 {
+            InputPoolIndex::Favored => {
+                self.favored_input.as_ref().unwrap()
+            }
+        }
+    }
+    /// Get the input at the given index along with its complexity and the number of mutations tried on this input
+    pub fn get(&mut self, idx: InputPoolIndex) -> &'_ mut UnifiedFuzzedInput<I> {
+        match idx {
+            InputPoolIndex::Normal(idx) => {
+                &mut self.inputs[idx].as_mut().unwrap().data
+            }
+            InputPoolIndex::Favored => {
+                self.favored_input.as_mut().unwrap()
+            }
+        }
+    }
+    /// Get the input at the given index along with its complexity and the number of mutations tried on this input
+    pub fn get_opt(&mut self, idx: InputPoolIndex) -> Option<&'_ mut UnifiedFuzzedInput<I>> {
+        match idx {
+            InputPoolIndex::Normal(idx) => {
+                self.inputs[idx].as_mut().map(|x| &mut x.data)
+            }
+            InputPoolIndex::Favored => {
+                self.favored_input.as_mut()
+            }
+        }
+    }
+
+    /// Get the least complex input in the pool that contains a certain feature, alongside its score
+    ///
+    /// Returns Some((input, score)) or None if no input contains this feature
+    pub fn least_complex_input_for_feature(&mut self, f: Feature) -> Option<(f64, f64)> {
+        let inputs = &self.inputs;
+        if let Some(input) = self
+            .inputs_of_feature
+            .get(&f)
+            .map(|x| inputs[*x.last().unwrap()].as_ref().unwrap())
+        {
+            Some((input.complexity, input.score))
+        } else {
+            None
+        }
+    }
+
+    /// Get an approximation of the score attributed to the given feature
+    ///
+    /// if an input that contains that feature is added to the pool
+    pub fn predicted_feature_score(&self, f: Feature) -> f64 {
+        self.inputs_of_feature
+            .get(&f)
+            .map(|x| f.score() / (x.len() + 1) as f64)
+            .unwrap_or_else(|| f.score())
+    }
+
+
+    /// Removes the input of the given id from the pool
+    /// 
+    /// Updates the pool accordingly to keep the scores correct,
+    /// but does not update the global statistics managed by `self.update_stats()`
+    fn remove_input_id(&mut self, id: usize) {
+
+        let input_features = self.inputs[id].as_ref().unwrap().features.clone();
+
+        for f in input_features.iter() {
+            
+            let f_score = f.score();
+            let pool_inputs = &mut self.inputs;
+            
+            let mut mult: usize = 0;
+            // For every input that shares a common feature with the one that's being deleted,
+            // we update its score accordingly. We know that its score will increase because the
+            // multiplicity of one of its features, `f`, went down by one. 
+            
+            // At this point, inputs_of_feature has not been updated to remove the deletd input. So we
+            // do that. Then, we update the score of each affected input by removing the old score 
+            // attributed to that feature (f_score / old_mult) and adding the new score (f_score / new_mult)
+            // to that feature, f_score / (new_mult+1), then add the new score, f_score / new_mult.
+            self.inputs_of_feature.entry(*f).and_modify(|x| {
+                let old_mult = x.len();
+                x.remove_item(&id);
+                let new_mult = x.len();
+                for j in x.iter() {
+                    let mut e = &mut pool_inputs[*j].as_mut().unwrap();
+                    e.score = e.score - (f_score / old_mult as f64) + (f_score / new_mult as f64);
+                }
+                mult = new_mult;
+            });
+            
+            if mult == 0 {
                 self.inputs_of_feature.remove(f);
             }
         }
-        self.inputs[e.id] = None;
+
+        self.inputs[id] = None;
     }
 }
 
@@ -636,12 +616,25 @@ where
     vec.insert(insertion, element);
 }
 
-// TODO: tests on InputPool, not InputMetadataPool. Including testing the returned WorldAction
+// TODO: include testing the returned WorldAction
 // TODO: write unit tests as data, read them from files
 // TODO: write tests for adding inputs that are not simplest for any feature but are predicted to have a greater score
 #[cfg(test)]
 mod tests {
     use super::*;
+    
+    fn equal_input(a: Input<FuzzedVoid>, b: Input<FuzzedVoid>) -> bool {
+        a.id == b.id &&
+        a.features == b.features &&
+        a.score == b.score &&
+        a.least_complex_for_features == b.least_complex_for_features &&
+        a.data.value == b.data.value && a.data.state == b.data.state &&
+        a.complexity == b.complexity
+    }
+
+    fn mock(cplx: f64) -> UnifiedFuzzedInput<FuzzedVoid> {
+        UnifiedFuzzedInput::new((cplx, ()))
+    }
 
     fn edge_f(pc_guard: usize, intensity: u16) -> Feature {
         Feature::edge(pc_guard, intensity)
@@ -649,7 +642,7 @@ mod tests {
 
     #[test]
     fn new_pool() {
-        let pool = InputMetadataPool::new();
+        let pool = InputPool::<FuzzedVoid>::new();
         assert!(pool.inputs.is_empty());
         assert!(pool.inputs_of_feature.is_empty());
     }
@@ -657,35 +650,35 @@ mod tests {
     #[test]
     fn new_element() {
         let features = vec![edge_f(0, 1), edge_f(1, 1)];
-        let element = InputMetadata::new(10.0, features);
+        let element = Input::new(mock(10.0), features);
 
         assert_eq!(element.score.classify(), std::num::FpCategory::Zero);
     }
 
     #[test]
     fn add_one_element() {
-        let mut pool = InputMetadataPool::new();
+        let mut pool = InputPool::<FuzzedVoid>::new();
 
         let (f1, f2) = (edge_f(0, 1), edge_f(1, 1));
 
         let features = vec![f1, f2];
-        let element = InputMetadata::new(10.0, features.clone());
+        let element = Input::new(mock(10.0), features.clone());
 
-        let _ = pool.add(element.clone());
+        let _ = pool.add(mock(10.0), element.features);
 
-        let predicted_element_in_pool = InputMetadata {
+        let predicted_element_in_pool = Input {
             id: 0,
             complexity: element.complexity,
             features: features.clone(),
             score: 2.0,
             least_complex_for_features: features.iter().cloned().collect(),
+            data: mock(10.0),
         };
 
         assert_eq!(pool.inputs.len(), 1);
-        assert_eq!(pool.inputs[0].as_ref().unwrap().clone(), predicted_element_in_pool);
+        assert!(equal_input(pool.inputs[0].as_ref().unwrap().clone(), predicted_element_in_pool));
 
-        let mut predicted_inputs_of_feature =
-            AHashMap::<Feature, Vec<usize>>::new();
+        let mut predicted_inputs_of_feature = AHashMap::<Feature, Vec<usize>>::new();
         predicted_inputs_of_feature.insert(f1, vec![0]);
         predicted_inputs_of_feature.insert(f2, vec![0]);
         assert_eq!(pool.inputs_of_feature, predicted_inputs_of_feature);
@@ -693,41 +686,42 @@ mod tests {
 
     #[test]
     fn add_two_elements_with_entirely_different_features() {
-        let mut pool = InputMetadataPool::new();
+        let mut pool = InputPool::<FuzzedVoid>::new();
 
         let (f1, f2, f3, f4) = (edge_f(0, 1), edge_f(1, 1), edge_f(2, 1), edge_f(3, 1));
 
         let features_1 = vec![f1, f2];
-        let element_1 = InputMetadata::new(10.0, features_1.clone());
+        let element_1 = Input::new(mock(10.0), features_1.clone());
 
         let features_2 = vec![f3, f4];
-        let element_2 = InputMetadata::new(25.0, features_2.clone());
+        let element_2 = Input::new(mock(25.0), features_2.clone());
 
-        let _ = pool.add(element_1.clone());
-        let _ = pool.add(element_2.clone());
+        let _ = pool.add(element_1.data, element_1.features);
+        let _ = pool.add(element_2.data, element_2.features);
 
-        let predicted_element_1_in_pool = InputMetadata {
+        let predicted_element_1_in_pool = Input {
             id: 0,
             complexity: element_1.complexity,
             features: features_1.clone(),
             score: 2.0,
             least_complex_for_features: features_1.iter().cloned().collect(),
+            data: element_1.data,
         };
 
-        let predicted_element_2_in_pool = InputMetadata {
+        let predicted_element_2_in_pool = Input {
             id: 1,
             complexity: element_2.complexity,
             features: features_2.clone(),
             score: 2.0,
             least_complex_for_features: features_2.iter().cloned().collect(),
+            data: element_2.data,
         };
 
         assert_eq!(pool.inputs.len(), 2);
-        assert_eq!(pool.inputs[0].as_ref().unwrap().clone(), predicted_element_1_in_pool);
-        assert_eq!(pool.inputs[1].as_ref().unwrap().clone(), predicted_element_2_in_pool);
+        assert!(equal_input(pool.inputs[0].as_ref().unwrap().clone(), predicted_element_1_in_pool));
+        assert!(equal_input(pool.inputs[1].as_ref().unwrap().clone(), predicted_element_2_in_pool));
 
-        let mut predicted_inputs_of_feature =
-            AHashMap::<Feature, Vec<usize>>::new();
+        let mut predicted_inputs_of_feature = AHashMap::<Feature, Vec<usize>>::new();
         predicted_inputs_of_feature.insert(f1, vec![0]);
         predicted_inputs_of_feature.insert(f2, vec![0]);
         predicted_inputs_of_feature.insert(f3, vec![1]);
@@ -738,41 +732,42 @@ mod tests {
 
     #[test]
     fn add_two_elements_with_one_common_feature_1() {
-        let mut pool = InputMetadataPool::new();
+        let mut pool = InputPool::<FuzzedVoid>::new();
 
         let (f1, f2, f3) = (edge_f(0, 1), edge_f(1, 1), edge_f(3, 1));
 
         let features_1 = vec![f1, f2];
-        let element_1 = InputMetadata::new(10.0, features_1.clone());
+        let element_1 = Input::new(mock(10.0), features_1.clone());
 
         let features_2 = vec![f1, f3];
-        let element_2 = InputMetadata::new(25.0, features_2.clone());
+        let element_2 = Input::new(mock(25.0), features_2.clone());
 
-        let _ = pool.add(element_1.clone());
-        let _ = pool.add(element_2.clone());
+        let _ = pool.add(element_1.data, element_1.features);
+        let _ = pool.add(element_2.data, element_2.features);
 
-        let predicted_element_1_in_pool = InputMetadata {
+        let predicted_element_1_in_pool = Input {
             id: 0,
             complexity: element_1.complexity,
             features: features_1.clone(),
             score: 1.5,
             least_complex_for_features: features_1.iter().cloned().collect(),
+            data: element_1.data,
         };
 
-        let predicted_element_2_in_pool = InputMetadata {
+        let predicted_element_2_in_pool = Input {
             id: 1,
             complexity: element_2.complexity,
-            features: features_2.clone(),
+            features: features_2,
             score: 1.5,
             least_complex_for_features: vec![f3].iter().cloned().collect(),
+            data: element_2.data,
         };
 
         assert_eq!(pool.inputs.len(), 2);
-        assert_eq!(pool.inputs[0].as_ref().unwrap().clone(), predicted_element_1_in_pool);
-        assert_eq!(pool.inputs[1].as_ref().unwrap().clone(), predicted_element_2_in_pool);
+        assert!(equal_input(pool.inputs[0].as_ref().unwrap().clone(), predicted_element_1_in_pool));
+        assert!(equal_input(pool.inputs[1].as_ref().unwrap().clone(), predicted_element_2_in_pool));
 
-        let mut predicted_inputs_of_feature =
-            AHashMap::<Feature, Vec<usize>>::new();
+        let mut predicted_inputs_of_feature = AHashMap::<Feature, Vec<usize>>::new();
         predicted_inputs_of_feature.insert(f1, vec![1, 0]);
         predicted_inputs_of_feature.insert(f2, vec![0]);
         predicted_inputs_of_feature.insert(f3, vec![1]);
@@ -782,41 +777,42 @@ mod tests {
 
     #[test]
     fn add_two_elements_with_one_common_feature_2() {
-        let mut pool = InputMetadataPool::new();
+        let mut pool = InputPool::<FuzzedVoid>::new();
 
         let (f1, f2, f3) = (edge_f(0, 1), edge_f(1, 1), edge_f(3, 1));
 
         let features_1 = vec![f1, f2];
-        let element_1 = InputMetadata::new(25.0, features_1.clone());
+        let element_1 = Input::new(mock(25.0), features_1.clone());
 
         let features_2 = vec![f1, f3];
-        let element_2 = InputMetadata::new(10.0, features_2.clone());
+        let element_2 = Input::new(mock(10.0), features_2.clone());
 
-        let _ = pool.add(element_1.clone());
-        let _ = pool.add(element_2.clone());
+        let _ = pool.add(element_1.data, element_1.features);
+        let _ = pool.add(element_2.data, element_2.features);
 
-        let predicted_element_1_in_pool = InputMetadata {
+        let predicted_element_1_in_pool = Input {
             id: 0,
             complexity: element_1.complexity,
-            features: features_1.clone(),
+            features: features_1,
             score: 1.5,
             least_complex_for_features: vec![f2].iter().cloned().collect(),
+            data: element_1.data,
         };
 
-        let predicted_element_2_in_pool = InputMetadata {
+        let predicted_element_2_in_pool = Input {
             id: 1,
             complexity: element_2.complexity,
             features: features_2.clone(),
             score: 1.5,
             least_complex_for_features: features_2.iter().cloned().collect(),
+            data: element_2.data,
         };
 
         assert_eq!(pool.inputs.len(), 2);
-        assert_eq!(pool.inputs[0].as_ref().unwrap().clone(), predicted_element_1_in_pool);
-        assert_eq!(pool.inputs[1].as_ref().unwrap().clone(), predicted_element_2_in_pool);
+        assert!(equal_input(pool.inputs[0].as_ref().unwrap().clone(), predicted_element_1_in_pool));
+        assert!(equal_input(pool.inputs[1].as_ref().unwrap().clone(), predicted_element_2_in_pool));
 
-        let mut predicted_inputs_of_feature =
-            AHashMap::<Feature, Vec<usize>>::new();
+        let mut predicted_inputs_of_feature = AHashMap::<Feature, Vec<usize>>::new();
         predicted_inputs_of_feature.insert(f1, vec![0, 1]);
         predicted_inputs_of_feature.insert(f2, vec![0]);
         predicted_inputs_of_feature.insert(f3, vec![1]);
@@ -826,32 +822,32 @@ mod tests {
 
     #[test]
     fn add_two_elements_with_identical_features() {
-        let mut pool = InputMetadataPool::new();
+        let mut pool = InputPool::<FuzzedVoid>::new();
 
         let (f1, f2) = (edge_f(0, 1), edge_f(1, 1));
 
         let features = vec![f1, f2];
-        let element_1 = InputMetadata::new(25.0, features.clone());
+        let element_1 = Input::new(mock(25.0), features.clone());
 
-        let element_2 = InputMetadata::new(10.0, features.clone());
+        let element_2 = Input::new(mock(10.0), features.clone());
 
-        let _ = pool.add(element_1.clone());
-        let _ = pool.add(element_2.clone());
+        let _ = pool.add(element_1.data, element_1.features);
+        let _ = pool.add(element_2.data, element_2.features);
 
-        let predicted_element_in_pool = InputMetadata {
+        let predicted_element_in_pool = Input {
             id: 1,
             complexity: element_2.complexity,
             features: features.clone(),
             score: 2.0,
             least_complex_for_features: features.iter().cloned().collect(),
+            data: element_2.data,
         };
 
         assert_eq!(pool.inputs.len(), 2);
         assert!(pool.inputs[0].is_none());
-        assert_eq!(pool.inputs[1].as_ref().unwrap().clone(), predicted_element_in_pool);
+        assert!(equal_input(pool.inputs[1].as_ref().unwrap().clone(), predicted_element_in_pool));
 
-        let mut predicted_inputs_of_feature =
-            AHashMap::<Feature, Vec<usize>>::new();
+        let mut predicted_inputs_of_feature = AHashMap::<Feature, Vec<usize>>::new();
         predicted_inputs_of_feature.insert(f1, vec![1]);
         predicted_inputs_of_feature.insert(f2, vec![1]);
 
@@ -860,38 +856,38 @@ mod tests {
 
     #[test]
     fn add_three_elements_the_last_one_replaces_the_two_first() {
-        let mut pool = InputMetadataPool::new();
+        let mut pool = InputPool::<FuzzedVoid>::new();
 
         let (f1, f2, f3, f4) = (edge_f(0, 1), edge_f(1, 1), edge_f(3, 1), edge_f(4, 1));
 
         let features_1 = vec![f1, f2];
-        let element_1 = InputMetadata::new(20.0, features_1.clone());
+        let element_1 = Input::new(mock(20.0), features_1);
 
         let features_2 = vec![f3, f4];
-        let element_2 = InputMetadata::new(25.0, features_2.clone());
+        let element_2 = Input::new(mock(25.0), features_2);
 
         let features_3 = vec![f1, f2, f3, f4];
-        let element_3 = InputMetadata::new(15.0, features_3.clone());
+        let element_3 = Input::new(mock(15.0), features_3.clone());
 
-        let _ = pool.add(element_1.clone());
-        let _ = pool.add(element_2.clone());
-        let _ = pool.add(element_3.clone());
+        let _ = pool.add(element_1.data, element_1.features);
+        let _ = pool.add(element_2.data, element_2.features);
+        let _ = pool.add(element_3.data, element_3.features);
 
-        let predicted_element_in_pool = InputMetadata {
+        let predicted_element_in_pool = Input {
             id: 2,
             complexity: element_3.complexity,
             features: features_3.clone(),
             score: 4.0,
             least_complex_for_features: features_3.iter().cloned().collect(),
+            data: element_3.data,
         };
 
         assert_eq!(pool.inputs.len(), 3);
         assert!(pool.inputs[0].is_none());
         assert!(pool.inputs[1].is_none());
-        assert_eq!(pool.inputs[2].as_ref().unwrap().clone(), predicted_element_in_pool);
+        assert!(equal_input(pool.inputs[2].as_ref().unwrap().clone(), predicted_element_in_pool));
 
-        let mut predicted_inputs_of_feature =
-            AHashMap::<Feature, Vec<usize>>::new();
+        let mut predicted_inputs_of_feature = AHashMap::<Feature, Vec<usize>>::new();
         predicted_inputs_of_feature.insert(f1, vec![2]);
         predicted_inputs_of_feature.insert(f2, vec![2]);
         predicted_inputs_of_feature.insert(f3, vec![2]);
@@ -902,45 +898,46 @@ mod tests {
 
     #[test]
     fn add_three_elements_with_some_common_features_and_equal_complexities() {
-        let mut pool = InputMetadataPool::new();
+        let mut pool = InputPool::<FuzzedVoid>::new();
 
         let (f1, f2, f3) = (edge_f(0, 1), edge_f(1, 1), edge_f(3, 1));
 
         let features_1 = vec![f1, f2];
-        let element_1 = InputMetadata::new(20.0, features_1.clone());
+        let element_1 = Input::new(mock(20.0), features_1);
 
         let features_2 = vec![f1, f3];
-        let element_2 = InputMetadata::new(20.0, features_2.clone());
+        let element_2 = Input::new(mock(20.0), features_2.clone());
 
         let features_3 = vec![f2, f3];
-        let element_3 = InputMetadata::new(20.0, features_3.clone());
+        let element_3 = Input::new(mock(20.0), features_3.clone());
 
-        let _ = pool.add(element_1.clone());
-        let _ = pool.add(element_2.clone());
-        let _ = pool.add(element_3.clone());
+        let _ = pool.add(element_1.data, element_1.features);
+        let _ = pool.add(element_2.data, element_2.features);
+        let _ = pool.add(element_3.data, element_3.features);
 
-        let predicted_element_1_in_pool = InputMetadata {
+        let predicted_element_1_in_pool = Input {
             id: 1,
             complexity: element_2.complexity,
-            features: features_2.clone(),
+            features: features_2,
             score: 1.5,
             least_complex_for_features: vec![f1].iter().cloned().collect(),
+            data: element_2.data,
         };
-        let predicted_element_2_in_pool = InputMetadata {
+        let predicted_element_2_in_pool = Input {
             id: 2,
             complexity: element_3.complexity,
-            features: features_3.clone(),
+            features: features_3,
             score: 1.5,
             least_complex_for_features: vec![f2, f3].iter().cloned().collect(),
+            data: element_3.data,
         };
 
         assert_eq!(pool.inputs.len(), 3);
         assert!(pool.inputs[0].is_none());
-        assert_eq!(pool.inputs[1].as_ref().unwrap().clone(), predicted_element_1_in_pool);
-        assert_eq!(pool.inputs[2].as_ref().unwrap().clone(), predicted_element_2_in_pool);
+        assert!(equal_input(pool.inputs[1].as_ref().unwrap().clone(), predicted_element_1_in_pool));
+        assert!(equal_input(pool.inputs[2].as_ref().unwrap().clone(), predicted_element_2_in_pool));
 
-        let mut predicted_inputs_of_feature =
-            AHashMap::<Feature, Vec<usize>>::new();
+        let mut predicted_inputs_of_feature = AHashMap::<Feature, Vec<usize>>::new();
         predicted_inputs_of_feature.insert(f1, vec![1]);
         predicted_inputs_of_feature.insert(f2, vec![2]);
         predicted_inputs_of_feature.insert(f3, vec![1, 2]);
@@ -950,45 +947,46 @@ mod tests {
 
     #[test]
     fn test_add_three_elements_the_last_one_deletes_the_first_and_it_is_known_after_the_first_analyzed_feature() {
-        let mut pool = InputMetadataPool::new();
+        let mut pool = InputPool::<FuzzedVoid>::new();
 
         let (f1, f2, f3) = (edge_f(0, 1), edge_f(1, 1), edge_f(3, 1));
 
         let features_1 = vec![f1, f2];
-        let element_1 = InputMetadata::new(20.0, features_1.clone());
+        let element_1 = Input::new(mock(20.0), features_1);
 
         let features_2 = vec![f2, f3];
-        let element_2 = InputMetadata::new(20.0, features_2.clone());
+        let element_2 = Input::new(mock(20.0), features_2.clone());
 
         let features_3 = vec![f1, f2];
-        let element_3 = InputMetadata::new(20.0, features_3.clone());
+        let element_3 = Input::new(mock(20.0), features_3.clone());
 
-        let _ = pool.add(element_1.clone());
-        let _ = pool.add(element_2.clone());
-        let _ = pool.add(element_3.clone());
+        let _ = pool.add(mock(20.0), element_1.features);
+        let _ = pool.add(mock(20.0), element_2.features);
+        let _ = pool.add(mock(20.0), element_3.features);
 
-        let predicted_element_1_in_pool = InputMetadata {
+        let predicted_element_1_in_pool = Input {
             id: 1,
             complexity: element_2.complexity,
-            features: features_2.clone(),
+            features: features_2,
             score: 1.5,
             least_complex_for_features: vec![f3].iter().cloned().collect(),
+            data: element_2.data,
         };
-        let predicted_element_2_in_pool = InputMetadata {
+        let predicted_element_2_in_pool = Input {
             id: 2,
             complexity: element_3.complexity,
-            features: features_3.clone(),
+            features: features_3,
             score: 1.5,
             least_complex_for_features: vec![f1, f2].iter().cloned().collect(),
+            data: element_3.data,
         };
 
         assert_eq!(pool.inputs.len(), 3);
         assert!(pool.inputs[0].is_none());
-        assert_eq!(pool.inputs[1].as_ref().unwrap().clone(), predicted_element_1_in_pool);
-        assert_eq!(pool.inputs[2].as_ref().unwrap().clone(), predicted_element_2_in_pool);
+        assert!(equal_input(pool.inputs[1].as_ref().unwrap().clone(), predicted_element_1_in_pool));
+        assert!(equal_input(pool.inputs[2].as_ref().unwrap().clone(), predicted_element_2_in_pool));
 
-        let mut predicted_inputs_of_feature =
-            AHashMap::<Feature, Vec<usize>>::new();
+        let mut predicted_inputs_of_feature = AHashMap::<Feature, Vec<usize>>::new();
         predicted_inputs_of_feature.insert(f1, vec![2]);
         predicted_inputs_of_feature.insert(f2, vec![1, 2]);
         predicted_inputs_of_feature.insert(f3, vec![1]);
@@ -998,14 +996,14 @@ mod tests {
 
     #[test]
     fn test_remove_lowest_one_element() {
-        let mut pool = InputMetadataPool::new();
+        let mut pool = InputPool::<FuzzedVoid>::new();
 
         let (f1, f2) = (edge_f(0, 1), edge_f(1, 1));
 
         let features = vec![f1, f2];
-        let element = InputMetadata::new(10.0, features.clone());
+        let element = Input::new(mock(20.0), features);
 
-        let _ = pool.add(element.clone());
+        let _ = pool.add(element.data, element.features);
 
         let _ = pool.remove_lowest();
 
@@ -1016,36 +1014,91 @@ mod tests {
 
     #[test]
     fn test_remove_lowest_three_elements() {
-        let mut pool = InputMetadataPool::new();
+        let mut pool = InputPool::<FuzzedVoid>::new();
 
         let (f1, f2) = (edge_f(0, 1), edge_f(1, 1));
 
         let features_1 = vec![f1, f2];
         let features_2 = vec![f1];
 
-        let element_1 = InputMetadata::new(10.0, features_1.clone());
-        let element_2 = InputMetadata::new(10.0, features_2.clone());
+        let element_1 = Input::new(mock(20.0), features_1.clone());
+        let element_2 = Input::new(mock(20.0), features_2);
 
-        let _ = pool.add(element_1.clone());
-        let _ = pool.add(element_2.clone());
+        let _ = pool.add(element_1.data, element_1.features);
+        let _ = pool.add(element_2.data, element_2.features);
         let _ = pool.remove_lowest();
 
-        let predicted_element_in_pool = InputMetadata {
+        let predicted_element_in_pool = Input {
             id: 0,
             complexity: element_1.complexity,
-            features: features_1.clone(),
+            features: features_1,
             score: 2.0,
             least_complex_for_features: vec![f1, f2].iter().cloned().collect(),
+            data: element_1.data,
         };
 
-        let mut predicted_inputs_of_feature =
-            AHashMap::<Feature, Vec<usize>>::new();
+        let mut predicted_inputs_of_feature = AHashMap::<Feature, Vec<usize>>::new();
         predicted_inputs_of_feature.insert(f1, vec![0]);
         predicted_inputs_of_feature.insert(f2, vec![0]);
 
         assert_eq!(pool.inputs.len(), 2);
-        assert_eq!(pool.inputs[0].as_ref().unwrap().clone(), predicted_element_in_pool);
+        assert!(equal_input(pool.inputs[0].as_ref().unwrap().clone(), predicted_element_in_pool));
         assert!(pool.inputs[1].is_none());
         assert_eq!(pool.inputs_of_feature, predicted_inputs_of_feature);
     }
+
+    use std::hash::Hasher;
+
+    #[derive(Clone, Copy, Debug)]
+    pub enum FuzzedVoid { }
+
+    impl FuzzedInput for FuzzedVoid {
+        type Value = f64;
+        type State = ();
+        type UnmutateToken = ();
+
+        fn default() -> Self::Value {
+            0.0
+        }
+
+        fn state_from_value(_value: &Self::Value) -> Self::State {
+
+        }
+
+        fn arbitrary(_seed: usize, _max_cplx: f64) -> Self::Value {
+            0.0
+        }
+
+        fn max_complexity() -> f64 {
+            std::f64::INFINITY
+        }
+
+        fn min_complexity() -> f64 {
+            0.0
+        }
+
+        fn hash_value<H: Hasher>(_value: &Self::Value, _state: &mut H) {
+
+        }
+
+        fn complexity(value: &Self::Value, _state: &Self::State) -> f64 {
+            *value
+        }
+
+        fn mutate(_value: &mut Self::Value, _state: &mut Self::State, _max_cplx: f64) -> Self::UnmutateToken {
+
+        }
+
+        fn unmutate(_value: &mut Self::Value, _state: &mut Self::State, _t: Self::UnmutateToken) {
+        }
+
+        fn from_data(_data: &[u8]) -> Option<Self::Value> {
+            None
+        }
+        fn to_data(_value: &Self::Value) -> Vec<u8> {
+            vec![]
+        }
+    }
+
+    impl Copy for UnifiedFuzzedInput<FuzzedVoid> { }
 }
