@@ -3,32 +3,42 @@ use std::hash::Hasher;
 extern crate fuzzcheck;
 use fuzzcheck::input::*;
 
-pub struct VoidGenerator {}
+#[derive(Clone)]
+pub enum FuzzedVoid {}
 
-impl InputGenerator for VoidGenerator {
-    type Input = ();
+impl FuzzedInput for FuzzedVoid {
+    type Value = ();
+    type State = ();
+    type UnmutateToken = ();
 
-    fn complexity(_input: &Self::Input) -> f64 {
+    fn default() -> Self::Value {}
+
+    fn state_from_value(_value: &Self::Value) -> Self::State {}
+
+    fn arbitrary(_seed: usize, _max_cplx: f64) -> Self::Value {}
+
+    fn max_complexity() -> f64 {
         0.0
     }
 
-    fn hash<H>(_input: &Self::Input, _state: &mut H)
-    where
-        H: Hasher,
-    {
+    fn min_complexity() -> f64 {
+        0.0
     }
 
-    fn base_input() -> Self::Input {}
-    fn new_input(&mut self, _max_cplx: f64) -> Self::Input {}
+    fn hash_value<H: Hasher>(_value: &Self::Value, _state: &mut H) {}
 
-    fn mutate(&mut self, _input: &mut Self::Input, _spare_cplx: f64) -> bool {
-        true
+    fn complexity(_value: &Self::Value, _state: &Self::State) -> f64 {
+        0.0
     }
 
-    fn from_data(_data: &[u8]) -> Option<Self::Input> {
+    fn mutate(_value: &mut Self::Value, _state: &mut Self::State, _max_cplx: f64) -> Self::UnmutateToken {}
+
+    fn unmutate(_value: &mut Self::Value, _state: &mut Self::State, _t: Self::UnmutateToken) {}
+
+    fn from_data(_data: &[u8]) -> Option<Self::Value> {
         Some(())
     }
-    fn to_data(_input: &Self::Input) -> Vec<u8> {
-        vec![]
+    fn to_data(_value: &Self::Value) -> Vec<u8> {
+        vec![] // TODO: not good
     }
 }

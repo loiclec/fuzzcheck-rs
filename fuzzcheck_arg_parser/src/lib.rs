@@ -13,7 +13,6 @@ pub enum FuzzerCommand {
 
 pub const MAX_NBR_RUNS_FLAG: &str = "max-iter";
 pub const MAX_INPUT_CPLX_FLAG: &str = "max-cplx";
-pub const MUT_DEPTH_FLAG: &str = "mut-depth";
 pub const INPUT_FILE_FLAG: &str = "input-file";
 pub const IN_CORPUS_FLAG: &str = "in-corpus";
 pub const NO_IN_CORPUS_FLAG: &str = "no-in-corpus";
@@ -35,7 +34,6 @@ pub struct DefaultArguments<'a> {
     pub artifacts: &'a str,
     pub max_nbr_of_runs: usize,
     pub max_input_cplx: usize,
-    pub mut_depth: usize,
     pub corpus_size: usize,
 }
 
@@ -45,7 +43,6 @@ pub const DEFAULT_ARGUMENTS: DefaultArguments<'static> = DefaultArguments {
     artifacts: "artifacts",
     max_nbr_of_runs: core::usize::MAX,
     max_input_cplx: 256,
-    mut_depth: 5,
     corpus_size: 10,
 };
 
@@ -54,7 +51,6 @@ pub struct CommandLineArguments {
     pub command: FuzzerCommand,
     pub max_nbr_of_runs: usize,
     pub max_input_cplx: f64,
-    pub mutate_depth: usize,
     pub corpus_size: usize,
     pub input_file: Option<PathBuf>,
     pub corpus_in: Option<PathBuf>,
@@ -118,16 +114,6 @@ pub fn options_parser() -> Options {
             format!(
                 "maximum allowed complexity of inputs (default: {default})",
                 default = DEFAULT_ARGUMENTS.max_input_cplx
-            )
-            .as_str(),
-            "N",
-        )
-        .optopt(
-            "",
-            MUT_DEPTH_FLAG,
-            format!(
-                "number of times inputs are mutated each iteration (default: {default})",
-                default = DEFAULT_ARGUMENTS.mut_depth
             )
             .as_str(),
             "N",
@@ -226,18 +212,11 @@ The command {c} is not supported. It can either be ‘{fuzz}’, ‘{tmin}’, o
             .flatten()
             .unwrap_or(core::usize::MAX);
 
-        let mutate_depth: usize = matches
-            .opt_str(MUT_DEPTH_FLAG)
-            .map(|x| x.parse::<usize>().ok())
-            .flatten()
-            .unwrap_or(defaults.mut_depth);
-
         Ok(Self {
             command,
             max_nbr_of_runs,
             max_input_cplx,
             corpus_size,
-            mutate_depth,
             input_file,
             corpus_in,
             corpus_out,

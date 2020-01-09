@@ -68,46 +68,10 @@ to check if I can fill a gap isntead of pushing it to the end.
 
 * make an InputGenerator for [u8; N]
 
-* redesign MetadatChange/convert_partial_world_actions. I wrote these things 
-quickly and it is a mess
-
-* I would like to change the way generators mutate inputs such that it is not
-completely random anymore. Instead, the generator would execute mutations in
-order of one mutation is most likely to trigger a bug.
-
-    * so for example, for an `Either<(u64, ())>` that is currently Left(x), the
-    first mutation would change it to `Right(())`, and then the following ones
-    would always change it to `Left(mutated_x)`.
-
-    * for a `(u16, bool)`, the first mutation would toggle the `bool` part, the
-    following ones would mutate the `u16`, and the mutations executed even 
-    later would mutate both.
-
-    * the goal is also to never apply twice the same mutation to a given input
-
-    * I think it could speed up fuzzing considerably
-
-    * the early mutations would be obvious and still produce values that are
-    close to the original ones. The later mutations would produce values that
-    are very different to the original one
-
-    * this does not mean that an input cannot be mutated to a random one 
-    anymore, but it would instead be *possible* to order mutations
-    deterministically
-
-    * maybe after doing this, I should get rid of `mutation_depth` and the 
-    return value of `mutate` should be `()` instead of `bool`
-    
-    * for `u8`, the first mutations would change the value to one of the
-    special values. The following ones would increase it by 1, 2, 3, etc.
-
-    * same for u16 except that maybe some `random` calls should be thrown in 
-    there, and maybe it could be increased by 1, 2, 3, ..., 254, 255, 256, 512,
-    1024, 2048, 4096, ..., 65_536, 384, 768, 1536, ..., 48_152, etc?. 
-
-    * and same principle for all integers
-
-    * for Vec, 
+* change how I treat the payload of edge features. An edge with a payload of 3
+should maybe be equal to 3 edges of payload 1, 2, and 3. Scores of the features 
+with payload 1 and 2 would decrease. Scores of the feature with payload 3 would
+be greater???
 
 ## Documentation
 

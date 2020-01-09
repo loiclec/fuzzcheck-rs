@@ -1,7 +1,7 @@
 //! Weighted index sampling
 //!
 //! This module provides an implementation for sampling indices.
-//! Todo: give credit
+//! Todo: give credit (rand crate)
 
 use core::cmp::PartialOrd;
 use rand::distributions::uniform::{SampleUniform, UniformSampler};
@@ -9,12 +9,12 @@ use rand::distributions::Distribution;
 use rand::Rng;
 
 #[derive(Debug, Clone)]
-pub struct WeightedIndex<X: SampleUniform + PartialOrd> {
-    pub cumulative_weights: Vec<X>,
+pub struct WeightedIndex<'a, X: SampleUniform + PartialOrd> {
+    pub cumulative_weights: &'a Vec<X>,
     pub weight_distribution: X::Sampler,
 }
 
-impl<X> Distribution<usize> for WeightedIndex<X>
+impl<'a, X> Distribution<usize> for WeightedIndex<'a, X>
 where
     X: SampleUniform + PartialOrd,
 {

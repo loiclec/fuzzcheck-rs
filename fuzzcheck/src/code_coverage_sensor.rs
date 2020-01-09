@@ -1,10 +1,8 @@
 use crate::input_pool::*;
-use std::collections::HashMap;
-use std::collections::HashSet;
-use std::mem::MaybeUninit;
-use std::slice;
 
-use crate::hasher::FuzzcheckHash;
+use std::mem::MaybeUninit;
+
+use ahash::AHashSet;
 
 type PC = usize;
 
@@ -14,33 +12,14 @@ pub fn shared_sensor() -> &'static mut CodeCoverageSensor {
     unsafe { &mut *SHARED_SENSOR.as_mut_ptr() }
 }
 
-const MAX_NUM_GUARDS: isize = 1 << 21;
-
-#[derive(Clone)]
 pub struct CodeCoverageSensor {
     pub num_guards: isize,
     pub is_recording: bool,
-    pub eight_bit_counters: HashMap<usize, u16, FuzzcheckHash>,
-    pub features: HashSet<Feature>,
+    pub eight_bit_counters: &'static mut [u8],
+    pub features: AHashSet<Feature>,
 }
 
 impl CodeCoverageSensor {
-    pub fn handle_pc_guard_init(&mut self, start: *mut u32, stop: *mut u32) {
-        if !(start != stop && unsafe { *start == 0 }) {
-            return;
-        }
-
-        let dist = unsafe { stop.offset_from(start) as usize };
-        let buffer = unsafe { slice::from_raw_parts_mut(start, dist) };
-        for x in buffer.iter_mut() {
-            self.num_guards += 1;
-            assert!(self.num_guards < MAX_NUM_GUARDS);
-            *x = self.num_guards as u32;
-        }
-
-        self.eight_bit_counters.clear();
-    }
-
     pub fn handle_trace_cmp(&mut self, pc: PC, arg1: u64, arg2: u64) {
         let f = Feature::instruction(pc, arg1, arg2);
         self.features.insert(f);
@@ -54,9 +33,13 @@ impl CodeCoverageSensor {
     where
         F: FnMut(Feature) -> (),
     {
-        for (i, x) in self.eight_bit_counters.iter() {
-            let f = Feature::edge(*i, *x);
-            handle(f);
+        for (i, x) in self.eight_bit_counters.iter().enumerate() {
+            if *x == 0 {
+                continue;
+            } else {
+                let f = Feature::edge(i, *x as u16);
+                handle(f);
+            }
         }
         for f in self.features.iter() {
             handle(*f);
@@ -64,7 +47,9 @@ impl CodeCoverageSensor {
     }
 
     pub fn clear(&mut self) {
-        self.eight_bit_counters.clear();
+        for x in self.eight_bit_counters.iter_mut() {
+            *x = 0;
+        }
         self.features.clear();
     }
 }

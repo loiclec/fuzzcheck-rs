@@ -26,9 +26,6 @@ error_chain! {
     }
 }
 
-// const FUZZCHECK_PATH: &str = "https://github.com/loiclec/fuzzcheck-rs";
-// static FUZZCHECK_REVISION: &str = "bf7948bb2b1f911197ca66af094ac20021fdd7f9";
-
 #[cfg(target_os = "macos")]
 pub fn default_target() -> &'static str {
     "x86_64-apple-darwin"
@@ -124,7 +121,7 @@ cargo-fuzzcheck {run} target1 {cmin} --{in_corpus} "fuzz-corpus" --{corpus_size}
     match env_args[start_idx].as_str() {
         COMMAND_INIT => {
             let fuzzcheck_path = if env_args.len() > (start_idx + 1) {
-                env_args[start_idx + 1].as_str()
+                env_args[start_idx + 1].as_str().trim()
             } else {
                 "https://github.com/loiclec/fuzzcheck-rs"
             };
@@ -148,9 +145,9 @@ cargo-fuzzcheck {run} target1 {cmin} --{in_corpus} "fuzz-corpus" --{corpus_size}
             let target = &env_args[start_idx + 1];
 
             let mut defaults = DEFAULT_ARGUMENTS.clone();
-            let defaults_in_corpus = format!("fuzz/fuzz_targets/{}/", target) + defaults.in_corpus;
-            let defaults_out_corpus = format!("fuzz/fuzz_targets/{}/", target) + defaults.out_corpus;
-            let defaults_artifacts = format!("fuzz/fuzz_targets/{}/", target) + defaults.artifacts;
+            let defaults_in_corpus = format!("fuzz/non_instrumented/fuzz_targets/{}/", target) + defaults.in_corpus;
+            let defaults_out_corpus = format!("fuzz/non_instrumented/fuzz_targets/{}/", target) + defaults.out_corpus;
+            let defaults_artifacts = format!("fuzz/non_instrumented/fuzz_targets/{}/", target) + defaults.artifacts;
             defaults.in_corpus = &defaults_in_corpus;
             defaults.out_corpus = &defaults_out_corpus;
             defaults.artifacts = &defaults_artifacts;
@@ -204,66 +201,24 @@ fn root_package_name(root_folder: &PathBuf) -> Result<String> {
     }
 }
 
-/// Add a new fuzz target script with a given name
-fn create_target_template(
-    root_package_name: &str,
-    fuzz_folder: &PathBuf,
-    fuzz_targets_folder: &PathBuf,
-    target: &str,
-) -> Result<()> {
-    let mut target_path = fuzz_targets_folder.clone();
-    target_path.push(target);
-    let fuzzer_output_folder = target_path.clone();
-    target_path.set_extension("rs");
-
-    if !target_path.is_file() {
-        let mut script = fs::OpenOptions::new()
-            .write(true)
-            .create_new(true)
-            .open(&target_path)
-            .chain_err(|| format!("could not create target script file at {:?}", target_path))?;
-
-        script.write_fmt(target_template!(root_package_name.replace("-", "_")))?;
-    }
-
-    if !fuzzer_output_folder.as_path().is_dir() {
-        fs::create_dir(fuzzer_output_folder)?;
-    }
-
-    let mut cargo_toml_path = fuzz_folder.clone();
-    cargo_toml_path.push("Cargo.toml");
-
-    let mut cargo = fs::OpenOptions::new().append(true).open(cargo_toml_path)?;
-    Ok(cargo.write_fmt(toml_bin_template!(target))?)
-}
-
 fn clean_command() -> Result<()> {
     let fuzz_folder = std::env::current_dir()?.join("fuzz");
-    let mut fuzzcheck_clone_folder = fuzz_folder.clone();
-    fuzzcheck_clone_folder.push("fuzzcheck-rs");
+    let non_instrumented_folder = fuzz_folder.join("non_instrumented");
+    let instrumented_folder = fuzz_folder.join("instrumented");
 
     Command::new("cargo")
+        .current_dir(non_instrumented_folder)
         .args(vec!["clean"])
         .stdout(std::process::Stdio::inherit())
         .stderr(std::process::Stdio::inherit())
-        .output()
-        .expect("failed to execute process");
+        .output()?;
 
     Command::new("cargo")
-        .current_dir(fuzz_folder)
+        .current_dir(instrumented_folder)
         .args(vec!["clean"])
         .stdout(std::process::Stdio::inherit())
         .stderr(std::process::Stdio::inherit())
-        .output()
-        .expect("failed to execute process");
-
-    Command::new("cargo")
-        .current_dir(fuzzcheck_clone_folder)
-        .args(vec!["clean"])
-        .stdout(std::process::Stdio::inherit())
-        .stderr(std::process::Stdio::inherit())
-        .output()
-        .expect("failed to execute process");
+        .output()?;
 
     Ok(())
 }
@@ -275,31 +230,112 @@ fn init_command(fuzzcheck_path: &str) -> Result<()> {
     let root_package_name = root_package_name(&root_folder)?;
 
     let fuzz_folder = root_folder.join("fuzz");
-    let fuzz_targets_folder = fuzz_folder.join("fuzz_targets");
+    let non_instrumented_folder = fuzz_folder.join("non_instrumented");
+    let instrumented_folder = fuzz_folder.join("instrumented");
+    let fuzz_targets_folder = non_instrumented_folder.join("fuzz_targets");
 
-    if !fuzz_folder.as_path().is_dir() {
-        fs::create_dir(&fuzz_folder)?;
-    }
-    if !fuzz_targets_folder.as_path().is_dir() {
-        fs::create_dir(&fuzz_targets_folder)?;
-    }
+    {
+        // fuzz
+        if !fuzz_folder.as_path().is_dir() {
+            fs::create_dir(&fuzz_folder)?;
+        }
 
-    clone_and_compile_fuzzcheck_library(&fuzz_folder, fuzzcheck_path);
-
-    let cargo_toml_file = fuzz_folder.join("Cargo.toml");
-    if !cargo_toml_file.as_path().is_file() {
-        let mut cargo = fs::File::create(cargo_toml_file)?;
-        cargo.write_fmt(toml_template!(root_package_name, fuzzcheck_path))?;
-    }
-
-    let gitignore_file = fuzz_folder.join(".gitignore");
-    if !gitignore_file.as_path().is_file() {
-        let mut ignore = fs::File::create(gitignore_file)?;
-        ignore.write_fmt(gitignore_template!())?;
+        let gitignore_file = fuzz_folder.join(".gitignore");
+        if !gitignore_file.as_path().is_file() {
+            let mut ignore = fs::File::create(gitignore_file)?;
+            ignore.write_fmt(gitignore_template!())?;
+        }
     }
 
-    create_target_template(&root_package_name, &fuzz_folder, &fuzz_targets_folder, target)
-        .chain_err(|| format!("could not create template file for target {:?}", target))?;
+    {
+        // non-instrumented
+
+        // create fuzz/non_instrumented directory
+        if !non_instrumented_folder.as_path().is_dir() {
+            fs::create_dir(&non_instrumented_folder)?;
+
+            // create fuzz/non_instrumented/src/lib.rs
+            let src_folder = non_instrumented_folder.join("src");
+            fs::create_dir(&src_folder)?;
+            let lib_rs_path = src_folder.join("lib.rs");
+            let _ = fs::File::create(lib_rs_path)?;
+        }
+
+        // create Cargo.toml
+        let cargo_non_instrumented_toml_file = non_instrumented_folder.join("Cargo.toml");
+        if !cargo_non_instrumented_toml_file.as_path().is_file() {
+            let mut cargo = fs::File::create(cargo_non_instrumented_toml_file)?;
+            let fuzzcheck_deps = if fuzzcheck_path.starts_with("file://") {
+                let folder = Path::new(fuzzcheck_path.trim_start_matches("file://"));
+                (
+                    format!("path = \"{}\"", folder.join("fuzzcheck").display()),
+                    format!("path = \"{}\"", folder.join("fuzzcheck_input").display()),
+                )
+            } else {
+                (
+                    format!("git = \"{}\"", fuzzcheck_path),
+                    format!("git = \"{}\"", fuzzcheck_path),
+                )
+            };
+            cargo.write_fmt(non_instrumented_toml_template!(
+                root_package_name,
+                fuzzcheck_deps.0,
+                fuzzcheck_deps.1,
+                target
+            ))?;
+        }
+        // create build.rs
+        let build_rs_path = non_instrumented_folder.join("build.rs");
+        if !build_rs_path.is_file() {
+            let mut build_rs = fs::File::create(build_rs_path)?;
+            let instrumented_target_folder =
+                instrumented_folder.join(format!("target/{}/release/deps", default_target()));
+            build_rs.write_fmt(build_rs_template!(instrumented_target_folder))?;
+        }
+
+        // create fuzz/non_instrumented/fuzz_targets directory
+        if !fuzz_targets_folder.as_path().is_dir() {
+            fs::create_dir(&fuzz_targets_folder)?;
+        }
+
+        // fill fuzz/non_instrumented/fuzz_targets directory
+        let mut target_path = fuzz_targets_folder;
+        target_path.push(target);
+        // fuzzer output_folder is the fuzz/non_instrumented/fuzz_targets/target1/
+        let fuzzer_output_folder = target_path.clone();
+        // target_path is fuzz/non_instrumented/fuzz_targets/target1.rs
+        target_path.set_extension("rs");
+
+        if !target_path.is_file() {
+            let mut script = fs::File::create(target_path)?;
+            script.write_fmt(target_template!(root_package_name.replace("-", "_")))?;
+        }
+
+        if !fuzzer_output_folder.as_path().is_dir() {
+            fs::create_dir(fuzzer_output_folder)?;
+        }
+    }
+
+    {
+        // instrumented
+        if !instrumented_folder.as_path().is_dir() {
+            fs::create_dir(&instrumented_folder)?;
+        }
+
+        let cargo_instrumented_toml_file = instrumented_folder.join("Cargo.toml");
+        if !cargo_instrumented_toml_file.as_path().is_file() {
+            let mut cargo = fs::File::create(cargo_instrumented_toml_file)?;
+            cargo.write_fmt(instrumented_toml_template!(root_package_name))?;
+        }
+
+        let src_folder = instrumented_folder.join("src");
+        if !src_folder.as_path().is_dir() {
+            fs::create_dir(&src_folder)?;
+            let lib_rs_path = src_folder.join("lib.rs");
+            let mut lib_rs = fs::File::create(lib_rs_path)?;
+            lib_rs.write_fmt(instrumented_lib_rs_template!(root_package_name))?;
+        }
+    }
 
     Ok(())
 }
@@ -317,133 +353,48 @@ fn use_gold_linker() -> bool {
     }
 }
 
-fn compile_fuzzcheck_library(fuzz_folder: &PathBuf) {
-    Command::new("cargo")
-        .current_dir(fuzz_folder.join("fuzzcheck-rs"))
-        .env(
-            "RUSTFLAGS",
-            if use_gold_linker() {
-                "-Clink-arg=-fuse-ld=gold -Cforce-frame-pointers=yes"
-            } else {
-                "-Cforce-frame-pointers=yes"
-            },
-        )
-        .args(vec!["build", "--package", "fuzzcheck", "--release"])
+fn instrumented_compile(instrumented_folder: &PathBuf, target_triple: &str) -> Result<()> {
+    let mut rustflags: String = "--cfg fuzzing \
+                                 -Cpasses=sancov \
+                                 -Cllvm-args=-sanitizer-coverage-level=4 \
+                                 -Cllvm-args=-sanitizer-coverage-inline-8bit-counters \
+                                 -Cforce-frame-pointers=yes \
+                                 -Clto=yes -Ccodegen-units=1"
+        .into();
+
+    //                                 -Cllvm-args=-sanitizer-coverage-trace-compares \
+    //                                 -Cllvm-args=-sanitizer-coverage-trace-divs \
+    //                                 -Cllvm-args=-sanitizer-coverage-trace-geps \
+
+    if use_gold_linker() {
+        rustflags.push_str(" -Clink-arg=-fuse-ld=gold");
+    }
+
+    let output = Command::new("cargo")
+        .env("RUSTFLAGS", rustflags)
+        .arg("build")
+        .arg("--manifest-path")
+        .arg(instrumented_folder.join("Cargo.toml"))
+        .arg("--release")
+        .arg("--target")
+        .arg(target_triple)
         .arg("--verbose")
         .stdout(std::process::Stdio::inherit())
         .stderr(std::process::Stdio::inherit())
-        .output()
-        .expect("failed to execute process");
-}
+        .output()?;
 
-fn clone_and_compile_fuzzcheck_library(fuzz_folder: &PathBuf, fuzzcheck_path: &str) {
-    let mut fuzzcheck_clone_folder = fuzz_folder.clone();
-    fuzzcheck_clone_folder.push("fuzzcheck-rs");
-
-    // TODO: better checks
-    if !fuzzcheck_clone_folder.is_dir() {
-        // TODO: it is not always the case that this path is actually a folder
-        Command::new("git")
-            .current_dir(fuzz_folder)
-            .args(vec!["clone", fuzzcheck_path])
-            .stdout(std::process::Stdio::inherit())
-            .stderr(std::process::Stdio::inherit())
-            .output()
-            .expect("failed to execute process");
-    }
-
-    // Command::new("git")
-    //     .current_dir("fuzzcheck-rs")
-    //     .args(vec!["checkout", FUZZCHECK_REVISION])
-    //     .stdout(std::process::Stdio::inherit())
-    //     .stderr(std::process::Stdio::inherit())
-    //     .output()
-    //     .expect("failed to execute process");
-
-    compile_fuzzcheck_library(fuzz_folder);
-}
-
-fn exec_normal_command(arguments: CommandLineArguments, target: &str, target_triple: &str) -> Result<()> {
-    let root_folder = std::env::current_dir()?;
-    //let root_package_name = root_package_name(&root_folder)?;
-
-    let fuzz_folder = root_folder.join("fuzz");
-    let fuzz_targets_folder = fuzz_folder.join("fuzz_targets");
-    let target_folder = fuzz_targets_folder.join(target);
-
-    run_command(&arguments, &fuzz_folder, &target_folder, target_triple)?;
-
-    Ok(())
-}
-
-// TODO: rename CommandLineArguments
-fn exec_input_minify_command(mut arguments: CommandLineArguments, target: &str, target_triple: &str) -> Result<()> {
-    let root_folder = std::env::current_dir()?;
-    let fuzz_folder = &root_folder.join("fuzz");
-    let fuzz_targets_folder = fuzz_folder.join("fuzz_targets");
-    let target_folder = &fuzz_targets_folder.join(target);
-
-    let file_to_minify = (&arguments.input_file).as_ref().unwrap().clone();
-
-    let artifacts_folder = {
-        let mut x = file_to_minify.parent().unwrap().to_path_buf();
-        x.push(file_to_minify.file_stem().unwrap());
-        x = x.with_extension("minified");
-        x
-    };
-    let _ = std::fs::create_dir(&artifacts_folder);
-    arguments.artifacts_folder = Some(artifacts_folder.clone());
-
-    fn simplest_input_file(folder: &Path) -> Option<PathBuf> {
-        let files_with_complexity = std::fs::read_dir(folder)
-            .ok()?
-            .filter_map(|path| -> Option<(PathBuf, f64)> {
-                let path = path.ok()?.path();
-                let name_components: Vec<&str> = path.file_stem()?.to_str()?.splitn(2, "--").collect();
-                if name_components.len() == 2 {
-                    let cplx = name_components[0].parse::<f64>().ok()?;
-                    Some((path.to_path_buf(), cplx))
-                } else {
-                    None
-                }
-            });
-
-        files_with_complexity
-            .min_by(|x, y| std::cmp::PartialOrd::partial_cmp(&x.1, &y.1).unwrap_or(Ordering::Equal))
-            .map(|x| x.0)
-    }
-
-    if let Some(simplest) = simplest_input_file(&artifacts_folder.as_path()) {
-        arguments.input_file = Some(simplest);
-    }
-    arguments.command = FuzzerCommand::Read;
-
-    let o = run_command(&arguments, fuzz_folder, target_folder, target_triple)?;
-    assert!(!o.status.success());
-
-    // hjhjb.minifyd/hshs.parent() != hjhjb.minifyd/ -> copy hshs to hjhjb.minifyd/hshs
-    //let destination = artifacts_folder.join(arguments.input_file.file_name());
-    // if arguments.input_file.unwrap().parent() != Some(artifacts_folder.as_path()) {
-    //     std::fs::copy(arguments.input_file, artifacts_folder.to_owned() + arguments.input_file);
-    // }
-
-    arguments.command = FuzzerCommand::MinifyInput;
-
-    loop {
-        arguments.input_file = simplest_input_file(&artifacts_folder).or(arguments.input_file);
-
-        run_command(&arguments, fuzz_folder, target_folder, target_triple)?;
+    if output.status.success() {
+        Ok(())
+    } else {
+        Err("Could not compile the instrumented part of the fuzz target".into())
     }
 }
 
-fn path_str(p: PathBuf) -> String {
-    p.as_path().to_str().unwrap().to_owned()
-}
-
-fn run_command(
+fn run_command_2(
     args: &CommandLineArguments,
-    fuzz_folder: &PathBuf,
     target_folder: &PathBuf,
+    instrumented_folder: &PathBuf,
+    non_instrumented_folder: &PathBuf,
     target_triple: &str,
 ) -> Result<std::process::Output> {
     let mut s: Vec<String> = Vec::new();
@@ -495,31 +446,15 @@ fn run_command(
     ]);
 
     s.append(&mut vec![
-        "--".to_owned() + MUT_DEPTH_FLAG,
-        args.mutate_depth.to_string(),
-    ]);
-    s.append(&mut vec![
         "--".to_owned() + MAX_NBR_RUNS_FLAG,
         args.max_nbr_of_runs.to_string(),
     ]);
 
-    compile_fuzzcheck_library(fuzz_folder);
+    instrumented_compile(instrumented_folder, target_triple)?;
 
-    let fuzzcheck_lib = fuzz_folder.join("fuzzcheck-rs/target/release/deps/");
+    //let instrumented_folder_deps = instrumented_folder.join(format!("target/{}/release/deps", target_triple));
 
-    let mut rustflags: String = format!(
-        "--cfg fuzzing \
-         -Cpasses=sancov \
-         -Cllvm-args=-sanitizer-coverage-level=4 \
-         -Cllvm-args=-sanitizer-coverage-trace-pc-guard \
-         -Cllvm-args=-sanitizer-coverage-trace-compares \
-         -Cllvm-args=-sanitizer-coverage-trace-divs \
-         -Cllvm-args=-sanitizer-coverage-trace-geps \
-         -Cllvm-args=-sanitizer-coverage-prune-blocks=0 \
-         -Cforce-frame-pointers=yes \
-         -L {}",
-        fuzzcheck_lib.display()
-    );
+    let mut rustflags: String = "--cfg fuzzing -Clto=yes -Ccodegen-units=1".to_string();
 
     if use_gold_linker() {
         rustflags.push_str(" -Clink-arg=-fuse-ld=gold");
@@ -528,10 +463,10 @@ fn run_command(
     Command::new("cargo")
         .env("RUSTFLAGS", rustflags)
         .arg("run")
-        .arg("--manifest-path")
-        .arg(fuzz_folder.join("Cargo.toml"))
         .arg("--bin")
         .arg(target_folder.file_name().unwrap())
+        .arg("--manifest-path")
+        .arg(non_instrumented_folder.join("Cargo.toml"))
         .arg("--release")
         .arg("--target")
         .arg(target_triple)
@@ -542,4 +477,103 @@ fn run_command(
         .stderr(std::process::Stdio::inherit())
         .output()
         .map_err(|x| x.into())
+}
+
+fn exec_normal_command(arguments: CommandLineArguments, target: &str, target_triple: &str) -> Result<()> {
+    let root_folder = std::env::current_dir()?;
+    //let root_package_name = root_package_name(&root_folder)?;
+
+    let fuzz_folder = root_folder.join("fuzz");
+    let instrumented_folder = fuzz_folder.join("instrumented");
+    let non_instrumented_folder = fuzz_folder.join("non_instrumented");
+    let fuzz_targets_folder = fuzz_folder.join("fuzz_targets");
+    let target_folder = fuzz_targets_folder.join(target);
+
+    run_command_2(
+        &arguments,
+        &target_folder,
+        &instrumented_folder,
+        &non_instrumented_folder,
+        target_triple,
+    )?;
+
+    Ok(())
+}
+
+// TODO: rename CommandLineArguments
+fn exec_input_minify_command(mut arguments: CommandLineArguments, target: &str, target_triple: &str) -> Result<()> {
+    let root_folder = std::env::current_dir()?;
+    let fuzz_folder = &root_folder.join("fuzz");
+    let instrumented_folder = fuzz_folder.join("instrumented");
+    let non_instrumented_folder = fuzz_folder.join("non_instrumented");
+    let fuzz_targets_folder = fuzz_folder.join("fuzz_targets");
+    let target_folder = &fuzz_targets_folder.join(target);
+
+    let file_to_minify = (&arguments.input_file).as_ref().unwrap().clone();
+
+    let artifacts_folder = {
+        let mut x = file_to_minify.parent().unwrap().to_path_buf();
+        x.push(file_to_minify.file_stem().unwrap());
+        x = x.with_extension("minified");
+        x
+    };
+    let _ = std::fs::create_dir(&artifacts_folder);
+    arguments.artifacts_folder = Some(artifacts_folder.clone());
+
+    fn simplest_input_file(folder: &Path) -> Option<PathBuf> {
+        let files_with_complexity = std::fs::read_dir(folder)
+            .ok()?
+            .filter_map(|path| -> Option<(PathBuf, f64)> {
+                let path = path.ok()?.path();
+                let name_components: Vec<&str> = path.file_stem()?.to_str()?.splitn(2, "--").collect();
+                if name_components.len() == 2 {
+                    let cplx = name_components[0].parse::<f64>().ok()?;
+                    Some((path.to_path_buf(), cplx))
+                } else {
+                    None
+                }
+            });
+
+        files_with_complexity
+            .min_by(|x, y| std::cmp::PartialOrd::partial_cmp(&x.1, &y.1).unwrap_or(Ordering::Equal))
+            .map(|x| x.0)
+    }
+
+    if let Some(simplest) = simplest_input_file(&artifacts_folder.as_path()) {
+        arguments.input_file = Some(simplest);
+    }
+    arguments.command = FuzzerCommand::Read;
+
+    let o = run_command_2(
+        &arguments,
+        target_folder,
+        &instrumented_folder,
+        &non_instrumented_folder,
+        target_triple,
+    )?;
+    assert!(!o.status.success());
+
+    // hjhjb.minifyd/hshs.parent() != hjhjb.minifyd/ -> copy hshs to hjhjb.minifyd/hshs
+    //let destination = artifacts_folder.join(arguments.input_file.file_name());
+    // if arguments.input_file.unwrap().parent() != Some(artifacts_folder.as_path()) {
+    //     std::fs::copy(arguments.input_file, artifacts_folder.to_owned() + arguments.input_file);
+    // }
+
+    arguments.command = FuzzerCommand::MinifyInput;
+
+    loop {
+        arguments.input_file = simplest_input_file(&artifacts_folder).or(arguments.input_file);
+
+        run_command_2(
+            &arguments,
+            target_folder,
+            &instrumented_folder,
+            &non_instrumented_folder,
+            target_triple,
+        )?;
+    }
+}
+
+fn path_str(p: PathBuf) -> String {
+    p.as_path().to_str().unwrap().to_owned()
 }
