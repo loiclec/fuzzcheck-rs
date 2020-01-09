@@ -169,7 +169,7 @@ impl Feature {
 }
 
 /// Index of an input in the InputPool
-#[derive(Copy)]
+#[derive(Clone, Copy)]
 pub enum InputPoolIndex {
     Normal(usize),
     Favored,
