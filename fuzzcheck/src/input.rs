@@ -1,56 +1,76 @@
 use std::hash::Hasher;
 
-pub trait InputGenerator {
-    type Input: Clone;
+pub trait FuzzedInput {
+    type Value: Clone;
+    type State: Clone;
+    type UnmutateToken;
+    // TODO: separate state into mutation_step and cache
+    // give mutation step and cache to mutate()
+    // give cache but no mutation step to new_source()
+    // review every trait function accordingly
 
-    ///Returns the complexity of the given input.
-    ///
-    ///Fuzzcheck will prefer using inputs with a smaller complexity.
-    ///Important: The return value must be >= 0.0
-    ///
-    ///## Examples
-    ///- an array might have a complexity equal to the sum of complexities of its elements
-    ///- an integer might have a complexity equal to the number of bytes used to represent it
-    fn complexity(input: &Self::Input) -> f64;
+    /// default constructor
+    fn default() -> Self::Value;
+
+    fn state_from_value(value: &Self::Value) -> Self::State;
+
+    /// This is meant to create arbitrary values of Input.
+    fn arbitrary(seed: usize, max_cplx: f64) -> Self::Value;
+
+    /// The maximum complexity of an input of this type
+    fn max_complexity() -> f64;
+    /// The minimum complexity of an input of this type
+    fn min_complexity() -> f64;
 
     /// Feeds the input into the Hasher.
-    fn hash<H>(input: &Self::Input, state: &mut H)
-    where
-        H: Hasher;
+    fn hash_value<H: Hasher>(value: &Self::Value, state: &mut H);
+    
+    /// The complexity of the current input
+    fn complexity(value: &Self::Value, state: &Self::State) -> f64;
 
-    fn base_input() -> Self::Input;
+    fn mutate(value: &mut Self::Value, state: &mut Self::State, max_cplx: f64) -> Self::UnmutateToken;
 
-    /// Return a new input to test.
-    ///
-    /// It can be completely random or drawn from a corpus of “special” inputs
-    /// or generated in any other way that yields a wide variety of inputs.
-    fn new_input(&mut self, max_cplx: f64) -> Self::Input;
+    fn unmutate(value: &mut Self::Value, state: &mut Self::State, t: Self::UnmutateToken);
 
-    fn initial_inputs(&mut self, max_cplx: f64) -> Vec<Self::Input> {
-        (0..10).map(|_| self.new_input(max_cplx)).collect()
+    fn from_data(data: &[u8]) -> Option<Self::Value>;
+    fn to_data(value: &Self::Value) -> Vec<u8>;
+}
+
+
+pub struct UnifiedFuzzedInput<I: FuzzedInput> {
+    pub value: I::Value, 
+    pub state: I::State
+}
+
+impl<I: FuzzedInput> Clone for UnifiedFuzzedInput<I> {
+    fn clone(&self) -> Self {
+        UnifiedFuzzedInput {
+            value: self.value.clone(),
+            state: self.state.clone()
+        }
     }
+}
 
-    /// Mutate the given input.
-    ///
-    /// Fuzzcheck will call this method repeatedly in order to explore all the
-    /// possible values of Input. It is therefore important that it is implemented
-    /// efficiently.
-    ///
-    /// It should be theoretically possible to mutate any arbitrary input `u1` into any
-    /// other arbitrary input `u2` by calling `mutate` repeatedly.
-    ///
-    /// Moreover, the result of `mutate` should try to be “interesting” to Fuzzcheck.
-    /// That is, it should be likely to trigger new code paths when passed to the
-    /// test function.
-    ///
-    /// ## Examples
-    /// - append a random element to an array
-    /// - mutate a random element in an array
-    /// - subtract a small constant from an integer
-    /// - change an integer to Int.min or Int.max or 0
-    /// - replace a substring by a keyword relevant to the test function
-    fn mutate(&mut self, input: &mut Self::Input, spare_cplx: f64) -> bool;
-
-    fn from_data(data: &[u8]) -> Option<Self::Input>;
-    fn to_data(input: &Self::Input) -> Vec<u8>;
+impl<I: FuzzedInput> UnifiedFuzzedInput<I> {
+    pub fn new(data: (I::Value, I::State)) -> Self {
+        Self { value: data.0, state: data.1 }
+    }
+    pub fn default() -> Self {
+        let value = I::default();
+        let state = I::state_from_value(&value);
+        Self { value, state }
+    }
+    pub fn complexity(&self) -> f64 {
+        I::complexity(&self.value, &self.state)
+    }
+    pub fn mutate(&mut self, max_cplx: f64) -> I::UnmutateToken {
+        I::mutate(&mut self.value, &mut self.state, max_cplx)
+    }
+    pub fn new_source(&self) -> Self {
+        let (value, state) = (self.value.clone(), I::state_from_value(&self.value));
+        Self { value, state }
+    }
+    pub fn unmutate(&mut self, t: I::UnmutateToken) {
+        I::unmutate(&mut self.value, &mut self.state, t)
+    }
 }
