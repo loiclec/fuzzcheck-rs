@@ -102,7 +102,7 @@ impl<I: FuzzedInput> World<I> {
         if !corpus.is_dir() {
             return Result::Err(io::Error::new(
                 io::ErrorKind::Other,
-                "The path to the file containing the input is actually a directory.",
+                "The corpus path is not a directory.",
             ));
         }
         let mut inputs: Vec<I::Value> = Vec::new();
