@@ -1,277 +1,109 @@
-use rand::distributions::uniform::SampleUniform;
-use rand::distributions::WeightedIndex;
-use rand::distributions::{Distribution, Standard};
-use rand::rngs::ThreadRng;
-use rand::seq::SliceRandom;
-use rand::Rng;
-
-use std::cmp::PartialEq;
 use std::hash::Hash;
 use std::hash::Hasher;
-use std::mem;
-use std::num::Wrapping;
-use std::ops::{Add, Sub};
 
-use miniserde::{json, Deserialize, Serialize};
+extern crate json;
 
 extern crate fuzzcheck;
 use fuzzcheck::input::*;
 
-// Let's be honest, everything in this file is guesswork
+use crate::FuzzedJsonInput;
 
-pub struct IntegerGenerator<T> {
-    max_nudge: T,
-    special_values: Vec<T>,
-    rng: ThreadRng,
-    weighted_index: WeightedIndex<usize>,
-}
+#[derive(Clone)]
+pub enum FuzzedU8 { }
 
-#[derive(Clone, Copy)]
-enum IntegerMutatorKind {
-    Special,
-    Random,
-    Nudge,
-}
-
-static MUTATORS: &[IntegerMutatorKind] = &[
-    IntegerMutatorKind::Special,
-    IntegerMutatorKind::Random,
-    IntegerMutatorKind::Nudge,
-];
-static WEIGHTS: &[usize] = &[1, 10, 10];
-
-impl<T> IntegerGenerator<T>
-where
-    T: Default + Hash + Clone + PartialEq + Copy + SampleUniform + Serialize + Deserialize,
-    Wrapping<T>: Add<Output = Wrapping<T>> + Sub<Output = Wrapping<T>>,
-    Standard: Distribution<T>,
-{
-    fn new_with_special_values(max_nudge: T, special_values: Vec<T>) -> Self {
-        Self {
-            max_nudge,
-            special_values,
-            rng: rand::thread_rng(),
-            weighted_index: WeightedIndex::new(WEIGHTS.to_vec()).unwrap(),
-        }
+impl FuzzedJsonInput for FuzzedU8 {
+    fn from_json(json: &json::JsonValue) -> Option<Self::Value> {
+        json.as_u8()
     }
-
-    fn nudge(&mut self, input: &mut T) -> bool {
-        let nudge: T = self.rng.gen_range(<T as Default>::default(), self.max_nudge);
-        let plus = self.rng.gen::<bool>();
-        if plus {
-            *input = (Wrapping(*input) + Wrapping(nudge)).0;
-        } else {
-            *input = (Wrapping(*input) - Wrapping(nudge)).0;
-        }
-        true
-    }
-    fn random(&mut self, input: &mut T) -> bool {
-        *input = self.rng.gen();
-        true
-    }
-    fn special(&mut self, input: &mut T) -> bool {
-        let old = *input;
-        *input = *self.special_values.choose(&mut self.rng).unwrap();
-        old != *input
+    fn to_json(value: &Self::Value) -> json::JsonValue {
+        json::JsonValue::Number((*value).into())
     }
 }
 
-impl<T> IntegerGenerator<T>
-where
-    T: Default + Hash + Clone + PartialEq + Copy + SampleUniform + Serialize + Deserialize,
-    Wrapping<T>: Add<Output = Wrapping<T>> + Sub<Output = Wrapping<T>>,
-    Standard: Distribution<T>,
-{
-    fn mutate_with(&mut self, input: &mut T, mutator: IntegerMutatorKind, _spare_cplx: f64) -> bool {
-        match mutator {
-            IntegerMutatorKind::Special => self.special(input),
-            IntegerMutatorKind::Random => self.random(input),
-            IntegerMutatorKind::Nudge => self.nudge(input),
-        }
-    }
-}
+impl FuzzedInput for FuzzedU8 {
+    type Value = u8;
+    type State = u16; // mutation step
+    type UnmutateToken = u8; // old value
 
-impl<T> InputGenerator for IntegerGenerator<T>
-where
-    T: Default + Hash + Clone + PartialEq + Copy + SampleUniform + Serialize + Deserialize,
-    Wrapping<T>: Add<Output = Wrapping<T>> + Sub<Output = Wrapping<T>>,
-    Standard: Distribution<T>,
-{
-    type Input = T;
-
-    fn hash<H>(input: &Self::Input, state: &mut H)
-    where
-        H: Hasher,
-    {
-        input.hash(state);
+    fn default() -> Self::Value {
+        0
     }
 
-    fn complexity(_input: &T) -> f64 {
-        mem::size_of::<T>() as f64
+    fn state_from_value(_value: &Self::Value) -> Self::State {
+        0
     }
 
-    fn base_input() -> T {
-        <T as Default>::default()
+    fn arbitrary(seed: usize, _max_cplx: f64) -> Self::Value {
+        ((seed % std::u8::MAX as usize) as u8)
     }
 
-    fn new_input(&mut self, _max_cplx: f64) -> T {
-        self.rng.gen()
+    fn max_complexity() -> f64 {
+        8.0
     }
 
-    fn mutate(&mut self, input: &mut Self::Input, spare_cplx: f64) -> bool {
-        for _ in 0..MUTATORS.len() {
-            let pick = self.weighted_index.sample(&mut self.rng);
-            if self.mutate_with(input, MUTATORS[pick], spare_cplx) {
-                return true;
+    fn min_complexity() -> f64 {
+        8.0
+    }
+
+    fn complexity(_value: &Self::Value, _state: &Self::State) -> f64 {
+        8.0
+    }
+
+    fn hash_value<H: Hasher>(value: &Self::Value, state: &mut H) {
+        value.hash(state);
+    }
+
+
+    fn mutate(value: &mut Self::Value, state: &mut Self::State, _max_cplx: f64) -> Self::UnmutateToken {
+        let token = *value;
+        *value = {
+            let mut tmp_step = *state;
+            if tmp_step < 8 {
+                let nudge = tmp_step + 2;
+                let nudge_u8 = nudge as u8;
+                if nudge % 2 == 0 {
+                    value.wrapping_add(nudge_u8 / 2)
+                } else {
+                    value.wrapping_sub(nudge_u8 / 2)
+                }
+            } else {
+                tmp_step -= 7;
+                let low = value.wrapping_sub(std::u8::MAX / 2);
+                let high = value.wrapping_add(std::u8::MAX / 2 + 1);
+                arbitrary_u8(low, high, tmp_step)
             }
-        }
-        false
+        };
+        *state = state.wrapping_add(1);
+
+        token
     }
 
-    fn from_data(data: &[u8]) -> Option<Self::Input> {
-        if let Ok(s) = std::str::from_utf8(data) {
-            json::from_str(s).ok()
+    fn unmutate(value: &mut Self::Value, _state: &mut Self::State, t: Self::UnmutateToken) {
+        *value = t;
+    }
+
+    fn from_data(data: &[u8]) -> Option<Self::Value> {
+        <Self as FuzzedJsonInput>::from_data(data)
+    }
+    fn to_data(value: &Self::Value) -> Vec<u8> {
+        <Self as FuzzedJsonInput>::to_data(value)
+    }
+}
+
+pub fn arbitrary_u8(low: u8, high: u8, step: u16) -> u8 {
+    let next = low.wrapping_add(high.wrapping_sub(low) / 2);
+    if low.wrapping_add(1) == high {
+        if step % 2 == 0 {
+            high
         } else {
-            None
+            low
         }
-    }
-    fn to_data(input: &Self::Input) -> Vec<u8> {
-        json::to_string(input).into_bytes()
-    }
-}
-
-impl Default for IntegerGenerator<u8> {
-    fn default() -> Self {
-        Self::new_with_special_values(10, vec![0x0, 0x1, 0xff, 0x7f])
-    }
-}
-impl Default for IntegerGenerator<u16> {
-    fn default() -> Self {
-        Self::new_with_special_values(10, vec![0x0, 0x1, 0xff, 0x7f, 0xffff, 0x7fff])
-    }
-}
-impl Default for IntegerGenerator<u32> {
-    fn default() -> Self {
-        Self::new_with_special_values(10, vec![0x0, 0x1, 0xff, 0x7f, 0xffff, 0x7fff, 0xffff_ffff, 0x7fff_ffff])
-    }
-}
-impl Default for IntegerGenerator<u64> {
-    fn default() -> Self {
-        Self::new_with_special_values(
-            10,
-            vec![
-                0x0,
-                0x1,
-                0xff,
-                0x7f,
-                0xffff,
-                0x7fff,
-                0xffff_ffff,
-                0x7fff_ffff,
-                0xffff_ffff_ffff_ffff,
-                0x7fff_ffff_ffff_ffff,
-            ],
-        )
-    }
-}
-
-impl Default for IntegerGenerator<usize> {
-    fn default() -> Self {
-        Self::new_with_special_values(
-            10,
-            vec![
-                0x0,
-                0x1,
-                0xff,
-                0x7f,
-                0xffff,
-                0x7fff,
-                0xffff_ffff,
-                0x7fff_ffff,
-                0xffff_ffff_ffff_ffff,
-                0x7fff_ffff_ffff_ffff,
-            ],
-        )
-    }
-}
-impl Default for IntegerGenerator<i8> {
-    fn default() -> Self {
-        Self::new_with_special_values(10, vec![0x0, -0x1, 0x7f, -0x80])
-    }
-}
-impl Default for IntegerGenerator<i16> {
-    fn default() -> Self {
-        Self::new_with_special_values(10, vec![0x0, -0x1, 0xff, 0x7f, -0x100, -0x80, 0x7fff, -0x8000])
-    }
-}
-impl Default for IntegerGenerator<i32> {
-    fn default() -> Self {
-        Self::new_with_special_values(
-            10,
-            vec![
-                0x0,
-                -0x1,
-                0xff,
-                0x7f,
-                -0x100,
-                -0x80,
-                0xffff,
-                0x7fff,
-                -0x10000,
-                -0x8000,
-                0x7fff_ffff,
-                -0x8000_0000,
-            ],
-        )
-    }
-}
-impl Default for IntegerGenerator<i64> {
-    fn default() -> Self {
-        Self::new_with_special_values(
-            10,
-            vec![
-                0x0,
-                -0x1,
-                0xff,
-                0x7f,
-                -0x100,
-                -0x80,
-                0xffff,
-                0x7fff,
-                -0x10000,
-                -0x8000,
-                0xffff_ffff,
-                0x7fff_ffff,
-                -0x1_0000_0000,
-                -0x8000_0000,
-                0x7fff_ffff_ffff_ffff,
-                -0x8000_0000_0000_0000,
-            ],
-        )
-    }
-}
-impl Default for IntegerGenerator<isize> {
-    fn default() -> Self {
-        Self::new_with_special_values(
-            10,
-            vec![
-                0x0,
-                -0x1,
-                0xff,
-                0x7f,
-                -0x100,
-                -0x80,
-                0xffff,
-                0x7fff,
-                -0x10000,
-                -0x8000,
-                0xffff_ffff,
-                0x7fff_ffff,
-                -0x1_0000_0000,
-                -0x8000_0000,
-                0x7fff_ffff_ffff_ffff,
-                -0x8000_0000_0000_0000,
-            ],
-        )
+    } else if step == 0 {
+        next
+    } else if step % 2 == 1 {
+        arbitrary_u8(next.wrapping_add(1), high, step / 2)
+    } else {
+        // step % 2 == 0
+        arbitrary_u8(low, next.wrapping_sub(1), (step - 1) / 2)
     }
 }

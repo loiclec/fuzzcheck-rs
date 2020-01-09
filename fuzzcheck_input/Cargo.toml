@@ -7,11 +7,6 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-miniserde = "0.1.11"
-# will be linked by cargo-fuzzcheck
-# fuzzcheck = { path = "../fuzzcheck" }
-rand = "0.7.0"
-rand_distr = "0.2.1"
-
-[target.'cfg(not(fuzzing))'.dependencies]
+rand = { version = "0.7", features = ["small_rng"] }
+json = "0.12"
 fuzzcheck = { path = "../fuzzcheck" }
