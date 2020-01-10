@@ -1,6 +1,6 @@
 # Fuzzcheck
 
-> I made Fuzzcheck in my free time during my summer vacation. It is an
+> I made Fuzzcheck in my free time during my summer vacation. It is a much
 > improved port of FuzzCheck for Swift, which I wrote a year ago.
 > There are many, many ways in which it could be improved such that it
 > becomes a powerful, easy-to-use tool for any Rust programmer. I would love 
@@ -121,11 +121,8 @@ extern crate fuzzcheck_input;
 use fuzzcheck_input::integer::*;
 use fuzzcheck_input::vector::*;
 
-extern crate test12;
-extern crate test12_non_instrumented_fuzz;
-
-extern crate test12_instrumented_fuzz;
-use test12_instrumented_fuzz::test;
+extern crate my_library_instrumented_fuzz;
+use my_library_instrumented_fuzz::test;
 
 fn main() {
     let _ = fuzzer::launch::<_, FuzzedVector<FuzzedU8>>(test);
@@ -345,11 +342,13 @@ Fuzzcheck is also structure-aware, but unlike previous attempts at
 structure-aware fuzzing, it doesn't use an intermediary binary encoding such as
 protobuf nor does it use Quickcheck-like generators.
 Instead, it directly mutates the typed values in-process.
-This is better in at least three ways. First, it is faster because there is no
+This is better many ways. First, it is faster because there is no
 need to encode and decode inputs at each iteration. Second, the complexity of
 the input is given by a user-defined function, which will be more accurate than
 counting the bytes of the protobuf encoding. Third, the artifact files and the
 fuzzing corpora can be JSON-encoded, which is more user-friendly than protobuf.
+Finally, and most importantly, the mutations are faster and more meaningful 
+than those done on protobuf or `Arbitrary`’s byte buffer-based RNG.
 
 As I was developing Fuzzcheck for Swift, a few researchers developed Fuzzchick
 for Coq ([paper](https://www.cs.umd.edu/~mwh/papers/fuzzchick-draft.pdf)). It 
