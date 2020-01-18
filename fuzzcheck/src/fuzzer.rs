@@ -1,8 +1,13 @@
+//! Fuzzing engine. Connects the [CodeCoverageSensor] to the [Pool] and
+//! uses an evolutionary algorithm using [Mutator] to find new interesting
+//! test inputs.
+
 use crate::code_coverage_sensor::*;
-use crate::input::*;
-use crate::input_pool::*;
+use crate::data_structures::{LargeStepFindIter, SlabKey};
+use crate::pool::*;
 use crate::signals_handler::*;
 use crate::world::*;
+use crate::{Feature, FuzzedInput, Mutator, Serializer};
 
 use fuzzcheck_arg_parser::*;
 
@@ -10,21 +15,38 @@ use std::panic::{catch_unwind, RefUnwindSafe, UnwindSafe};
 use std::process::exit;
 use std::result::Result;
 
-enum FuzzerInputIndex<I: FuzzedInput> {
-    Temporary(UnifiedFuzzedInput<I>),
-    Pool(InputPoolIndex),
+use std::borrow::Borrow;
+
+enum FuzzerInputIndex<M: Mutator> {
+    Temporary(FuzzedInput<M>),
+    Pool(PoolIndex<M>),
 }
 
-struct FuzzerState<I: FuzzedInput> {
-    pool: InputPool<I>,
-    input_idx: FuzzerInputIndex<I>,
+struct AnalysisCache<M: Mutator> {
+    existing_features: Vec<SlabKey<FeatureInPool<M>>>,
+    new_features: Vec<Feature>,
+}
+impl<M: Mutator> Default for AnalysisCache<M> {
+    fn default() -> Self {
+        Self {
+            existing_features: Vec::new(),
+            new_features: Vec::new(),
+        }
+    }
+}
+
+struct FuzzerState<M: Mutator, S: Serializer<Value = M::Value>> {
+    mutator: M,
+    pool: Pool<M>,
+    input_idx: FuzzerInputIndex<M>,
     stats: FuzzerStats,
     settings: CommandLineArguments,
-    world: World<I>,
+    world: World<S>,
+    analysis_cache: AnalysisCache<M>,
 }
 
-impl<I: FuzzedInput> FuzzerState<I> {
-    fn get_input(&self) -> &UnifiedFuzzedInput<I> {
+impl<M: Mutator, S: Serializer<Value = M::Value>> FuzzerState<M, S> {
+    fn get_input(&self) -> &FuzzedInput<M> {
         match &self.input_idx {
             FuzzerInputIndex::Temporary(input) => &input,
             FuzzerInputIndex::Pool(idx) => self.pool.get_ref(*idx),
@@ -32,14 +54,20 @@ impl<I: FuzzedInput> FuzzerState<I> {
     }
 }
 
-impl<I: FuzzedInput> FuzzerState<I> {
+impl<M: Mutator, S: Serializer<Value = M::Value>> FuzzerState<M, S> {
     fn update_stats(&mut self) {
         let microseconds = self.world.elapsed_time();
-        self.stats.exec_per_s =
-            (((self.stats.total_number_of_runs as f64) / (microseconds as f64)) * 1_000_000.0) as usize;
-        self.stats.pool_size = self.pool.size;
-        self.stats.score = (self.pool.score() * 10.0).round() as usize;
-        self.stats.avg_cplx = (self.pool.average_complexity * 10000.0).round() as usize;
+        self.stats.exec_per_s = ((((self.stats.total_number_of_runs - self.stats.number_of_runs_since_last_reset_time)
+            as f64)
+            / (microseconds as f64))
+            * 1_000_000.0) as usize;
+        self.stats.pool_size = self.pool.len();
+        self.stats.score = self.pool.score();
+        self.stats.avg_cplx = self.pool.average_complexity;
+        if microseconds > 1_000_000 {
+            self.world.set_start_time();
+            self.stats.number_of_runs_since_last_reset_time = self.stats.total_number_of_runs;
+        }
     }
 
     fn receive_signal(&self, signal: i32) -> ! {
@@ -49,7 +77,7 @@ impl<I: FuzzedInput> FuzzerState<I> {
         match signal {
             4 | 6 | 10 | 11 | 8 => {
                 let input = self.get_input();
-                let cplx = input.complexity();
+                let cplx = input.complexity(&self.mutator);
                 let _ = self.world.save_artifact(&input.value, cplx);
 
                 exit(FuzzerTerminationStatus::Crash as i32);
@@ -65,30 +93,41 @@ impl<I: FuzzedInput> FuzzerState<I> {
     }
 }
 
-pub struct Fuzzer<F, I>
+pub struct Fuzzer<T, F, M, S>
 where
-    F: Fn(&I::Value) -> bool,
-    I: FuzzedInput,
+    T: ?Sized,
+    M::Value: Borrow<T>,
+    F: Fn(&T) -> bool,
+    M: Mutator,
+    S: Serializer<Value = M::Value>,
 {
-    state: FuzzerState<I>,
+    state: FuzzerState<M, S>,
     test: F,
+    phantom: std::marker::PhantomData<T>,
 }
 
-impl<F, I> Fuzzer<F, I>
+impl<T, F, M, S> Fuzzer<T, F, M, S>
 where
-    F: Fn(&I::Value) -> bool,
-    I: FuzzedInput,
+    T: ?Sized,
+    M::Value: Borrow<T>,
+    F: Fn(&T) -> bool,
+    M: Mutator,
+    S: Serializer<Value = M::Value>,
 {
-    pub fn new(test: F, settings: CommandLineArguments, world: World<I>) -> Self {
+    pub fn new(test: F, mutator: M, settings: CommandLineArguments, world: World<S>) -> Self {
+        let default_el = FuzzedInput::default(&mutator);
         Fuzzer {
             state: FuzzerState {
-                pool: InputPool::new(),
-                input_idx: FuzzerInputIndex::Temporary(UnifiedFuzzedInput::default()),
+                mutator,
+                pool: Pool::default(),
+                input_idx: FuzzerInputIndex::Temporary(default_el),
                 stats: FuzzerStats::new(),
                 settings,
                 world,
+                analysis_cache: AnalysisCache::default(),
             },
             test,
+            phantom: std::marker::PhantomData,
         }
     }
 
@@ -102,8 +141,9 @@ where
 
     fn test_input(
         test: &F,
-        input: &UnifiedFuzzedInput<I>,
-        world: &World<I>,
+        mutator: &M,
+        input: &FuzzedInput<M>,
+        world: &World<S>,
         stats: FuzzerStats,
     ) -> Result<(), std::io::Error> {
         let sensor = shared_sensor();
@@ -112,7 +152,9 @@ where
         sensor.is_recording = true;
 
         let cell = NotUnwindSafe { value: &test };
-        let input_cell = NotUnwindSafe { value: &input.value };
+        let input_cell = NotUnwindSafe {
+            value: input.value.borrow(),
+        };
         let result = catch_unwind(|| (cell.value)(input_cell.value));
 
         sensor.is_recording = false;
@@ -121,65 +163,71 @@ where
             world.report_event(FuzzerEvent::TestFailure, Some(stats));
             let mut features: Vec<Feature> = Vec::new();
             sensor.iterate_over_collected_features(|f| features.push(f));
-            world.save_artifact(&input.value, input.complexity())?;
+            world.save_artifact(&input.value, input.complexity(mutator))?;
             exit(FuzzerTerminationStatus::TestFailure as i32);
         }
 
         Ok(())
     }
 
-    fn analyze(&mut self, cur_input_cplx: f64) -> Option<Vec<Feature>> {
+    fn analyze(&mut self, cur_input_cplx: f64) -> Option<(Vec<SlabKey<FeatureInPool<M>>>, Vec<Feature>)> {
         let mut best_input_for_a_feature = false;
 
         let sensor = shared_sensor();
 
-        let mut score_estimate: f64 = 0.0;
-        let mut score_to_exceed: f64 = core::f64::INFINITY;
-        let mut matched_least_complex = false;
+        let slab_features = &self.state.pool.slab_features;
+
+        let mut step_iter = LargeStepFindIter::new(&self.state.pool.features);
+
+        let existing_features = &mut self.state.analysis_cache.existing_features;
+        let new_features = &mut self.state.analysis_cache.new_features;
 
         sensor.iterate_over_collected_features(|feature| {
-            let (predicted, least_complex) = self
-                .state
-                .pool
-                .predicted_feature_score_and_least_complex_input_for_feature(feature);
-
-            score_estimate += predicted;
-
-            if let Some((old_cplx, cur_input_score)) = least_complex {
-                if cur_input_cplx < old_cplx {
+            if let Some(f_for_iter) = step_iter.find(|feature_for_iter| feature_for_iter.feature.cmp(&feature)) {
+                if f_for_iter.feature == feature {
+                    existing_features.push(f_for_iter.key);
+                    let f = &slab_features[f_for_iter.key];
+                    if cur_input_cplx < f.least_complexity {
+                        best_input_for_a_feature = true;
+                    }
+                } else {
                     best_input_for_a_feature = true;
-                } else if (cur_input_cplx - old_cplx).abs() < std::f64::EPSILON {
-                    matched_least_complex = true;
-                    score_to_exceed = score_to_exceed.min(cur_input_score);
+                    new_features.push(feature);
                 }
             } else {
-                best_input_for_a_feature = true;
+                best_input_for_a_feature = true; // the feature goes at the end of the pool, and it is new
+                new_features.push(feature);
             }
         });
 
-        if best_input_for_a_feature || (matched_least_complex && score_estimate > score_to_exceed) {
-            let mut features: Vec<Feature> = Vec::new();
-            sensor.iterate_over_collected_features(|feature| {
-                features.push(feature);
-            });
-            Some(features)
+        let result = if best_input_for_a_feature {
+            Some((existing_features.clone(), new_features.clone()))
         } else {
             None
-        }
+        };
+        existing_features.clear();
+        new_features.clear();
+
+        result
     }
 
     fn test_input_and_analyze(&mut self) -> Result<(), std::io::Error> {
         let input = self.state.get_input();
-        let cplx = input.complexity();
-        Self::test_input(&self.test, &input, &self.state.world, self.state.stats)?;
+        let cplx = input.complexity(&self.state.mutator);
+        Self::test_input(
+            &self.test,
+            &self.state.mutator,
+            &input,
+            &self.state.world,
+            self.state.stats,
+        )?;
         self.state.stats.total_number_of_runs += 1;
 
-        if let Some(features) = self.analyze(cplx) {
-            let input_cloned = self.state.get_input().new_source();
-            let actions = self.state.pool.add(input_cloned, features);
-            self.state.world.do_actions(actions)?;
+        if let Some((existing_features, new_features)) = self.analyze(cplx) {
+            let input_cloned = self.state.get_input().new_source(&self.state.mutator);
+            let actions = self.state.pool.add(input_cloned, cplx, existing_features, new_features);
             self.state.update_stats();
-            self.state.world.report_event(FuzzerEvent::New, Some(self.state.stats));
+            self.state.world.do_actions(actions, &self.state.stats)?;
 
             Ok(())
         } else {
@@ -191,48 +239,48 @@ where
         let idx = self.state.pool.random_index();
         self.state.input_idx = FuzzerInputIndex::Pool(idx);
         let input = self.state.pool.get(idx);
-        // let cloned_input = input.clone();
 
-        let mutate_token = input.mutate(self.state.settings.max_input_cplx);
-        let cplx = input.complexity();
+        let unmutate_token = input.mutate(&self.state.mutator, self.state.settings.max_input_cplx);
+        let cplx = input.complexity(&self.state.mutator);
 
         if cplx < self.state.settings.max_input_cplx {
             self.test_input_and_analyze()?;
         }
-        if let Some(input) = self.state.pool.get_opt(idx) {
-            input.unmutate(mutate_token);
-        // assert_eq!(input.value, cloned_input.value);
-        // assert_eq!(cloned_input.complexity(), input.complexity());
-        } else {
-            // println!("deleted the source input");
+
+        // Retrieving the input may fail because the input may have been deleted
+        if let Some(input) = self.state.pool.retrieve_source_input_for_unmutate(idx) {
+            input.unmutate(&self.state.mutator, unmutate_token);
         }
 
         Ok(())
     }
 
     fn process_initial_inputs(&mut self) -> Result<(), std::io::Error> {
-        let mut inputs: Vec<UnifiedFuzzedInput<I>> = self
+        let mut inputs: Vec<FuzzedInput<M>> = self
             .state
             .world
             .read_input_corpus()
             .unwrap_or_default()
             .into_iter()
             .map(|value| {
-                let state = I::state_from_value(&value);
-                UnifiedFuzzedInput { value, state }
+                let cache = self.state.mutator.cache_from_value(&value);
+                let mutation_step = self.state.mutator.mutation_step_from_value(&value);
+                FuzzedInput::new(value, cache, mutation_step)
             })
             .collect();
 
         if inputs.is_empty() {
             for i in 0..100 {
-                let v = I::arbitrary(i, self.state.settings.max_input_cplx);
-                let v_state = I::state_from_value(&v);
-                inputs.push(UnifiedFuzzedInput::new((v, v_state)));
+                let (v, cache) = self.state.mutator.arbitrary(i, self.state.settings.max_input_cplx);
+                let mutation_step = self.state.mutator.mutation_step_from_value(&v);
+                inputs.push(FuzzedInput::new(v, cache, mutation_step));
             }
         }
-        inputs.push(UnifiedFuzzedInput::default());
-        inputs.drain_filter(|i| i.complexity() > self.state.settings.max_input_cplx);
+        inputs.push(FuzzedInput::default(&self.state.mutator));
+        inputs.drain_filter(|i| i.complexity(&self.state.mutator) > self.state.settings.max_input_cplx);
         assert!(!inputs.is_empty());
+
+        self.state.world.set_start_time();
         for input in inputs {
             self.state.input_idx = FuzzerInputIndex::Temporary(input);
             self.test_input_and_analyze()?;
@@ -242,7 +290,6 @@ where
     }
 
     fn main_loop(&mut self) -> Result<(), std::io::Error> {
-        self.state.world.set_start_time();
         self.state
             .world
             .report_event(FuzzerEvent::Start, Some(self.state.stats));
@@ -259,123 +306,50 @@ where
         Ok(())
     }
 
+    /// Reads a corpus of inputs from the [World] and minifies the corpus
+    /// such that only the highest-scoring inputs are kept.
+    ///
+    /// The number of inputs to keep is taken from
+    /// [self.settings.corpus_size](FuzzerSettings::corpus_size)
     fn corpus_minifying_loop(&mut self) -> Result<(), std::io::Error> {
-        self.state.world.set_start_time();
         self.state
             .world
             .report_event(FuzzerEvent::Start, Some(self.state.stats));
+
         self.process_initial_inputs()?;
+
         self.state
             .world
             .report_event(FuzzerEvent::DidReadCorpus, Some(self.state.stats));
-        while self.state.pool.size > self.state.settings.corpus_size {
-            let actions = self.state.pool.remove_lowest();
-            self.state.world.do_actions(actions)?;
+
+        while self.state.pool.len() > self.state.settings.corpus_size {
+            let actions = self.state.pool.remove_lowest_scoring_input();
+            self.state.world.do_actions(actions, &self.state.stats)?;
             self.state.update_stats();
         }
+
         self.state.world.report_event(FuzzerEvent::Done, Some(self.state.stats));
         Ok(())
     }
 
     fn input_minifying_loop(&mut self) -> Result<(), std::io::Error> {
-        self.state.world.set_start_time();
-
         self.state
             .world
             .report_event(FuzzerEvent::Start, Some(self.state.stats));
-        let value = self.state.world.read_input_file()?; // TODO: world should return a UnifiedFuzzedInput?
-        let state = I::state_from_value(&value);
-        let input = UnifiedFuzzedInput { value, state };
-        let input_cplx = input.complexity();
+        let value = self.state.world.read_input_file()?;
+        let cache = self.state.mutator.cache_from_value(&value);
+        let mutation_step = self.state.mutator.mutation_step_from_value(&value);
+        let input = FuzzedInput::<M>::new(value, cache, mutation_step);
+        let input_cplx = input.complexity(&self.state.mutator);
         self.state.settings.max_input_cplx = input_cplx - 0.01;
 
         self.state.pool.add_favored_input(input);
 
+        self.state.world.set_start_time();
         loop {
             self.process_next_inputs()?;
         }
     }
-}
-
-pub fn launch<F, I>(test: F) -> Result<(), std::io::Error>
-where
-    F: Fn(&I::Value) -> bool,
-    I: FuzzedInput,
-{
-    let env_args: Vec<_> = std::env::args().collect();
-    let parser = options_parser();
-    let mut help = format!(
-        r#""
-fuzzcheck <SUBCOMMAND> [OPTIONS]
-
-SUBCOMMANDS:
-    {fuzz}    Run the fuzz test
-    {tmin}    Minify a crashing test input, requires --{input_file}
-    {cmin}    Minify a corpus of test inputs, requires --{in_corpus}
-"#,
-        fuzz = COMMAND_FUZZ,
-        tmin = COMMAND_MINIFY_INPUT,
-        input_file = INPUT_FILE_FLAG,
-        cmin = COMMAND_MINIFY_CORPUS,
-        in_corpus = IN_CORPUS_FLAG,
-    );
-    help += parser.usage("").as_str();
-    help += format!(
-        r#""
-## Examples:
-
-fuzzcheck {fuzz}
-    Launch the fuzzer with default options.
-
-fuzzcheck {tmin} --{input_file} "artifacts/crash.json"
-
-    Minify the test input defined in the file "artifacts/crash.json".
-    It will put minified inputs in the folder artifacts/crash.minified/
-    and name them {{complexity}}-{{hash}}.json. 
-    For example, artifacts/crash.minified/4213--8cd7777109b57b8c.json
-    is a minified input of complexity 42.13.
-
-fuzzcheck {cmin} --{in_corpus} "fuzz-corpus" --{corpus_size} 25
-
-    Minify the corpus defined by the folder "fuzz-corpus", which should
-    contain JSON-encoded test inputs.
-    It will remove files from that folder until only the 25 most important
-    test inputs remain.
-"#,
-        fuzz = COMMAND_FUZZ,
-        tmin = COMMAND_MINIFY_INPUT,
-        input_file = INPUT_FILE_FLAG,
-        cmin = COMMAND_MINIFY_CORPUS,
-        in_corpus = IN_CORPUS_FLAG,
-        corpus_size = CORPUS_SIZE_FLAG
-    )
-    .as_str();
-
-    let args = match CommandLineArguments::from_parser(&parser, &env_args[1..], DEFAULT_ARGUMENTS) {
-        Ok(r) => r,
-        Err(e) => {
-            println!("{}\n\n{}", e, help);
-            std::process::exit(1);
-        }
-    };
-
-    let command = args.command;
-
-    let mut fuzzer = Fuzzer::<F, I>::new(test, args.clone(), World::new(args));
-    unsafe { fuzzer.state.set_up_signal_handler() };
-    match command {
-        FuzzerCommand::Fuzz => fuzzer.main_loop()?,
-        FuzzerCommand::MinifyInput => fuzzer.input_minifying_loop()?,
-        FuzzerCommand::Read => {
-            let value = fuzzer.state.world.read_input_file()?;
-            let state = I::state_from_value(&value);
-            fuzzer.state.input_idx = FuzzerInputIndex::Temporary(UnifiedFuzzedInput::new((value, state)));
-            let input = fuzzer.state.get_input();
-            Fuzzer::test_input(&fuzzer.test, &input, &fuzzer.state.world, fuzzer.state.stats)?;
-        }
-        FuzzerCommand::MinifyCorpus => fuzzer.corpus_minifying_loop()?,
-    };
-    Ok(())
 }
 
 struct NotThreadSafe<T>(T);
@@ -392,4 +366,39 @@ pub enum FuzzerTerminationStatus {
     Crash = 1,
     TestFailure = 2,
     Unknown = 3,
+}
+
+pub fn launch<T, F, M, S>(test: F, mutator: M, serializer: S, args: CommandLineArguments) -> Result<(), std::io::Error>
+where
+    T: ?Sized,
+    M::Value: Borrow<T>,
+    F: Fn(&T) -> bool,
+    M: Mutator,
+    S: Serializer<Value = M::Value>,
+{
+    let command = args.command;
+
+    let mut fuzzer = Fuzzer::new(test, mutator, args.clone(), World::new(serializer, args));
+    unsafe { fuzzer.state.set_up_signal_handler() };
+    match command {
+        FuzzerCommand::Fuzz => fuzzer.main_loop()?,
+        FuzzerCommand::MinifyInput => fuzzer.input_minifying_loop()?,
+        FuzzerCommand::Read => {
+            let value = fuzzer.state.world.read_input_file()?;
+            let cache = fuzzer.state.mutator.cache_from_value(&value);
+            let mutation_step = fuzzer.state.mutator.mutation_step_from_value(&value);
+
+            fuzzer.state.input_idx = FuzzerInputIndex::Temporary(FuzzedInput::new(value, cache, mutation_step));
+            let input = fuzzer.state.get_input();
+            Fuzzer::<T, F, M, S>::test_input(
+                &fuzzer.test,
+                &fuzzer.state.mutator,
+                &input,
+                &fuzzer.state.world,
+                fuzzer.state.stats,
+            )?;
+        }
+        FuzzerCommand::MinifyCorpus => fuzzer.corpus_minifying_loop()?,
+    };
+    Ok(())
 }

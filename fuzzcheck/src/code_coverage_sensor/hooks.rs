@@ -1,5 +1,6 @@
-//! This module implements the hooks used by SanitizerCoverage to track the
+//! This module implements the hooks defined by SanitizerCoverage to track the
 //! execution of the program.
+//!
 //! For more information about SanitizerCoverage,
 //! see https://clang.llvm.org/docs/SanitizerCoverage.html
 //!
@@ -14,6 +15,7 @@
 //! For these hooks, I also just record the arguments and pass them to the code
 //! coverage sensor. Here is the documentation for these hooks from
 //! SanitizerCoverage:
+//!
 //! ```text
 //! // Called before a comparison instruction.
 //! // Arg1 and Arg2 are arguments of the comparison.
@@ -47,7 +49,7 @@
 //! void __sanitizer_cov_trace_gep(uintptr_t Idx);
 //! ```
 
-use crate::code_coverage_sensor::*;
+use super::*;
 use std::slice;
 use std::sync::Once;
 
@@ -68,10 +70,9 @@ fn counters_init(start: *mut u8, stop: *mut u8) {
         }
 
         let dist = stop.offset_from(start) as usize;
-
+        println!("Number of counters:{}", dist);
         START.call_once(|| {
             SHARED_SENSOR.as_mut_ptr().write(CodeCoverageSensor {
-                num_guards: 0,
                 is_recording: false,
                 eight_bit_counters: slice::from_raw_parts_mut(start, dist),
                 features: AHashSet::new(),
@@ -213,9 +214,9 @@ fn trace_const_cmp8(arg1: u64, arg2: u64) {
 ///
 /// > Called before a switch statement.
 /// > Val is the switch operand.
-/// > * Cases[0] is the number of case constants.
-/// > * Cases[1] is the size of Val in bits.
-/// > * Cases[2:] are the case constants.
+/// > * `Cases[0]` is the number of case constants.
+/// > * `Cases[1]` is the size of Val in bits.
+/// > * `Cases[2:]` are the case constants.
 ///
 /// Fuzzcheck documentation:
 /// TODO

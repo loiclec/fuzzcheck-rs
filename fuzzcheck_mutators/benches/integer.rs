@@ -2,8 +2,8 @@
 
 // extern crate fuzzcheck_input;
 // extern crate test;
-// use fuzzcheck::input::InputGenerator;
-// use fuzzcheck_input::integer::*;
+// use fuzzcheck::mutator::InputGenerator;
+// use fuzzcheck_mutatorsinteger::*;
 
 // #[cfg(test)]
 // mod tests {

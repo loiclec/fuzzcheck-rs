@@ -7,7 +7,7 @@ fn main() {
     // note that there are a number of downsides to this approach, the comments
     // below detail how to improve the portability of these commands.
     Command::new("gcc")
-        .args(&["src/c_builtins.c", "-c", "-fPIC", "-o"])
+        .args(&["src/code_coverage_sensor/c_builtins.c", "-c", "-fPIC", "-o"])
         .arg(&format!("{}/c_builtins.o", out_dir))
         .status()
         .unwrap();

@@ -1,5 +1,5 @@
 [package]
-name = "cargo-fuzzcheck"
+name = "fuzzcheck_serializer"
 version = "0.1.0"
 authors = ["Loïc Lecrenier <loic.lecrenier@me.com>"]
 edition = "2018"
@@ -7,10 +7,4 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-toml = "0.4"
-fuzzcheck_arg_parser = { path = "../fuzzcheck_arg_parser" }
-getopts = "0.2"
-
-[[bin]]
-name = "cargo-fuzzcheck"
-path = "src/main.rs"
+fuzzcheck = { path = "../fuzzcheck" }

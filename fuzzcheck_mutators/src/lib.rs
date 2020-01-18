@@ -2,30 +2,14 @@
 #![feature(vec_remove_item)]
 
 extern crate fuzzcheck;
-use fuzzcheck::input::FuzzedInput;
 
 pub mod bool;
+pub mod either;
 pub mod integer;
 pub mod option;
+pub mod tuples;
 pub mod vector;
 pub mod void;
-
-pub trait FuzzedJsonInput: FuzzedInput {
-    fn from_json(json: &json::JsonValue) -> Option<Self::Value>;
-    fn to_json(value: &Self::Value) -> json::JsonValue;
-
-    fn from_data(data: &[u8]) -> Option<Self::Value> {
-        if let Ok(s) = std::str::from_utf8(data) {
-            json::parse(s).ok().and_then(|x| Self::from_json(&x))
-        } else {
-            None
-        }
-    }
-    fn to_data(value: &Self::Value) -> Vec<u8> {
-        let json = Self::to_json(&value);
-        json.dump().into_bytes()
-    }
-}
 
 pub fn arbitrary_binary(low: usize, high: usize, step: usize) -> usize {
     if high == low {

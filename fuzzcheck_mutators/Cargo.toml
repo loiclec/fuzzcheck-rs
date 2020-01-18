@@ -1,5 +1,5 @@
 [package]
-name = "fuzzcheck_input"
+name = "fuzzcheck_mutators"
 version = "0.1.0"
 authors = ["Loïc Lecrenier <loic.lecrenier@me.com>"]
 edition = "2018"
@@ -8,5 +8,4 @@ edition = "2018"
 
 [dependencies]
 rand = { version = "0.7", features = ["small_rng"] }
-json = "0.12"
 fuzzcheck = { path = "../fuzzcheck" }

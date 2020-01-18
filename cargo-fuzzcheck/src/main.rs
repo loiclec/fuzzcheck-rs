@@ -9,20 +9,44 @@ use std::fs;
 use std::io::Read;
 use std::io::Write;
 
+use std::fmt;
+use std::fmt::Display;
+
 pub const COMMAND_INIT: &str = "init";
 pub const COMMAND_RUN: &str = "run";
 pub const COMMAND_CLEAN: &str = "clean";
 
 #[macro_use]
-extern crate error_chain;
-
-#[macro_use]
 mod templates;
 
-error_chain! {
-    foreign_links {
-        Toml(toml::de::Error);
-        Io(::std::io::Error);
+#[derive(Debug)]
+enum MyError {
+    Toml(toml::de::Error),
+    Io(std::io::Error),
+    Str(String),
+}
+impl Display for MyError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            MyError::Toml(e) => write!(f, "{}", e),
+            MyError::Io(e) => write!(f, "{}", e),
+            MyError::Str(e) => write!(f, "{}", e),
+        }
+    }
+}
+impl From<std::io::Error> for MyError {
+    fn from(e: std::io::Error) -> Self {
+        MyError::Io(e)
+    }
+}
+impl From<toml::de::Error> for MyError {
+    fn from(e: toml::de::Error) -> Self {
+        MyError::Toml(e)
+    }
+}
+impl From<String> for MyError {
+    fn from(e: String) -> Self {
+        MyError::Str(e)
     }
 }
 
@@ -182,7 +206,7 @@ cargo-fuzzcheck {run} target1 {cmin} --{in_corpus} "fuzz-corpus" --{corpus_size}
     }
 }
 
-fn root_package_name(root_folder: &PathBuf) -> Result<String> {
+fn root_package_name(root_folder: &PathBuf) -> Result<String, MyError> {
     let filename = root_folder.join("Cargo.toml");
     let mut file = fs::File::open(&filename)?;
     let mut data = Vec::new();
@@ -201,7 +225,7 @@ fn root_package_name(root_folder: &PathBuf) -> Result<String> {
     }
 }
 
-fn clean_command() -> Result<()> {
+fn clean_command() -> Result<(), MyError> {
     let fuzz_folder = std::env::current_dir()?.join("fuzz");
     let non_instrumented_folder = fuzz_folder.join("non_instrumented");
     let instrumented_folder = fuzz_folder.join("instrumented");
@@ -223,7 +247,7 @@ fn clean_command() -> Result<()> {
     Ok(())
 }
 
-fn init_command(fuzzcheck_path: &str) -> Result<()> {
+fn init_command(fuzzcheck_path: &str) -> Result<(), MyError> {
     let target = "target1";
 
     let root_folder = std::env::current_dir()?;
@@ -269,10 +293,12 @@ fn init_command(fuzzcheck_path: &str) -> Result<()> {
                 let folder = Path::new(fuzzcheck_path.trim_start_matches("file://"));
                 (
                     format!("path = \"{}\"", folder.join("fuzzcheck").display()),
-                    format!("path = \"{}\"", folder.join("fuzzcheck_input").display()),
+                    format!("path = \"{}\"", folder.join("fuzzcheck_mutators").display()),
+                    format!("path = \"{}\"", folder.join("fuzzcheck_serializer").display()),
                 )
             } else {
                 (
+                    format!("git = \"{}\"", fuzzcheck_path),
                     format!("git = \"{}\"", fuzzcheck_path),
                     format!("git = \"{}\"", fuzzcheck_path),
                 )
@@ -281,6 +307,7 @@ fn init_command(fuzzcheck_path: &str) -> Result<()> {
                 root_package_name,
                 fuzzcheck_deps.0,
                 fuzzcheck_deps.1,
+                fuzzcheck_deps.2,
                 target
             ))?;
         }
@@ -288,9 +315,14 @@ fn init_command(fuzzcheck_path: &str) -> Result<()> {
         let build_rs_path = non_instrumented_folder.join("build.rs");
         if !build_rs_path.is_file() {
             let mut build_rs = fs::File::create(build_rs_path)?;
-            let instrumented_target_folder =
+
+            let instrumented_target_folder_0 = instrumented_folder.join("target/release/deps");
+            let instrumented_target_folder_1 =
                 instrumented_folder.join(format!("target/{}/release/deps", default_target()));
-            build_rs.write_fmt(build_rs_template!(instrumented_target_folder))?;
+            build_rs.write_fmt(build_rs_template!(
+                instrumented_target_folder_0,
+                instrumented_target_folder_1
+            ))?;
         }
 
         // create fuzz/non_instrumented/fuzz_targets directory
@@ -333,7 +365,7 @@ fn init_command(fuzzcheck_path: &str) -> Result<()> {
             fs::create_dir(&src_folder)?;
             let lib_rs_path = src_folder.join("lib.rs");
             let mut lib_rs = fs::File::create(lib_rs_path)?;
-            lib_rs.write_fmt(instrumented_lib_rs_template!(root_package_name))?;
+            lib_rs.write_fmt(instrumented_lib_rs_template!(root_package_name.replace("-", "_")))?;
         }
     }
 
@@ -353,18 +385,14 @@ fn use_gold_linker() -> bool {
     }
 }
 
-fn instrumented_compile(instrumented_folder: &PathBuf, target_triple: &str) -> Result<()> {
+fn instrumented_compile(instrumented_folder: &PathBuf, target_triple: &str) -> Result<(), MyError> {
     let mut rustflags: String = "--cfg fuzzing \
+                                 -Cmetadata=fuzzing \
                                  -Cpasses=sancov \
                                  -Cllvm-args=-sanitizer-coverage-level=4 \
                                  -Cllvm-args=-sanitizer-coverage-inline-8bit-counters \
-                                 -Cforce-frame-pointers=yes \
-                                 -Clto=yes -Ccodegen-units=1"
+                                 -Cforce-frame-pointers=yes"
         .into();
-
-    //                                 -Cllvm-args=-sanitizer-coverage-trace-compares \
-    //                                 -Cllvm-args=-sanitizer-coverage-trace-divs \
-    //                                 -Cllvm-args=-sanitizer-coverage-trace-geps \
 
     if use_gold_linker() {
         rustflags.push_str(" -Clink-arg=-fuse-ld=gold");
@@ -386,17 +414,13 @@ fn instrumented_compile(instrumented_folder: &PathBuf, target_triple: &str) -> R
     if output.status.success() {
         Ok(())
     } else {
-        Err("Could not compile the instrumented part of the fuzz target".into())
+        Err("Could not compile the instrumented part of the fuzz target"
+            .to_string()
+            .into())
     }
 }
 
-fn run_command_2(
-    args: &CommandLineArguments,
-    target_folder: &PathBuf,
-    instrumented_folder: &PathBuf,
-    non_instrumented_folder: &PathBuf,
-    target_triple: &str,
-) -> Result<std::process::Output> {
+fn command_line_arguments_string(args: &CommandLineArguments) -> Vec<String> {
     let mut s: Vec<String> = Vec::new();
 
     let input_file_args = args
@@ -450,11 +474,42 @@ fn run_command_2(
         args.max_nbr_of_runs.to_string(),
     ]);
 
+    s
+}
+
+fn launch_exec(
+    args: &CommandLineArguments,
+    target_folder: &PathBuf,
+    non_instrumented_folder: &PathBuf,
+) -> Result<std::process::Output, MyError> {
+    let s = command_line_arguments_string(args);
+
+    let exec = non_instrumented_folder.join(format!(
+        "target/{}/release/{}",
+        default_target(),
+        &target_folder.file_name().unwrap().to_str().unwrap()
+    ));
+
+    Command::new(exec)
+        .args(s)
+        .stdout(std::process::Stdio::inherit())
+        .stderr(std::process::Stdio::inherit())
+        .output()
+        .map_err(|x| x.into())
+}
+
+fn run_command(
+    args: &CommandLineArguments,
+    target_folder: &PathBuf,
+    instrumented_folder: &PathBuf,
+    non_instrumented_folder: &PathBuf,
+    target_triple: &str,
+) -> Result<std::process::Output, MyError> {
+    let s = command_line_arguments_string(args);
+
     instrumented_compile(instrumented_folder, target_triple)?;
 
-    //let instrumented_folder_deps = instrumented_folder.join(format!("target/{}/release/deps", target_triple));
-
-    let mut rustflags: String = "--cfg fuzzing -Clto=yes -Ccodegen-units=1".to_string();
+    let mut rustflags: String = "--cfg fuzzing".to_string();
 
     if use_gold_linker() {
         rustflags.push_str(" -Clink-arg=-fuse-ld=gold");
@@ -479,9 +534,8 @@ fn run_command_2(
         .map_err(|x| x.into())
 }
 
-fn exec_normal_command(arguments: CommandLineArguments, target: &str, target_triple: &str) -> Result<()> {
+fn exec_normal_command(arguments: CommandLineArguments, target: &str, target_triple: &str) -> Result<(), MyError> {
     let root_folder = std::env::current_dir()?;
-    //let root_package_name = root_package_name(&root_folder)?;
 
     let fuzz_folder = root_folder.join("fuzz");
     let instrumented_folder = fuzz_folder.join("instrumented");
@@ -489,7 +543,7 @@ fn exec_normal_command(arguments: CommandLineArguments, target: &str, target_tri
     let fuzz_targets_folder = fuzz_folder.join("fuzz_targets");
     let target_folder = fuzz_targets_folder.join(target);
 
-    run_command_2(
+    run_command(
         &arguments,
         &target_folder,
         &instrumented_folder,
@@ -501,7 +555,11 @@ fn exec_normal_command(arguments: CommandLineArguments, target: &str, target_tri
 }
 
 // TODO: rename CommandLineArguments
-fn exec_input_minify_command(mut arguments: CommandLineArguments, target: &str, target_triple: &str) -> Result<()> {
+fn exec_input_minify_command(
+    mut arguments: CommandLineArguments,
+    target: &str,
+    target_triple: &str,
+) -> Result<(), MyError> {
     let root_folder = std::env::current_dir()?;
     let fuzz_folder = &root_folder.join("fuzz");
     let instrumented_folder = fuzz_folder.join("instrumented");
@@ -544,7 +602,7 @@ fn exec_input_minify_command(mut arguments: CommandLineArguments, target: &str, 
     }
     arguments.command = FuzzerCommand::Read;
 
-    let o = run_command_2(
+    let o = run_command(
         &arguments,
         target_folder,
         &instrumented_folder,
@@ -564,13 +622,7 @@ fn exec_input_minify_command(mut arguments: CommandLineArguments, target: &str, 
     loop {
         arguments.input_file = simplest_input_file(&artifacts_folder).or(arguments.input_file);
 
-        run_command_2(
-            &arguments,
-            target_folder,
-            &instrumented_folder,
-            &non_instrumented_folder,
-            target_triple,
-        )?;
+        launch_exec(&arguments, target_folder, &non_instrumented_folder)?;
     }
 }
 

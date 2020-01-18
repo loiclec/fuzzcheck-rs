@@ -1,6 +1,6 @@
 // extern crate fuzzcheck_input;
-// use fuzzcheck::input::FuzzedInput;
-// use fuzzcheck_input::integer::*;
+// use fuzzcheck::mutator::FuzzedInput;
+// use fuzzcheck_mutatorsinteger::*;
 
 // type F = FuzzedU8;
 

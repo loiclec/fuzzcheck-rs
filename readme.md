@@ -1,14 +1,5 @@
 # Fuzzcheck
 
-> I made Fuzzcheck in my free time during my summer vacation. It is a much
-> improved port of FuzzCheck for Swift, which I wrote a year ago.
-> There are many, many ways in which it could be improved such that it
-> becomes a powerful, easy-to-use tool for any Rust programmer. I would love 
-> to keep working on it, but I am now back to university, and I
-> find it hard to justify spending a significant amount of time on it.
-> If you would like me to keep developing Fuzzcheck or help your company use
-> it, please hire me and help me pay for my studies :)
-
 Fuzzcheck is a structure-aware, in-process, coverage-guided, evolutionary 
 fuzzing engine for Rust functions. 
 
@@ -18,15 +9,11 @@ Detecting security flaws in an application is a non-goal.
 Given a function `test: (T) -> Bool`, it tries to find a value of type `T` that
 fails the test or leads to a crash.
 
-Unlike other coverage-guided fuzzing engines, it doesn't work with bitstrings 
-but instead works with values of any type `T` directly. The complexity of the 
-inputs and the way to mutate them is given by functions defined by the user.
-
 Fuzzcheck works by maintaining a pool of test inputs and ranking them using the
 complexity of the input and the uniqueness of the code coverage caused by 
 `test(input)`. From that pool, it selects a high-ranking input, mutates it, and
 runs the test function again. If the new mutated input has an interesting code 
-coverage then it is added to the pool, otherwise, Fuzzcheck tries again with a 
+coverage then it is added to the pool, otherwise, fuzzcheck tries again with a 
 different input and mutation.
 
 In pseudocode:
@@ -44,6 +31,27 @@ loop {
     }
 }
 ```
+
+Unlike other coverage-guided fuzzing engines, it doesn't work with bitstrings 
+but instead works with values of any type `T` directly. The complexity of the 
+inputs and the way to mutate them is given by functions defined by the user.
+
+## Note
+
+Please contact me if you have questions/comments or if you would like to try it
+but don't know where to start. As far as I know, I am the only one who has ever
+tried to use it, so I am quite curious to hear how easy/difficult it is for 
+others to pick it up.
+
+I would also *love* to find a contributor/maintainer, because I don't have much
+time to spend on it except during school breaks. So if you would like to work 
+on a fast, super novel fuzzing engine specifically made for Rust, please 
+talk to me, I can guide you through the design and code and suggest tasks
+to get started.
+
+Alternatively, you could sponsor me 🥳 Then I can set aside some time every 
+week to write fuzzcheck. Otherwise, the update pace of this crate is going to
+be around one time per semester, optimistically.
 
 ## Usage
 
@@ -73,13 +81,13 @@ cargo fuzzcheck init
 A sample test function was created at `fuzz/instrumented/src/lib.rs`.
 It contains this basic fuzz test, which you can replace with a test for your 
 library. Note that while the input is of type `Vec<u8>`, it could be anything
-else such as `String`, `HashMap<T, U>`, etc. so long as an appropriate input
-handler has been written for it.
+else such as `String`, `HashMap<T, U>`, etc. so long as an appropriate mutator
+has been written for it.
 
 ```rust
 extern crate my_library;
 
-pub fn test(input: &Vec<u8>) -> bool {
+pub fn test(input: &[u8]) -> bool {
     // test goes here
     if 
         input.len() > 14 &&
@@ -109,23 +117,23 @@ pub fn test(input: &Vec<u8>) -> bool {
 
 And an executable script was created at 
 `fuzz/non_instrumented/fuzz_targets/target1.rs`. It launches the fuzzing engine
-on the above test function using the input handler `FuzzedVector<FuzzedU8>`.
-Both `FuzzedVector` and `FuzzedU8` are provided by fuzzcheck. However, more
-handlers can be created for values of any type.
+on the above test function using the mutator `VecMutator<U8Mutator>`.
+Both `VecMutator` and `U8Mutator` are provided by fuzzcheck. However, more
+mutators can be created for values of any type.
 
 ```rust
-extern crate fuzzcheck;
-use fuzzcheck::fuzzer;
+/* Various import statements not included in this example */
 
-extern crate fuzzcheck_input;
-use fuzzcheck_input::integer::*;
-use fuzzcheck_input::vector::*;
-
-extern crate my_library_instrumented_fuzz;
-use my_library_instrumented_fuzz::test;
+// Makes the SerdeSerializer available to fuzzcheck
+define_serde_serializer!();
 
 fn main() {
-    let _ = fuzzer::launch::<_, FuzzedVector<FuzzedU8>>(test);
+    // Will mutate values of type Vec<u8>
+    let mutator = VecMutator<U8Mutator>::default();
+    // Test inputs will be encoded with serde_json 
+    let serializer = SerdeSerializer::<Vec<u8>>::default();
+    // Launch the fuzzing process on the test function
+    let _ = fuzzcheck::launch(test, mutator, serializer);
 }
 ```
 
@@ -150,12 +158,12 @@ NEW     221525  score: 170      pool: 16        exec/s: 4381081 cplx: 1172500
 in the pool
 * `pool: 16` is the number of inputs in the pool
 * `exec/s: 4381081` is the average number of iterations performed every second
-* `cplx: 1172500` is the average complexity of the inputs in the pool
+* `cplx: 117.25` is the average complexity of the inputs in the pool
 
 When a failing test has been found, the following is printed:
 ```
 ================ TEST FAILED ================
-270134  score: 170      pool: 16        exec/s: 4381081 cplx: 1172500
+270134  score: 170      pool: 16        exec/s: 4381081 cplx: 117.25
 Saving at "fuzz/non_instrumented/fuzz_targets/target1/artifacts/b62fcaf08890a875.json"
 ```
 
@@ -186,7 +194,7 @@ or `non_instrumented`. Every piece of code written there will be instrumented
 such that its code coverage can be recorded.
 
 The `non-instrumented` folder contains the code that launches the fuzzer 
-(called the `fuzz_targets`) as well as eventual custom `FuzzedInput` 
+(called the `fuzz_targets`) as well as eventual custom `Mutator` 
 implementations. It uses your library, `fuzzcheck`, and `instrumented` as 
 dependencies. The code there is not instrumented.
 
@@ -209,14 +217,15 @@ dependencies. The code there is not instrumented.
 │     │  ├── target2
 │     │  └── target1.rs           # another fuzz-test
 │     └── src
-│        └── lib.rs               # contains code that the fuzzer needs, such as custom input handlers
+│        └── lib.rs               # contains code that the fuzzer needs, such as custom mutators
 └── src
    └── lib.rs                     # your library code
 ```
 
-Honestly it is a bit convoluted and I think it may break under certain 
-circumstances, I will have to test and reevaluate that approach. Maybe special
-compiler support will be needed to properly support fuzzcheck’s use case.
+Note that if `instrumented` and `non_instrumented` both depend on a common 
+crate `A`, then that crate will be compiled twice and the two versions of it,
+will live in the resulting binary. These two versions will have different,
+incompatible versions of the types and traits defined by `A`.
 
 ## Minifying failing test inputs
 
@@ -231,84 +240,73 @@ to minify:
 41,212,142,0,78,56,2,76,7,100,102,102,0]
 ```
 
-Launch `cargo-fuzzcheck run` on your target with the `tmin` command and an `--input-file` flag.
+Launch `cargo-fuzzcheck run` on your target with the `tmin` command and an
+`--input-file` option.
 
 ```bash
 cargo fuzzcheck run target1 tmin --input-file "artifacts/crash.json"
 ```
 
 This will repeatedly launch the fuzzer in “minify” mode and save the
-artifacts in the folder `artifacts/crash.minified`. The name of each artifact will
-be prefixed with the complexity of its input. For example,
+artifacts in the folder `artifacts/crash.minified`. The name of each artifact 
+will be prefixed with the complexity of its input. For example,
 `crash.minified/800--fe958d4f003bd4f5.json` has a complexity of `8.00`.
 
 You can stop the minifying fuzzer at any point and look for the least complex
 input in the `crash.minified` folder.
 
-## Creating an input handler
+## Creating a Mutator
 
 If you would like to fuzz-test your own custom type, you will have to create
-an input handler for it. You can do so by creating a type that conforms to
-the `FuzzedInput` trait.
+a `Mutator` for it. You can do so by creating a type that conforms to
+the `Mutator` trait.
 
 ```rust
-pub trait FuzzedInput {
+pub trait Mutator: Sized {
     type Value: Clone;
-    type State: Clone;
+    type Cache: Clone;
+    type MutationStep;
     type UnmutateToken;
 
-    fn default() -> Self::Value;
+    /// Compute the cache for the given value
+    fn cache_from_value(&self, value: &Self::Value) -> Self::Cache;
+    /// Compute the initial mutation step for the given value
+    fn mutation_step_from_value(&self, value: &Self::Value) -> Self::MutationStep;
 
-    fn state_from_value(value: &Self::Value) -> Self::State;
+    /// The maximum complexity of an input of this type
+    fn max_complexity(&self) -> f64;
+    /// The minimum complexity of an input of this type
+    fn min_complexity(&self) -> f64;
+    /// The complexity of the current input
+    fn complexity(&self, value: &Self::Value, cache: &Self::Cache) -> f64;
 
-    fn arbitrary(seed: usize, max_cplx: f64) -> Self::Value;
+    /// Create an arbitrary value
+    fn arbitrary(&self, seed: usize, max_cplx: f64) -> (Self::Value, Self::Cache);
 
-    fn max_complexity() -> f64;
-    fn min_complexity() -> f64;
+    /// Mutate the given value in-place and return a token describing how to reverse the mutation
+    fn mutate(&self, value: &mut Self::Value, cache: &mut Self::Cache, step: &mut Self::MutationStep, max_cplx: f64) -> Self::UnmutateToken;
 
-    fn hash_value<H: Hasher>(value: &Self::Value, state: &mut H);
-
-    fn complexity(value: &Self::Value, state: &Self::State) -> f64;
-
-    fn mutate(value: &mut Self::Value, state: &mut Self::State, max_cplx: f64) -> Self::UnmutateToken;
-
-    fn unmutate(value: &mut Self::Value, state: &mut Self::State, t: Self::UnmutateToken);
-
-    fn from_data(data: &[u8]) -> Option<Self::Value>;
-    fn to_data(value: &Self::Value) -> Vec<u8>;
+    /// Reverse a mutation
+    fn unmutate(&self, value: &mut Self::Value, cache: &mut Self::Cache, t: Self::UnmutateToken);
 }
+
 ```
 
 This trait can be a bit difficult to implement, but it is very powerful and it
-is possible to write efficient and composable input handlers with it. For 
-example, fuzzcheck implements `FuzzedU8` (u8), `FuzzedOption` (Option), and
-`FuzzedVector` (Vec). They compose such that it possible to write 
-`FuzzedVector<FuzzedVector<FuzzedOption<FuzzedU8>>>` to fuzz values of type 
+is possible to write efficient and composable mutators with it. For 
+example, fuzzcheck implements `U8Mutator` (u8), `OptionMutator` (Option), and
+`VecMutator` (Vec). They compose such that it possible to use a 
+`VecMutator<VecMutator<OptionMutator<U8Mutator>>>` to fuzz values of type 
 `Vec<Vec<Option<u8>>>`.
 
 I would like to write a guide to fuzzcheck to explain the trait and how to work
 with it. But in the meantime, if you have questions, please send me an email or
-create an issue on GitHub. 
+create an issue on GitHub. You can also look at the documentation of the trait
+that explains some of the design decisions behind it.
 
-My goal is to write more handlers for common types and building blocks for 
-composability such that a custom implementation of `FuzzedInput` is rarely 
+My goal is to write more mutators for common types and building blocks for 
+composability such that a custom implementation of `Mutator` is rarely 
 needed.
-
-An input handler is responsible for computing the complexity of an input, to
-encode and decode it to the file system, and to generate new inputs by mutating
-existing ones.
-
-Many of the functions operate on both an input value (e.g. `Vec<T>`) and 
-a _state_ associated with it (`e.g. FuzzedVectorState<S>`). The state might hold
-the complexity of the value, its previous mutations, or any other thing to help
-implement the functions of `FuzzedInput`. 
-
-Note the `unmutate` function, it is responsible for reversing the mutation done by
-a previous call of the `mutate` function. The implication is that it is possible
-to create new test inputs _in place_. For example, the `FuzzedVector` handler can
-mutate a single element at index `i` , without cloning the vector first, and then
-reverse that mutation after the test function has been run, therefore generating
-new test inputs with zero allocations.
 
 ## Previous work on fuzzing engines
 
@@ -336,7 +334,10 @@ An alternative way to deal with structured data is to use generators just like
 QuickCheck’s `Arbitrary` trait. And then to “treat the raw byte buffer input 
 provided by the coverage-guided fuzzer as a sequence of random values and
 implement a “random” number generator around it.” 
-([cited blog post by @fitzgen](https://fitzgeraldnick.com/2019/09/04/combining-coverage-guided-and-generation-based-fuzzing.html)).
+([cited blog post by @fitzgen](https://fitzgeraldnick.com/2019/09/04/combining-coverage-guided-and-generation-based-fuzzing.html)). 
+The tool `cargo-fuzz` has
+[recently](https://fitzgeraldnick.com/2020/01/16/better-support-for-fuzzing-structured-inputs-in-rust.html) 
+implemented that approach.
 
 Fuzzcheck is also structure-aware, but unlike previous attempts at
 structure-aware fuzzing, it doesn't use an intermediary binary encoding such as
@@ -345,14 +346,17 @@ Instead, it directly mutates the typed values in-process.
 This is better many ways. First, it is faster because there is no
 need to encode and decode inputs at each iteration. Second, the complexity of
 the input is given by a user-defined function, which will be more accurate than
-counting the bytes of the protobuf encoding. Third, the artifact files and the
-fuzzing corpora can be JSON-encoded, which is more user-friendly than protobuf.
+counting the bytes of the protobuf encoding.
 Finally, and most importantly, the mutations are faster and more meaningful 
 than those done on protobuf or `Arbitrary`’s byte buffer-based RNG.
+A detail that I particularly like about fuzzcheck, and that is possible only 
+because it mutates typed values, is that every mutation is done **in-place**
+and is reversable. That means that generating a new test case is super fast, 
+and can often even be done with zero allocations.
 
 As I was developing Fuzzcheck for Swift, a few researchers developed Fuzzchick
 for Coq ([paper](https://www.cs.umd.edu/~mwh/papers/fuzzchick-draft.pdf)). It 
 is a coverage-guided property-based testing tool implemented as an extension to
 Quickchick. As far as I know, it is the only other tool with the same philosophy
-as Fuzzcheck. The similarity between the names `Fuzzcheck` and `Fuzzchick` is a 
+as fuzzcheck. The similarity between the names `fuzzcheck` and `Fuzzchick` is a 
 coincidence.

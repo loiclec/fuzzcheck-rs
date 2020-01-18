@@ -4,7 +4,8 @@ members = [
     "fuzzcheck_arg_parser",
     "cargo-fuzzcheck",
     "fuzzcheck",
-    "fuzzcheck_input"
+    "fuzzcheck_mutators",
+    "fuzzcheck_serializer"
 ]
 
 exclude = [

@@ -1,104 +1,44 @@
 # Status
 
-## Bugs
-
-* errors are not gracefully handled, or even properly explained
-
-* the command line app does not catch signals, so it can't tell
-the user which file is the most minified at the end. This may be
-solved by only keeping the most minimal version of a file at any point,
-or by catching signals and displaying a message
-
-* too much complexity, try to simplify stuff
-    * much of the complexity is carried over from when I did not know
-    what the fuzzer should support or how to do it best, but now I can 
-    remove most of it (TODO: reevaluate this)
-
-* shrink command does not work perfectly, it needs to be run a few times
-to properly shrink the corpus (TODO: verify that it is fixed)
-
 ## Misc
-
-* build a cargo tool that manages the fuzzcheck dependency automatically
-    * for now, that tool performs almost no checks and is not configurable
-    at all. I should improve that. Take inspiration from `cargo-fuzz`.
 
 * create default generators for most basic types
 
 * limit maximum size of corpus
     * automatically throw out an input every time another one is added
 
-* implement feature groups
-    * a problem is that traced CMP instructions are passed through an arbitrary
-    filter (only the number of ones in the XOR of the arguments is taken in 
-    consideration, and even then different values may still be considered the 
-    same). So potentially useful comparison features are ignored.
-    
-    * another problem is that trace_cmp features will either be underrated 
-    (if only one comparison was recorded -> score = 0.5), or overrated (if 
-    many different comparisons were recorded, combined score of features for a
-    single PC may go up to 8.0 I think). Ideally, a single trace_cmp would have
-    a fixed score and each trace_cmp would share that score. This means we need
-    to introduce the concept of “feature groups”. For example, every 
-    comparison feature for PC 13 would be placed in the same 
-    feature group which has a score of 1.0. So that if only one feature was 
-    recorded for a given PC, its score would be 1.0, but if 15 features were 
-    recorded, their average score would be (1/15). This is a bit difficult to 
-    implement in practice, but should be doable.
+* separate fuzzcheck’s traits such as Mutator from the main crate
+    -> that means people can implement a mutator without depending on fuzzcheck
+    -> but they do need to depend on fuzzcheck_mutators_trait, which must not be instrumented
+        -> which does not fit within current compilation model
+            -> need to have third type of dependencies, that are non-instrumented and
+            usable by both the instrumented code and the non-instrumented fuzz targets
+        -> mostly, people should not implement mutators in crates that are instrumented!
 
-    * handling the two problems described before would mean that a different 
-    condition for admitting inputs to the pool should be used, as many more
-    comparison features would then be recorded, and the current condition 
-    (that the input is the simplest to contain any feature) would admit way too
-    many inputs. A possible solution is to run a quick estimate of the input’s 
-    worth and to only admit high-ranking ones.
+* I should really use a custom target directory
 
-    * fixing these problems would also lead to a more correct shrink commnand
+* document the reexport-instrumented-libraries pattern
+    * add a note about how serde is used by default but really if the test library
+already imports a different version of it, then we should use that version
 
-    * but it would also slow down the fuzzer significantly, which I think may
-    not be bad if the improvements lead to a reduction in the number of 
-    iterations needed to find a bug. I have to be careful about the performance 
-    though, and should wait until I have set up enough benchmarks to be sure it 
-    is worth it.
+* add an option to compile the main library with certain features?
 
-* do not always push inputs to the end of the pool. Instead, try to fill the 
-gaps. Maybe every time an input is deleted, I can push its index to a stack.
-When I need to add an input to the pool, I pop the index from the stack first
-to check if I can fill a gap isntead of pushing it to the end.
+* verify that using trace_cmp doesn't ruin performance
+    * what if I also used a static array to collect cmp features?
+        * slows down the tested library less
+        * probably much more expensive to iterate over
+    * right now I have them disabled but that is a shame since all the effort in
+    designing feature groups was to better support cmp features
 
-* make an InputGenerator for [u8; N]
+* iteration over collected features can probably be improved upon even more
 
-* change how I treat the payload of edge features. An edge with a payload of 3
-should maybe be equal to 3 edges of payload 1, 2, and 3. Scores of the features 
-with payload 1 and 2 would decrease. Scores of the feature with payload 3 would
-be greater???
+* support for crossover operation, done right (i.e. strongly typed)
+    * so every once in a while the pool shares its highest scoring inputs
+    with the mutator and then the mutator does a frequency analysis (or something else)
+    of the subparts of all the inputs in order to build a dictionary of interesting
+    subvalues that can be used for the next mutations
 
-## Documentation
+* make the world print its output corpus only at the end of the fuzz test,
+and maybe automatically apply a corpus minification to it
 
-* document fuzzer.rs, other files
-* add more tests, they make for good documentation
-* document InputPool with some diagrams?
-    * maybe not because maybe I will change the algorithm again, and I have
-    better things to spend my time on, it is already documented a little bit
-
-## Tests
-
-* there are some tests for InputMetadataPool, but they should be migrated to 
-tests on InputPool and verify more properties
-
-* I'd like to fuzz-check Fuzzcheck. It shouldn't be that complicated in terms
-of code. But the logistics of it may be tricky. In particular, I should have 
-the option to compile it without sanitizer coverage hooks. 
-
-* try to find out how fuzzcheck handles this kind of program:
-  ```
-  if x == a { counter += 1 }
-  if x == b { counter += 1 }
-  if x == c { counter += 1 }
-  .
-  .
-  .
-  if counter >= N { crash }
-  ```
-  My intuition is that it will perform better than before. And that feature 
-  groups would make it perform even better.
+* support other kinds of features such as time/resources taken, size of stack, etc.

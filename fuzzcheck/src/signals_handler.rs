@@ -1,3 +1,6 @@
+//! A small, naive implementation of signal handlers in order to detect and
+//! recover from crashes.
+
 use libc::*;
 use std::mem;
 use std::sync::{Arc, Condvar, Mutex};

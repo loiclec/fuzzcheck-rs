@@ -1,6 +1,6 @@
 // extern crate fuzzcheck_input;
-// use fuzzcheck::input::FuzzedInput;
-// use fuzzcheck_input::bool::*;
+// use fuzzcheck::mutator::FuzzedInput;
+// use fuzzcheck_mutatorsbool::*;
 
 // type F = FuzzedBool;
 

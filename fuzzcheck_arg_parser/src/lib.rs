@@ -1,5 +1,3 @@
-#![feature(option_flattening)]
-
 use getopts::Options;
 use std::path::PathBuf;
 
