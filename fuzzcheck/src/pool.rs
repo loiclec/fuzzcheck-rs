@@ -675,8 +675,14 @@ impl<M: Mutator> Pool<M> {
 
         let slab_groups = &self.slab_feature_groups;
         assert!(self.feature_groups.iter().is_sorted_by_key(|&g| slab_groups[g].id));
-        assert!(self.feature_groups.iter().is_sorted_by_key(|&g| slab_groups[g].idcs.start));
-        assert!(self.feature_groups.iter().is_sorted_by_key(|&g| slab_groups[g].idcs.end));
+        assert!(self
+            .feature_groups
+            .iter()
+            .is_sorted_by_key(|&g| slab_groups[g].idcs.start));
+        assert!(self
+            .feature_groups
+            .iter()
+            .is_sorted_by_key(|&g| slab_groups[g].idcs.end));
         assert!(self
             .feature_groups
             .windows(2)
