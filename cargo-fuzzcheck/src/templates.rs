@@ -19,6 +19,10 @@ cargo-fuzzcheck = true
 # path = "../instrumented"
 # Managed by cargo-fuzzcheck
 
+[dependencies]
+serde = {{ version = "1.0" }} #, features = ["derive"] }}
+serde_json = "1.0"
+
 [dependencies.fuzzcheck]
 {1}
 
@@ -60,10 +64,6 @@ publish = false
 
 [package.metadata]
 cargo-fuzzcheck = true
-
-[dependencies]
-serde = {{ version = "1.0" }} #, features = ["derive"] }}
-serde_json = "1.0"
 
 [dependencies.{0}]
 path = "../.."
