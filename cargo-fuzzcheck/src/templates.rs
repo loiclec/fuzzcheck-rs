@@ -43,10 +43,11 @@ path = "fuzz_targets/{4}.rs"
 [profile.release]
 debug = false
 opt-level = 3
-lto = true
+lto = "thin"
 codegen-units = 1
 panic = 'abort'
 overflow-checks = false
+incremental = false
 "##,
             $name, $fuzzcheck_rs_dep, $fuzzcheck_input_dep, $fuzzcheck_serializer_dep, $target
         )
@@ -75,10 +76,11 @@ members = ["."]
 [profile.release]
 debug = false
 opt-level = 3
-lto = true
+lto = "thin"
 codegen-units = 1
 panic = 'abort'
 overflow-checks = true
+incremental = false
 "##,
             $name
         )

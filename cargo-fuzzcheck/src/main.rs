@@ -387,8 +387,10 @@ fn use_gold_linker() -> bool {
 
 fn instrumented_compile(instrumented_folder: &PathBuf, target_triple: &str) -> Result<(), MyError> {
     let mut rustflags: String = "--cfg fuzzing \
+                                 -Ctarget-cpu=native \
                                  -Cmetadata=fuzzing \
                                  -Cpasses=sancov \
+                                 -Clinker-plugin-lto=1 \
                                  -Cllvm-args=-sanitizer-coverage-level=4 \
                                  -Cllvm-args=-sanitizer-coverage-inline-8bit-counters \
                                  -Cforce-frame-pointers=yes"
@@ -509,7 +511,7 @@ fn run_command(
 
     instrumented_compile(instrumented_folder, target_triple)?;
 
-    let mut rustflags: String = "--cfg fuzzing".to_string();
+    let mut rustflags: String = "--cfg fuzzing -Ctarget-cpu=native".to_string();
 
     if use_gold_linker() {
         rustflags.push_str(" -Clink-arg=-fuse-ld=gold");
