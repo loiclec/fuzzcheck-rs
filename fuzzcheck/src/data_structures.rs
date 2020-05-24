@@ -52,6 +52,8 @@ where
     {
         let mut step: usize = 8;
 
+        // First check the first element of the slice, as it is often the 
+        // correct one
         if self.position < self.slice.len() {
             let el = unsafe { *self.slice.get_unchecked(self.position) };
             match (&cmp)(el) {
@@ -60,8 +62,10 @@ where
             }
         }
 
+        // then execute first jump
         self.position += step;
 
+        // and repeatedly check the first element and then either backtrack or jump
         while self.position < self.slice.len() {
             let el = unsafe { *self.slice.get_unchecked(self.position) };
             match (&cmp)(el) {
@@ -77,10 +81,14 @@ where
                     }
                 }
             }
+            // after each jump, the length of the next jump increases
+            // 8, 16, 24, 32, 40, etc.
             step += 8;
             self.position += step;
         }
 
+        // if the last jump went over the upperbound, then perform
+        // a slow find over the last elements of the slice
         let start = self.position - step + 1;
         let end = self.slice.len();
         self.slow_find(&cmp, start, end)
@@ -188,7 +196,6 @@ impl<T> Ord for SlabKey<T> {
  * An alternative implementation of the `Slab` type by the popular crate `slab`.
  */
 pub struct Slab<T> {
-    // TODO: make the index of Slab strongly typed
     storage: Vec<T>,
     available_slots: Vec<usize>,
 }

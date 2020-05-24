@@ -43,17 +43,6 @@
 //! contain the feature F2, then they will each get half of F2’s score from it.
 //! In short, an input’s final score is the sum of the score of each of its
 //! features divided by their frequencies.
-//!
-//! It is not a perfectly fair system because the score of each feature is
-//! currently wrong in many cases. For example, a single comparison instruction
-//! can currently yield 16 different features for just one input. If that
-//! happens, the score of those features will be too high and the input will be
-//! over-rated. On the other hand, if it yields only 1 feature, it will be
-//! under-rated. My intuition is that all these features could be grouped by
-//! the address of their common comparison instruction, and that they should
-//! share a common score that increases sub-linearly with the number of
-//! features in the group. But it is difficult to implement efficiently.
-//!
 
 use std::cmp::Ordering;
 use std::collections::BTreeSet;
