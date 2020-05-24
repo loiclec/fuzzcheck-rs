@@ -3,6 +3,11 @@ name = "fuzzcheck_mutators"
 version = "0.1.0"
 authors = ["Loïc Lecrenier <loic.lecrenier@me.com>"]
 edition = "2018"
+description = "Basic mutators for fuzzcheck-rs"
+repository = "https://git.sr.ht/~loic/fuzzcheck-rs"
+license = "MIT"
+keywords = ["fuzzing", "test"]
+categories = ["development-tools"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 

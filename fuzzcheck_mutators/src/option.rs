@@ -35,7 +35,7 @@ pub enum OptionMutatorUnmutateToken<Value, Token> {
     ToSome(Value),
     ToNone,
 }
-use crate::option::OptionMutatorUnmutateToken::*;
+use crate::option::OptionMutatorUnmutateToken::{ToNone, ToSome, UnmutateSome};
 
 #[derive(Debug, Clone)]
 pub struct OptionMutatorStep<MS> {

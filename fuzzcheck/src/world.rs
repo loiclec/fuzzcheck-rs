@@ -6,7 +6,7 @@
 // In the future it would be nice to make it a trait so that it is easy to
 // create different “World” implementations.
 
-use fuzzcheck_arg_parser::*;
+use fuzzcheck_arg_parser::{CommandLineArguments, FuzzerCommand};
 use std::collections::hash_map::DefaultHasher;
 use std::fs;
 
@@ -79,10 +79,10 @@ impl<S: Serializer> World<S> {
         for a in actions {
             match a {
                 WorldAction::Add(x, _) => {
-                    self.add_to_output_corpus(x)?;
+                    self.add_to_output_corpus(&x)?;
                 }
                 WorldAction::Remove(x) => {
-                    self.remove_from_output_corpus(x)?;
+                    self.remove_from_output_corpus(&x)?;
                 }
                 WorldAction::ReportEvent(e) => match e {
                     FuzzerEvent::New | FuzzerEvent::Remove | FuzzerEvent::Replace(_) => {
@@ -125,8 +125,6 @@ impl<S: Serializer> World<S> {
             let data = fs::read(entry.path())?;
             if let Some(i) = self.serializer.from_data(&data) {
                 inputs.push(i);
-            } else {
-                continue;
             }
         }
         Ok(inputs)
@@ -150,7 +148,7 @@ impl<S: Serializer> World<S> {
         }
     }
 
-    pub fn add_to_output_corpus(&self, input: S::Value) -> Result<()> {
+    pub fn add_to_output_corpus(&self, input: &S::Value) -> Result<()> {
         if self.settings.corpus_out.is_none() {
             return Ok(());
         }
@@ -171,7 +169,7 @@ impl<S: Serializer> World<S> {
         Ok(())
     }
 
-    pub fn remove_from_output_corpus(&self, input: S::Value) -> Result<()> {
+    pub fn remove_from_output_corpus(&self, input: &S::Value) -> Result<()> {
         if self.settings.corpus_out.is_none() {
             return Ok(());
         }

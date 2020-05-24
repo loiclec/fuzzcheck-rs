@@ -1,15 +1,15 @@
-//! Fuzzing engine. Connects the [CodeCoverageSensor] to the [Pool] and
+//! Fuzzing engine. Connects the [`CodeCoverageSensor`] to the [Pool] and
 //! uses an evolutionary algorithm using [Mutator] to find new interesting
 //! test inputs.
 
-use crate::code_coverage_sensor::*;
+use crate::code_coverage_sensor::shared_sensor;
 use crate::data_structures::{LargeStepFindIter, SlabKey};
-use crate::pool::*;
-use crate::signals_handler::*;
-use crate::world::*;
+use crate::pool::{FeatureInPool, Pool, PoolIndex};
+use crate::signals_handler::handle_signals;
+use crate::world::{FuzzerEvent, FuzzerStats, World};
 use crate::{Feature, FuzzedInput, Mutator, Serializer};
 
-use fuzzcheck_arg_parser::*;
+use fuzzcheck_arg_parser::{CommandLineArguments, FuzzerCommand};
 
 use std::panic::{catch_unwind, RefUnwindSafe, UnwindSafe};
 use std::process::exit;
@@ -57,10 +57,11 @@ impl<M: Mutator, S: Serializer<Value = M::Value>> FuzzerState<M, S> {
 impl<M: Mutator, S: Serializer<Value = M::Value>> FuzzerState<M, S> {
     fn update_stats(&mut self) {
         let microseconds = self.world.elapsed_time();
-        self.stats.exec_per_s = ((((self.stats.total_number_of_runs - self.stats.number_of_runs_since_last_reset_time)
-            as f64)
-            / (microseconds as f64))
-            * 1_000_000.0) as usize;
+
+        let nbr_runs = self.stats.total_number_of_runs - self.stats.number_of_runs_since_last_reset_time;
+        let nbr_runs_times_million = nbr_runs * 1_000_000;
+        self.stats.exec_per_s = nbr_runs_times_million / microseconds;
+
         self.stats.pool_size = self.pool.len();
         self.stats.score = self.pool.score();
         self.stats.avg_cplx = self.pool.average_complexity;
@@ -80,10 +81,10 @@ impl<M: Mutator, S: Serializer<Value = M::Value>> FuzzerState<M, S> {
                 let cplx = input.complexity(&self.mutator);
                 let _ = self.world.save_artifact(&input.value, cplx);
 
-                exit(FuzzerTerminationStatus::Crash as i32);
+                exit(TerminationStatus::Crash as i32);
             }
-            2 | 15 => exit(FuzzerTerminationStatus::Success as i32),
-            _ => exit(FuzzerTerminationStatus::Unknown as i32),
+            2 | 15 => exit(TerminationStatus::Success as i32),
+            _ => exit(TerminationStatus::Unknown as i32),
         }
     }
 
@@ -151,7 +152,7 @@ where
 
         sensor.is_recording = true;
 
-        let cell = NotUnwindSafe { value: &test };
+        let cell = NotUnwindSafe { value: test };
         let input_cell = NotUnwindSafe {
             value: input.value.borrow(),
         };
@@ -164,7 +165,7 @@ where
             let mut features: Vec<Feature> = Vec::new();
             sensor.iterate_over_collected_features(|f| features.push(f));
             world.save_artifact(&input.value, input.complexity(mutator))?;
-            exit(FuzzerTerminationStatus::TestFailure as i32);
+            exit(TerminationStatus::TestFailure as i32);
         }
 
         Ok(())
@@ -225,7 +226,10 @@ where
 
         if let Some((existing_features, new_features)) = self.analyze(cplx) {
             let input_cloned = self.state.get_input().new_source(&self.state.mutator);
-            let actions = self.state.pool.add(input_cloned, cplx, existing_features, new_features);
+            let actions = self
+                .state
+                .pool
+                .add(input_cloned, cplx, &existing_features, &new_features);
             self.state.update_stats();
             self.state.world.do_actions(actions, &self.state.stats)?;
 
@@ -310,7 +314,7 @@ where
     /// such that only the highest-scoring inputs are kept.
     ///
     /// The number of inputs to keep is taken from
-    /// [self.settings.corpus_size](FuzzerSettings::corpus_size)
+    /// [`self.settings.corpus_size`](FuzzerSettings::corpus_size)
     fn corpus_minifying_loop(&mut self) -> Result<(), std::io::Error> {
         self.state
             .world
@@ -361,7 +365,7 @@ unsafe impl<T> Send for NotThreadSafe<T> {}
 impl<T> UnwindSafe for NotUnwindSafe<T> {}
 impl<T> RefUnwindSafe for NotUnwindSafe<T> {}
 
-pub enum FuzzerTerminationStatus {
+pub enum TerminationStatus {
     Success = 0,
     Crash = 1,
     TestFailure = 2,

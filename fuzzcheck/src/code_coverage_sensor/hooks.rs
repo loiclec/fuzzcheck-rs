@@ -1,8 +1,8 @@
-//! This module implements the hooks defined by SanitizerCoverage to track the
+//! This module implements the hooks defined by Sanitizer Coverage to track the
 //! execution of the program.
 //!
-//! For more information about SanitizerCoverage,
-//! see https://clang.llvm.org/docs/SanitizerCoverage.html
+//! For more information about Sanitizer Coverage,
+//! see <https://clang.llvm.org/docs/SanitizerCoverage.html>
 //!
 //! I have tried to implement the callbacks in a simple way, and to delegate
 //! the more complicated logic to the `code_coverage_sensor` module.
@@ -14,7 +14,7 @@
 //! There are many hooks containing data passed before specific instructions.
 //! For these hooks, I also just record the arguments and pass them to the code
 //! coverage sensor. Here is the documentation for these hooks from
-//! SanitizerCoverage:
+//! Sanitizer Coverage:
 //!
 //! ```text
 //! // Called before a comparison instruction.
@@ -49,7 +49,7 @@
 //! void __sanitizer_cov_trace_gep(uintptr_t Idx);
 //! ```
 
-use super::*;
+use super::{shared_sensor, CodeCoverageSensor, SHARED_SENSOR};
 use std::slice;
 use std::sync::Once;
 
@@ -69,7 +69,7 @@ fn counters_init(start: *mut u8, stop: *mut u8) {
             return;
         }
 
-        let dist = stop.offset_from(start) as usize;
+        let dist = stop.offset_from(start).abs() as usize;
         println!("Number of counters:{}", dist);
         START.call_once(|| {
             SHARED_SENSOR.as_mut_ptr().write(CodeCoverageSensor {
@@ -81,9 +81,9 @@ fn counters_init(start: *mut u8, stop: *mut u8) {
     }
 }
 
-/// __sanitizer_cov_trace_pc_indir
+/// `__sanitizer_cov_trace_pc_indir`
 ///
-/// SanitizerCoverage documentation:
+/// Sanitizer Coverage documentation:
 ///
 /// With an additional `...=trace-pc,indirect-calls` flag
 /// `__sanitizer_cov_trace_pc_indirect(void *callee)`
@@ -103,7 +103,7 @@ fn trace_pc_indir(callee: usize) {
     sensor.handle_trace_indir(caller, callee);
 }
 
-/// __sanitizer_cov_trace_cmp1
+/// `__sanitizer_cov_trace_cmp1`
 ///
 /// See general crate documentation about hooks inserted before specific instructions
 #[export_name = "__sanitizer_cov_trace_cmp1"]
@@ -116,7 +116,7 @@ fn trace_cmp1(arg1: u8, arg2: u8) {
     sensor.handle_trace_cmp(pc, u64::from(arg1), u64::from(arg2));
 }
 
-/// __sanitizer_cov_trace_cmp2
+/// `__sanitizer_cov_trace_cmp2`
 ///
 /// See general crate documentation about hooks inserted before specific instructions
 #[export_name = "__sanitizer_cov_trace_cmp2"]
@@ -129,7 +129,7 @@ fn trace_cmp2(arg1: u16, arg2: u16) {
     sensor.handle_trace_cmp(pc, u64::from(arg1), u64::from(arg2));
 }
 
-/// __sanitizer_cov_trace_cmp4
+/// `__sanitizer_cov_trace_cmp4`
 ///
 /// See general crate documentation about hooks inserted before specific instructions
 #[export_name = "__sanitizer_cov_trace_cmp4"]
@@ -142,7 +142,7 @@ fn trace_cmp4(arg1: u32, arg2: u32) {
     sensor.handle_trace_cmp(pc, u64::from(arg1), u64::from(arg2));
 }
 
-/// __sanitizer_cov_trace_cmp8
+/// `__sanitizer_cov_trace_cmp8`
 ///
 /// See general crate documentation about hooks inserted before specific instructions
 #[export_name = "__sanitizer_cov_trace_cmp8"]
@@ -155,7 +155,7 @@ fn trace_cmp8(arg1: u64, arg2: u64) {
     sensor.handle_trace_cmp(pc, arg1, arg2);
 }
 
-/// __sanitizer_cov_trace_const_cmp1
+/// `__sanitizer_cov_trace_const_cmp1`
 ///
 /// See general crate documentation about hooks inserted before specific instructions
 #[export_name = "__sanitizer_cov_trace_const_cmp1"]
@@ -169,7 +169,7 @@ fn trace_const_cmp1(arg1: u8, arg2: u8) {
     sensor.handle_trace_cmp(pc, u64::from(arg1), u64::from(arg2));
 }
 
-/// __sanitizer_cov_trace_const_cmp2
+/// `__sanitizer_cov_trace_const_cmp2`
 ///
 /// See general crate documentation about hooks inserted before specific instructions
 #[export_name = "__sanitizer_cov_trace_const_cmp2"]
@@ -182,7 +182,7 @@ fn trace_const_cmp2(arg1: u16, arg2: u16) {
     sensor.handle_trace_cmp(pc, u64::from(arg1), u64::from(arg2));
 }
 
-/// __sanitizer_cov_trace_const_cmp4
+/// `__sanitizer_cov_trace_const_cmp4`
 ///
 /// See general crate documentation about hooks inserted before specific instructions
 #[export_name = "__sanitizer_cov_trace_const_cmp4"]
@@ -195,7 +195,7 @@ fn trace_const_cmp4(arg1: u32, arg2: u32) {
     sensor.handle_trace_cmp(pc, u64::from(arg1), u64::from(arg2));
 }
 
-/// __sanitizer_cov_trace_const_cmp8
+/// `__sanitizer_cov_trace_const_cmp8`
 ///
 /// See general crate documentation about hooks inserted before specific instructions
 #[export_name = "__sanitizer_cov_trace_const_cmp8"]
@@ -208,9 +208,9 @@ fn trace_const_cmp8(arg1: u64, arg2: u64) {
     sensor.handle_trace_cmp(pc, arg1, arg2);
 }
 
-/// __sanitizer_cov_trace_switch
+/// `__sanitizer_cov_trace_switch`
 ///
-/// SanitizerCoverage documentation:
+/// Sanitizer Coverage documentation:
 ///
 /// > Called before a switch statement.
 /// > Val is the switch operand.
@@ -244,7 +244,7 @@ fn trace_switch(val: u64, arg2: *mut u64) {
     sensor.handle_trace_cmp(pc + i, token, 0);
 }
 
-/// __sanitizer_cov_trace_div4
+/// `__sanitizer_cov_trace_div4`
 ///
 /// See general crate documentation about hooks inserted before specific instructions
 #[export_name = "__sanitizer_cov_trace_div4"]
@@ -257,7 +257,7 @@ fn trace_div4(val: u32) {
     sensor.handle_trace_cmp(pc, u64::from(val), 0);
 }
 
-/// __sanitizer_cov_trace_div8
+/// `__sanitizer_cov_trace_div8`
 ///
 /// See general crate documentation about hooks inserted before specific instructions
 #[export_name = "__sanitizer_cov_trace_div8"]
@@ -270,7 +270,7 @@ fn trace_div8(val: u64) {
     sensor.handle_trace_cmp(pc, val, 0);
 }
 
-/// __sanitizer_cov_trace_gep
+/// `__sanitizer_cov_trace_gep`
 ///
 /// See general crate documentation about hooks inserted before specific instructions
 #[export_name = "__sanitizer_cov_trace_gep"]

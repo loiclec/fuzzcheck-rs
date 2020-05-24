@@ -11,6 +11,7 @@ pub mod tuples;
 pub mod vector;
 pub mod void;
 
+#[must_use]
 pub fn arbitrary_binary(low: usize, high: usize, step: usize) -> usize {
     if high == low {
         return low;
@@ -33,14 +34,16 @@ pub fn arbitrary_binary(low: usize, high: usize, step: usize) -> usize {
     }
 }
 
+#[must_use]
 pub fn cplxity_to_size(cplx: f64) -> usize {
-    let size_f = 2.0_f64.powf(cplx).round();
+    let size_f: f64 = 2.0_f64.powf(cplx).round();
     if std::usize::MAX as f64 > size_f {
         size_f as usize
     } else {
         std::usize::MAX
     }
 }
+#[must_use]
 pub fn size_to_cplxity(size: usize) -> f64 {
     (size as f64).log2()
 }

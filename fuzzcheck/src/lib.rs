@@ -22,11 +22,16 @@ mod world;
 mod pool;
 mod signals_handler;
 
-use fuzzcheck_arg_parser::*;
+use fuzzcheck_arg_parser::{
+    options_parser, CommandLineArguments, COMMAND_FUZZ, COMMAND_MINIFY_CORPUS, COMMAND_MINIFY_INPUT, CORPUS_SIZE_FLAG,
+    DEFAULT_ARGUMENTS, INPUT_FILE_FLAG, IN_CORPUS_FLAG,
+};
 
 use std::borrow::Borrow;
 
 /// Fuzz-test the given test function.
+/// # Errors
+/// TODO: doc
 pub fn launch<T, F, M, S>(test: F, mutator: M, serializer: S) -> Result<(), std::io::Error>
 where
     T: ?Sized,
@@ -279,7 +284,7 @@ impl Feature {
         // feature |= 0b00 << Feature::tag_offset();
         // take 32 last bits, I don't want to worry about programs with more than 4 billion instrumented edges anyway
         feature |= ((pc_guard & 0xFFFF_FFFF) as u64) << Feature::id_offset();
-        feature |= Feature::score_from_counter(counter) as u64; // will only ever be 8 bits long
+        feature |= u64::from(Feature::score_from_counter(counter)); // will only ever be 8 bits long
 
         Feature(feature)
     }
@@ -299,15 +304,15 @@ impl Feature {
         feature |= Feature::instr_tag() << Feature::tag_offset(); // won't do anything
                                                                   // keep 54 bits with modulo
         feature |= ((pc as u64) % 0x40_0000_0000_0000) << Feature::id_offset(); // id
-        feature |= Feature::score_from_counter((arg1 ^ arg2).count_ones() as u16) as u64;
+        feature |= u64::from(Feature::score_from_counter((arg1 ^ arg2).count_ones() as u16));
 
         Feature(feature)
     }
 
-    fn erasing_payload(&self) -> Self {
+    fn erasing_payload(self) -> Self {
         if (self.0 >> Self::tag_offset()) == Self::indir_tag() {
             // if it is indirect, there is no payload to erase
-            *self
+            self
         } else {
             // else, zero out the payload bits
             Feature(self.0 & 0xFFFF_FFFF_FFFF_FF00)

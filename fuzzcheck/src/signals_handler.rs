@@ -1,7 +1,7 @@
 //! A small, naive implementation of signal handlers in order to detect and
 //! recover from crashes.
 
-use libc::*;
+use libc::{c_int, c_void, siginfo_t};
 use std::mem;
 use std::sync::{Arc, Condvar, Mutex};
 use std::thread;
@@ -26,7 +26,7 @@ where
     let mut new: libc::sigaction = unsafe { mem::zeroed() };
     new.sa_sigaction = signal_handler as usize;
 
-    for signal in signals.iter() {
+    for signal in &signals {
         // C data structure, expected to be zeroed out.
         let mut old: libc::sigaction = unsafe { mem::zeroed() };
         // FFI ‒ pointers are valid, it doesn't take ownership.

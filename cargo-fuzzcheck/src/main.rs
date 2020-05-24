@@ -152,12 +152,10 @@ cargo-fuzzcheck {run} target1 {cmin} --{in_corpus} "fuzz-corpus" --{corpus_size}
 
             let result = init_command(fuzzcheck_path);
             println!("{:#?}", result);
-            return;
         }
         COMMAND_CLEAN => {
             let result = clean_command();
             println!("{:#?}", result);
-            return;
         }
         COMMAND_RUN => {
             if env_args.len() <= start_idx + 1 {
@@ -201,7 +199,6 @@ cargo-fuzzcheck {run} target1 {cmin} --{in_corpus} "fuzz-corpus" --{corpus_size}
             println!("Invalid command: {}", env_args[1]);
             println!();
             println!("{}", help);
-            return;
         }
     }
 }

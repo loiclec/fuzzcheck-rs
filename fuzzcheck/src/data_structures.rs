@@ -40,11 +40,10 @@ where
             let el = unsafe { *self.slice.get_unchecked(p) };
             match (&cmp)(el) {
                 Ordering::Less => continue,
-                Ordering::Equal => return Some(el),
-                Ordering::Greater => return Some(el),
+                Ordering::Equal | Ordering::Greater => return Some(el),
             }
         }
-        return None;
+        None
     }
 
     pub fn find<P>(&mut self, cmp: P) -> Option<T>
@@ -57,8 +56,7 @@ where
             let el = unsafe { *self.slice.get_unchecked(self.position) };
             match (&cmp)(el) {
                 Ordering::Less => (),
-                Ordering::Equal => return Some(el),
-                Ordering::Greater => return Some(el),
+                Ordering::Equal | Ordering::Greater => return Some(el),
             }
         }
 
@@ -100,7 +98,7 @@ mod tests {
             91,
         ];
 
-        for x in xs.iter() {
+        for x in &xs {
             let mut iter = LargeStepFindIter::new(&xs);
             let y = iter.find(|y| y.cmp(x));
             assert_eq!(y, Some(*x));

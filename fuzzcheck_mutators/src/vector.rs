@@ -95,7 +95,7 @@ enum MutationCategory {
     Element(usize),
     Vector(usize),
 }
-use crate::vector::MutationCategory::*;
+use crate::vector::MutationCategory::{Element, Empty, Vector};
 
 #[derive(Clone)]
 pub struct VecMutatorCache<C> {
@@ -121,10 +121,10 @@ impl<S> VecMutatorStep<S> {
     fn increment_mutation_step_category(&mut self) {
         match self.pick_step.category {
             Empty => {
-                if !self.inner.is_empty() {
-                    self.pick_step.category = MutationCategory::Element(0)
-                } else {
+                if self.inner.is_empty() {
                     self.pick_step.category = MutationCategory::Vector(0)
+                } else {
+                    self.pick_step.category = MutationCategory::Element(0)
                 }
             }
             Element(idx) => {
@@ -141,10 +141,10 @@ impl<S> VecMutatorStep<S> {
                     self.pick_step.category = MutationCategory::Vector(new_step)
                 } else {
                     self.pick_step.cycle += 1;
-                    if !self.inner.is_empty() {
-                        self.pick_step.category = MutationCategory::Element(0)
-                    } else {
+                    if self.inner.is_empty() {
                         self.pick_step.category = MutationCategory::Vector(0)
+                    } else {
+                        self.pick_step.category = MutationCategory::Element(0)
                     }
                 }
             }
@@ -338,40 +338,39 @@ impl<M: Mutator> Mutator for VecMutator<M> {
                 v.push(el);
                 cache.inner.push(el_cache); // I don't update sum_cplx because it is 0
             }
-            (v, cache)
-        } else {
-            let min_len_most_complex = min_len_most_complex.trunc() as usize;
-            // arbitrary restriction on the length of the generated number, to avoid creating absurdly large vectors
-            // of very simple elements, that take up too much memory
-            let max_len_most_complex = if max_len_most_complex > 10_000 {
-                /* TODO */
-                // 10_000?
-                target_cplx.trunc() as usize
-            } else {
-                max_len_most_complex
-            };
-
-            // choose a length between min_len_most_complex and max_len_most_complex
-            let target_len = crate::arbitrary_binary(min_len_most_complex, max_len_most_complex, len_step);
-            // TODO: create a new_input_with_complexity method
-            let mut v = Self::Value::default();
-            let mut cache = Self::Cache::default();
-            let mut remaining_cplx = target_cplx;
-            for i in 0..target_len {
-                let max_cplx_element = remaining_cplx / ((target_len - i) as f64);
-                if max_cplx_element <= min_cplx_el {
-                    break;
-                }
-                let cplx_element = rng.gen_range(min_cplx_el, max_cplx_element);
-                let (x, x_cache) = self.m.arbitrary(rng.gen(), cplx_element);
-                let x_cplx = self.m.complexity(&x, &x_cache);
-                v.push(x);
-                cache.inner.push(x_cache);
-                cache.sum_cplx += x_cplx;
-                remaining_cplx -= x_cplx;
-            }
-            (v, cache)
+            return (v, cache);
         }
+        let min_len_most_complex = min_len_most_complex.trunc() as usize;
+        // arbitrary restriction on the length of the generated number, to avoid creating absurdly large vectors
+        // of very simple elements, that take up too much memory
+        let max_len_most_complex = if max_len_most_complex > 10_000 {
+            /* TODO */
+            // 10_000?
+            target_cplx.trunc() as usize
+        } else {
+            max_len_most_complex
+        };
+
+        // choose a length between min_len_most_complex and max_len_most_complex
+        let target_len = crate::arbitrary_binary(min_len_most_complex, max_len_most_complex, len_step);
+        // TODO: create a new_input_with_complexity method
+        let mut v = Self::Value::default();
+        let mut cache = Self::Cache::default();
+        let mut remaining_cplx = target_cplx;
+        for i in 0..target_len {
+            let max_cplx_element = remaining_cplx / ((target_len - i) as f64);
+            if max_cplx_element <= min_cplx_el {
+                break;
+            }
+            let cplx_element = rng.gen_range(min_cplx_el, max_cplx_element);
+            let (x, x_cache) = self.m.arbitrary(rng.gen(), cplx_element);
+            let x_cplx = self.m.complexity(&x, &x_cache);
+            v.push(x);
+            cache.inner.push(x_cache);
+            cache.sum_cplx += x_cplx;
+            remaining_cplx -= x_cplx;
+        }
+        (v, cache)
     }
 
     fn mutate(

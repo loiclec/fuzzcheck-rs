@@ -191,7 +191,7 @@ struct FeatureGroupId {
 }
 
 impl Feature {
-    fn group_id(&self) -> FeatureGroupId {
+    fn group_id(self) -> FeatureGroupId {
         FeatureGroupId {
             // erase last 8 bits, which stand for the payload
             id: self.erasing_payload(),
@@ -261,12 +261,13 @@ impl<M: Mutator> Pool<M> {
         *self.cumulative_weights.last().unwrap_or(&0.0)
     }
 
+    #[allow(clippy::too_many_lines)]
     pub(crate) fn add(
         &mut self,
         data: FuzzedInput<M>,
         complexity: f64,
-        existing_features: Vec<SlabKey<FeatureInPool<M>>>,
-        new_features: Vec<Feature>,
+        existing_features: &[SlabKey<FeatureInPool<M>>],
+        new_features: &[Feature],
     ) -> Vec<WorldAction<M::Value>> {
         let element_key: SlabKey<Input<M>> = {
             let element = Input {
@@ -288,7 +289,7 @@ impl<M: Mutator> Pool<M> {
         for feature_key in existing_features.iter() {
             let feature = &mut self.slab_features[*feature_key];
 
-            for input_key in feature.inputs.iter() {
+            for input_key in &feature.inputs {
                 let affected_element = &mut self.slab_inputs[*input_key];
                 if affected_element.complexity >= complexity {
                     // add (element, feature_key) to list [(Element, [Feature])]
@@ -368,7 +369,7 @@ impl<M: Mutator> Pool<M> {
                 let new_feature_score = Self::score_of_feature(group.size(), feature_in_pool.inputs.len());
                 let change_in_score = new_feature_score - old_feature_score;
 
-                for &input_key in feature_in_pool.inputs.iter() {
+                for &input_key in &feature_in_pool.inputs {
                     if input_key != element_key {
                         let element_with_feature = &mut self.slab_inputs[input_key];
                         element_with_feature.score += change_in_score;
@@ -410,7 +411,7 @@ impl<M: Mutator> Pool<M> {
 
             let change_in_score = new_feature_score - old_feature_score;
 
-            for &input_key in feature_in_pool.inputs.iter() {
+            for &input_key in &feature_in_pool.inputs {
                 if input_key != element_key {
                     let element_with_feature = &mut self.slab_inputs[input_key];
                     element_with_feature.score += change_in_score;
@@ -421,7 +422,7 @@ impl<M: Mutator> Pool<M> {
 
         let element = &mut self.slab_inputs[element_key];
 
-        for f_key in element.all_features.iter() {
+        for f_key in &element.all_features {
             let feature_in_pool = &mut self.slab_features[*f_key];
             let group = &self.slab_feature_groups[feature_in_pool.group_key];
             let feature_score = Self::score_of_feature(group.size(), feature_in_pool.inputs.len());
@@ -432,14 +433,14 @@ impl<M: Mutator> Pool<M> {
 
         let mut actions: Vec<WorldAction<M::Value>> = Vec::new();
 
-        if !deleted_values.is_empty() {
-            actions.push(WorldAction::ReportEvent(FuzzerEvent::Replace(deleted_values.len())));
-        } else {
+        if deleted_values.is_empty() {
             actions.push(WorldAction::ReportEvent(FuzzerEvent::New));
             actions.push(WorldAction::Add(value, vec![]));
+        } else {
+            actions.push(WorldAction::ReportEvent(FuzzerEvent::Replace(deleted_values.len())));
         }
 
-        for i in deleted_values.into_iter() {
+        for i in deleted_values {
             actions.push(WorldAction::Remove(i));
         }
 
@@ -451,7 +452,7 @@ impl<M: Mutator> Pool<M> {
     }
 
     pub fn delete_elements(&mut self, to_delete: Vec<SlabKey<Input<M>>>, should_not_update_key: SlabKey<Input<M>>) {
-        for &to_delete_key in to_delete.iter() {
+        for &to_delete_key in &to_delete {
             let to_swap_idx = self.inputs.len() - 1;
             let to_swap_key = *self.inputs.last().unwrap();
             // println!("will delete input with key {}", to_delete_key);
@@ -479,7 +480,7 @@ impl<M: Mutator> Pool<M> {
                 let old_feature_score = Self::score_of_feature(group.old_size, f_in_pool.old_multiplicity);
                 let change_in_score = new_feature_score - old_feature_score;
 
-                for input_key in f_in_pool.inputs.iter() {
+                for input_key in &f_in_pool.inputs {
                     if *input_key != should_not_update_key {
                         let element_with_feature = &mut self.slab_inputs[*input_key];
                         element_with_feature.score += change_in_score;
@@ -630,7 +631,7 @@ impl<M: Mutator> Pool<M> {
     #[cfg(test)]
     fn print_recap(&self) {
         println!("recap inputs:");
-        for &input_key in self.inputs.iter() {
+        for &input_key in &self.inputs {
             let input = &self.slab_inputs[input_key];
             println!(
                 "input with key {:?} has cplx {:.2}, score {:.2}, idx {}, and features: {:?}",
@@ -639,7 +640,7 @@ impl<M: Mutator> Pool<M> {
             println!("        and is best for {:?}", input.least_complex_for_features);
         }
         println!("recap features:");
-        for &f_iter in self.features.iter() {
+        for &f_iter in &self.features {
             let f_key = f_iter.key;
             let f_in_pool = &self.slab_features[f_key];
             println!("feature {:?}’s inputs: {:?}", f_key, f_in_pool.inputs);
@@ -689,16 +690,16 @@ impl<M: Mutator> Pool<M> {
             .all(|gs| slab_groups[gs[0]].idcs.end == slab_groups[gs[1]].idcs.start));
         assert!(slab_groups[*self.feature_groups.last().unwrap()].idcs.end == self.features.len());
 
-        for f_iter in self.features.iter() {
+        for f_iter in &self.features {
             let f_key = f_iter.key;
             let f_in_pool = &self.slab_features[f_key];
-            for input_key in f_in_pool.inputs.iter() {
+            for input_key in &f_in_pool.inputs {
                 let input = &self.slab_inputs[*input_key];
                 assert!(input.all_features.contains(&f_key));
             }
         }
 
-        for input_key in self.inputs.iter() {
+        for input_key in &self.inputs {
             let input = &self.slab_inputs[*input_key];
             assert!(input.score > 0.0);
             let expected_input_score = input.all_features.iter().fold(0.0, |c, &fk| {
@@ -718,7 +719,7 @@ impl<M: Mutator> Pool<M> {
             );
             assert!(!input.least_complex_for_features.is_empty());
 
-            for f_key in input.least_complex_for_features.iter() {
+            for f_key in &input.least_complex_for_features {
                 let f_in_pool = &self.slab_features[*f_key];
                 assert_eq!(f_in_pool.least_complexity, input.complexity);
                 assert!(f_in_pool.inputs.contains(&input_key));
@@ -742,7 +743,7 @@ impl<M: Mutator> Pool<M> {
         // dedupped_features.dedup();
         // assert_eq!(dedupped_features.len(), self.features.len());
 
-        for g_key in self.feature_groups.iter() {
+        for g_key in &self.feature_groups {
             let g = &self.slab_feature_groups[*g_key];
             let slab = &self.slab_features;
             assert!(self.features[g.idcs.clone()]
@@ -808,32 +809,29 @@ mod tests {
             let mut pool = Pool::<VoidMutator>::default();
 
             for i in 0..rng.gen_range(0, 100) {
-                let nbr_new_features = if new_features.len() > 0 {
-                    rng.gen_range(if i == 0 { 1 } else { 0 }, new_features.len())
-                } else {
+                let nbr_new_features = if new_features.is_empty() {
                     0
+                } else {
+                    rng.gen_range(if i == 0 { 1 } else { 0 }, new_features.len())
                 };
                 let mut new_features_1 = new_features
                     .iter()
                     .map(|&&f| f)
                     .choose_multiple(&mut rng, nbr_new_features);
                 new_features_1.sort();
-                for f in new_features_1.iter() {
+                for f in &new_features_1 {
                     new_features.remove(f);
                 }
-
-                let nbr_existing_features = if new_features_1.len() == 0 {
+                let nbr_existing_features = if new_features_1.is_empty() {
                     if added_features.len() > 1 {
                         rng.gen_range(1, added_features.len())
                     } else {
                         1
                     }
+                } else if added_features.is_empty() {
+                    0
                 } else {
-                    if added_features.len() > 0 {
-                        rng.gen_range(0, added_features.len())
-                    } else {
-                        0
-                    }
+                    rng.gen_range(0, added_features.len())
                 };
 
                 let mut existing_features_1: Vec<FK> = added_features
@@ -859,12 +857,12 @@ mod tests {
 
                 let cplx1 = rng.gen_range(1.0, max_cplx);
                 for _ in 0..new_features_1.len() {
-                    added_features.push(added_features.last().map(|x| FK::new(x.key + 1)).unwrap_or(FK::new(0)));
+                    added_features.push(added_features.last().map_or(FK::new(0), |x| FK::new(x.key + 1)));
                 }
 
                 let prev_score = pool.score();
                 // println!("adding input of cplx {:.2} with new features {:?} and existing features {:?}", cplx1, new_features_1, existing_features_1);
-                let _ = pool.add(mock(cplx1), cplx1, existing_features_1, new_features_1);
+                let _ = pool.add(mock(cplx1), cplx1, &existing_features_1, &new_features_1);
                 // pool.print_recap();
                 pool.sanity_check();
                 assert!(

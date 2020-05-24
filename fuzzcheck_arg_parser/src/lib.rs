@@ -56,6 +56,7 @@ pub struct CommandLineArguments {
     pub artifacts_folder: Option<PathBuf>,
 }
 
+#[must_use]
 pub fn options_parser() -> Options {
     let mut options = Options::new();
     options
@@ -123,6 +124,9 @@ pub fn options_parser() -> Options {
 }
 
 impl CommandLineArguments {
+    /// Get the command line arguments to the fuzzer from the option parser
+    /// # Errors
+    /// TODO
     pub fn from_parser(options: &Options, args: &[String], defaults: DefaultArguments) -> Result<Self, String> {
         let matches = options.parse(args).map_err(|e| e.to_string())?;
 
@@ -149,29 +153,24 @@ The command {c} is not supported. It can either be ‘{fuzz}’, ‘{tmin}’, o
 
         let max_input_cplx: f64 = matches
             .opt_str(MAX_INPUT_CPLX_FLAG)
-            .map(|x| x.parse::<usize>().ok())
-            .flatten()
+            .and_then(|x| x.parse::<usize>().ok())
             .unwrap_or(defaults.max_input_cplx) as f64;
 
-        let input_file: Option<PathBuf> = matches
-            .opt_str(INPUT_FILE_FLAG)
-            .map(|x| x.parse::<PathBuf>().ok())
-            .flatten();
+        let input_file: Option<PathBuf> = matches.opt_str(INPUT_FILE_FLAG).and_then(|x| x.parse::<PathBuf>().ok());
 
         let corpus_size: usize = matches
             .opt_str(CORPUS_SIZE_FLAG)
-            .map(|x| x.parse::<usize>().ok())
-            .flatten()
+            .and_then(|x| x.parse::<usize>().ok())
             .unwrap_or(defaults.corpus_size);
 
-        let corpus_in: Option<PathBuf> = if !matches.opt_present(NO_IN_CORPUS_FLAG) {
+        let corpus_in: Option<PathBuf> = if matches.opt_present(NO_IN_CORPUS_FLAG) {
+            None
+        } else {
             matches
                 .opt_str(IN_CORPUS_FLAG)
                 .unwrap_or_else(|| defaults.in_corpus.to_string())
                 .parse::<PathBuf>()
                 .ok()
-        } else {
-            None
         };
 
         match (command, &input_file, &corpus_in) {
@@ -184,30 +183,29 @@ The command {c} is not supported. It can either be ‘{fuzz}’, ‘{tmin}’, o
             _ => (),
         }
 
-        let corpus_out: Option<PathBuf> = if !matches.opt_present(NO_OUT_CORPUS_FLAG) {
+        let corpus_out: Option<PathBuf> = if matches.opt_present(NO_OUT_CORPUS_FLAG) {
+            None
+        } else {
             matches
                 .opt_str(OUT_CORPUS_FLAG)
                 .unwrap_or_else(|| defaults.out_corpus.to_string())
                 .parse::<PathBuf>()
                 .ok()
-        } else {
-            None
         };
 
-        let artifacts_folder: Option<PathBuf> = if !matches.opt_present(NO_ARTIFACTS_FLAG) {
+        let artifacts_folder: Option<PathBuf> = if matches.opt_present(NO_ARTIFACTS_FLAG) {
+            None
+        } else {
             matches
                 .opt_str(ARTIFACTS_FLAG)
                 .unwrap_or_else(|| defaults.artifacts.to_string())
                 .parse::<PathBuf>()
                 .ok()
-        } else {
-            None
         };
 
         let max_nbr_of_runs: usize = matches
             .opt_str(MAX_NBR_RUNS_FLAG)
-            .map(|x| x.parse::<usize>().ok())
-            .flatten()
+            .and_then(|x| x.parse::<usize>().ok())
             .unwrap_or(core::usize::MAX);
 
         Ok(Self {

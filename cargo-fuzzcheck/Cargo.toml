@@ -3,8 +3,12 @@ name = "cargo-fuzzcheck"
 version = "0.1.0"
 authors = ["Loïc Lecrenier <loic.lecrenier@me.com>"]
 edition = "2018"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+description = "Command line tool to use fuzzcheck-rs"
+repository = "https://git.sr.ht/~loic/fuzzcheck-rs"
+readme = "README.md"
+license = "MIT"
+keywords = ["fuzzing", "test"]
+categories = ["development-tools"]
 
 [dependencies]
 toml = "0.4"

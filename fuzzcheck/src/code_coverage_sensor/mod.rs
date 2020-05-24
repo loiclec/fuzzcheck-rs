@@ -26,13 +26,13 @@ pub struct CodeCoverageSensor {
 }
 
 impl CodeCoverageSensor {
-    /// Handles a `trace_cmp` hook from SanitizerCoverage, by recording it
+    /// Handles a `trace_cmp` hook from Sanitizer Coverage, by recording it
     /// as a `Feature` of kind `instruction`.
     fn handle_trace_cmp(&mut self, pc: PC, arg1: u64, arg2: u64) {
         let f = Feature::instruction(pc, arg1, arg2);
         self.features.insert(f);
     }
-    /// Handles a `trace_indir` hook from SanitizerCoverage, by recording it
+    /// Handles a `trace_indir` hook from Sanitizer Coverage, by recording it
     /// as a `Feature` of kind `indirect`.
     fn handle_trace_indir(&mut self, caller: PC, callee: PC) {
         let f = Feature::indir(caller ^ callee);
@@ -55,15 +55,13 @@ impl CodeCoverageSensor {
             let slice = <&[u8; CHUNK_SIZE]>::try_from(&self.eight_bit_counters[start..end]).unwrap();
             if slice == &zero {
                 continue;
-            } else {
-                for (j, x) in slice.iter().enumerate() {
-                    if *x == 0 {
-                        continue;
-                    } else {
-                        let f = Feature::edge(start + j, *x as u16);
-                        handle(f);
-                    }
+            }
+            for (j, x) in slice.iter().enumerate() {
+                if *x == 0 {
+                    continue;
                 }
+                let f = Feature::edge(start + j, u16::from(*x));
+                handle(f);
             }
         }
 
@@ -73,10 +71,9 @@ impl CodeCoverageSensor {
             let i = start_remainder + j;
             if *x == 0 {
                 continue;
-            } else {
-                let f = Feature::edge(i, *x as u16);
-                handle(f);
             }
+            let f = Feature::edge(i, u16::from(*x));
+            handle(f);
         }
 
         // TODO: could covert features into a Vec and then sort that, will do it
@@ -84,7 +81,7 @@ impl CodeCoverageSensor {
         let mut op_features: Vec<_> = self.features.iter().copied().collect();
         op_features.sort();
 
-        for f in op_features.iter() {
+        for f in &op_features {
             handle(*f);
         }
     }
