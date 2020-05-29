@@ -213,6 +213,10 @@ impl<S: Serializer> World<S> {
     }
 
     pub fn report_event(&self, event: FuzzerEvent, stats: Option<FuzzerStats>) {
+        
+        // TODO: use nix::unistd::write instead of println because it may
+        // println uses a lock, which may mess up the signal handling
+
         match event {
             FuzzerEvent::Start => {
                 println!("START");

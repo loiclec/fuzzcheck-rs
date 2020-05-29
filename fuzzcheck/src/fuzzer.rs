@@ -5,7 +5,7 @@
 use crate::code_coverage_sensor::shared_sensor;
 use crate::data_structures::{LargeStepFindIter, SlabKey};
 use crate::pool::{FeatureInPool, Pool, PoolIndex};
-use crate::signals_handler::handle_signals;
+use crate::signals_handler::{set_signal_handlers, set_timer};
 use crate::world::{FuzzerEvent, FuzzerStats, World};
 use crate::{Feature, FuzzedInput, Mutator, Serializer};
 
@@ -54,7 +54,10 @@ impl<M: Mutator, S: Serializer<Value = M::Value>> FuzzerState<M, S> {
     }
 }
 
-impl<M: Mutator, S: Serializer<Value = M::Value>> FuzzerState<M, S> {
+impl<M: Mutator, S: Serializer<Value = M::Value>> FuzzerState<M, S>
+where
+    Self: 'static,
+{
     fn update_stats(&mut self) {
         let microseconds = self.world.elapsed_time();
 
@@ -89,8 +92,8 @@ impl<M: Mutator, S: Serializer<Value = M::Value>> FuzzerState<M, S> {
     }
 
     unsafe fn set_up_signal_handler(&self) {
-        let ptr = NotThreadSafe(self as *const Self);
-        handle_signals(vec![4, 6, 10, 11, 8, 2, 15], move |sig| (&*ptr.0).receive_signal(sig));
+        let ptr = self as *const Self;
+        set_signal_handlers(move |sig| (&*ptr).receive_signal(sig));
     }
 }
 
@@ -101,6 +104,7 @@ where
     F: Fn(&T) -> bool,
     M: Mutator,
     S: Serializer<Value = M::Value>,
+    Self: 'static,
 {
     state: FuzzerState<M, S>,
     test: F,
@@ -356,12 +360,10 @@ where
     }
 }
 
-struct NotThreadSafe<T>(T);
 struct NotUnwindSafe<T> {
     value: T,
 }
 
-unsafe impl<T> Send for NotThreadSafe<T> {}
 impl<T> UnwindSafe for NotUnwindSafe<T> {}
 impl<T> RefUnwindSafe for NotUnwindSafe<T> {}
 
@@ -379,6 +381,7 @@ where
     F: Fn(&T) -> bool,
     M: Mutator,
     S: Serializer<Value = M::Value>,
+    Fuzzer<T, F, M, S>: 'static,
 {
     let command = args.command;
 

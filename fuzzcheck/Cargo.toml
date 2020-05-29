@@ -13,8 +13,7 @@ categories = ["development-tools"]
 [dependencies]
 rand = { version = "0.7", features = ["small_rng"] }
 rand_distr = "0.2"
-libc = "0.2"
-lazy_static = "1.4"
+nix = "0.17"
 ahash = { version = "0.3", default_features = false, features = ["std"] }
 getopts = "0.2"
 fuzzcheck_arg_parser = { path = "../fuzzcheck_arg_parser" }

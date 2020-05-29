@@ -10,9 +10,6 @@
 #![feature(vec_remove_item)]
 #![feature(is_sorted)]
 
-#[macro_use]
-extern crate lazy_static;
-
 mod code_coverage_sensor;
 mod data_structures;
 
@@ -39,6 +36,7 @@ where
     F: Fn(&T) -> bool,
     M: Mutator,
     S: Serializer<Value = M::Value>,
+    fuzzer::Fuzzer<T, F, M, S>: 'static,
 {
     let env_args: Vec<_> = std::env::args().collect();
     let parser = options_parser();

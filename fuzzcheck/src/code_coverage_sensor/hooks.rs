@@ -54,6 +54,7 @@ use std::slice;
 use std::sync::Once;
 
 use ahash::AHashSet;
+use nix::libc;
 
 extern "C" {
     /// Returns the address of the calling function
