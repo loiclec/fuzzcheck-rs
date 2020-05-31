@@ -16,6 +16,8 @@ use std::io::{self, Result};
 use std::path::Path;
 use std::time::Instant;
 
+use nix::sys::signal;
+
 use crate::{Feature, Serializer};
 
 #[derive(Clone, Copy, Default)]
@@ -49,7 +51,7 @@ pub enum FuzzerEvent {
     Replace(usize),
     Remove,
     DidReadCorpus,
-    CaughtSignal(i32),
+    CaughtSignal(signal::Signal),
     TestFailure,
 }
 
@@ -213,10 +215,9 @@ impl<S: Serializer> World<S> {
     }
 
     pub fn report_event(&self, event: FuzzerEvent, stats: Option<FuzzerStats>) {
-        
         // TODO: use nix::unistd::write instead of println because it may
         // println uses a lock, which may mess up the signal handling
-
+        use signal::Signal::*;
         match event {
             FuzzerEvent::Start => {
                 println!("START");
@@ -233,9 +234,10 @@ impl<S: Serializer> World<S> {
                 return;
             }
             FuzzerEvent::CaughtSignal(signal) => match signal {
-                4 | 6 | 10 | 11 | 8 => println!("\n================ CRASH DETECTED ================"),
-                2 | 15 => println!("\n================ RUN INTERRUPTED ================"),
-                _ => println!("\n================ SIGNAL {:?} ================", signal),
+                SIGABRT | SIGBUS | SIGSEGV | SIGFPE => println!("\n================ CRASH DETECTED ({}) ================", signal),
+                SIGINT | SIGTERM => println!("\n================ RUN INTERRUPTED ({}) ================", signal),
+                SIGALRM => println!("\n================ TIMEOUT ({}) ================", signal),
+                _ => println!("\n================ SIGNAL {} ================", signal),
             },
             FuzzerEvent::TestFailure => println!("\n================ TEST FAILED ================"),
             FuzzerEvent::Replace(count) => {

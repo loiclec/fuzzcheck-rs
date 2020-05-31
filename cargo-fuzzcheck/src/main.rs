@@ -126,7 +126,9 @@ cargo-fuzzcheck {run} target1 {cmin} --{in_corpus} "fuzz-corpus" --{corpus_size}
         input_file = INPUT_FILE_FLAG,
         cmin = COMMAND_MINIFY_CORPUS,
         in_corpus = IN_CORPUS_FLAG,
-        corpus_size = CORPUS_SIZE_FLAG
+        corpus_size = CORPUS_SIZE_FLAG,
+        max_cplx = MAX_INPUT_CPLX_FLAG,
+        out_corpus = OUT_CORPUS_FLAG,
     )
     .as_str();
 
@@ -471,6 +473,11 @@ fn command_line_arguments_string(args: &CommandLineArguments) -> Vec<String> {
     s.append(&mut vec![
         "--".to_owned() + MAX_NBR_RUNS_FLAG,
         args.max_nbr_of_runs.to_string(),
+    ]);
+
+    s.append(&mut vec![
+        "--".to_owned() + TIMEOUT_FLAG,
+        args.timeout.to_string(),
     ]);
 
     s

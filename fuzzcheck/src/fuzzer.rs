@@ -17,6 +17,8 @@ use std::result::Result;
 
 use std::borrow::Borrow;
 
+use std::convert::TryFrom;
+
 enum FuzzerInputIndex<M: Mutator> {
     Temporary(FuzzedInput<M>),
     Pool(PoolIndex<M>),
@@ -75,19 +77,22 @@ where
     }
 
     fn receive_signal(&self, signal: i32) -> ! {
-        self.world
-            .report_event(FuzzerEvent::CaughtSignal(signal), Some(self.stats));
+        use nix::sys::signal::Signal::{self, *};
+        if let Ok(signal) = Signal::try_from(signal) {
+            self.world.report_event(FuzzerEvent::CaughtSignal(signal), Some(self.stats));
+            match signal {
+                SIGABRT | SIGBUS | SIGSEGV | SIGFPE | SIGALRM => {
+                    let input = self.get_input();
+                    let cplx = input.complexity(&self.mutator);
+                    let _ = self.world.save_artifact(&input.value, cplx);
 
-        match signal {
-            4 | 6 | 10 | 11 | 8 => {
-                let input = self.get_input();
-                let cplx = input.complexity(&self.mutator);
-                let _ = self.world.save_artifact(&input.value, cplx);
-
-                exit(TerminationStatus::Crash as i32);
+                    exit(TerminationStatus::Crash as i32);
+                }
+                SIGINT | SIGTERM => exit(TerminationStatus::Success as i32),
+                _ => exit(TerminationStatus::Unknown as i32),
             }
-            2 | 15 => exit(TerminationStatus::Success as i32),
-            _ => exit(TerminationStatus::Unknown as i32),
+        } else {
+            exit(TerminationStatus::Unknown as i32)
         }
     }
 
@@ -148,11 +153,16 @@ where
         test: &F,
         mutator: &M,
         input: &FuzzedInput<M>,
+        timeout: usize,
         world: &World<S>,
         stats: FuzzerStats,
     ) -> Result<(), std::io::Error> {
         let sensor = shared_sensor();
         sensor.clear();
+
+        if timeout != 0 {
+            set_timer(timeout);
+        }
 
         sensor.is_recording = true;
 
@@ -163,6 +173,10 @@ where
         let result = catch_unwind(|| (cell.value)(input_cell.value));
 
         sensor.is_recording = false;
+
+        if timeout != 0 {
+            set_timer(0);
+        }
 
         if result.is_err() || !result.unwrap() {
             world.report_event(FuzzerEvent::TestFailure, Some(stats));
@@ -223,6 +237,7 @@ where
             &self.test,
             &self.state.mutator,
             &input,
+            self.state.settings.timeout,
             &self.state.world,
             self.state.stats,
         )?;
@@ -401,6 +416,7 @@ where
                 &fuzzer.test,
                 &fuzzer.state.mutator,
                 &input,
+                fuzzer.state.settings.timeout,
                 &fuzzer.state.world,
                 fuzzer.state.stats,
             )?;

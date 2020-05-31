@@ -48,7 +48,7 @@ where
     let new_action = signal::SigAction::new(handler, flags, signal::SigSet::empty());
 
     use signal::Signal::*;
-    for &signal in &[SIGINT, SIGTERM, SIGSEGV, SIGBUS, SIGABRT, SIGFPE] {
+    for &signal in &[SIGINT, SIGTERM, SIGSEGV, SIGBUS, SIGABRT, SIGFPE, SIGALRM] {
         signal::sigaction(signal, &new_action).expect("couldn't register signal");
     }
 }

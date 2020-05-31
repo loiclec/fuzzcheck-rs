@@ -9,6 +9,7 @@ pub enum FuzzerCommand {
     MinifyCorpus,
 }
 
+pub const TIMEOUT_FLAG: &str = "timeout";
 pub const MAX_NBR_RUNS_FLAG: &str = "max-iter";
 pub const MAX_INPUT_CPLX_FLAG: &str = "max-cplx";
 pub const INPUT_FILE_FLAG: &str = "input-file";
@@ -32,6 +33,7 @@ pub struct DefaultArguments<'a> {
     pub artifacts: &'a str,
     pub max_nbr_of_runs: usize,
     pub max_input_cplx: usize,
+    pub timeout: usize,
     pub corpus_size: usize,
 }
 
@@ -41,6 +43,7 @@ pub const DEFAULT_ARGUMENTS: DefaultArguments<'static> = DefaultArguments {
     artifacts: "artifacts",
     max_nbr_of_runs: core::usize::MAX,
     max_input_cplx: 256,
+    timeout: 0,
     corpus_size: 10,
 };
 
@@ -49,6 +52,7 @@ pub struct CommandLineArguments {
     pub command: FuzzerCommand,
     pub max_nbr_of_runs: usize,
     pub max_input_cplx: f64,
+    pub timeout: usize,
     pub corpus_size: usize,
     pub input_file: Option<PathBuf>,
     pub corpus_in: Option<PathBuf>,
@@ -59,66 +63,98 @@ pub struct CommandLineArguments {
 #[must_use]
 pub fn options_parser() -> Options {
     let mut options = Options::new();
-    options
-        .long_only(true)
-        .optopt("", IN_CORPUS_FLAG, "folder for the input corpus", "PATH")
-        .optflag(
-            "",
-            NO_IN_CORPUS_FLAG,
-            format!(
-                "do not use an input corpus, overrides --{in_corpus}",
-                in_corpus = IN_CORPUS_FLAG
-            )
-            .as_str(),
+
+    options.long_only(true);
+    options.optopt(
+        "",
+        IN_CORPUS_FLAG,
+        format!(
+            "folder for the input corpus (default: {default})",
+            default = DEFAULT_ARGUMENTS.in_corpus
         )
-        .optopt("", OUT_CORPUS_FLAG, "folder for the output corpus", "PATH")
-        .optflag(
-            "",
-            NO_OUT_CORPUS_FLAG,
-            format!(
-                "do not use an output corpus, overrides --{out_corpus}",
-                out_corpus = OUT_CORPUS_FLAG
-            )
-            .as_str(),
+        .as_str(),
+        "PATH",
+    );
+    options.optflag(
+        "",
+        NO_IN_CORPUS_FLAG,
+        format!(
+            "do not use an input corpus, overrides --{in_corpus}",
+            in_corpus = IN_CORPUS_FLAG
         )
-        .optopt(
-            "",
-            ARTIFACTS_FLAG,
-            "folder where the artifacts will be written (default: ./fuzz-artifacts)",
-            "PATH",
+        .as_str(),
+    );
+    options.optopt(
+        "",
+        OUT_CORPUS_FLAG,
+        format!(
+            "folder for the output corpus (default: {default})",
+            default = DEFAULT_ARGUMENTS.out_corpus
         )
-        .optflag(
-            "",
-            NO_ARTIFACTS_FLAG,
-            format!(
-                "do not save artifacts, overrides --{artifacts}",
-                artifacts = ARTIFACTS_FLAG
-            )
-            .as_str(),
+        .as_str(),
+        "PATH",
+    );
+    options.optflag(
+        "",
+        NO_OUT_CORPUS_FLAG,
+        format!(
+            "do not use an output corpus, overrides --{out_corpus}",
+            out_corpus = OUT_CORPUS_FLAG
         )
-        .optopt("", INPUT_FILE_FLAG, "file containing a JSON-encoded input", "PATH")
-        .optopt(
-            "",
-            CORPUS_SIZE_FLAG,
-            format!(
-                "target size of the corpus (default: {default})",
-                default = DEFAULT_ARGUMENTS.corpus_size
-            )
-            .as_str(),
-            "N",
+        .as_str(),
+    );
+    options.optopt(
+        "",
+        ARTIFACTS_FLAG,
+        format!(
+            "folder where the artifacts will be written (default: ./{default})",
+            default = DEFAULT_ARGUMENTS.artifacts
         )
-        .optopt(
-            "",
-            MAX_INPUT_CPLX_FLAG,
-            format!(
-                "maximum allowed complexity of inputs (default: {default})",
-                default = DEFAULT_ARGUMENTS.max_input_cplx
-            )
-            .as_str(),
-            "N",
+        .as_str(),
+        "PATH",
+    );
+    options.optflag(
+        "",
+        NO_ARTIFACTS_FLAG,
+        format!(
+            "do not save artifacts, overrides --{artifacts}",
+            artifacts = ARTIFACTS_FLAG
         )
-        .optopt("", MAX_NBR_RUNS_FLAG, "maximum number of iterations", "N")
-        .optflag("", "help", "print this help menu");
+        .as_str(),
+    );
+    options.optopt("", INPUT_FILE_FLAG, "file containing a JSON-encoded input", "PATH");
+    options.optopt(
+        "",
+        CORPUS_SIZE_FLAG,
+        format!(
+            "target size of the corpus (default: {default})",
+            default = DEFAULT_ARGUMENTS.corpus_size
+        )
+        .as_str(),
+        "N",
+    );
+    options.optopt(
+        "",
+        MAX_INPUT_CPLX_FLAG,
+        format!(
+            "maximum allowed complexity of inputs (default: {default})",
+            default = DEFAULT_ARGUMENTS.max_input_cplx
+        )
+        .as_str(),
+        "N",
+    );
+    options.optopt("", MAX_NBR_RUNS_FLAG, "maximum number of iterations", "N");
+    options.optopt(
+        "",
+        TIMEOUT_FLAG,
+        format!(
+            "maximum allowed time in milliseconds for a single run to finish, or 0 for no limit (default: {default})",
+            default = DEFAULT_ARGUMENTS.timeout
+        )
+        .as_str(),
+        "N",
+    );
+    options.optflag("", "help", "print this help menu");
 
     options
 }
@@ -208,10 +244,16 @@ The command {c} is not supported. It can either be ‘{fuzz}’, ‘{tmin}’, o
             .and_then(|x| x.parse::<usize>().ok())
             .unwrap_or(core::usize::MAX);
 
+        let timeout: usize = matches
+            .opt_str(TIMEOUT_FLAG)
+            .and_then(|x| x.parse::<usize>().ok())
+            .unwrap_or(defaults.timeout);
+
         Ok(Self {
             command,
             max_nbr_of_runs,
             max_input_cplx,
+            timeout,
             corpus_size,
             input_file,
             corpus_in,
