@@ -79,7 +79,8 @@ where
     fn receive_signal(&self, signal: i32) -> ! {
         use nix::sys::signal::Signal::{self, *};
         if let Ok(signal) = Signal::try_from(signal) {
-            self.world.report_event(FuzzerEvent::CaughtSignal(signal), Some(self.stats));
+            self.world
+                .report_event(FuzzerEvent::CaughtSignal(signal), Some(self.stats));
             match signal {
                 SIGABRT | SIGBUS | SIGSEGV | SIGFPE | SIGALRM => {
                     let input = self.get_input();

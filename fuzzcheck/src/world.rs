@@ -234,7 +234,9 @@ impl<S: Serializer> World<S> {
                 return;
             }
             FuzzerEvent::CaughtSignal(signal) => match signal {
-                SIGABRT | SIGBUS | SIGSEGV | SIGFPE => println!("\n================ CRASH DETECTED ({}) ================", signal),
+                SIGABRT | SIGBUS | SIGSEGV | SIGFPE => {
+                    println!("\n================ CRASH DETECTED ({}) ================", signal)
+                }
                 SIGINT | SIGTERM => println!("\n================ RUN INTERRUPTED ({}) ================", signal),
                 SIGALRM => println!("\n================ TIMEOUT ({}) ================", signal),
                 _ => println!("\n================ SIGNAL {} ================", signal),

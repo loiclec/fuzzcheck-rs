@@ -475,10 +475,7 @@ fn command_line_arguments_string(args: &CommandLineArguments) -> Vec<String> {
         args.max_nbr_of_runs.to_string(),
     ]);
 
-    s.append(&mut vec![
-        "--".to_owned() + TIMEOUT_FLAG,
-        args.timeout.to_string(),
-    ]);
+    s.append(&mut vec!["--".to_owned() + TIMEOUT_FLAG, args.timeout.to_string()]);
 
     s
 }
