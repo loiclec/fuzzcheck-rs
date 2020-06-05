@@ -104,6 +104,11 @@ cargo-fuzzcheck {init}
 cargo-fuzzcheck {run} target1 {fuzz}
     Launch the fuzzer on “target1” with default options.
 
+cargo-fuzzcheck {run} target2 fuzz --{max_cplx} 4000 --{out_corpus} fuzz_results/out/
+    Fuzz “target2”, generating inputs of complexity no greater than 4000, 
+    and write the output corpus (i.e. the folder of most interesting test cases) 
+    to fuzz_results/out/.
+
 cargo-fuzzcheck {run} target1 {tmin} --{input_file} "artifacts/crash.json"
 
     Using “target1”, minify the test input defined in the file 

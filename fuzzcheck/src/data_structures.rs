@@ -52,7 +52,7 @@ where
     {
         let mut step: usize = 8;
 
-        // First check the first element of the slice, as it is often the 
+        // First check the first element of the slice, as it is often the
         // correct one
         if self.position < self.slice.len() {
             let el = unsafe { *self.slice.get_unchecked(self.position) };
