@@ -17,6 +17,7 @@ coverage then it is added to the pool, otherwise, fuzzcheck tries again with a
 different input and mutation.
 
 In pseudocode:
+
 ```rust
 loop {
     let input = pool.select();
