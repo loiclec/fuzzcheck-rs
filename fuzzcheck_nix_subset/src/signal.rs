@@ -306,7 +306,7 @@ libc_enum! {
     }
 }
 
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+#[derive(Clone, Copy)]
 pub struct SigSet {
     sigset: libc::sigset_t,
 }
