@@ -12,5 +12,6 @@ categories = ["development-tools"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
-[dependencies]
-fuzzcheck = { path = "../fuzzcheck" }
+[dependencies.fuzzcheck]
+path = "../fuzzcheck"
+version = "0.1.0"
