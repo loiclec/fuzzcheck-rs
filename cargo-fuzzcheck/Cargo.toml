@@ -12,8 +12,11 @@ categories = ["development-tools"]
 
 [dependencies]
 toml = "0.4"
-fuzzcheck_arg_parser = { path = "../fuzzcheck_arg_parser" }
 getopts = "0.2"
+
+[dependencies.fuzzcheck_arg_parser]
+path = "../fuzzcheck_arg_parser"
+version = "0.1.0"
 
 [[bin]]
 name = "cargo-fuzzcheck"

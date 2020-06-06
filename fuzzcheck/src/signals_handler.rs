@@ -1,9 +1,9 @@
 // ! A small, naive implementation of signal handlers in order to detect and
 // ! recover from crashes.
 
-extern crate nix_subset;
+extern crate fuzzcheck_nix_subset;
+use fuzzcheck_nix_subset as nix;
 use nix::signal;
-use nix_subset as nix;
 
 static mut SIGNAL_HANDLER: Option<Box<dyn Fn(nix::libc::c_int) -> !>> = None;
 

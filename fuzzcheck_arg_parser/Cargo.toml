@@ -5,6 +5,7 @@ authors = ["Loïc Lecrenier <loic.lecrenier@me.com>"]
 edition = "2018"
 description = "Argument parser for fuzzcheck-rs"
 repository = "https://git.sr.ht/~loic/fuzzcheck-rs"
+readme = "README.md"
 license = "MIT"
 keywords = ["fuzzing", "test"]
 categories = ["development-tools"]

@@ -30,8 +30,8 @@ version = "0.1.0"
 dependencies = [
  "ahash 0.3.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "fuzzcheck_arg_parser 0.1.0",
+ "fuzzcheck_nix_subset 0.1.0",
  "getopts 0.2.21 (registry+https://github.com/rust-lang/crates.io-index)",
- "nix_subset 0.17.0",
  "rand 0.7.3 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
@@ -48,6 +48,15 @@ version = "0.1.0"
 dependencies = [
  "fuzzcheck 0.1.0",
  "rand 0.7.3 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
+name = "fuzzcheck_nix_subset"
+version = "0.1.0"
+dependencies = [
+ "bitflags 1.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "cfg-if 0.1.10 (registry+https://github.com/rust-lang/crates.io-index)",
+ "libc 0.2.71 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -69,15 +78,6 @@ dependencies = [
 name = "libc"
 version = "0.2.71"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-
-[[package]]
-name = "nix_subset"
-version = "0.17.0"
-dependencies = [
- "bitflags 1.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "cfg-if 0.1.10 (registry+https://github.com/rust-lang/crates.io-index)",
- "libc 0.2.71 (registry+https://github.com/rust-lang/crates.io-index)",
-]
 
 [[package]]
 name = "ppv-lite86"

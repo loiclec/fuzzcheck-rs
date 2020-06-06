@@ -1,10 +1,11 @@
 [package]
-name = "nix_subset"
-version = "0.17.0"
+name = "fuzzcheck_nix_subset"
+version = "0.1.0"
 authors = ["Loïc Lecrenier <loic.lecrenier@me.com>"]
 edition = "2018"
-description = "Subset of the nix crate from https://github.com/nix-rust/nix"
+description = "Subset of the nix crate used by fuzzcheck-rs"
 repository = "https://git.sr.ht/~loic/fuzzcheck-rs"
+readme = "README.md"
 license = "MIT"
 
 [dependencies]
@@ -16,4 +17,4 @@ default_features = false
 version = "0.2"
 
 [lib]
-name = "nix_subset"
+name = "fuzzcheck_nix_subset"

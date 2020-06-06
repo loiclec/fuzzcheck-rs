@@ -6,12 +6,9 @@ members = [
     "fuzzcheck",
     "fuzzcheck_mutators",
     "fuzzcheck_serializer",
-    "nix_subset"
+    "fuzzcheck_nix_subset"
 ]
 
 exclude = [
     "usage_tests"
 ]
-
-[profile.release.cargo-fuzzcheck]
-opt-level = 0

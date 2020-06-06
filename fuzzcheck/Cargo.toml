@@ -10,17 +10,26 @@ license = "MIT"
 keywords = ["fuzzing", "test"]
 categories = ["development-tools"]
 
-[dependencies]
-#rand_distr = "0.2"
-nix_subset = { path = "../nix_subset" }
-ahash = { version = "0.3", default_features = false, features = ["std"] }
-getopts = "0.2"
-fuzzcheck_arg_parser = { path = "../fuzzcheck_arg_parser" }
+[dependencies.getopts]
+version = "0.2"
+
+[dependencies.ahash]
+version = "0.3"
+default_features = false
+features = ["std"]
 
 [dependencies.rand]
 version = "0.7"
 default_features = false
 features = ["small_rng"]
+
+[dependencies.fuzzcheck_nix_subset]
+path = "../fuzzcheck_nix_subset"
+version = "0.1.0"
+
+[dependencies.fuzzcheck_arg_parser]
+path = "../fuzzcheck_arg_parser"
+version = "0.1.0"
 
 [lib]
 name = "fuzzcheck"
