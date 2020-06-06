@@ -238,7 +238,7 @@ impl<M: Mutator> Pool<M> {
 
             average_complexity: 0.0,
             cumulative_weights: Vec::default(),
-            rng: SmallRng::from_entropy(),
+            rng: SmallRng::seed_from_u64(0),
         }
     }
 

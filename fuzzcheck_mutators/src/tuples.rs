@@ -124,7 +124,7 @@ impl<A: Mutator, B: Mutator, Map: TupleMap<A = A::Value, B = B::Value>> Mutator 
     }
 
     fn arbitrary(&self, seed: usize, max_cplx: f64) -> (Self::Value, Self::Cache) {
-        let mut r = SmallRng::from_entropy();
+        let mut r = SmallRng::seed_from_u64(seed as u64);
         let cplx = if seed < 10 {
             // first 10 vary in cplx from max_cplx to max_cplx / 10
             max_cplx / (10.0 - seed as f64)
@@ -152,7 +152,7 @@ impl<A: Mutator, B: Mutator, Map: TupleMap<A = A::Value, B = B::Value>> Mutator 
         step.pick_step += 1;
         if step.pick_step % 10 == 0 {
             // mutate both once every ten times
-            let mut r = SmallRng::from_entropy();
+            let mut r = SmallRng::seed_from_u64(step.pick_step as u64);
 
             let cplx = self.complexity(value, cache);
             let remaining_cplx = max_cplx - cplx;

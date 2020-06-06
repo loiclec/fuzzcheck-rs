@@ -48,6 +48,26 @@ codegen-units = 1
 panic = 'abort'
 overflow-checks = false
 incremental = false
+
+# [profile.release.package.serde_json]
+# opt-level = 0
+# codegen-units = 16
+
+# [profile.release.package.serde]
+# opt-level = 0
+# codegen-units = 16
+
+[profile.release.package.libc]
+opt-level = 0
+codegen-units = 16
+
+[profile.release.package.getopts]
+opt-level = 0
+codegen-units = 16
+
+[profile.release.package.fuzzcheck_arg_parser]
+opt-level = 0
+codegen-units = 16
 "##,
             $name, $fuzzcheck_rs_dep, $fuzzcheck_input_dep, $fuzzcheck_serializer_dep, $target
         )

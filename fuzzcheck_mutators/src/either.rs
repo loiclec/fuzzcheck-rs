@@ -182,7 +182,7 @@ impl<A: Mutator, B: Mutator, Map: EitherMap<A = A::Value, B = B::Value>> Mutator
 
         if step.pick_step % 100 == 0 {
             // switch to a different branch once every 100 times
-            let mut r = SmallRng::from_entropy();
+            let mut r = SmallRng::seed_from_u64(step.pick_step as u64); // TODO: should it be from entropy?
             match Map::get_either(value) {
                 Either::Left(_) => {
                     let (tmp_inner_value, tmp_inner_cache) = self.b.arbitrary(r.gen(), max_cplx);

@@ -1,0 +1,19 @@
+[package]
+name = "nix_subset"
+version = "0.17.0"
+authors = ["Loïc Lecrenier <loic.lecrenier@me.com>"]
+edition = "2018"
+description = "Subset of the nix crate from https://github.com/nix-rust/nix"
+repository = "https://git.sr.ht/~loic/fuzzcheck-rs"
+license = "MIT"
+
+[dependencies]
+bitflags = "1.1"
+cfg-if = "0.1.10"
+
+[dependencies.libc]
+default_features = false
+version = "0.2"
+
+[lib]
+name = "nix_subset"

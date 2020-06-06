@@ -30,7 +30,7 @@ struct VecMutatorArbitrarySeed {
 
 impl VecMutatorArbitrarySeed {
     fn new(step: usize) -> Self {
-        let mut rng = SmallRng::from_entropy();
+        let mut rng = SmallRng::seed_from_u64(step as u64);
         if step == 0 {
             Self {
                 complexity_step: 0,

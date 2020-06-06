@@ -12,5 +12,9 @@ categories = ["development-tools"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-rand = { version = "0.7", features = ["small_rng"] }
 fuzzcheck = { path = "../fuzzcheck" }
+
+[dependencies.rand]
+version = "0.7"
+default_features = false
+features = ["small_rng"]

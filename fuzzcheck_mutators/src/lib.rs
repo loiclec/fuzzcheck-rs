@@ -1,4 +1,3 @@
-#![feature(saturating_neg)]
 #![feature(vec_remove_item)]
 
 extern crate fuzzcheck;

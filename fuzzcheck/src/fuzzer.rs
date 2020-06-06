@@ -11,6 +11,9 @@ use crate::{Feature, FuzzedInput, Mutator, Serializer};
 
 use fuzzcheck_arg_parser::{CommandLineArguments, FuzzerCommand};
 
+use nix_subset as nix;
+use nix::signal;
+
 use std::panic::{catch_unwind, RefUnwindSafe, UnwindSafe};
 use std::process::exit;
 use std::result::Result;
@@ -77,7 +80,7 @@ where
     }
 
     fn receive_signal(&self, signal: i32) -> ! {
-        use nix::sys::signal::Signal::{self, *};
+        use signal::Signal::{self, *};
         if let Ok(signal) = Signal::try_from(signal) {
             self.world
                 .report_event(FuzzerEvent::CaughtSignal(signal), Some(self.stats));
