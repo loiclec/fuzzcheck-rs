@@ -1,18 +1,18 @@
 #![allow(non_camel_case_types)]
 
-#[macro_use] mod macros;
+#[macro_use]
+mod macros;
 
+pub mod errno;
 pub mod signal;
 pub mod unistd;
-pub mod errno;
 use errno::Errno;
 
-use std::result;
-use std::fmt;
 use std::error;
+use std::fmt;
+use std::result;
 
 pub extern crate libc;
-
 
 /// Nix Error Type
 ///
@@ -32,7 +32,6 @@ pub enum Error {
     /// consult the module documentation to see if there is a more appropriate interface available.
     UnsupportedOperation,
 }
-
 
 impl Error {
     /// Convert this `Error` to an [`Errno`](enum.Errno.html).
@@ -67,15 +66,18 @@ impl Error {
     pub fn invalid_argument() -> Error {
         Error::Sys(Errno::EINVAL)
     }
-
 }
 
 impl From<Errno> for Error {
-    fn from(errno: Errno) -> Error { Error::from_errno(errno) }
+    fn from(errno: Errno) -> Error {
+        Error::from_errno(errno)
+    }
 }
 
 impl From<std::string::FromUtf8Error> for Error {
-    fn from(_: std::string::FromUtf8Error) -> Error { Error::InvalidUtf8 }
+    fn from(_: std::string::FromUtf8Error) -> Error {
+        Error::InvalidUtf8
+    }
 }
 
 impl error::Error for Error {}

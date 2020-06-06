@@ -16,8 +16,8 @@ use std::io::{self, Result};
 use std::path::Path;
 use std::time::Instant;
 
-use nix_subset as nix;
 use nix::signal;
+use nix_subset as nix;
 
 use crate::{Feature, Serializer};
 

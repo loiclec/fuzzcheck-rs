@@ -11,8 +11,8 @@ use crate::{Feature, FuzzedInput, Mutator, Serializer};
 
 use fuzzcheck_arg_parser::{CommandLineArguments, FuzzerCommand};
 
-use nix_subset as nix;
 use nix::signal;
+use nix_subset as nix;
 
 use std::panic::{catch_unwind, RefUnwindSafe, UnwindSafe};
 use std::process::exit;

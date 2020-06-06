@@ -2,8 +2,8 @@
 // ! recover from crashes.
 
 extern crate nix_subset;
-use nix_subset as nix;
 use nix::signal;
+use nix_subset as nix;
 
 static mut SIGNAL_HANDLER: Option<Box<dyn Fn(nix::libc::c_int) -> !>> = None;
 

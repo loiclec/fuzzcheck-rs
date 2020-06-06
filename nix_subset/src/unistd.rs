@@ -1,4 +1,3 @@
-
 use libc::pid_t;
 
 use std::fmt;
@@ -42,7 +41,6 @@ impl fmt::Display for Pid {
         fmt::Display::fmt(&self.0, f)
     }
 }
-
 
 /// Get the pid of this process (see
 /// [getpid(2)](http://pubs.opengroup.org/onlinepubs/9699919799/functions/getpid.html)).
