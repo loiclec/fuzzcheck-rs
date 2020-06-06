@@ -1,20 +1,19 @@
-# Fuzzcheck
+# Fuzzcheck (note: still experimental)
 
 Fuzzcheck is a structure-aware, in-process, coverage-guided, evolutionary 
 fuzzing engine for Rust functions. 
 
 Its main aim is to be used as the input generator of property-based tests.
-Detecting security flaws in an application is a non-goal.
 
 Given a function `test: (T) -> Bool`, it tries to find a value of type `T` that
 fails the test or leads to a crash.
 
-Fuzzcheck works by maintaining a pool of test inputs and ranking them using the
-complexity of the input and the uniqueness of the code coverage caused by 
-`test(input)`. From that pool, it selects a high-ranking input, mutates it, and
-runs the test function again. If the new mutated input has an interesting code 
-coverage then it is added to the pool, otherwise, fuzzcheck tries again with a 
-different input and mutation.
+Fuzzcheck works by maintaining a pool of test inputs and ranking them using
+the uniqueness of the code coverage caused by running `test(input)`. 
+From that pool, it selects a high-ranking input, mutates it, and runs the test
+function again. If the new mutated input has an interesting code coverage then
+it is added to the pool, otherwise, fuzzcheck tries again with a different 
+input and mutation.
 
 In pseudocode:
 
@@ -46,20 +45,16 @@ others to pick it up.
 
 I would also *love* to find a contributor/maintainer, because I don't have much
 time to spend on it except during school breaks. So if you would like to work 
-on a fast, super novel fuzzing engine specifically made for Rust, please 
-talk to me, I can guide you through the design and code and suggest tasks
-to get started.
-
-Alternatively, you could sponsor me 🥳 Then I can set aside some time every 
-week to write fuzzcheck. Otherwise, the update pace of this crate is going to
-be around one time per semester, optimistically.
+on a fast, novel fuzzing engine specifically made for Rust, please talk to me! 
+I can guide you through the design and code and suggest tasks to get started,
+there are many.
 
 ## Usage
 
 The first step is to install the `cargo-fuzzcheck` executable using cargo nightly. 
 
 ```bash
-cargo +nightly install --git https://github.com/loiclec/fuzzcheck-rs
+cargo +nightly install cargo-fuzzcheck
 ```
 
 Then, somewhere else, create a new cargo crate. It will contain the
@@ -224,7 +219,7 @@ dependencies. The code there is not instrumented.
 ```
 
 Note that if `instrumented` and `non_instrumented` both depend on a common 
-crate `A`, then that crate will be compiled twice and the two versions of it,
+crate `A`, then that crate will be compiled twice and the two versions of it
 will live in the resulting binary. These two versions will have different,
 incompatible versions of the types and traits defined by `A`.
 
