@@ -49,13 +49,13 @@ panic = 'abort'
 overflow-checks = false
 incremental = false
 
-# [profile.release.package.serde_json]
-# opt-level = 0
-# codegen-units = 16
+[profile.release.package.serde_json]
+opt-level = 0
+codegen-units = 16
 
-# [profile.release.package.serde]
-# opt-level = 0
-# codegen-units = 16
+[profile.release.package.serde]
+opt-level = 0
+codegen-units = 16
 
 [profile.release.package.libc]
 opt-level = 0
@@ -143,7 +143,7 @@ macro_rules! instrumented_lib_rs_template {
             r#"
 extern crate {0};
 
-pub fn test(input: &Vec<u8>) -> bool {{
+pub fn test(input: &[u8]) -> bool {{
     // test goes here
     if 
         input.len() > 14 &&

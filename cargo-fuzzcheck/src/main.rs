@@ -12,6 +12,8 @@ use std::io::Write;
 use std::fmt;
 use std::fmt::Display;
 
+use std::env;
+
 pub const COMMAND_INIT: &str = "init";
 pub const COMMAND_RUN: &str = "run";
 pub const COMMAND_CLEAN: &str = "clean";
@@ -154,7 +156,7 @@ cargo-fuzzcheck {run} target1 {cmin} --{in_corpus} "fuzz-corpus" --{corpus_size}
             let fuzzcheck_path = if env_args.len() > (start_idx + 1) {
                 env_args[start_idx + 1].as_str().trim()
             } else {
-                "https://github.com/loiclec/fuzzcheck-rs"
+                env!("CARGO_PKG_VERSION")
             };
 
             let result = init_command(fuzzcheck_path);
@@ -251,7 +253,7 @@ fn clean_command() -> Result<(), MyError> {
     Ok(())
 }
 
-fn init_command(fuzzcheck_path: &str) -> Result<(), MyError> {
+fn init_command(fuzzcheck_path_or_version: &str) -> Result<(), MyError> {
     let target = "target1";
 
     let root_folder = std::env::current_dir()?;
@@ -293,18 +295,24 @@ fn init_command(fuzzcheck_path: &str) -> Result<(), MyError> {
         let cargo_non_instrumented_toml_file = non_instrumented_folder.join("Cargo.toml");
         if !cargo_non_instrumented_toml_file.as_path().is_file() {
             let mut cargo = fs::File::create(cargo_non_instrumented_toml_file)?;
-            let fuzzcheck_deps = if fuzzcheck_path.starts_with("file://") {
-                let folder = Path::new(fuzzcheck_path.trim_start_matches("file://"));
+            let fuzzcheck_deps = if fuzzcheck_path_or_version.starts_with("file://") {
+                let folder = Path::new(fuzzcheck_path_or_version.trim_start_matches("file://"));
                 (
                     format!("path = \"{}\"", folder.join("fuzzcheck").display()),
                     format!("path = \"{}\"", folder.join("fuzzcheck_mutators").display()),
                     format!("path = \"{}\"", folder.join("fuzzcheck_serializer").display()),
                 )
+            } else if fuzzcheck_path_or_version.starts_with("http") {
+                (
+                    format!("git = \"{}\"", fuzzcheck_path_or_version),
+                    format!("git = \"{}\"", fuzzcheck_path_or_version),
+                    format!("git = \"{}\"", fuzzcheck_path_or_version),
+                )
             } else {
                 (
-                    format!("git = \"{}\"", fuzzcheck_path),
-                    format!("git = \"{}\"", fuzzcheck_path),
-                    format!("git = \"{}\"", fuzzcheck_path),
+                    format!("version = \"{}\"", fuzzcheck_path_or_version),
+                    format!("version = \"{}\"", fuzzcheck_path_or_version),
+                    format!("version = \"{}\"", fuzzcheck_path_or_version),
                 )
             };
             cargo.write_fmt(non_instrumented_toml_template!(
@@ -533,8 +541,8 @@ fn run_command(
         .arg("--release")
         .arg("--target")
         .arg(target_triple)
-        .arg("-Z")
-        .arg("timings")
+        // .arg("-Z")
+        // .arg("timings")
         // .arg("--verbose")
         .arg("--")
         .args(s)
