@@ -1,6 +1,6 @@
 [package]
 name = "cargo-fuzzcheck"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["Loïc Lecrenier <loic.lecrenier@me.com>"]
 edition = "2018"
 description = "Command line tool to use fuzzcheck-rs"
@@ -16,7 +16,7 @@ getopts = "0.2"
 
 [dependencies.fuzzcheck_arg_parser]
 path = "../fuzzcheck_arg_parser"
-version = "0.1.0"
+version = "0.1.1"
 
 [[bin]]
 name = "cargo-fuzzcheck"

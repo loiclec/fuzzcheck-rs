@@ -12,9 +12,9 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
 name = "cargo-fuzzcheck"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
- "fuzzcheck_arg_parser 0.1.0",
+ "fuzzcheck_arg_parser 0.1.1",
  "getopts 0.2.21 (registry+https://github.com/rust-lang/crates.io-index)",
  "toml 0.4.10 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
@@ -26,33 +26,33 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
 name = "fuzzcheck"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "ahash 0.3.5 (registry+https://github.com/rust-lang/crates.io-index)",
- "fuzzcheck_arg_parser 0.1.0",
- "fuzzcheck_nix_subset 0.1.0",
+ "fuzzcheck_arg_parser 0.1.1",
+ "fuzzcheck_nix_subset 0.1.1",
  "getopts 0.2.21 (registry+https://github.com/rust-lang/crates.io-index)",
  "rand 0.7.3 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
 name = "fuzzcheck_arg_parser"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "getopts 0.2.21 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
 name = "fuzzcheck_mutators"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
- "fuzzcheck 0.1.0",
+ "fuzzcheck 0.1.1",
  "rand 0.7.3 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
 name = "fuzzcheck_nix_subset"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "bitflags 1.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "cfg-if 0.1.10 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -61,9 +61,9 @@ dependencies = [
 
 [[package]]
 name = "fuzzcheck_serializer"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
- "fuzzcheck 0.1.0",
+ "fuzzcheck 0.1.1",
 ]
 
 [[package]]

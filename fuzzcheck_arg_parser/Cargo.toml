@@ -1,6 +1,6 @@
 [package]
 name = "fuzzcheck_arg_parser"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["Loïc Lecrenier <loic.lecrenier@me.com>"]
 edition = "2018"
 description = "Argument parser for fuzzcheck-rs"

@@ -1,6 +1,6 @@
 [package]
 name = "fuzzcheck_nix_subset"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["Loïc Lecrenier <loic.lecrenier@me.com>"]
 edition = "2018"
 description = "Subset of the nix crate used by fuzzcheck-rs"

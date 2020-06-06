@@ -1,6 +1,6 @@
 [package]
 name = "fuzzcheck_serializer"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["Loïc Lecrenier <loic.lecrenier@me.com>"]
 edition = "2018"
 description = "Basic serializers to use with fuzzcheck-rs"
@@ -14,4 +14,4 @@ categories = ["development-tools"]
 
 [dependencies.fuzzcheck]
 path = "../fuzzcheck"
-version = "0.1.0"
+version = "0.1.1"
