@@ -35,15 +35,6 @@ pub enum Error {
 
 impl Error {
     /// Convert this `Error` to an [`Errno`](enum.Errno.html).
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// # use nix::Error;
-    /// # use nix::errno::Errno;
-    /// let e = Error::from(Errno::EPERM);
-    /// assert_eq!(Some(Errno::EPERM), e.as_errno());
-    /// ```
     pub fn as_errno(self) -> Option<Errno> {
         if let Error::Sys(e) = self {
             Some(e)
