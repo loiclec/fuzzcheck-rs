@@ -22,7 +22,7 @@ impl Mutator for BoolMutator {
         false
     }
 
-    fn arbitrary(&self, seed: usize, _max_cplx: f64) -> (Self::Value, Self::Cache) {
+    fn arbitrary(&mut self, seed: usize, _max_cplx: f64) -> (Self::Value, Self::Cache) {
         let value = seed % 2 == 0;
         (value, ())
     }
@@ -40,7 +40,7 @@ impl Mutator for BoolMutator {
     }
 
     fn mutate(
-        &self,
+        &mut self,
         value: &mut Self::Value,
         _cache: &mut Self::Cache,
         step: &mut Self::MutationStep,

@@ -6,7 +6,7 @@ use fuzzcheck_mutators::option::*;
 type F = OptionMutator<U8Mutator>;
 
 fn main() {
-    let m = F::default();
+    let mut m = F::default();
     let mut x = Some(10);
     let mut x_cache = m.cache_from_value(&x);
     let mut x_step = m.mutation_step_from_value(&x);

@@ -20,7 +20,7 @@ impl Mutator for U8Mutator {
         0
     }
 
-    fn arbitrary(&self, seed: usize, _max_cplx: f64) -> (Self::Value, Self::Cache) {
+    fn arbitrary(&mut self, seed: usize, _max_cplx: f64) -> (Self::Value, Self::Cache) {
         let value = (seed % std::u8::MAX as usize) as u8;
         (value, ())
     }
@@ -38,7 +38,7 @@ impl Mutator for U8Mutator {
     }
 
     fn mutate(
-        &self,
+        &mut self,
         value: &mut Self::Value,
         _cache: &mut Self::Cache,
         step: &mut Self::MutationStep,

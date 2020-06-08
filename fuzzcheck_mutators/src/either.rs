@@ -158,7 +158,7 @@ impl<A: Mutator, B: Mutator, Map: EitherMap<A = A::Value, B = B::Value>> Mutator
         }
     }
 
-    fn arbitrary(&self, seed: usize, max_cplx: f64) -> (Self::Value, Self::Cache) {
+    fn arbitrary(&mut self, seed: usize, max_cplx: f64) -> (Self::Value, Self::Cache) {
         let pick_left = seed % 2 == 0;
         let seed = seed / 2;
         if pick_left {
@@ -171,7 +171,7 @@ impl<A: Mutator, B: Mutator, Map: EitherMap<A = A::Value, B = B::Value>> Mutator
     }
 
     fn mutate(
-        &self,
+        &mut self,
         value: &mut Self::Value,
         cache: &mut Self::Cache,
         step: &mut Self::MutationStep,

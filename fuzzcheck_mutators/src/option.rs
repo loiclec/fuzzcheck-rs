@@ -76,7 +76,7 @@ impl<M: Mutator> Mutator for OptionMutator<M> {
         }
     }
 
-    fn arbitrary(&self, seed: usize, max_cplx: f64) -> (Self::Value, Self::Cache) {
+    fn arbitrary(&mut self, seed: usize, max_cplx: f64) -> (Self::Value, Self::Cache) {
         let seed = OptionMutatorArbitrarySeed::new(seed);
         if seed.check_none {
             (None, None)
@@ -103,7 +103,7 @@ impl<M: Mutator> Mutator for OptionMutator<M> {
     }
 
     fn mutate(
-        &self,
+        &mut self,
         value: &mut Self::Value,
         cache: &mut Self::Cache,
         step: &mut Self::MutationStep,

@@ -38,7 +38,7 @@ impl EitherMap for E {
 type F = EitherMutator<E, U8Mutator, U8Mutator>;
 
 fn main() {
-    let m = F::default();
+    let mut m = F::default();
     let mut x = E::A(10);
     let mut x_cache = m.cache_from_value(&x);
     let mut x_step = m.mutation_step_from_value(&x);

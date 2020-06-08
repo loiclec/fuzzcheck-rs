@@ -123,7 +123,7 @@ impl<A: Mutator, B: Mutator, Map: TupleMap<A = A::Value, B = B::Value>> Mutator 
         }
     }
 
-    fn arbitrary(&self, seed: usize, max_cplx: f64) -> (Self::Value, Self::Cache) {
+    fn arbitrary(&mut self, seed: usize, max_cplx: f64) -> (Self::Value, Self::Cache) {
         let mut r = SmallRng::seed_from_u64(seed as u64);
         let cplx = if seed < 10 {
             // first 10 vary in cplx from max_cplx to max_cplx / 10
@@ -140,7 +140,7 @@ impl<A: Mutator, B: Mutator, Map: TupleMap<A = A::Value, B = B::Value>> Mutator 
     }
 
     fn mutate(
-        &self,
+        &mut self,
         value: &mut Self::Value,
         cache: &mut Self::Cache,
         step: &mut Self::MutationStep,

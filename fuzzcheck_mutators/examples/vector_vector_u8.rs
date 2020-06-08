@@ -5,7 +5,7 @@ use fuzzcheck_mutators::vector::*;
 
 fn main() {
     type M = VecMutator<VecMutator<U8Mutator>>;
-    let m = M::default();
+    let mut m = M::default();
 
     let mut x = vec![vec![2, 89, 1, 0, 4, 2], vec![3], vec![4, 9, 0, 0, 0, 2, 5], vec![]];
     let mut x_cache = m.cache_from_value(&x);

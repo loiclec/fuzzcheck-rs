@@ -1,4 +1,6 @@
 #![feature(vec_remove_item)]
+#![feature(extend_one)]
+#![feature(vec_into_raw_parts)]
 
 extern crate fuzzcheck;
 

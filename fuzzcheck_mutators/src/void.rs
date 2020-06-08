@@ -19,7 +19,7 @@ impl Mutator for VoidMutator {
     fn cache_from_value(&self, _value: &Self::Value) -> Self::Cache {}
     fn mutation_step_from_value(&self, _value: &Self::Value) -> Self::MutationStep {}
 
-    fn arbitrary(&self, _seed: usize, _max_cplx: f64) -> (Self::Value, Self::Cache) {
+    fn arbitrary(&mut self, _seed: usize, _max_cplx: f64) -> (Self::Value, Self::Cache) {
         ((), ())
     }
 
@@ -36,7 +36,7 @@ impl Mutator for VoidMutator {
     }
 
     fn mutate(
-        &self,
+        &mut self,
         _value: &mut Self::Value,
         _cache: &mut Self::Cache,
         _step: &mut Self::MutationStep,
