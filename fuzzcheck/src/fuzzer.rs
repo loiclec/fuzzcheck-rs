@@ -128,8 +128,8 @@ where
     M: Mutator,
     S: Serializer<Value = M::Value>,
 {
-    pub fn new(test: F, mutator: M, settings: CommandLineArguments, world: World<S>) -> Self {
-        let default_el = FuzzedInput::default(&mutator);
+    pub fn new(test: F, mut mutator: M, settings: CommandLineArguments, world: World<S>) -> Self {
+        let default_el = FuzzedInput::default(&mut mutator);
         Fuzzer {
             state: FuzzerState {
                 mutator,
@@ -267,7 +267,7 @@ where
         self.state.input_idx = FuzzerInputIndex::Pool(idx);
         let input = self.state.pool.get(idx);
 
-        let unmutate_token = input.mutate(&self.state.mutator, self.state.settings.max_input_cplx);
+        let unmutate_token = input.mutate(&mut self.state.mutator, self.state.settings.max_input_cplx);
         let cplx = input.complexity(&self.state.mutator);
 
         if cplx < self.state.settings.max_input_cplx {
@@ -303,7 +303,7 @@ where
                 inputs.push(FuzzedInput::new(v, cache, mutation_step));
             }
         }
-        inputs.push(FuzzedInput::default(&self.state.mutator));
+        inputs.push(FuzzedInput::default(&mut self.state.mutator));
         inputs.drain_filter(|i| i.complexity(&self.state.mutator) > self.state.settings.max_input_cplx);
         assert!(!inputs.is_empty());
 
@@ -351,8 +351,8 @@ where
 
         while self.state.pool.len() > self.state.settings.corpus_size {
             let actions = self.state.pool.remove_lowest_scoring_input();
-            self.state.world.do_actions(actions, &self.state.stats)?;
             self.state.update_stats();
+            self.state.world.do_actions(actions, &self.state.stats)?;
         }
 
         self.state.world.report_event(FuzzerEvent::Done, Some(self.state.stats));

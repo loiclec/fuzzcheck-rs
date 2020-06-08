@@ -491,8 +491,7 @@ impl<M: Mutator> Pool<M> {
             .unwrap();
 
         let deleted_value = self.slab_inputs[pick_key].data.value.clone();
-
-        // use MAX to say we do not ignore any element. it is ugly and should be changed
+        // use SlabKey::invalid() to say we do not ignore any element. it is ugly and should be changed
         self.delete_elements(vec![pick_key], SlabKey::invalid());
 
         let mut actions: Vec<WorldAction<M::Value>> = Vec::new();
@@ -759,6 +758,29 @@ where
     insertion
 }
 
+fn score_for_group_size(_size: usize) -> f64 {
+    // const SCORES: [f64; 16] = [
+    //     1.0,
+    //     1.1,
+    //     1.2,
+    //     1.3,
+    //     1.4,
+    //     1.5,
+    //     1.55,
+    //     1.6,
+    //     1.65,
+    //     1.7,
+    //     1.75,
+    //     1.8,
+    //     1.85,
+    //     1.9,
+    //     1.95,
+    //     2.0
+    // ];
+    // if size > 16 { 2.0 } else { SCORES[size] }
+    1.0
+}
+
 // TODO: include testing the returned WorldAction
 // TODO: write unit tests as data, read them from files
 // TODO: write tests for adding inputs that are not simplest for any feature but are predicted to have a greater score
@@ -909,7 +931,7 @@ mod tests {
 
         fn mutation_step_from_value(&self, _value: &Self::Value) -> Self::MutationStep {}
 
-        fn arbitrary(&self, _seed: usize, _max_cplx: f64) -> (Self::Value, Self::Cache) {
+        fn arbitrary(&mut self, _seed: usize, _max_cplx: f64) -> (Self::Value, Self::Cache) {
             (0.0, ())
         }
 
@@ -926,7 +948,7 @@ mod tests {
         }
 
         fn mutate(
-            &self,
+            &mut self,
             _value: &mut Self::Value,
             _cache: &mut Self::Cache,
             _step: &mut Self::MutationStep,

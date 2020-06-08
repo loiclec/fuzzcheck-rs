@@ -23,6 +23,11 @@ version = "0.7"
 default_features = false
 features = ["small_rng"]
 
+[dev-dependencies.rand]
+version = "0.7"
+features = ["small_rng"]
+
+
 [dependencies.fuzzcheck_nix_subset]
 path = "../fuzzcheck_nix_subset"
 version = "0.1.1"

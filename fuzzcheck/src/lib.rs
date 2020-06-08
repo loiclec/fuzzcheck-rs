@@ -201,10 +201,10 @@ pub trait Mutator: Sized {
     fn complexity(&self, value: &Self::Value, cache: &Self::Cache) -> f64;
 
     /// Create an arbitrary value
-    fn arbitrary(&self, seed: usize, max_cplx: f64) -> (Self::Value, Self::Cache);
+    fn arbitrary(&mut self, seed: usize, max_cplx: f64) -> (Self::Value, Self::Cache);
 
     fn mutate(
-        &self,
+        &mut self,
         value: &mut Self::Value,
         cache: &mut Self::Cache,
         step: &mut Self::MutationStep,
@@ -351,7 +351,7 @@ impl<Mut: Mutator> FuzzedInput<Mut> {
             mutation_step,
         }
     }
-    pub fn default(m: &Mut) -> Self {
+    pub fn default(m: &mut Mut) -> Self {
         let (value, cache) = m.arbitrary(0, 1.0);
         let mutation_step = m.mutation_step_from_value(&value);
         Self::new(value, cache, mutation_step)
@@ -369,7 +369,7 @@ impl<Mut: Mutator> FuzzedInput<Mut> {
         m.complexity(&self.value, &self.cache)
     }
 
-    pub fn mutate(&mut self, m: &Mut, max_cplx: f64) -> Mut::UnmutateToken {
+    pub fn mutate(&mut self, m: &mut Mut, max_cplx: f64) -> Mut::UnmutateToken {
         m.mutate(&mut self.value, &mut self.cache, &mut self.mutation_step, max_cplx)
     }
 
