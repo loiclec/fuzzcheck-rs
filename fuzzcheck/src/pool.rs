@@ -43,11 +43,27 @@
 //! contain the feature F2, then they will each get half of F2’s score from it.
 //! In short, an input’s final score is the sum of the score of each of its
 //! features divided by their frequencies.
+//! 
+//! ## Feature Groups
+//!
+//! Additionally, different but similar features also share a commong score.
+//! For example, “edge” features with different intensities but the same 
+//! Program Counter (PC) belong to the same group, and divide the score of the 
+//! group among themselves.
+//!
+//! Let's say Group G3 correspond to edge features of the PC “467” and that 
+//! there are 5 different features belonging to that group: F1, F2, F3, F4, F5.
+//! The score associated with each feature is `(group.score() / 5)`.
+//! Now imagine the feature f4 appears in 3 different inputs. Each input will 
+//! thus gain ((group.score() / 5) / 3) from having the feature f4.
 
 use std::cmp::Ordering;
 use std::collections::BTreeSet;
 use std::fmt;
 use std::ops::Range;
+
+use std::rc::Rc;
+use std::cell::{RefCell, RefMut};
 
 use rand::rngs::SmallRng;
 use rand::{Rng, SeedableRng};
@@ -82,9 +98,9 @@ impl<M: Mutator> Copy for PoolIndex<M> {}
 pub struct Input<M: Mutator> {
     /// The keys of the features for which there are no simpler inputs in the
     /// pool reaching the feature.
-    least_complex_for_features: BTreeSet<SlabKey<FeatureInPool<M>>>,
+    least_complex_for_features: BTreeSet<SlabKey<AnalyzedFeature<M>>>,
     /// Holds the key of each [FeatureInPool] associated with this input.
-    all_features: Vec<SlabKey<FeatureInPool<M>>>,
+    all_features: Vec<SlabKey<AnalyzedFeature<M>>>,
     /// The computed score of the input
     score: f64,
     /// Data associated with the input: value, cache, and mutation step
@@ -97,49 +113,25 @@ pub struct Input<M: Mutator> {
     idx_in_pool: usize,
 }
 
-pub struct FeatureInPool<M: Mutator> {
-    pub key: SlabKey<FeatureInPool<M>>, // slab key
+/**
+    An analysis of the role of a feature in the pool.
+
+    It contains the feature itself, a reference to the group of the feature,
+    the list of inputs hitting this feature, as well as a reference to the
+    least complex of these inputs.
+*/
+pub struct AnalyzedFeature<M: Mutator> {
+    pub key: SlabKey<AnalyzedFeature<M>>,
     pub(crate) feature: Feature,
     group_key: SlabKey<FeatureGroup>,
     inputs: Vec<SlabKey<Input<M>>>,
     least_complex_input: SlabKey<Input<M>>,
     pub least_complexity: f64,
-    old_multiplicity: usize, // cache used when deleting inputs to know how to evolve the score of inputs
-}
-impl<M: Mutator> Clone for FeatureInPool<M> {
-    fn clone(&self) -> Self {
-        Self {
-            key: self.key,
-            feature: self.feature,
-            group_key: self.group_key,
-            inputs: self.inputs.clone(),
-            least_complex_input: self.least_complex_input,
-            least_complexity: self.least_complexity,
-            old_multiplicity: self.old_multiplicity,
-        }
-    }
-}
-impl<M: Mutator> PartialEq for FeatureInPool<M> {
-    fn eq(&self, other: &Self) -> bool {
-        self.key == other.key
-            && self.feature == other.feature
-            && self.inputs == other.inputs
-            && self.least_complex_input == other.least_complex_input
-            && self.least_complexity == other.least_complexity
-            && self.old_multiplicity == other.old_multiplicity
-    }
-}
-impl<M: Mutator> fmt::Debug for FeatureInPool<M> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "Feature {{ {:?}, f: {:#b}, inputs: {:?}, least_cplx: {:.2}, old_mult: {} }}",
-            self.key, self.feature.0, self.inputs, self.least_complexity, self.old_multiplicity
-        )
-    }
+    /// cache used when deleting inputs to know how to evolve the score of inputs
+    old_multiplicity: usize,
 }
 
-impl<M: Mutator> FeatureInPool<M> {
+impl<M: Mutator> AnalyzedFeature<M> {
     fn new(
         key: SlabKey<Self>,
         feature: Feature,
@@ -161,19 +153,31 @@ impl<M: Mutator> FeatureInPool<M> {
     }
 }
 
-pub struct FeatureForIteration<M: Mutator> {
-    pub key: SlabKey<FeatureInPool<M>>,
+/**
+    A reference to a FeatureInPool that can be used for fast searching and sorting.
+
+    It contains a SlabKey to the FeatureInPool and a copy of the feature. By storing
+    a copy of the feature, we can avoid indexing the slab and accessing the feature
+    which saves time.
+*/
+pub struct AnalyzedFeatureRef<M: Mutator> {
+    pub key: SlabKey<AnalyzedFeature<M>>,
     pub(crate) feature: Feature,
 }
-impl<M: Mutator> Clone for FeatureForIteration<M> {
-    fn clone(&self) -> Self {
-        Self {
-            key: self.key,
-            feature: self.feature,
-        }
-    }
-}
 
+/**
+    A unique identifier for a feature group.
+
+    The identifier itself is a `Feature` whose payload has been removed.
+    So it is a Feature with only a tag and an id.
+
+    Because the payload is in the lower bits of the feature, we have the nice
+    property that if two features f1 and f2 are related by: f1 < f2, the groups
+    of those features are related by: g1 <= g2.
+
+    Another way to put it is that a group identifier is equal to the first 
+    feature that could belong to that group (the one with a payload of 0).
+*/
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug)]
 struct FeatureGroupId {
     id: Feature,
@@ -189,8 +193,10 @@ impl Feature {
 }
 
 pub struct FeatureGroup {
-    id: FeatureGroupId, // group represented by the first feature that could belong to the group
+    id: FeatureGroupId,
+    /// Indices of the features belonging to the group in the vector `pool.features`.
     idcs: Range<usize>,
+    /// cache used when adding or remocing features to know how to evolve the score of affected inputs
     old_size: usize,
 }
 impl FeatureGroup {
@@ -203,11 +209,9 @@ impl FeatureGroup {
     }
 }
 
-impl<M: Mutator> Copy for FeatureForIteration<M> {}
-
 pub struct Pool<M: Mutator> {
-    pub features: Vec<FeatureForIteration<M>>,
-    pub slab_features: Slab<FeatureInPool<M>>,
+    pub features: Vec<AnalyzedFeatureRef<M>>,
+    pub slab_features: Slab<AnalyzedFeature<M>>,
 
     feature_groups: Vec<SlabKey<FeatureGroup>>,
     pub slab_feature_groups: Slab<FeatureGroup>,
@@ -255,9 +259,10 @@ impl<M: Mutator> Pool<M> {
         &mut self,
         data: FuzzedInput<M>,
         complexity: f64,
-        existing_features: &[SlabKey<FeatureInPool<M>>],
+        existing_features: &[SlabKey<AnalyzedFeature<M>>],
         new_features: &[Feature],
     ) -> Vec<WorldAction<M::Value>> {
+
         let element_key: SlabKey<Input<M>> = {
             let element = Input {
                 least_complex_for_features: BTreeSet::default(),
@@ -275,8 +280,14 @@ impl<M: Mutator> Pool<M> {
 
         let mut to_delete: Vec<SlabKey<Input<M>>> = vec![];
 
+        // 1. Update the `element.least_complex_for_features` fields of the elements affected
+        // by a change in the `least_complexity` of the features in `existing_features`.
+        // 1.1. If it turns out that an element is now no longer the least complex for any feature,
+        // then add it to the list of elements to delete
         for feature_key in existing_features.iter() {
             let feature = &mut self.slab_features[*feature_key];
+            
+            if feature.least_complexity < complexity { continue }
 
             for input_key in &feature.inputs {
                 let affected_element = &mut self.slab_inputs[*input_key];
@@ -297,11 +308,14 @@ impl<M: Mutator> Pool<M> {
             }
             let element = &mut self.slab_inputs[element_key];
 
-            if feature.least_complexity >= complexity {
-                element.least_complex_for_features.insert(*feature_key);
-                feature.least_complex_input = element_key;
-                feature.least_complexity = complexity;
-            }
+            element.least_complex_for_features.insert(*feature_key);
+            feature.least_complex_input = element_key;
+            feature.least_complexity = complexity;
+        }
+    
+        for feature_key in existing_features.iter() {
+            let feature = &mut self.slab_features[*feature_key];
+            let element = &mut self.slab_inputs[element_key];
 
             element.all_features.push(*feature_key);
             feature.inputs.push(element_key);
@@ -311,7 +325,7 @@ impl<M: Mutator> Pool<M> {
         for &f in new_features.iter() {
             let f_key = self.slab_features.next_key();
 
-            let new_feature_for_iter = FeatureForIteration { key: f_key, feature: f };
+            let new_feature_for_iter = AnalyzedFeatureRef { key: f_key, feature: f };
             let group_key = Self::insert_feature(
                 &mut self.features,
                 &mut self.feature_groups,
@@ -319,8 +333,8 @@ impl<M: Mutator> Pool<M> {
                 new_feature_for_iter,
             );
 
-            let f_in_pool = FeatureInPool::new(f_key, f, group_key, vec![element_key], element_key, complexity);
-            self.slab_features.insert(f_in_pool);
+            let analyzed_f = AnalyzedFeature::new(f_key, f, group_key, vec![element_key], element_key, complexity);
+            self.slab_features.insert(analyzed_f);
 
             element.all_features.push(f_key);
             element.least_complex_for_features.insert(f_key);
@@ -346,19 +360,19 @@ impl<M: Mutator> Pool<M> {
                 .unwrap();
             let feature_for_iter = &self.features[feature_for_iter_idx];
             let group = {
-                let feature_in_pool = &mut self.slab_features[feature_for_iter.key];
-                &mut self.slab_feature_groups[feature_in_pool.group_key]
+                let analyzed_feature = &mut self.slab_features[feature_for_iter.key];
+                &mut self.slab_feature_groups[analyzed_feature.group_key]
             };
 
-            for f_for_iter in self.features[group.idcs.clone()].iter() {
-                let feature_key = f_for_iter.key;
-                let feature_in_pool = &mut self.slab_features[feature_key];
+            for f_ref in self.features[group.idcs.clone()].iter() {
+                let feature_key = f_ref.key;
+                let analyzed_feature = &mut self.slab_features[feature_key];
 
-                let old_feature_score = Self::score_of_feature(group.old_size, feature_in_pool.old_multiplicity);
-                let new_feature_score = Self::score_of_feature(group.size(), feature_in_pool.inputs.len());
+                let old_feature_score = Self::score_of_feature(group.old_size, analyzed_feature.old_multiplicity);
+                let new_feature_score = Self::score_of_feature(group.size(), analyzed_feature.inputs.len());
                 let change_in_score = new_feature_score - old_feature_score;
 
-                for &input_key in &feature_in_pool.inputs {
+                for &input_key in &analyzed_feature.inputs {
                     if input_key != element_key {
                         let element_with_feature = &mut self.slab_inputs[input_key];
                         element_with_feature.score += change_in_score;
@@ -367,7 +381,7 @@ impl<M: Mutator> Pool<M> {
 
                 // reset old_multiplicity as it is not needed anymore and will need to be correct
                 // for the next call to pool.add
-                feature_in_pool.old_multiplicity = feature_in_pool.inputs.len();
+                analyzed_feature.old_multiplicity = analyzed_feature.inputs.len();
             }
 
             let prev_feature = self.slab_features[feature_for_iter.key].feature;
@@ -391,30 +405,30 @@ impl<M: Mutator> Pool<M> {
         }
 
         for feature_key in existing_features.iter() {
-            let feature_in_pool = &mut self.slab_features[*feature_key];
+            let analyzed_feature = &mut self.slab_features[*feature_key];
 
-            let group = &self.slab_feature_groups[feature_in_pool.group_key];
+            let group = &self.slab_feature_groups[analyzed_feature.group_key];
 
-            let old_feature_score = Self::score_of_feature(group.old_size, feature_in_pool.old_multiplicity);
-            let new_feature_score = Self::score_of_feature(group.size(), feature_in_pool.inputs.len());
+            let old_feature_score = Self::score_of_feature(group.old_size, analyzed_feature.old_multiplicity);
+            let new_feature_score = Self::score_of_feature(group.size(), analyzed_feature.inputs.len());
 
             let change_in_score = new_feature_score - old_feature_score;
 
-            for &input_key in &feature_in_pool.inputs {
+            for &input_key in &analyzed_feature.inputs {
                 if input_key != element_key {
                     let element_with_feature = &mut self.slab_inputs[input_key];
                     element_with_feature.score += change_in_score;
                 }
             }
-            feature_in_pool.old_multiplicity = feature_in_pool.inputs.len();
+            analyzed_feature.old_multiplicity = analyzed_feature.inputs.len();
         }
 
         let element = &mut self.slab_inputs[element_key];
 
         for f_key in &element.all_features {
-            let feature_in_pool = &mut self.slab_features[*f_key];
-            let group = &self.slab_feature_groups[feature_in_pool.group_key];
-            let feature_score = Self::score_of_feature(group.size(), feature_in_pool.inputs.len());
+            let analyzed_feature = &mut self.slab_features[*f_key];
+            let group = &self.slab_feature_groups[analyzed_feature.group_key];
+            let feature_score = Self::score_of_feature(group.size(), analyzed_feature.inputs.len());
             element.score += feature_score;
         }
 
@@ -459,24 +473,24 @@ impl<M: Mutator> Pool<M> {
             // TODO: not ideal to clone all features
             let all_features = to_delete_el.all_features.clone();
 
-            for f_key in all_features {
-                let f_in_pool = &mut self.slab_features[f_key];
-                f_in_pool.inputs.remove_item(&to_delete_key); // this updates new multiplicity
+            for &f_key in &all_features {
+                let analyzed_f = &mut self.slab_features[f_key];
+                analyzed_f.inputs.remove_item(&to_delete_key); // this updates new multiplicity
 
-                let group = &self.slab_feature_groups[f_in_pool.group_key];
+                let group = &self.slab_feature_groups[analyzed_f.group_key];
 
                 // note: assume that group size hasn't changed. this is true because we are not adding or removing features
-                let new_feature_score = Self::score_of_feature(group.old_size, f_in_pool.inputs.len());
-                let old_feature_score = Self::score_of_feature(group.old_size, f_in_pool.old_multiplicity);
+                let new_feature_score = Self::score_of_feature(group.old_size, analyzed_f.inputs.len());
+                let old_feature_score = Self::score_of_feature(group.old_size, analyzed_f.old_multiplicity);
                 let change_in_score = new_feature_score - old_feature_score;
 
-                for input_key in &f_in_pool.inputs {
+                for input_key in &analyzed_f.inputs {
                     if *input_key != should_not_update_key {
                         let element_with_feature = &mut self.slab_inputs[*input_key];
                         element_with_feature.score += change_in_score;
                     }
                 }
-                f_in_pool.old_multiplicity = f_in_pool.inputs.len();
+                analyzed_f.old_multiplicity = analyzed_f.inputs.len();
             }
             self.slab_inputs.remove(to_delete_key);
         }
@@ -518,43 +532,43 @@ impl<M: Mutator> Pool<M> {
         let all_features = to_delete_el.all_features.clone();
 
         for &f_key in &all_features {
-            let f_in_pool = &mut self.slab_features[f_key];
-            f_in_pool.inputs.remove_item(&to_delete_key); // this updates new multiplicity
+            let analyzed_f = &mut self.slab_features[f_key];
+            analyzed_f.inputs.remove_item(&to_delete_key); // this updates new multiplicity
         }
 
         // 3. iter through all features and, if they have no corresponding inputs, remove them from the pool
         for &f_key in &all_features {
-            let f_in_pool = &self.slab_features[f_key];
-            if !f_in_pool.inputs.is_empty() { continue }
+            let analyzed_f = &self.slab_features[f_key];
+            if !analyzed_f.inputs.is_empty() { continue }
 
-            let group = &self.slab_feature_groups[f_in_pool.group_key];
+            let group = &self.slab_feature_groups[analyzed_f.group_key];
             //          To remove a feature from the pool:
             // 1. iter through all features in its group and update the score of their inputs, because the group size has changed
-            for f_for_iter in self.features[group.idcs.clone()].iter() {
-                let feature_key = f_for_iter.key;
-                let feature_in_pool = &mut self.slab_features[feature_key];
+            for f_ref in self.features[group.idcs.clone()].iter() {
+                let feature_key = f_ref.key;
+                let analyzed_feature = &mut self.slab_features[feature_key];
 
-                let old_feature_score = Self::score_of_feature(group.old_size, feature_in_pool.old_multiplicity); // feature multiplicity did
-                let new_feature_score = Self::score_of_feature(group.old_size - 1, feature_in_pool.old_multiplicity); // not change yet
+                let old_feature_score = Self::score_of_feature(group.old_size, analyzed_feature.old_multiplicity); // feature multiplicity did
+                let new_feature_score = Self::score_of_feature(group.old_size - 1, analyzed_feature.old_multiplicity); // not change yet
                 let change_in_score = new_feature_score - old_feature_score;
 
-                for &input_key in &feature_in_pool.inputs {
+                for &input_key in &analyzed_feature.inputs {
                     let element_with_feature = &mut self.slab_inputs[input_key];
                     element_with_feature.score += change_in_score;
                 }
             }
             
-            let f_in_pool = &self.slab_features[f_key];
+            let analyzed_f = &self.slab_features[f_key];
             // 2. remove the feature from the list and the slab
-            let idx_f = self.features.binary_search_by_key(&f_in_pool.feature, |f| f.feature).unwrap();
+            let idx_f = self.features.binary_search_by_key(&analyzed_f.feature, |f| f.feature).unwrap();
             self.features.remove(idx_f);
             
-            let key = f_in_pool.key;
+            let key = analyzed_f.key;
             self.slab_features.remove(key);
 
             // 3. update the indices and old_size of the group
-            let f_in_pool = &self.slab_features[f_key];
-            let group = &mut self.slab_feature_groups[f_in_pool.group_key];
+            let analyzed_f = &self.slab_features[f_key];
+            let group = &mut self.slab_feature_groups[analyzed_f.group_key];
             group.idcs.end -= 1;
             group.old_size = group.size();
             //let group_index = self.feature_groups.binary_search_by_key
@@ -571,21 +585,21 @@ impl<M: Mutator> Pool<M> {
         }
         // 4. iter through all features, and update the score of each affected input because the feature multiplicity has changed
         for &f_key in &all_features {
-            let feature_in_pool = &mut self.slab_features[f_key];
+            let analyzed_feature = &mut self.slab_features[f_key];
 
-            let group = &self.slab_feature_groups[feature_in_pool.group_key];
+            let group = &self.slab_feature_groups[analyzed_feature.group_key];
 
-            let old_feature_score = Self::score_of_feature(group.old_size, feature_in_pool.old_multiplicity);
-            let new_feature_score = Self::score_of_feature(group.old_size, feature_in_pool.inputs.len());
+            let old_feature_score = Self::score_of_feature(group.old_size, analyzed_feature.old_multiplicity);
+            let new_feature_score = Self::score_of_feature(group.old_size, analyzed_feature.inputs.len());
 
             let change_in_score = new_feature_score - old_feature_score;
 
-            for &input_key in &feature_in_pool.inputs {
+            for &input_key in &analyzed_feature.inputs {
                 let element_with_feature = &mut self.slab_inputs[input_key];
                 element_with_feature.score += change_in_score;
             }
             // 5. update the feature old multiplicity
-            feature_in_pool.old_multiplicity = feature_in_pool.inputs.len();
+            analyzed_feature.old_multiplicity = analyzed_feature.inputs.len();
         }
 
         // 6. remove element from the slab of inputs
@@ -602,7 +616,7 @@ impl<M: Mutator> Pool<M> {
             .unwrap();
 
         let deleted_value = self.slab_inputs[pick_key].data.value.clone();
-        // use SlabKey::invalid() to say we do not ignore any element. it is ugly and should be changed
+
         self.delete_element(pick_key);
 
         let mut actions: Vec<WorldAction<M::Value>> = Vec::new();
@@ -616,10 +630,10 @@ impl<M: Mutator> Pool<M> {
 
     /// Returns the index of the group of the feature
     fn insert_feature(
-        features: &mut Vec<FeatureForIteration<M>>,
+        features: &mut Vec<AnalyzedFeatureRef<M>>,
         feature_groups: &mut Vec<SlabKey<FeatureGroup>>,
         slab_feature_groups: &mut Slab<FeatureGroup>,
-        new_feature_for_iter: FeatureForIteration<M>,
+        new_feature_for_iter: AnalyzedFeatureRef<M>,
     ) -> SlabKey<FeatureGroup> {
         // TODO: CHANGE THIS, too slow
         let insertion_idx = sorted_insert(features, new_feature_for_iter, |other_f| {
@@ -650,8 +664,6 @@ impl<M: Mutator> Pool<M> {
                 }
             };
 
-        // update indices of other groups
-        // those whose idcs are greater than mine!
         for group_key in feature_groups[group_index + 1..].iter_mut() {
             let group = &mut slab_feature_groups[*group_key];
             group.idcs.end += 1;
@@ -662,7 +674,7 @@ impl<M: Mutator> Pool<M> {
     }
 
     pub fn score_of_feature(group_size: usize, exact_feature_multiplicity: usize) -> f64 {
-        1.0 / (group_size as f64 * exact_feature_multiplicity as f64)
+        score_for_group_size(group_size) / (group_size as f64 * exact_feature_multiplicity as f64)
     }
 
     /// Returns the index of an interesting input in the pool
@@ -742,8 +754,8 @@ impl<M: Mutator> Pool<M> {
         println!("recap features:");
         for &f_iter in &self.features {
             let f_key = f_iter.key;
-            let f_in_pool = &self.slab_features[f_key];
-            println!("feature {:?}’s inputs: {:?}", f_key, f_in_pool.inputs);
+            let analyzed_f = &self.slab_features[f_key];
+            println!("feature {:?}’s inputs: {:?}", f_key, analyzed_f.inputs);
         }
         println!("recap groups:");
         for (i, group_key) in self.feature_groups.iter().enumerate() {
@@ -792,8 +804,8 @@ impl<M: Mutator> Pool<M> {
 
         for f_iter in &self.features {
             let f_key = f_iter.key;
-            let f_in_pool = &self.slab_features[f_key];
-            for input_key in &f_in_pool.inputs {
+            let analyzed_f = &self.slab_features[f_key];
+            for input_key in &analyzed_f.inputs {
                 let input = &self.slab_inputs[*input_key];
                 assert!(input.all_features.contains(&f_key));
             }
@@ -820,11 +832,11 @@ impl<M: Mutator> Pool<M> {
             assert!(!input.least_complex_for_features.is_empty());
 
             for f_key in &input.least_complex_for_features {
-                let f_in_pool = &self.slab_features[*f_key];
-                assert_eq!(f_in_pool.least_complexity, input.complexity);
-                assert!(f_in_pool.inputs.contains(&input_key));
+                let analyzed_f = &self.slab_features[*f_key];
+                assert_eq!(analyzed_f.least_complexity, input.complexity);
+                assert!(analyzed_f.inputs.contains(&input_key));
                 assert!(
-                    f_in_pool
+                    analyzed_f
                         .inputs
                         .iter()
                         .find(|&&key| self.slab_inputs[key].complexity < input.complexity)
@@ -870,28 +882,93 @@ where
     insertion
 }
 
-fn score_for_group_size(_size: usize) -> f64 {
-    // const SCORES: [f64; 16] = [
-    //     1.0,
-    //     1.1,
-    //     1.2,
-    //     1.3,
-    //     1.4,
-    //     1.5,
-    //     1.55,
-    //     1.6,
-    //     1.65,
-    //     1.7,
-    //     1.75,
-    //     1.8,
-    //     1.85,
-    //     1.9,
-    //     1.95,
-    //     2.0
-    // ];
-    // if size > 16 { 2.0 } else { SCORES[size] }
-    1.0
+fn score_for_group_size(size: usize) -> f64 {
+    const SCORES: [f64; 16] = [
+        1.0,
+        1.1,
+        1.2,
+        1.3,
+        1.4,
+        1.5,
+        1.55,
+        1.6,
+        1.65,
+        1.7,
+        1.75,
+        1.8,
+        1.85,
+        1.9,
+        1.95,
+        2.0
+    ];
+    if size > 16 { 2.0 } else { SCORES[size] }
+    // 1.0
 }
+
+// =============================================================== 
+// ==================== Trait implementations ==================== 
+// ===============================================================
+
+impl<M: Mutator> Clone for AnalyzedFeature<M> {
+    fn clone(&self) -> Self {
+        Self {
+            key: self.key,
+            feature: self.feature,
+            group_key: self.group_key,
+            inputs: self.inputs.clone(),
+            least_complex_input: self.least_complex_input,
+            least_complexity: self.least_complexity,
+            old_multiplicity: self.old_multiplicity,
+        }
+    }
+}
+impl<M: Mutator> PartialEq for AnalyzedFeature<M> {
+    fn eq(&self, other: &Self) -> bool {
+        self.key == other.key
+            && self.feature == other.feature
+            && self.inputs == other.inputs
+            && self.least_complex_input == other.least_complex_input
+            && self.least_complexity == other.least_complexity
+            && self.old_multiplicity == other.old_multiplicity
+    }
+}
+impl<M: Mutator> fmt::Debug for AnalyzedFeature<M> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "Feature {{ {:?}, f: {:#b}, inputs: {:?}, least_cplx: {:.2}, old_mult: {} }}",
+            self.key, self.feature.0, self.inputs, self.least_complexity, self.old_multiplicity
+        )
+    }
+}
+impl<M: Mutator> PartialEq for AnalyzedFeatureRef<M> {
+    fn eq(&self, other: &Self) -> bool {
+        self.feature == other.feature
+    }
+}
+impl<M: Mutator> Eq for AnalyzedFeatureRef<M> { }
+impl<M: Mutator> PartialOrd for AnalyzedFeatureRef<M> {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        self.feature.partial_cmp(&other.feature)
+    }
+}
+impl<M: Mutator> Ord for AnalyzedFeatureRef<M> {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.feature.cmp(&other.feature)
+    }
+}
+
+impl<M: Mutator> Clone for AnalyzedFeatureRef<M> {
+    fn clone(&self) -> Self {
+        Self {
+            key: self.key,
+            feature: self.feature,
+        }
+    }
+}
+
+impl<M: Mutator> Copy for AnalyzedFeatureRef<M> {}
+
 
 // TODO: include testing the returned WorldAction
 // TODO: write unit tests as data, read them from files
@@ -908,7 +985,7 @@ mod tests {
         Feature::edge(pc_guard, intensity)
     }
 
-    type FK = SlabKey<FeatureInPool<VoidMutator>>;
+    type FK = SlabKey<AnalyzedFeature<VoidMutator>>;
 
     #[test]
     fn property_test() {

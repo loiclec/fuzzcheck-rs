@@ -10,6 +10,9 @@ use rand::Rng;
 use std::ops::Index;
 use std::ops::IndexMut;
 
+use std::rc::Rc;
+use std::cell::{RefCell, RefMut};
+
 use std::fmt;
 
 // ========= LargeStepFindIter ============

@@ -4,7 +4,7 @@
 
 use crate::code_coverage_sensor::shared_sensor;
 use crate::data_structures::{LargeStepFindIter, SlabKey};
-use crate::pool::{FeatureInPool, Pool, PoolIndex};
+use crate::pool::{AnalyzedFeature, Pool, PoolIndex};
 use crate::signals_handler::{set_signal_handlers, set_timer};
 use crate::world::{FuzzerEvent, FuzzerStats, World};
 use crate::{Feature, FuzzedInput, Mutator, Serializer};
@@ -28,7 +28,7 @@ enum FuzzerInputIndex<M: Mutator> {
 }
 
 struct AnalysisCache<M: Mutator> {
-    existing_features: Vec<SlabKey<FeatureInPool<M>>>,
+    existing_features: Vec<SlabKey<AnalyzedFeature<M>>>,
     new_features: Vec<Feature>,
 }
 impl<M: Mutator> Default for AnalysisCache<M> {
@@ -193,7 +193,7 @@ where
         Ok(())
     }
 
-    fn analyze(&mut self, cur_input_cplx: f64) -> Option<(Vec<SlabKey<FeatureInPool<M>>>, Vec<Feature>)> {
+    fn analyze(&mut self, cur_input_cplx: f64) -> Option<(Vec<SlabKey<AnalyzedFeature<M>>>, Vec<Feature>)> {
         let mut best_input_for_a_feature = false;
 
         let sensor = shared_sensor();
