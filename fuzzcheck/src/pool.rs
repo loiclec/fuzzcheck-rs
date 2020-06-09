@@ -465,6 +465,7 @@ impl<M: Mutator> Pool<M> {
 
                 let group = &self.slab_feature_groups[f_in_pool.group_key];
 
+                // note: assume that group size hasn't changed. this is true because we are not adding or removing features
                 let new_feature_score = Self::score_of_feature(group.old_size, f_in_pool.inputs.len());
                 let old_feature_score = Self::score_of_feature(group.old_size, f_in_pool.old_multiplicity);
                 let change_in_score = new_feature_score - old_feature_score;
@@ -481,6 +482,116 @@ impl<M: Mutator> Pool<M> {
         }
     }
 
+    pub fn delete_element(&mut self, to_delete_key: SlabKey<Input<M>>) {
+        //          TODO: 
+        // * remove element from the list of inputs
+        // * iter through all features and remove the input from their list of inputs
+        // * iter through all features and, if they have no corresponding inputs, remove them from the pool
+                
+                //          To remove a feature from the pool:
+                // * iter through all features in its group and update the score of their inputs, because the group size has changed
+                        // * no need to have a special case for the removed feature, we're removing it because there are no inputs that contain it, so we don't need to update their scores
+                // * remove the feature from the list and the slab
+                // * update the indices and old_size of the group
+                            // * also update the indices of all the following groups
+        
+        // * iter through all features, and update the score of each affected input because the feature multiplicity has changed
+        // * update the feature old multiplicity
+        // * remove element from the slab of inputs
+
+        // 1. remove element from the list of inputs
+        let to_swap_idx = self.inputs.len() - 1;
+        let to_swap_key = *self.inputs.last().unwrap();
+        // println!("will delete input with key {}", to_delete_key);
+        let to_delete_idx = self.slab_inputs[to_delete_key].idx_in_pool;
+
+        let to_swap_el = &mut self.slab_inputs[to_swap_key];
+        to_swap_el.idx_in_pool = to_delete_idx;
+
+        self.inputs.swap(to_delete_idx, to_swap_idx);
+        self.inputs.pop();
+
+        let to_delete_el = &mut self.slab_inputs[to_delete_key];
+        // to_delete_el.idx_in_pool = to_swap_idx; // not necessary, element will be deleted
+
+        // 2. iter through all features and remove the input from their list of inputs
+        let all_features = to_delete_el.all_features.clone();
+
+        for &f_key in &all_features {
+            let f_in_pool = &mut self.slab_features[f_key];
+            f_in_pool.inputs.remove_item(&to_delete_key); // this updates new multiplicity
+        }
+
+        // 3. iter through all features and, if they have no corresponding inputs, remove them from the pool
+        for &f_key in &all_features {
+            let f_in_pool = &self.slab_features[f_key];
+            if !f_in_pool.inputs.is_empty() { continue }
+
+            let group = &self.slab_feature_groups[f_in_pool.group_key];
+            //          To remove a feature from the pool:
+            // 1. iter through all features in its group and update the score of their inputs, because the group size has changed
+            for f_for_iter in self.features[group.idcs.clone()].iter() {
+                let feature_key = f_for_iter.key;
+                let feature_in_pool = &mut self.slab_features[feature_key];
+
+                let old_feature_score = Self::score_of_feature(group.old_size, feature_in_pool.old_multiplicity); // feature multiplicity did
+                let new_feature_score = Self::score_of_feature(group.old_size - 1, feature_in_pool.old_multiplicity); // not change yet
+                let change_in_score = new_feature_score - old_feature_score;
+
+                for &input_key in &feature_in_pool.inputs {
+                    let element_with_feature = &mut self.slab_inputs[input_key];
+                    element_with_feature.score += change_in_score;
+                }
+            }
+            
+            let f_in_pool = &self.slab_features[f_key];
+            // 2. remove the feature from the list and the slab
+            let idx_f = self.features.binary_search_by_key(&f_in_pool.feature, |f| f.feature).unwrap();
+            self.features.remove(idx_f);
+            
+            let key = f_in_pool.key;
+            self.slab_features.remove(key);
+
+            // 3. update the indices and old_size of the group
+            let f_in_pool = &self.slab_features[f_key];
+            let group = &mut self.slab_feature_groups[f_in_pool.group_key];
+            group.idcs.end -= 1;
+            group.old_size = group.size();
+            //let group_index = self.feature_groups.binary_search_by_key
+            // 4. also update the indices of all the following groups
+            let id = group.id;
+            let slab_feature_groups = &self.slab_feature_groups;
+            
+            let group_index = self.feature_groups.binary_search_by_key(&id, |g| slab_feature_groups[*g].id).unwrap();
+            for group_key in self.feature_groups[group_index + 1..].iter_mut() {
+                let group = &mut self.slab_feature_groups[*group_key];
+                group.idcs.end -= 1;
+                group.idcs.start -= 1;
+            }
+        }
+        // 4. iter through all features, and update the score of each affected input because the feature multiplicity has changed
+        for &f_key in &all_features {
+            let feature_in_pool = &mut self.slab_features[f_key];
+
+            let group = &self.slab_feature_groups[feature_in_pool.group_key];
+
+            let old_feature_score = Self::score_of_feature(group.old_size, feature_in_pool.old_multiplicity);
+            let new_feature_score = Self::score_of_feature(group.old_size, feature_in_pool.inputs.len());
+
+            let change_in_score = new_feature_score - old_feature_score;
+
+            for &input_key in &feature_in_pool.inputs {
+                let element_with_feature = &mut self.slab_inputs[input_key];
+                element_with_feature.score += change_in_score;
+            }
+            // 5. update the feature old multiplicity
+            feature_in_pool.old_multiplicity = feature_in_pool.inputs.len();
+        }
+
+        // 6. remove element from the slab of inputs
+        self.slab_inputs.remove(to_delete_key);
+    }
+
     pub(crate) fn remove_lowest_scoring_input(&mut self) -> Vec<WorldAction<M::Value>> {
         let slab = &self.slab_inputs;
         let pick_key = self
@@ -492,7 +603,7 @@ impl<M: Mutator> Pool<M> {
 
         let deleted_value = self.slab_inputs[pick_key].data.value.clone();
         // use SlabKey::invalid() to say we do not ignore any element. it is ugly and should be changed
-        self.delete_elements(vec![pick_key], SlabKey::invalid());
+        self.delete_element(pick_key);
 
         let mut actions: Vec<WorldAction<M::Value>> = Vec::new();
         actions.push(WorldAction::ReportEvent(FuzzerEvent::Remove));
@@ -517,7 +628,7 @@ impl<M: Mutator> Pool<M> {
 
         let group_of_new_feature = new_feature_for_iter.feature.group_id();
 
-        let (group_index, group_key) =
+        let (group_index, group_key) = // group ids correspond to feature ids, and are sorted in the same way, so we can use binary search
             match feature_groups.binary_search_by_key(&group_of_new_feature, |g| slab_feature_groups[*g].id) {
                 Ok(group_idx) => {
                     let group_key = feature_groups[group_idx];
@@ -540,6 +651,7 @@ impl<M: Mutator> Pool<M> {
             };
 
         // update indices of other groups
+        // those whose idcs are greater than mine!
         for group_key in feature_groups[group_index + 1..].iter_mut() {
             let group = &mut slab_feature_groups[*group_key];
             group.idcs.end += 1;
