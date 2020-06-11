@@ -3,10 +3,15 @@
 mod hooks;
 
 use crate::Feature;
+use crate::InstrFeatureWithoutTag;
 
 use ahash::AHashSet;
 use std::convert::TryFrom;
 use std::mem::MaybeUninit;
+
+use std::collections::BTreeSet;
+
+use crate::hibitset::HBitSet;
 
 type PC = usize;
 
@@ -22,22 +27,48 @@ pub fn shared_sensor() -> &'static mut CodeCoverageSensor {
 pub struct CodeCoverageSensor {
     pub is_recording: bool,
     eight_bit_counters: &'static mut [u8],
-    features: AHashSet<Feature>, //  could it be a BTreeSet?
+    features: HBitSet, //  could it be a BTreeSet?
+}
+
+macro_rules! make_instr_feature_without_tag {
+    ($pc:ident, $arg1:ident, $arg2:ident) => {
+        { 
+            let mut feature: usize = 0;
+            (($pc & 0x2F_FFFF) << Feature::id_offset()) | (($arg1 ^ $arg2).count_ones() as usize)
+        }
+    };
 }
 
 impl CodeCoverageSensor {
     /// Handles a `trace_cmp` hook from Sanitizer Coverage, by recording it
     /// as a `Feature` of kind `instruction`.
-    fn handle_trace_cmp(&mut self, pc: PC, arg1: u64, arg2: u64) {
-        let f = Feature::instruction(pc, arg1, arg2);
-        self.features.insert(f);
+    #[inline]
+    fn handle_trace_cmp_u8(&mut self, pc: PC, arg1: u8, arg2: u8) {
+        let f = make_instr_feature_without_tag!(pc, arg1, arg2);
+        self.features.set(f);
+    }
+    #[inline]
+    fn handle_trace_cmp_u16(&mut self, pc: PC, arg1: u16, arg2: u16) {
+        let f = make_instr_feature_without_tag!(pc, arg1, arg2);
+        self.features.set(f);
+    }
+    #[inline]
+    fn handle_trace_cmp_u32(&mut self, pc: PC, arg1: u32, arg2: u32) {
+        let f = make_instr_feature_without_tag!(pc, arg1, arg2);
+        self.features.set(f);
+    }
+    #[inline]
+    fn handle_trace_cmp_u64(&mut self, pc: PC, arg1: u64, arg2: u64) {
+        let f = make_instr_feature_without_tag!(pc, arg1, arg2);
+        self.features.set(f);
     }
     /// Handles a `trace_indir` hook from Sanitizer Coverage, by recording it
-    /// as a `Feature` of kind `indirect`.
-    fn handle_trace_indir(&mut self, caller: PC, callee: PC) {
-        let f = Feature::indir(caller ^ callee);
-        self.features.insert(f);
-    }
+    // /// as a `Feature` of kind `indirect`.
+    // #[inline]
+    // fn handle_trace_indir(&mut self, caller: PC, callee: PC) {
+    //     let f = Feature::indir(caller ^ callee).0 as usize; // TODO: not correct!
+    //     self.features.set(f);
+    // }
 
     /// Runs the closure on all recorded features.
     pub(crate) fn iterate_over_collected_features<F>(&mut self, mut handle: F)
@@ -76,20 +107,15 @@ impl CodeCoverageSensor {
             handle(f);
         }
 
-        // TODO: could covert features into a Vec and then sort that, will do it
-        // for now, but in the future I may need a proper alternative
-        let mut op_features: Vec<_> = self.features.iter().copied().collect();
-        op_features.sort();
-
-        for f in &op_features {
-            handle(*f);
-        }
+        self.features.drain(|f| {
+            handle(Feature::from_instr(InstrFeatureWithoutTag(f as u32)));
+        });
     }
 
     pub fn clear(&mut self) {
         for x in self.eight_bit_counters.iter_mut() {
             *x = 0;
         }
-        self.features.clear();
+        // self.features.clear();
     }
 }

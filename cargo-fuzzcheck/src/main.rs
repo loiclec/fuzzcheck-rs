@@ -404,9 +404,16 @@ fn instrumented_compile(instrumented_folder: &PathBuf, target_triple: &str) -> R
                                  -Cpasses=sancov \
                                  -Clinker-plugin-lto=1 \
                                  -Cllvm-args=-sanitizer-coverage-level=4 \
+                                 -Cllvm-args=-sanitizer-coverage-trace-compares \
                                  -Cllvm-args=-sanitizer-coverage-inline-8bit-counters \
                                  -Cforce-frame-pointers=yes"
         .into();
+
+        //-Clinker-plugin-lto=1 \
+
+        //-Cllvm-args=-sanitizer-coverage-trace-compares \
+        // -Cllvm-args=-sanitizer-coverage-trace-divs \
+        // -Cllvm-args=-sanitizer-coverage-trace-geps \
 
     if use_gold_linker() {
         rustflags.push_str(" -Clink-arg=-fuse-ld=gold");

@@ -19,6 +19,8 @@ mod world;
 mod pool;
 mod signals_handler;
 
+mod hibitset;
+
 use fuzzcheck_arg_parser::{
     options_parser, CommandLineArguments, COMMAND_FUZZ, COMMAND_MINIFY_CORPUS, COMMAND_MINIFY_INPUT, CORPUS_SIZE_FLAG,
     DEFAULT_ARGUMENTS, INPUT_FILE_FLAG, IN_CORPUS_FLAG,
@@ -255,6 +257,15 @@ pub trait Serializer {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 struct Feature(u64);
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+struct InstrFeatureWithoutTag(u32);
+
+impl Feature {
+    fn from_instr(f: InstrFeatureWithoutTag) -> Self {
+        Self((f.0 as u64) | (Feature::instr_tag() << Feature::tag_offset()) as u64)
+    }
+}
+
 impl Feature {
     /// The bit offset for the id of the feature
     fn id_offset() -> u64 {
@@ -295,17 +306,17 @@ impl Feature {
 
         Feature(feature)
     }
-    /// Create an “instructon” feature identified by the given `pc` whose payload
-    /// is a ~hash of the two arguments.
-    fn instruction(pc: usize, arg1: u64, arg2: u64) -> Feature {
-        let mut feature: u64 = 0;
-        feature |= Feature::instr_tag() << Feature::tag_offset(); // won't do anything
-                                                                  // keep 54 bits with modulo
-        feature |= ((pc as u64) % 0x40_0000_0000_0000) << Feature::id_offset(); // id
-        feature |= u64::from(Feature::score_from_counter((arg1 ^ arg2).count_ones() as u16));
+    // /// Create an “instructon” feature identified by the given `pc` whose payload
+    // /// is a ~hash of the two arguments.
+    // fn instruction(pc: usize, arg1: u64, arg2: u64) -> Feature {
+    //     let mut feature: u64 = 0;
+    //     feature |= Feature::instr_tag() << Feature::tag_offset();
+    //                                                               // keep 54 bits with modulo
+    //     feature |= ((pc as u64) % 16_777_216) << Feature::id_offset(); // id
+    //     feature |= u64::from(Feature::score_from_counter((arg1 ^ arg2).count_ones() as u16));
 
-        Feature(feature)
-    }
+    //     Feature(feature)
+    // }
 
     fn erasing_payload(self) -> Self {
         if (self.0 >> Self::tag_offset()) == Self::indir_tag() {
@@ -322,12 +333,12 @@ impl Feature {
     /// So that similar numbers have the same hash, and very different
     /// numbers have a greater hash.
     fn score_from_counter(counter: u16) -> u8 {
-        if counter == core::u16::MAX {
-            16
-        } else if counter <= 3 {
+        if counter <= 3 {
             counter as u8
-        } else {
+        } else if counter != core::u16::MAX {
             (16 - counter.leading_zeros() + 1) as u8
+        } else {
+            16
         }
     }
 }

@@ -901,7 +901,7 @@ fn score_for_group_size(size: usize) -> f64 {
         1.95,
         2.0
     ];
-    if size > 16 { 2.0 } else { SCORES[size] }
+    if size < 16 { SCORES[size] } else { 2.0 }
     // 1.0
 }
 
