@@ -13,11 +13,6 @@ categories = ["development-tools"]
 [dependencies.getopts]
 version = "0.2"
 
-[dependencies.ahash]
-version = "0.3"
-default_features = false
-features = ["std"]
-
 [dependencies.rand]
 version = "0.7"
 default_features = false
@@ -26,7 +21,6 @@ features = ["small_rng"]
 [dev-dependencies.rand]
 version = "0.7"
 features = ["small_rng"]
-
 
 [dependencies.fuzzcheck_nix_subset]
 path = "../fuzzcheck_nix_subset"
