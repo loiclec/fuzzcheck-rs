@@ -1,5 +1,5 @@
 
-const SIZE: usize = 0b1 << 30;
+//const SIZE: usize = 0b1 << 30;
 const L0_SIZE: usize = 0b1 << 24;
 const L1_SIZE: usize = 0b1 << 18;
 const L2_SIZE: usize = 0b1 << 12;
@@ -43,11 +43,11 @@ impl HBitSet {
         unsafe { *self.l3.get_unchecked_mut(idx) |= bit; }
     }
 
-    pub fn test(&self, el: usize) -> bool {
-        let (idx, bit) = (el / 64, el % 64);
+    // pub fn test(&self, el: usize) -> bool {
+    //     let (idx, bit) = (el / 64, el % 64);
 
-        self.l0[idx] & (0b1 << bit) != 0
-    }
+    //     self.l0[idx] & (0b1 << bit) != 0
+    // }
 
     pub fn drain(&mut self, mut f: impl FnMut(u64)) {
 

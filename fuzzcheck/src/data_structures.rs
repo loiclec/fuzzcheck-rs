@@ -10,9 +10,6 @@ use rand::Rng;
 use std::ops::Index;
 use std::ops::IndexMut;
 
-use std::rc::Rc;
-use std::cell::{RefCell, RefMut};
-
 use std::fmt;
 
 // ========= LargeStepFindIter ============
@@ -152,12 +149,6 @@ impl<T> SlabKey<T> {
             key,
             phantom: std::marker::PhantomData,
         }
-    }
-}
-
-impl<T> SlabKey<T> {
-    pub fn invalid() -> Self {
-        Self::new(std::usize::MAX)
     }
 }
 

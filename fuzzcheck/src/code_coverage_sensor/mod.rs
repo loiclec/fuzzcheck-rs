@@ -5,11 +5,8 @@ mod hooks;
 use crate::Feature;
 use crate::InstrFeatureWithoutTag;
 
-use ahash::AHashSet;
 use std::convert::TryFrom;
 use std::mem::MaybeUninit;
-
-use std::collections::BTreeSet;
 
 use crate::hibitset::HBitSet;
 
@@ -27,13 +24,12 @@ pub fn shared_sensor() -> &'static mut CodeCoverageSensor {
 pub struct CodeCoverageSensor {
     pub is_recording: bool,
     eight_bit_counters: &'static mut [u8],
-    features: HBitSet, //  could it be a BTreeSet?
+    features: HBitSet,
 }
 
 macro_rules! make_instr_feature_without_tag {
     ($pc:ident, $arg1:ident, $arg2:ident) => {
         { 
-            let mut feature: usize = 0;
             (($pc & 0x2F_FFFF) << Feature::id_offset()) | (($arg1 ^ $arg2).count_ones() as usize)
         }
     };
@@ -63,7 +59,7 @@ impl CodeCoverageSensor {
         self.features.set(f);
     }
     /// Handles a `trace_indir` hook from Sanitizer Coverage, by recording it
-    // /// as a `Feature` of kind `indirect`.
+    /// as a `Feature` of kind `indirect`.
     // #[inline]
     // fn handle_trace_indir(&mut self, caller: PC, callee: PC) {
     //     let f = Feature::indir(caller ^ callee).0 as usize; // TODO: not correct!
@@ -116,6 +112,6 @@ impl CodeCoverageSensor {
         for x in self.eight_bit_counters.iter_mut() {
             *x = 0;
         }
-        // self.features.clear();
+        self.features.drain(|_| {});
     }
 }
