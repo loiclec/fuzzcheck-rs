@@ -405,8 +405,7 @@ fn instrumented_compile(instrumented_folder: &PathBuf, target_triple: &str) -> R
                                  -Clinker-plugin-lto=1 \
                                  -Cllvm-args=-sanitizer-coverage-level=4 \
                                  -Cllvm-args=-sanitizer-coverage-trace-compares \
-                                 -Cllvm-args=-sanitizer-coverage-inline-8bit-counters \
-                                 -Cforce-frame-pointers=yes"
+                                 -Cllvm-args=-sanitizer-coverage-inline-8bit-counters"
         .into();
 
         //-Clinker-plugin-lto=1 \

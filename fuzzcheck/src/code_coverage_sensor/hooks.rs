@@ -55,10 +55,19 @@ use std::sync::Once;
 
 use crate::hibitset::HBitSet;
 
-extern "C" {
-    /// Returns the address of the calling function
-    fn return_address() -> usize;
+extern {
+    #[link_name = "llvm.returnaddress"]
+    fn __return_address(l: i32) -> *const u8;
 }
+
+#[inline]
+unsafe fn return_address() -> usize {
+    __return_address(0) as usize
+}
+
+// extern "C" {
+//     fn return_address() -> usize;
+// }
 
 static START: Once = Once::new();
 

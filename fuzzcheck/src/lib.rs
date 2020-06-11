@@ -9,6 +9,7 @@
 #![feature(ptr_offset_from)]
 #![feature(vec_remove_item)]
 #![feature(is_sorted)]
+#![feature(link_llvm_intrinsics)]
 
 mod code_coverage_sensor;
 mod data_structures;
