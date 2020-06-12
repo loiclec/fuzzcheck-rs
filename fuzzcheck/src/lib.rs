@@ -257,7 +257,7 @@ pub trait Serializer {
 struct Feature(u64);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-struct InstrFeatureWithoutTag(u32);
+struct InstrFeatureWithoutTag(u64);
 
 impl Feature {
     fn from_instr(f: InstrFeatureWithoutTag) -> Self {

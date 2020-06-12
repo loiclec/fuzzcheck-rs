@@ -104,7 +104,7 @@ impl CodeCoverageSensor {
         }
 
         self.features.drain(|f| {
-            handle(Feature::from_instr(InstrFeatureWithoutTag(f as u32)));
+            handle(Feature::from_instr(InstrFeatureWithoutTag(f)));
         });
     }
 
