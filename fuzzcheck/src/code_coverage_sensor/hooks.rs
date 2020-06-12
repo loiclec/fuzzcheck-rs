@@ -53,7 +53,7 @@ use super::{shared_sensor, CodeCoverageSensor, SHARED_SENSOR};
 use std::slice;
 use std::sync::Once;
 
-use crate::hibitset::HBitSet;
+use crate::data_structures::HBitSet;
 
 extern {
     #[link_name = "llvm.returnaddress"]

@@ -8,7 +8,7 @@ use crate::InstrFeatureWithoutTag;
 use std::convert::TryFrom;
 use std::mem::MaybeUninit;
 
-use crate::hibitset::HBitSet;
+use crate::data_structures::HBitSet;
 
 type PC = usize;
 

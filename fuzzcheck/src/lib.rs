@@ -20,8 +20,6 @@ mod world;
 mod pool;
 mod signals_handler;
 
-mod hibitset;
-
 use fuzzcheck_arg_parser::{
     options_parser, CommandLineArguments, COMMAND_FUZZ, COMMAND_MINIFY_CORPUS, COMMAND_MINIFY_INPUT, CORPUS_SIZE_FLAG,
     DEFAULT_ARGUMENTS, INPUT_FILE_FLAG, IN_CORPUS_FLAG,
