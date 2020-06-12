@@ -11,8 +11,11 @@ keywords = ["fuzzing", "test"]
 categories = ["development-tools"]
 
 [dependencies]
-toml = "0.4"
 getopts = "0.2"
+
+[dependencies.toml]
+version = "0.5"
+features = ["preserve_order"]
 
 [dependencies.fuzzcheck_arg_parser]
 path = "../fuzzcheck_arg_parser"

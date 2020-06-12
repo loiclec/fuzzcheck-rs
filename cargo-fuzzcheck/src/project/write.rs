@@ -102,7 +102,7 @@ impl BuildRs {
 impl CargoToml {
     pub fn write(&self, path: &Path) -> Result<(), io::Error> {
         let cargo_toml_path = path.join("Cargo.toml");
-        fs::write(cargo_toml_path, &toml::to_vec(&self.toml).unwrap())?;
+        fs::write(cargo_toml_path, &toml::to_string_pretty(&self.toml).unwrap().into_bytes())?;
 
         Ok(())
     }
