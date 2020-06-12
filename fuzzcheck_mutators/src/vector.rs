@@ -135,6 +135,7 @@ pub enum UnmutateVecToken<M: Mutator> {
     Insert(usize, M::Value, M::Cache),
     InsertMany(usize, <VecMutator<M> as Mutator>::Value, <VecMutator<M> as Mutator>::Cache),
     Replace(<VecMutator<M> as Mutator>::Value, <VecMutator<M> as Mutator>::Cache),
+    Nothing,
 }
 
 impl<M: Mutator> VecMutator<M> {
@@ -235,6 +236,9 @@ impl<M: Mutator> VecMutator<M> {
         cache: &mut VecMutatorCache<M::Cache>,
         step: &mut VecMutatorStep<M::MutationStep>,
     ) -> UnmutateVecToken<M> {
+        if value.is_empty() {
+            return UnmutateVecToken::Nothing;
+        }
         let start_idx = self.rng.gen_range(0, value.len());
 
         let end_idx = self.rng.gen_range(start_idx, value.len()) + 1;
@@ -266,13 +270,26 @@ impl<M: Mutator> VecMutator<M> {
         step: &mut VecMutatorStep<M::MutationStep>,
         spare_cplx: f64,
      ) -> UnmutateVecToken<M> {
-        let idx = if value.is_empty() { 0 } else { self.rng.gen_range(0, value.len()) };
+
+        if spare_cplx < 0.01 { 
+            return UnmutateVecToken::Nothing;
+        }
+
+        let idx = if value.is_empty() { 
+            0
+        } else {
+            self.rng.gen_range(0, value.len()) 
+        };
 
         let target_cplx = self.rng.gen_range(0.0, spare_cplx);
         let (min_length, max_length) = self.choose_slice_length(target_cplx);
         let min_length = min_length.unwrap_or(0);
 
-        let len = if min_length == max_length { min_length } else { self.rng.gen_range(min_length, max_length) };
+        let len = if min_length >= max_length { 
+            min_length 
+        } else { 
+            self.rng.gen_range(min_length, max_length)
+        };
 
         let (el, el_cache) = self.m.arbitrary(self.rng.gen(), target_cplx / (len as f64));
         let el_cplx = self.m.complexity(&el, &el_cache);
@@ -360,7 +377,7 @@ impl<M: Mutator> VecMutator<M> {
         for i in 0..target_len {
             let max_cplx_element = remaining_cplx / ((target_len - i) as f64);
             let min_cplx_el = self.m.min_complexity();
-            if max_cplx_element <= min_cplx_el {
+            if min_cplx_el >= max_cplx_element  {
                 break;
             }
             let cplx_element = self.rng.gen_range(min_cplx_el, max_cplx_element);
@@ -434,7 +451,11 @@ impl<M: Mutator> Mutator for VecMutator<M> {
         let (min_length, max_length) = (lengths.0.unwrap(), lengths.1);
 
         // choose a length between min_len_most_complex and max_len_most_complex
-        let target_len = if min_length == max_length { min_length } else { self.rng.gen_range(min_length, max_length) };
+        let target_len = if min_length >= max_length { 
+            min_length
+        } else { 
+            self.rng.gen_range(min_length, max_length) 
+        };
         
         self.new_input_with_length_and_complexity(target_len, target_cplx)
     }
@@ -508,6 +529,9 @@ impl<M: Mutator> Mutator for VecMutator<M> {
                 value.drain(range.clone());
                 cache.inner.drain(range);
                 cache.sum_cplx -= cplx;
+            }
+            UnmutateVecToken::Nothing => {
+
             }
         }
     }
