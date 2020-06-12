@@ -1,24 +1,14 @@
 
 extern crate toml;
 use crate::project::*;
+use crate::default_target;
 
 use std::path::Path;
 
-
 const DEFAULT_TARGET_NAME: &str = "target1";
 
-#[cfg(target_os = "macos")]
-pub fn default_target() -> &'static str {
-    "x86_64-apple-darwin"
-}
-
-#[cfg(not(target_os = "macos"))]
-pub fn default_target() -> &'static str {
-    "x86_64-unknown-linux-gnu"
-}
-
 impl Fuzz {
-    fn init(path: &Path, library: &str, fuzzcheck_path_or_version: &str) -> Self {
+    pub fn init(path: &Path, library: &str, fuzzcheck_path_or_version: &str) -> Self {
         let instrumented = Instrumented::init(library);
         let instrumented_folder = path.join("instrumented");
     
@@ -27,9 +17,12 @@ impl Fuzz {
         let corpora_folder = path.join("corpora");
         let corpora = Ok(Corpora::init(&corpora_folder));
 
+        let artifacts_folder = path.join("artifacts");
+        let artifacts = Ok(Artifacts::init(&artifacts_folder));
+
         let gitignore = Some(r##"
 target
-fuzz-corpus
+corpora
 artifacts
 fuzzcheck-rs
 "##.to_string());
@@ -38,13 +31,17 @@ fuzzcheck-rs
             instrumented,
             non_instrumented,
             corpora,
+            artifacts,
             gitignore,
         }
     }
 }
 
 impl NonInstrumented {
-    fn init(library: &str, instrumented_folder: &Path, fuzzcheck_path_or_version: &str) -> Self {
+    pub fn init(library: &str, instrumented_folder: &Path, fuzzcheck_path_or_version: &str) -> Self {
+        
+        let src = SrcLibRs::init_non_instrumented();
+
         let fuzz_targets = FuzzTargets::init(library);
 
         let instrumented_target_folder_0 = instrumented_folder.join("target/release/deps");
@@ -77,6 +74,7 @@ impl NonInstrumented {
         let cargo_toml = CargoToml::init_non_instrumented(library, &fuzzcheck_deps.0, &fuzzcheck_deps.1, &fuzzcheck_deps.2);
     
         Self {
+            src,
             fuzz_targets,
             build_rs,
             cargo_toml
@@ -85,23 +83,31 @@ impl NonInstrumented {
 }
 
 impl Instrumented {
-    fn init(library: &str) -> Self {
+    pub fn init(library: &str) -> Self {
         Self {
+            src: SrcLibRs::init_instrumented(library),
             cargo_toml: CargoToml::init_instrumented(library),
         }
     }
 }
 
 impl Corpora {
-    fn init(path: &Path) -> Self {
+    pub fn init(path: &Path) -> Self {
         Self {
             corpora: vec![path.join(DEFAULT_TARGET_NAME)],
         }
     }
 }
+impl Artifacts {
+    pub fn init(path: &Path) -> Self {
+        Self {
+            artifacts: vec![path.join(DEFAULT_TARGET_NAME)],
+        }
+    }
+}
 
 impl BuildRs {
-    fn init(instrumented_target_folder_0: PathBuf, instrumented_target_folder_1: PathBuf) -> Self {
+    pub fn init(instrumented_target_folder_0: PathBuf, instrumented_target_folder_1: PathBuf) -> Self {
         let content = format!(r##"
 fn main() {{
     println!("cargo:rustc-link-search={0}");
@@ -120,8 +126,53 @@ fn main() {{
     }
 }
 
+impl SrcLibRs {
+    pub fn init_instrumented(library: &str) -> Self {
+        let content = format!(r#"
+extern crate {library};
+
+pub fn test(input: &[u8]) -> bool {{
+    // test goes here
+    if 
+        input.len() > 14 &&
+        input[0] == 0 &&
+        input[1] == 167 &&
+        input[2] == 200 &&
+        input[3] == 103 &&
+        input[4] == 56 &&
+        input[5] == 78 &&
+        input[6] == 2 &&
+        input[7] == 254 &&
+        input[8] == 0 &&
+        input[9] == 167 &&
+        input[10] == 200 &&
+        input[11] == 103 &&
+        input[12] == 56 &&
+        input[13] == 78 &&
+        input[14] == 103
+    {{
+        false
+    }}
+    else {{
+        true
+    }}
+}}
+"#,
+            library=library
+        ).into_bytes();
+        Self {
+            content
+        }
+    }
+    pub fn init_non_instrumented() -> Self {
+        Self {
+            content: Vec::new()
+        }
+    }
+}
+
 impl CargoToml {
-    fn init_non_instrumented(library: &str, fuzzcheck_dep: &str, fuzzcheck_mutators_dep: &str, fuzzcheck_serializer_dep: &str) -> Self {
+    pub fn init_non_instrumented(library: &str, fuzzcheck_dep: &str, fuzzcheck_mutators_dep: &str, fuzzcheck_serializer_dep: &str) -> Self {
         let content = format!(r##"
 [package]
 name = "{library}-non-instrumented-fuzz"
@@ -203,9 +254,8 @@ codegen-units = 16
             toml
         }
     }
-    fn init_instrumented(library: &str) -> Self {
-        let content = format!(
-            r##"
+    pub fn init_instrumented(library: &str) -> Self {
+        let content = format!(r##"
 [package]
 name = "{library}-instrumented-fuzz"
 version = "0.0.0"
@@ -227,13 +277,12 @@ debug = false
 opt-level = 3
 lto = "thin"
 codegen-units = 1
-panic = 'abort'
+panic = "abort"
 overflow-checks = true
 incremental = false
 "##,
             library=library
         );
-
         let toml = toml::from_str(&content).unwrap();
         Self {
             toml
@@ -242,7 +291,7 @@ incremental = false
 }
 
 impl FuzzTargets {
-    fn init(library: &str) -> Self {
+    pub fn init(library: &str) -> Self {
         let content = format!(r#"
 extern crate fuzzcheck;
 

@@ -12,10 +12,34 @@ use std::io::Read;
 
 use std::collections::HashMap;
 
+impl NonInitializedRoot {
+    pub fn from_path(root_folder: &Path) -> Result<Self, NonInitializedRootError> {
+        let cargo_toml_path = root_folder.join("Cargo.toml");
+        let cargo_toml_file = fs::File::open(&cargo_toml_path).map_err(|e| NonInitializedRootError::CannotReadCargoToml(cargo_toml_path.clone(), e))?;
+        let cargo_toml = CargoToml::from_file(cargo_toml_file)?;
+
+        let name = cargo_toml.toml
+            .as_table()
+            .and_then(|v| v.get("package"))
+            .and_then(|v| v.get("name"))
+            .and_then(|v| v.as_str())
+            .map(|v| v.to_string())
+            .ok_or(NonInitializedRootError::CannotFindNameInCargoToml)?;
+
+        let fuzz_path = root_folder.join("fuzz");
+        match fs::read_dir(&fuzz_path) {
+            Ok(_) => Err(NonInitializedRootError::FuzzFolderExists),
+            Err(_) => Ok(Self {
+                path: root_folder.to_path_buf(),
+                name,
+                cargo_toml,
+            })
+        }
+    }
+}
 
 impl Root {
     pub fn from_path(root_folder: &Path) -> Result<Self, RootError> {
-        
         let cargo_toml_path = root_folder.join("Cargo.toml");
         let cargo_toml_file = fs::File::open(&cargo_toml_path).map_err(|e| RootError::CannotReadCargoToml(cargo_toml_path.clone(), e))?;
         let cargo_toml = CargoToml::from_file(cargo_toml_file)?;
@@ -24,6 +48,8 @@ impl Root {
             .as_table()
             .and_then(|v| v.get("package"))
             .and_then(|v| v.get("name"))
+            .and_then(|v| v.as_str())
+            .map(|v| v.to_string())
             .ok_or(RootError::CannotFindNameInCargoToml)?;
 
         let fuzz_path = root_folder.join("fuzz");
@@ -31,7 +57,8 @@ impl Root {
         let fuzz = Fuzz::from_path(&fuzz_path)?;
 
         Ok(Self {
-            name: name.to_string(),
+            path: root_folder.to_path_buf(),
+            name,
             fuzz,
             cargo_toml,
         })
@@ -55,6 +82,13 @@ impl Fuzz {
                 Err(e) => Err(e.into())
             }
         };
+        let artifacts_path = fuzz_folder.join("corpora");
+        let artifacts: Result<Artifacts, ArtifactsError> = {
+            match fs::read_dir(artifacts_path.clone()) {
+                Ok(_) => Artifacts::from_path(&artifacts_path),
+                Err(e) => Err(e.into())
+            }
+        };
 
         let gitignore_path = fuzz_folder.join(".gitignore");
         let gitignore = 
@@ -69,6 +103,7 @@ impl Fuzz {
             non_instrumented,
             instrumented,
             corpora,
+            artifacts,
             gitignore,
         })
     }
@@ -88,7 +123,11 @@ impl NonInstrumented {
         let cargo_toml_file = fs::File::open(&cargo_toml_path).map_err(|e| NonInstrumentedError::CannotReadCargoToml(cargo_toml_path.clone(), e))?;
         let cargo_toml = CargoToml::from_file(cargo_toml_file)?;
 
+        // TODO: do not throw error here
+        let src = SrcLibRs::from_path(non_instrumented_folder)?;
+
         Ok(Self {
+            src,
             fuzz_targets,
             build_rs,
             cargo_toml,
@@ -157,7 +196,11 @@ impl Instrumented {
         let cargo_toml_file = fs::File::open(&cargo_toml_path).map_err(|e| InstrumentedError::CannotReadCargoToml(cargo_toml_path.clone(), e))?;
         let cargo_toml = CargoToml::from_file(cargo_toml_file)?;
 
+        // TODO: do not throw error here
+        let src = SrcLibRs::from_path(instrumented_folder)?;
+
         Ok(Self {
+            src,
             cargo_toml,
         })
     }
@@ -197,6 +240,52 @@ impl Corpora {
     }
 }
 
+impl Artifacts {
+    pub fn from_path(artifacts_folder: &Path) -> Result<Self, ArtifactsError> {
+        let folder = fs::read_dir(artifacts_folder).map_err(|e| ArtifactsError::IoError(e))?;
+
+        let mut artifacts = Vec::new();
+
+        let mut errors = Vec::<ArtifactsError>::new();
+        
+        for result in folder {
+            match result {
+                Ok(entry) => {
+                    let path = entry.path();
+                    if path.is_file() { 
+                        errors.push(ArtifactsError::ArtifactIsNotDirectory(path.clone()));
+                        continue 
+                    }
+                    if let Err(e) = fs::read_dir(&path) {
+                        errors.push(e.into());
+                    } else {
+                        artifacts.push(path);
+                    }
+                }
+                Err(e) => {
+                    errors.push(e.into())
+                }
+            }
+        }
+
+        Ok(Self {
+            artifacts,
+        })
+    }
+}
+
+impl SrcLibRs {
+    pub fn from_path(crate_folder: &Path) -> Result<Self, SrcLibRsError> {
+        let lib_rs_path = crate_folder.join("src/lib.rs");
+        let mut lib_rs_file = fs::File::open(&lib_rs_path).map_err(|e| SrcLibRsError::CannotReadLibRs(lib_rs_path.clone(), e))?;
+        let mut content = Vec::new();
+        let _ = lib_rs_file.read_to_end(&mut content).map_err(|e| SrcLibRsError::CannotReadLibRs(lib_rs_path.clone(), e))?;
+        Ok(Self {
+            content,
+        })
+    }
+}
+
 impl CargoToml {
     pub fn from_file(mut file: fs::File) -> Result<CargoToml, CargoTomlError> {
         let mut content = Vec::new();
@@ -206,6 +295,25 @@ impl CargoToml {
         Ok(CargoToml {
             toml,
         })
+    }
+}
+
+#[derive(Debug)]
+pub enum NonInitializedRootError {
+    FuzzFolderExists,
+    IoError(io::Error),
+    CannotReadCargoToml(PathBuf, io::Error),
+    CargoToml(CargoTomlError),
+    CannotFindNameInCargoToml,
+}
+impl From<io::Error> for NonInitializedRootError {
+    fn from(e: io::Error) -> Self {
+        Self::IoError(e)
+    }
+}
+impl From<CargoTomlError> for NonInitializedRootError {
+    fn from(e: CargoTomlError) -> Self {
+        Self::CargoToml(e)
     }
 }
 
@@ -260,6 +368,7 @@ pub enum NonInstrumentedError {
     BuildRs(BuildRsError),
     CannotReadCargoToml(PathBuf, io::Error),
     CargoToml(CargoTomlError),
+    SrcLibRs(SrcLibRsError),
 }
 impl From<FuzzTargetsError> for NonInstrumentedError {
     fn from(e: FuzzTargetsError) -> Self {
@@ -274,6 +383,11 @@ impl From<BuildRsError> for NonInstrumentedError {
 impl From<CargoTomlError> for NonInstrumentedError {
     fn from(e: CargoTomlError) -> Self {
         Self::CargoToml(e)
+    }
+}
+impl From<SrcLibRsError> for NonInstrumentedError {
+    fn from(e: SrcLibRsError) -> Self {
+        Self::SrcLibRs(e)
     }
 }
 
@@ -313,12 +427,19 @@ impl From<io::Error> for BuildRsError {
 pub enum InstrumentedError {
     CannotReadCargoToml(PathBuf, io::Error),
     CargoToml(CargoTomlError),
+    SrcLibRs(SrcLibRsError),
 }
 impl From<CargoTomlError> for InstrumentedError {
     fn from(e: CargoTomlError) -> Self {
         Self::CargoToml(e)
     }
 }
+impl From<SrcLibRsError> for InstrumentedError {
+    fn from(e: SrcLibRsError) -> Self {
+        Self::SrcLibRs(e)
+    }
+}
+
 
 #[derive(Debug)]
 pub enum CorporaError {
@@ -329,6 +450,23 @@ impl From<io::Error> for CorporaError {
     fn from(e: io::Error) -> Self {
         Self::IoError(e)
     }
+}
+
+#[derive(Debug)]
+pub enum ArtifactsError {
+    IoError(io::Error),
+    ArtifactIsNotDirectory(PathBuf),
+}
+impl From<io::Error> for ArtifactsError {
+    fn from(e: io::Error) -> Self {
+        Self::IoError(e)
+    }
+}
+
+
+#[derive(Debug)]
+pub enum SrcLibRsError {
+    CannotReadLibRs(PathBuf, io::Error)
 }
 
 #[derive(Debug)]

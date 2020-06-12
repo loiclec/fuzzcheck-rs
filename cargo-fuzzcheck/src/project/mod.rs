@@ -1,60 +1,97 @@
 
+pub mod read;
+pub mod init;
+pub mod write;
+
 use std::result::Result;
 use std::path::PathBuf;
 
 use std::ffi::OsString;
 use std::collections::HashMap;
 
-mod read;
-use read::CorporaError;
-
-mod init;
-
 #[derive(Debug)]
-struct Root {
-    name: String,
-    fuzz: Fuzz,
-    cargo_toml: CargoToml,
+pub struct NonInitializedRoot {
+    pub path: PathBuf,
+    pub name: String,
+    pub cargo_toml: CargoToml,
 }
 
 #[derive(Debug)]
-struct Fuzz {
-    non_instrumented: NonInstrumented,
-    instrumented: Instrumented,
-    corpora: Result<Corpora, CorporaError>,
-    gitignore: Option<String>,
+pub struct Root {
+    pub path: PathBuf,
+    pub name: String,
+    pub fuzz: Fuzz,
+    pub cargo_toml: CargoToml,
 }
 
 #[derive(Debug)]
-struct NonInstrumented {
-    // src: Src,
-    fuzz_targets: FuzzTargets,
-    build_rs: BuildRs,
-    cargo_toml: CargoToml,
+pub struct Fuzz {
+    pub non_instrumented: NonInstrumented,
+    pub instrumented: Instrumented,
+    pub corpora: Result<Corpora, read::CorporaError>,
+    pub artifacts: Result<Artifacts, read::ArtifactsError>,
+    pub gitignore: Option<String>,
 }
 
 #[derive(Debug)]
-struct Instrumented {
-    // src: Src,
-    cargo_toml: CargoToml,
+pub struct NonInstrumented {
+    pub src: SrcLibRs,
+    pub fuzz_targets: FuzzTargets,
+    pub build_rs: BuildRs,
+    pub cargo_toml: CargoToml,
 }
 
 #[derive(Debug)]
-struct Corpora {
-    corpora: Vec<PathBuf>
+pub struct Instrumented {
+    pub src: SrcLibRs,
+    pub cargo_toml: CargoToml,
 }
 
 #[derive(Debug)]
-struct BuildRs {
-    content: Vec<u8>
+pub struct SrcLibRs {
+    pub content: Vec<u8>
 }
 
 #[derive(Debug)]
-struct CargoToml {
-    toml: toml::Value,
+pub struct Corpora {
+    pub corpora: Vec<PathBuf>
 }
 
 #[derive(Debug)]
-struct FuzzTargets {
-    targets: HashMap<OsString, Vec<u8>>,
+pub struct Artifacts {
+    pub artifacts: Vec<PathBuf>
+}
+
+#[derive(Debug)]
+pub struct BuildRs {
+    pub content: Vec<u8>
+}
+
+#[derive(Debug)]
+pub struct CargoToml {
+    pub toml: toml::Value,
+}
+
+#[derive(Debug)]
+pub struct FuzzTargets {
+    pub targets: HashMap<OsString, Vec<u8>>,
+}
+
+
+impl Root {
+    pub fn fuzz_folder(&self) -> PathBuf {
+        self.path.join("fuzz")
+    }
+    pub fn non_instrumented_folder(&self) -> PathBuf {
+        self.fuzz_folder().join("non_instrumented")
+    }
+    pub fn instrumented_folder(&self) -> PathBuf {
+        self.fuzz_folder().join("instrumented")
+    }
+    pub fn corpora_folder(&self) -> PathBuf {
+        self.fuzz_folder().join("corpora")
+    }
+    pub fn artifacts_folder(&self) -> PathBuf {
+        self.fuzz_folder().join("artifacts")
+    }
 }

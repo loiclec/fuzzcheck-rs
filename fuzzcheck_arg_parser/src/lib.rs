@@ -38,8 +38,8 @@ pub struct DefaultArguments<'a> {
 }
 
 pub const DEFAULT_ARGUMENTS: DefaultArguments<'static> = DefaultArguments {
-    in_corpus: "fuzz-corpus",
-    out_corpus: "fuzz-corpus",
+    in_corpus: "corpus",
+    out_corpus: "corpus",
     artifacts: "artifacts",
     max_nbr_of_runs: core::usize::MAX,
     max_input_cplx: 256,
@@ -68,11 +68,7 @@ pub fn options_parser() -> Options {
     options.optopt(
         "",
         IN_CORPUS_FLAG,
-        format!(
-            "folder for the input corpus (default: {default})",
-            default = DEFAULT_ARGUMENTS.in_corpus
-        )
-        .as_str(),
+        "folder for the input corpus",
         "PATH",
     );
     options.optflag(
@@ -87,11 +83,7 @@ pub fn options_parser() -> Options {
     options.optopt(
         "",
         OUT_CORPUS_FLAG,
-        format!(
-            "folder for the output corpus (default: {default})",
-            default = DEFAULT_ARGUMENTS.out_corpus
-        )
-        .as_str(),
+        "folder for the output corpus",
         "PATH",
     );
     options.optflag(
@@ -106,11 +98,7 @@ pub fn options_parser() -> Options {
     options.optopt(
         "",
         ARTIFACTS_FLAG,
-        format!(
-            "folder where the artifacts will be written (default: ./{default})",
-            default = DEFAULT_ARGUMENTS.artifacts
-        )
-        .as_str(),
+        "folder where the artifacts will be written",
         "PATH",
     );
     options.optflag(
