@@ -167,7 +167,7 @@ cargo-fuzzcheck {run} target1 {cmin} --{in_corpus} "fuzz-corpus" --{corpus_size}
             Ok(())
         }
         _ => {
-            println!("Invalid command: {}", env_args[1]);
+            println!("Invalid command: {}", env_args[start_idx]);
             println!();
             println!("{}", help);
             Ok(())
