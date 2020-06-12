@@ -1,13 +1,12 @@
-
-pub mod read;
 pub mod init;
+pub mod read;
 pub mod write;
 
-use std::result::Result;
 use std::path::PathBuf;
+use std::result::Result;
 
-use std::ffi::OsString;
 use std::collections::HashMap;
+use std::ffi::OsString;
 
 #[derive(Debug)]
 pub struct NonInitializedRoot {
@@ -49,22 +48,22 @@ pub struct Instrumented {
 
 #[derive(Debug)]
 pub struct SrcLibRs {
-    pub content: Vec<u8>
+    pub content: Vec<u8>,
 }
 
 #[derive(Debug)]
 pub struct Corpora {
-    pub corpora: Vec<PathBuf>
+    pub corpora: Vec<PathBuf>,
 }
 
 #[derive(Debug)]
 pub struct Artifacts {
-    pub artifacts: Vec<PathBuf>
+    pub artifacts: Vec<PathBuf>,
 }
 
 #[derive(Debug)]
 pub struct BuildRs {
-    pub content: Vec<u8>
+    pub content: Vec<u8>,
 }
 
 #[derive(Debug)]
@@ -76,7 +75,6 @@ pub struct CargoToml {
 pub struct FuzzTargets {
     pub targets: HashMap<OsString, Vec<u8>>,
 }
-
 
 impl Root {
     pub fn fuzz_folder(&self) -> PathBuf {

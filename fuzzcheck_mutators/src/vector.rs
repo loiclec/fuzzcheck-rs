@@ -5,8 +5,8 @@ extern crate rand;
 use rand::rngs::SmallRng;
 use rand::{Rng, SeedableRng};
 
-use std::ops::Range;
 use std::iter::repeat;
+use std::ops::Range;
 
 pub struct VecMutator<M: Mutator> {
     rng: SmallRng,
@@ -42,7 +42,7 @@ enum VecOperation {
     Insert,
     RemoveMany,
     InsertRepeated,
-    Arbitrary
+    Arbitrary,
 }
 
 impl MutationStep {
@@ -50,10 +50,23 @@ impl MutationStep {
         let (category, vec_operations) = if len > 0 {
             (
                 MutationCategory::Element(0),
-                vec![VecOperation::Insert, VecOperation::Remove, VecOperation::RemoveMany, VecOperation::InsertRepeated, VecOperation::Arbitrary],
+                vec![
+                    VecOperation::Insert,
+                    VecOperation::Remove,
+                    VecOperation::RemoveMany,
+                    VecOperation::InsertRepeated,
+                    VecOperation::Arbitrary,
+                ],
             )
         } else {
-            (MutationCategory::Empty, vec![VecOperation::Insert, VecOperation::InsertRepeated, VecOperation::Arbitrary])
+            (
+                MutationCategory::Empty,
+                vec![
+                    VecOperation::Insert,
+                    VecOperation::InsertRepeated,
+                    VecOperation::Arbitrary,
+                ],
+            )
         };
         Self {
             category,
@@ -133,7 +146,11 @@ pub enum UnmutateVecToken<M: Mutator> {
     Remove(usize, f64),
     RemoveMany(Range<usize>, f64),
     Insert(usize, M::Value, M::Cache),
-    InsertMany(usize, <VecMutator<M> as Mutator>::Value, <VecMutator<M> as Mutator>::Cache),
+    InsertMany(
+        usize,
+        <VecMutator<M> as Mutator>::Value,
+        <VecMutator<M> as Mutator>::Cache,
+    ),
     Replace(<VecMutator<M> as Mutator>::Value, <VecMutator<M> as Mutator>::Cache),
     Nothing,
 }
@@ -247,10 +264,13 @@ impl<M: Mutator> VecMutator<M> {
             let removed_cache: Vec<_> = cache.inner.drain(start_idx..end_idx).collect();
             (removed_elements, removed_cache)
         };
-        let removed_els_cplx = removed_elements.iter().zip(removed_cache.iter()).fold(0.0, |cplx, (v,c)| self.m.complexity(&v, &c) + cplx);
-        
-        let removed_cache = VecMutatorCache { 
-            inner: removed_cache, 
+        let removed_els_cplx = removed_elements
+            .iter()
+            .zip(removed_cache.iter())
+            .fold(0.0, |cplx, (v, c)| self.m.complexity(&v, &c) + cplx);
+
+        let removed_cache = VecMutatorCache {
+            inner: removed_cache,
             sum_cplx: removed_els_cplx,
         };
 
@@ -269,25 +289,24 @@ impl<M: Mutator> VecMutator<M> {
         cache: &mut VecMutatorCache<M::Cache>,
         step: &mut VecMutatorStep<M::MutationStep>,
         spare_cplx: f64,
-     ) -> UnmutateVecToken<M> {
-
-        if spare_cplx < 0.01 { 
+    ) -> UnmutateVecToken<M> {
+        if spare_cplx < 0.01 {
             return UnmutateVecToken::Nothing;
         }
 
-        let idx = if value.is_empty() { 
+        let idx = if value.is_empty() {
             0
         } else {
-            self.rng.gen_range(0, value.len()) 
+            self.rng.gen_range(0, value.len())
         };
 
         let target_cplx = self.rng.gen_range(0.0, spare_cplx);
         let (min_length, max_length) = self.choose_slice_length(target_cplx);
         let min_length = min_length.unwrap_or(0);
 
-        let len = if min_length >= max_length { 
-            min_length 
-        } else { 
+        let len = if min_length >= max_length {
+            min_length
+        } else {
             self.rng.gen_range(min_length, max_length)
         };
 
@@ -300,14 +319,15 @@ impl<M: Mutator> VecMutator<M> {
         let added_cplx = el_cplx * (len as f64);
         cache.sum_cplx += added_cplx;
 
-        let token = UnmutateVecToken::RemoveMany(idx .. (idx+len), added_cplx);
+        let token = UnmutateVecToken::RemoveMany(idx..(idx + len), added_cplx);
 
         step.increment_mutation_step_category();
 
         token
     }
 
-    fn mutate_arbitrary(&mut self,
+    fn mutate_arbitrary(
+        &mut self,
         value: &mut Vec<M::Value>,
         cache: &mut VecMutatorCache<M::Cache>,
         step: &mut VecMutatorStep<M::MutationStep>,
@@ -346,7 +366,7 @@ impl<M: Mutator> VecMutator<M> {
         let max_cplx_el = self.m.max_complexity();
         // slight underestimate of the minimum number of elements required to produce an input of max_cplx
         let min_len_most_complex = target_cplx / max_cplx_el - (target_cplx / max_cplx_el).log2();
-        
+
         // arbitrary restriction on the length of the generated number, to avoid creating absurdly large vectors
         // of very simple elements, that take up too much memory
         let max_len_most_complex = if max_len_most_complex > 10_000 {
@@ -365,7 +385,11 @@ impl<M: Mutator> VecMutator<M> {
         }
     }
 
-    fn new_input_with_length_and_complexity(&mut self, target_len: usize, target_cplx: f64) -> (<Self as Mutator>::Value, <Self as Mutator>::Cache) {
+    fn new_input_with_length_and_complexity(
+        &mut self,
+        target_len: usize,
+        target_cplx: f64,
+    ) -> (<Self as Mutator>::Value, <Self as Mutator>::Cache) {
         // TODO: create a new_input_with_complexity method
         let mut v = Vec::with_capacity(target_len);
         let mut cache = VecMutatorCache {
@@ -377,7 +401,7 @@ impl<M: Mutator> VecMutator<M> {
         for i in 0..target_len {
             let max_cplx_element = remaining_cplx / ((target_len - i) as f64);
             let min_cplx_el = self.m.min_complexity();
-            if min_cplx_el >= max_cplx_element  {
+            if min_cplx_el >= max_cplx_element {
                 break;
             }
             let cplx_element = self.rng.gen_range(min_cplx_el, max_cplx_element);
@@ -429,7 +453,6 @@ impl<M: Mutator> Mutator for VecMutator<M> {
     }
 
     fn arbitrary(&mut self, seed: usize, max_cplx: f64) -> (Self::Value, Self::Cache) {
-        
         if seed == 0 || max_cplx <= 1.0 {
             return (Self::Value::default(), Self::Cache::default());
         }
@@ -451,12 +474,12 @@ impl<M: Mutator> Mutator for VecMutator<M> {
         let (min_length, max_length) = (lengths.0.unwrap(), lengths.1);
 
         // choose a length between min_len_most_complex and max_len_most_complex
-        let target_len = if min_length >= max_length { 
+        let target_len = if min_length >= max_length {
             min_length
-        } else { 
-            self.rng.gen_range(min_length, max_length) 
+        } else {
+            self.rng.gen_range(min_length, max_length)
         };
-        
+
         self.new_input_with_length_and_complexity(target_len, target_cplx)
     }
 
@@ -503,41 +526,39 @@ impl<M: Mutator> Mutator for VecMutator<M> {
                 let el_cache = &mut cache.inner[idx];
                 self.m.unmutate(el, el_cache, inner_t);
                 cache.sum_cplx += diff_cplx;
-            },
+            }
             UnmutateVecToken::Insert(idx, el, el_cache) => {
                 cache.sum_cplx += self.m.complexity(&el, &el_cache);
 
                 value.insert(idx, el);
                 cache.inner.insert(idx, el_cache);
-            },
+            }
             UnmutateVecToken::Remove(idx, el_cplx) => {
                 value.remove(idx);
                 cache.inner.remove(idx);
                 cache.sum_cplx -= el_cplx;
-            },
+            }
             UnmutateVecToken::Replace(new_value, new_cache) => {
                 let _ = std::mem::replace(value, new_value);
                 let _ = std::mem::replace(cache, new_cache);
-            },
+            }
             UnmutateVecToken::InsertMany(idx, v, c) => {
                 insert_many(value, idx, v.into_iter());
                 insert_many(&mut cache.inner, idx, c.inner.into_iter());
                 let added_cplx = c.sum_cplx;
                 cache.sum_cplx += added_cplx;
-            },
+            }
             UnmutateVecToken::RemoveMany(range, cplx) => {
                 value.drain(range.clone());
                 cache.inner.drain(range);
                 cache.sum_cplx -= cplx;
             }
-            UnmutateVecToken::Nothing => {
-
-            }
+            UnmutateVecToken::Nothing => {}
         }
     }
 }
 
-fn insert_many<T: Clone>(v: &mut Vec<T>, idx: usize, iter: impl Iterator<Item=T>) {
+fn insert_many<T: Clone>(v: &mut Vec<T>, idx: usize, iter: impl Iterator<Item = T>) {
     let moved_slice: Box<[T]> = v.drain(idx..).collect();
     v.extend(iter);
     v.extend_from_slice(&moved_slice);

@@ -55,7 +55,7 @@ use std::sync::Once;
 
 use crate::data_structures::HBitSet;
 
-extern {
+extern "C" {
     #[link_name = "llvm.returnaddress"]
     fn __return_address(l: i32) -> *const u8;
 }

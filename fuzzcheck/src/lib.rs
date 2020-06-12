@@ -295,7 +295,7 @@ impl Feature {
 
         Feature(feature)
     }
- 
+
     fn erasing_payload(self) -> Self {
         if (self.0 >> Self::tag_offset()) == Self::indir_tag() {
             // if it is indirect, there is no payload to erase

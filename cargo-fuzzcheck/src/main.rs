@@ -1,6 +1,6 @@
 extern crate cargo_fuzzcheck;
-use cargo_fuzzcheck::*;
 use cargo_fuzzcheck::project;
+use cargo_fuzzcheck::*;
 
 use fuzzcheck_arg_parser::*;
 
@@ -139,8 +139,20 @@ cargo-fuzzcheck {run} target1 {cmin} --{in_corpus} "fuzz-corpus" --{corpus_size}
 
             let mut defaults = DEFAULT_ARGUMENTS.clone();
 
-            let defaults_corpus = root.corpora_folder().join(target_name).as_path().to_str().unwrap().to_owned();
-            let defaults_artifacts = root.artifacts_folder().join(target_name).as_path().to_str().unwrap().to_owned();
+            let defaults_corpus = root
+                .corpora_folder()
+                .join(target_name)
+                .as_path()
+                .to_str()
+                .unwrap()
+                .to_owned();
+            let defaults_artifacts = root
+                .artifacts_folder()
+                .join(target_name)
+                .as_path()
+                .to_str()
+                .unwrap()
+                .to_owned();
 
             defaults.in_corpus = &defaults_corpus;
             defaults.out_corpus = &defaults_corpus;
@@ -158,7 +170,9 @@ cargo-fuzzcheck {run} target1 {cmin} --{in_corpus} "fuzz-corpus" --{corpus_size}
             let r = match args.command {
                 FuzzerCommand::Fuzz => root.run_command(&args, target_name).map(|_| ()),
                 FuzzerCommand::MinifyInput => root.input_minify_command(&args, target_name),
-                FuzzerCommand::Read => { panic!("unimplemented"); }
+                FuzzerCommand::Read => {
+                    panic!("unimplemented");
+                }
                 FuzzerCommand::MinifyCorpus => root.launch_executable(&args, target_name),
             };
             if let Err(e) = r {

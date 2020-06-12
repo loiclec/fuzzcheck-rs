@@ -1,4 +1,3 @@
-
 pub mod project;
 
 use project::*;
@@ -23,13 +22,12 @@ impl NonInitializedRoot {
 
 impl Root {
     pub fn clean_command(&self) -> Result<(), CargoFuzzcheckError> {
-            
         Command::new("cargo")
-        .current_dir(self.non_instrumented_folder())
-        .args(vec!["clean"])
-        .stdout(std::process::Stdio::inherit())
-        .stderr(std::process::Stdio::inherit())
-        .output()?;
+            .current_dir(self.non_instrumented_folder())
+            .args(vec!["clean"])
+            .stdout(std::process::Stdio::inherit())
+            .stderr(std::process::Stdio::inherit())
+            .output()?;
 
         Command::new("cargo")
             .current_dir(self.instrumented_folder())
@@ -41,7 +39,11 @@ impl Root {
         Ok(())
     }
 
-    pub fn run_command(&self, args: &CommandLineArguments, target_name: &str) -> Result<std::process::Output, CargoFuzzcheckError> {
+    pub fn run_command(
+        &self,
+        args: &CommandLineArguments,
+        target_name: &str,
+    ) -> Result<std::process::Output, CargoFuzzcheckError> {
         let s = command_line_arguments_string(args);
 
         self.instrumented_compile()?;
@@ -74,10 +76,10 @@ impl Root {
     }
 
     pub fn launch_executable(&self, args: &CommandLineArguments, target_name: &str) -> Result<(), CargoFuzzcheckError> {
-
         let s = command_line_arguments_string(args);
 
-        let exec = self.non_instrumented_folder()
+        let exec = self
+            .non_instrumented_folder()
             .join(format!("target/{}/release/{}", default_target(), target_name));
 
         Command::new(exec)
@@ -85,7 +87,7 @@ impl Root {
             .stdout(std::process::Stdio::inherit())
             .stderr(std::process::Stdio::inherit())
             .output()?;
-        
+
         Ok(())
     }
 
@@ -99,11 +101,11 @@ impl Root {
                                      -Cllvm-args=-sanitizer-coverage-trace-compares \
                                      -Cllvm-args=-sanitizer-coverage-inline-8bit-counters"
             .into();
-    
+
         if use_gold_linker() {
             rustflags.push_str(" -Clink-arg=-fuse-ld=gold");
         }
-    
+
         let output = Command::new("cargo")
             .env("RUSTFLAGS", rustflags)
             .arg("build")
@@ -116,7 +118,7 @@ impl Root {
             .stdout(std::process::Stdio::inherit())
             .stderr(std::process::Stdio::inherit())
             .output()?;
-    
+
         if output.status.success() {
             Ok(())
         } else {
@@ -126,7 +128,11 @@ impl Root {
         }
     }
 
-    pub fn input_minify_command(&self, arguments: &CommandLineArguments, target_name: &str) -> Result<(), CargoFuzzcheckError> {
+    pub fn input_minify_command(
+        &self,
+        arguments: &CommandLineArguments,
+        target_name: &str,
+    ) -> Result<(), CargoFuzzcheckError> {
         let mut arguments = arguments.clone();
 
         let file_to_minify = (&arguments.input_file).as_ref().unwrap().clone();
@@ -272,7 +278,7 @@ pub enum CargoFuzzcheckError {
     Io(std::io::Error),
     Str(String),
     NonInitializedRoot(project::read::NonInitializedRootError),
-    Root(project::read::RootError)
+    Root(project::read::RootError),
 }
 impl Display for CargoFuzzcheckError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {

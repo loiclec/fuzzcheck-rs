@@ -43,18 +43,18 @@
 //! contain the feature F2, then they will each get half of F2’s score from it.
 //! In short, an input’s final score is the sum of the score of each of its
 //! features divided by their frequencies.
-//! 
+//!
 //! ## Feature Groups
 //!
 //! Additionally, different but similar features also share a commong score.
-//! For example, “edge” features with different intensities but the same 
-//! Program Counter (PC) belong to the same group, and divide the score of the 
+//! For example, “edge” features with different intensities but the same
+//! Program Counter (PC) belong to the same group, and divide the score of the
 //! group among themselves.
 //!
-//! Let's say Group G3 correspond to edge features of the PC “467” and that 
+//! Let's say Group G3 correspond to edge features of the PC “467” and that
 //! there are 5 different features belonging to that group: F1, F2, F3, F4, F5.
 //! The score associated with each feature is `(group.score() / 5)`.
-//! Now imagine the feature f4 appears in 3 different inputs. Each input will 
+//! Now imagine the feature f4 appears in 3 different inputs. Each input will
 //! thus gain ((group.score() / 5) / 3) from having the feature f4.
 
 use std::cmp::Ordering;
@@ -172,7 +172,7 @@ pub struct AnalyzedFeatureRef<M: Mutator> {
     property that if two features f1 and f2 are related by: f1 < f2, the groups
     of those features are related by: g1 <= g2.
 
-    Another way to put it is that a group identifier is equal to the first 
+    Another way to put it is that a group identifier is equal to the first
     feature that could belong to that group (the one with a payload of 0).
 */
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug)]
@@ -259,7 +259,6 @@ impl<M: Mutator> Pool<M> {
         existing_features: &[SlabKey<AnalyzedFeature<M>>],
         new_features: &[Feature],
     ) -> Vec<WorldAction<M::Value>> {
-
         let element_key: SlabKey<Input<M>> = {
             let element = Input {
                 least_complex_for_features: BTreeSet::default(),
@@ -283,8 +282,10 @@ impl<M: Mutator> Pool<M> {
         // then add it to the list of elements to delete
         for feature_key in existing_features.iter() {
             let feature = &mut self.slab_features[*feature_key];
-            
-            if feature.least_complexity < complexity { continue }
+
+            if feature.least_complexity < complexity {
+                continue;
+            }
 
             for input_key in &feature.inputs {
                 let affected_element = &mut self.slab_inputs[*input_key];
@@ -309,7 +310,7 @@ impl<M: Mutator> Pool<M> {
             feature.least_complex_input = element_key;
             feature.least_complexity = complexity;
         }
-    
+
         for feature_key in existing_features.iter() {
             let feature = &mut self.slab_features[*feature_key];
             let element = &mut self.slab_inputs[element_key];
@@ -494,18 +495,18 @@ impl<M: Mutator> Pool<M> {
     }
 
     pub fn delete_element(&mut self, to_delete_key: SlabKey<Input<M>>) {
-        //          TODO: 
+        //          TODO:
         // * remove element from the list of inputs
         // * iter through all features and remove the input from their list of inputs
         // * iter through all features and, if they have no corresponding inputs, remove them from the pool
-                
-                //          To remove a feature from the pool:
-                // * iter through all features in its group and update the score of their inputs, because the group size has changed
-                        // * no need to have a special case for the removed feature, we're removing it because there are no inputs that contain it, so we don't need to update their scores
-                // * remove the feature from the list and the slab
-                // * update the indices and old_size of the group
-                            // * also update the indices of all the following groups
-        
+
+        //          To remove a feature from the pool:
+        // * iter through all features in its group and update the score of their inputs, because the group size has changed
+        // * no need to have a special case for the removed feature, we're removing it because there are no inputs that contain it, so we don't need to update their scores
+        // * remove the feature from the list and the slab
+        // * update the indices and old_size of the group
+        // * also update the indices of all the following groups
+
         // * iter through all features, and update the score of each affected input because the feature multiplicity has changed
         // * update the feature old multiplicity
         // * remove element from the slab of inputs
@@ -536,7 +537,9 @@ impl<M: Mutator> Pool<M> {
         // 3. iter through all features and, if they have no corresponding inputs, remove them from the pool
         for &f_key in &all_features {
             let analyzed_f = &self.slab_features[f_key];
-            if !analyzed_f.inputs.is_empty() { continue }
+            if !analyzed_f.inputs.is_empty() {
+                continue;
+            }
 
             let group = &self.slab_feature_groups[analyzed_f.group_key];
             //          To remove a feature from the pool:
@@ -554,12 +557,15 @@ impl<M: Mutator> Pool<M> {
                     element_with_feature.score += change_in_score;
                 }
             }
-            
+
             let analyzed_f = &self.slab_features[f_key];
             // 2. remove the feature from the list and the slab
-            let idx_f = self.features.binary_search_by_key(&analyzed_f.feature, |f| f.feature).unwrap();
+            let idx_f = self
+                .features
+                .binary_search_by_key(&analyzed_f.feature, |f| f.feature)
+                .unwrap();
             self.features.remove(idx_f);
-            
+
             let key = analyzed_f.key;
             self.slab_features.remove(key);
 
@@ -572,8 +578,11 @@ impl<M: Mutator> Pool<M> {
             // 4. also update the indices of all the following groups
             let id = group.id;
             let slab_feature_groups = &self.slab_feature_groups;
-            
-            let group_index = self.feature_groups.binary_search_by_key(&id, |g| slab_feature_groups[*g].id).unwrap();
+
+            let group_index = self
+                .feature_groups
+                .binary_search_by_key(&id, |g| slab_feature_groups[*g].id)
+                .unwrap();
             for group_key in self.feature_groups[group_index + 1..].iter_mut() {
                 let group = &mut self.slab_feature_groups[*group_key];
                 group.idcs.end -= 1;
@@ -881,29 +890,18 @@ where
 
 fn score_for_group_size(size: usize) -> f64 {
     const SCORES: [f64; 16] = [
-        1.0,
-        1.1,
-        1.2,
-        1.3,
-        1.4,
-        1.5,
-        1.55,
-        1.6,
-        1.65,
-        1.7,
-        1.75,
-        1.8,
-        1.85,
-        1.9,
-        1.95,
-        2.0
+        1.0, 1.1, 1.2, 1.3, 1.4, 1.5, 1.55, 1.6, 1.65, 1.7, 1.75, 1.8, 1.85, 1.9, 1.95, 2.0,
     ];
-    if size < 16 { SCORES[size] } else { 2.0 }
+    if size < 16 {
+        SCORES[size]
+    } else {
+        2.0
+    }
     // 1.0
 }
 
-// =============================================================== 
-// ==================== Trait implementations ==================== 
+// ===============================================================
+// ==================== Trait implementations ====================
 // ===============================================================
 
 impl<M: Mutator> Clone for AnalyzedFeature<M> {
@@ -943,7 +941,7 @@ impl<M: Mutator> PartialEq for AnalyzedFeatureRef<M> {
         self.feature == other.feature
     }
 }
-impl<M: Mutator> Eq for AnalyzedFeatureRef<M> { }
+impl<M: Mutator> Eq for AnalyzedFeatureRef<M> {}
 impl<M: Mutator> PartialOrd for AnalyzedFeatureRef<M> {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         self.feature.partial_cmp(&other.feature)
@@ -965,7 +963,6 @@ impl<M: Mutator> Clone for AnalyzedFeatureRef<M> {
 }
 
 impl<M: Mutator> Copy for AnalyzedFeatureRef<M> {}
-
 
 // TODO: include testing the returned WorldAction
 // TODO: write unit tests as data, read them from files

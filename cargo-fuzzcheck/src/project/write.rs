@@ -1,5 +1,3 @@
-
-
 use crate::project::*;
 
 use std::result::Result;
@@ -20,23 +18,23 @@ impl Fuzz {
         if let Ok(corpora) = &self.corpora {
             corpora.write()?;
         }
-        
+
         if let Ok(artifacts) = &self.artifacts {
             artifacts.write()?;
         }
-        
+
         if let Some(gitignore) = &self.gitignore {
             let gitignore_path = path.join(".gitignore");
             fs::write(gitignore_path, gitignore.to_string().into_bytes())?;
         }
-        
+
         Ok(())
     }
 }
 
 impl NonInstrumented {
     pub fn write(&self, path: &Path) -> Result<(), io::Error> {
-        let non_instrumented_path = path.join("non_instrumented"); 
+        let non_instrumented_path = path.join("non_instrumented");
         fs::create_dir(&non_instrumented_path)?;
 
         self.src.write(&non_instrumented_path)?;
@@ -50,9 +48,9 @@ impl NonInstrumented {
 
 impl Instrumented {
     pub fn write(&self, path: &Path) -> Result<(), io::Error> {
-        let instrumented_path = path.join("instrumented"); 
+        let instrumented_path = path.join("instrumented");
         fs::create_dir(&instrumented_path)?;
-        
+
         self.src.write(&instrumented_path)?;
         self.cargo_toml.write(&instrumented_path)?;
         Ok(())
@@ -102,7 +100,10 @@ impl BuildRs {
 impl CargoToml {
     pub fn write(&self, path: &Path) -> Result<(), io::Error> {
         let cargo_toml_path = path.join("Cargo.toml");
-        fs::write(cargo_toml_path, &toml::to_string_pretty(&self.toml).unwrap().into_bytes())?;
+        fs::write(
+            cargo_toml_path,
+            &toml::to_string_pretty(&self.toml).unwrap().into_bytes(),
+        )?;
 
         Ok(())
     }

@@ -65,12 +65,7 @@ pub fn options_parser() -> Options {
     let mut options = Options::new();
 
     options.long_only(true);
-    options.optopt(
-        "",
-        IN_CORPUS_FLAG,
-        "folder for the input corpus",
-        "PATH",
-    );
+    options.optopt("", IN_CORPUS_FLAG, "folder for the input corpus", "PATH");
     options.optflag(
         "",
         NO_IN_CORPUS_FLAG,
@@ -80,12 +75,7 @@ pub fn options_parser() -> Options {
         )
         .as_str(),
     );
-    options.optopt(
-        "",
-        OUT_CORPUS_FLAG,
-        "folder for the output corpus",
-        "PATH",
-    );
+    options.optopt("", OUT_CORPUS_FLAG, "folder for the output corpus", "PATH");
     options.optflag(
         "",
         NO_OUT_CORPUS_FLAG,
@@ -95,12 +85,7 @@ pub fn options_parser() -> Options {
         )
         .as_str(),
     );
-    options.optopt(
-        "",
-        ARTIFACTS_FLAG,
-        "folder where the artifacts will be written",
-        "PATH",
-    );
+    options.optopt("", ARTIFACTS_FLAG, "folder where the artifacts will be written", "PATH");
     options.optflag(
         "",
         NO_ARTIFACTS_FLAG,
