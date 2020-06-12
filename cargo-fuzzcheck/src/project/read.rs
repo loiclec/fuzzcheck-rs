@@ -1,4 +1,7 @@
 
+
+use crate::project::*;
+
 use std::result::Result;
 use std::path::{Path, PathBuf};
 
@@ -7,60 +10,11 @@ use std::fs;
 use std::io;
 use std::io::Read;
 
-use std::ffi::OsString;
-
 use std::collections::HashMap;
 
-#[derive(Debug)]
-struct Root {
-    name: String,
-    fuzz: Fuzz,
-    cargo_toml: CargoToml,
-}
-
-#[derive(Debug)]
-struct Fuzz {
-    non_instrumented: NonInstrumented,
-    instrumented: Instrumented,
-    corpora: Result<Corpora, CorporaError>,
-}
-
-#[derive(Debug)]
-struct NonInstrumented {
-    // src: Src,
-    fuzz_targets: FuzzTargets,
-    build_rs: BuildRs,
-    cargo_toml: CargoToml,
-}
-
-#[derive(Debug)]
-struct Instrumented {
-    // src: Src,
-    cargo_toml: CargoToml,
-}
-
-#[derive(Debug)]
-struct Corpora {
-    corpora: Vec<PathBuf>
-}
-
-#[derive(Debug)]
-struct BuildRs {
-    content: Vec<u8>
-}
-
-#[derive(Debug)]
-struct CargoToml {
-    toml: toml::Value,
-}
-
-#[derive(Debug)]
-struct FuzzTargets {
-    targets: HashMap<OsString, Vec<u8>>,
-}
 
 impl Root {
-    fn from_path(root_folder: &Path) -> Result<Self, RootError> {
+    pub fn from_path(root_folder: &Path) -> Result<Self, RootError> {
         
         let cargo_toml_path = root_folder.join("Cargo.toml");
         let cargo_toml_file = fs::File::open(&cargo_toml_path).map_err(|e| RootError::CannotReadCargoToml(cargo_toml_path.clone(), e))?;
@@ -85,7 +39,7 @@ impl Root {
 }
 
 impl Fuzz {
-    fn from_path(fuzz_folder: &Path) -> Result<Self, FuzzError> {
+    pub fn from_path(fuzz_folder: &Path) -> Result<Self, FuzzError> {
         let non_instr_path = fuzz_folder.join("non_instrumented");
         let _ = fs::read_dir(non_instr_path.clone()).map_err(|e| FuzzError::CannotReadNonInstrumented(non_instr_path.clone(), e))?;
         let non_instrumented = NonInstrumented::from_path(&non_instr_path)?;
@@ -102,16 +56,26 @@ impl Fuzz {
             }
         };
 
+        let gitignore_path = fuzz_folder.join(".gitignore");
+        let gitignore = 
+            fs::File::open(gitignore_path)
+            .and_then(|mut f| {
+                let mut string = String::new();
+                let _ = f.read_to_string(&mut string)?;
+                Ok(string)
+            }).ok();
+
         Ok(Self {
             non_instrumented,
             instrumented,
-            corpora
+            corpora,
+            gitignore,
         })
     }
 }
 
 impl NonInstrumented {
-    fn from_path(non_instrumented_folder: &Path) -> Result<Self, NonInstrumentedError> {
+    pub fn from_path(non_instrumented_folder: &Path) -> Result<Self, NonInstrumentedError> {
         let fuzz_targets_path = non_instrumented_folder.join("fuzz_targets");
         let _ = fs::read_dir(fuzz_targets_path.clone()).map_err(|e| NonInstrumentedError::CannotReadFuzzTargets(fuzz_targets_path.clone(), e))?;
         let fuzz_targets = FuzzTargets::from_path(&fuzz_targets_path)?;
@@ -133,7 +97,7 @@ impl NonInstrumented {
 }
 
 impl FuzzTargets {
-    fn from_path(non_instrumented_folder: &Path) -> Result<Self, FuzzTargetsError> {
+    pub fn from_path(non_instrumented_folder: &Path) -> Result<Self, FuzzTargetsError> {
         let folder = fs::read_dir(non_instrumented_folder).map_err(|e| FuzzTargetsError::IoError(e))?;
 
         let mut targets = HashMap::new();
@@ -177,7 +141,7 @@ impl FuzzTargets {
 }
 
 impl BuildRs {
-    fn from_file(mut file: fs::File) -> Result<BuildRs, BuildRsError> {
+    pub fn from_file(mut file: fs::File) -> Result<BuildRs, BuildRsError> {
         let mut content = Vec::new();
         let _ = file.read_to_end(&mut content)?;
 
@@ -188,7 +152,7 @@ impl BuildRs {
 }
 
 impl Instrumented {
-    fn from_path(instrumented_folder: &Path) -> Result<Self, InstrumentedError> {
+    pub fn from_path(instrumented_folder: &Path) -> Result<Self, InstrumentedError> {
         let cargo_toml_path = instrumented_folder.join("Cargo.toml");
         let cargo_toml_file = fs::File::open(&cargo_toml_path).map_err(|e| InstrumentedError::CannotReadCargoToml(cargo_toml_path.clone(), e))?;
         let cargo_toml = CargoToml::from_file(cargo_toml_file)?;
@@ -200,7 +164,7 @@ impl Instrumented {
 }
 
 impl Corpora {
-    fn from_path(corpora_folder: &Path) -> Result<Self, CorporaError> {
+    pub fn from_path(corpora_folder: &Path) -> Result<Self, CorporaError> {
         let folder = fs::read_dir(corpora_folder).map_err(|e| CorporaError::IoError(e))?;
 
         let mut corpora = Vec::new();
@@ -234,7 +198,7 @@ impl Corpora {
 }
 
 impl CargoToml {
-    fn from_file(mut file: fs::File) -> Result<CargoToml, CargoTomlError> {
+    pub fn from_file(mut file: fs::File) -> Result<CargoToml, CargoTomlError> {
         let mut content = Vec::new();
         let _ = file.read_to_end(&mut content)?;
         let toml: toml::Value = toml::from_slice(&content)?;
@@ -245,10 +209,8 @@ impl CargoToml {
     }
 }
 
-
-
 #[derive(Debug)]
-enum RootError {
+pub enum RootError {
     IoError(io::Error),
     CannotReadCargoToml(PathBuf, io::Error),
     CargoToml(CargoTomlError),
@@ -273,7 +235,7 @@ impl From<CargoTomlError> for RootError {
 }
 
 #[derive(Debug)]
-enum FuzzError {
+pub enum FuzzError {
     CannotReadNonInstrumented(PathBuf, io::Error),
     CannotReadInstrumented(PathBuf, io::Error),
     NonInstrumented(NonInstrumentedError),
@@ -291,7 +253,7 @@ impl From<InstrumentedError> for FuzzError {
 }
 
 #[derive(Debug)]
-enum NonInstrumentedError {
+pub enum NonInstrumentedError {
     CannotReadFuzzTargets(PathBuf, io::Error),
     FuzzTargets(FuzzTargetsError),
     CannotReadBuildRs(PathBuf, io::Error),
@@ -316,7 +278,7 @@ impl From<CargoTomlError> for NonInstrumentedError {
 }
 
 #[derive(Debug)]
-enum FuzzTargetsError {
+pub enum FuzzTargetsError {
     IoError(io::Error),
     NoFuzzTargets(Vec<FuzzTargetError>),
 }
@@ -327,7 +289,7 @@ impl From<io::Error> for FuzzTargetsError {
 }
 
 #[derive(Debug)]
-enum FuzzTargetError {
+pub enum FuzzTargetError {
     IoError(io::Error),
     ExtensionError(PathBuf),
 }
@@ -338,7 +300,7 @@ impl From<io::Error> for FuzzTargetError {
 }
 
 #[derive(Debug)]
-enum BuildRsError {
+pub enum BuildRsError {
     IoError(io::Error)
 }
 impl From<io::Error> for BuildRsError {
@@ -348,7 +310,7 @@ impl From<io::Error> for BuildRsError {
 }
 
 #[derive(Debug)]
-enum InstrumentedError {
+pub enum InstrumentedError {
     CannotReadCargoToml(PathBuf, io::Error),
     CargoToml(CargoTomlError),
 }
@@ -359,7 +321,7 @@ impl From<CargoTomlError> for InstrumentedError {
 }
 
 #[derive(Debug)]
-enum CorporaError {
+pub enum CorporaError {
     IoError(io::Error),
     CorpusIsNotDirectory(PathBuf),
 }
@@ -370,7 +332,7 @@ impl From<io::Error> for CorporaError {
 }
 
 #[derive(Debug)]
-enum CargoTomlError {
+pub enum CargoTomlError {
     IoError(io::Error),
     CannotParseToml(toml::de::Error),
 }
