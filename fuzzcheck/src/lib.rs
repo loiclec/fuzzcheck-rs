@@ -288,7 +288,6 @@ impl Feature {
     /// whose payload is the intensity of the given `counter`.
     fn edge(pc_guard: usize, counter: u16) -> Feature {
         let mut feature: u64 = 0;
-
         // feature |= 0b00 << Feature::tag_offset();
         // take 32 last bits, I don't want to worry about programs with more than 4 billion instrumented edges anyway
         feature |= ((pc_guard & 0xFFFF_FFFF) as u64) << Feature::id_offset();
@@ -296,27 +295,7 @@ impl Feature {
 
         Feature(feature)
     }
-    /// Create an “indirect call” feature identified by the given `caller_xor_callee`
-    // fn indir(caller_xor_callee: usize) -> Feature {
-    //     let mut feature: u64 = 0;
-    //     // keep 62 bits with modulo
-    //     feature |= Feature::indir_tag() << Feature::tag_offset();
-    //     feature |= (caller_xor_callee as u64) % (0x4000_0000_0000_0000 as u64);
-
-    //     Feature(feature)
-    // }
-    // /// Create an “instructon” feature identified by the given `pc` whose payload
-    // /// is a ~hash of the two arguments.
-    // fn instruction(pc: usize, arg1: u64, arg2: u64) -> Feature {
-    //     let mut feature: u64 = 0;
-    //     feature |= Feature::instr_tag() << Feature::tag_offset();
-    //                                                               // keep 54 bits with modulo
-    //     feature |= ((pc as u64) % 16_777_216) << Feature::id_offset(); // id
-    //     feature |= u64::from(Feature::score_from_counter((arg1 ^ arg2).count_ones() as u16));
-
-    //     Feature(feature)
-    // }
-
+ 
     fn erasing_payload(self) -> Self {
         if (self.0 >> Self::tag_offset()) == Self::indir_tag() {
             // if it is indirect, there is no payload to erase
