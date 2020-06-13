@@ -1,6 +1,6 @@
 [package]
 name = "fuzzcheck_mutators"
-version = "0.1.1"
+version = "0.2.0"
 authors = ["Loïc Lecrenier <loic.lecrenier@me.com>"]
 edition = "2018"
 description = "Basic mutators for fuzzcheck-rs"
@@ -14,7 +14,7 @@ categories = ["development-tools"]
 
 [dependencies.fuzzcheck]
 path = "../fuzzcheck"
-version = "0.1.1"
+version = "0.2.0"
 
 [dependencies.rand]
 version = "0.7"
