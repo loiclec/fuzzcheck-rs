@@ -1,5 +1,5 @@
-//! Fuzzing engine. Connects the [`CodeCoverageSensor`] to the [Pool] and
-//! uses an evolutionary algorithm using [Mutator] to find new interesting
+//! Fuzzing engine. Connects the [CodeCoverageSensor](crate::code_coverage_sensor::CodeCoverageSensor) 
+//!to the [Pool] and uses an evolutionary algorithm using [Mutator] to find new interesting
 //! test inputs.
 
 use crate::code_coverage_sensor::shared_sensor;
