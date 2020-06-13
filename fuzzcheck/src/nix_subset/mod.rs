@@ -1,11 +1,14 @@
+//! This module is a subset of the `nix` crate. It is used to provide
+//! signal handling wrappers to fuzzcheck.
+
 #![allow(non_camel_case_types)]
 
 #[macro_use]
 mod macros;
 
-pub mod errno;
+mod errno;
 pub mod signal;
-pub mod unistd;
+mod unistd;
 use errno::Errno;
 
 use std::error;

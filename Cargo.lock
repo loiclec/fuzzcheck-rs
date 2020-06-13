@@ -28,9 +28,11 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 name = "fuzzcheck"
 version = "0.1.1"
 dependencies = [
+ "bitflags 1.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "cfg-if 0.1.10 (registry+https://github.com/rust-lang/crates.io-index)",
  "fuzzcheck_arg_parser 0.1.1",
- "fuzzcheck_nix_subset 0.1.1",
  "getopts 0.2.21 (registry+https://github.com/rust-lang/crates.io-index)",
+ "libc 0.2.71 (registry+https://github.com/rust-lang/crates.io-index)",
  "rand 0.7.3 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
@@ -47,15 +49,6 @@ version = "0.1.1"
 dependencies = [
  "fuzzcheck 0.1.1",
  "rand 0.7.3 (registry+https://github.com/rust-lang/crates.io-index)",
-]
-
-[[package]]
-name = "fuzzcheck_nix_subset"
-version = "0.1.1"
-dependencies = [
- "bitflags 1.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "cfg-if 0.1.10 (registry+https://github.com/rust-lang/crates.io-index)",
- "libc 0.2.71 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]

@@ -22,9 +22,15 @@ features = ["small_rng"]
 version = "0.7"
 features = ["small_rng"]
 
-[dependencies.fuzzcheck_nix_subset]
-path = "../fuzzcheck_nix_subset"
-version = "0.1.1"
+[dependencies.bitflags]
+version = "1.1"
+
+[dependencies.cfg-if]
+version = "0.1.10"
+
+[dependencies.libc]
+default_features = false
+version = "0.2"
 
 [dependencies.fuzzcheck_arg_parser]
 path = "../fuzzcheck_arg_parser"

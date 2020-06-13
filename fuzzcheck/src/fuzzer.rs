@@ -8,10 +8,10 @@ use crate::pool::{AnalyzedFeature, Pool, PoolIndex};
 use crate::signals_handler::{set_signal_handlers, set_timer};
 use crate::world::{FuzzerEvent, FuzzerStats, World};
 use crate::{Feature, FuzzedInput, Mutator, Serializer};
+use crate::nix_subset as nix;
 
 use fuzzcheck_arg_parser::{CommandLineArguments, FuzzerCommand};
 
-use fuzzcheck_nix_subset as nix;
 use nix::signal;
 
 use std::panic::{catch_unwind, RefUnwindSafe, UnwindSafe};

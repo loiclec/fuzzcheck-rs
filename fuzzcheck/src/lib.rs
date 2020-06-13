@@ -11,6 +11,8 @@
 #![feature(is_sorted)]
 #![feature(link_llvm_intrinsics)]
 
+mod nix_subset;
+
 mod code_coverage_sensor;
 mod data_structures;
 
