@@ -315,7 +315,6 @@ extern crate {0}_instrumented_fuzz;
 use {0}_instrumented_fuzz::test;
 
 extern crate serde;
-use serde::{{Serialize, Deserialize}};
 extern crate serde_json;
 
 define_serde_serializer!();

@@ -18,19 +18,23 @@
 /// inputs (of arbitrary type `T: Serializable+ for<'e> Deserializable<'e>`) 
 /// to a json file. 
 ///
-/// This macro takes two path arguments: the first is the path to serde and the
-/// second is the path to serde_json.
+/// This macro only works if `serde`, `serde_json`, and `fuzzcheck` are
+/// accessible.
 ///
 /// ## Example
 ///
 /// ```ignore
-/// define_serde_serializer!(serde, serde_json);
+/// extern crate serde;
+/// extern crate serde_json;
+/// extern crate fuzzcheck;
+///
+/// define_serde_serializer!();
 ///
 /// let serializer = SerdeSerializer::<T>::default();
 /// ```
 #[macro_export]
 macro_rules! define_serde_serializer {
-    ($serde_crate:path, $serde_json_crate:path) => {
+    () => {
         pub struct SerdeSerializer<S> {
             phantom: std::marker::PhantomData<S>,
         }
@@ -45,17 +49,17 @@ macro_rules! define_serde_serializer {
 
         impl<S> fuzzcheck::Serializer for SerdeSerializer<S>
         where
-            S: $path::Serialize + for<'e> $path::Deserialize<'e>,
+            S: serde::Serialize + for<'e> serde::Deserialize<'e>,
         {
             type Value = S;
             fn extension(&self) -> &str {
                 "json"
             }
             fn from_data(&self, data: &[u8]) -> Option<S> {
-                $serde_json_crate::from_slice(data).ok()
+                serde_json::from_slice(data).ok()
             }
             fn to_data(&self, value: &Self::Value) -> Vec<u8> {
-                $serde_json_crate::to_vec(value).unwrap()
+                serde_json::to_vec(value).unwrap()
             }
         }
     };
