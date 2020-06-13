@@ -1,6 +1,6 @@
 [package]
 name = "fuzzcheck"
-version = "0.2.0"
+version = "0.2.1"
 authors = ["Loïc Lecrenier <loic.lecrenier@me.com>"]
 edition = "2018"
 description = "A coverage-guided, structure-aware fuzzing engine for Rust functions"
@@ -34,7 +34,7 @@ version = "0.2"
 
 [dependencies.fuzzcheck_arg_parser]
 path = "../fuzzcheck_arg_parser"
-version = "0.2.0"
+version = "0.2.1"
 
 [lib]
 name = "fuzzcheck"
