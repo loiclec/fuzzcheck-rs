@@ -21,24 +21,24 @@ mod pool;
 mod signals_handler;
 
 use fuzzcheck_arg_parser::{
-    options_parser, CommandLineArguments, COMMAND_FUZZ, COMMAND_MINIFY_CORPUS, COMMAND_MINIFY_INPUT, CORPUS_SIZE_FLAG,
-    DEFAULT_ARGUMENTS, INPUT_FILE_FLAG, IN_CORPUS_FLAG,
+    options_parser, ResolvedCommandLineArguments, COMMAND_FUZZ, COMMAND_MINIFY_CORPUS, COMMAND_MINIFY_INPUT,
+    CORPUS_SIZE_FLAG, INPUT_FILE_FLAG, IN_CORPUS_FLAG,
 };
 
 use std::borrow::Borrow;
 
-/** Fuzz-test the given test function, following to the command-line arguments 
+/** Fuzz-test the given test function, following to the command-line arguments
 provided by the cargo-fuzzcheck tool.
 
-* The first argument is a function `fn(T) -> bool` to fuzz-test. 
+* The first argument is a function `fn(T) -> bool` to fuzz-test.
 **It is only allowed to use the main thread**. If it tries to perform asynchronous
 operations, the fuzzing engine will be confused and act in unpredictable ways.
 
-* The second argument is a mutator for values of type `T`. 
+* The second argument is a mutator for values of type `T`.
 See the [Mutator] trait for more information. Some basic mutators are provided
 by the fuzzcheck_mutators crate.
 
-* The third argument is a serializer for values of type `T`. 
+* The third argument is a serializer for values of type `T`.
 See the [Serializer] trait for more information. Some basic serializers are
 provided by the fuzzcheck_serializer crate.
 
@@ -114,7 +114,7 @@ fuzzcheck {cmin} --{in_corpus} "fuzz-corpus" --{corpus_size} 25
     )
     .as_str();
 
-    let args = match CommandLineArguments::from_parser(&parser, &env_args[1..], DEFAULT_ARGUMENTS) {
+    let args = match ResolvedCommandLineArguments::from_parser(&parser, &env_args[1..]) {
         Ok(r) => r,
         Err(e) => {
             println!("{}\n\n{}", e, help);

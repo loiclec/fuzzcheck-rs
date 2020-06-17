@@ -103,12 +103,29 @@ impl Fuzz {
             })
             .ok();
 
+        let config_toml_path = fuzz_folder.join("config.toml");
+        let config_toml = if let Ok(config_toml_string) = fs::File::open(config_toml_path).and_then(|mut f| {
+            let mut string = String::new();
+            let _ = f.read_to_string(&mut string)?;
+            Ok(string)
+        }) {
+            let config_toml: ConfigToml = toml::from_str(&config_toml_string).map_err(|e| ConfigTomlError::from(e))?;
+            if !config_toml.is_valid() {
+                // TODO: is_valid function should return a ConfigTomlError with details and also check its pathbufs
+                return Err(ConfigTomlError::CoverageLevelNotValid)?;
+            }
+            config_toml
+        } else {
+            ConfigToml::empty()
+        };
+
         Ok(Self {
             non_instrumented,
             instrumented,
             corpora,
             artifacts,
             gitignore,
+            config_toml,
         })
     }
 }
@@ -342,6 +359,7 @@ pub enum FuzzError {
     CannotReadInstrumented(PathBuf, io::Error),
     NonInstrumented(NonInstrumentedError),
     Instrumented(InstrumentedError),
+    ConfigToml(ConfigTomlError),
 }
 impl From<NonInstrumentedError> for FuzzError {
     fn from(e: NonInstrumentedError) -> Self {
@@ -351,6 +369,23 @@ impl From<NonInstrumentedError> for FuzzError {
 impl From<InstrumentedError> for FuzzError {
     fn from(e: InstrumentedError) -> Self {
         Self::Instrumented(e)
+    }
+}
+impl From<ConfigTomlError> for FuzzError {
+    fn from(e: ConfigTomlError) -> Self {
+        Self::ConfigToml(e)
+    }
+}
+
+#[derive(Debug)]
+pub enum ConfigTomlError {
+    CannotDeserializeToml(toml::de::Error),
+    CoverageLevelNotValid,
+}
+
+impl From<toml::de::Error> for ConfigTomlError {
+    fn from(e: toml::de::Error) -> Self {
+        Self::CannotDeserializeToml(e)
     }
 }
 

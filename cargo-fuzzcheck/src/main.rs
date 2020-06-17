@@ -137,28 +137,7 @@ cargo-fuzzcheck {run} target1 {cmin} --{in_corpus} "fuzz-corpus" --{corpus_size}
 
             let target_name = &env_args[start_idx + 1];
 
-            let mut defaults = DEFAULT_ARGUMENTS.clone();
-
-            let defaults_corpus = root
-                .corpora_folder()
-                .join(target_name)
-                .as_path()
-                .to_str()
-                .unwrap()
-                .to_owned();
-            let defaults_artifacts = root
-                .artifacts_folder()
-                .join(target_name)
-                .as_path()
-                .to_str()
-                .unwrap()
-                .to_owned();
-
-            defaults.in_corpus = &defaults_corpus;
-            defaults.out_corpus = &defaults_corpus;
-            defaults.artifacts = &defaults_artifacts;
-
-            let args = match CommandLineArguments::from_parser(&parser, &env_args[start_idx + 2..], defaults) {
+            let args = match CommandLineArguments::from_parser(&parser, &env_args[start_idx + 2..] /*, defaults*/) {
                 Ok(r) => r,
                 Err(e) => {
                     println!("{}", e);

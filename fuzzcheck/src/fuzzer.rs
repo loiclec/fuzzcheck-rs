@@ -1,16 +1,16 @@
-//! Fuzzing engine. Connects the [CodeCoverageSensor](crate::code_coverage_sensor::CodeCoverageSensor) 
+//! Fuzzing engine. Connects the [CodeCoverageSensor](crate::code_coverage_sensor::CodeCoverageSensor)
 //!to the [Pool] and uses an evolutionary algorithm using [Mutator] to find new interesting
 //! test inputs.
 
 use crate::code_coverage_sensor::shared_sensor;
 use crate::data_structures::{LargeStepFindIter, SlabKey};
+use crate::nix_subset as nix;
 use crate::pool::{AnalyzedFeature, Pool, PoolIndex};
 use crate::signals_handler::{set_signal_handlers, set_timer};
 use crate::world::{FuzzerEvent, FuzzerStats, World};
 use crate::{Feature, FuzzedInput, Mutator, Serializer};
-use crate::nix_subset as nix;
 
-use fuzzcheck_arg_parser::{CommandLineArguments, FuzzerCommand};
+use fuzzcheck_arg_parser::{FuzzerCommand, ResolvedCommandLineArguments};
 
 use nix::signal;
 
@@ -45,7 +45,7 @@ struct FuzzerState<M: Mutator, S: Serializer<Value = M::Value>> {
     pool: Pool<M>,
     input_idx: FuzzerInputIndex<M>,
     stats: FuzzerStats,
-    settings: CommandLineArguments,
+    settings: ResolvedCommandLineArguments,
     world: World<S>,
     analysis_cache: AnalysisCache<M>,
 }
@@ -128,7 +128,7 @@ where
     M: Mutator,
     S: Serializer<Value = M::Value>,
 {
-    pub fn new(test: F, mut mutator: M, settings: CommandLineArguments, world: World<S>) -> Self {
+    pub fn new(test: F, mut mutator: M, settings: ResolvedCommandLineArguments, world: World<S>) -> Self {
         let default_el = FuzzedInput::default(&mut mutator);
         Fuzzer {
             state: FuzzerState {
@@ -393,7 +393,12 @@ pub enum TerminationStatus {
     Unknown = 3,
 }
 
-pub fn launch<T, F, M, S>(test: F, mutator: M, serializer: S, args: CommandLineArguments) -> Result<(), std::io::Error>
+pub fn launch<T, F, M, S>(
+    test: F,
+    mutator: M,
+    serializer: S,
+    args: ResolvedCommandLineArguments,
+) -> Result<(), std::io::Error>
 where
     T: ?Sized,
     M::Value: Borrow<T>,

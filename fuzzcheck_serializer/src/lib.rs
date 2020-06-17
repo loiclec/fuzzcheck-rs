@@ -1,22 +1,21 @@
 //! This crate contains types implementing the Serializer trait of fuzzcheck.
-//! There are currently two implementations: 
+//! There are currently two implementations:
 //!
-//! * SerdeSerializer uses the `serde` and `serde_json` crate to serialize 
-//! the test inputs (of arbitrary Serializable type) to a `.json` file. 
+//! * SerdeSerializer uses the `serde` and `serde_json` crate to serialize
+//! the test inputs (of arbitrary Serializable type) to a `.json` file.
 //! However, SerdeSerializer is not defined in this crate. Instead, it can
 //! be made available through the [define_serde_serializer] macro.
-//! 
+//!
 //! * [ByteSerializer] encodes and decodes values of type `Vec<u8>` by simply
 //! copy/pasting the bytes from/to the files. The extension is customizable.
 //!
-
 
 /// Defines a struct called `SerdeSerializer<T>` that implements the
 /// `fuzzcheck::Serializer` trait using serde.
 ///
 /// `SerdeSerializer<T>` uses `serde` and `serde_json` to serialize the test
-/// inputs (of arbitrary type `T: Serializable+ for<'e> Deserializable<'e>`) 
-/// to a json file. 
+/// inputs (of arbitrary type `T: Serializable+ for<'e> Deserializable<'e>`)
+/// to a json file.
 ///
 /// This macro only works if `serde`, `serde_json`, and `fuzzcheck` are
 /// accessible.

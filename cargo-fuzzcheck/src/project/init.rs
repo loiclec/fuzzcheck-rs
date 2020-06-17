@@ -4,7 +4,11 @@ use crate::project::*;
 
 use std::path::Path;
 
-const DEFAULT_TARGET_NAME: &str = "target1";
+pub const DEFAULT_TARGET_NAME: &str = "target1";
+pub const DEFAULT_LTO: bool = true;
+pub const DEFAULT_COVERAGE_LEVEL: u8 = 4;
+pub const DEFAULT_TRACE_COMPARES: bool = true;
+pub const DEFAULT_STACK_DEPTH: bool = false;
 
 impl Fuzz {
     pub fn init(path: &Path, library: &str, fuzzcheck_path_or_version: &str) -> Self {
@@ -29,12 +33,46 @@ fuzzcheck-rs
             .to_string(),
         );
 
+        let mut config_targets = HashMap::new();
+        let mut config_target = Config::empty();
+        config_target.in_corpus = Some(Path::new("fuzz/corpora/target1").to_path_buf());
+        config_target.out_corpus = Some(Path::new("fuzz/corpora/target1").to_path_buf());
+        config_target.artifacts = Some(Path::new("fuzz/artifacts/target1").to_path_buf());
+
+        config_targets.insert("target1".to_string(), config_target);
+
+        let config_toml = ConfigToml {
+            default: Config {
+                coverage_level: Some(DEFAULT_COVERAGE_LEVEL),
+                trace_compares: Some(DEFAULT_TRACE_COMPARES),
+                stack_depth: Some(DEFAULT_STACK_DEPTH),
+
+                lto: Some(DEFAULT_LTO),
+                extra_cargo_flags: None,
+
+                corpus_size: Some(100),
+                max_nbr_of_runs: None,
+                max_cplx: Some(DEFAULT_ARGUMENTS.max_input_cplx),
+                timeout: None,
+
+                in_corpus: None,
+                out_corpus: None,
+                artifacts: None,
+
+                no_in_corpus: None,
+                no_out_corpus: None,
+                no_artifacts: None,
+            },
+            targets: config_targets,
+        };
+
         Self {
             instrumented,
             non_instrumented,
             corpora,
             artifacts,
             gitignore,
+            config_toml,
         }
     }
 }

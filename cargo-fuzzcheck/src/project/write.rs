@@ -28,6 +28,10 @@ impl Fuzz {
             fs::write(gitignore_path, gitignore.to_string().into_bytes())?;
         }
 
+        let config_toml_path = path.join("config.toml");
+        let config_toml_contents = toml::to_string_pretty(&self.config_toml).unwrap();
+        fs::write(config_toml_path, config_toml_contents.into_bytes())?;
+
         Ok(())
     }
 }

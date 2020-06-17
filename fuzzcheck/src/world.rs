@@ -6,14 +6,13 @@
 // In the future it would be nice to make it a trait so that it is easy to
 // create different “World” implementations.
 
-use fuzzcheck_arg_parser::{CommandLineArguments, FuzzerCommand};
+use fuzzcheck_arg_parser::{FuzzerCommand, ResolvedCommandLineArguments};
 use std::collections::hash_map::DefaultHasher;
 use std::fs;
 
 use std::hash::{Hash, Hasher};
 use std::io::{self, Result};
 
-use std::path::Path;
 use std::time::Instant;
 
 use crate::nix_subset as nix;
@@ -64,13 +63,13 @@ pub(crate) enum WorldAction<T> {
 }
 
 pub struct World<S: Serializer> {
-    settings: CommandLineArguments,
+    settings: ResolvedCommandLineArguments,
     instant: Instant,
     serializer: S,
 }
 
 impl<S: Serializer> World<S> {
-    pub fn new(serializer: S, settings: CommandLineArguments) -> Self {
+    pub fn new(serializer: S, settings: ResolvedCommandLineArguments) -> Self {
         Self {
             settings,
             instant: std::time::Instant::now(),
@@ -191,8 +190,11 @@ impl<S: Serializer> World<S> {
     }
 
     pub fn save_artifact(&self, input: &S::Value, cplx: f64) -> Result<()> {
-        let default = Path::new("./artifacts/").to_path_buf();
-        let artifacts_folder = self.settings.artifacts_folder.as_ref().unwrap_or(&default).as_path();
+        let artifacts_folder = self.settings.artifacts_folder.as_ref();
+        if artifacts_folder.is_none() {
+            return Ok(());
+        }
+        let artifacts_folder = artifacts_folder.unwrap().as_path();
 
         if !artifacts_folder.is_dir() {
             std::fs::create_dir_all(artifacts_folder)?;

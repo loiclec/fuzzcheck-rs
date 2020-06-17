@@ -1,5 +1,6 @@
 pub mod project;
 
+use init::{DEFAULT_COVERAGE_LEVEL, DEFAULT_LTO, DEFAULT_TRACE_COMPARES};
 use project::*;
 
 use fuzzcheck_arg_parser::*;
@@ -44,9 +45,11 @@ impl Root {
         args: &CommandLineArguments,
         target_name: &str,
     ) -> Result<std::process::Output, CargoFuzzcheckError> {
-        let s = command_line_arguments_string(args);
+        let config = self.fuzz.config_toml.resolved_config(target_name);
 
-        self.instrumented_compile()?;
+        let s = self.command_line_arguments_string(&config, args, target_name);
+
+        self.instrumented_compile(target_name)?;
 
         let mut rustflags: String = "--cfg fuzzing -Ctarget-cpu=native".to_string();
 
@@ -64,9 +67,7 @@ impl Root {
             .arg("--release")
             .arg("--target")
             .arg(default_target())
-            // .arg("-Z")
-            // .arg("timings")
-            // .arg("--verbose")
+            .args(config.extra_cargo_flags.unwrap_or(vec![]))
             .arg("--")
             .args(s)
             .stdout(std::process::Stdio::inherit())
@@ -76,7 +77,9 @@ impl Root {
     }
 
     pub fn launch_executable(&self, args: &CommandLineArguments, target_name: &str) -> Result<(), CargoFuzzcheckError> {
-        let s = command_line_arguments_string(args);
+        let config = self.fuzz.config_toml.resolved_config(target_name);
+
+        let s = self.command_line_arguments_string(&config, args, target_name);
 
         let exec = self
             .non_instrumented_folder()
@@ -91,16 +94,34 @@ impl Root {
         Ok(())
     }
 
-    fn instrumented_compile(&self) -> Result<(), CargoFuzzcheckError> {
+    fn instrumented_compile(&self, target_name: &str) -> Result<(), CargoFuzzcheckError> {
         let mut rustflags: String = "--cfg fuzzing \
                                      -Ctarget-cpu=native \
                                      -Cmetadata=fuzzing \
-                                     -Cpasses=sancov \
-                                     -Clinker-plugin-lto=1 \
-                                     -Cllvm-args=-sanitizer-coverage-level=4 \
-                                     -Cllvm-args=-sanitizer-coverage-trace-compares \
-                                     -Cllvm-args=-sanitizer-coverage-inline-8bit-counters"
+                                     -Cpasses=sancov"
             .into();
+
+        let config = self.fuzz.config_toml.resolved_config(target_name);
+
+        if config.lto.unwrap_or(DEFAULT_LTO) {
+            rustflags.push_str(" -Clinker-plugin-lto=1");
+        }
+
+        rustflags.push_str(&format!(
+            " -Cllvm-args=-sanitizer-coverage-level={}",
+            config.coverage_level.unwrap_or(DEFAULT_COVERAGE_LEVEL)
+        ));
+
+        if config.trace_compares.unwrap_or(DEFAULT_TRACE_COMPARES) {
+            rustflags.push_str(" -Cllvm-args=-sanitizer-coverage-trace-compares");
+        }
+        rustflags.push_str(" -Cllvm-args=-sanitizer-coverage-inline-8bit-counters");
+
+        /*
+        if config.trace_compares.unwrap_or(DEFAULT_STACK_DEPTH) {
+            rustflags.push_str(" -Cllvm-args=-sanitizer-coverage-stack-depth");
+        }
+        */
 
         if use_gold_linker() {
             rustflags.push_str(" -Clink-arg=-fuse-ld=gold");
@@ -114,7 +135,7 @@ impl Root {
             .arg("--release")
             .arg("--target")
             .arg(default_target())
-            // .arg("--verbose")
+            .args(config.extra_cargo_flags.unwrap_or(vec![]))
             .stdout(std::process::Stdio::inherit())
             .stderr(std::process::Stdio::inherit())
             .output()?;
@@ -189,6 +210,90 @@ impl Root {
             self.launch_executable(&arguments, target_name)?;
         }
     }
+
+    fn command_line_arguments_string(
+        &self,
+        config: &Config,
+        args: &CommandLineArguments,
+        target_name: &str,
+    ) -> Vec<String> {
+        let mut s: Vec<String> = Vec::new();
+
+        let mut defaults = DEFAULT_ARGUMENTS.clone();
+
+        let defaults_corpus = self
+            .corpora_folder()
+            .join(target_name)
+            .as_path()
+            .to_str()
+            .unwrap()
+            .to_owned();
+        let defaults_artifacts = self
+            .artifacts_folder()
+            .join(target_name)
+            .as_path()
+            .to_str()
+            .unwrap()
+            .to_owned();
+
+        defaults.in_corpus = &defaults_corpus;
+        defaults.out_corpus = &defaults_corpus;
+        defaults.artifacts = &defaults_artifacts;
+
+        let args = config.resolve_arguments(args).resolved(defaults);
+
+        let input_file_args = args
+            .input_file
+            .clone()
+            .map(|f| vec!["--".to_owned() + INPUT_FILE_FLAG, path_str(f)]);
+
+        let corpus_in_args = args
+            .corpus_in
+            .map(|f| vec!["--".to_owned() + IN_CORPUS_FLAG, path_str(f)])
+            .unwrap_or_else(|| vec!["--".to_owned() + NO_IN_CORPUS_FLAG]);
+
+        let corpus_out_args = args
+            .corpus_out
+            .map(|f| vec!["--".to_owned() + OUT_CORPUS_FLAG, path_str(f)])
+            .unwrap_or_else(|| vec!["--".to_owned() + NO_OUT_CORPUS_FLAG]);
+
+        let artifacts_args = args
+            .artifacts_folder
+            .map(|f| vec!["--".to_owned() + ARTIFACTS_FLAG, path_str(f)])
+            .unwrap_or_else(|| vec!["--".to_owned() + NO_ARTIFACTS_FLAG]);
+
+        match args.command {
+            FuzzerCommand::Read => s.push(COMMAND_READ.to_owned()),
+            FuzzerCommand::MinifyInput => s.push(COMMAND_MINIFY_INPUT.to_owned()),
+            FuzzerCommand::MinifyCorpus => s.push(COMMAND_MINIFY_CORPUS.to_owned()),
+            FuzzerCommand::Fuzz => s.push(COMMAND_FUZZ.to_owned()),
+        };
+
+        if let Some(input_file_args) = input_file_args {
+            s.append(&mut input_file_args.clone());
+        }
+        s.append(&mut vec![
+            "--".to_owned() + CORPUS_SIZE_FLAG,
+            args.corpus_size.to_string(),
+        ]);
+
+        s.append(&mut corpus_in_args.clone());
+        s.append(&mut corpus_out_args.clone());
+        s.append(&mut artifacts_args.clone());
+        s.append(&mut vec![
+            "--".to_owned() + MAX_INPUT_CPLX_FLAG,
+            args.max_input_cplx.to_string(),
+        ]);
+
+        s.append(&mut vec![
+            "--".to_owned() + MAX_NBR_RUNS_FLAG,
+            args.max_nbr_of_runs.to_string(),
+        ]);
+
+        s.append(&mut vec!["--".to_owned() + TIMEOUT_FLAG, args.timeout.to_string()]);
+
+        s
+    }
 }
 
 fn use_gold_linker() -> bool {
@@ -202,65 +307,6 @@ fn use_gold_linker() -> bool {
             _ => false,
         },
     }
-}
-
-fn command_line_arguments_string(args: &CommandLineArguments) -> Vec<String> {
-    let mut s: Vec<String> = Vec::new();
-
-    let input_file_args = args
-        .input_file
-        .clone()
-        .map(|f| vec!["--".to_owned() + INPUT_FILE_FLAG, path_str(f)]);
-
-    let corpus_in_args = args
-        .corpus_in
-        .clone()
-        .map(|f| vec!["--".to_owned() + IN_CORPUS_FLAG, path_str(f)])
-        .unwrap_or_else(|| vec!["--".to_owned() + NO_IN_CORPUS_FLAG]);
-
-    let corpus_out_args = args
-        .corpus_out
-        .clone()
-        .map(|f| vec!["--".to_owned() + OUT_CORPUS_FLAG, path_str(f)])
-        .unwrap_or_else(|| vec!["--".to_owned() + NO_OUT_CORPUS_FLAG]);
-
-    let artifacts_args = args
-        .artifacts_folder
-        .clone()
-        .map(|f| vec!["--".to_owned() + ARTIFACTS_FLAG, path_str(f)])
-        .unwrap_or_else(|| vec!["--".to_owned() + NO_ARTIFACTS_FLAG]);
-
-    match args.command {
-        FuzzerCommand::Read => s.push(COMMAND_READ.to_owned()),
-        FuzzerCommand::MinifyInput => s.push(COMMAND_MINIFY_INPUT.to_owned()),
-        FuzzerCommand::MinifyCorpus => s.push(COMMAND_MINIFY_CORPUS.to_owned()),
-        FuzzerCommand::Fuzz => s.push(COMMAND_FUZZ.to_owned()),
-    };
-
-    if let Some(input_file_args) = input_file_args {
-        s.append(&mut input_file_args.clone());
-    }
-    s.append(&mut vec![
-        "--".to_owned() + CORPUS_SIZE_FLAG,
-        args.corpus_size.to_string(),
-    ]);
-
-    s.append(&mut corpus_in_args.clone());
-    s.append(&mut corpus_out_args.clone());
-    s.append(&mut artifacts_args.clone());
-    s.append(&mut vec![
-        "--".to_owned() + MAX_INPUT_CPLX_FLAG,
-        args.max_input_cplx.to_string(),
-    ]);
-
-    s.append(&mut vec![
-        "--".to_owned() + MAX_NBR_RUNS_FLAG,
-        args.max_nbr_of_runs.to_string(),
-    ]);
-
-    s.append(&mut vec!["--".to_owned() + TIMEOUT_FLAG, args.timeout.to_string()]);
-
-    s
 }
 
 #[cfg(target_os = "macos")]

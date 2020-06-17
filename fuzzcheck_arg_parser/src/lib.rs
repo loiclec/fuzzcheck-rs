@@ -28,6 +28,7 @@ pub const COMMAND_READ: &str = "read";
 
 #[derive(Clone)]
 pub struct DefaultArguments<'a> {
+    pub command: FuzzerCommand,
     pub in_corpus: &'a str,
     pub out_corpus: &'a str,
     pub artifacts: &'a str,
@@ -38,17 +39,18 @@ pub struct DefaultArguments<'a> {
 }
 
 pub const DEFAULT_ARGUMENTS: DefaultArguments<'static> = DefaultArguments {
+    command: FuzzerCommand::Fuzz,
     in_corpus: "corpus",
     out_corpus: "corpus",
     artifacts: "artifacts",
     max_nbr_of_runs: core::usize::MAX,
-    max_input_cplx: 256,
+    max_input_cplx: 4096,
     timeout: 0,
-    corpus_size: 10,
+    corpus_size: 100,
 };
 
 #[derive(Debug, Clone)]
-pub struct CommandLineArguments {
+pub struct ResolvedCommandLineArguments {
     pub command: FuzzerCommand,
     pub max_nbr_of_runs: usize,
     pub max_input_cplx: f64,
@@ -58,6 +60,23 @@ pub struct CommandLineArguments {
     pub corpus_in: Option<PathBuf>,
     pub corpus_out: Option<PathBuf>,
     pub artifacts_folder: Option<PathBuf>,
+}
+
+#[derive(Debug, Clone)]
+pub struct CommandLineArguments {
+    pub command: FuzzerCommand,
+    pub max_nbr_of_runs: Option<usize>,
+    pub max_input_cplx: Option<f64>,
+    pub timeout: Option<usize>,
+    pub corpus_size: Option<usize>,
+    pub input_file: Option<PathBuf>,
+    pub corpus_in: Option<PathBuf>,
+    pub corpus_out: Option<PathBuf>,
+    pub artifacts_folder: Option<PathBuf>,
+
+    pub no_in_corpus: Option<()>,
+    pub no_out_corpus: Option<()>,
+    pub no_artifacts: Option<()>,
 }
 
 #[must_use]
@@ -133,10 +152,7 @@ pub fn options_parser() -> Options {
 }
 
 impl CommandLineArguments {
-    /// Get the command line arguments to the fuzzer from the option parser
-    /// # Errors
-    /// TODO
-    pub fn from_parser(options: &Options, args: &[String], defaults: DefaultArguments) -> Result<Self, String> {
+    pub fn from_parser(options: &Options, args: &[String]) -> Result<Self, String> {
         let matches = options.parse(args).map_err(|e| e.to_string())?;
 
         // TODO: factor that out and make it prettier/more useful
@@ -145,82 +161,55 @@ impl CommandLineArguments {
         }
 
         let command: FuzzerCommand = match args[0].as_str() {
-            COMMAND_FUZZ => Ok(FuzzerCommand::Fuzz),
-            COMMAND_READ => Ok(FuzzerCommand::Read),
-            COMMAND_MINIFY_INPUT => Ok(FuzzerCommand::MinifyInput),
-            COMMAND_MINIFY_CORPUS => Ok(FuzzerCommand::MinifyCorpus),
+            COMMAND_FUZZ => FuzzerCommand::Fuzz,
+            COMMAND_READ => FuzzerCommand::Read,
+            COMMAND_MINIFY_INPUT => FuzzerCommand::MinifyInput,
+            COMMAND_MINIFY_CORPUS => FuzzerCommand::MinifyCorpus,
             _ => Err(format!(
-                r#"
-The command {c} is not supported. It can either be ‘{fuzz}’, ‘{tmin}’, or ‘{cmin}’.
-                        "#,
+                r#"The command {c} is not supported. It can either be ‘{fuzz}’, ‘{tmin}’, or ‘{cmin}’."#,
                 c = args[0],
                 fuzz = COMMAND_FUZZ,
                 tmin = COMMAND_MINIFY_INPUT,
                 cmin = COMMAND_MINIFY_CORPUS
-            )),
-        }?;
+            ))?,
+        };
 
-        let max_input_cplx: f64 = matches
+        let max_input_cplx: Option<f64> = matches
             .opt_str(MAX_INPUT_CPLX_FLAG)
             .and_then(|x| x.parse::<usize>().ok())
-            .unwrap_or(defaults.max_input_cplx) as f64;
+            .map(|x| x as f64);
 
         let input_file: Option<PathBuf> = matches.opt_str(INPUT_FILE_FLAG).and_then(|x| x.parse::<PathBuf>().ok());
 
-        let corpus_size: usize = matches
-            .opt_str(CORPUS_SIZE_FLAG)
-            .and_then(|x| x.parse::<usize>().ok())
-            .unwrap_or(defaults.corpus_size);
+        let corpus_size: Option<usize> = matches.opt_str(CORPUS_SIZE_FLAG).and_then(|x| x.parse::<usize>().ok());
 
-        let corpus_in: Option<PathBuf> = if matches.opt_present(NO_IN_CORPUS_FLAG) {
-            None
+        let corpus_in: Option<PathBuf> = matches.opt_str(IN_CORPUS_FLAG).and_then(|x| x.parse::<PathBuf>().ok());
+
+        let no_in_corpus = if matches.opt_present(NO_IN_CORPUS_FLAG) {
+            Some(())
         } else {
-            matches
-                .opt_str(IN_CORPUS_FLAG)
-                .unwrap_or_else(|| defaults.in_corpus.to_string())
-                .parse::<PathBuf>()
-                .ok()
+            None
         };
 
-        match (command, &input_file, &corpus_in) {
-            (FuzzerCommand::MinifyInput, &None, _) => {
-                return Err("An input file must be given when minifying a test case".to_owned())
-            }
-            (FuzzerCommand::MinifyCorpus, _, &None) => {
-                return Err("An input corpus must be given when minifying a corpus".to_owned())
-            }
-            _ => (),
-        }
+        let corpus_out: Option<PathBuf> = matches.opt_str(OUT_CORPUS_FLAG).and_then(|x| x.parse::<PathBuf>().ok());
 
-        let corpus_out: Option<PathBuf> = if matches.opt_present(NO_OUT_CORPUS_FLAG) {
-            None
+        let no_out_corpus = if matches.opt_present(NO_OUT_CORPUS_FLAG) {
+            Some(())
         } else {
-            matches
-                .opt_str(OUT_CORPUS_FLAG)
-                .unwrap_or_else(|| defaults.out_corpus.to_string())
-                .parse::<PathBuf>()
-                .ok()
+            None
         };
 
-        let artifacts_folder: Option<PathBuf> = if matches.opt_present(NO_ARTIFACTS_FLAG) {
-            None
+        let artifacts_folder: Option<PathBuf> = matches.opt_str(ARTIFACTS_FLAG).and_then(|x| x.parse::<PathBuf>().ok());
+
+        let no_artifacts = if matches.opt_present(NO_ARTIFACTS_FLAG) {
+            Some(())
         } else {
-            matches
-                .opt_str(ARTIFACTS_FLAG)
-                .unwrap_or_else(|| defaults.artifacts.to_string())
-                .parse::<PathBuf>()
-                .ok()
+            None
         };
 
-        let max_nbr_of_runs: usize = matches
-            .opt_str(MAX_NBR_RUNS_FLAG)
-            .and_then(|x| x.parse::<usize>().ok())
-            .unwrap_or(core::usize::MAX);
+        let max_nbr_of_runs: Option<usize> = matches.opt_str(MAX_NBR_RUNS_FLAG).and_then(|x| x.parse::<usize>().ok());
 
-        let timeout: usize = matches
-            .opt_str(TIMEOUT_FLAG)
-            .and_then(|x| x.parse::<usize>().ok())
-            .unwrap_or(defaults.timeout);
+        let timeout: Option<usize> = matches.opt_str(TIMEOUT_FLAG).and_then(|x| x.parse::<usize>().ok());
 
         Ok(Self {
             command,
@@ -232,6 +221,73 @@ The command {c} is not supported. It can either be ‘{fuzz}’, ‘{tmin}’, o
             corpus_in,
             corpus_out,
             artifacts_folder,
+            no_in_corpus,
+            no_out_corpus,
+            no_artifacts,
         })
+    }
+
+    pub fn resolved(&self, defaults: DefaultArguments) -> ResolvedCommandLineArguments {
+        let command = self.command;
+
+        let max_input_cplx: f64 = self.max_input_cplx.unwrap_or(defaults.max_input_cplx as f64);
+
+        let input_file: Option<PathBuf> = self.input_file.clone();
+
+        let corpus_size: usize = self.corpus_size.unwrap_or(defaults.corpus_size);
+
+        let corpus_in: Option<PathBuf> = if self.no_in_corpus.is_some() {
+            None
+        } else {
+            self.corpus_in.clone()
+        };
+
+        match (command, &input_file, &corpus_in) {
+            (FuzzerCommand::MinifyInput, &None, _) => {
+                panic!("An input file must be given when minifying a test case".to_owned())
+                // TODO: return error for that
+            }
+            (FuzzerCommand::MinifyCorpus, _, &None) => {
+                panic!("An input corpus must be given when minifying a corpus".to_owned())
+            }
+            _ => (),
+        }
+
+        let corpus_out: Option<PathBuf> = if self.no_out_corpus.is_some() {
+            None
+        } else {
+            self.corpus_out.clone()
+        };
+
+        let artifacts_folder: Option<PathBuf> = if self.no_artifacts.is_some() {
+            None
+        } else {
+            self.artifacts_folder.clone()
+        };
+
+        let max_nbr_of_runs: usize = self.max_nbr_of_runs.unwrap_or(core::usize::MAX);
+
+        let timeout: usize = self.timeout.unwrap_or(defaults.timeout);
+
+        ResolvedCommandLineArguments {
+            command,
+            max_nbr_of_runs,
+            max_input_cplx,
+            timeout,
+            corpus_size,
+            input_file,
+            corpus_in,
+            corpus_out,
+            artifacts_folder,
+        }
+    }
+}
+
+impl ResolvedCommandLineArguments {
+    /// Get the command line arguments to the fuzzer from the option parser
+    /// # Errors
+    /// TODO
+    pub fn from_parser(options: &Options, args: &[String]) -> Result<Self, String> {
+        Ok(CommandLineArguments::from_parser(options, args)?.resolved(DEFAULT_ARGUMENTS))
     }
 }
