@@ -282,9 +282,11 @@ pub trait Serializer {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 struct Feature(u64);
 
+#[cfg(trace_compares)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 struct InstrFeatureWithoutTag(u64);
 
+#[cfg(trace_compares)]
 impl Feature {
     fn from_instr(f: InstrFeatureWithoutTag) -> Self {
         Self((f.0 as u64) | (Feature::instr_tag() << Feature::tag_offset()) as u64)
@@ -307,6 +309,8 @@ impl Feature {
     fn indir_tag() -> u64 {
         0b01
     }
+
+    #[cfg(trace_compares)]
     fn instr_tag() -> u64 {
         0b10
     }

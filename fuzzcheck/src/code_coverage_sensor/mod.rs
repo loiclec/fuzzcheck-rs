@@ -3,13 +3,17 @@
 mod hooks;
 
 use crate::Feature;
+
+#[cfg(trace_compares)]
 use crate::InstrFeatureWithoutTag;
 
 use std::convert::TryFrom;
 use std::mem::MaybeUninit;
 
+#[cfg(trace_compares)]
 use crate::data_structures::HBitSet;
 
+#[cfg(trace_compares)]
 type PC = usize;
 
 static mut SHARED_SENSOR: MaybeUninit<CodeCoverageSensor> = MaybeUninit::<CodeCoverageSensor>::uninit();
@@ -24,15 +28,18 @@ pub fn shared_sensor() -> &'static mut CodeCoverageSensor {
 pub struct CodeCoverageSensor {
     pub is_recording: bool,
     eight_bit_counters: &'static mut [u8],
+    #[cfg(trace_compares)]
     features: HBitSet,
 }
 
+#[cfg(trace_compares)]
 macro_rules! make_instr_feature_without_tag {
     ($pc:ident, $arg1:ident, $arg2:ident) => {{
         (($pc & 0x2F_FFFF) << Feature::id_offset()) | (($arg1 ^ $arg2).count_ones() as usize)
     }};
 }
 
+#[cfg(trace_compares)]
 impl CodeCoverageSensor {
     /// Handles a `trace_cmp` hook from Sanitizer Coverage, by recording it
     /// as a `Feature` of kind `instruction`.
@@ -56,14 +63,9 @@ impl CodeCoverageSensor {
         let f = make_instr_feature_without_tag!(pc, arg1, arg2);
         self.features.set(f);
     }
-    /// Handles a `trace_indir` hook from Sanitizer Coverage, by recording it
-    /// as a `Feature` of kind `indirect`.
-    // #[inline]
-    // fn handle_trace_indir(&mut self, caller: PC, callee: PC) {
-    //     let f = Feature::indir(caller ^ callee).0 as usize; // TODO: not correct!
-    //     self.features.set(f);
-    // }
+}
 
+impl CodeCoverageSensor {
     /// Runs the closure on all recorded features.
     pub(crate) fn iterate_over_collected_features<F>(&mut self, mut handle: F)
     where
@@ -101,15 +103,21 @@ impl CodeCoverageSensor {
             handle(f);
         }
 
-        self.features.drain(|f| {
-            handle(Feature::from_instr(InstrFeatureWithoutTag(f)));
-        });
+        #[cfg(trace_compares)]
+        {
+            self.features.drain(|f| {
+                handle(Feature::from_instr(InstrFeatureWithoutTag(f)));
+            });
+        }
     }
 
     pub fn clear(&mut self) {
         for x in self.eight_bit_counters.iter_mut() {
             *x = 0;
         }
-        self.features.drain(|_| {});
+        #[cfg(trace_compares)]
+        {
+            self.features.drain(|_| {});
+        }
     }
 }

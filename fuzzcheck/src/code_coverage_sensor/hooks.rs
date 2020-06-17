@@ -49,17 +49,23 @@
 //! void __sanitizer_cov_trace_gep(uintptr_t Idx);
 //! ```
 
-use super::{shared_sensor, CodeCoverageSensor, SHARED_SENSOR};
+#[cfg(trace_compares)]
+use super::shared_sensor;
+
+use super::{CodeCoverageSensor, SHARED_SENSOR};
 use std::slice;
 use std::sync::Once;
 
+#[cfg(trace_compares)]
 use crate::data_structures::HBitSet;
 
+#[cfg(trace_compares)]
 extern "C" {
     #[link_name = "llvm.returnaddress"]
     fn __return_address(l: i32) -> *const u8;
 }
 
+#[cfg(trace_compares)]
 #[inline]
 unsafe fn return_address() -> usize {
     __return_address(0) as usize
@@ -84,6 +90,7 @@ fn counters_init(start: *mut u8, stop: *mut u8) {
             SHARED_SENSOR.as_mut_ptr().write(CodeCoverageSensor {
                 is_recording: false,
                 eight_bit_counters: slice::from_raw_parts_mut(start, dist),
+                #[cfg(trace_compares)]
                 features: HBitSet::new(),
             });
         });
@@ -114,6 +121,7 @@ fn trace_pc_indir(_callee: usize) {
 /// `__sanitizer_cov_trace_cmp1`
 ///
 /// See general crate documentation about hooks inserted before specific instructions
+#[cfg(trace_compares)]
 #[export_name = "__sanitizer_cov_trace_cmp1"]
 fn trace_cmp1(arg1: u8, arg2: u8) {
     let sensor = shared_sensor();
@@ -124,6 +132,7 @@ fn trace_cmp1(arg1: u8, arg2: u8) {
 /// `__sanitizer_cov_trace_cmp2`
 ///
 /// See general crate documentation about hooks inserted before specific instructions
+#[cfg(trace_compares)]
 #[export_name = "__sanitizer_cov_trace_cmp2"]
 fn trace_cmp2(arg1: u16, arg2: u16) {
     let sensor = shared_sensor();
@@ -134,6 +143,7 @@ fn trace_cmp2(arg1: u16, arg2: u16) {
 /// `__sanitizer_cov_trace_cmp4`
 ///
 /// See general crate documentation about hooks inserted before specific instructions
+#[cfg(trace_compares)]
 #[export_name = "__sanitizer_cov_trace_cmp4"]
 fn trace_cmp4(arg1: u32, arg2: u32) {
     let sensor = shared_sensor();
@@ -144,6 +154,7 @@ fn trace_cmp4(arg1: u32, arg2: u32) {
 /// `__sanitizer_cov_trace_cmp8`
 ///
 /// See general crate documentation about hooks inserted before specific instructions
+#[cfg(trace_compares)]
 #[export_name = "__sanitizer_cov_trace_cmp8"]
 fn trace_cmp8(arg1: u64, arg2: u64) {
     let sensor = shared_sensor();
@@ -154,6 +165,7 @@ fn trace_cmp8(arg1: u64, arg2: u64) {
 /// `__sanitizer_cov_trace_const_cmp1`
 ///
 /// See general crate documentation about hooks inserted before specific instructions
+#[cfg(trace_compares)]
 #[export_name = "__sanitizer_cov_trace_const_cmp1"]
 fn trace_const_cmp1(arg1: u8, arg2: u8) {
     let sensor = shared_sensor();
@@ -165,6 +177,7 @@ fn trace_const_cmp1(arg1: u8, arg2: u8) {
 /// `__sanitizer_cov_trace_const_cmp2`
 ///
 /// See general crate documentation about hooks inserted before specific instructions
+#[cfg(trace_compares)]
 #[export_name = "__sanitizer_cov_trace_const_cmp2"]
 fn trace_const_cmp2(arg1: u16, arg2: u16) {
     let sensor = shared_sensor();
@@ -175,6 +188,7 @@ fn trace_const_cmp2(arg1: u16, arg2: u16) {
 /// `__sanitizer_cov_trace_const_cmp4`
 ///
 /// See general crate documentation about hooks inserted before specific instructions
+#[cfg(trace_compares)]
 #[export_name = "__sanitizer_cov_trace_const_cmp4"]
 fn trace_const_cmp4(arg1: u32, arg2: u32) {
     let sensor = shared_sensor();
@@ -185,6 +199,7 @@ fn trace_const_cmp4(arg1: u32, arg2: u32) {
 /// `__sanitizer_cov_trace_const_cmp8`
 ///
 /// See general crate documentation about hooks inserted before specific instructions
+#[cfg(trace_compares)]
 #[export_name = "__sanitizer_cov_trace_const_cmp8"]
 fn trace_const_cmp8(arg1: u64, arg2: u64) {
     let sensor = shared_sensor();
@@ -204,6 +219,7 @@ fn trace_const_cmp8(arg1: u64, arg2: u64) {
 ///
 /// Fuzzcheck documentation:
 /// TODO
+#[cfg(trace_compares)]
 #[export_name = "__sanitizer_cov_trace_switch"]
 fn trace_switch(val: u64, arg2: *mut u64) {
     let sensor = shared_sensor();

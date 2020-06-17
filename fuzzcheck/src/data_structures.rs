@@ -280,11 +280,16 @@ where
 }
 
 //const SIZE: usize = 0b1 << 30;
+#[cfg(trace_compares)]
 const L0_SIZE: usize = 0b1 << 24;
+#[cfg(trace_compares)]
 const L1_SIZE: usize = 0b1 << 18;
+#[cfg(trace_compares)]
 const L2_SIZE: usize = 0b1 << 12;
+#[cfg(trace_compares)]
 const L3_SIZE: usize = 0b1 << 6;
 
+#[cfg(trace_compares)]
 pub struct HBitSet {
     l0: Vec<u64>,
     l1: Vec<u64>,
@@ -292,6 +297,7 @@ pub struct HBitSet {
     l3: Vec<u64>,
 }
 
+#[cfg(trace_compares)]
 impl HBitSet {
     pub fn new() -> Self {
         Self {

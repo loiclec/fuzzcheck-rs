@@ -113,6 +113,7 @@ impl Root {
         ));
 
         if config.trace_compares.unwrap_or(DEFAULT_TRACE_COMPARES) {
+            rustflags.push_str(" --cfg trace_compares");
             rustflags.push_str(" -Cllvm-args=-sanitizer-coverage-trace-compares");
         }
         rustflags.push_str(" -Cllvm-args=-sanitizer-coverage-inline-8bit-counters");
