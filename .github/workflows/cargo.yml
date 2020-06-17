@@ -29,21 +29,6 @@ jobs:
         with:
           command: test
 
-  fmt:
-    name: Rustfmt
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@master
-      - uses: actions-rs/toolchain@v1
-        with:
-          toolchain: nightly
-          override: true
-      - run: rustup component add rustfmt
-      - uses: actions-rs/cargo@v1
-        with:
-          command: fmt
-          args: --all -- --check
-
   cargo-fuzzcheck-usage:
     name: Test basic usage of the cargo fuzzcheck tool
     runs-on: ${{ matrix.os }}
