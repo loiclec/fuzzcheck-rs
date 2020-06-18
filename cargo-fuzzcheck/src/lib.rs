@@ -57,7 +57,9 @@ impl Root {
             rustflags.push_str(" -Clink-arg=-fuse-ld=gold");
         }
 
-        Command::new("cargo")
+        let mut cargo_command = Command::new("cargo");
+
+        cargo_command
             .env("RUSTFLAGS", rustflags)
             .arg("run")
             .arg("--bin")
@@ -67,7 +69,20 @@ impl Root {
             .arg("--release")
             .arg("--target")
             .arg(default_target())
-            .args(config.extra_cargo_flags.unwrap_or(vec![]))
+            .args(config.extra_cargo_flags.unwrap_or(vec![]));
+
+        if matches!(config.non_instrumented_default_features, Some(false)) {
+            cargo_command.arg("--no-default-features");
+        }
+        if let Some(features) = config.non_instrumented_features { // non-empty
+            if !features.is_empty() {
+                cargo_command
+                .arg("--features")
+                .args(features);
+            }
+        }
+        // TODO: features!!
+        cargo_command
             .arg("--")
             .args(s)
             .stdout(std::process::Stdio::inherit())
@@ -128,7 +143,9 @@ impl Root {
             rustflags.push_str(" -Clink-arg=-fuse-ld=gold");
         }
 
-        let output = Command::new("cargo")
+        let mut cargo_command = Command::new("cargo");
+
+        cargo_command
             .env("RUSTFLAGS", rustflags)
             .arg("build")
             .arg("--manifest-path")
@@ -136,7 +153,21 @@ impl Root {
             .arg("--release")
             .arg("--target")
             .arg(default_target())
-            .args(config.extra_cargo_flags.unwrap_or(vec![]))
+            .args(config.extra_cargo_flags.unwrap_or(vec![]));
+
+        if matches!(config.instrumented_default_features, Some(false)) {
+            cargo_command.arg("--no-default-features");
+            println!("no default features!");
+        }
+        if let Some(features) = config.instrumented_features { 
+            if !features.is_empty() {
+                cargo_command
+                .arg("--features")
+                .args(features);
+            }
+        }
+
+        let output = cargo_command
             .stdout(std::process::Stdio::inherit())
             .stderr(std::process::Stdio::inherit())
             .output()?;

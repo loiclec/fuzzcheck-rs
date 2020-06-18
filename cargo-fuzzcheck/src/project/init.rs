@@ -50,6 +50,11 @@ fuzzcheck-rs
                 lto: Some(DEFAULT_LTO),
                 extra_cargo_flags: None,
 
+                instrumented_default_features: None,
+                non_instrumented_default_features: None,
+                instrumented_features: None,
+                non_instrumented_features: None,
+
                 corpus_size: Some(100),
                 max_nbr_of_runs: None,
                 max_cplx: Some(DEFAULT_ARGUMENTS.max_input_cplx),

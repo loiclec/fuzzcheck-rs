@@ -108,6 +108,11 @@ pub struct Config {
     pub trace_compares: Option<bool>,
     pub stack_depth: Option<bool>,
 
+    pub instrumented_default_features: Option<bool>,
+    pub non_instrumented_default_features: Option<bool>,
+    pub instrumented_features: Option<Vec<String>>,
+    pub non_instrumented_features: Option<Vec<String>>,
+
     pub lto: Option<bool>,
     pub extra_cargo_flags: Option<Vec<String>>,
 
@@ -131,6 +136,12 @@ impl Config {
             coverage_level: None,
             trace_compares: None,
             stack_depth: None,
+
+            instrumented_default_features: None,
+            non_instrumented_default_features: None,
+            instrumented_features: None,
+            non_instrumented_features: None,
+
             lto: None,
             extra_cargo_flags: None,
 
@@ -187,6 +198,24 @@ impl ConfigToml {
                 .and_then(|c| c.stack_depth.as_ref())
                 .or(self.default.stack_depth.as_ref())
                 .cloned(),
+
+            instrumented_default_features: target_config
+                .and_then(|c| c.instrumented_default_features.as_ref())
+                .or(self.default.instrumented_default_features.as_ref())
+                .cloned(),
+            non_instrumented_default_features: target_config
+                .and_then(|c| c.non_instrumented_default_features.as_ref())
+                .or(self.default.non_instrumented_default_features.as_ref())
+                .cloned(),
+            instrumented_features: target_config
+                .and_then(|c| c.instrumented_features.as_ref())
+                .or(self.default.instrumented_features.as_ref())
+                .cloned(),
+            non_instrumented_features: target_config
+                .and_then(|c| c.non_instrumented_features.as_ref())
+                .or(self.default.non_instrumented_features.as_ref())
+                .cloned(),
+
             lto: target_config
                 .and_then(|c| c.lto.as_ref())
                 .or(self.default.lto.as_ref())
