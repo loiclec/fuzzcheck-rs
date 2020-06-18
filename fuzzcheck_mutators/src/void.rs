@@ -1,5 +1,5 @@
-extern crate fuzzcheck;
-use fuzzcheck::Mutator;
+
+use fuzzcheck_mutator_trait::Mutator;
 
 #[derive(Clone)]
 pub struct VoidMutator {}

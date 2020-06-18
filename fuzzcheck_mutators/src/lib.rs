@@ -2,7 +2,8 @@
 #![feature(extend_one)]
 #![feature(vec_into_raw_parts)]
 
-extern crate fuzzcheck;
+extern crate fuzzcheck_mutator_trait;
+use fuzzcheck_mutator_trait::Mutator;
 
 pub mod bool;
 pub mod either;

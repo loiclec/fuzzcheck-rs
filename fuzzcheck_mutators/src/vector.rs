@@ -1,19 +1,18 @@
-extern crate fuzzcheck;
-use fuzzcheck::Mutator;
 
-extern crate fastrand;
+use fuzzcheck_mutator_trait::Mutator;
+
 use fastrand::Rng;
 
 use std::iter::repeat;
 use std::ops::Range;
 
 pub struct VecMutator<M: Mutator> {
-    rng: Rng,
-    m: M,
+    pub rng: Rng,
+    pub m: M,
 }
 impl<M: Mutator> VecMutator<M> {
-    pub fn new(rng: Rng, m: M) -> Self {
-        Self { rng, m }
+    pub fn new(m: M) -> Self {
+        Self { rng: Rng::new(), m }
     }
 }
 impl<M: Mutator> Default for VecMutator<M>
@@ -21,7 +20,7 @@ where
     M: Default,
 {
     fn default() -> Self {
-        Self::new(Rng::new(), M::default())
+        Self { rng: Rng::new(), m: M::default() }
     }
 }
 

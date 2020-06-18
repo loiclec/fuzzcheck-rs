@@ -1,9 +1,7 @@
 use std::marker::PhantomData;
 
-extern crate fuzzcheck;
-use fuzzcheck::Mutator;
+use fuzzcheck_mutator_trait::Mutator;
 
-extern crate fastrand;
 use fastrand::Rng;
 
 pub trait TupleMap {

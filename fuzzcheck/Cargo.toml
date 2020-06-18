@@ -16,15 +16,6 @@ version = "0.2"
 [dependencies.fastrand]
 version = "1.0"
 
-# [dependencies.rand]
-# version = "0.7"
-# default_features = false
-# features = ["small_rng"]
-
-# [dev-dependencies.rand]
-# version = "0.7"
-# features = ["small_rng"]
-
 [dependencies.bitflags]
 version = "1.1"
 
@@ -37,6 +28,14 @@ version = "0.2"
 
 [dependencies.fuzzcheck_arg_parser]
 path = "../fuzzcheck_arg_parser"
+version = "0.2.1"
+
+# this is conditional on not being compiled as part of a fuzz test because
+# in that case, the fuzzcheck_mutator_trait crate is linked manually
+# via link-search in the build script, so cargo should not try to fetch
+# any version of it
+[target.'cfg(not(fuzzcheck_fuzz_target))'.dependencies.fuzzcheck_mutator_trait]
+path = "../fuzzcheck_mutator_trait"
 version = "0.2.1"
 
 [lib]

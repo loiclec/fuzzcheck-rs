@@ -51,7 +51,18 @@ impl Root {
 
         self.instrumented_compile(target_name)?;
 
-        let mut rustflags: String = "--cfg fuzzing -Ctarget-cpu=native".to_string();
+
+        let mut rustflags: String = "--cfg fuzzcheck --cfg fuzzcheck_fuzz_target -Ctarget-cpu=native".to_string();
+
+        {
+            let instrumented_folder = self.instrumented_folder();
+
+            let instrumented_target_folder_0 = instrumented_folder.join("target/release/deps");
+            let instrumented_target_folder_1 =
+                instrumented_folder.join(format!("target/{}/release/deps", default_target()));
+
+            rustflags.push_str(&format!(" -L all={} -L all={}", instrumented_target_folder_0.display(), instrumented_target_folder_1.display()));
+        }
 
         if use_gold_linker() {
             rustflags.push_str(" -Clink-arg=-fuse-ld=gold");
@@ -110,7 +121,7 @@ impl Root {
     }
 
     fn instrumented_compile(&self, target_name: &str) -> Result<(), CargoFuzzcheckError> {
-        let mut rustflags: String = "--cfg fuzzing \
+        let mut rustflags: String = "--cfg fuzzcheck --cfg fuzzcheck_instrumented \
                                      -Ctarget-cpu=native \
                                      -Cmetadata=fuzzing \
                                      -Cpasses=sancov"

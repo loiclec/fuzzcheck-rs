@@ -1,5 +1,5 @@
-extern crate fuzzcheck;
-use fuzzcheck::Mutator;
+
+use fuzzcheck_mutator_trait::Mutator;
 
 macro_rules! match_all_options {
     ( $main:expr, $( $others:expr ),* ) => {
