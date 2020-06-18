@@ -3,9 +3,8 @@ use std::marker::PhantomData;
 extern crate fuzzcheck;
 use fuzzcheck::Mutator;
 
-extern crate rand;
-use rand::rngs::SmallRng;
-use rand::{Rng, SeedableRng};
+extern crate fastrand;
+use fastrand::Rng;
 
 macro_rules! match_all_eithers {
     ( $main:expr, $( $others:expr ),* ) => {
@@ -74,6 +73,7 @@ where
 {
     a: A,
     b: B,
+    rng: Rng,
     phantom: PhantomData<Map>,
 }
 impl<Map: EitherMap, A: Mutator, B: Mutator> EitherMutator<Map, A, B> {
@@ -81,6 +81,7 @@ impl<Map: EitherMap, A: Mutator, B: Mutator> EitherMutator<Map, A, B> {
         Self {
             a,
             b,
+            rng: Rng::new(),
             phantom: PhantomData,
         }
     }
@@ -182,10 +183,9 @@ impl<A: Mutator, B: Mutator, Map: EitherMap<A = A::Value, B = B::Value>> Mutator
 
         if step.pick_step % 100 == 0 {
             // switch to a different branch once every 100 times
-            let mut r = SmallRng::seed_from_u64(step.pick_step as u64); // TODO: should it be from entropy?
             match Map::get_either(value) {
                 Either::Left(_) => {
-                    let (tmp_inner_value, tmp_inner_cache) = self.b.arbitrary(r.gen(), max_cplx);
+                    let (tmp_inner_value, tmp_inner_cache) = self.b.arbitrary(self.rng.usize(..), max_cplx);
                     let mut tmp_value = Map::right(tmp_inner_value);
                     let mut tmp_cache = Either::Right(tmp_inner_cache);
 
@@ -195,7 +195,7 @@ impl<A: Mutator, B: Mutator, Map: EitherMap<A = A::Value, B = B::Value>> Mutator
                     UnmutateEitherToken::Restore(tmp_value, tmp_cache)
                 }
                 Either::Right(_) => {
-                    let (tmp_inner_value, tmp_inner_cache) = self.a.arbitrary(r.gen(), max_cplx);
+                    let (tmp_inner_value, tmp_inner_cache) = self.a.arbitrary(self.rng.usize(..), max_cplx);
                     let mut tmp_value = Map::left(tmp_inner_value);
                     let mut tmp_cache = Either::Left(tmp_inner_cache);
 

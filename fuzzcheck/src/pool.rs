@@ -62,11 +62,8 @@ use std::collections::BTreeSet;
 use std::fmt;
 use std::ops::Range;
 
-use rand::rngs::SmallRng;
-use rand::{Rng, SeedableRng};
-
-use rand::distributions::uniform::{UniformFloat, UniformSampler};
-use rand::distributions::Distribution;
+extern crate fastrand;
+use fastrand::Rng;
 
 use crate::data_structures::{Slab, SlabKey, WeightedIndex};
 use crate::world::{FuzzerEvent, WorldAction};
@@ -220,11 +217,14 @@ pub struct Pool<M: Mutator> {
 
     pub average_complexity: f64,
     cumulative_weights: Vec<f64>,
-    rng: SmallRng,
+    rng: Rng,
 }
 
 impl<M: Mutator> Pool<M> {
     pub fn default() -> Self {
+        let rng = fastrand::Rng::new();
+        rng.seed(0);
+
         Pool {
             features: Vec::new(),
             slab_features: Slab::new(),
@@ -239,7 +239,7 @@ impl<M: Mutator> Pool<M> {
 
             average_complexity: 0.0,
             cumulative_weights: Vec::default(),
-            rng: SmallRng::seed_from_u64(0),
+            rng,
         }
     }
 
@@ -685,13 +685,11 @@ impl<M: Mutator> Pool<M> {
 
     /// Returns the index of an interesting input in the pool
     pub fn random_index(&mut self) -> PoolIndex<M> {
-        if self.favored_input.is_some() && (self.rng.gen_bool(0.25) || self.inputs.is_empty()) {
+        if self.favored_input.is_some() && (self.rng.u8(0 .. 4) == 0 || self.inputs.is_empty()) {
             PoolIndex::Favored
         } else {
-            let weight_distr = UniformFloat::new(0.0, self.cumulative_weights.last().unwrap_or(&0.0));
             let dist = WeightedIndex {
                 cumulative_weights: &self.cumulative_weights,
-                weight_distribution: weight_distr,
             };
             let x = dist.sample(&mut self.rng);
             let key = self.inputs[x];

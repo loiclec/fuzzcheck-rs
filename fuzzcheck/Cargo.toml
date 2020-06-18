@@ -13,14 +13,17 @@ categories = ["development-tools"]
 [dependencies.getopts]
 version = "0.2"
 
-[dependencies.rand]
-version = "0.7"
-default_features = false
-features = ["small_rng"]
+[dependencies.fastrand]
+version = "1.0"
 
-[dev-dependencies.rand]
-version = "0.7"
-features = ["small_rng"]
+# [dependencies.rand]
+# version = "0.7"
+# default_features = false
+# features = ["small_rng"]
+
+# [dev-dependencies.rand]
+# version = "0.7"
+# features = ["small_rng"]
 
 [dependencies.bitflags]
 version = "1.1"

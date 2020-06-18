@@ -1,19 +1,18 @@
 extern crate fuzzcheck;
 use fuzzcheck::Mutator;
 
-extern crate rand;
-use rand::rngs::SmallRng;
-use rand::{Rng, SeedableRng};
+extern crate fastrand;
+use fastrand::Rng;
 
 use std::iter::repeat;
 use std::ops::Range;
 
 pub struct VecMutator<M: Mutator> {
-    rng: SmallRng,
+    rng: Rng,
     m: M,
 }
 impl<M: Mutator> VecMutator<M> {
-    pub fn new(rng: SmallRng, m: M) -> Self {
+    pub fn new(rng: Rng, m: M) -> Self {
         Self { rng, m }
     }
 }
@@ -22,8 +21,7 @@ where
     M: Default,
 {
     fn default() -> Self {
-        let seed = std::time::SystemTime::UNIX_EPOCH.elapsed().unwrap().as_micros() as u64;
-        Self::new(SmallRng::seed_from_u64(seed), M::default())
+        Self::new(Rng::new(), M::default())
     }
 }
 
@@ -256,9 +254,9 @@ impl<M: Mutator> VecMutator<M> {
         if value.is_empty() {
             return UnmutateVecToken::Nothing;
         }
-        let start_idx = self.rng.gen_range(0, value.len());
+        let start_idx = self.rng.usize(0 .. value.len());
 
-        let end_idx = self.rng.gen_range(start_idx, value.len()) + 1;
+        let end_idx = 1 + self.rng.usize(start_idx .. value.len());
         let (removed_elements, removed_cache) = {
             let removed_elements: Vec<_> = value.drain(start_idx..end_idx).collect();
             let removed_cache: Vec<_> = cache.inner.drain(start_idx..end_idx).collect();
@@ -297,20 +295,20 @@ impl<M: Mutator> VecMutator<M> {
         let idx = if value.is_empty() {
             0
         } else {
-            self.rng.gen_range(0, value.len())
+            self.rng.usize(0 .. value.len())
         };
 
-        let target_cplx = self.rng.gen_range(0.0, spare_cplx);
+        let target_cplx = crate::gen_f64(&self.rng, 0.0 .. spare_cplx);
         let (min_length, max_length) = self.choose_slice_length(target_cplx);
         let min_length = min_length.unwrap_or(0);
 
         let len = if min_length >= max_length {
             min_length
         } else {
-            self.rng.gen_range(min_length, max_length)
+            self.rng.usize(min_length .. max_length)
         };
 
-        let (el, el_cache) = self.m.arbitrary(self.rng.gen(), target_cplx / (len as f64));
+        let (el, el_cache) = self.m.arbitrary(self.rng.usize(..), target_cplx / (len as f64));
         let el_cplx = self.m.complexity(&el, &el_cache);
 
         insert_many(value, idx, repeat(el).take(len));
@@ -404,8 +402,8 @@ impl<M: Mutator> VecMutator<M> {
             if min_cplx_el >= max_cplx_element {
                 break;
             }
-            let cplx_element = self.rng.gen_range(min_cplx_el, max_cplx_element);
-            let (x, x_cache) = self.m.arbitrary(self.rng.gen(), cplx_element);
+            let cplx_element = crate::gen_f64(&self.rng, min_cplx_el .. max_cplx_element);
+            let (x, x_cache) = self.m.arbitrary(self.rng.usize(..), cplx_element);
             let x_cplx = self.m.complexity(&x, &x_cache);
             v.push(x);
             cache.inner.push(x_cache);
@@ -456,13 +454,13 @@ impl<M: Mutator> Mutator for VecMutator<M> {
         if seed == 0 || max_cplx <= 1.0 {
             return (Self::Value::default(), Self::Cache::default());
         }
-        let target_cplx = self.rng.gen_range(0.0, max_cplx);
+        let target_cplx = crate::gen_f64(&self.rng, 0.0 .. max_cplx);
         let lengths = self.choose_slice_length(target_cplx);
 
         if lengths.0.is_none() {
             // in this case, the elements are always of cplx 0, so we can only vary the length of the vector
             assert!(lengths.1 > 0);
-            let len = self.rng.gen_range(0, lengths.1);
+            let len = self.rng.usize(0 .. lengths.1);
             let (el, el_cache) = self.m.arbitrary(0, 0.0);
             let v = repeat(el).take(len).collect();
             let cache = Self::Cache {
@@ -477,7 +475,7 @@ impl<M: Mutator> Mutator for VecMutator<M> {
         let target_len = if min_length >= max_length {
             min_length
         } else {
-            self.rng.gen_range(min_length, max_length)
+            self.rng.usize(min_length .. max_length)
         };
 
         self.new_input_with_length_and_complexity(target_len, target_cplx)

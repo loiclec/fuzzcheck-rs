@@ -16,7 +16,6 @@ categories = ["development-tools"]
 path = "../fuzzcheck"
 version = "0.2.1"
 
-[dependencies.rand]
-version = "0.7"
-default_features = false
-features = ["small_rng"]
+
+[dependencies.fastrand]
+version = "1.0"

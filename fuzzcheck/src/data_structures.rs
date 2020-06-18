@@ -1,14 +1,13 @@
 //! Collection of data structures and algorithms used by the rest of fuzzcheck
 
-use std::cmp::Ordering;
+extern crate fastrand;
 
-use core::cmp::PartialOrd;
-use rand::distributions::uniform::{SampleUniform, UniformSampler};
-use rand::distributions::Distribution;
-use rand::Rng;
+use std::cmp::Ordering;
+use std::cmp::PartialOrd;
 
 use std::ops::Index;
 use std::ops::IndexMut;
+use std::ops::Range;
 
 use std::fmt;
 
@@ -249,23 +248,36 @@ impl<T> IndexMut<SlabKey<T>> for Slab<T> {
 
 // ========== WeightedIndex ===========
 
+/// Generate a random f64 within the given range
+/// The start and end of the range must be finite
+/// This is a very naive implementation
+pub fn gen_f64(rng: &fastrand::Rng, range: Range<f64>) -> f64 {
+    assert!(range.start.is_finite() && range.end.is_finite());
+
+    let granularity = u32::MAX;
+    let granularity_f = granularity as f64;
+
+    let x = rng.u32(0 .. granularity);
+
+    range.start + ((range.end - range.start) / granularity_f) * (x as f64)
+}
+
 /**
  * A distribution using weighted sampling to pick a discretely selected item.
  *
  * An alternative implementation of the same type by the `rand` crate.
  */
 #[derive(Debug, Clone)]
-pub struct WeightedIndex<'a, X: SampleUniform + PartialOrd> {
-    pub cumulative_weights: &'a Vec<X>,
-    pub weight_distribution: X::Sampler,
+pub struct WeightedIndex<'a> {
+    pub cumulative_weights: &'a Vec<f64>,
 }
 
-impl<'a, X> Distribution<usize> for WeightedIndex<'a, X>
-where
-    X: SampleUniform + PartialOrd,
-{
-    fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> usize {
-        let chosen_weight = self.weight_distribution.sample(rng);
+impl<'a> WeightedIndex<'a> {
+    pub fn sample(&self, rng: &fastrand::Rng) -> usize {
+        assert!(!self.cumulative_weights.is_empty());
+
+        let range = *self.cumulative_weights.first().unwrap() .. *self.cumulative_weights.last().unwrap();
+        let chosen_weight = gen_f64(rng, range);
         // Find the first item which has a weight *higher* than the chosen weight.
         self.cumulative_weights
             .binary_search_by(|w| {

@@ -3,9 +3,8 @@ use std::marker::PhantomData;
 extern crate fuzzcheck;
 use fuzzcheck::Mutator;
 
-extern crate rand;
-use rand::rngs::SmallRng;
-use rand::{Rng, SeedableRng};
+extern crate fastrand;
+use fastrand::Rng;
 
 pub trait TupleMap {
     type A;
@@ -55,6 +54,7 @@ where
 {
     a: A,
     b: B,
+    rng: Rng,
     phantom: PhantomData<Map>,
 }
 impl<Map: TupleMap, A: Mutator, B: Mutator> Tuple2Mutator<Map, A, B> {
@@ -62,6 +62,7 @@ impl<Map: TupleMap, A: Mutator, B: Mutator> Tuple2Mutator<Map, A, B> {
         Self {
             a,
             b,
+            rng: Rng::new(),
             phantom: PhantomData,
         }
     }
@@ -124,16 +125,15 @@ impl<A: Mutator, B: Mutator, Map: TupleMap<A = A::Value, B = B::Value>> Mutator 
     }
 
     fn arbitrary(&mut self, seed: usize, max_cplx: f64) -> (Self::Value, Self::Cache) {
-        let mut r = SmallRng::seed_from_u64(seed as u64);
         let cplx = if seed < 10 {
             // first 10 vary in cplx from max_cplx to max_cplx / 10
             max_cplx / (10.0 - seed as f64)
         } else {
-            max_cplx * r.gen::<f64>()
+            max_cplx * crate::gen_f64(&self.rng, 0.0 .. 1.0)
         };
-        let cplx_a = r.gen::<f64>() * cplx;
-        let (a_value, a_cache) = self.a.arbitrary(r.gen(), cplx_a);
-        let (b_value, b_cache) = self.b.arbitrary(r.gen(), max_cplx - cplx_a);
+        let cplx_a = crate::gen_f64(&self.rng, 0.0 .. cplx);
+        let (a_value, a_cache) = self.a.arbitrary(self.rng.usize(..), cplx_a);
+        let (b_value, b_cache) = self.b.arbitrary(self.rng.usize(..), max_cplx - cplx_a);
         let value = Map::new(a_value, b_value);
         let cache = (a_cache, b_cache);
         (value, cache)
@@ -152,13 +152,11 @@ impl<A: Mutator, B: Mutator, Map: TupleMap<A = A::Value, B = B::Value>> Mutator 
         step.pick_step += 1;
         if step.pick_step % 10 == 0 {
             // mutate both once every ten times
-            let mut r = SmallRng::seed_from_u64(step.pick_step as u64);
-
             let cplx = self.complexity(value, cache);
             let remaining_cplx = max_cplx - cplx;
             // allocate remaining complexity randomly to a and b
             // only expands complexity, does not reduce it
-            let remaining_a_cplx = remaining_cplx * r.gen::<f64>();
+            let remaining_a_cplx = remaining_cplx * crate::gen_f64(&self.rng, 0.0 .. 1.0);
             let max_a_cplx = cplx_a + remaining_a_cplx;
 
             let token_a = self
