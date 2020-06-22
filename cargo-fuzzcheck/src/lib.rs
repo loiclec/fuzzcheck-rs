@@ -352,15 +352,21 @@ fn use_gold_linker() -> bool {
     }
 }
 
-#[cfg(target_os = "macos")]
+#[cfg(all(target_os = "macos", target_arch = "x86_64"))]
 pub fn default_target() -> &'static str {
     "x86_64-apple-darwin"
 }
 
-#[cfg(not(target_os = "macos"))]
+#[cfg(all(target_os = "linux", target_arch = "x86_64"))]
 pub fn default_target() -> &'static str {
     "x86_64-unknown-linux-gnu"
 }
+
+#[cfg(all(target_os = "linux", target_arch = "aarch64"))]
+pub fn default_target() -> &'static str {
+    "aarch64-unknown-linux-gnu"
+}
+
 
 #[derive(Debug)]
 pub enum CargoFuzzcheckError {
