@@ -25,8 +25,8 @@ use fuzzcheck_arg_parser::{
     CORPUS_SIZE_FLAG, INPUT_FILE_FLAG, IN_CORPUS_FLAG,
 };
 
-extern crate fuzzcheck_mutator_trait;
-use fuzzcheck_mutator_trait::*;
+extern crate fuzzcheck_traits;
+use fuzzcheck_traits::*;
 
 use std::borrow::Borrow;
 
@@ -126,21 +126,6 @@ fuzzcheck {cmin} --{in_corpus} "fuzz-corpus" --{corpus_size} 25
     };
 
     fuzzer::launch(test, mutator, serializer, args)
-}
-
-/**
- * A Serializer is used to encode and decode values into bytes.
- *
- * One possible implementation would be to use `serde` to implement
- * both required functions. But we also want to be able to fuzz-test
- * types that are not serializable with `serde`, which is why this
- * Serializer trait exists.
-*/
-pub trait Serializer {
-    type Value;
-    fn extension(&self) -> &str;
-    fn from_data(&self, data: &[u8]) -> Option<Self::Value>;
-    fn to_data(&self, value: &Self::Value) -> Vec<u8>;
 }
 
 /**

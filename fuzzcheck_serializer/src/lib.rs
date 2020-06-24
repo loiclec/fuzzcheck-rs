@@ -10,6 +10,8 @@
 //! copy/pasting the bytes from/to the files. The extension is customizable.
 //!
 
+extern crate fuzzcheck_traits;
+
 /// Defines a struct called `SerdeSerializer<T>` that implements the
 /// `fuzzcheck::Serializer` trait using serde.
 ///
@@ -46,7 +48,7 @@ macro_rules! define_serde_serializer {
             }
         }
 
-        impl<S> fuzzcheck::Serializer for SerdeSerializer<S>
+        impl<S> fuzzcheck_traits::Serializer for SerdeSerializer<S>
         where
             S: serde::Serialize + for<'e> serde::Deserialize<'e>,
         {
@@ -63,8 +65,6 @@ macro_rules! define_serde_serializer {
         }
     };
 }
-
-extern crate fuzzcheck;
 
 /**
 A Serializer for Vec<u8> that simply copies the bytes from/to the files.
@@ -91,7 +91,7 @@ impl ByteSerializer {
     }
 }
 
-impl fuzzcheck::Serializer for ByteSerializer {
+impl fuzzcheck_traits::Serializer for ByteSerializer {
     type Value = Vec<u8>;
     fn extension(&self) -> &str {
         self.ext

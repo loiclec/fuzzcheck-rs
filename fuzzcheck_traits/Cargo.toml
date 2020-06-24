@@ -1,5 +1,5 @@
 [package]
-name = "fuzzcheck_mutator_trait"
+name = "fuzzcheck_traits"
 version = "0.2.1"
 authors = ["Loïc Lecrenier <loic.lecrenier@me.com>"]
 edition = "2018"

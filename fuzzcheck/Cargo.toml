@@ -30,12 +30,8 @@ version = "0.2"
 path = "../fuzzcheck_arg_parser"
 version = "0.2.1"
 
-# this is conditional on not being compiled as part of a fuzz test because
-# in that case, the fuzzcheck_mutator_trait crate is linked manually
-# via link-search in the build script, so cargo should not try to fetch
-# any version of it
-[target.'cfg(not(fuzzcheck_fuzz_target))'.dependencies.fuzzcheck_mutator_trait]
-path = "../fuzzcheck_mutator_trait"
+[dependencies.fuzzcheck_traits]
+path = "../fuzzcheck_traits"
 version = "0.2.1"
 
 [lib]

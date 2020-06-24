@@ -38,7 +38,7 @@ dependencies = [
  "cfg-if 0.1.10 (registry+https://github.com/rust-lang/crates.io-index)",
  "fastrand 1.2.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "fuzzcheck_arg_parser 0.2.1",
- "fuzzcheck_mutator_trait 0.2.1",
+ "fuzzcheck_traits 0.2.1",
  "getopts 0.2.21 (registry+https://github.com/rust-lang/crates.io-index)",
  "libc 0.2.71 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
@@ -51,23 +51,23 @@ dependencies = [
 ]
 
 [[package]]
-name = "fuzzcheck_mutator_trait"
-version = "0.2.1"
-
-[[package]]
 name = "fuzzcheck_mutators"
 version = "0.2.1"
 dependencies = [
  "fastrand 1.2.3 (registry+https://github.com/rust-lang/crates.io-index)",
- "fuzzcheck_mutator_trait 0.2.1",
+ "fuzzcheck_traits 0.2.1",
 ]
 
 [[package]]
 name = "fuzzcheck_serializer"
 version = "0.2.1"
 dependencies = [
- "fuzzcheck 0.2.1",
+ "fuzzcheck_traits 0.2.1",
 ]
+
+[[package]]
+name = "fuzzcheck_traits"
+version = "0.2.1"
 
 [[package]]
 name = "getopts"

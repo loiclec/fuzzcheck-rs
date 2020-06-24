@@ -1,5 +1,5 @@
 
-use fuzzcheck_mutator_trait::Mutator;
+use fuzzcheck_traits::Mutator;
 
 use fastrand::Rng;
 

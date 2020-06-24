@@ -113,3 +113,18 @@ pub trait Mutator: Sized {
 
     fn unmutate(&self, value: &mut Self::Value, cache: &mut Self::Cache, t: Self::UnmutateToken);
 }
+
+/**
+ * A Serializer is used to encode and decode values into bytes.
+ *
+ * One possible implementation would be to use `serde` to implement
+ * both required functions. But we also want to be able to fuzz-test
+ * types that are not serializable with `serde`, which is why this
+ * Serializer trait exists.
+*/
+pub trait Serializer {
+    type Value;
+    fn extension(&self) -> &str;
+    fn from_data(&self, data: &[u8]) -> Option<Self::Value>;
+    fn to_data(&self, value: &Self::Value) -> Vec<u8>;
+}

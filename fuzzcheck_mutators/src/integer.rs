@@ -1,5 +1,5 @@
 
-use fuzzcheck_mutator_trait::Mutator;
+use fuzzcheck_traits::Mutator;
 
 macro_rules! impl_unsigned_mutator {
     ($name:ty,$name_mutator:ident) => {

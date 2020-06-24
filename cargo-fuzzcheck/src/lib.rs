@@ -52,7 +52,7 @@ impl Root {
         self.instrumented_compile(target_name)?;
 
 
-        let mut rustflags: String = "--cfg fuzzcheck --cfg fuzzcheck_fuzz_target -Ctarget-cpu=native".to_string();
+        let mut rustflags: String = "--cfg fuzzcheck -Ctarget-cpu=native".to_string();
 
         {
             let instrumented_folder = self.instrumented_folder();
@@ -121,7 +121,7 @@ impl Root {
     }
 
     fn instrumented_compile(&self, target_name: &str) -> Result<(), CargoFuzzcheckError> {
-        let mut rustflags: String = "--cfg fuzzcheck --cfg fuzzcheck_instrumented \
+        let mut rustflags: String = "--cfg fuzzcheck \
                                      -Ctarget-cpu=native \
                                      -Cmetadata=fuzzing \
                                      -Cpasses=sancov"

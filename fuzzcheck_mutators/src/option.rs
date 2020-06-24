@@ -1,5 +1,5 @@
 
-use fuzzcheck_mutator_trait::Mutator;
+use fuzzcheck_traits::Mutator;
 
 macro_rules! match_all_options {
     ( $main:expr, $( $others:expr ),* ) => {

@@ -12,12 +12,8 @@ categories = ["development-tools"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
-# this is conditional on not being compiled as part of a fuzz test because
-# in that case, the fuzzcheck_mutator_trait crate is linked manually
-# via link-search in the build script, so cargo should not try to fetch
-# any version of it
-[target.'cfg(not(fuzzcheck_fuzz_target))'.dependencies.fuzzcheck_mutator_trait]
-path = "../fuzzcheck_mutator_trait"
+[dependencies.fuzzcheck_traits]
+path = "../fuzzcheck_traits"
 version = "0.2.1"
 
 [dependencies.fastrand]
