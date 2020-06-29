@@ -216,8 +216,6 @@ impl Mutator for $name_mutator {
                 }
             } else {
                 tmp_step -= 7;
-                let low = (*value as $name_unsigned).wrapping_sub(<$name_unsigned>::MAX / 2);
-                let high = (*value as $name_unsigned).wrapping_add(<$name_unsigned>::MAX / 2 + 1);
                 self.uniform_permutation(tmp_step) as $name
             }
         };
