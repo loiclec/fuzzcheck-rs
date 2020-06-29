@@ -103,7 +103,7 @@ impl Fuzz {
             })
             .ok();
 
-        let config_toml_path = fuzz_folder.join("config.toml");
+        let config_toml_path = fuzz_folder.join("fuzzcheck.toml");
         let config_toml = if let Ok(config_toml_string) = fs::File::open(config_toml_path).and_then(|mut f| {
             let mut string = String::new();
             let _ = f.read_to_string(&mut string)?;
