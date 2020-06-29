@@ -53,6 +53,10 @@ impl Root {
 
 
         let mut rustflags: String = "--cfg fuzzcheck -Ctarget-cpu=native".to_string();
+        
+        if config.trace_compares.unwrap_or(DEFAULT_TRACE_COMPARES) {
+            rustflags.push_str(" --cfg trace_compares");
+        }
 
         {
             let instrumented_folder = self.instrumented_folder();
