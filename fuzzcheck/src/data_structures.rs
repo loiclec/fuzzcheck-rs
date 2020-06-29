@@ -275,6 +275,9 @@ pub struct WeightedIndex<'a> {
 impl<'a> WeightedIndex<'a> {
     pub fn sample(&self, rng: &fastrand::Rng) -> usize {
         assert!(!self.cumulative_weights.is_empty());
+        if self.cumulative_weights.len() == 1 {
+            return 0;
+        }
 
         let range = *self.cumulative_weights.first().unwrap() .. *self.cumulative_weights.last().unwrap();
         let chosen_weight = gen_f64(rng, range);
