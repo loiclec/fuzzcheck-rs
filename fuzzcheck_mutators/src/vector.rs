@@ -52,7 +52,7 @@ impl MutationStep {
                     VecOperation::Remove,
                     VecOperation::RemoveMany,
                     VecOperation::InsertRepeated,
-                    VecOperation::Arbitrary,
+                    // VecOperation::Arbitrary,
                 ],
             )
         } else {
@@ -61,7 +61,7 @@ impl MutationStep {
                 vec![
                     VecOperation::Insert,
                     VecOperation::InsertRepeated,
-                    VecOperation::Arbitrary,
+                    // VecOperation::Arbitrary,
                 ],
             )
         };
