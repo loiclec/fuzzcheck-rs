@@ -97,6 +97,7 @@ impl<C> Default for VecMutatorCache<C> {
     }
 }
 
+#[derive(Clone)]
 pub struct VecMutatorStep<S> {
     inner: Vec<S>,
     // TODO: rename that

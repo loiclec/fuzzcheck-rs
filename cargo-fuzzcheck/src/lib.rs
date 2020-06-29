@@ -1,6 +1,6 @@
 pub mod project;
 
-use init::{DEFAULT_COVERAGE_LEVEL, DEFAULT_LTO, DEFAULT_TRACE_COMPARES};
+use init::{DEFAULT_COVERAGE_LEVEL, DEFAULT_LTO, DEFAULT_TRACE_COMPARES, DEFAULT_STACK_DEPTH};
 use project::*;
 
 use fuzzcheck_arg_parser::*;
@@ -148,11 +148,9 @@ impl Root {
         }
         rustflags.push_str(" -Cllvm-args=-sanitizer-coverage-inline-8bit-counters");
 
-        /*
         if config.trace_compares.unwrap_or(DEFAULT_STACK_DEPTH) {
             rustflags.push_str(" -Cllvm-args=-sanitizer-coverage-stack-depth");
         }
-        */
 
         if use_gold_linker() {
             rustflags.push_str(" -Clink-arg=-fuse-ld=gold");

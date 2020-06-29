@@ -18,7 +18,7 @@ use std::time::Instant;
 use crate::nix_subset as nix;
 use nix::signal;
 
-use crate::{Feature, Serializer};
+use crate::Serializer;
 
 #[derive(Clone, Copy, Default)]
 pub struct FuzzerStats {
@@ -49,6 +49,7 @@ pub enum FuzzerEvent {
     Done,
     New,
     Replace(usize),
+    ReplaceLowestStack,
     Remove,
     DidReadCorpus,
     CaughtSignal(signal::Signal),
@@ -58,7 +59,7 @@ pub enum FuzzerEvent {
 #[derive(Clone)]
 pub(crate) enum WorldAction<T> {
     Remove(T),
-    Add(T, Vec<Feature>),
+    Add(T),
     ReportEvent(FuzzerEvent),
 }
 
@@ -80,7 +81,7 @@ impl<S: Serializer> World<S> {
     pub(crate) fn do_actions(&self, actions: Vec<WorldAction<S::Value>>, stats: &FuzzerStats) -> Result<()> {
         for a in actions {
             match a {
-                WorldAction::Add(x, _) => {
+                WorldAction::Add(x) => {
                     self.add_to_output_corpus(&x)?;
                 }
                 WorldAction::Remove(x) => {
@@ -91,7 +92,7 @@ impl<S: Serializer> World<S> {
                         self.report_event(e, Some(*stats))
                     }
                     _ => self.report_event(e, None),
-                },
+                }
             }
         }
         Ok(())
@@ -247,6 +248,9 @@ impl<S: Serializer> World<S> {
             FuzzerEvent::TestFailure => println!("\n================ TEST FAILED ================"),
             FuzzerEvent::Replace(count) => {
                 print!("RPLC {}\t", count);
+            }
+            FuzzerEvent::ReplaceLowestStack => {
+                print!("STACK\t");
             }
         };
         if let Some(stats) = stats {

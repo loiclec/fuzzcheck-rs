@@ -85,7 +85,7 @@
 pub trait Mutator: Sized {
     type Value: Clone;
     type Cache: Clone;
-    type MutationStep;
+    type MutationStep: Clone;
     type UnmutateToken;
 
     /// Compute the cache for the given value

@@ -8,6 +8,7 @@
 #![feature(vec_remove_item)]
 #![feature(is_sorted)]
 #![feature(link_llvm_intrinsics)]
+#![feature(thread_local)]
 
 mod nix_subset;
 
@@ -237,7 +238,6 @@ impl Feature {
  * A struct that stores the value, cache, and mutation step of an input.
  * It is used for convenience.
  */
-#[derive(Clone)]
 struct FuzzedInput<Mut: Mutator> {
     pub value: Mut::Value,
     pub cache: Mut::Cache,
@@ -278,3 +278,14 @@ impl<Mut: Mutator> FuzzedInput<Mut> {
         m.unmutate(&mut self.value, &mut self.cache, t);
     }
 }
+
+impl<M: Mutator> Clone for FuzzedInput<M> {
+    fn clone(&self) -> Self {
+        Self {
+            value: self.value.clone(),
+            cache: self.cache.clone(),
+            mutation_step: self.mutation_step.clone(),
+        }
+    }
+}
+

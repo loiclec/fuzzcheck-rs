@@ -28,8 +28,24 @@ pub fn shared_sensor() -> &'static mut CodeCoverageSensor {
 pub struct CodeCoverageSensor {
     pub is_recording: bool,
     eight_bit_counters: &'static mut [u8],
+    /// pointer to the __sancov_lowest_stack variable
+    _lowest_stack: &'static mut libc::uintptr_t,
+    /// value of __sancov_lowest_stack after running an input
+    pub lowest_stack: usize,
     #[cfg(trace_compares)]
     instr_features: HBitSet,
+}
+
+impl CodeCoverageSensor {
+    pub fn start_recording(&mut self) {
+        self.is_recording = true;
+        self.lowest_stack = usize::MAX;
+        *self._lowest_stack = usize::MAX;
+    }
+    pub fn stop_recording(&mut self) {
+        self.is_recording = false;
+        self.lowest_stack = *self._lowest_stack;
+    }
 }
 
 #[cfg(trace_compares)]

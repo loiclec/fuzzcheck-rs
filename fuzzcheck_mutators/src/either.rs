@@ -94,6 +94,7 @@ where
     }
 }
 
+#[derive(Clone)]
 pub struct EitherMutatorStep<A, B> {
     inner: Either<A, B>,
     pick_step: usize,

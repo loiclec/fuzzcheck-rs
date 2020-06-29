@@ -40,6 +40,17 @@ impl<M: Mutator> Default for AnalysisCache<M> {
     }
 }
 
+pub(crate) struct AnalysisResult<M: Mutator> {
+    // will be left empty if the input is not interesting
+    pub existing_features: Vec<SlabKey<AnalyzedFeature<M>>>,
+    pub new_features: Vec<Feature>,
+    // always contains the value of the lowest stack,
+    // will need to check if it is lower than the other
+    // inputs in the pool
+    pub lowest_stack: usize,
+}
+
+
 struct FuzzerState<M: Mutator, S: Serializer<Value = M::Value>> {
     mutator: M,
     pool: Pool<M>,
@@ -168,7 +179,7 @@ where
             set_timer(timeout);
         }
 
-        sensor.is_recording = true;
+        sensor.start_recording();
 
         let cell = NotUnwindSafe { value: test };
         let input_cell = NotUnwindSafe {
@@ -176,7 +187,7 @@ where
         };
         let result = catch_unwind(|| (cell.value)(input_cell.value));
 
-        sensor.is_recording = false;
+        sensor.stop_recording();
 
         if timeout != 0 {
             set_timer(0);
@@ -193,7 +204,7 @@ where
         Ok(())
     }
 
-    fn analyze(&mut self, cur_input_cplx: f64) -> Option<(Vec<SlabKey<AnalyzedFeature<M>>>, Vec<Feature>)> {
+    fn analyze(&mut self, cur_input_cplx: f64) -> Option<AnalysisResult<M>> {
         let mut best_input_for_a_feature = false;
 
         let sensor = shared_sensor();
@@ -224,10 +235,25 @@ where
         });
 
         let result = if best_input_for_a_feature {
-            Some((existing_features.clone(), new_features.clone()))
+            println!("{}", sensor.lowest_stack);
+
+            Some(AnalysisResult {
+                existing_features: existing_features.clone(), 
+                new_features: new_features.clone(),
+                lowest_stack: sensor.lowest_stack,
+            })
+        } else if sensor.lowest_stack < self.state.pool.lowest_stack() {
+            println!("{}", sensor.lowest_stack);
+
+            Some(AnalysisResult {
+                existing_features: vec![], 
+                new_features: vec![],
+                lowest_stack: sensor.lowest_stack,
+            })
         } else {
             None
         };
+
         existing_features.clear();
         new_features.clear();
 
@@ -247,12 +273,12 @@ where
         )?;
         self.state.stats.total_number_of_runs += 1;
 
-        if let Some((existing_features, new_features)) = self.analyze(cplx) {
+         if let Some(result) = self.analyze(cplx) {
             let input_cloned = self.state.get_input().new_source(&self.state.mutator);
             let actions = self
                 .state
                 .pool
-                .add(input_cloned, cplx, &existing_features, &new_features);
+                .add(input_cloned, cplx, result);
             self.state.update_stats();
             self.state.world.do_actions(actions, &self.state.stats)?;
 
