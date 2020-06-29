@@ -71,10 +71,6 @@ unsafe fn return_address() -> usize {
     __return_address(0) as usize
 }
 
-// extern "C" {
-//     fn return_address() -> usize;
-// }
-
 static START: Once = Once::new();
 
 #[export_name = "__sanitizer_cov_8bit_counters_init"]
@@ -91,7 +87,7 @@ fn counters_init(start: *mut u8, stop: *mut u8) {
                 is_recording: false,
                 eight_bit_counters: slice::from_raw_parts_mut(start, dist),
                 #[cfg(trace_compares)]
-                features: HBitSet::new(),
+                instr_features: HBitSet::new(),
             });
         });
     }
@@ -111,8 +107,7 @@ fn counters_init(start: *mut u8, stop: *mut u8) {
 /// indirect call and include it in the code coverage analysis.
 #[export_name = "__sanitizer_cov_trace_pc_indir"]
 fn trace_pc_indir(_callee: usize) {
-    // TODO: not supported yet
-
+    // TODO: feature disabled for now
     // let sensor = shared_sensor();
     // let caller = unsafe { return_address() };
     // sensor.handle_trace_indir(caller, callee);

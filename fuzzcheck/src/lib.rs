@@ -198,6 +198,16 @@ impl Feature {
         Feature(feature)
     }
 
+    // TODO: indir disabled for now
+    // fn indir(caller: usize, callee: usize) -> Feature {
+    //     let (caller, callee) = (caller as u64, callee as u64);
+    //     let mut feature: u64 = 0;
+    //     feature |= Feature::indir_tag() << Feature::tag_offset();
+    //     feature |= (caller ^ callee) & 0x3FFF_FFFF_FFFF_FFFF;
+
+    //     Feature(feature)
+    // }
+
     fn erasing_payload(self) -> Self {
         if (self.0 >> Self::tag_offset()) == Self::indir_tag() {
             // if it is indirect, there is no payload to erase

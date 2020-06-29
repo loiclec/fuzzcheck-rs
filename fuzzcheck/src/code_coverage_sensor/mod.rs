@@ -7,11 +7,11 @@ use crate::Feature;
 #[cfg(trace_compares)]
 use crate::InstrFeatureWithoutTag;
 
-use std::convert::TryFrom;
-use std::mem::MaybeUninit;
-
 #[cfg(trace_compares)]
 use crate::data_structures::HBitSet;
+
+use std::convert::TryFrom;
+use std::mem::MaybeUninit;
 
 #[cfg(trace_compares)]
 type PC = usize;
@@ -29,7 +29,7 @@ pub struct CodeCoverageSensor {
     pub is_recording: bool,
     eight_bit_counters: &'static mut [u8],
     #[cfg(trace_compares)]
-    features: HBitSet,
+    instr_features: HBitSet,
 }
 
 #[cfg(trace_compares)]
@@ -39,6 +39,15 @@ macro_rules! make_instr_feature_without_tag {
     }};
 }
 
+// TODO: indir disabled for now
+// impl CodeCoverageSensor {
+//     #[inline]
+//     fn handle_trace_indir(&mut self, caller: PC, callee: PC) {
+//         // let f = Feature::indir(caller, callee);
+//         // self.indir_features.insert(f);
+//     }
+// }
+
 #[cfg(trace_compares)]
 impl CodeCoverageSensor {
     /// Handles a `trace_cmp` hook from Sanitizer Coverage, by recording it
@@ -46,22 +55,22 @@ impl CodeCoverageSensor {
     #[inline]
     fn handle_trace_cmp_u8(&mut self, pc: PC, arg1: u8, arg2: u8) {
         let f = make_instr_feature_without_tag!(pc, arg1, arg2);
-        self.features.set(f);
+        self.instr_features.set(f);
     }
     #[inline]
     fn handle_trace_cmp_u16(&mut self, pc: PC, arg1: u16, arg2: u16) {
         let f = make_instr_feature_without_tag!(pc, arg1, arg2);
-        self.features.set(f);
+        self.instr_features.set(f);
     }
     #[inline]
     fn handle_trace_cmp_u32(&mut self, pc: PC, arg1: u32, arg2: u32) {
         let f = make_instr_feature_without_tag!(pc, arg1, arg2);
-        self.features.set(f);
+        self.instr_features.set(f);
     }
     #[inline]
     fn handle_trace_cmp_u64(&mut self, pc: PC, arg1: u64, arg2: u64) {
         let f = make_instr_feature_without_tag!(pc, arg1, arg2);
-        self.features.set(f);
+        self.instr_features.set(f);
     }
 }
 
@@ -103,9 +112,11 @@ impl CodeCoverageSensor {
             handle(f);
         }
 
+        // self.indir_features. ...
+
         #[cfg(trace_compares)]
         {
-            self.features.drain(|f| {
+            self.instr_features.drain(|f| {
                 handle(Feature::from_instr(InstrFeatureWithoutTag(f)));
             });
         }
@@ -117,7 +128,8 @@ impl CodeCoverageSensor {
         }
         #[cfg(trace_compares)]
         {
-            self.features.drain(|_| {});
+            self.instr_features.drain(|_| {});
         }
+        // self.indir_features.clean();
     }
 }
