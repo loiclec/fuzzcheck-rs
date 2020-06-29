@@ -1,33 +1,65 @@
 
 use fuzzcheck_traits::Mutator;
 
+// TODO: explanation
+pub fn binary_search_arbitrary(low: u8, high: u8, step: u64) -> u8 {
+    let next = low.wrapping_add(high.wrapping_sub(low) / 2);
+    if low.wrapping_add(1) == high {
+        if step % 2 == 0 {
+            high
+        } else {
+            low
+        }
+    } else if step == 0 {
+        next
+    } else if step % 2 == 1 {
+        binary_search_arbitrary(next.wrapping_add(1), high, step / 2)
+    } else {
+        // step % 2 == 0
+        binary_search_arbitrary(low, next.wrapping_sub(1), (step - 1) / 2)
+    }
+}
+
 macro_rules! impl_unsigned_mutator {
-    ($name:ty,$name_mutator:ident) => {
+    ($name:ty,$name_mutator:ident,$size:expr) => {
 #[derive(Clone)]
-pub struct $name_mutator {}
+pub struct $name_mutator { 
+    shuffled_integers: [u8; 256],
+}
 impl Default for $name_mutator {
     fn default() -> Self {
-        $name_mutator {}
+        let mut shuffled_integers = [0; 256];
+        for (i, x) in shuffled_integers.iter_mut().enumerate() {
+            *x = binary_search_arbitrary(0, u8::MAX, i as u64);
+        }
+        $name_mutator {
+            shuffled_integers
+        }
     }
 }
 
 impl $name_mutator {
-    pub fn _arbitrary(low: $name, high: $name, step: u64) -> $name {
-        let next = low.wrapping_add(high.wrapping_sub(low) / 2);
-        if low.wrapping_add(1) == high {
-            if step % 2 == 0 {
-                high
-            } else {
-                low
-            }
-        } else if step == 0 {
-            next
-        } else if step % 2 == 1 {
-            $name_mutator::_arbitrary(next.wrapping_add(1), high, step / 2)
-        } else {
-            // step % 2 == 0
-            $name_mutator::_arbitrary(low, next.wrapping_sub(1), (step - 1) / 2)
+    // TODO: explanation
+    pub fn uniform_permutation(&self, step: u64) -> $name {
+
+        let size = $size as u64;
+        let granularity = ((std::mem::size_of::<usize>() * 8) - (self.shuffled_integers.len().leading_zeros() as usize) - 1) as u64;
+        let step_mask = ((u8::MAX as usize) >> (8 - granularity)) as u64;
+
+        // println!("{} 0x{:.x}", granularity, step_mask);
+
+        let step_i = (step & step_mask) as usize;
+        let mut prev = unsafe { *self.shuffled_integers.get_unchecked(step_i) as $name };
+        
+        let mut result = (prev << (size - granularity)) as $name;
+
+        for i in 1 .. (size / granularity) {
+            let step_i = (((step >> (i*granularity)) ^ prev as u64) & step_mask) as usize;
+            prev = unsafe { *self.shuffled_integers.get_unchecked(step_i) as $name };
+            result |= prev << (size - (i+1)*granularity);
         }
+
+        result
     }
 }
 
@@ -43,7 +75,7 @@ impl Mutator for $name_mutator {
     }
 
     fn arbitrary(&mut self, seed: usize, _max_cplx: f64) -> (Self::Value, Self::Cache) {
-        let value = $name_mutator::_arbitrary(<$name>::MIN, <$name>::MAX, seed as u64);// (seed % <$name>::MAX as usize) as $name;
+        let value = self.uniform_permutation(seed as u64);
         (value, ())
     }
 
@@ -78,9 +110,7 @@ impl Mutator for $name_mutator {
                 }
             } else {
                 tmp_step -= 7;
-                let low = value.wrapping_sub(<$name>::MAX / 2);
-                let high = value.wrapping_add(<$name>::MAX / 2 + 1);
-                $name_mutator::_arbitrary(low, high, tmp_step)
+                self.uniform_permutation(tmp_step)
             }
         };
         *step = step.wrapping_add(1);
@@ -95,10 +125,10 @@ impl Mutator for $name_mutator {
     };
 }
 
-impl_unsigned_mutator!(u8, U8Mutator);
-impl_unsigned_mutator!(u16, U16Mutator);
-impl_unsigned_mutator!(u32, U32Mutator);
-impl_unsigned_mutator!(u64, U64Mutator);
+impl_unsigned_mutator!(u8, U8Mutator, 8);
+impl_unsigned_mutator!(u16, U16Mutator, 16);
+impl_unsigned_mutator!(u32, U32Mutator, 32);
+impl_unsigned_mutator!(u64, U64Mutator, 64);
 
 
 macro_rules! impl_signed_mutator {
