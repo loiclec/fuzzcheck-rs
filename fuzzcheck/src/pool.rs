@@ -206,6 +206,12 @@ impl FeatureGroup {
     }
 }
 
+pub struct LowestStackInput<M: Mutator> {
+    input: FuzzedInput<M>,
+    stack_depth: usize,
+    generation: usize,
+}
+
 pub struct Pool<M: Mutator> {
     pub features: Vec<AnalyzedFeatureRef<M>>,
     pub slab_features: Slab<AnalyzedFeature<M>>,
@@ -217,7 +223,7 @@ pub struct Pool<M: Mutator> {
     slab_inputs: Slab<Input<M>>,
 
     favored_input: Option<FuzzedInput<M>>,
-    lowest_stack_input: Option<(FuzzedInput<M>, usize)>,
+    lowest_stack_input: Option<LowestStackInput<M>>,
 
     pub average_complexity: f64,
     cumulative_weights: Vec<f64>,
@@ -257,7 +263,7 @@ impl<M: Mutator> Pool<M> {
     }
 
     pub fn lowest_stack(&self) -> usize {
-        self.lowest_stack_input.as_ref().map_or(usize::MAX, |x| x.1)
+        self.lowest_stack_input.as_ref().map_or(usize::MAX, |x| x.stack_depth)
     }
 
     #[allow(clippy::too_many_lines)]
@@ -266,6 +272,7 @@ impl<M: Mutator> Pool<M> {
         data: FuzzedInput<M>,
         complexity: f64,
         result: AnalysisResult<M>,
+        generation: usize,
     ) -> Vec<WorldAction<M::Value>> {
 
         let AnalysisResult { existing_features, new_features, lowest_stack } = result;
@@ -273,12 +280,18 @@ impl<M: Mutator> Pool<M> {
         let mut actions: Vec<WorldAction<M::Value>> = Vec::new();
 
         if lowest_stack < self.lowest_stack() {
-            let old = self.lowest_stack_input.replace((data.clone(), lowest_stack));
+            let new = LowestStackInput {
+                input: data.clone(),
+                stack_depth: lowest_stack,
+                generation,
+            };
+            let old = self.lowest_stack_input.replace(new);
 
             actions.push(WorldAction::Add(data.value.clone()));
-            if let Some((old_data, _)) = old {
-                actions.push(WorldAction::Remove(old_data.value))
+            if let Some(old) = old {
+                actions.push(WorldAction::Remove(old.input.value))
             }
+            actions.push(WorldAction::ReportEvent(FuzzerEvent::ReplaceLowestStack(lowest_stack)));
         }
 
         if existing_features.is_empty() && new_features.is_empty() {
@@ -753,7 +766,7 @@ impl<M: Mutator> Pool<M> {
         match idx {
             PoolIndex::Normal(key) => &self.slab_inputs[key].data,
             PoolIndex::Favored => self.favored_input.as_ref().unwrap(),
-            PoolIndex::LowestStack => self.lowest_stack_input.as_ref().map(|x| &x.0).unwrap(),
+            PoolIndex::LowestStack => self.lowest_stack_input.as_ref().map(|x| &x.input).unwrap(),
         }
     }
     /// Get the input at the given index along with its complexity and the number of mutations tried on this input
@@ -761,15 +774,25 @@ impl<M: Mutator> Pool<M> {
         match idx {
             PoolIndex::Normal(key) => &mut self.slab_inputs[key].data,
             PoolIndex::Favored => self.favored_input.as_mut().unwrap(),
-            PoolIndex::LowestStack => self.lowest_stack_input.as_mut().map(|x| &mut x.0).unwrap(),
+            PoolIndex::LowestStack => self.lowest_stack_input.as_mut().map(|x| &mut x.input).unwrap(),
         }
     }
 
-    pub(crate) fn retrieve_source_input_for_unmutate(&mut self, idx: PoolIndex<M>) -> Option<&'_ mut FuzzedInput<M>> {
+    pub(crate) fn retrieve_source_input_for_unmutate(&mut self, idx: PoolIndex<M>, generation: usize) -> Option<&'_ mut FuzzedInput<M>> {
         match idx {
             PoolIndex::Normal(key) => self.slab_inputs.get_mut(key).map(|input| &mut input.data),
             PoolIndex::Favored => Some(self.get(idx)),
-            PoolIndex::LowestStack => self.lowest_stack_input.as_mut().map(|x| &mut x.0),
+            PoolIndex::LowestStack => {
+                if let Some(lsi) = self.lowest_stack_input.as_mut() {
+                    if lsi.generation < generation {
+                        Some(&mut lsi.input)
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                }
+            },
         }
     }
 

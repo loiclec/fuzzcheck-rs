@@ -235,16 +235,12 @@ where
         });
 
         let result = if best_input_for_a_feature {
-            println!("{}", sensor.lowest_stack);
-
             Some(AnalysisResult {
                 existing_features: existing_features.clone(), 
                 new_features: new_features.clone(),
                 lowest_stack: sensor.lowest_stack,
             })
         } else if sensor.lowest_stack < self.state.pool.lowest_stack() {
-            println!("{}", sensor.lowest_stack);
-
             Some(AnalysisResult {
                 existing_features: vec![], 
                 new_features: vec![],
@@ -278,7 +274,7 @@ where
             let actions = self
                 .state
                 .pool
-                .add(input_cloned, cplx, result);
+                .add(input_cloned, cplx, result, self.state.stats.total_number_of_runs);
             self.state.update_stats();
             self.state.world.do_actions(actions, &self.state.stats)?;
 
@@ -301,7 +297,7 @@ where
         }
 
         // Retrieving the input may fail because the input may have been deleted
-        if let Some(input) = self.state.pool.retrieve_source_input_for_unmutate(idx) {
+        if let Some(input) = self.state.pool.retrieve_source_input_for_unmutate(idx, self.state.stats.total_number_of_runs) {
             input.unmutate(&self.state.mutator, unmutate_token);
         }
 

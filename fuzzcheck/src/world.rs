@@ -49,14 +49,13 @@ pub enum FuzzerEvent {
     Done,
     New,
     Replace(usize),
-    ReplaceLowestStack,
+    ReplaceLowestStack(usize),
     Remove,
     DidReadCorpus,
     CaughtSignal(signal::Signal),
     TestFailure,
 }
 
-#[derive(Clone)]
 pub(crate) enum WorldAction<T> {
     Remove(T),
     Add(T),
@@ -249,8 +248,8 @@ impl<S: Serializer> World<S> {
             FuzzerEvent::Replace(count) => {
                 print!("RPLC {}\t", count);
             }
-            FuzzerEvent::ReplaceLowestStack => {
-                print!("STACK\t");
+            FuzzerEvent::ReplaceLowestStack(stack) => {
+                print!("STACK {}\n", stack);
             }
         };
         if let Some(stats) = stats {

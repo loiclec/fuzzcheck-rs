@@ -148,7 +148,7 @@ impl Root {
         }
         rustflags.push_str(" -Cllvm-args=-sanitizer-coverage-inline-8bit-counters");
 
-        if config.trace_compares.unwrap_or(DEFAULT_STACK_DEPTH) {
+        if config.stack_depth.unwrap_or(DEFAULT_STACK_DEPTH) {
             rustflags.push_str(" -Cllvm-args=-sanitizer-coverage-stack-depth");
         }
 
