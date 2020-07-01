@@ -235,7 +235,9 @@ impl<M: Mutator> VecMutator<M> {
         cache.sum_cplx -= el_cplx;
 
         if step.pick_step.remove_idx == 0 {
-            step.pick_step.vec_operations.remove_item(&VecOperation::Remove);
+            if let Some(idx_remove) = step.pick_step.vec_operations.iter().position(|&x| x == VecOperation::Remove) {
+                step.pick_step.vec_operations.remove(idx_remove);
+            }
         } else {
             step.pick_step.remove_idx -= 1;
         }
