@@ -1,0 +1,13 @@
+[package]
+name = "fuzzcheck_mutators_derive"
+version = "0.3.0"
+authors = ["Loïc Lecrenier <loic.lecrenier@me.com>"]
+edition = "2018"
+
+[lib]
+proc-macro = true
+
+[dependencies]
+proc-macro2 = { version = "1.0.13", default-features = false }
+quote = "1.0"
+syn = "1.0"

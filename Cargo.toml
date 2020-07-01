@@ -5,6 +5,7 @@ members = [
     "cargo-fuzzcheck",
     "fuzzcheck",
     "fuzzcheck_mutators",
+    "fuzzcheck_mutators_derive",
     "fuzzcheck_serializer",
     "fuzzcheck_traits"
 ]

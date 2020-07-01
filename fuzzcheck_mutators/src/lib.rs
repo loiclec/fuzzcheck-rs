@@ -9,6 +9,12 @@ pub mod vector;
 pub mod void;
 
 use std::ops::Range;
+use fuzzcheck_traits::Mutator;
+
+pub trait HasDefaultMutator {
+    type Mutator: Mutator;
+    fn default_mutator() -> Self::Mutator;
+}
 
 /// Generate a random f64 within the given range
 /// The start and end of the range must be finite

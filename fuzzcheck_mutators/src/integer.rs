@@ -1,4 +1,5 @@
 
+use crate::HasDefaultMutator;
 use fuzzcheck_traits::Mutator;
 
 // TODO: explanation
@@ -118,6 +119,13 @@ impl Mutator for $name_mutator {
 
     fn unmutate(&self, value: &mut Self::Value, _cache: &mut Self::Cache, t: Self::UnmutateToken) {
         *value = t;
+    }
+}
+
+impl HasDefaultMutator for $name {
+    type Mutator = $name_mutator;
+    fn default_mutator() -> Self::Mutator {
+        <$name_mutator>::default()
     }
 }
     };
