@@ -510,7 +510,9 @@ impl<M: Mutator> Pool<M> {
 
             for &f_key in &all_features {
                 let analyzed_f = &mut self.slab_features[f_key];
-                analyzed_f.inputs.remove_item(&to_delete_key); // this updates new multiplicity
+                
+                let idx_to_delete_key = analyzed_f.inputs.iter().position(|&x| x == to_delete_key).unwrap();
+                analyzed_f.inputs.swap_remove(idx_to_delete_key);
 
                 let group = &self.slab_feature_groups[analyzed_f.group_key];
 
@@ -568,7 +570,8 @@ impl<M: Mutator> Pool<M> {
 
         for &f_key in &all_features {
             let analyzed_f = &mut self.slab_features[f_key];
-            analyzed_f.inputs.remove_item(&to_delete_key); // this updates new multiplicity
+            let idx_to_delete_key = analyzed_f.inputs.iter().position(|&x| x == to_delete_key).unwrap();
+            analyzed_f.inputs.swap_remove(idx_to_delete_key); // this updates new multiplicity
         }
 
         // 3. iter through all features and, if they have no corresponding inputs, remove them from the pool
@@ -1017,179 +1020,186 @@ impl<M: Mutator> Copy for AnalyzedFeatureRef<M> {}
 // TODO: include testing the returned WorldAction
 // TODO: write unit tests as data, read them from files
 // TODO: write tests for adding inputs that are not simplest for any feature but are predicted to have a greater score
-// #[cfg(test)]
-// mod tests {
-//     use super::*;
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-//     fn mock(cplx: f64) -> FuzzedInput<VoidMutator> {
-//         FuzzedInput::new(cplx, (), ())
-//     }
+    fn mock(cplx: f64) -> FuzzedInput<VoidMutator> {
+        FuzzedInput::new(cplx, (), ())
+    }
 
-//     fn edge_f(pc_guard: usize, intensity: u16) -> Feature {
-//         Feature::edge(pc_guard, intensity)
-//     }
+    fn edge_f(pc_guard: usize, intensity: u16) -> Feature {
+        Feature::edge(pc_guard, intensity)
+    }
 
-//     type FK = SlabKey<AnalyzedFeature<VoidMutator>>;
+    type FK = SlabKey<AnalyzedFeature<VoidMutator>>;
 
-//     #[test]
-//     fn property_test() {
-//         use rand::seq::IteratorRandom;
-//         use rand::seq::SliceRandom;
-//         use std::iter::FromIterator;
+    #[test]
+    fn property_test() {
+        use std::iter::FromIterator;
 
-//         let mut list_features = vec![];
-//         for i in 0..3 {
-//             for j in 0..3 {
-//                 list_features.push(edge_f(i, j));
-//             }
-//         }
+        let mut list_features = vec![];
+        for i in 0..3 {
+            for j in 0..3 {
+                list_features.push(edge_f(i, j));
+            }
+        }
 
-//         for _ in 0..1000 {
-//             let mut new_features = BTreeSet::from_iter(list_features.iter());
-//             let mut added_features: Vec<FK> = vec![];
+        for _ in 0..1000 {
+            let mut new_features = BTreeSet::from_iter(list_features.iter());
+            let mut added_features: Vec<FK> = vec![];
 
-//             let mut rng = SmallRng::from_entropy();
+            let mut pool = Pool::<VoidMutator>::default();
 
-//             let mut pool = Pool::<VoidMutator>::default();
+            for i in 0 .. fastrand::usize(0..100) {
+                let nbr_new_features = if new_features.is_empty() {
+                    0
+                } else {
+                    if i == 0 {
+                        fastrand::usize(1 .. new_features.len())
+                    } else {
+                        fastrand::usize(0 .. new_features.len())
+                    }
+                };
+                let mut new_features_1: Vec<_> = {
+                    let mut fs = new_features
+                    .iter()
+                    .map(|&&f| f).collect::<Vec<_>>();
 
-//             for i in 0..rng.gen_range(0, 100) {
-//                 let nbr_new_features = if new_features.is_empty() {
-//                     0
-//                 } else {
-//                     rng.gen_range(if i == 0 { 1 } else { 0 }, new_features.len())
-//                 };
-//                 let mut new_features_1 = new_features
-//                     .iter()
-//                     .map(|&&f| f)
-//                     .choose_multiple(&mut rng, nbr_new_features);
-//                 new_features_1.sort();
-//                 for f in &new_features_1 {
-//                     new_features.remove(f);
-//                 }
-//                 let nbr_existing_features = if new_features_1.is_empty() {
-//                     if added_features.len() > 1 {
-//                         rng.gen_range(1, added_features.len())
-//                     } else {
-//                         1
-//                     }
-//                 } else if added_features.is_empty() {
-//                     0
-//                 } else {
-//                     rng.gen_range(0, added_features.len())
-//                 };
+                    fastrand::shuffle(&mut fs);
+                    fs[0 .. nbr_new_features].to_vec()
+                };
 
-//                 let mut existing_features_1: Vec<FK> = added_features
-//                     .choose_multiple(&mut rng, nbr_existing_features)
-//                     .cloned()
-//                     .collect();
-//                 let slab = &pool.slab_features;
-//                 existing_features_1.sort_by(|&fk1, &fk2| slab[fk1].feature.cmp(&slab[fk2].feature));
+                new_features_1.sort();
+                for f in &new_features_1 {
+                    new_features.remove(f);
+                }
+                let nbr_existing_features = if new_features_1.is_empty() {
+                    if added_features.len() > 1 {
+                        fastrand::usize(1 .. added_features.len())
+                    } else {
+                        1
+                    }
+                } else if added_features.is_empty() {
+                    0
+                } else {
+                    fastrand::usize(0 .. added_features.len())
+                };
 
-//                 let max_cplx: f64 = if !existing_features_1.is_empty() && new_features_1.is_empty() {
-//                     existing_features_1
-//                         .iter()
-//                         .map(|&f_key| pool.slab_features[f_key].least_complexity)
-//                         .choose(&mut rng)
-//                         .unwrap()
-//                 } else {
-//                     100.0
-//                 };
+                let mut existing_features_1: Vec<FK> = {
+                    let mut fs = added_features.clone();
+                    fastrand::shuffle(&mut fs);
+                    fs[0 .. nbr_existing_features].to_vec()
+                };
 
-//                 if max_cplx == 1.0 {
-//                     break;
-//                 }
+                let slab = &pool.slab_features;
+                existing_features_1.sort_by(|&fk1, &fk2| slab[fk1].feature.cmp(&slab[fk2].feature));
 
-//                 let cplx1 = rng.gen_range(1.0, max_cplx);
-//                 for _ in 0..new_features_1.len() {
-//                     added_features.push(added_features.last().map_or(FK::new(0), |x| FK::new(x.key + 1)));
-//                 }
+                let max_cplx: f64 = if !existing_features_1.is_empty() && new_features_1.is_empty() {
+                    let idx = fastrand::usize(0 .. existing_features_1.len());
+                    let fs = existing_features_1
+                        .iter()
+                        .map(|&f_key| pool.slab_features[f_key].least_complexity).collect::<Vec<_>>();
+                    fs[idx]
+                } else {
+                    100.0
+                };
 
-//                 let prev_score = pool.score();
-//                 let analysis_result = AnalysisResult { existing_features: existing_features_1, new_features: new_features_1, lowest_stack: 0 };
-//                 // println!("adding input of cplx {:.2} with new features {:?} and existing features {:?}", cplx1, new_features_1, existing_features_1);
-//                 let _ = pool.add(mock(cplx1), cplx1, analysis_result);
-//                 // pool.print_recap();
-//                 pool.sanity_check();
-//                 assert!(
-//                     (pool.score() - prev_score) > -0.01,
-//                     format!("{:.3} > {:.3}", prev_score, pool.score())
-//                 );
-//             }
-//             for _ in 0..pool.len() {
-//                 let prev_score = pool.score();
-//                 let _ = pool.remove_lowest_scoring_input();
-//                 pool.sanity_check();
-//                 assert!(
-//                     (prev_score - pool.score()) > -0.01,
-//                     format!("{:.3} < {:.3}", prev_score, pool.score())
-//                 );
-//             }
-//         }
-//     }
+                if max_cplx == 1.0 {
+                    break;
+                }
 
-//     // #[test]
-//     // fn test_features() {
-//     //     let x1 = Feature::edge(37, 3);
-//     //     assert_eq!(x1.score(), 1.0);
-//     //     println!("{:.x}", x1.0);
+                let cplx1 = 1.0 + fastrand::f64() * (max_cplx - 1.0);
+                for _ in 0..new_features_1.len() {
+                    added_features.push(added_features.last().map_or(FK::new(0), |x| FK::new(x.key + 1)));
+                }
 
-//     //     let x2 = Feature::edge(std::usize::MAX, 255);
-//     //     assert_eq!(x2.score(), 1.0);
-//     //     println!("{:.x}", x2.0);
+                let prev_score = pool.score();
+                let analysis_result = AnalysisResult { existing_features: existing_features_1, new_features: new_features_1, lowest_stack: 0 };
+                // println!("adding input of cplx {:.2} with new features {:?} and existing features {:?}", cplx1, new_features_1, existing_features_1);
+                let _ = pool.add(mock(cplx1), cplx1, analysis_result, 0);
+                // pool.print_recap();
+                pool.sanity_check();
+                assert!(
+                    (pool.score() - prev_score) > -0.01,
+                    format!("{:.3} > {:.3}", prev_score, pool.score())
+                );
+            }
+            for _ in 0..pool.len() {
+                let prev_score = pool.score();
+                let _ = pool.remove_lowest_scoring_input();
+                pool.sanity_check();
+                assert!(
+                    (prev_score - pool.score()) > -0.01,
+                    format!("{:.3} < {:.3}", prev_score, pool.score())
+                );
+            }
+        }
+    }
 
-//     //     assert!(x1 < x2);
+    // #[test]
+    // fn test_features() {
+    //     let x1 = Feature::edge(37, 3);
+    //     assert_eq!(x1.score(), 1.0);
+    //     println!("{:.x}", x1.0);
 
-//     //     let y1 = Feature::instruction(56, 89, 88);
-//     //     assert_eq!(y1.score(), 0.1);
-//     //     println!("{:.x}", y1.0);
+    //     let x2 = Feature::edge(std::usize::MAX, 255);
+    //     assert_eq!(x2.score(), 1.0);
+    //     println!("{:.x}", x2.0);
 
-//     //     assert!(y1 > x1);
+    //     assert!(x1 < x2);
 
-//     //     let y2 = Feature::instruction(76, 89, 88);
-//     //     assert_eq!(y2.score(), 0.1);
-//     //     println!("{:.x}", y2.0);
+    //     let y1 = Feature::instruction(56, 89, 88);
+    //     assert_eq!(y1.score(), 0.1);
+    //     println!("{:.x}", y1.0);
 
-//     //     assert!(y2 > y1);
-//     // }
+    //     assert!(y1 > x1);
 
-//     #[derive(Clone, Copy, Debug)]
-//     pub struct VoidMutator {}
+    //     let y2 = Feature::instruction(76, 89, 88);
+    //     assert_eq!(y2.score(), 0.1);
+    //     println!("{:.x}", y2.0);
 
-//     impl Mutator for VoidMutator {
-//         type Value = f64;
-//         type Cache = ();
-//         type MutationStep = ();
-//         type UnmutateToken = ();
+    //     assert!(y2 > y1);
+    // }
 
-//         fn cache_from_value(&self, _value: &Self::Value) -> Self::Cache {}
+    #[derive(Clone, Copy, Debug)]
+    pub struct VoidMutator {}
 
-//         fn mutation_step_from_value(&self, _value: &Self::Value) -> Self::MutationStep {}
+    impl Mutator for VoidMutator {
+        type Value = f64;
+        type Cache = ();
+        type MutationStep = ();
+        type UnmutateToken = ();
 
-//         fn arbitrary(&mut self, _seed: usize, _max_cplx: f64) -> (Self::Value, Self::Cache) {
-//             (0.0, ())
-//         }
+        fn cache_from_value(&self, _value: &Self::Value) -> Self::Cache {}
 
-//         fn max_complexity(&self) -> f64 {
-//             std::f64::INFINITY
-//         }
+        fn mutation_step_from_value(&self, _value: &Self::Value) -> Self::MutationStep {}
 
-//         fn min_complexity(&self) -> f64 {
-//             0.0
-//         }
+        fn arbitrary(&mut self, _seed: usize, _max_cplx: f64) -> (Self::Value, Self::Cache) {
+            (0.0, ())
+        }
 
-//         fn complexity(&self, value: &Self::Value, _state: &Self::Cache) -> f64 {
-//             *value
-//         }
+        fn max_complexity(&self) -> f64 {
+            std::f64::INFINITY
+        }
 
-//         fn mutate(
-//             &mut self,
-//             _value: &mut Self::Value,
-//             _cache: &mut Self::Cache,
-//             _step: &mut Self::MutationStep,
-//             _max_cplx: f64,
-//         ) -> Self::UnmutateToken {
-//         }
+        fn min_complexity(&self) -> f64 {
+            0.0
+        }
 
-//         fn unmutate(&self, _value: &mut Self::Value, _cache: &mut Self::Cache, _t: Self::UnmutateToken) {}
-//     }
-// }
+        fn complexity(&self, value: &Self::Value, _state: &Self::Cache) -> f64 {
+            *value
+        }
+
+        fn mutate(
+            &mut self,
+            _value: &mut Self::Value,
+            _cache: &mut Self::Cache,
+            _step: &mut Self::MutationStep,
+            _max_cplx: f64,
+        ) -> Self::UnmutateToken {
+        }
+
+        fn unmutate(&self, _value: &mut Self::Value, _cache: &mut Self::Cache, _t: Self::UnmutateToken) {}
+    }
+}

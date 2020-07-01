@@ -5,7 +5,6 @@
 #![feature(never_type)]
 #![feature(thread_spawn_unchecked)]
 #![feature(ptr_offset_from)]
-#![feature(vec_remove_item)]
 #![feature(is_sorted)]
 #![feature(link_llvm_intrinsics)]
 #![feature(thread_local)]
