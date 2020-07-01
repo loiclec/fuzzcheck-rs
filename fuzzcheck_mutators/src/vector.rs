@@ -39,7 +39,7 @@ enum VecOperation {
     Insert,
     RemoveMany,
     InsertRepeated,
-    Arbitrary,
+    // Arbitrary,
 }
 
 impl MutationStep {
@@ -326,21 +326,21 @@ impl<M: Mutator> VecMutator<M> {
         token
     }
 
-    fn mutate_arbitrary(
-        &mut self,
-        value: &mut Vec<M::Value>,
-        cache: &mut VecMutatorCache<M::Cache>,
-        step: &mut VecMutatorStep<M::MutationStep>,
-        max_cplx: f64,
-    ) -> UnmutateVecToken<M> {
-        let (mut tmp_value, mut tmp_cache) = self.arbitrary(step.pick_step.cycle, max_cplx);
-        std::mem::swap(value, &mut tmp_value);
-        std::mem::swap(cache, &mut tmp_cache);
+    // fn mutate_arbitrary(
+    //     &mut self,
+    //     value: &mut Vec<M::Value>,
+    //     cache: &mut VecMutatorCache<M::Cache>,
+    //     step: &mut VecMutatorStep<M::MutationStep>,
+    //     max_cplx: f64,
+    // ) -> UnmutateVecToken<M> {
+    //     let (mut tmp_value, mut tmp_cache) = self.arbitrary(step.pick_step.cycle, max_cplx);
+    //     std::mem::swap(value, &mut tmp_value);
+    //     std::mem::swap(cache, &mut tmp_cache);
 
-        step.increment_mutation_step_category();
+    //     step.increment_mutation_step_category();
 
-        UnmutateVecToken::Replace(tmp_value, tmp_cache)
-    }
+    //     UnmutateVecToken::Replace(tmp_value, tmp_cache)
+    // }
 
     fn choose_slice_length(&self, target_cplx: f64) -> (Option<usize>, usize) {
         let min_cplx_el = self.m.min_complexity();
@@ -513,7 +513,7 @@ impl<M: Mutator> Mutator for VecMutator<M> {
                     VecOperation::InsertRepeated => self.insert_repeated_elements(value, cache, step, spare_cplx),
                     VecOperation::Remove => self.remove_element(value, cache, step),
                     VecOperation::RemoveMany => self.remove_many_elements(value, cache, step),
-                    VecOperation::Arbitrary => self.mutate_arbitrary(value, cache, step, max_cplx),
+                    // VecOperation::Arbitrary => self.mutate_arbitrary(value, cache, step, max_cplx),
                 }
             }
         }
