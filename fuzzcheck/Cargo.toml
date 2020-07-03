@@ -30,7 +30,7 @@ version = "0.2"
 path = "../fuzzcheck_arg_parser"
 version = "0.2.1"
 
-[dependencies.fuzzcheck_traits]
+[target.'cfg(not(fuzzcheck))'.dependencies.fuzzcheck_traits]
 path = "../fuzzcheck_traits"
 version = "0.2.1"
 
