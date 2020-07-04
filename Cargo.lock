@@ -61,11 +61,6 @@ dependencies = [
 [[package]]
 name = "fuzzcheck_mutators_derive"
 version = "0.3.0"
-dependencies = [
- "proc-macro2 1.0.18 (registry+https://github.com/rust-lang/crates.io-index)",
- "quote 1.0.7 (registry+https://github.com/rust-lang/crates.io-index)",
- "syn 1.0.33 (registry+https://github.com/rust-lang/crates.io-index)",
-]
 
 [[package]]
 name = "fuzzcheck_serializer"
