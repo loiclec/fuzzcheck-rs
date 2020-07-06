@@ -69,7 +69,9 @@ impl TokenBuilder {
                 ")" => self.pop_group(Delimiter::Parenthesis),
                 "]" => self.pop_group(Delimiter::Bracket),
                 "?" | ";" | "&" | "^" | ":" | "::" | "," | "!" | "." | "<<" | ">>" | "->" | "=>" | "<" | ">" | "<="
-                | ">=" | "=" | "==" | "!=" | "+" | "+=" | "-" | "-=" | "*" | "*=" | "/" | "/=" => self.punct(part),
+                | ">=" | "=" | "==" | "!=" | "+" | "+=" | "-" | "-=" | "*" | "*=" | "/" | "/=" => {
+                    self.punct(part)
+                },
                 _ => {
                     if part.len() == 0 {
                         continue;
@@ -93,10 +95,20 @@ impl TokenBuilder {
     }
 
     pub fn punct(&mut self, s: &str) -> &mut Self {
-        for (last, c) in s.chars().identify_last() {
+        let mut last = None;
+        for c in s.chars() {
+            if let Some(last) = last {
+                self.extend(TokenTree::from(Punct::new(
+                    last,
+                    Spacing::Joint,
+                )));
+            }
+            last = Some(c);
+        }
+        if let Some(last) = last {
             self.extend(TokenTree::from(Punct::new(
-                c,
-                if last { Spacing::Alone } else { Spacing::Joint },
+                last,
+                Spacing::Alone,
             )));
         }
         self
@@ -154,48 +166,6 @@ impl TokenBuilder {
         }
         self.extend(TokenTree::from(Group::new(delim, ts.1)));
         self
-    }
-}
-
-pub trait IdentifyLast: Iterator + Sized {
-    fn identify_last(self) -> Iter<Self>;
-}
-
-impl<It> IdentifyLast for It
-where
-    It: Iterator,
-{
-    fn identify_last(mut self) -> Iter<Self> {
-        let e = self.next();
-        Iter { iter: self, buffer: e }
-    }
-}
-
-pub struct Iter<It>
-where
-    It: Iterator,
-{
-    iter: It,
-    buffer: Option<It::Item>,
-}
-
-impl<It> Iterator for Iter<It>
-where
-    It: Iterator,
-{
-    type Item = (bool, It::Item);
-
-    fn next(&mut self) -> Option<Self::Item> {
-        match self.buffer.take() {
-            None => None,
-            Some(e) => match self.iter.next() {
-                None => Some((true, e)),
-                Some(f) => {
-                    self.buffer = Some(f);
-                    Some((false, e))
-                }
-            },
-        }
     }
 }
 
