@@ -3,8 +3,6 @@
 // makepad/render/microserde/derive/src/macro_lib.rs
 // commit 1c753ca
 
-#![allow(dead_code)]
-
 use proc_macro::token_stream::IntoIter;
 use proc_macro::{Delimiter, Group, Ident, Literal, Punct, Spacing, Span, TokenStream, TokenTree};
 
@@ -57,6 +55,18 @@ impl TokenBuilder {
     pub fn extend(&mut self, tt: TokenTree) -> &mut Self {
         self.groups.last_mut().unwrap().1.extend(Some(tt));
         self
+    }
+
+    pub fn extend_ident(&mut self, id: Ident) -> &mut Self {
+        self.extend(TokenTree::Ident(id))
+    }
+
+    pub fn extend_punct(&mut self, p: Punct) -> &mut Self {
+        self.extend(TokenTree::Punct(p))
+    }
+
+    pub fn extend_literal(&mut self, l: Literal) -> &mut Self {
+        self.extend(TokenTree::Literal(l))
     }
 
     pub fn stream(&mut self, what: TokenStream) -> &mut Self {
@@ -182,49 +192,67 @@ pub struct TokenParser {
     current: Option<TokenTree>,
 }
 
-fn token_tree_is_punct(tt: &TokenTree, what: char) -> bool {
+fn token_tree_as_punct(tt: &TokenTree, what: char) -> Option<Punct> {
     if let TokenTree::Punct(p) = tt {
-        p.as_char() == what
+        if p.as_char() == what {
+            Some(p.clone())
+        } else {
+            None
+        }
     } else {
-        false
+        None
     }
 }
 
-fn token_tree_is_ident(tt: &TokenTree, what: &str) -> bool {
+fn token_tree_as_ident(tt: &TokenTree, what: &str) -> Option<Ident> {
     if let TokenTree::Ident(i) = tt {
-        i.to_string() == what
+        if i.to_string() == what {
+            Some(i.clone())
+        } else {
+            None
+        }
     } else {
-        false
+        None
     }
+}
+
+enum StructKind {
+    Struct,
+    Tuple
+}
+
+pub struct Struct {
+    kind: StructKind,
+    data: StructData
 }
 
 pub struct StructData {
-    ident: TokenTree,
+    ident: Ident,
     generics: Generics,
     where_clause: Option<TokenStream>,
-    struct_fields: Option<TokenTree>, // Group
+    struct_fields: Option<Group>, // Group of struct fields
 }
 pub struct StructField {
     whole: TokenStream,
     attributes: Vec<TokenStream>,
     visibility: Option<TokenStream>,
-    identifier: Option<TokenTree>, // Ident
+    identifier: Option<Ident>,
     ty: TokenStream,
 }
 struct LifetimeParam {
     whole: TokenStream,
-    ident: TokenStream,
+    ident: Ident,
     bounds: TokenStream,
 }
 pub struct TypeParam {
     attribute: Option<TokenStream>,
-    ident: TokenTree,
+    ident: Ident,
     bounds: Option<TokenStream>,
     equal_ty: TokenStream,
 }
 pub struct Generics {
     whole: TokenStream,
-    params: Vec<(TokenTree, TypeParam)>,
+    params: Vec<(Ident, TypeParam)>,
 }
 
 impl TokenParser {
@@ -275,13 +303,12 @@ impl TokenParser {
         }
     }
 
-    pub fn advance_if(&mut self, cond: impl FnOnce(&TokenTree) -> bool) -> Option<TokenTree> {
+    pub fn advance_if<T>(&mut self, cond: impl FnOnce(&TokenTree) -> Option<T>) -> Option<T> {
         let value = self.peek();
         if let Some(tok) = value {
-            if cond(tok) {
-                let value = Some(tok.clone());
+            if let Some(value) = cond(tok) {
                 self.advance();
-                value
+                Some(value)
             } else {
                 None
             }
@@ -367,29 +394,41 @@ impl TokenParser {
         return false;
     }
 
-    pub fn eat_ident(&mut self, what: &str) -> Option<TokenTree> {
-        self.advance_if(|tt| token_tree_is_ident(tt, what))
+    pub fn eat_ident(&mut self, what: &str) -> Option<Ident> {
+        self.advance_if(|tt| token_tree_as_ident(tt, what))
     }
 
     pub fn is_punct(&mut self, what: char) -> bool {
         // check if our punct is multichar.
         if let Some(tt) = self.peek() {
-            token_tree_is_punct(tt, what)
+            token_tree_as_punct(tt, what).is_some()
         } else {
             return false;
         }
     }
 
-    pub fn eat_punct(&mut self, what: char) -> Option<TokenTree> {
-        self.advance_if(|tt| token_tree_is_punct(tt, what))
+    pub fn eat_punct(&mut self, what: char) -> Option<Punct> {
+        self.advance_if(|tt| token_tree_as_punct(tt, what))
     }
 
-    pub fn eat_any_ident(&mut self) -> Option<TokenTree> {
-        self.advance_if(|tt| matches!(tt, TokenTree::Ident(_)))
+    pub fn eat_any_ident(&mut self) -> Option<Ident> {
+        self.advance_if(|tt| 
+            if let TokenTree::Ident(id) = tt {
+                Some(id.clone())
+            } else {
+                None
+            }
+        )
     }
 
-    pub fn eat_literal(&mut self) -> Option<TokenTree> {
-        self.advance_if(|tt| matches!(tt, TokenTree::Literal(_)))
+    pub fn eat_literal(&mut self) -> Option<Literal> {
+        self.advance_if(|tt| 
+            if let TokenTree::Literal(l) = tt {
+                Some(l.clone())
+            } else {
+                None
+            }
+        )
     }
 
     pub fn eat_type_bound_where_clause_item(&mut self) -> Option<TokenStream> {
@@ -400,7 +439,7 @@ impl TokenParser {
         if let Some(ty) = self.eat_type() {
             tb.stream(ty);
             if let Some(colon) = self.eat_punct(':') {
-                tb.extend(colon);
+                tb.extend_punct(colon);
                 if let Some(typbs) = self.eat_type_param_bounds() {
                     tb.stream(typbs);
                 }
@@ -420,7 +459,7 @@ impl TokenParser {
         while let Some(lt) = self.eat_lifetime() {
             tb.stream(lt);
             if let Some(plus) = self.eat_punct('+') {
-                tb.extend(plus);
+                tb.extend_punct(plus);
                 continue
             } else {
                 break
@@ -434,7 +473,7 @@ impl TokenParser {
             let mut tb = TokenBuilder::new();
             tb.stream(lt);
             if let Some(colon) = self.eat_punct(':') {
-                tb.extend(colon);
+                tb.extend_punct(colon);
             } else {
                 self.backtrack(tb.end());
                 return None
@@ -458,12 +497,12 @@ impl TokenParser {
     pub fn eat_where_clause(&mut self) -> Option<TokenStream> {
         if let Some(where_ident) = self.eat_ident("where") {
             let mut tb = TokenBuilder::new();
-            tb.extend(where_ident);
+            tb.extend_ident(where_ident);
 
             while let Some(clause_item) = self.eat_where_clause_item() {
                 tb.stream(clause_item);
                 if let Some(comma) = self.eat_punct(',') {
-                    tb.extend(comma);
+                    tb.extend_punct(comma);
                     continue
                 } else {
                     break
@@ -478,10 +517,10 @@ impl TokenParser {
     pub fn eat_tuple_struct(&mut self) -> Option<TokenStream> {
         if let Some(struct_ident) = self.eat_ident("struct") {
             let mut tb = TokenBuilder::new();
-            tb.extend(struct_ident);
+            tb.extend_ident(struct_ident);
 
             if let Some(ident) = self.eat_any_ident() {
-                tb.extend(ident);
+                tb.extend_ident(ident);
                 if let Some(generics) = self.eat_generics() {
                     tb.stream(generics);
                 }
@@ -491,7 +530,7 @@ impl TokenParser {
                         tb.stream(where_clause);
                     }
                     if let Some(semi_colon) = self.eat_punct(';') {
-                        tb.extend(semi_colon);
+                        tb.extend_punct(semi_colon);
                         Some(tb.end())
                     } else {
                         self.backtrack(tb.end());
@@ -513,10 +552,10 @@ impl TokenParser {
     pub fn eat_struct_struct(&mut self) -> Option<TokenStream> {
         if let Some(struct_ident) = self.eat_ident("struct") {
             let mut tb = TokenBuilder::new();
-            tb.extend(struct_ident);
+            tb.extend_ident(struct_ident);
 
             if let Some(ident) = self.eat_any_ident() {
-                tb.extend(ident);
+                tb.extend_ident(ident);
                 if let Some(generics) = self.eat_generics() {
                     tb.stream(generics);
                 }
@@ -537,7 +576,7 @@ impl TokenParser {
                         None
                     }
                 } else if let Some(semi_colon) = self.eat_punct(';') {
-                    tb.extend(semi_colon);
+                    tb.extend_punct(semi_colon);
                     Some(tb.end())
                 } else {
                     self.backtrack(tb.end());
@@ -550,6 +589,10 @@ impl TokenParser {
         } else {
             None
         }
+    }
+
+    pub fn eat_struct(&mut self) -> Option<TokenStream> {
+        self.eat_struct_struct().or_else(|| self.eat_tuple_struct())
     }
 
     pub fn eat_lifetime_param(&mut self) -> Option<TokenStream> {
@@ -566,7 +609,7 @@ impl TokenParser {
             return None;
         }
         if let Some(colon) = self.eat_punct(':') {
-            tb.extend(colon);
+            tb.extend_punct(colon);
             if let Some(lt_bounds) = self.eat_lifetime_bounds() {
                 tb.stream(lt_bounds);
                 Some(tb.end())
@@ -585,9 +628,9 @@ impl TokenParser {
             tb.stream(attr);
         }
         if let Some(ident) = self.eat_any_ident() {
-            tb.extend(ident);
+            tb.extend_ident(ident);
             if let Some(colon) = self.eat_punct(':') {
-                tb.extend(colon);
+                tb.extend_punct(colon);
                 if let Some(bounds) = self.eat_type_param_bounds() {
                     tb.stream(bounds);
                 } else {
@@ -596,7 +639,7 @@ impl TokenParser {
                 }
             }
             if let Some(equal) = self.eat_punct('=') {
-                tb.extend(equal);
+                tb.extend_punct(equal);
                 if let Some(ty) = self.eat_type() {
                     tb.stream(ty);
                 } else {
@@ -614,24 +657,24 @@ impl TokenParser {
     pub fn eat_generics(&mut self) ->  Option<TokenStream> {
         let mut tb = TokenBuilder::new();
         if let Some(open) = self.eat_punct('<') {
-            tb.extend(open);
+            tb.extend_punct(open);
             while let Some(lt_param) = self.eat_lifetime_param() {
                 tb.stream(lt_param);
                 if let Some(comma) = self.eat_punct(',') {
-                    tb.extend(comma);
+                    tb.extend_punct(comma);
                 }
             }
             while let Some(ty_param) = self.eat_type_param() {
                 tb.stream(ty_param);
                 if let Some(comma) = self.eat_punct(',') {
-                    tb.extend(comma);
+                    tb.extend_punct(comma);
                 } else {
                     break
                 }
             }
             
             if let Some(close) = self.eat_punct('>') {
-                tb.extend(close);
+                tb.extend_punct(close);
                 Some(tb.end())
             } else {
                 self.backtrack(tb.end());
@@ -647,7 +690,7 @@ impl TokenParser {
         while let Some(field) = self.eat_struct_field() {
             tb.stream(field.whole);
             if let Some(comma) = self.eat_punct(',') {
-                tb.extend(comma);
+                tb.extend_punct(comma);
             } else {
                 break
             }
@@ -667,9 +710,9 @@ impl TokenParser {
             tb.stream(visibility);
         }
         if let Some(identifier) = self.eat_any_ident() {
-            tb.extend(identifier.clone());
+            tb.extend_ident(identifier.clone());
             if let Some(colon) = self.eat_punct(':') {
-                tb.extend(colon);
+                tb.extend_punct(colon);
             }
             if let Some(ty) = self.eat_type() {
                 tb.stream(ty.clone());
@@ -695,16 +738,16 @@ impl TokenParser {
         // if we have a <, keep running and keep a < stack
 
         if let Some(ob) = self.eat_punct('<') {
-            tb.extend(ob);
+            tb.extend_punct(ob);
             let mut stack = 1;
             // keep eating things till we are at stack 0 for a ">"
             while stack > 0 {
                 if let Some(ob) = self.eat_punct('<') {
-                    tb.extend(ob);
+                    tb.extend_punct(ob);
                     stack += 1;
                 }
                 if let Some(cb) = self.eat_punct('>') {
-                    tb.extend(cb);
+                    tb.extend_punct(cb);
                     stack -= 1;
                 } else if self.eat_eot() {
                     // shits broken
@@ -723,40 +766,13 @@ impl TokenParser {
         }
     }
 
-    // TODO: rewrite
-    pub fn eat_all_types(&mut self) -> Option<(TokenStream, Vec<TokenStream>)> {
-        if self.open_paren() {
-            let mut whole = TokenBuilder::new();
-            whole.push_group(Delimiter::Parenthesis);
-
-            let mut separated = Vec::new();
-            while !self.eat_eot() {
-                if let Some(tt) = self.eat_type() {
-                    whole.stream(tt.clone());
-                    separated.push(tt);
-                    if let Some(comma) = self.eat_punct(',') {
-                        whole.extend(comma);
-                    }
-                } else {
-                    self.backtrack(whole.end());
-                    return None;
-                }
-            }
-
-            whole.pop_group(Delimiter::Parenthesis);
-            Some((whole.end(), separated))
-        } else {
-            None
-        }
-    }
-
     // same as lifetime_token because I don't distinguish between ident and keywords
     pub fn eat_lifetime_or_label(&mut self) -> Option<TokenStream> {
         let mut tb = TokenBuilder::new();
         if let Some(ap) = self.eat_punct('\'') {
-            tb.extend(ap);
+            tb.extend_punct(ap);
             if let Some(lifetime) = self.eat_any_ident() {
-                tb.extend(lifetime);
+                tb.extend_ident(lifetime);
             } else {
                 self.backtrack(tb.end());
                 return None;
@@ -771,9 +787,9 @@ impl TokenParser {
         self.eat_lifetime_or_label().or_else(|| {
             let mut tb = TokenBuilder::new();
             if let Some(ap) = self.eat_punct('\'') {
-                tb.extend(ap);
+                tb.extend_punct(ap);
                 if let Some(anon) = self.eat_punct('_') {
-                    tb.extend(anon);
+                    tb.extend_punct(anon);
                 } else {
                     self.backtrack(tb.end());
                     return None;
@@ -788,9 +804,9 @@ impl TokenParser {
     pub fn eat_double_colon(&mut self) -> Option<TokenStream> {
         if let Some(c1) = self.eat_punct(':') {
             let mut tb = TokenBuilder::new();
-            tb.extend(c1);
+            tb.extend_punct(c1);
             if let Some(c2) = self.eat_punct(':') {
-                tb.extend(c2);
+                tb.extend_punct(c2);
                 Some(tb.end())
             } else {
                 self.backtrack(tb.end());
@@ -804,9 +820,9 @@ impl TokenParser {
     pub fn eat_fn_arrow(&mut self) -> Option<TokenStream> {
         if let Some(c1) = self.eat_punct('-') {
             let mut tb = TokenBuilder::new();
-            tb.extend(c1);
+            tb.extend_punct(c1);
             if let Some(c2) = self.eat_punct('>') {
-                tb.extend(c2);
+                tb.extend_punct(c2);
                 Some(tb.end())
             } else {
                 self.backtrack(tb.end());
@@ -820,11 +836,11 @@ impl TokenParser {
     pub fn eat_triple_dot(&mut self) -> Option<TokenStream> {
         if let Some(c1) = self.eat_punct('.') {
             let mut tb = TokenBuilder::new();
-            tb.extend(c1);
+            tb.extend_punct(c1);
             if let Some(c2) = self.eat_punct('.') {
-                tb.extend(c2);
+                tb.extend_punct(c2);
                 if let Some(c3) = self.eat_punct('.') {
-                    tb.extend(c3);
+                    tb.extend_punct(c3);
                     Some(tb.end())
                 } else {
                     self.backtrack(tb.end());
@@ -842,7 +858,7 @@ impl TokenParser {
     pub fn eat_type_path_segment(&mut self) -> Option<TokenStream> {
         let mut tb = TokenBuilder::new();
         if let Some(ident) = self.eat_any_ident() {
-            tb.extend(ident);
+            tb.extend_ident(ident);
             if let Some(colons) = self.eat_double_colon() {
                 tb.stream(colons);
             }
@@ -890,9 +906,9 @@ impl TokenParser {
     pub fn eat_raw_pointer_type(&mut self) -> Option<TokenStream> {
         if let Some(star) = self.eat_punct('*') {
             let mut tb = TokenBuilder::new();
-            tb.extend(star);
+            tb.extend_punct(star);
             if let Some(ident) = self.eat_ident("cont").or_else(|| self.eat_ident("mut")) {
-                tb.extend(ident);
+                tb.extend_ident(ident);
                 if let Some(ty) = self.eat_type_no_bounds() {
                     tb.stream(ty);
                     Some(tb.end())
@@ -947,7 +963,7 @@ impl TokenParser {
         let mut tb = TokenBuilder::new();
 
         if let Some(for_ident) = self.eat_ident("for") {
-            tb.extend(for_ident);
+            tb.extend_ident(for_ident);
             if let Some(lifetime_params) = self.eat_group_angle_bracket() {
                 tb.stream(lifetime_params);
                 Some(tb.end())
@@ -964,17 +980,17 @@ impl TokenParser {
         let mut tb = TokenBuilder::new();
 
         if let Some(async_const) = self.eat_ident("const").or_else(|| self.eat_ident("async")) {
-            tb.extend(async_const);
+            tb.extend_ident(async_const);
         }
 
         if let Some(unsafe_ident) = self.eat_ident("unsafe") {
-            tb.extend(unsafe_ident);
+            tb.extend_ident(unsafe_ident);
         }
 
         if let Some(extern_ident) = self.eat_ident("extern") {
-            tb.extend(extern_ident);
+            tb.extend_ident(extern_ident);
             if let Some(abi) = self.eat_literal() {
-                tb.extend(abi);
+                tb.extend_literal(abi);
             }
         }
 
@@ -985,7 +1001,7 @@ impl TokenParser {
         let mut tb = TokenBuilder::new();
         let nbr_sign = self.eat_punct('#')?;
         if self.open_bracket() {
-            tb.extend(nbr_sign);
+            tb.extend_punct(nbr_sign);
             if let Some(content) = self.eat_any_group() {
                 tb.extend(content);
                 Some(tb.end())   
@@ -997,66 +1013,6 @@ impl TokenParser {
             None
         }
     }
-
-    // pub fn eat_maybe_named_function_parameters_variadic(&mut self) -> Option<TokenStream> {
-    //     let mut tb = TokenBuilder::new();
-    //     while let Some(mnp) = self.eat_maybe_named_param() {
-    //         let comma = self.eat_punct(',')?;
-    //         tb.stream(mnp);
-    //         tb.extend(comma);
-    //     }
-    //     let mnp = self.eat_maybe_named_param()?;
-    //     let comma = self.eat_punct(',')?;
-
-    //     tb.stream(mnp);
-    //     tb.extend(comma);
-
-    //     while let Some(attr) = self.eat_outer_attribute() {
-    //         tb.stream(attr);
-    //     }
-
-    //     let triple_dots = self.eat_triple_dot()?;
-    //     tb.stream(triple_dots);
-
-    //     Some(tb.end())
-    // }
-
-    // pub fn eat_maybe_named_param(&mut self) -> Option<TokenStream> {
-    //     let mut tb = TokenBuilder::new();
-    //     while let Some(attr) = self.eat_outer_attribute() {
-    //         tb.stream(attr);
-    //     }
-    //     if let Some(ident_or_anon) = self.eat_any_ident().or_else(|| self.eat_punct('_')) {
-    //         let colon = self.eat_punct(':')?;
-    //         tb.extend(ident_or_anon);
-    //         tb.extend(colon);
-    //     }
-    //     let ty = self.eat_type()?;
-    //     tb.stream(ty);
-
-    //     Some(tb.end())
-    // }
-
-    // pub fn eat_maybe_named_function_parameters(&mut self) -> Option<TokenStream> {
-    //     let mnp1 = self.eat_maybe_named_param()?;
-    //     let mut tb = TokenBuilder::new();
-    //     tb.stream(mnp1);
-    //     while let Some(comma) = self.eat_punct(',') {
-    //         let mnp_i = self.eat_maybe_named_param()?;
-    //         tb.extend(comma);
-    //         tb.stream(mnp_i);
-    //     }
-    //     if let Some(comma) = self.eat_punct(',') {
-    //         tb.extend(comma);
-    //     }
-
-    //     Some(tb.end())
-    // }
-
-    // pub fn eat_function_parameters_maybe_named_variadic(&mut self) -> Option<TokenStream> {
-    //     self.eat_maybe_named_function_parameters().or_else(|| self.eat_maybe_named_function_parameters_variadic())
-    // }
-
     pub fn eat_bare_function_type(&mut self) -> Option<TokenStream> {
         let mut tb = TokenBuilder::new();
 
@@ -1067,7 +1023,7 @@ impl TokenParser {
         tb.stream(fq);
 
         if let Some(fn_ident) = self.eat_ident("fn") {
-            tb.extend(fn_ident);
+            tb.extend_ident(fn_ident);
 
             if let Some(arrow) = self.eat_fn_arrow() {
                 tb.stream(arrow);
@@ -1092,11 +1048,11 @@ impl TokenParser {
             tb.stream(db);
         }
         if let Some(sps) = self.eat_any_ident() { // simple path segment, except $crate
-            tb.extend(sps);
+            tb.extend_ident(sps);
             while let Some(db) = self.eat_double_colon() {
                 if let Some(sps) = self.eat_any_ident() { // simple path segment, except $crate
                     tb.stream(db);
-                    tb.extend(sps);
+                    tb.extend_ident(sps);
                 } else {
                     self.backtrack(tb.end());
                     return None
@@ -1125,6 +1081,7 @@ impl TokenParser {
         }
     }
 
+    // TODO: check for backtracking correctness
     pub fn eat_trait_bound(&mut self) -> Option<TokenStream> {
         if let Some(g) = self.eat_group(Delimiter::Parenthesis) {
             let mut tb = TokenBuilder::new();
@@ -1138,7 +1095,7 @@ impl TokenParser {
 
             if let Some(tp) = self.eat_type_path() {
                 if let Some(q) = q {
-                    tb.extend(q);
+                    tb.extend_punct(q);
                 }
                 if let Some(for_lt) = for_lt {
                     tb.stream(for_lt);
@@ -1156,7 +1113,7 @@ impl TokenParser {
     pub fn eat_trait_object_type_one_bound(&mut self) -> Option<TokenStream> {
         let mut tb = TokenBuilder::new();
         if let Some(dyn_ident) = self.eat_ident("dyn") {
-            tb.extend(dyn_ident);
+            tb.extend_ident(dyn_ident);
         }
         if let Some(trait_bound) = self.eat_trait_bound() {
             tb.stream(trait_bound);
@@ -1171,7 +1128,7 @@ impl TokenParser {
         if let Some(impl_ident) = self.eat_ident("impl") {
             let mut tb = TokenBuilder::new();
             if let Some(trait_bound) = self.eat_trait_bound() {
-                tb.extend(impl_ident);
+                tb.extend_ident(impl_ident);
                 tb.stream(trait_bound);
                 Some(tb.end())
             } else {
@@ -1186,15 +1143,15 @@ impl TokenParser {
     pub fn eat_type_no_bounds(&mut self) -> Option<TokenStream> {
         let mut tb = TokenBuilder::new();
 
-        if let Some((tys, _)) = self.eat_all_types() {
+        if let Some(tys) = self.eat_group(Delimiter::Parenthesis) {
             // parenthesized_type
-            tb.stream(tys);
+            tb.extend(tys);
             return Some(tb.end());
         } else if let Some(ittob) = self.eat_impl_trait_type_one_bound() {
             // impl trait one bound
             tb.stream(ittob);
             return Some(tb.end());
-        } else if let Some(itotob) = self.eat_impl_trait_type_one_bound() {
+        } else if let Some(itotob) = self.eat_trait_object_type_one_bound() {
             tb.stream(itotob);
             return Some(tb.end());
         } else if let Some(typath) = self.eat_type_path() {
@@ -1207,7 +1164,7 @@ impl TokenParser {
             return Some(tb.end());
         } else if let Some(never) = self.eat_punct('!') {
             // never type
-            tb.extend(never);
+            tb.extend_punct(never);
             return Some(tb.end());
         } else if let Some(raw_ptr) = self.eat_raw_pointer_type() {
             // raw pointer type
@@ -1215,12 +1172,12 @@ impl TokenParser {
             return Some(tb.end());
         } else if let Some(amp) = self.eat_punct('&') {
             // reference type
-            tb.extend(amp);
+            tb.extend_punct(amp);
             if let Some(lt) = self.eat_lifetime() {
                 tb.stream(lt);
             }
             if let Some(mut_ident) = self.eat_ident("mut") {
-                tb.extend(mut_ident);
+                tb.extend_ident(mut_ident);
             }
             let ty = self.eat_type_no_bounds()?;
             tb.stream(ty);
@@ -1231,7 +1188,7 @@ impl TokenParser {
             return Some(tb.end());
         } else if let Some(punct) = self.eat_punct('_') {
             // inferred type
-            tb.extend(punct);
+            tb.extend_punct(punct);
             return Some(tb.end());
         } else if let Some(qpit) = self.eat_qualified_path_in_type() {
             // qualified path in type
@@ -1250,7 +1207,7 @@ impl TokenParser {
             let mut tb = TokenBuilder::new();
             tb.stream(tpb);
             while let Some(plus) = self.eat_punct('+') {
-                tb.extend(plus);
+                tb.extend_punct(plus);
                 if let Some(bound) = self.eat_type_param_bound() {
                     tb.stream(bound);
                 }
@@ -1268,7 +1225,7 @@ impl TokenParser {
     pub fn eat_impl_trait_type(&mut self) -> Option<TokenStream> {
         if let Some(impl_ident) = self.eat_ident("impl") {
             let mut tb = TokenBuilder::new();
-            tb.extend(impl_ident);
+            tb.extend_ident(impl_ident);
             if let Some(tpbs) = self.eat_type_param_bounds() {
                 tb.stream(tpbs);
                 Some(tb.end())
@@ -1284,7 +1241,7 @@ impl TokenParser {
     pub fn eat_trait_object_type(&mut self) -> Option<TokenStream> {
         let mut tb = TokenBuilder::new();
         if let Some(dyn_ident) = self.eat_ident("dyn") {
-            tb.extend(dyn_ident);
+            tb.extend_ident(dyn_ident);
         }
         if let Some(tpbs) = self.eat_type_param_bounds() {
             tb.stream(tpbs);
@@ -1327,7 +1284,7 @@ impl TokenParser {
     pub fn eat_visibility(&mut self) -> Option<TokenStream> {
         let mut tb = TokenBuilder::new();
         if let Some(pub_ident) = self.eat_ident("pub") {
-            tb.extend(pub_ident);
+            tb.extend_ident(pub_ident);
             if let Some(tt) = self.eat_group(Delimiter::Bracket) {
                 tb.extend(tt);
             }
@@ -1337,3 +1294,65 @@ impl TokenParser {
         }
     }
 }
+
+
+/*
+    pub fn eat_maybe_named_function_parameters_variadic(&mut self) -> Option<TokenStream> {
+        let mut tb = TokenBuilder::new();
+        while let Some(mnp) = self.eat_maybe_named_param() {
+            let comma = self.eat_punct(',')?;
+            tb.stream(mnp);
+            tb.extend_punct(comma);
+        }
+        let mnp = self.eat_maybe_named_param()?;
+        let comma = self.eat_punct(',')?;
+
+        tb.stream(mnp);
+        tb.extend_punct(comma);
+
+        while let Some(attr) = self.eat_outer_attribute() {
+            tb.stream(attr);
+        }
+
+        let triple_dots = self.eat_triple_dot()?;
+        tb.stream(triple_dots);
+
+        Some(tb.end())
+    }
+
+    pub fn eat_maybe_named_param(&mut self) -> Option<TokenStream> {
+        let mut tb = TokenBuilder::new();
+        while let Some(attr) = self.eat_outer_attribute() {
+            tb.stream(attr);
+        }
+        if let Some(ident_or_anon) = self.eat_any_ident().or_else(|| self.eat_punct('_')) {
+            let colon = self.eat_punct(':')?;
+            tb.extend_ident(ident_or_anon);
+            tb.extend_punct(colon);
+        }
+        let ty = self.eat_type()?;
+        tb.stream(ty);
+
+        Some(tb.end())
+    }
+
+    pub fn eat_maybe_named_function_parameters(&mut self) -> Option<TokenStream> {
+        let mnp1 = self.eat_maybe_named_param()?;
+        let mut tb = TokenBuilder::new();
+        tb.stream(mnp1);
+        while let Some(comma) = self.eat_punct(',') {
+            let mnp_i = self.eat_maybe_named_param()?;
+            tb.extend_punct(comma);
+            tb.stream(mnp_i);
+        }
+        if let Some(comma) = self.eat_punct(',') {
+            tb.extend_punct(comma);
+        }
+
+        Some(tb.end())
+    }
+
+    pub fn eat_function_parameters_maybe_named_variadic(&mut self) -> Option<TokenStream> {
+        self.eat_maybe_named_function_parameters().or_else(|| self.eat_maybe_named_function_parameters_variadic())
+    }
+*/
