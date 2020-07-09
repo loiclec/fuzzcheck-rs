@@ -16,7 +16,7 @@ pub fn derive_mutator(input: TokenStream) -> TokenStream {
     } else if let Some(e) = parser.eat_enumeration() {
         tb.stream(e.whole);
     }
-    //tb.add("}");
+    // tb.add("}");
     // tb.eprint();
 
     tb.end()
@@ -31,15 +31,14 @@ fn derive_struct_mutator(parsed_struct: Struct, tb: &mut TokenBuilder) {
 }
 
 fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuilder) {
-    
     let fields = parsed_struct.data.struct_fields.as_ref().unwrap();
 
-    let field_types = fields.fields.iter().map(|f| {
-        f.ty.clone()
-    }).collect::<Vec<_>>();
+    let field_types = fields.fields.iter().map(|f| f.ty.clone()).collect::<Vec<_>>();
 
-    let safe_field_names = fields.fields
-        .iter().enumerate()
+    let safe_field_names = fields
+        .fields
+        .iter()
+        .enumerate()
         .map(|(i, f)| {
             if let Some(ident) = &f.identifier {
                 format!("_{}", ident)
@@ -56,26 +55,25 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
 
     for ty in field_types.iter() {
         let mut tb_i = TokenBuilder::new();
-        tb_i.add("<")
+        tb_i.punct("<")
             .stream(ty.clone())
             .add("as fuzzcheck_mutators :: HasDefaultMutator > :: Mutator");
         mutator_field_types.push(tb_i.end());
 
         let mut tb_i = TokenBuilder::new();
-        tb_i.add("<")
-            .add("<")
+        tb_i.add("< <")
             .stream(ty.clone())
             .add("as fuzzcheck_mutators :: HasDefaultMutator > :: Mutator as fuzzcheck_traits :: Mutator > :: Cache");
         mutator_cache_field_types.push(tb_i.end());
 
         let mut tb_i = TokenBuilder::new();
-        tb_i.add("<").add("<").stream(ty.clone()).add(
+        tb_i.add("< <").stream(ty.clone()).add(
             "as fuzzcheck_mutators :: HasDefaultMutator > :: Mutator as fuzzcheck_traits :: Mutator > :: MutationStep",
         );
         mutator_step_field_types.push(tb_i.end());
 
         let mut tb_i = TokenBuilder::new();
-        tb_i.add("<").add("<").stream(ty.clone()).add(
+        tb_i.add("< <").stream(ty.clone()).add(
             "as fuzzcheck_mutators :: HasDefaultMutator > :: Mutator as fuzzcheck_traits :: Mutator > :: UnmutateToken",
         );
         mutator_unmutate_token_field_types.push(tb_i.end());
@@ -83,8 +81,17 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
 
     let generic_params = {
         if let Some(params_vec) = parsed_struct.data.generics.as_ref().map(|generics| {
-            let mut params = generics.lifetime_params.iter().map(|lp| lp.ident.clone()).collect::<Vec<TokenStream>>();
-            params.extend(generics.type_params.iter().map(|tp| TokenTree::Ident(tp.ident.clone()).into()));
+            let mut params = generics
+                .lifetime_params
+                .iter()
+                .map(|lp| lp.ident.clone())
+                .collect::<Vec<TokenStream>>();
+            params.extend(
+                generics
+                    .type_params
+                    .iter()
+                    .map(|tp| TokenTree::Ident(tp.ident.clone()).into()),
+            );
             params
         }) {
             let mut tb = TokenBuilder::new();
@@ -151,10 +158,10 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
 
     {
         // implementation of Default for Mutator
-        tb.add("impl");
+        tb.ident("impl");
         tb.stream_opt(generic_params.clone());
         tb.add("core :: default :: Default for");
-        tb.add(&name_mutator);
+        tb.ident(&name_mutator);
         tb.stream_opt(generic_params.clone());
         tb.stream_opt(parsed_struct.data.where_clause.clone());
         tb.add("{");
@@ -162,15 +169,13 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
         tb.add("Self {");
 
         for (field, ty) in safe_field_names.iter().zip(mutator_field_types.iter()) {
-            // eprintln!("{} : < < {} > as  core :: default :: Default > :: default ( ) ,", field, ty);
             tb.add(&format!(
                 "{} : < {} as  core :: default :: Default > :: default ( ) ,",
                 field, ty
             ));
         }
-        tb.add("rng : fuzzcheck_mutators :: fastrand :: Rng :: new ( ) ");
+        tb.add("rng : fuzzcheck_mutators :: fastrand :: Rng :: new ( )");
 
         tb.add("} } }");
     }
-
 }
