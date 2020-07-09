@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 // Copyright (c) 2019 makepad
 
 // makepad/render/microserde/derive/src/macro_lib.rs
@@ -32,13 +33,6 @@ impl TokenBuilder {
         Self {
             groups: vec![(Delimiter::None, TokenStream::new())],
         }
-    }
-
-    pub fn end_clone(&self) -> TokenStream {
-        if self.groups.len() != 1 {
-            panic!("Groups not empty, you missed a pop_group")
-        }
-        self.groups.last().unwrap().1.clone()
     }
 
     pub fn end(mut self) -> TokenStream {
@@ -223,7 +217,7 @@ pub enum StructKind {
 
 pub struct Struct {
     pub whole: TokenStream,
-    pub kind: StructKind,
+    pub visibility: Option<TokenStream>,
     pub data: StructData
 }
 
@@ -242,7 +236,26 @@ pub struct StructField {
 }
 pub struct StructFields {
     pub whole: TokenStream,
+    pub kind: StructKind,
     pub fields: Vec<StructField>,
+}
+pub struct Enum {
+    pub whole: TokenStream,
+    pub visibility: Option<TokenStream>,
+    pub ident: Ident,
+    pub generics: Option<Generics>,
+    pub where_clause: Option<TokenStream>,
+    pub items: Vec<EnumItem>, 
+}
+pub struct EnumItem {
+    pub whole: TokenStream,
+    pub attributes: Vec<TokenStream>,
+    pub ident: Ident,
+    pub data: Option<EnumItemData>,
+}
+pub enum EnumItemData {
+    Discriminant(TokenTree),
+    Struct(Option<StructFields>),
 }
 pub struct LifetimeParam {
     pub whole: TokenStream,
@@ -522,8 +535,12 @@ impl TokenParser {
     }
 
     pub fn eat_tuple_struct(&mut self) -> Option<Struct> {
+        let mut tb = TokenBuilder::new();
+        let visibility = self.eat_visibility();
+        if let Some(visibility) = &visibility {
+            tb.stream(visibility.clone());
+        }
         if let Some(struct_ident) = self.eat_ident("struct") {
-            let mut tb = TokenBuilder::new();
             tb.extend_ident(struct_ident);
 
             if let Some(ident) = self.eat_any_ident() {
@@ -549,7 +566,7 @@ impl TokenParser {
                             tb.extend_punct(semi_colon);
                             Some(Struct {
                                 whole: tb.end(),
-                                kind: StructKind::Tuple,
+                                visibility,
                                 data: StructData {
                                     ident,
                                     generics,
@@ -575,13 +592,18 @@ impl TokenParser {
                 None
             }
         } else {
+            self.backtrack(tb.end());
             None
         }
     }
 
     pub fn eat_struct_struct(&mut self) -> Option<Struct> {
+        let mut tb = TokenBuilder::new();
+        let visibility = self.eat_visibility();
+        if let Some(visibility) = &visibility {
+            tb.stream(visibility.clone());
+        }
         if let Some(struct_ident) = self.eat_ident("struct") {
-            let mut tb = TokenBuilder::new();
             tb.extend_ident(struct_ident);
 
             if let Some(ident) = self.eat_any_ident() {
@@ -598,18 +620,21 @@ impl TokenParser {
                     tb.push_group(Delimiter::Brace);
 
                     let struct_fields = self.eat_struct_fields();
-                    tb.stream(struct_fields.whole.clone());
+                    if let Some(struct_fields) = &struct_fields {
+                        tb.stream(struct_fields.whole.clone());
+                    }
+
                     if self.eat_eot() {
                         tb.pop_group(Delimiter::Brace);
                         let whole = tb.end();
                         Some(Struct {
                             whole,
-                            kind: StructKind::Struct,
+                            visibility,
                             data: StructData {
                                 ident,
                                 generics,
                                 where_clause,
-                                struct_fields: Some(struct_fields),
+                                struct_fields,
                             }
                         })
                     } else {
@@ -621,7 +646,7 @@ impl TokenParser {
                     tb.extend_punct(semi_colon);
                     Some(Struct {
                         whole: tb.end(),
-                        kind: StructKind::Struct,
+                        visibility,
                         data: StructData {
                             ident,
                             generics,
@@ -638,12 +663,147 @@ impl TokenParser {
                 None
             }
         } else {
+            self.backtrack(tb.end());
             None
         }
     }
 
     pub fn eat_struct(&mut self) -> Option<Struct> {
         self.eat_struct_struct().or_else(|| self.eat_tuple_struct())
+    }
+
+    pub fn eat_enum_item(&mut self) -> Option<EnumItem> {
+        let mut tb = TokenBuilder::new();
+        let mut attributes = Vec::new();
+        while let Some(attr) = self.eat_outer_attribute() {
+            tb.stream(attr.clone());
+            attributes.push(attr);
+        }
+        let visibility = self.eat_visibility();
+        if let Some(visibility) = &visibility {
+            tb.stream(visibility.clone());
+        }
+        if let Some(ident) = self.eat_any_ident() {
+            tb.extend_ident(ident.clone());
+            if self.open_paren() {
+                tb.push_group(Delimiter::Parenthesis);
+                let struct_fields = self.eat_tuple_fields();
+                if let Some(struct_fields) = &struct_fields {
+                    tb.stream(struct_fields.whole.clone());
+                }
+                tb.pop_group(Delimiter::Parenthesis);
+                Some(EnumItem {
+                    whole: tb.end(),
+                    attributes,
+                    ident,
+                    data: Some(EnumItemData::Struct(struct_fields)),
+                })
+            }
+            else if self.open_brace() {
+                tb.push_group(Delimiter::Brace);
+                let struct_fields = self.eat_struct_fields();
+                if let Some(struct_fields) = &struct_fields {
+                    tb.stream(struct_fields.whole.clone());
+                }
+                tb.pop_group(Delimiter::Brace);
+                Some(EnumItem {
+                    whole: tb.end(),
+                    attributes,
+                    ident,
+                    data: Some(EnumItemData::Struct(struct_fields)),
+                })
+            } else if let Some(equal) = self.eat_punct('=') {
+                tb.extend_punct(equal);
+                let expr: Option<TokenTree> = self.eat_literal().map(TokenTree::Literal).or_else(|| self.eat_any_ident().map(TokenTree::Ident)).or_else(|| self.eat_group(Delimiter::Brace)).into();
+                if let Some(expr) = expr {
+                    tb.extend(expr.clone());
+                    Some(EnumItem {
+                        whole: tb.end(),
+                        attributes,
+                        ident,
+                        data: Some(EnumItemData::Discriminant(expr))
+                    })
+                } else {
+                    self.backtrack(tb.end());
+                    None
+                }
+            } else {
+                Some(EnumItem {
+                    whole: tb.end(),
+                    attributes,
+                    ident,
+                    data: None,
+                })
+            }
+        } else {
+            self.backtrack(tb.end());
+            None
+        }
+    }
+
+    pub fn eat_enumeration(&mut self) -> Option<Enum> {
+        let mut tb = TokenBuilder::new();
+        let visibility = self.eat_visibility();
+        if let Some(visibility) = &visibility {
+            tb.stream(visibility.clone());
+        }
+
+        if let Some(enum_ident) = self.eat_ident("enum") {
+        
+            tb.extend_ident(enum_ident);
+            if let Some(ident) = self.eat_any_ident() {
+                tb.extend_ident(ident.clone());
+                let generics = self.eat_generics();
+                if let Some(generics) = &generics {
+                    tb.stream(generics.whole.clone());
+                }
+                let where_clause = self.eat_where_clause();
+                if let Some(where_clause) = &where_clause {
+                    tb.stream(where_clause.clone());
+                }
+                if self.open_brace() {
+                    tb.push_group(Delimiter::Brace);
+                    let mut items = Vec::new();
+                    while let Some(item) = self.eat_enum_item() {
+                        tb.stream(item.whole.clone());
+                        items.push(item);
+                        if let Some(comma) = self.eat_punct(',') {
+                            tb.extend_punct(comma);
+                        } else {
+                            break
+                        }
+                    }
+                    if let Some(comma) = self.eat_punct(',') {
+                        tb.extend_punct(comma);
+                    }
+                    if self.eat_eot() {
+                        tb.pop_group(Delimiter::Brace);
+                        Some(Enum {
+                            whole: tb.end(),
+                            visibility,
+                            ident,
+                            generics,
+                            where_clause,
+                            items,
+
+                        })
+                    } else {
+                        // tb.pop_group(Delimiter::Brace);
+                        // TODO: fix backtracking here
+                        self.backtrack(tb.end());
+                        None
+                    }
+                } else {
+                    self.backtrack(tb.end());
+                    None
+                }
+            } else {
+                self.backtrack(tb.end());
+                None
+            }
+        } else {
+            None
+        }
     }
 
     pub fn eat_lifetime_param(&mut self) -> Option<LifetimeParam> {
@@ -783,6 +943,7 @@ impl TokenParser {
             }
             Some(StructFields {
                 whole: tb.end(),
+                kind: StructKind::Tuple,
                 fields: fields,
             })
         } else {
@@ -816,21 +977,27 @@ impl TokenParser {
         }
     }
 
-    pub fn eat_struct_fields(&mut self) -> StructFields {
+    pub fn eat_struct_fields(&mut self) -> Option<StructFields> {
         let mut tb = TokenBuilder::new();
-        let mut vec = Vec::new();
+        let mut fields = Vec::new();
         while let Some(field) = self.eat_struct_field() {
             tb.stream(field.whole.clone());
-            vec.push(field);
+            fields.push(field);
             if let Some(comma) = self.eat_punct(',') {
                 tb.extend_punct(comma);
             } else {
                 break
             }
         }
-        StructFields {
-            whole: tb.end(),
-            fields: vec,
+        if fields.is_empty() {
+            self.backtrack(tb.end());
+            None
+        } else {
+            Some(StructFields {
+                whole: tb.end(),
+                kind: StructKind::Struct,
+                fields,
+            })
         }
     }
 
@@ -973,12 +1140,15 @@ impl TokenParser {
         let mut tb = TokenBuilder::new();
         if let Some(ident) = self.eat_any_ident() {
             tb.extend_ident(ident);
+            let mut colons_tb = TokenBuilder::new(); 
             if let Some(colons) = self.eat_double_colon() {
-                tb.stream(colons);
+                colons_tb.stream(colons);
             }
             if let Some(generic) = self.eat_group_angle_bracket() {
+                tb.stream(colons_tb.end());
                 tb.stream(generic);
             } else if let Some(fn_args) = self.eat_group(Delimiter::Parenthesis) {
+                tb.stream(colons_tb.end());
                 tb.extend(fn_args);
                 if let Some(arrow) = self.eat_fn_arrow() {
                     tb.stream(arrow);
@@ -989,6 +1159,8 @@ impl TokenParser {
                         return None;
                     }
                 }
+            } else {
+                self.backtrack(colons_tb.end());
             }
             Some(tb.end())
         } else {
@@ -1001,20 +1173,23 @@ impl TokenParser {
         if let Some(colons) = self.eat_double_colon() {
             tb.stream(colons);
         }
-        loop {
+        if let Some(segment) = self.eat_type_path_segment() {
+            tb.stream(segment);
+        } else {
+            self.backtrack(tb.end());
+            return None
+        }
+        while let Some(colons) = self.eat_double_colon() {
+            tb.stream(colons);  
             if let Some(segment) = self.eat_type_path_segment() {
                 tb.stream(segment);
-                if let Some(colons) = self.eat_double_colon() {
-                    tb.stream(colons);
-                    continue;
-                } else {
-                    break Some(tb.end());
-                }
+                
             } else {
                 self.backtrack(tb.end());
                 return None
             }
         }
+        Some(tb.end())
     }
 
     pub fn eat_raw_pointer_type(&mut self) -> Option<TokenStream> {
