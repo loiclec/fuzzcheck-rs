@@ -63,6 +63,15 @@ impl TokenBuilder {
         self.extend(TokenTree::Literal(l))
     }
 
+    pub fn stream_opt(&mut self, what: Option<TokenStream>) -> &mut Self {
+        if let Some(what) = what {
+            for c in what.into_iter() {
+                self.extend(c);
+            }
+        }
+        self
+    }
+
     pub fn stream(&mut self, what: TokenStream) -> &mut Self {
         for c in what.into_iter() {
             self.extend(c);
@@ -557,7 +566,6 @@ impl TokenParser {
                     }
                     if self.eat_eot() {
                         tb.pop_group(Delimiter::Parenthesis);
-        
                         let where_clause = self.eat_where_clause();
                         if let Some(where_clause) = where_clause.clone() {
                             tb.stream(where_clause);

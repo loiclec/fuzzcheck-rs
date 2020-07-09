@@ -1,5 +1,7 @@
 extern crate fuzzcheck_traits;
 
+pub extern crate fastrand;
+
 pub mod bool;
 pub mod either;
 pub mod integer;
@@ -12,7 +14,7 @@ use std::ops::Range;
 use fuzzcheck_traits::Mutator;
 
 pub trait HasDefaultMutator: Clone {
-    type Mutator: Mutator<Value=Self>;
+    type Mutator: Mutator<Value=Self> + Default;
     fn default_mutator() -> Self::Mutator;
 }
 
