@@ -17,7 +17,7 @@ pub fn derive_mutator(input: TokenStream) -> TokenStream {
         tb.stream(e.whole);
     }
     // tb.add("}");
-    // tb.eprint();
+    tb.eprint();
 
     tb.end()
 }
@@ -106,6 +106,37 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
             None
         }
     };
+    let where_clause_extended_with_generic_params_bounds = {
+        let mut tb = TokenBuilder::new();
+        if let Some(generics) = &parsed_struct.data.generics {
+            let mut condition = TokenBuilder::new();
+            if !generics.lifetime_params.is_empty() {
+                for lifetime_param in generics.lifetime_params.iter() {
+                    if let Some(bounds) = &lifetime_param.bounds {
+                        condition.stream(lifetime_param.ident.clone());
+                        condition.punct(":");
+                        condition.stream(bounds.clone());
+                        condition.punct(",");
+                    }
+
+                }
+            }
+            if !generics.type_params.is_empty() {
+                for type_param in generics.type_params.iter() {
+                    if let Some(bounds) = &type_param.bounds {
+                        condition.extend_ident(type_param.ident.clone());
+                        condition.punct(":");
+                        condition.stream(bounds.clone());
+                        condition.punct(",");
+                    }
+                    condition.extend_ident(type_param.ident.clone());
+                    condition.add(": fuzzcheck_traits :: Mutator , ");
+                }
+            }
+            let where_clause = add_condition_to_where_clause(parsed_struct.data.where_clause.clone(), condition.end());
+            tb.stream(where_clause);
+        }
+    };
 
     let mut add_struct = |ident: &str, ty_fields: &[TokenStream], add_fields: TokenStream| {
         // Main Mutator
@@ -178,4 +209,48 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
 
         tb.add("} } }");
     }
+
+    {
+        // implementation of Mutator trait
+        tb.ident("impl");
+        tb.stream_opt(generic_params.clone());
+        tb.add("fuzzcheck_traits :: Mutator for");
+        tb.ident(&name_mutator);
+        tb.stream_opt(generic_params.clone());
+        //tb.stream_opt(parsed_struct.data.where_clause.clone());
+        if let Some(generics) = &parsed_struct.data.generics {
+            if !generics.type_params.is_empty() {
+                let mut condition = TokenBuilder::new();
+                for type_param in generics.type_params.iter() {
+                    if let Some(bounds) = &type_param.bounds {
+                        condition.extend_ident(type_param.ident.clone());
+                        condition.punct(":");
+                        condition.stream(bounds.clone());
+                        condition.punct(",");
+                    }
+                    condition.extend_ident(type_param.ident.clone());
+                    condition.add(": fuzzcheck_traits :: Mutator , ");
+                }
+                let where_clause = add_condition_to_where_clause(parsed_struct.data.where_clause.clone(), condition.end());
+                tb.stream(where_clause);
+            }
+        }
+        tb.add("{ }");
+    }
 }
+
+fn add_condition_to_where_clause(where_clause: Option<TokenStream>, condition: TokenStream) -> TokenStream {
+    let mut tb = TokenBuilder::new();
+    if let Some(where_clause) = where_clause {
+        tb.stream(where_clause);
+        tb.add(", ");
+        tb.stream(condition);
+        tb.end()
+    } else if !condition.is_empty() {
+        tb.ident("where");
+        tb.stream(condition);
+        tb.end()
+    } else {
+        TokenStream::new()
+    }
+} 

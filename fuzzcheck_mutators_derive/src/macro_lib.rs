@@ -44,10 +44,10 @@ impl TokenBuilder {
         self.groups.pop().unwrap().1
     }
 
-    // #[inline(never)]
-    // pub fn eprint(&self) {
-    //     eprintln!("{}", self.groups.last().unwrap().1.to_string());
-    // }
+    #[inline(never)]
+    pub fn eprint(&self) {
+        eprintln!("{}", self.groups.last().unwrap().1.to_string());
+    }
 
     #[inline(never)]
     pub fn extend(&mut self, tt: TokenTree) -> &mut Self {
@@ -265,7 +265,7 @@ pub struct Struct {
 pub struct StructData {
     pub ident: Ident,
     pub generics: Option<Generics>,
-    pub where_clause: Option<TokenStream>,
+    pub where_clause: Option<WhereClause>,
     pub struct_fields: Option<StructFields>,
 }
 pub struct StructField {
@@ -285,7 +285,7 @@ pub struct Enum {
     pub visibility: Option<TokenStream>,
     pub ident: Ident,
     pub generics: Option<Generics>,
-    pub where_clause: Option<TokenStream>,
+    pub where_clause: Option<WhereClause>,
     pub items: Vec<EnumItem>,
 }
 pub struct EnumItem {
@@ -314,6 +314,16 @@ pub struct Generics {
     pub whole: TokenStream,
     pub lifetime_params: Vec<LifetimeParam>,
     pub type_params: Vec<TypeParam>,
+}
+pub struct WhereClauseItem {
+    whole: TokenStream,
+    for_lifetimes: Option<TokenStream>,
+    lhs: TokenStream,
+    rhs: TokenStream,
+}
+pub struct WhereClause {
+    whole: TokenStream,
+    items: Vec<WhereClauseItem>,
 }
 
 impl TokenParser {
@@ -506,19 +516,28 @@ impl TokenParser {
     }
 
     #[inline(never)]
-    pub fn eat_type_bound_where_clause_item(&mut self) -> Option<TokenStream> {
+    pub fn eat_type_bound_where_clause_item(&mut self) -> Option<WhereClauseItem> {
         let mut tb = TokenBuilder::new();
-        if let Some(for_lt) = self.eat_for_lifetimes() {
+        let for_lifetimes = self.eat_for_lifetimes();
+        if let Some(for_lt) = for_lifetimes {
             tb.stream(for_lt);
         }
         if let Some(ty) = self.eat_type() {
             tb.stream(ty);
+            let lhs = ty;
             if let Some(colon) = self.eat_punct(':') {
                 tb.extend_punct(colon);
+                let mut rhs = TokenBuilder::new();
                 if let Some(typbs) = self.eat_type_param_bounds() {
                     tb.stream(typbs);
                 }
-                Some(tb.end())
+                let rhs = rhs.end();
+                Some(WhereClauseItem {
+                    whole: tb.end(),
+                    for_lifetimes,
+                    lhs,
+                    rhs,
+                })
             } else {
                 self.backtrack(tb.end());
                 None
@@ -545,10 +564,13 @@ impl TokenParser {
     }
 
     #[inline(never)]
-    pub fn eat_lifetime_where_clause_item(&mut self) -> Option<TokenStream> {
+    pub fn eat_lifetime_where_clause_item(&mut self) -> Option<WhereClauseItem> {
         if let Some(lt) = self.eat_lifetime() {
             let mut tb = TokenBuilder::new();
             tb.stream(lt);
+            
+            let lhs = lt;
+
             if let Some(colon) = self.eat_punct(':') {
                 tb.extend_punct(colon);
             } else {
@@ -556,8 +578,14 @@ impl TokenParser {
                 return None;
             }
             if let Some(lt_bounds) = self.eat_lifetime_bounds() {
+                let rhs = lt_bounds;
                 tb.stream(lt_bounds);
-                Some(tb.end())
+                Some(WhereClauseItem {
+                    whole: tb.end(),
+                    for_lifetimes: None,
+                    lhs,
+                    rhs,
+                })
             } else {
                 self.backtrack(tb.end());
                 return None;
@@ -568,19 +596,20 @@ impl TokenParser {
     }
 
     #[inline(never)]
-    pub fn eat_where_clause_item(&mut self) -> Option<TokenStream> {
+    pub fn eat_where_clause_item(&mut self) -> Option<WhereClauseItem> {
         self.eat_lifetime_where_clause_item()
             .or_else(|| self.eat_type_bound_where_clause_item())
     }
 
     #[inline(never)]
-    pub fn eat_where_clause(&mut self) -> Option<TokenStream> {
+    pub fn eat_where_clause(&mut self) -> Option<WhereClause> {
         if let Some(where_ident) = self.eat_ident("where") {
+            let mut items = Vec::new();
             let mut tb = TokenBuilder::new();
             tb.extend_ident(where_ident);
-
             while let Some(clause_item) = self.eat_where_clause_item() {
-                tb.stream(clause_item);
+                items.push(clause_item);
+                tb.stream(clause_item.whole);
                 if let Some(comma) = self.eat_punct(',') {
                     tb.extend_punct(comma);
                     continue;
@@ -588,7 +617,10 @@ impl TokenParser {
                     break;
                 }
             }
-            Some(tb.end())
+            Some(WhereClause {
+                whole: tb.end(),
+                items,
+            })
         } else {
             None
         }
@@ -619,8 +651,8 @@ impl TokenParser {
                     if self.eat_eot() {
                         tb.pop_group(Delimiter::Parenthesis);
                         let where_clause = self.eat_where_clause();
-                        if let Some(where_clause) = where_clause.clone() {
-                            tb.stream(where_clause);
+                        if let Some(where_clause) = &where_clause {
+                            tb.stream(where_clause.whole.clone());
                         }
                         if let Some(semi_colon) = self.eat_punct(';') {
                             tb.extend_punct(semi_colon);
@@ -660,8 +692,8 @@ impl TokenParser {
                     tb.stream(generics.whole.clone());
                 }
                 let where_clause = self.eat_where_clause();
-                if let Some(where_clause) = where_clause.clone() {
-                    tb.stream(where_clause);
+                if let Some(where_clause) = &where_clause {
+                    tb.stream(where_clause.whole.clone());
                 }
                 if self.open_brace() {
                     tb.push_group(Delimiter::Brace);
@@ -803,7 +835,7 @@ impl TokenParser {
                 }
                 let where_clause = self.eat_where_clause();
                 if let Some(where_clause) = &where_clause {
-                    tb.stream(where_clause.clone());
+                    tb.stream(where_clause.whole.clone());
                 }
                 if self.open_brace() {
                     tb.push_group(Delimiter::Brace);
@@ -816,9 +848,6 @@ impl TokenParser {
                         } else {
                             break;
                         }
-                    }
-                    if let Some(comma) = self.eat_punct(',') {
-                        tb.extend_punct(comma);
                     }
                     if self.eat_eot() {
                         tb.pop_group(Delimiter::Brace);
