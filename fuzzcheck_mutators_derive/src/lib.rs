@@ -14,7 +14,7 @@ pub fn derive_mutator(input: TokenStream) -> TokenStream {
     if let Some(s) = parser.eat_struct() {
         derive_struct_mutator(s, &mut tb);
     } else if let Some(e) = parser.eat_enumeration() {
-        tb.stream(e.whole);
+        //tb.stream(e.whole);
     }
     // tb.add("}");
     tb.eprint();
@@ -133,8 +133,9 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
                     condition.add(": fuzzcheck_traits :: Mutator , ");
                 }
             }
-            let where_clause = add_condition_to_where_clause(parsed_struct.data.where_clause.clone(), condition.end());
-            tb.stream(where_clause);
+            todo!();
+            // let where_clause = add_condition_to_where_clause(parsed_struct.data.where_clause.clone(), condition.end());
+            // tb.stream(where_clause);
         }
     };
 
@@ -142,8 +143,8 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
         // Main Mutator
         tb.ident("struct")
             .ident(ident)
-            .stream_opt(generic_params.clone())
-            .stream_opt(parsed_struct.data.where_clause.as_ref().map(|wc| wc.clone()));
+            .stream_opt(generic_params.clone()); todo!();
+            // .stream_opt(parsed_struct.data.where_clause.as_ref().map(|wc| wc.clone()));
 
         tb.push_group(Delimiter::Brace);
 
@@ -194,7 +195,8 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
         tb.add("core :: default :: Default for");
         tb.ident(&name_mutator);
         tb.stream_opt(generic_params.clone());
-        tb.stream_opt(parsed_struct.data.where_clause.clone());
+        todo!();
+        // tb.stream_opt(parsed_struct.data.where_clause.clone());
         tb.add("{");
         tb.add("fn default ( ) -> Self {");
         tb.add("Self {");
@@ -231,8 +233,9 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
                     condition.extend_ident(type_param.ident.clone());
                     condition.add(": fuzzcheck_traits :: Mutator , ");
                 }
-                let where_clause = add_condition_to_where_clause(parsed_struct.data.where_clause.clone(), condition.end());
-                tb.stream(where_clause);
+                todo!();
+                // let where_clause = add_condition_to_where_clause(parsed_struct.data.where_clause.clone(), condition.end());
+                // tb.stream(where_clause);
             }
         }
         tb.add("{ }");
