@@ -102,7 +102,7 @@ impl TokenBuilder {
                 "+" | "-" | "*" | "/" | "%" | "^" | "!" | "&" | "|" | "&&" | "||" | "<<" | ">>" | "+=" | "-="
                 | "*=" | "/=" | "%=" | "^=" | "&=" | "|=" | "<<=" | ">>=" | "=" | "==" | "!=" | ">" | "<" | ">="
                 | "<=" | "@" | "_" | "." | ".." | "..." | "..=" | "," | ";" | ":" | "::" | "->" | "=>" | "#" | "$"
-                | "?" => self.punct(part),
+                | "?" | "'_" => self.punct(part),
                 _ => {
                     if part.len() == 0 {
                         continue;
@@ -119,8 +119,16 @@ impl TokenBuilder {
                             }
                             self.unsuf_usize(part.parse().expect(INTEGER_ERROR))
                         }
-                        '"' | '\'' => {
-                            panic!("String/Character literals are not supported in TokenBuilder::add");
+                        '\'' => {
+                            if let Some('\'') = chars.last() {
+                                panic!("Character literals are not supported in TokenBuilder::add");    
+                            } else {
+                                self.extend_punct(Punct::new('\'', Spacing::Joint))
+                                    .extend_ident(Ident::new(part.strip_prefix("\'").unwrap(), Span::call_site()))
+                            }
+                        }
+                        '"' => {
+                            panic!("String literals are not supported in TokenBuilder::add");
                         }
                         _ => self.ident(part),
                     }
@@ -258,24 +266,18 @@ pub enum StructKind {
 
 pub struct Struct {
     pub visibility: Option<TokenStream>,
-    pub data: StructData,
-}
-
-pub struct StructData {
     pub ident: Ident,
     pub generics: Option<Generics>,
+    pub kind: StructKind,
     pub where_clause: Option<WhereClause>,
-    pub struct_fields: Option<StructFields>,
+    pub struct_fields: Vec<StructField>,
 }
+#[derive(Clone)]
 pub struct StructField {
     pub attributes: Vec<TokenStream>,
     pub visibility: Option<TokenStream>,
     pub identifier: Option<Ident>,
     pub ty: TokenStream,
-}
-pub struct StructFields {
-    pub kind: StructKind,
-    pub fields: Vec<StructField>,
 }
 pub struct Enum {
     pub visibility: Option<TokenStream>,
@@ -291,29 +293,163 @@ pub struct EnumItem {
 }
 pub enum EnumItemData {
     Discriminant(TokenTree),
-    Struct(Option<StructFields>),
+    Struct(StructKind, Vec<StructField>),
 }
+#[derive(Clone)]
 pub struct LifetimeParam {
     pub ident: TokenStream,
     pub bounds: Option<TokenStream>,
 }
+#[derive(Clone)]
 pub struct TypeParam {
     pub attributes: Vec<TokenStream>,
     pub ident: Ident,
     pub bounds: Option<TokenStream>,
     pub equal_ty: Option<TokenStream>,
 }
+#[derive(Clone)]
 pub struct Generics {
     pub lifetime_params: Vec<LifetimeParam>,
     pub type_params: Vec<TypeParam>,
 }
+#[derive(Clone)]
 pub struct WhereClauseItem {
-    for_lifetimes: Option<TokenStream>,
-    lhs: TokenStream,
-    rhs: TokenStream,
+    pub for_lifetimes: Option<TokenStream>,
+    pub lhs: TokenStream,
+    pub rhs: TokenStream,
 }
+#[derive(Clone)]
 pub struct WhereClause {
-    items: Vec<WhereClauseItem>,
+    pub items: Vec<WhereClauseItem>,
+}
+impl Struct {
+    pub fn to_token_stream(self) -> TokenStream {
+        let mut tb = TokenBuilder::new();
+        tb.stream_opt(self.visibility);
+        tb.ident("struct");
+        tb.extend_ident(self.ident);
+        tb.stream_opt(self.generics.map(|g| g.to_token_stream()));
+        let delimiter = match self.kind  {
+            StructKind::Struct => Delimiter::Brace,
+            StructKind::Tuple => Delimiter::Parenthesis,
+        };
+        let where_clause = self.where_clause.map(|wc| wc.to_token_stream()); 
+        if matches!(self.kind, StructKind::Struct) {
+            tb.stream_opt(where_clause.clone());
+        }
+        tb.push_group(delimiter);
+        for field in self.struct_fields {
+            for attribute in field.attributes.into_iter() {
+                tb.stream(attribute);
+            }
+            if let Some(ident) = field.identifier {
+                tb.extend_ident(ident);
+                tb.punct(":");
+            }
+            tb.stream(field.ty);
+            tb.punct(",");
+        }
+        tb.pop_group(delimiter);
+        if matches!(self.kind, StructKind::Tuple) {
+            tb.stream_opt(where_clause);
+        }
+        tb.end()
+    }
+}
+impl StructField {
+    pub fn to_token_stream(self) -> TokenStream {
+        let mut tb = TokenBuilder::new();
+        for attribute in self.attributes.into_iter() {
+            tb.stream(attribute);
+        }
+        tb.stream_opt(self.visibility);
+        if let Some(ident) = self.identifier {
+            tb.extend_ident(ident);
+            tb.punct(":");
+        }
+        tb.stream(self.ty);
+        tb.end()
+    }
+}
+impl LifetimeParam {
+    pub fn to_token_stream(self) -> TokenStream {
+        let mut tb = TokenBuilder::new();
+        tb.stream(self.ident);
+        if let Some(bounds) = self.bounds {
+            tb.punct(":");
+            tb.stream(bounds);
+        }
+        tb.end()
+    }
+}
+impl TypeParam {
+    pub fn to_token_stream(self) -> TokenStream {
+        let mut tb = TokenBuilder::new();
+        for attribute in self.attributes.into_iter() {
+            tb.stream(attribute);
+        }
+        tb.extend_ident(self.ident);
+        if let Some(bounds) = self.bounds {
+            tb.punct(":");
+            tb.stream(bounds);
+        }
+        if let Some(eqty) = self.equal_ty {
+            tb.punct("=");
+            tb.stream(eqty);
+        }
+        tb.end()
+    }
+}
+impl Generics {
+    pub fn to_token_stream(self) -> TokenStream {
+        let mut tb = TokenBuilder::new();
+        tb.punct("<");
+        for item in self.lifetime_params.into_iter() {
+            tb.stream(item.to_token_stream());
+            tb.punct(",");
+        }
+        for item in self.type_params.into_iter() {
+            tb.stream(item.to_token_stream());
+            tb.punct(",");
+        }
+        tb.punct(">");
+        tb.end()
+    }
+    pub fn removing_bounds_and_eq_type(&self) -> (Self, Vec<Option<TokenStream>>) {
+        let mut bounds = Vec::new();
+        let mut new = self.clone();
+        for lifetime_param in new.lifetime_params.iter_mut() {
+            bounds.push(lifetime_param.bounds.clone());
+            lifetime_param.bounds = None;
+        }
+        for type_param in new.type_params.iter_mut() {
+            bounds.push(type_param.bounds.clone());
+            type_param.bounds = None;
+            type_param.equal_ty = None;
+        }
+        (new, bounds)
+    }
+}
+impl WhereClauseItem {
+    pub fn to_token_stream(self) -> TokenStream {
+        let mut tb = TokenBuilder::new();
+        tb.stream_opt(self.for_lifetimes);
+        tb.stream(self.lhs);
+        tb.punct(":");
+        tb.stream(self.rhs);
+        tb.end()
+    }
+}
+impl WhereClause {
+    pub fn to_token_stream(self) -> TokenStream {
+        let mut tb = TokenBuilder::new();
+        tb.ident("where");
+        for item in self.items.into_iter() {
+            tb.stream(item.to_token_stream());
+            tb.punct(",");
+        }
+        tb.end()
+    }
 }
 
 impl TokenParser {
@@ -623,12 +759,11 @@ impl TokenParser {
                         if let Some(_) = self.eat_punct(';') {
                             return Some(Struct {
                                 visibility,
-                                data: StructData {
-                                    ident,
-                                    generics,
-                                    where_clause,
-                                    struct_fields,
-                                },
+                                ident,
+                                generics,
+                                kind: StructKind::Tuple,
+                                where_clause,
+                                struct_fields,
                             });
                         }
                     }
@@ -642,12 +777,11 @@ impl TokenParser {
                         if self.eat_eot() {
                             return Some(Struct {
                                 visibility,
-                                data: StructData {
-                                    ident,
-                                    generics,
-                                    where_clause,
-                                    struct_fields,
-                                },
+                                ident,
+                                generics,
+                                kind: StructKind::Struct,
+                                where_clause,
+                                struct_fields,
                             });
                         }
                     }
@@ -674,7 +808,7 @@ impl TokenParser {
                 Some(EnumItem {
                     attributes,
                     ident,
-                    data: Some(EnumItemData::Struct(struct_fields)),
+                    data: Some(EnumItemData::Struct(StructKind::Tuple, struct_fields)),
                 })
             } else if self.open_brace() {
 
@@ -683,7 +817,7 @@ impl TokenParser {
                 Some(EnumItem {
                     attributes,
                     ident,
-                    data: Some(EnumItemData::Struct(struct_fields)),
+                    data: Some(EnumItemData::Struct(StructKind::Struct, struct_fields)),
                 })
             } else if let Some(_) = self.eat_punct('=') {
 
@@ -864,7 +998,7 @@ impl TokenParser {
     }
 
     #[inline(never)]
-    pub fn eat_tuple_fields(&mut self) -> Option<StructFields> {
+    pub fn eat_tuple_fields(&mut self) -> Vec<StructField> {
         if let Some(field) = self.eat_tuple_field() {
             let mut fields = Vec::new();
             fields.push(field);
@@ -875,12 +1009,9 @@ impl TokenParser {
                     break;
                 }
             }
-            Some(StructFields {
-                kind: StructKind::Tuple,
-                fields: fields,
-            })
+            fields
         } else {
-            None
+            Vec::new()
         }
     }
 
@@ -906,7 +1037,7 @@ impl TokenParser {
     }
 
     #[inline(never)]
-    pub fn eat_struct_fields(&mut self) -> Option<StructFields> {
+    pub fn eat_struct_fields(&mut self) -> Vec<StructField> {
         let mut fields = Vec::new();
         while let Some(field) = self.eat_struct_field() {
 
@@ -917,15 +1048,7 @@ impl TokenParser {
                 break;
             }
         }
-        if fields.is_empty() {
-            // self.backtrack(tb.end());
-            None
-        } else {
-            Some(StructFields {
-                kind: StructKind::Struct,
-                fields,
-            })
-        }
+        fields
     }
 
     #[inline(never)]
