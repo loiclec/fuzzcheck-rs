@@ -220,6 +220,7 @@ impl TokenBuilder {
 }
 
 pub struct TokenParser {
+    backtracked: Option<Box<TokenParser>>,
     iter_stack: Vec<IntoIter>,
     current: Option<TokenTree>,
 }
@@ -319,11 +320,23 @@ impl TokenParser {
     #[inline(never)]
     pub fn new(start: TokenStream) -> Self {
         let mut ret = Self {
+            backtracked: None,
             iter_stack: vec![start.into_iter()],
             current: None,
         };
         ret.advance();
         ret
+    }
+
+    #[inline(never)]
+    pub fn backtrack(&mut self, ts: TokenStream) {
+        if !ts.is_empty() {
+            if let Some(backtracked) = &mut self.backtracked {
+                backtracked.backtrack(ts)
+            } else {
+                self.backtracked = Some(Box::new(TokenParser::new(ts)));
+            }
+        }
     }
 
     // #[inline(never)]
@@ -333,11 +346,22 @@ impl TokenParser {
 
     #[inline(never)] // TODO: remove as_ref
     pub fn peek(&mut self) -> Option<&TokenTree> {
-        self.current.as_ref()
+        if let Some(backtracked) = &mut self.backtracked {
+            backtracked.peek()
+        } else {
+            self.current.as_ref()
+        }
     }
 
     #[inline(never)]
     pub fn advance(&mut self) {
+        if let Some(backtracked) = &mut self.backtracked {
+            backtracked.advance();
+            if backtracked.peek().is_none() {
+                self.backtracked = None;
+            }
+            return;
+        }
         let last = self.iter_stack.last_mut().unwrap();
         let value = last.next();
 
@@ -450,7 +474,7 @@ impl TokenParser {
         self.advance_if(|tt| token_tree_as_ident(tt, what))
     }
 
-    #[inline(never)]
+    // #[inline(never)]
     // pub fn is_punct(&mut self, what: char) -> bool {
     //     // check if our punct is multichar.
     //     if let Some(tt) = self.peek() {
@@ -459,6 +483,22 @@ impl TokenParser {
     //         return false;
     //     }
     // }
+
+    #[inline(never)]
+    pub fn eat_punct_with_spacing(&mut self, what: char, spacing: Spacing) -> Option<Punct> {
+        self.advance_if(|tt|
+            if let TokenTree::Punct(p) = tt {
+                if p.as_char() == what && p.spacing() == spacing {
+                    Some(p.clone())
+                } else {
+                    None
+                }
+            } else {
+                None
+            }
+        )
+    }
+
     #[inline(never)]
     pub fn eat_punct(&mut self, what: char) -> Option<Punct> {
         self.advance_if(|tt| token_tree_as_punct(tt, what))
@@ -568,24 +608,38 @@ impl TokenParser {
     }
 
     #[inline(never)]
-    pub fn eat_tuple_struct(&mut self) -> Option<Struct> {
-        let mut tb = TokenBuilder::new();
+    pub fn eat_struct(&mut self) -> Option<Struct> {
         let visibility = self.eat_visibility();
         if let Some(_) = self.eat_ident("struct") {
             if let Some(ident) = self.eat_any_ident() {
-                tb.extend_ident(ident.clone());
                 let generics = self.eat_generics();
-
                 if self.open_paren() {
-                    tb.push_group(Delimiter::Parenthesis);
-                    let struct_fields = self.eat_tuple_fields();
                     
+                    let struct_fields = self.eat_tuple_fields();
+
+
                     if self.eat_eot() {
-                        tb.pop_group(Delimiter::Parenthesis);
                         let where_clause = self.eat_where_clause();
-                        
-                        if let Some(semi_colon) = self.eat_punct(';') {
-                            tb.extend_punct(semi_colon);
+                        if let Some(_) = self.eat_punct(';') {
+                            return Some(Struct {
+                                visibility,
+                                data: StructData {
+                                    ident,
+                                    generics,
+                                    where_clause,
+                                    struct_fields,
+                                },
+                            });
+                        }
+                    }
+                }
+                else { // struct struct
+                    let where_clause = self.eat_where_clause();
+                    if self.open_brace() {
+
+                        let struct_fields = self.eat_struct_fields();
+
+                        if self.eat_eot() {
                             return Some(Struct {
                                 visibility,
                                 data: StructData {
@@ -601,55 +655,6 @@ impl TokenParser {
             }
         }
         None
-    }
-
-    #[inline(never)]
-    pub fn eat_struct_struct(&mut self) -> Option<Struct> {
-
-        let visibility = self.eat_visibility();
-
-        if let Some(_) = self.eat_ident("struct") {
-
-
-            if let Some(ident) = self.eat_any_ident() {
-                let generics = self.eat_generics();
-
-                let where_clause = self.eat_where_clause();
-                if self.open_brace() {
-
-                    let struct_fields = self.eat_struct_fields();
-
-                    if self.eat_eot() {
-                        return Some(Struct {
-                            visibility,
-                            data: StructData {
-                                ident,
-                                generics,
-                                where_clause,
-                                struct_fields,
-                            },
-                        });
-                    }
-                } else if let Some(_) = self.eat_punct(';') {
-                    return Some(Struct {
-                        visibility,
-                        data: StructData {
-                            ident,
-                            generics,
-                            where_clause,
-                            struct_fields: None,
-                        },
-                    });
-                }
-            }
-        }
-        // self.backtrack(tb.end());
-        None
-    }
-
-    #[inline(never)]
-    pub fn eat_struct(&mut self) -> Option<Struct> {
-        self.eat_struct_struct().or_else(|| self.eat_tuple_struct())
     }
 
     #[inline(never)]
@@ -714,9 +719,7 @@ impl TokenParser {
 
     #[inline(never)]
     pub fn eat_enumeration(&mut self) -> Option<Enum> {
-
         let visibility = self.eat_visibility();
-
 
         if let Some(_) = self.eat_ident("enum") {
             if let Some(ident) = self.eat_any_ident() {
@@ -863,7 +866,6 @@ impl TokenParser {
     #[inline(never)]
     pub fn eat_tuple_fields(&mut self) -> Option<StructFields> {
         if let Some(field) = self.eat_tuple_field() {
-
             let mut fields = Vec::new();
             fields.push(field);
             while let Some(_) = self.eat_punct(',') {
@@ -1009,9 +1011,9 @@ impl TokenParser {
     pub fn eat_lifetime(&mut self) -> Option<TokenStream> {
         self.eat_lifetime_or_label().or_else(|| {
             let mut tb = TokenBuilder::new();
-            if let Some(ap) = self.eat_punct('\'') {
+            if let Some(ap) = self.eat_punct_with_spacing('\'', Spacing::Joint) {
                 tb.extend_punct(ap);
-                if let Some(anon) = self.eat_punct('_') {
+                if let Some(anon) = self.eat_punct_with_spacing('_', Spacing::Alone) {
                     tb.extend_punct(anon);
                 } else {
                     // self.backtrack(tb.end());
@@ -1026,14 +1028,14 @@ impl TokenParser {
 
     #[inline(never)]
     pub fn eat_double_colon(&mut self) -> Option<TokenStream> {
-        if let Some(c1) = self.eat_punct(':') {
+        if let Some(c1) = self.eat_punct_with_spacing(':', Spacing::Joint) {
             let mut tb = TokenBuilder::new();
             tb.extend_punct(c1);
-            if let Some(c2) = self.eat_punct(':') {
+            if let Some(c2) = self.eat_punct_with_spacing(':', Spacing::Alone) {
                 tb.extend_punct(c2);
                 Some(tb.end())
             } else {
-                // self.backtrack(tb.end());
+                self.backtrack(tb.end());
                 None
             }
         } else {
@@ -1043,10 +1045,10 @@ impl TokenParser {
 
     #[inline(never)]
     pub fn eat_fn_arrow(&mut self) -> Option<TokenStream> {
-        if let Some(c1) = self.eat_punct('-') {
+        if let Some(c1) = self.eat_punct_with_spacing('-', Spacing::Joint) {
             let mut tb = TokenBuilder::new();
             tb.extend_punct(c1);
-            if let Some(c2) = self.eat_punct('>') {
+            if let Some(c2) = self.eat_punct_with_spacing('>', Spacing::Alone) {
                 tb.extend_punct(c2);
                 Some(tb.end())
             } else {
@@ -1083,7 +1085,7 @@ impl TokenParser {
                     }
                 }
             } else {
-                // self.backtrack(colons_tb.end());
+                self.backtrack(colons_tb.end());
             }
             Some(tb.end())
         } else {
@@ -1100,7 +1102,7 @@ impl TokenParser {
         if let Some(segment) = self.eat_type_path_segment() {
             tb.stream(segment);
         } else {
-            // self.backtrack(tb.end());
+            //self.backtrack(tb.end());
             return None;
         }
         while let Some(colons) = self.eat_double_colon() {
@@ -1108,7 +1110,7 @@ impl TokenParser {
             if let Some(segment) = self.eat_type_path_segment() {
                 tb.stream(segment);
             } else {
-                // self.backtrack(tb.end());
+                //self.backtrack(tb.end());
                 return None;
             }
         }
