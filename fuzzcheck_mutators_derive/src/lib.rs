@@ -47,9 +47,10 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
         })
         .collect::<Vec<_>>();
 
-    let safe_field_idents = safe_field_names.iter().map(|name| {
-        Ident::new(name, Span::call_site())
-    }).collect::<Vec<_>>();
+    let safe_field_idents = safe_field_names
+        .iter()
+        .map(|name| Ident::new(name, Span::call_site()))
+        .collect::<Vec<_>>();
 
     // let mut mutator_field_types = vec![];
     // let mut mutator_cache_field_types = vec![];
@@ -82,33 +83,35 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
     //     mutator_unmutate_token_field_types.push(tb_i.end());
     // }
 
-    let generic_types_for_field = safe_field_names.iter().map(|name| { Ident::new(&format!("{}Type", name), Span::call_site()) });
+    let generic_types_for_field = safe_field_names
+        .iter()
+        .map(|name| Ident::new(&format!("{}Type", name), Span::call_site()));
 
     let basic_generics = Generics {
         lifetime_params: Vec::new(),
-        type_params: generic_types_for_field.clone().map(|ident| {
-            TypeParam {
+        type_params: generic_types_for_field
+            .clone()
+            .map(|ident| TypeParam {
                 attributes: Vec::new(),
                 ident,
                 bounds: None,
                 equal_ty: None,
-                
-            }
-        }).collect(),
+            })
+            .collect(),
     };
 
-    let basic_fields = safe_field_idents.iter()
+    let basic_fields = safe_field_idents
+        .iter()
         .zip(generic_types_for_field.clone())
-        .map(|(identifier, ty)| 
-            StructField {
-                attributes: Vec::new(),
-                visibility: None,
-                identifier: Some(identifier.clone()),
-                ty: TokenTree::Ident(ty.clone()).into(),
-            }
-        ).collect::<Vec<_>>();
+        .map(|(identifier, ty)| StructField {
+            attributes: Vec::new(),
+            visibility: None,
+            identifier: Some(identifier.clone()),
+            ty: TokenTree::Ident(ty.clone()).into(),
+        })
+        .collect::<Vec<_>>();
 
-    let mutator_struct = { 
+    let mutator_struct = {
         /*
         generics: existing generics without the bounds + generic mutator type params
         where_clause_items: existing where_clause + existing generic bounds + “Mutator” conditions
@@ -120,29 +123,34 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
         */
         let (mut generics, mut where_clause_items) = if let Some(generics) = &parsed_struct.generics {
             let (generics, bounds) = generics.removing_bounds_and_eq_type();
-            let where_clause_items = 
-                generics.lifetime_params.iter().map(|lp| lp.ident.clone())
-                .chain(generics.type_params.iter().map(|tp| TokenTree::Ident(tp.ident.clone()).into()))
+            let where_clause_items = generics
+                .lifetime_params
+                .iter()
+                .map(|lp| lp.ident.clone())
+                .chain(
+                    generics
+                        .type_params
+                        .iter()
+                        .map(|tp| TokenTree::Ident(tp.ident.clone()).into()),
+                )
                 .zip(bounds.iter())
-                .filter_map(|(lhs, rhs)| {
-                    if let Some(rhs) = rhs {
-                        Some((lhs, rhs))
-                    } else {
-                        None
-                    }
-                })
-                .map(|(lhs, rhs)| {
-                    WhereClauseItem {
-                        for_lifetimes: None,
-                        lhs,
-                        rhs: rhs.clone(), 
-                    }
+                .filter_map(|(lhs, rhs)| if let Some(rhs) = rhs { Some((lhs, rhs)) } else { None })
+                .map(|(lhs, rhs)| WhereClauseItem {
+                    for_lifetimes: None,
+                    lhs,
+                    rhs: rhs.clone(),
                 })
                 .collect();
 
             (generics, where_clause_items)
         } else {
-            (Generics { lifetime_params: Vec::new(), type_params: Vec::new() }, Vec::new())
+            (
+                Generics {
+                    lifetime_params: Vec::new(),
+                    type_params: Vec::new(),
+                },
+                Vec::new(),
+            )
         };
         /*
         3. extend the existing where_clause_items with those found in 2.
@@ -177,24 +185,21 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
 
         let main_mutator_where_clause = {
             WhereClause {
-                items: where_clause_items, 
+                items: where_clause_items,
             }
         };
 
         let mut mutator_struct_fields = basic_fields.clone();
-        mutator_struct_fields.push(
-            StructField {
-                attributes: Vec::new(),
-                visibility: None,
-                identifier: Some(Ident::new("rng", Span::call_site())),
-                ty: { 
-                    let mut tb = TokenBuilder::new();
-                    tb.add("fuzzcheck_mutators :: fastrand :: Rng");
-                    tb.end()
-                },
-                
-            }
-        );
+        mutator_struct_fields.push(StructField {
+            attributes: Vec::new(),
+            visibility: None,
+            identifier: Some(Ident::new("rng", Span::call_site())),
+            ty: {
+                let mut tb = TokenBuilder::new();
+                tb.add("fuzzcheck_mutators :: fastrand :: Rng");
+                tb.end()
+            },
+        });
 
         Struct {
             visibility: parsed_struct.visibility.clone(),
@@ -210,14 +215,12 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
 
     let mutator_cache_struct = {
         let mut cache_fields = basic_fields.clone();
-        cache_fields.push(
-            StructField {
-                attributes: Vec::new(),
-                visibility: None,
-                identifier: Some(Ident::new("cplx", Span::call_site())),
-                ty: TokenTree::Ident(Ident::new("f64", Span::call_site())).into(),
-            }
-        );
+        cache_fields.push(StructField {
+            attributes: Vec::new(),
+            visibility: None,
+            identifier: Some(Ident::new("cplx", Span::call_site())),
+            ty: TokenTree::Ident(Ident::new("f64", Span::call_site())).into(),
+        });
         Struct {
             visibility: parsed_struct.visibility.clone(),
             ident: Ident::new(&format!("{}MutatorCache", parsed_struct.ident), Span::call_site()),
@@ -232,14 +235,12 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
 
     let mutator_step_struct = {
         let mut step_fields = basic_fields.clone();
-        step_fields.push(
-            StructField {
-                attributes: Vec::new(),
-                visibility: None,
-                identifier: Some(Ident::new("step", Span::call_site())),
-                ty: TokenTree::Ident(Ident::new("u64", Span::call_site())).into(),
-            }
-        );
+        step_fields.push(StructField {
+            attributes: Vec::new(),
+            visibility: None,
+            identifier: Some(Ident::new("step", Span::call_site())),
+            ty: TokenTree::Ident(Ident::new("u64", Span::call_site())).into(),
+        });
         Struct {
             visibility: parsed_struct.visibility.clone(),
             ident: Ident::new(&format!("{}MutationStep", parsed_struct.ident), Span::call_site()),
@@ -253,16 +254,17 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
     tb.stream(mutator_step_struct.to_token_stream());
 
     let unmutate_token_struct = {
-        let step_fields = basic_fields.iter().map(|field| {
-            let mut tb = TokenBuilder::new();
-            tb.add(":: std :: option :: Option <")
-                .stream(field.ty.clone())
-                .add(">");
-            StructField {
-                ty: tb.end(),
-                .. field.clone()
-            }
-        }).collect();
+        let step_fields = basic_fields
+            .iter()
+            .map(|field| {
+                let mut tb = TokenBuilder::new();
+                tb.add(":: std :: option :: Option <").stream(field.ty.clone()).add(">");
+                StructField {
+                    ty: tb.end(),
+                    ..field.clone()
+                }
+            })
+            .collect();
         Struct {
             visibility: parsed_struct.visibility.clone(),
             ident: Ident::new(&format!("{}UnmutateToken", parsed_struct.ident), Span::call_site()),
@@ -275,11 +277,11 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
 
     tb.stream(unmutate_token_struct.to_token_stream());
 
-    { // implementation of Mutator trait
-        
+    {
+        // implementation of Mutator trait
+
         let generics = mutator_struct.generics.clone().map(|g| g.to_token_stream());
-        tb
-            .add("impl")
+        tb.add("impl")
             .stream_opt(generics.clone())
             .add("fuzzcheck_mutators :: fuzzcheck_traits :: Mutator for")
             .extend_ident(mutator_struct.ident.clone())
@@ -287,7 +289,5 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
             .stream_opt(mutator_struct.where_clause.clone().map(|wc| wc.to_token_stream()))
             .push_group(Delimiter::Brace)
             .pop_group(Delimiter::Brace);
-
-        
     }
 }

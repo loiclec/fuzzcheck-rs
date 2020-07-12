@@ -121,7 +121,7 @@ impl TokenBuilder {
                         }
                         '\'' => {
                             if let Some('\'') = chars.last() {
-                                panic!("Character literals are not supported in TokenBuilder::add");    
+                                panic!("Character literals are not supported in TokenBuilder::add");
                             } else {
                                 self.extend_punct(Punct::new('\'', Spacing::Joint))
                                     .extend_ident(Ident::new(part.strip_prefix("\'").unwrap(), Span::call_site()))
@@ -331,11 +331,11 @@ impl Struct {
         tb.ident("struct");
         tb.extend_ident(self.ident);
         tb.stream_opt(self.generics.map(|g| g.to_token_stream()));
-        let delimiter = match self.kind  {
+        let delimiter = match self.kind {
             StructKind::Struct => Delimiter::Brace,
             StructKind::Tuple => Delimiter::Parenthesis,
         };
-        let where_clause = self.where_clause.map(|wc| wc.to_token_stream()); 
+        let where_clause = self.where_clause.map(|wc| wc.to_token_stream());
         if matches!(self.kind, StructKind::Struct) {
             tb.stream_opt(where_clause.clone());
         }
@@ -624,7 +624,7 @@ impl TokenParser {
 
     #[inline(never)]
     pub fn eat_punct_with_spacing(&mut self, what: char, spacing: Spacing) -> Option<Punct> {
-        self.advance_if(|tt|
+        self.advance_if(|tt| {
             if let TokenTree::Punct(p) = tt {
                 if p.as_char() == what && p.spacing() == spacing {
                     Some(p.clone())
@@ -634,7 +634,7 @@ impl TokenParser {
             } else {
                 None
             }
-        )
+        })
     }
 
     #[inline(never)]
@@ -679,7 +679,7 @@ impl TokenParser {
                     for_lifetimes,
                     lhs,
                     rhs,
-                })
+                });
             }
         }
         None
@@ -702,18 +702,18 @@ impl TokenParser {
 
     #[inline(never)]
     pub fn eat_lifetime_where_clause_item(&mut self) -> Option<WhereClauseItem> {
-        if let Some(lt) = self.eat_lifetime() {            
+        if let Some(lt) = self.eat_lifetime() {
             let lhs = lt;
             if let Some(_) = self.eat_punct(':') {
                 if let Some(lt_bounds) = self.eat_lifetime_bounds() {
                     let rhs = lt_bounds;
-                    
+
                     return Some(WhereClauseItem {
                         for_lifetimes: None,
                         lhs,
                         rhs,
-                    })
-                } 
+                    });
+                }
             }
         }
         None
@@ -737,9 +737,7 @@ impl TokenParser {
                     break;
                 }
             }
-            Some(WhereClause {
-                items,
-            })
+            Some(WhereClause { items })
         } else {
             None
         }
@@ -752,9 +750,7 @@ impl TokenParser {
             if let Some(ident) = self.eat_any_ident() {
                 let generics = self.eat_generics();
                 if self.open_paren() {
-                    
                     let struct_fields = self.eat_tuple_fields();
-
 
                     if self.eat_eot() {
                         let where_clause = self.eat_where_clause();
@@ -769,11 +765,10 @@ impl TokenParser {
                             });
                         }
                     }
-                }
-                else { // struct struct
+                } else {
+                    // struct struct
                     let where_clause = self.eat_where_clause();
                     if self.open_brace() {
-
                         let struct_fields = self.eat_struct_fields();
 
                         if self.eat_eot() {
@@ -802,9 +797,7 @@ impl TokenParser {
         let _ = self.eat_visibility();
 
         if let Some(ident) = self.eat_any_ident() {
-
             if self.open_paren() {
-
                 let struct_fields = self.eat_tuple_fields();
 
                 Some(EnumItem {
@@ -813,7 +806,6 @@ impl TokenParser {
                     data: Some(EnumItemData::Struct(StructKind::Tuple, struct_fields)),
                 })
             } else if self.open_brace() {
-
                 let struct_fields = self.eat_struct_fields();
 
                 Some(EnumItem {
@@ -822,7 +814,6 @@ impl TokenParser {
                     data: Some(EnumItemData::Struct(StructKind::Struct, struct_fields)),
                 })
             } else if let Some(_) = self.eat_punct('=') {
-
                 let expr: Option<TokenTree> = self
                     .eat_literal()
                     .map(TokenTree::Literal)
@@ -830,7 +821,6 @@ impl TokenParser {
                     .or_else(|| self.eat_group(Delimiter::Brace))
                     .into();
                 if let Some(expr) = expr {
-
                     Some(EnumItem {
                         attributes,
                         ident,
@@ -866,13 +856,11 @@ impl TokenParser {
                     while let Some(item) = self.eat_enum_item() {
                         items.push(item);
                         if let Some(_) = self.eat_punct(',') {
-
                         } else {
                             break;
                         }
                     }
                     if self.eat_eot() {
-
                         return Some(Enum {
                             visibility,
                             ident,
@@ -890,15 +878,12 @@ impl TokenParser {
 
     #[inline(never)]
     pub fn eat_lifetime_param(&mut self) -> Option<LifetimeParam> {
-
         let mut attributes = Vec::new();
         while let Some(outer_attribute) = self.eat_outer_attribute() {
             attributes.push(outer_attribute);
         }
         if let Some(ident) = self.eat_lifetime_or_label() {
-
             if let Some(_) = self.eat_punct(':') {
-
                 if let Some(bounds) = self.eat_lifetime_bounds() {
                     Some(LifetimeParam {
                         ident,
@@ -909,10 +894,7 @@ impl TokenParser {
                     None
                 }
             } else {
-                Some(LifetimeParam {
-                    ident,
-                    bounds: None,
-                })
+                Some(LifetimeParam { ident, bounds: None })
             }
         } else {
             // self.backtrack(tb.end());
@@ -922,14 +904,11 @@ impl TokenParser {
 
     #[inline(never)]
     pub fn eat_type_param(&mut self) -> Option<TypeParam> {
-
         let mut attributes = Vec::new();
         while let Some(attr) = self.eat_outer_attribute() {
-
             attributes.push(attr);
         }
         if let Some(ident) = self.eat_any_ident() {
-
             let bounds = if let Some(_) = self.eat_punct(':') {
                 if let Some(bounds) = self.eat_type_param_bounds() {
                     Some(bounds)
@@ -964,22 +943,16 @@ impl TokenParser {
 
     #[inline(never)]
     pub fn eat_generics(&mut self) -> Option<Generics> {
-
         if let Some(_) = self.eat_punct('<') {
-
             let mut lifetime_params = Vec::new();
             while let Some(lt_param) = self.eat_lifetime_param() {
                 lifetime_params.push(lt_param);
-                if let Some(_) = self.eat_punct(',') {
-
-                }
+                if let Some(_) = self.eat_punct(',') {}
             }
             let mut type_params = Vec::new();
             while let Some(ty_param) = self.eat_type_param() {
-
                 type_params.push(ty_param);
                 if let Some(_) = self.eat_punct(',') {
-
                 } else {
                     break;
                 }
@@ -1019,7 +992,6 @@ impl TokenParser {
 
     #[inline(never)]
     pub fn eat_tuple_field(&mut self) -> Option<StructField> {
-
         let mut attributes = Vec::new();
         while let Some(attribute) = self.eat_outer_attribute() {
             attributes.push(attribute);
@@ -1042,10 +1014,8 @@ impl TokenParser {
     pub fn eat_struct_fields(&mut self) -> Vec<StructField> {
         let mut fields = Vec::new();
         while let Some(field) = self.eat_struct_field() {
-
             fields.push(field);
             if let Some(_) = self.eat_punct(',') {
-
             } else {
                 break;
             }
@@ -1055,11 +1025,9 @@ impl TokenParser {
 
     #[inline(never)]
     pub fn eat_struct_field(&mut self) -> Option<StructField> {
-
         let mut attributes = vec![];
         while let Some(outer_attribute) = self.eat_outer_attribute() {
             attributes.push(outer_attribute.clone());
-
         }
         let visibility = self.eat_visibility();
         if let Some(identifier) = self.eat_any_ident() {
