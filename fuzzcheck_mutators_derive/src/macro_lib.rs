@@ -259,11 +259,13 @@ fn token_tree_as_ident(tt: &TokenTree, what: &str) -> Option<Ident> {
     }
 }
 
+#[derive(Clone)]
 pub enum StructKind {
     Struct,
     Tuple,
 }
 
+#[derive(Clone)]
 pub struct Struct {
     pub visibility: Option<TokenStream>,
     pub ident: Ident,

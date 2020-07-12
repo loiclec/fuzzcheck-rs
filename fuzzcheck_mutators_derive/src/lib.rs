@@ -47,6 +47,10 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
         })
         .collect::<Vec<_>>();
 
+    let safe_field_idents = safe_field_names.iter().map(|name| {
+        Ident::new(name, Span::call_site())
+    }).collect::<Vec<_>>();
+
     // let mut mutator_field_types = vec![];
     // let mut mutator_cache_field_types = vec![];
     // let mut mutator_step_field_types = vec![];
@@ -78,12 +82,38 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
     //     mutator_unmutate_token_field_types.push(tb_i.end());
     // }
 
-    /*
-    generics: existing generics without the bounds + generic mutator type params
-    where_clause_items: existing where_clause + existing generic bounds + “Mutator” conditions
-    mutator_field_types: the generic types for the sub-mutators, one for each field
-    */
-    let (generics, where_clause_items, mutator_field_types) = { 
+    let generic_types_for_field = safe_field_names.iter().map(|name| { Ident::new(&format!("{}Type", name), Span::call_site()) });
+
+    let basic_generics = Generics {
+        lifetime_params: Vec::new(),
+        type_params: generic_types_for_field.clone().map(|ident| {
+            TypeParam {
+                attributes: Vec::new(),
+                ident,
+                bounds: None,
+                equal_ty: None,
+                
+            }
+        }).collect(),
+    };
+
+    let basic_fields = safe_field_idents.iter()
+        .zip(generic_types_for_field.clone())
+        .map(|(identifier, ty)| 
+            StructField {
+                attributes: Vec::new(),
+                visibility: None,
+                identifier: Some(identifier.clone()),
+                ty: TokenTree::Ident(ty.clone()).into(),
+            }
+        ).collect::<Vec<_>>();
+
+    let mutator_struct = { 
+        /*
+        generics: existing generics without the bounds + generic mutator type params
+        where_clause_items: existing where_clause + existing generic bounds + “Mutator” conditions
+        mutator_field_types: the generic types for the sub-mutators, one for each field
+        */
         /*
         1. remove the bounds from the existing generics
         2. put those bounds on new where_clause_items
@@ -124,50 +154,35 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
         4. for each field, add a generic parameter for its mutator as well as a where_clause_item
            ensuring it impls the Mutator trait
         */
-        let mut mutator_field_types = Vec::new();
-        for (field, field_name) in parsed_struct.struct_fields.iter().zip(safe_field_names.iter()) {
-            let field_mutator_type_ident = Ident::new(&format!("{}Mutator", field_name), Span::call_site());
-            mutator_field_types.push(field_mutator_type_ident.clone());
+        for (field, generic_ty_for_field) in parsed_struct.struct_fields.iter().zip(generic_types_for_field) {
             let ty_param = TypeParam {
                 attributes: Vec::new(),
-                ident: field_mutator_type_ident.clone(),
+                ident: generic_ty_for_field.clone(),
                 bounds: None,
                 equal_ty: None,
             };
             generics.type_params.push(ty_param);
             where_clause_items.push(WhereClauseItem {
                 for_lifetimes: None,
-                lhs: TokenTree::Ident(field_mutator_type_ident).into(),
+                lhs: TokenTree::Ident(generic_ty_for_field).into(),
                 rhs: {
                     let mut tb = TokenBuilder::new();
-                    tb.add("fuzzcheck_traits :: Mutator < Value = ")
+                    tb.add("fuzzcheck_mutators :: fuzzcheck_traits :: Mutator < Value = ")
                         .stream(field.ty.clone())
                         .punct(">");
                     tb.end()
                 },
             });
         }
-        (generics, where_clause_items, mutator_field_types)
-    };
 
-    let where_clause = {
-        WhereClause {
-            items: where_clause_items, 
-        }
-    };
-
-    let mutator_struct_fields = {
-        let mut r = safe_field_names.iter()
-        .zip(mutator_field_types.iter())
-        .map(|(name, ty)| 
-            StructField {
-                attributes: Vec::new(),
-                visibility: None,
-                identifier: Some(Ident::new(name, Span::call_site())),
-                ty: TokenTree::Ident(ty.clone()).into(),
+        let main_mutator_where_clause = {
+            WhereClause {
+                items: where_clause_items, 
             }
-        ).collect::<Vec<_>>();
-        r.push(
+        };
+
+        let mut mutator_struct_fields = basic_fields.clone();
+        mutator_struct_fields.push(
             StructField {
                 attributes: Vec::new(),
                 visibility: None,
@@ -180,114 +195,99 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
                 
             }
         );
-        r
+
+        Struct {
+            visibility: parsed_struct.visibility.clone(),
+            ident: Ident::new(&format!("{}Mutator", parsed_struct.ident), Span::call_site()),
+            generics: Some(generics),
+            kind: StructKind::Struct,
+            where_clause: Some(main_mutator_where_clause),
+            struct_fields: mutator_struct_fields,
+        }
     };
 
-    // main mutator struct
-    let mutator_struct = Struct {
-        visibility: parsed_struct.visibility.clone(),
-        ident: Ident::new(&format!("{}Mutator", parsed_struct.ident), Span::call_site()),
-        generics: Some(generics),
-        kind: StructKind::Struct,
-        where_clause: Some(where_clause),
-        struct_fields: mutator_struct_fields,
+    tb.stream(mutator_struct.clone().to_token_stream());
+
+    let mutator_cache_struct = {
+        let mut cache_fields = basic_fields.clone();
+        cache_fields.push(
+            StructField {
+                attributes: Vec::new(),
+                visibility: None,
+                identifier: Some(Ident::new("cplx", Span::call_site())),
+                ty: TokenTree::Ident(Ident::new("f64", Span::call_site())).into(),
+            }
+        );
+        Struct {
+            visibility: parsed_struct.visibility.clone(),
+            ident: Ident::new(&format!("{}MutatorCache", parsed_struct.ident), Span::call_site()),
+            generics: Some(basic_generics.clone()),
+            kind: StructKind::Struct,
+            where_clause: None,
+            struct_fields: cache_fields.clone(),
+        }
     };
 
-    tb.stream(mutator_struct.to_token_stream());
-    // let name_mutator = format!("{}Mutator", parsed_struct.ident);
-    // add_struct(&name_mutator, &mutator_field_types, {
-    //     let mut tb = TokenBuilder::new();
-    //     tb.add("rng : fuzzcheck_mutators :: fastrand :: Rng");
-    //     tb.end()
-    // });
+    tb.stream(mutator_cache_struct.to_token_stream());
 
-    // let name_mutator_cache = format!("{}MutatorCache", parsed_struct.ident);
-    // add_struct(&name_mutator_cache, &mutator_cache_field_types, {
-    //     let mut tb = TokenBuilder::new();
-    //     tb.add("cplx : f64 ,");
-    //     tb.end()
-    // });
+    let mutator_step_struct = {
+        let mut step_fields = basic_fields.clone();
+        step_fields.push(
+            StructField {
+                attributes: Vec::new(),
+                visibility: None,
+                identifier: Some(Ident::new("step", Span::call_site())),
+                ty: TokenTree::Ident(Ident::new("u64", Span::call_site())).into(),
+            }
+        );
+        Struct {
+            visibility: parsed_struct.visibility.clone(),
+            ident: Ident::new(&format!("{}MutationStep", parsed_struct.ident), Span::call_site()),
+            generics: Some(basic_generics.clone()),
+            kind: StructKind::Struct,
+            where_clause: None,
+            struct_fields: step_fields,
+        }
+    };
 
-    // let name_mutator_step = format!("{}MutatorStep", parsed_struct.ident);
-    // add_struct(&name_mutator_step, &mutator_step_field_types, {
-    //     let mut tb = TokenBuilder::new();
-    //     tb.add("step : usize ,");
-    //     tb.end()
-    // });
+    tb.stream(mutator_step_struct.to_token_stream());
 
-    // let name_unmutate_token = format!("{}UnmutateToken", parsed_struct.ident);
-    // add_struct(
-    //     &name_unmutate_token,
-    //     &mutator_unmutate_token_field_types,
-    //     TokenStream::new(),
-    // );
+    let unmutate_token_struct = {
+        let step_fields = basic_fields.iter().map(|field| {
+            let mut tb = TokenBuilder::new();
+            tb.add(":: std :: option :: Option <")
+                .stream(field.ty.clone())
+                .add(">");
+            StructField {
+                ty: tb.end(),
+                .. field.clone()
+            }
+        }).collect();
+        Struct {
+            visibility: parsed_struct.visibility.clone(),
+            ident: Ident::new(&format!("{}UnmutateToken", parsed_struct.ident), Span::call_site()),
+            generics: Some(basic_generics),
+            kind: StructKind::Struct,
+            where_clause: None,
+            struct_fields: step_fields,
+        }
+    };
 
-    // {
-    //     // implementation of Default for Mutator
-    //     tb.ident("impl");
-    //     tb.stream_opt(generic_params.clone());
-    //     tb.add("core :: default :: Default for");
-    //     tb.ident(&name_mutator);
-    //     tb.stream_opt(generic_params.clone());
-    //     todo!();
-    //     // tb.stream_opt(parsed_struct.data.where_clause.clone());
-    //     tb.add("{");
-    //     tb.add("fn default ( ) -> Self {");
-    //     tb.add("Self {");
+    tb.stream(unmutate_token_struct.to_token_stream());
 
-    //     for (field, ty) in safe_field_names.iter().zip(mutator_field_types.iter()) {
-    //         tb.add(&format!(
-    //             "{} : < {} as  core :: default :: Default > :: default ( ) ,",
-    //             field, ty
-    //         ));
-    //     }
-    //     tb.add("rng : fuzzcheck_mutators :: fastrand :: Rng :: new ( )");
+    { // implementation of Mutator trait
+        
+        let generics = mutator_struct.generics.clone().map(|g| g.to_token_stream());
+        tb
+            .add("impl")
+            .stream_opt(generics.clone())
+            .add("fuzzcheck_mutators :: fuzzcheck_traits :: Mutator for")
+            .extend_ident(mutator_struct.ident.clone())
+            .stream_opt(generics)
+            .stream_opt(mutator_struct.where_clause.clone().map(|wc| wc.to_token_stream()))
+            .push_group(Delimiter::Brace)
+            .pop_group(Delimiter::Brace);
 
-    //     tb.add("} } }");
-    // }
-
-    // {
-    //     // implementation of Mutator trait
-    //     tb.ident("impl");
-    //     tb.stream_opt(generic_params.clone());
-    //     tb.add("fuzzcheck_traits :: Mutator for");
-    //     tb.ident(&name_mutator);
-    //     tb.stream_opt(generic_params.clone());
-    //     //tb.stream_opt(parsed_struct.data.where_clause.clone());
-    //     if let Some(generics) = &parsed_struct.generics {
-    //         if !generics.type_params.is_empty() {
-    //             let mut condition = TokenBuilder::new();
-    //             for type_param in generics.type_params.iter() {
-    //                 if let Some(bounds) = &type_param.bounds {
-    //                     condition.extend_ident(type_param.ident.clone());
-    //                     condition.punct(":");
-    //                     condition.stream(bounds.clone());
-    //                     condition.punct(",");
-    //                 }
-    //                 condition.extend_ident(type_param.ident.clone());
-    //                 condition.add(": fuzzcheck_traits :: Mutator , ");
-    //             }
-    //             todo!();
-    //             // let where_clause = add_condition_to_where_clause(parsed_struct.data.where_clause.clone(), condition.end());
-    //             // tb.stream(where_clause);
-    //         }
-    //     }
-    //     tb.add("{ }");
-    // }
+        
+    }
 }
-
-// fn add_condition_to_where_clause(where_clause: Option<TokenStream>, condition: TokenStream) -> TokenStream {
-//     let mut tb = TokenBuilder::new();
-//     if let Some(where_clause) = where_clause {
-//         tb.stream(where_clause);
-//         tb.add(", ");
-//         tb.stream(condition);
-//         tb.end()
-//     } else if !condition.is_empty() {
-//         tb.ident("where");
-//         tb.stream(condition);
-//         tb.end()
-//     } else {
-//         TokenStream::new()
-//     }
-// } 

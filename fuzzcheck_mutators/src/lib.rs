@@ -1,4 +1,4 @@
-extern crate fuzzcheck_traits;
+pub extern crate fuzzcheck_traits;
 
 pub extern crate fastrand;
 
