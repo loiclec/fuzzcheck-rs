@@ -100,8 +100,9 @@ impl TokenBuilder {
                 "]" => self.pop_group(Delimiter::Bracket),
                 "+" | "-" | "*" | "/" | "%" | "^" | "!" | "&" | "|" | "&&" | "||" | "<<" | ">>" | "+=" | "-="
                 | "*=" | "/=" | "%=" | "^=" | "&=" | "|=" | "<<=" | ">>=" | "=" | "==" | "!=" | ">" | "<" | ">="
-                | "<=" | "@" | "." | ".." | "..." | "..=" | "," | ";" | ":" | "::" | "->" | "=>" | "#" | "$"
-                | "?" => self.punct(part),
+                | "<=" | "@" | "." | ".." | "..." | "..=" | "," | ";" | ":" | "::" | "->" | "=>" | "#" | "$" | "?" => {
+                    self.punct(part)
+                }
                 _ => {
                     if part.len() == 0 {
                         continue;
@@ -403,7 +404,9 @@ impl TypeParam {
 }
 impl Generics {
     pub fn to_token_stream(self) -> TokenStream {
-        if self.lifetime_params.is_empty() && self.type_params.is_empty() { return TokenStream::new() }
+        if self.lifetime_params.is_empty() && self.type_params.is_empty() {
+            return TokenStream::new();
+        }
         let mut tb = TokenBuilder::new();
         tb.punct("<");
         for item in self.lifetime_params.into_iter() {
@@ -962,8 +965,8 @@ impl TokenParser {
                 return Generics {
                     lifetime_params,
                     type_params,
-                }
-            } 
+                };
+            }
         }
         Generics {
             lifetime_params: Vec::new(),
