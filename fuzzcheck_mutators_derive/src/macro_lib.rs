@@ -268,7 +268,7 @@ pub enum StructKind {
 pub struct Struct {
     pub visibility: Option<TokenStream>,
     pub ident: Ident,
-    pub generics: Option<Generics>,
+    pub generics: Generics,
     pub kind: StructKind,
     pub where_clause: Option<WhereClause>,
     pub struct_fields: Vec<StructField>,
@@ -283,7 +283,7 @@ pub struct StructField {
 pub struct Enum {
     pub visibility: Option<TokenStream>,
     pub ident: Ident,
-    pub generics: Option<Generics>,
+    pub generics: Generics,
     pub where_clause: Option<WhereClause>,
     pub items: Vec<EnumItem>,
 }
@@ -329,7 +329,7 @@ impl Struct {
         tb.stream_opt(self.visibility);
         tb.ident("struct");
         tb.extend_ident(self.ident);
-        tb.stream_opt(self.generics.map(|g| g.to_token_stream()));
+        tb.stream(self.generics.to_token_stream());
         let delimiter = match self.kind {
             StructKind::Struct => Delimiter::Brace,
             StructKind::Tuple => Delimiter::Parenthesis,
@@ -403,6 +403,7 @@ impl TypeParam {
 }
 impl Generics {
     pub fn to_token_stream(self) -> TokenStream {
+        if self.lifetime_params.is_empty() && self.type_params.is_empty() { return TokenStream::new() }
         let mut tb = TokenBuilder::new();
         tb.punct("<");
         for item in self.lifetime_params.into_iter() {
@@ -941,7 +942,7 @@ impl TokenParser {
     }
 
     #[inline(never)]
-    pub fn eat_generics(&mut self) -> Option<Generics> {
+    pub fn eat_generics(&mut self) -> Generics {
         if let Some(_) = self.eat_punct('<') {
             let mut lifetime_params = Vec::new();
             while let Some(lt_param) = self.eat_lifetime_param() {
@@ -958,16 +959,15 @@ impl TokenParser {
             }
 
             if let Some(_) = self.eat_punct('>') {
-                Some(Generics {
+                return Generics {
                     lifetime_params,
                     type_params,
-                })
-            } else {
-                // self.backtrack(tb.end());
-                None
-            }
-        } else {
-            None
+                }
+            } 
+        }
+        Generics {
+            lifetime_params: Vec::new(),
+            type_params: Vec::new(),
         }
     }
 

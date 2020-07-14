@@ -1,6 +1,6 @@
 pub extern crate fuzzcheck_traits;
-
 pub extern crate fastrand;
+pub extern crate fuzzcheck_mutators_derive;
 
 pub mod bool;
 pub mod either;
