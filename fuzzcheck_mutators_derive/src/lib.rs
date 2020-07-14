@@ -11,14 +11,14 @@ use proc_macro::{Delimiter, Ident, Literal, Span, TokenStream, TokenTree};
 pub fn derive_mutator(input: TokenStream) -> TokenStream {
     let mut parser = TokenParser::new(input);
     let mut tb = TokenBuilder::new();
-    //tb.add("mod X { ");
+
     if let Some(s) = parser.eat_struct() {
         derive_struct_mutator(s, &mut tb);
     } else if let Some(_) = parser.eat_enumeration() {
         //tb.stream(e.whole);
     }
-    // tb.add("}");
-    tb.eprint();
+
+    //tb.eprint();
 
     tb.end()
 }
@@ -208,6 +208,7 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
         }
     };
 
+    tb.add("# [ derive ( :: core :: clone :: Clone ) ]");
     tb.stream(mutator_cache_struct.clone().to_token_stream());
 
     let mutator_step_struct = {
@@ -228,6 +229,7 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
         }
     };
 
+    tb.add("# [ derive ( :: core :: clone :: Clone ) ]");
     tb.stream(mutator_step_struct.clone().to_token_stream());
 
     let unmutate_token_struct = {
@@ -252,7 +254,37 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
         }
     };
 
+    tb.add("# [ derive ( :: core :: clone :: Clone ) ]");
     tb.stream(unmutate_token_struct.clone().to_token_stream());
+
+
+    { // default impl for unmutate token
+        let unmutate_fields_default = {
+            let mut s = String::new();
+            for mutator_field in mutator_field_names.iter() {
+                s.push_str(&format!(" {m} : None , ", m=mutator_field));
+            }
+            s
+        };
+
+        let generics = unmutate_token_struct.generics.clone().map(|g| g.to_token_stream()); 
+
+        tb.add("impl");
+        tb.stream_opt(generics.clone());
+        tb.add(" :: core :: default :: Default for ");
+        tb.extend_ident(unmutate_token_struct.ident.clone());
+        tb.stream_opt(generics);
+        tb.push_group(Delimiter::Brace);
+        tb.add(&format!(r#"
+            fn default ( ) -> Self {{
+                Self {{
+                    {}
+                }}
+            }}
+        "#, unmutate_fields_default));
+        tb.pop_group(Delimiter::Brace);
+    }
+
 
     {
         // implementation of Mutator trait
@@ -357,6 +389,7 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
 
                 tb.add("}");
             }
+
             { // min_complexity
                 tb.add("fn min_complexity ( & self ) -> f64 { ");
                 let mut mutator_field_names_iter = mutator_field_names.iter();
@@ -369,28 +402,8 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
 
                 tb.add("}");
             }
-            // { // complexity
-            //     tb.add("fn complexity ( & self , value : & Self :: Value , cache : & Self :: Cache ) -> f64 { ");
-            //     let mutator_field_names_iter = safe_field_names.iter();
-            //     let struct_field_names_iter = parsed_struct.struct_fields.iter().enumerate().map(|(i, f)| {
-            //         if let Some(ident) = &f.identifier {
-            //             ident.to_string()
-            //         } else {
-            //             format!("{}", i)
-            //         }
-            //     });
-            //     let mut field_names_iter = mutator_field_names_iter.zip(struct_field_names_iter);
-            //     if let Some((fst_mutator_field_name, fst_struct_field_name)) = field_names_iter.next() {
-            //         // TODO: know real struct field names
-            //         tb.add(&format!("self . {m} . complexity ( & value . {s} , & cache . {m} ) ", m=fst_mutator_field_name, s=fst_struct_field_name));
-            //     }
-            //     for (fst_mutator_field_name, fst_struct_field_name) in field_names_iter {
-            //         tb.add(&format!("+ self . {m} . complexity ( & value . {s} , & cache . {m} ) ", m=fst_mutator_field_name, s=fst_struct_field_name));
-            //     }
 
-            //     tb.add("}");
-            // }
-            { // complexity, cached
+            { // complexity
                 tb.add("fn complexity ( & self , value : & Self :: Value , cache : & Self :: Cache ) -> f64 { cache . cplx }");
             }
 
@@ -449,7 +462,7 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
                     tb.add(&format!("let mut {m}_cache : Option < _ > = None ;", m=mutator_field));
                 }
                 // create array of numbers, then shuffle it
-                tb.add(&format!("let mut indices = ( 0 .. {} ) . iter ( ) . collect :: < Vec < _ > > ( ) ;", mutator_field_names.len()));
+                tb.add(&format!("let mut indices = ( 0 .. {} ) . collect :: < Vec < _ > > ( ) ;", mutator_field_names.len()));
                 tb.add(" fuzzcheck_mutators :: fastrand :: shuffle ( & mut indices ) ;");
                 tb.add("let seed = fuzzcheck_mutators :: fastrand :: usize ( .. ) ;");
 
@@ -474,6 +487,7 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
                     }} ,
                     "#, i=idx, m=mutator_field));
                 }
+                tb.add("_ => unreachable ! ( ) ");
                 tb.pop_group(Delimiter::Brace);
                 tb.pop_group(Delimiter::Brace);
 
@@ -494,6 +508,48 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
                 tb.add("cplx ,");
                 tb.pop_group(Delimiter::Brace);
                 tb.pop_group(Delimiter::Parenthesis);
+
+                tb.pop_group(Delimiter::Brace);
+            }
+
+            { // mutate
+                tb.add("fn mutate ( & mut self , value : & mut Self :: Value , cache : & mut Self :: Cache , step : & mut Self :: MutationStep , max_cplx : f64 ) -> Self :: UnmutateToken ");
+                tb.push_group(Delimiter::Brace);
+
+                tb.add(&format!("match step . step % {}", mutator_field_names.len()));
+                tb.push_group(Delimiter::Brace);
+                for (i, (mutator_field, field)) in mutator_field_names.iter().zip(field_names.iter()).enumerate() {
+                    tb.add(&format!(r#"
+                        {i} => {{
+                            let max_field_cplx = max_cplx - self . {m} . complexity ( & value . {f} , & cache . {m} ) ;
+                            let token = self
+                                . {m}
+                                . mutate ( & mut  value . {f} , & mut cache . {m} , & mut step . {m} , max_field_cplx ) ;
+                            Self :: UnmutateToken {{
+                                {m} : Some ( token ) ,
+                                .. Self :: UnmutateToken :: default ( )
+                            }}
+                        }}
+                    "#, i=i, m=mutator_field, f=field));
+                }
+                tb.add("_ => unreachable ! ( ) ");
+                tb.pop_group(Delimiter::Brace);
+                
+                
+                tb.pop_group(Delimiter::Brace);
+            }
+    
+            { // unmutate 
+                tb.add("fn unmutate ( & self , value : & mut Self :: Value , cache : & mut Self :: Cache , t : Self :: UnmutateToken ) ");
+                tb.push_group(Delimiter::Brace);
+                
+                for (mutator_field, field) in mutator_field_names.iter().zip(field_names.iter()) {
+                    tb.add(&format!(r#"
+                        if let Some ( subtoken ) = t . {m} {{
+                            self . {m} . unmutate ( & mut value . {f} , & mut cache . {m} , subtoken ) ;
+                        }}
+                    "#, f=field, m=mutator_field));
+                }
 
                 tb.pop_group(Delimiter::Brace);
             }
