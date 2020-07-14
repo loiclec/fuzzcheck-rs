@@ -90,9 +90,8 @@ impl TokenBuilder {
 
     #[inline(never)]
     pub fn add(&mut self, what: &str) -> &mut Self {
-        for part in what.split(" ") {
+        for part in what.split(char::is_whitespace) {
             match part {
-                "\n" | "\r" => continue,
                 "{" => self.push_group(Delimiter::Brace),
                 "(" => self.push_group(Delimiter::Parenthesis),
                 "[" => self.push_group(Delimiter::Bracket),
@@ -101,8 +100,8 @@ impl TokenBuilder {
                 "]" => self.pop_group(Delimiter::Bracket),
                 "+" | "-" | "*" | "/" | "%" | "^" | "!" | "&" | "|" | "&&" | "||" | "<<" | ">>" | "+=" | "-="
                 | "*=" | "/=" | "%=" | "^=" | "&=" | "|=" | "<<=" | ">>=" | "=" | "==" | "!=" | ">" | "<" | ">="
-                | "<=" | "@" | "_" | "." | ".." | "..." | "..=" | "," | ";" | ":" | "::" | "->" | "=>" | "#" | "$"
-                | "?" | "'_" => self.punct(part),
+                | "<=" | "@" | "." | ".." | "..." | "..=" | "," | ";" | ":" | "::" | "->" | "=>" | "#" | "$"
+                | "?" => self.punct(part),
                 _ => {
                     if part.len() == 0 {
                         continue;
@@ -305,7 +304,7 @@ pub struct LifetimeParam {
 #[derive(Clone)]
 pub struct TypeParam {
     pub attributes: Vec<TokenStream>,
-    pub ident: Ident,
+    pub type_ident: TokenStream,
     pub bounds: Option<TokenStream>,
     pub equal_ty: Option<TokenStream>,
 }
@@ -390,7 +389,7 @@ impl TypeParam {
         for attribute in self.attributes.into_iter() {
             tb.stream(attribute);
         }
-        tb.extend_ident(self.ident);
+        tb.stream(self.type_ident);
         if let Some(bounds) = self.bounds {
             tb.punct(":");
             tb.stream(bounds);
@@ -931,7 +930,7 @@ impl TokenParser {
             };
             Some(TypeParam {
                 attributes,
-                ident,
+                type_ident: TokenTree::Ident(ident).into(),
                 bounds,
                 equal_ty,
             })

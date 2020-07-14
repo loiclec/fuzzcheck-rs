@@ -5,7 +5,7 @@ mod macro_lib_test;
 //mod struct_derive;
 
 use crate::macro_lib::*;
-use proc_macro::{Delimiter, Ident, Span, TokenStream, TokenTree};
+use proc_macro::{Delimiter, Ident, Literal, Span, TokenStream, TokenTree};
 
 #[proc_macro_derive(HasDefaultMutator)]
 pub fn derive_mutator(input: TokenStream) -> TokenStream {
@@ -35,7 +35,7 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
     let fields = &parsed_struct.struct_fields;
     // let field_types = fields.iter().map(|f| f.ty.clone()).collect::<Vec<_>>();
 
-    let safe_field_names = fields
+    let mutator_field_names = fields
         .iter()
         .enumerate()
         .map(|(i, f)| {
@@ -47,43 +47,20 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
         })
         .collect::<Vec<_>>();
 
-    let safe_field_idents = safe_field_names
+    let mutator_field_idents = mutator_field_names
         .iter()
         .map(|name| Ident::new(name, Span::call_site()))
         .collect::<Vec<_>>();
 
-    // let mut mutator_field_types = vec![];
-    // let mut mutator_cache_field_types = vec![];
-    // let mut mutator_step_field_types = vec![];
-    // let mut mutator_unmutate_token_field_types = vec![];
+    let field_names = parsed_struct.struct_fields.iter().enumerate().map(|(i, f)| {
+            if let Some(ident) = &f.identifier {
+                ident.to_string()
+            } else {
+                format!("{}", i)
+            }
+        }).collect::<Vec<_>>();
 
-    // for ty in field_types.iter() {
-    //     let mut tb_i = TokenBuilder::new();
-    //     tb_i.punct("<")
-    //         .stream(ty.clone())
-    //         .add("as fuzzcheck_mutators :: HasDefaultMutator > :: Mutator");
-    //     mutator_field_types.push(tb_i.end());
-
-    //     let mut tb_i = TokenBuilder::new();
-    //     tb_i.add("< <")
-    //         .stream(ty.clone())
-    //         .add("as fuzzcheck_mutators :: HasDefaultMutator > :: Mutator as fuzzcheck_traits :: Mutator > :: Cache");
-    //     mutator_cache_field_types.push(tb_i.end());
-
-    //     let mut tb_i = TokenBuilder::new();
-    //     tb_i.add("< <").stream(ty.clone()).add(
-    //         "as fuzzcheck_mutators :: HasDefaultMutator > :: Mutator as fuzzcheck_traits :: Mutator > :: MutationStep",
-    //     );
-    //     mutator_step_field_types.push(tb_i.end());
-
-    //     let mut tb_i = TokenBuilder::new();
-    //     tb_i.add("< <").stream(ty.clone()).add(
-    //         "as fuzzcheck_mutators :: HasDefaultMutator > :: Mutator as fuzzcheck_traits :: Mutator > :: UnmutateToken",
-    //     );
-    //     mutator_unmutate_token_field_types.push(tb_i.end());
-    // }
-
-    let generic_types_for_field = safe_field_names
+    let generic_types_for_field = mutator_field_names
         .iter()
         .map(|name| Ident::new(&format!("{}Type", name), Span::call_site()));
 
@@ -93,14 +70,14 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
             .clone()
             .map(|ident| TypeParam {
                 attributes: Vec::new(),
-                ident,
+                type_ident: TokenTree::Ident(ident).into(),
                 bounds: None,
                 equal_ty: None,
             })
             .collect(),
     };
 
-    let basic_fields = safe_field_idents
+    let basic_fields = mutator_field_idents
         .iter()
         .zip(generic_types_for_field.clone())
         .map(|(identifier, ty)| StructField {
@@ -131,7 +108,7 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
                     generics
                         .type_params
                         .iter()
-                        .map(|tp| TokenTree::Ident(tp.ident.clone()).into()),
+                        .map(|tp| tp.type_ident.clone()),
                 )
                 .zip(bounds.iter())
                 .filter_map(|(lhs, rhs)| if let Some(rhs) = rhs { Some((lhs, rhs)) } else { None })
@@ -165,14 +142,14 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
         for (field, generic_ty_for_field) in parsed_struct.struct_fields.iter().zip(generic_types_for_field) {
             let ty_param = TypeParam {
                 attributes: Vec::new(),
-                ident: generic_ty_for_field.clone(),
+                type_ident: TokenTree::Ident(generic_ty_for_field.clone()).into(),
                 bounds: None,
                 equal_ty: None,
             };
             generics.type_params.push(ty_param);
             where_clause_items.push(WhereClauseItem {
                 for_lifetimes: None,
-                lhs: TokenTree::Ident(generic_ty_for_field).into(),
+                lhs: TokenTree::Ident(generic_ty_for_field.clone()).into(),
                 rhs: {
                     let mut tb = TokenBuilder::new();
                     tb.add("fuzzcheck_mutators :: fuzzcheck_traits :: Mutator < Value = ")
@@ -231,7 +208,7 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
         }
     };
 
-    tb.stream(mutator_cache_struct.to_token_stream());
+    tb.stream(mutator_cache_struct.clone().to_token_stream());
 
     let mutator_step_struct = {
         let mut step_fields = basic_fields.clone();
@@ -251,7 +228,7 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
         }
     };
 
-    tb.stream(mutator_step_struct.to_token_stream());
+    tb.stream(mutator_step_struct.clone().to_token_stream());
 
     let unmutate_token_struct = {
         let step_fields = basic_fields
@@ -275,7 +252,7 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
         }
     };
 
-    tb.stream(unmutate_token_struct.to_token_stream());
+    tb.stream(unmutate_token_struct.clone().to_token_stream());
 
     {
         // implementation of Mutator trait
@@ -287,7 +264,240 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
             .extend_ident(mutator_struct.ident.clone())
             .stream_opt(generics)
             .stream_opt(mutator_struct.where_clause.clone().map(|wc| wc.to_token_stream()))
-            .push_group(Delimiter::Brace)
-            .pop_group(Delimiter::Brace);
+            .push_group(Delimiter::Brace);
+
+            { // associated types
+                tb.add("type Value = ");
+                let value_struct_ident_with_generic_params = {
+                    let mut tb = TokenBuilder::new();
+                    tb.extend_ident(parsed_struct.ident.clone());
+                    let generic_args = parsed_struct.generics.clone().map(|g| {
+                        let (g, _) = g.removing_bounds_and_eq_type();
+                        g.to_token_stream()
+                    });
+                    tb.stream_opt(generic_args);
+                    tb.end()
+                };
+                tb.stream(value_struct_ident_with_generic_params);
+                tb.add(";");
+
+                tb.add("type Cache = ");
+                let cache_struct_ident_with_generic_params = {
+                    let mut tb = TokenBuilder::new();
+                    tb.extend_ident(mutator_cache_struct.ident.clone());
+                    let generic_args = mutator_cache_struct.generics.map(|g| {
+                        let mut g = g.clone();
+                        for tp in g.type_params.iter_mut() {
+                            let mut tb = TokenBuilder::new();
+                            tb.add("<");
+                            tb.stream(tp.type_ident.clone());
+                            tb.add(" as fuzzcheck_mutators :: fuzzcheck_traits :: Mutator > :: Cache");
+                            tp.type_ident = tb.end();
+                        }
+                        g.to_token_stream()
+                    });
+                    tb.stream_opt(generic_args);
+                    tb.end()
+                };
+                tb.stream(cache_struct_ident_with_generic_params);
+                tb.add(";");
+
+                tb.add("type MutationStep = ");
+                let mutator_step_struct_ident_with_generic_params = {
+                    let mut tb = TokenBuilder::new();
+                    tb.extend_ident(mutator_step_struct.ident.clone());
+                    let generic_args = mutator_step_struct.generics.map(|g| {
+                        let mut g = g.clone();
+                        for tp in g.type_params.iter_mut() {
+                            let mut tb = TokenBuilder::new();
+                            tb.add("<");
+                            tb.stream(tp.type_ident.clone());
+                            tb.add(" as fuzzcheck_mutators :: fuzzcheck_traits :: Mutator > :: MutationStep");
+                            tp.type_ident = tb.end();
+                        }
+                        g.to_token_stream()
+                    });
+                    tb.stream_opt(generic_args);
+                    tb.end()
+                };
+                tb.stream(mutator_step_struct_ident_with_generic_params);
+                tb.add(";");
+
+                tb.add("type UnmutateToken = ");
+                let unmutate_token_struct_ident_with_generic_params = {
+                    let mut tb = TokenBuilder::new();
+                    tb.extend_ident(unmutate_token_struct.ident.clone());
+                    let generic_args = unmutate_token_struct.generics.map(|g| {
+                        let mut g = g.clone();
+                        for tp in g.type_params.iter_mut() {
+                            let mut tb = TokenBuilder::new();
+                            tb.add("<");
+                            tb.stream(tp.type_ident.clone());
+                            tb.add(" as fuzzcheck_mutators :: fuzzcheck_traits :: Mutator > :: UnmutateToken");
+                            tp.type_ident = tb.end();
+                        }
+                        g.to_token_stream()
+                    });
+                    tb.stream_opt(generic_args);
+                    tb.end()
+                };
+                tb.stream(unmutate_token_struct_ident_with_generic_params);
+                tb.add(";");
+            }
+
+            { // max_complexity
+                tb.add("fn max_complexity ( & self ) -> f64 { ");
+                let mut mutator_field_names_iter = mutator_field_names.iter();
+                if let Some(fst_field_name) = mutator_field_names_iter.next() {
+                    tb.add(&format!("self . {} . max_complexity ( ) ", fst_field_name));
+                }
+                for field_name in mutator_field_names_iter {
+                    tb.add(&format!("+ self . {} . max_complexity ( ) ", field_name));
+                }
+
+                tb.add("}");
+            }
+            { // min_complexity
+                tb.add("fn min_complexity ( & self ) -> f64 { ");
+                let mut mutator_field_names_iter = mutator_field_names.iter();
+                if let Some(fst_field_name) = mutator_field_names_iter.next() {
+                    tb.add(&format!("self . {} . min_complexity ( ) ", fst_field_name));
+                }
+                for field_name in mutator_field_names_iter {
+                    tb.add(&format!("+ self . {} . min_complexity ( ) ", field_name));
+                }
+
+                tb.add("}");
+            }
+            // { // complexity
+            //     tb.add("fn complexity ( & self , value : & Self :: Value , cache : & Self :: Cache ) -> f64 { ");
+            //     let mutator_field_names_iter = safe_field_names.iter();
+            //     let struct_field_names_iter = parsed_struct.struct_fields.iter().enumerate().map(|(i, f)| {
+            //         if let Some(ident) = &f.identifier {
+            //             ident.to_string()
+            //         } else {
+            //             format!("{}", i)
+            //         }
+            //     });
+            //     let mut field_names_iter = mutator_field_names_iter.zip(struct_field_names_iter);
+            //     if let Some((fst_mutator_field_name, fst_struct_field_name)) = field_names_iter.next() {
+            //         // TODO: know real struct field names
+            //         tb.add(&format!("self . {m} . complexity ( & value . {s} , & cache . {m} ) ", m=fst_mutator_field_name, s=fst_struct_field_name));
+            //     }
+            //     for (fst_mutator_field_name, fst_struct_field_name) in field_names_iter {
+            //         tb.add(&format!("+ self . {m} . complexity ( & value . {s} , & cache . {m} ) ", m=fst_mutator_field_name, s=fst_struct_field_name));
+            //     }
+
+            //     tb.add("}");
+            // }
+            { // complexity, cached
+                tb.add("fn complexity ( & self , value : & Self :: Value , cache : & Self :: Cache ) -> f64 { cache . cplx }");
+            }
+
+            { // cache_from_value
+                tb.add("fn cache_from_value ( & self , value : & Self :: Value ) -> Self :: Cache {");
+                let fields_iter = field_names.iter().zip(mutator_field_names.iter());
+                for (field, mutator_field) in fields_iter.clone() {
+                    tb.add(&format!("let {m} = self . {m} . cache_from_value ( & value . {f} ) ; ", f=field, m=mutator_field));
+                }
+                let mut fields_iter = fields_iter;
+                tb.add("let cplx = ");
+                if let Some((field, mutator_field)) = fields_iter.next() {
+                    tb.add(&format!("self . {m} . complexity ( & value . {f} , & {m} ) ", f=field, m=mutator_field));
+                }
+                for (field, mutator_field) in fields_iter {
+                    tb.add(&format!("+ self . {m} . complexity ( & value . {f} , & {m} ) ", f=field, m=mutator_field));
+                }
+                tb.add(";");
+            
+                tb.add("Self :: Cache {");
+                for mutator_field in mutator_field_names.iter() {
+                    tb.add(mutator_field);
+                    tb.add(",");
+                }
+                tb.add("cplx , } }");
+            }
+
+            { // mutation_step_from_value
+                tb.add("fn mutation_step_from_value ( & self , value : & Self :: Value  ) -> Self :: MutationStep { ");
+
+                let fields_iter = field_names.iter().zip(mutator_field_names.iter());
+                for (field, mutator_field) in fields_iter.clone() {
+                    tb.add(&format!("let {m} = self . {m} . mutation_step_from_value ( & value . {f} ) ; ", f=field, m=mutator_field));
+                }
+                tb.add(";");
+            
+                tb.add("let step = 0 ;");
+
+                tb.add("Self :: MutationStep {");
+                for mutator_field in mutator_field_names.iter() {
+                    tb.add(mutator_field);
+                    tb.add(",");
+                }
+                tb.add("step , }");
+
+                tb.add("}");
+            }
+
+            { // arbitrary
+                tb.add("fn arbitrary ( & mut self , seed : usize , max_cplx : f64 ) -> ( Self :: Value , Self :: Cache )");
+                tb.push_group(Delimiter::Brace);
+
+                // create option value for all fields
+                for mutator_field in mutator_field_names.iter() {
+                    tb.add(&format!("let mut {m}_value : Option < _ > = None ;", m=mutator_field));
+                    tb.add(&format!("let mut {m}_cache : Option < _ > = None ;", m=mutator_field));
+                }
+                // create array of numbers, then shuffle it
+                tb.add(&format!("let mut indices = ( 0 .. {} ) . iter ( ) . collect :: < Vec < _ > > ( ) ;", mutator_field_names.len()));
+                tb.add(" fuzzcheck_mutators :: fastrand :: shuffle ( & mut indices ) ;");
+                tb.add("let seed = fuzzcheck_mutators :: fastrand :: usize ( .. ) ;");
+
+                tb.add("let mut cplx = ");
+                tb.extend(TokenTree::Literal(Literal::f64_suffixed(0.0)));
+                tb.add(";");
+
+                tb.add("for idx in indices . iter ( )");
+                tb.push_group(Delimiter::Brace);
+
+                tb.add("match idx");
+                tb.push_group(Delimiter::Brace);
+                for (idx, mutator_field) in mutator_field_names.iter().enumerate() {
+                    tb.add(&format!(r#"
+                    {i} => {{ 
+                        let ( value , cache ) = self . {m} . arbitrary ( seed , max_cplx - cplx ) ; 
+                        
+                        cplx += self . {m} . complexity ( & value , & cache ) ; 
+
+                        {m}_value = Some ( value ) ;
+                        {m}_cache = Some ( cache ) ;
+                    }} ,
+                    "#, i=idx, m=mutator_field));
+                }
+                tb.pop_group(Delimiter::Brace);
+                tb.pop_group(Delimiter::Brace);
+
+                tb.push_group(Delimiter::Parenthesis);
+
+                tb.add("Self :: Value ");
+                tb.push_group(Delimiter::Brace);
+                for (field, mutator_field) in field_names.iter().zip(mutator_field_names.iter()) {
+                    tb.add(&format!("{f} : {m}_value . unwrap ( ) ,", f=field, m=mutator_field));
+                }
+                tb.pop_group(Delimiter::Brace);
+                tb.add(",");
+                tb.add("Self :: Cache ");
+                tb.push_group(Delimiter::Brace);
+                for mutator_field in mutator_field_names.iter() {
+                    tb.add(&format!("{m} : {m}_cache . unwrap ( ) ,", m=mutator_field));
+                }
+                tb.add("cplx ,");
+                tb.pop_group(Delimiter::Brace);
+                tb.pop_group(Delimiter::Parenthesis);
+
+                tb.pop_group(Delimiter::Brace);
+            }
+
+            tb.pop_group(Delimiter::Brace);
     }
 }
