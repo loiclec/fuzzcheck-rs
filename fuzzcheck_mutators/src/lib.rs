@@ -66,5 +66,5 @@ pub fn cplxity_to_size(cplx: f64) -> usize {
 }
 #[must_use]
 pub fn size_to_cplxity(size: usize) -> f64 {
-    (size as f64).log2()
+    (size as f64).log2().round()
 }

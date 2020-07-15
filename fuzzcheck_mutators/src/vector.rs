@@ -1,6 +1,6 @@
 
 use fuzzcheck_traits::Mutator;
-
+use crate::HasDefaultMutator;
 use fastrand::Rng;
 
 use std::iter::repeat;
@@ -21,6 +21,12 @@ where
 {
     fn default() -> Self {
         Self { rng: Rng::new(), m: M::default() }
+    }
+}
+impl<T> HasDefaultMutator for Vec<T> where T: HasDefaultMutator {
+    type Mutator = VecMutator<<T as HasDefaultMutator> :: Mutator>;
+    fn default_mutator() -> Self::Mutator {
+        Self::Mutator::default()
     }
 }
 
@@ -309,7 +315,12 @@ impl<M: Mutator> VecMutator<M> {
         } else {
             self.rng.usize(min_length .. max_length)
         };
-
+        if len == 0 {
+            // TODO: maybe that shouldn't happen under normal circumstances?
+            return UnmutateVecToken::Nothing;
+        }
+        // println!("len: {:.2}", len);
+        // println!("max_cplx: {:.2}", target_cplx / (len as f64));
         let (el, el_cache) = self.m.arbitrary(self.rng.usize(..), target_cplx / (len as f64));
         let el_cplx = self.m.complexity(&el, &el_cache);
 
@@ -365,6 +376,8 @@ impl<M: Mutator> VecMutator<M> {
         };
         let max_cplx_el = self.m.max_complexity();
         // slight underestimate of the minimum number of elements required to produce an input of max_cplx
+        // will be inf. if elements can be of infinite complexity
+        // or if elements are of max_cplx 0.0
         let min_len_most_complex = target_cplx / max_cplx_el - (target_cplx / max_cplx_el).log2();
 
         // arbitrary restriction on the length of the generated number, to avoid creating absurdly large vectors
@@ -453,14 +466,17 @@ impl<M: Mutator> Mutator for VecMutator<M> {
     }
 
     fn arbitrary(&mut self, seed: usize, max_cplx: f64) -> (Self::Value, Self::Cache) {
-        if seed == 0 || max_cplx <= 1.0 {
+        if seed == 0 || max_cplx <= 4.0 {
             return (Self::Value::default(), Self::Cache::default());
         }
         let target_cplx = crate::gen_f64(&self.rng, 0.0 .. max_cplx);
         let lengths = self.choose_slice_length(target_cplx);
 
-        if lengths.0.is_none() {
+        if lengths.0.is_none() && self.m.max_complexity() < 0.001 {
+            // distinguish between the case where elements are of max_cplx 0 and the case where they are of max_cplx inf.
             // in this case, the elements are always of cplx 0, so we can only vary the length of the vector
+            // that's not true!!!
+            if lengths.1 <= 0 {return (Self::Value::default(), Self::Cache::default()); }
             assert!(lengths.1 > 0);
             let len = self.rng.usize(0 .. lengths.1);
             let (el, el_cache) = self.m.arbitrary(0, 0.0);
@@ -471,7 +487,7 @@ impl<M: Mutator> Mutator for VecMutator<M> {
             };
             return (v, cache);
         }
-        let (min_length, max_length) = (lengths.0.unwrap(), lengths.1);
+        let (min_length, max_length) = (lengths.0.unwrap_or(0), lengths.1);
 
         // choose a length between min_len_most_complex and max_len_most_complex
         let target_len = if min_length >= max_length {
