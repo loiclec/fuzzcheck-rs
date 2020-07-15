@@ -255,7 +255,7 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
     tb.stream(mutator_step_struct.clone().to_token_stream());
 
     let unmutate_token_struct = {
-        let step_fields = basic_fields
+        let mut step_fields = basic_fields
             .iter()
             .map(|field| {
                 let mut tb = TokenBuilder::new();
@@ -265,7 +265,14 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
                     ..field.clone()
                 }
             })
-            .collect();
+            .collect::<Vec<StructField>>();
+
+        step_fields.push(StructField {
+            attributes: Vec::new(),
+            visibility: None,
+            identifier: Some(Ident::new("cplx", Span::call_site())),
+            ty: TokenTree::Ident(Ident::new("f64", Span::call_site())).into(),
+        });
         Struct {
             visibility: parsed_struct.visibility.clone(),
             ident: Ident::new(&format!("{}UnmutateToken", parsed_struct.ident), Span::call_site()),
@@ -286,6 +293,7 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
             for mutator_field in mutator_field_names.iter() {
                 s.push_str(&format!(" {m} : None , ", m = mutator_field));
             }
+            s.push_str("cplx : f64 :: default ( ) ,");
             s
         };
 
@@ -573,19 +581,26 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
             // mutate
             tb.add("fn mutate ( & mut self , value : & mut Self :: Value , cache : & mut Self :: Cache , step : & mut Self :: MutationStep , max_cplx : f64 ) -> Self :: UnmutateToken ");
             tb.push_group(Delimiter::Brace);
+            tb.add("let orig_step = step . step ;");
+            tb.add("step . step += 1 ; ");
+            tb.add("let current_cplx = self . complexity ( value , cache ) ;");
 
-            tb.add(&format!("match step . step % {}", mutator_field_names.len()));
+            tb.add(&format!("match orig_step % {}", mutator_field_names.len()));
             tb.push_group(Delimiter::Brace);
             for (i, (mutator_field, field)) in mutator_field_names.iter().zip(field_names.iter()).enumerate() {
                 tb.add(&format!(
                     r#"
                     {i} => {{
-                        let max_field_cplx = max_cplx - self . {m} . complexity ( & value . {f} , & cache . {m} ) ;
+                        let current_field_cplx = self . {m} . complexity ( & value . {f} , & cache . {m} ) ;
+                        let max_field_cplx = max_cplx - current_cplx - current_field_cplx ;
                         let token = self
                             . {m}
                             . mutate ( & mut  value . {f} , & mut cache . {m} , & mut step . {m} , max_field_cplx ) ;
+                        let new_field_complexity = self . {m} . complexity ( & value . {f} , & cache . {m} ) ;
+                        cache . cplx = cache . cplx - current_field_cplx + new_field_complexity ;
                         Self :: UnmutateToken {{
                             {m} : Some ( token ) ,
+                            cplx : current_cplx ,
                             .. Self :: UnmutateToken :: default ( )
                         }}
                     }}
@@ -605,7 +620,7 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
             // unmutate
             tb.add("fn unmutate ( & self , value : & mut Self :: Value , cache : & mut Self :: Cache , t : Self :: UnmutateToken ) ");
             tb.push_group(Delimiter::Brace);
-
+            tb.add("cache . cplx = t . cplx ;");
             for (mutator_field, field) in mutator_field_names.iter().zip(field_names.iter()) {
                 tb.add(&format!(
                     r#"
