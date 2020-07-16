@@ -94,6 +94,19 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
         })
         .collect::<Vec<_>>();
 
+    let value_struct_ident_with_generic_params = {
+        let mut tb = TokenBuilder::new();
+        tb.extend_ident(parsed_struct.ident.clone());
+        let generic_args = parsed_struct
+            .generics
+            .clone()
+            .removing_bounds_and_eq_type()
+            .0
+            .to_token_stream();
+        tb.stream(generic_args);
+        tb.end()
+    };
+
     let (
         mutator_struct,
         value_generics_with_bounds_moved_to_where_clause,
@@ -177,6 +190,16 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
                 },
             });
         }
+        /* 5. also add requirement that the whole value is Clone */
+        where_clause_items.push(WhereClauseItem {
+            for_lifetimes: None,
+            lhs: value_struct_ident_with_generic_params.clone(),
+            rhs: {
+                let mut tb = TokenBuilder::new();
+                tb.add(":: core :: clone :: Clone");
+                tb.end()
+            },
+        });
 
         let main_mutator_where_clause = {
             WhereClause {
@@ -332,19 +355,7 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
         {
             // associated types
             tb.add("type Value = ");
-            let value_struct_ident_with_generic_params = {
-                let mut tb = TokenBuilder::new();
-                tb.extend_ident(parsed_struct.ident.clone());
-                let generic_args = parsed_struct
-                    .generics
-                    .clone()
-                    .removing_bounds_and_eq_type()
-                    .0
-                    .to_token_stream();
-                tb.stream(generic_args);
-                tb.end()
-            };
-            tb.stream(value_struct_ident_with_generic_params);
+            tb.stream(value_struct_ident_with_generic_params.clone());
             tb.add(";");
 
             tb.add("type Cache = ");
@@ -639,8 +650,7 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
         tb.pop_group(Delimiter::Brace);
     }
 
-    {
-        // implementation of Default trait when generic mutator params are Default
+    { // implementation of Default trait when generic mutator params are Default
         let mut where_items = Vec::<WhereClauseItem>::new();
         for ty in generic_types_for_field {
             let where_item = WhereClauseItem {
@@ -708,6 +718,26 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
                 rhs: {
                     let mut tb = TokenBuilder::new();
                     tb.add(":: core :: default :: Default");
+                    tb.end()
+                },
+            };
+            where_items.push(where_item);
+            let where_item = WhereClauseItem {
+                for_lifetimes: None,
+                lhs: field.ty.clone(),
+                rhs: {
+                    let mut tb = TokenBuilder::new();
+                    tb.add(":: core :: clone :: Clone");
+                    tb.end()
+                },
+            };
+            where_items.push(where_item);
+            let where_item = WhereClauseItem {
+                for_lifetimes: None,
+                lhs: value_struct_ident_with_generic_params.clone(),
+                rhs: {
+                    let mut tb = TokenBuilder::new();
+                    tb.add(":: core :: clone :: Clone");
                     tb.end()
                 },
             };
