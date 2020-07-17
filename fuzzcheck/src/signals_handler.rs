@@ -77,7 +77,7 @@ extern "C" {
 pub fn set_timer(milliseconds: usize) {
 
     let seconds = milliseconds / 1000;
-    let microseconds = (((milliseconds - (1000 * seconds)) * 1000) % (i32::MAX) as usize) as i32;
+    let microseconds = (((milliseconds - (1000 * seconds)) * 1000) % (i32::MAX) as usize) as libc::suseconds_t;
 
     let mut tval = nix::libc::itimerval {
         it_interval: nix::libc::timeval {
