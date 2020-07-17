@@ -65,7 +65,7 @@ version = "0.3.0"
 
 [[package]]
 name = "fuzzcheck_serializer"
-version = "0.2.1"
+version = "0.3.0"
 dependencies = [
  "fuzzcheck_traits 0.3.0",
  "serde 1.0.114 (registry+https://github.com/rust-lang/crates.io-index)",
