@@ -12,7 +12,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
 name = "cargo-fuzzcheck"
-version = "0.2.1"
+version = "0.3.0"
 dependencies = [
  "fuzzcheck_arg_parser 0.3.0",
  "getopts 0.2.21 (registry+https://github.com/rust-lang/crates.io-index)",
