@@ -52,7 +52,7 @@ dependencies = [
 
 [[package]]
 name = "fuzzcheck_mutators"
-version = "0.2.1"
+version = "0.3.0"
 dependencies = [
  "fastrand 1.3.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "fuzzcheck_mutators_derive 0.3.0",
