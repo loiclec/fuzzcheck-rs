@@ -1,9 +1,9 @@
 [package]
 name = "fuzzcheck_traits"
-version = "0.2.1"
+version = "0.3.0"
 authors = ["Loïc Lecrenier <loic.lecrenier@me.com>"]
 edition = "2018"
-description = "The definition of the Mutator trait used by fuzzcheck-rs"
+description = "Definition of traits used by fuzzcheck-rs"
 repository = "https://git.sr.ht/~loic/fuzzcheck-rs"
 license = "MIT"
 keywords = ["fuzzing", "test"]
