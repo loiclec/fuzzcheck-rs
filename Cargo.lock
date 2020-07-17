@@ -14,7 +14,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 name = "cargo-fuzzcheck"
 version = "0.2.1"
 dependencies = [
- "fuzzcheck_arg_parser 0.2.1",
+ "fuzzcheck_arg_parser 0.3.0",
  "getopts 0.2.21 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde 1.0.114 (registry+https://github.com/rust-lang/crates.io-index)",
  "toml 0.5.6 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -37,7 +37,7 @@ dependencies = [
  "bitflags 1.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "cfg-if 0.1.10 (registry+https://github.com/rust-lang/crates.io-index)",
  "fastrand 1.3.3 (registry+https://github.com/rust-lang/crates.io-index)",
- "fuzzcheck_arg_parser 0.2.1",
+ "fuzzcheck_arg_parser 0.3.0",
  "fuzzcheck_traits 0.3.0",
  "getopts 0.2.21 (registry+https://github.com/rust-lang/crates.io-index)",
  "libc 0.2.72 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -45,7 +45,7 @@ dependencies = [
 
 [[package]]
 name = "fuzzcheck_arg_parser"
-version = "0.2.1"
+version = "0.3.0"
 dependencies = [
  "getopts 0.2.21 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
