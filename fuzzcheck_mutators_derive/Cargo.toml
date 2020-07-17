@@ -3,6 +3,11 @@ name = "fuzzcheck_mutators_derive"
 version = "0.3.0"
 authors = ["Loïc Lecrenier <loic.lecrenier@me.com>"]
 edition = "2018"
+description = "Procedural macros to generate fuzzcheck mutators"
+repository = "https://git.sr.ht/~loic/fuzzcheck-rs"
+license = "MIT"
+keywords = ["fuzzing", "test"]
+categories = ["development-tools"]
 
 [lib]
 proc-macro = true
