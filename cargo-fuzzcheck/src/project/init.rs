@@ -12,10 +12,33 @@ pub const DEFAULT_STACK_DEPTH: bool = false;
 
 impl Fuzz {
     pub fn init(path: &Path, library: &str, fuzzcheck_path_or_version: &str) -> Self {
-        let instrumented = Instrumented::init(library);
+        
+        let fuzzcheck_deps = if fuzzcheck_path_or_version.starts_with("file://") {
+            let folder = Path::new(fuzzcheck_path_or_version.trim_start_matches("file://"));
+            (
+                format!("path = \"{}\"", folder.join("fuzzcheck").display()),
+                format!("path = \"{}\"", folder.join("fuzzcheck_mutators").display()),
+                format!("path = \"{}\"", folder.join("fuzzcheck_serializer").display()),
+            )
+        } else if fuzzcheck_path_or_version.starts_with("http") {
+            (
+                format!("git = \"{}\"", fuzzcheck_path_or_version),
+                format!("git = \"{}\"", fuzzcheck_path_or_version),
+                format!("git = \"{}\"", fuzzcheck_path_or_version),
+            )
+        } else {
+            (
+                format!("version = \"{}\"", fuzzcheck_path_or_version),
+                format!("version = \"{}\"", fuzzcheck_path_or_version),
+                format!("version = \"{}\"", fuzzcheck_path_or_version),
+            )
+        };
+
+
+        let instrumented = Instrumented::init(library, &fuzzcheck_deps.1, &fuzzcheck_deps.2);
         let instrumented_folder = path.join("instrumented");
 
-        let non_instrumented = NonInstrumented::init(library, &instrumented_folder, fuzzcheck_path_or_version);
+        let non_instrumented = NonInstrumented::init(library, &instrumented_folder, &fuzzcheck_deps.0);
 
         let corpora_folder = path.join("corpora");
         let corpora = Ok(Corpora::init(&corpora_folder));
@@ -83,7 +106,7 @@ fuzzcheck-rs
 }
 
 impl NonInstrumented {
-    pub fn init(library: &str, instrumented_folder: &Path, fuzzcheck_path_or_version: &str) -> Self {
+    pub fn init(library: &str, instrumented_folder: &Path, fuzzcheck_dep: &str) -> Self {
         let src = SrcLibRs::init_non_instrumented();
 
         let fuzz_targets = FuzzTargets::init(library);
@@ -94,29 +117,8 @@ impl NonInstrumented {
 
         let build_rs = BuildRs::init(instrumented_target_folder_0, instrumented_target_folder_1);
 
-        let fuzzcheck_deps = if fuzzcheck_path_or_version.starts_with("file://") {
-            let folder = Path::new(fuzzcheck_path_or_version.trim_start_matches("file://"));
-            (
-                format!("path = \"{}\"", folder.join("fuzzcheck").display()),
-                format!("path = \"{}\"", folder.join("fuzzcheck_mutators").display()),
-                format!("path = \"{}\"", folder.join("fuzzcheck_serializer").display()),
-            )
-        } else if fuzzcheck_path_or_version.starts_with("http") {
-            (
-                format!("git = \"{}\"", fuzzcheck_path_or_version),
-                format!("git = \"{}\"", fuzzcheck_path_or_version),
-                format!("git = \"{}\"", fuzzcheck_path_or_version),
-            )
-        } else {
-            (
-                format!("version = \"{}\"", fuzzcheck_path_or_version),
-                format!("version = \"{}\"", fuzzcheck_path_or_version),
-                format!("version = \"{}\"", fuzzcheck_path_or_version),
-            )
-        };
-
         let cargo_toml =
-            CargoToml::init_non_instrumented(library, &fuzzcheck_deps.0, &fuzzcheck_deps.1, &fuzzcheck_deps.2);
+            CargoToml::init_non_instrumented(library, &fuzzcheck_dep);
 
         Self {
             src,
@@ -128,10 +130,10 @@ impl NonInstrumented {
 }
 
 impl Instrumented {
-    pub fn init(library: &str) -> Self {
+    pub fn init(library: &str, fuzzcheck_mutators_dep: &str, fuzzcheck_serializer_dep: &str) -> Self {
         Self {
             src: SrcLibRs::init_instrumented(library),
-            cargo_toml: CargoToml::init_instrumented(library),
+            cargo_toml: CargoToml::init_instrumented(library, fuzzcheck_mutators_dep, fuzzcheck_serializer_dep),
         }
     }
 }
@@ -177,26 +179,55 @@ impl SrcLibRs {
         let content = format!(
             r#"
 extern crate {library};
+extern crate fuzzcheck_mutators;
+extern crate serde;
 
-pub fn test(input: &[u8]) -> bool {{
-    // test goes here
+// re-export fuzzcheck_serializer so it can be used by the fuzz targets
+pub extern crate fuzzcheck_serializer;
+
+use serde::{{Serialize, Deserialize}};
+use fuzzcheck_mutators::HasDefaultMutator;
+
+#[derive(Clone, Default, HasDefaultMutator, Serialize, Deserialize)]
+pub struct SampleData<A, B, C> {{
+    a: A,
+    b: Vec<B>,
+    c: C
+}}
+
+
+// Note: the test function should not be generic, otherwise it will get monomorphised
+// when compiling the non-instrumented crate, and will therefore not be instrumented
+pub fn test(input: &[SampleData<u8, Option<u8>, u8>]) -> bool {{
     if 
-        input.len() > 14 &&
-        input[0] == 0 &&
-        input[1] == 167 &&
-        input[2] == 200 &&
-        input[3] == 103 &&
-        input[4] == 56 &&
-        input[5] == 78 &&
-        input[6] == 2 &&
-        input[7] == 254 &&
-        input[8] == 0 &&
-        input[9] == 167 &&
-        input[10] == 200 &&
-        input[11] == 103 &&
-        input[12] == 56 &&
-        input[13] == 78 &&
-        input[14] == 103
+        input.len() > 5 &&
+        input[0].a == 0 &&
+        input[0].b == vec![Some(2), None, Some(187)] &&
+        input[0].c == 9 &&
+        input[1].a == 189 &&
+        input[1].b.len() > 5 &&
+        input[1].b[0] == Some(89) &&
+        input[1].b[1] == None &&
+        input[1].b[2] == Some(213) &&
+        input[1].b[3] == Some(189) &&
+        input[1].b[4] == None &&
+        input[1].b[5] == Some(32) &&
+        input[1].c == 19 &&
+        input[2].a == 200&&
+        input[2].b.len() < 5 &&
+        input[2].c == 132 &&
+        input[3].a == 78 &&
+        input[3].b.len() == 3 &&
+        input[3].b[0] == Some(90) &&
+        input[3].b[1] == Some(80) &&
+        input[3].b[2] == Some(70) &&
+        input[3].c == 156 &&
+        input[4].a == 1 &&
+        input[4].b == vec![Some(255), None, None, None] &&
+        input[4].c == 150 &&
+        input[5].a == 10 &&
+        input[5].b == vec![] &&
+        input[5].c == 43
     {{
         false
     }}
@@ -219,8 +250,6 @@ impl CargoToml {
     pub fn init_non_instrumented(
         library: &str,
         fuzzcheck_dep: &str,
-        fuzzcheck_mutators_dep: &str,
-        fuzzcheck_serializer_dep: &str,
     ) -> Self {
         let content = format!(
             r##"
@@ -241,18 +270,8 @@ cargo-fuzzcheck = true
 # path = "../instrumented"
 # Managed by cargo-fuzzcheck
 
-[dependencies]
-serde = {{ version = "1.0" }} #, features = ["derive"] }}
-serde_json = "1.0"
-
 [dependencies.fuzzcheck]
 {fuzzcheck_dep}
-
-[dependencies.fuzzcheck_mutators]
-{fuzzcheck_mutators_dep}
-
-[dependencies.fuzzcheck_serializer]
-{fuzzcheck_serializer_dep}
 
 # Prevent this from interfering with workspaces
 [workspace]
@@ -271,14 +290,6 @@ panic = 'abort'
 overflow-checks = false
 incremental = false
 
-[profile.release.package.serde_json]
-opt-level = 0
-codegen-units = 16
-
-[profile.release.package.serde]
-opt-level = 0
-codegen-units = 16
-
 [profile.release.package.libc]
 opt-level = 0
 codegen-units = 16
@@ -293,8 +304,6 @@ codegen-units = 16
 "##,
             library = library,
             fuzzcheck_dep = fuzzcheck_dep,
-            fuzzcheck_mutators_dep = fuzzcheck_mutators_dep,
-            fuzzcheck_serializer_dep = fuzzcheck_serializer_dep,
             target = DEFAULT_TARGET_NAME
         );
 
@@ -302,7 +311,7 @@ codegen-units = 16
 
         Self { toml }
     }
-    pub fn init_instrumented(library: &str) -> Self {
+    pub fn init_instrumented(library: &str, fuzzcheck_mutators_dep: &str, fuzzcheck_serializer_dep: &str) -> Self {
         let content = format!(
             r##"
 [package]
@@ -317,6 +326,20 @@ cargo-fuzzcheck = true
 [dependencies.{library}]
 path = "../.."
 
+[dependencies.serde]
+version = '1.0'
+features = ["derive"]
+
+[dependencies.serde_json]
+version = '1.0'
+
+[dependencies.fuzzcheck_mutators]
+{fuzzcheck_mutators_dep}
+
+[dependencies.fuzzcheck_serializer]
+{fuzzcheck_serializer_dep}
+features = ["serde_serializer"]
+
 # Prevent this from interfering with workspaces
 [workspace]
 members = ["."]
@@ -324,13 +347,41 @@ members = ["."]
 [profile.release]
 debug = false
 opt-level = 3
-lto = "thin"
 codegen-units = 1
-panic = "abort"
 overflow-checks = true
 incremental = false
+
+[profile.release.package.fuzzcheck_mutators_derive]
+opt-level = 0
+codegen-units = 16
+
+[profile.release.package.proc-macro2]
+opt-level = 0
+codegen-units = 16
+
+[profile.release.package.syn]
+opt-level = 0
+codegen-units = 16
+
+[profile.release.package.quote]
+opt-level = 0
+codegen-units = 16
+
+[profile.release.package.serde]
+opt-level = 0
+codegen-units = 16
+
+[profile.release.package.serde_derive]
+opt-level = 0
+codegen-units = 16
+
+[profile.release.package.serde_json]
+opt-level = 0
+codegen-units = 16
 "##,
-            library = library
+            library = library,
+            fuzzcheck_mutators_dep = fuzzcheck_mutators_dep,
+            fuzzcheck_serializer_dep = fuzzcheck_serializer_dep
         );
         let toml = toml::from_str(&content).unwrap();
         Self { toml }
@@ -341,31 +392,30 @@ impl FuzzTargets {
     pub fn init(library: &str) -> Self {
         let content = format!(
             r#"
-extern crate fuzzcheck;
-
-extern crate fuzzcheck_mutators;
-use fuzzcheck_mutators::integer::*;
-use fuzzcheck_mutators::vector::*;
-
-#[macro_use]
-extern crate fuzzcheck_serializer;
-
 extern crate {0};
-
 extern crate {0}_non_instrumented_fuzz;
-
 extern crate {0}_instrumented_fuzz;
-use {0}_instrumented_fuzz::test;
 
-extern crate serde;
-extern crate serde_json;
+extern crate fuzzcheck;
+extern crate fuzzcheck_mutators;
+extern crate fuzzcheck_traits;
 
-define_serde_serializer!();
+// Note: fuzzcheck_serializer was re-exported by the instrumented crate
+// This must be done because fuzzcheck_serializer uses serde’s Serialize and 
+// Deserialize traits and because serde is compiled in the instrumented crate. 
+// If, instead, we added fuzzcheck_serializer to the non-instrumented crate’s 
+// dependencies, it would be recompiled. Two serde crates with incompatible 
+// Serialize traits would then live in the same binary. This can result in 
+// confusing error messages.
+use test_derived_instrumented_fuzz::fuzzcheck_serializer;
+
+use test_derived_instrumented_fuzz::{{SampleData, test}};
+use fuzzcheck_mutators::HasDefaultMutator;
+use fuzzcheck_serializer::SerdeSerializer;
 
 fn main() {{
-    type Mutator = VecMutator<U8Mutator>;
-    let mutator = Mutator::default();
-    let serializer = SerdeSerializer::<Vec<u8>>::default();
+    let mutator = Vec::<SampleData<u8, Option<u8>, u8>>::default_mutator();
+    let serializer = SerdeSerializer::default();
     let _ = fuzzcheck::launch(test, mutator, serializer);
 }}
 "#,
