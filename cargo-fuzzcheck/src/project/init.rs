@@ -407,9 +407,9 @@ extern crate fuzzcheck_traits;
 // dependencies, it would be recompiled. Two serde crates with incompatible 
 // Serialize traits would then live in the same binary. This can result in 
 // confusing error messages.
-use test_derived_instrumented_fuzz::fuzzcheck_serializer;
+use {0}_instrumented_fuzz::fuzzcheck_serializer;
 
-use test_derived_instrumented_fuzz::{{SampleData, test}};
+use {0}_instrumented_fuzz::{{SampleData, test}};
 use fuzzcheck_mutators::HasDefaultMutator;
 use fuzzcheck_serializer::SerdeSerializer;
 
