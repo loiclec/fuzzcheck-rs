@@ -1061,6 +1061,12 @@ impl TokenParser {
             let mut stack = 1;
             // keep eating things till we are at stack 0 for a ">"
             while stack > 0 {
+                if let Some(start_arrow) = self.eat_punct_with_spacing('-', Spacing::Joint) {
+                    tb.extend_punct(start_arrow);
+                    if let Some(end_arrow) = self.eat_punct('>') {
+                        tb.extend_punct(end_arrow);
+                    }
+                }
                 if let Some(ob) = self.eat_punct('<') {
                     tb.extend_punct(ob);
                     stack += 1;
