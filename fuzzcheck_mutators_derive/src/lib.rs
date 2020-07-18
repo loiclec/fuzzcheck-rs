@@ -655,7 +655,7 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
 
     { // implementation of Default trait when generic mutator params are Default
         let mut where_items = Vec::<WhereClauseItem>::new();
-        for ty in generic_types_for_field {
+        for ty in generic_types_for_field.clone() {
             let where_item = WhereClauseItem {
                 for_lifetimes: None,
                 lhs: TokenTree::Ident(ty.clone()).into(),
@@ -712,12 +712,22 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
             let where_item = WhereClauseItem {
                 for_lifetimes: None,
                 lhs: field.ty.clone(),
-                rhs: TokenTree::Ident(Ident::new("HasDefaultMutator", Span::call_site())).into(),
+                rhs: {
+                    let mut tb = TokenBuilder::new();
+                    tb.add("fuzzcheck_mutators :: HasDefaultMutator");
+                    tb.end()
+                },
             };
             where_items.push(where_item);
             let where_item = WhereClauseItem {
                 for_lifetimes: None,
-                lhs: field.ty.clone(),
+                lhs: {
+                    let mut tb = TokenBuilder::new();
+                    tb.add("<");
+                    tb.stream(field.ty.clone());
+                    tb.add(" as fuzzcheck_mutators :: HasDefaultMutator > :: Mutator");
+                    tb.end()
+                },
                 rhs: {
                     let mut tb = TokenBuilder::new();
                     tb.add(":: core :: default :: Default");
@@ -735,17 +745,18 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
                 },
             };
             where_items.push(where_item);
-            let where_item = WhereClauseItem {
-                for_lifetimes: None,
-                lhs: value_struct_ident_with_generic_params.clone(),
-                rhs: {
-                    let mut tb = TokenBuilder::new();
-                    tb.add(":: core :: clone :: Clone");
-                    tb.end()
-                },
-            };
-            where_items.push(where_item);
         }
+        let where_item = WhereClauseItem {
+            for_lifetimes: None,
+            lhs: value_struct_ident_with_generic_params.clone(),
+            rhs: {
+                let mut tb = TokenBuilder::new();
+                tb.add(":: core :: clone :: Clone");
+                tb.end()
+            },
+        };
+        where_items.push(where_item);
+
         let where_clause = if let Some(mut where_clause) = value_where_clause_with_added_items_from_generics.clone() {
             where_clause.items.extend(where_items);
             where_clause
