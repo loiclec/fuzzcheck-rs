@@ -30,9 +30,7 @@ pub struct SerdeSerializer<S> {
 #[cfg(feature = "serde_serializer")]
 impl<S> Default for SerdeSerializer<S> {
     fn default() -> Self {
-        Self {
-            phantom: PhantomData,
-        }
+        Self { phantom: PhantomData }
     }
 }
 

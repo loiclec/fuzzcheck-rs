@@ -91,7 +91,7 @@ impl<S: Serializer> World<S> {
                         self.report_event(e, Some(*stats))
                     }
                     _ => self.report_event(e, None),
-                }
+                },
             }
         }
         Ok(())

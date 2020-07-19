@@ -12,7 +12,6 @@ pub const DEFAULT_STACK_DEPTH: bool = false;
 
 impl Fuzz {
     pub fn init(path: &Path, library: &str, fuzzcheck_path_or_version: &str) -> Self {
-        
         let fuzzcheck_deps = if fuzzcheck_path_or_version.starts_with("file://") {
             let folder = Path::new(fuzzcheck_path_or_version.trim_start_matches("file://"));
             (
@@ -33,7 +32,6 @@ impl Fuzz {
                 format!("version = \"{}\"", fuzzcheck_path_or_version),
             )
         };
-
 
         let instrumented = Instrumented::init(library, &fuzzcheck_deps.1, &fuzzcheck_deps.2);
         let instrumented_folder = path.join("instrumented");
@@ -117,8 +115,7 @@ impl NonInstrumented {
 
         let build_rs = BuildRs::init(instrumented_target_folder_0, instrumented_target_folder_1);
 
-        let cargo_toml =
-            CargoToml::init_non_instrumented(library, &fuzzcheck_dep);
+        let cargo_toml = CargoToml::init_non_instrumented(library, &fuzzcheck_dep);
 
         Self {
             src,
@@ -247,10 +244,7 @@ pub fn test(input: &[SampleData<u8, Option<u8>, u8>]) -> bool {{
 }
 
 impl CargoToml {
-    pub fn init_non_instrumented(
-        library: &str,
-        fuzzcheck_dep: &str,
-    ) -> Self {
+    pub fn init_non_instrumented(library: &str, fuzzcheck_dep: &str) -> Self {
         let content = format!(
             r##"
 [package]

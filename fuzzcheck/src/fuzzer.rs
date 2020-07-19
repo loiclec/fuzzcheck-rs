@@ -50,7 +50,6 @@ pub(crate) struct AnalysisResult<M: Mutator> {
     pub lowest_stack: usize,
 }
 
-
 struct FuzzerState<M: Mutator, S: Serializer<Value = M::Value>> {
     mutator: M,
     pool: Pool<M>,
@@ -236,13 +235,13 @@ where
 
         let result = if best_input_for_a_feature {
             Some(AnalysisResult {
-                existing_features: existing_features.clone(), 
+                existing_features: existing_features.clone(),
                 new_features: new_features.clone(),
                 lowest_stack: sensor.lowest_stack,
             })
         } else if sensor.lowest_stack < self.state.pool.lowest_stack() {
             Some(AnalysisResult {
-                existing_features: vec![], 
+                existing_features: vec![],
                 new_features: vec![],
                 lowest_stack: sensor.lowest_stack,
             })
@@ -269,7 +268,7 @@ where
         )?;
         self.state.stats.total_number_of_runs += 1;
 
-         if let Some(result) = self.analyze(cplx) {
+        if let Some(result) = self.analyze(cplx) {
             let input_cloned = self.state.get_input().new_source(&self.state.mutator);
             let actions = self
                 .state
@@ -297,7 +296,11 @@ where
         }
 
         // Retrieving the input may fail because the input may have been deleted
-        if let Some(input) = self.state.pool.retrieve_source_input_for_unmutate(idx, self.state.stats.total_number_of_runs) {
+        if let Some(input) = self
+            .state
+            .pool
+            .retrieve_source_input_for_unmutate(idx, self.state.stats.total_number_of_runs)
+        {
             input.unmutate(&self.state.mutator, unmutate_token);
         }
 

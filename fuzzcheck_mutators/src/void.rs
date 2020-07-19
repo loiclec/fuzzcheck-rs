@@ -1,4 +1,3 @@
-
 use fuzzcheck_traits::Mutator;
 
 #[derive(Clone)]

@@ -1,6 +1,6 @@
 pub mod project;
 
-use init::{DEFAULT_COVERAGE_LEVEL, DEFAULT_LTO, DEFAULT_TRACE_COMPARES, DEFAULT_STACK_DEPTH};
+use init::{DEFAULT_COVERAGE_LEVEL, DEFAULT_LTO, DEFAULT_STACK_DEPTH, DEFAULT_TRACE_COMPARES};
 use project::*;
 
 use fuzzcheck_arg_parser::*;
@@ -51,9 +51,8 @@ impl Root {
 
         self.instrumented_compile(target_name)?;
 
-
         let mut rustflags: String = "--cfg fuzzcheck -Ctarget-cpu=native".to_string();
-        
+
         if config.trace_compares.unwrap_or(DEFAULT_TRACE_COMPARES) {
             rustflags.push_str(" --cfg trace_compares");
         }
@@ -65,7 +64,11 @@ impl Root {
             let instrumented_target_folder_1 =
                 instrumented_folder.join(format!("target/{}/release/deps", default_target()));
 
-            rustflags.push_str(&format!(" -L all={} -L all={}", instrumented_target_folder_0.display(), instrumented_target_folder_1.display()));
+            rustflags.push_str(&format!(
+                " -L all={} -L all={}",
+                instrumented_target_folder_0.display(),
+                instrumented_target_folder_1.display()
+            ));
         }
 
         if use_gold_linker() {
@@ -89,11 +92,10 @@ impl Root {
         if matches!(config.non_instrumented_default_features, Some(false)) {
             cargo_command.arg("--no-default-features");
         }
-        if let Some(features) = config.non_instrumented_features { // non-empty
+        if let Some(features) = config.non_instrumented_features {
+            // non-empty
             if !features.is_empty() {
-                cargo_command
-                .arg("--features")
-                .args(features);
+                cargo_command.arg("--features").args(features);
             }
         }
         // TODO: features!!
@@ -172,11 +174,9 @@ impl Root {
             cargo_command.arg("--no-default-features");
             println!("no default features!");
         }
-        if let Some(features) = config.instrumented_features { 
+        if let Some(features) = config.instrumented_features {
             if !features.is_empty() {
-                cargo_command
-                .arg("--features")
-                .args(features);
+                cargo_command.arg("--features").args(features);
             }
         }
 
@@ -368,7 +368,6 @@ pub fn default_target() -> &'static str {
 pub fn default_target() -> &'static str {
     "aarch64-unknown-linux-gnu"
 }
-
 
 #[derive(Debug)]
 pub enum CargoFuzzcheckError {

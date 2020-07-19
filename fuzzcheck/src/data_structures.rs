@@ -257,7 +257,7 @@ pub fn gen_f64(rng: &fastrand::Rng, range: Range<f64>) -> f64 {
     let granularity = u32::MAX;
     let granularity_f = granularity as f64;
 
-    let x = rng.u32(0 .. granularity);
+    let x = rng.u32(0..granularity);
 
     range.start + ((range.end - range.start) / granularity_f) * (x as f64)
 }
@@ -279,7 +279,7 @@ impl<'a> WeightedIndex<'a> {
             return 0;
         }
 
-        let range = *self.cumulative_weights.first().unwrap() .. *self.cumulative_weights.last().unwrap();
+        let range = *self.cumulative_weights.first().unwrap()..*self.cumulative_weights.last().unwrap();
         let chosen_weight = gen_f64(rng, range);
         // Find the first item which has a weight *higher* than the chosen weight.
         self.cumulative_weights

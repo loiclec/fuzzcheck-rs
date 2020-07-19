@@ -14,7 +14,12 @@ pub struct S<A, B, C> {
     pub c: Vec<C>,
 }
 
-impl<A,B,C> Clone for S<A, B, C> where A: Clone, Vec<B>: Clone, Vec<C>: Clone {
+impl<A, B, C> Clone for S<A, B, C>
+where
+    A: Clone,
+    Vec<B>: Clone,
+    Vec<C>: Clone,
+{
     fn clone(&self) -> Self {
         Self {
             a: self.a.clone(),
@@ -33,12 +38,12 @@ fn main() {
 
     let mut results = vec![(x, x_cache, x_step)];
 
-    for i in 0 .. 10 {
+    for i in 0..10 {
         let (x, x_cache) = m.arbitrary(i, 100.0);
         let x_step = m.mutation_step_from_value(&x);
         results.push((x, x_cache, x_step));
     }
-    for _ in 0 .. 100_000 {
+    for _ in 0..100_000 {
         let len = results.len();
         let (x, cache, step) = &mut results[fastrand::usize(0..len)];
         let prev_x = x.clone();
@@ -51,7 +56,12 @@ fn main() {
         assert!(cplx.is_finite() && cplx > 0.0, "{:.2}", cplx);
         let cache_from_scratch = m.cache_from_value(x);
         let cplx_from_scratch = m.complexity(x, &cache_from_scratch);
-        assert!((cplx - cplx_from_scratch).abs() < 0.01, "{:.15} != {:.15}", cplx, cplx_from_scratch);
+        assert!(
+            (cplx - cplx_from_scratch).abs() < 0.01,
+            "{:.15} != {:.15}",
+            cplx,
+            cplx_from_scratch
+        );
         m.unmutate(x, cache, token);
         assert!(x.clone() == prev_x);
         results.push(next);
@@ -67,7 +77,12 @@ fn main() {
         assert!(cplx.is_finite() && cplx > 0.0, "{:.2}", cplx);
         let cache_from_scratch = m.cache_from_value(x);
         let cplx_from_scratch = m.complexity(x, &cache_from_scratch);
-        assert!((cplx - cplx_from_scratch).abs() < 0.01, "{:.15} != {:.15}", cplx, cplx_from_scratch);
+        assert!(
+            (cplx - cplx_from_scratch).abs() < 0.01,
+            "{:.15} != {:.15}",
+            cplx,
+            cplx_from_scratch
+        );
         m.unmutate(x, cache, token);
         assert!(x.clone() == prev_x);
     }

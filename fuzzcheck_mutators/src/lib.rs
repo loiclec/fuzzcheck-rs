@@ -1,36 +1,38 @@
-pub extern crate fuzzcheck_traits;
 pub extern crate fastrand;
 pub extern crate fuzzcheck_mutators_derive;
+pub extern crate fuzzcheck_traits;
 pub use fuzzcheck_mutators_derive::*;
 
 pub mod bool;
 pub mod either;
 pub mod integer;
 pub mod option;
-pub mod tuples;
+pub mod phantom_data;
 pub mod vector;
 pub mod void;
 
-use std::ops::Range;
 use fuzzcheck_traits::Mutator;
+use std::ops::Range;
 
 pub trait HasDefaultMutator: Clone {
-    type Mutator: Mutator<Value=Self> + Default;
+    type Mutator: Mutator<Value = Self> + Default;
     fn default_mutator() -> Self::Mutator;
 }
 
 /// Generate a random f64 within the given range
 /// The start and end of the range must be finite
 /// This is a very naive implementation
+#[inline(always)]
 pub fn gen_f64(rng: &fastrand::Rng, range: Range<f64>) -> f64 {
-    assert!(range.start.is_finite() && range.end.is_finite());
+    range.start + rng.f64() * (range.end - range.start)
+    // assert!(range.start.is_finite() && range.end.is_finite());
 
-    let granularity = u32::MAX;
-    let granularity_f = granularity as f64;
+    // let granularity = u32::MAX;
+    // let granularity_f = granularity as f64;
 
-    let x = rng.u32(0 .. granularity);
+    // let x = rng.u32(0 .. granularity);
 
-    range.start + ((range.end - range.start) / granularity_f) * (x as f64)
+    // range.start + ((range.end - range.start) / granularity_f) * (x as f64)
 }
 
 #[must_use]

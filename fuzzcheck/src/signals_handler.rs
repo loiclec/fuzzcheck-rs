@@ -75,7 +75,6 @@ extern "C" {
 }
 
 pub fn set_timer(milliseconds: usize) {
-
     let seconds = milliseconds / 1000;
     let microseconds = (((milliseconds - (1000 * seconds)) * 1000) % (i32::MAX) as usize) as libc::suseconds_t;
 

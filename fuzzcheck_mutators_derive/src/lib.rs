@@ -15,10 +15,14 @@ pub fn derive_mutator(input: TokenStream) -> TokenStream {
     if let Some(s) = parser.eat_struct() {
         derive_struct_mutator(s, &mut tb);
     } else if let Some(_) = parser.eat_enumeration() {
-        tb.add("compile_error ! (").string("fuzzcheck_mutators_derive cannot derive mutators for enumerations").add(") ;");
-        //tb.stream(e.whole);
+        tb.add("compile_error ! (")
+            .string("fuzzcheck_mutators_derive cannot derive mutators for enumerations")
+            .add(") ;");
+    //tb.stream(e.whole);
     } else {
-        tb.add("compile_error ! (").string("fuzzcheck_mutators_derive could not parse the structure").add(") ;");
+        tb.add("compile_error ! (")
+            .string("fuzzcheck_mutators_derive could not parse the structure")
+            .add(") ;");
     }
 
     // tb.eprint();
@@ -653,7 +657,8 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
         tb.pop_group(Delimiter::Brace);
     }
 
-    { // implementation of Default trait when generic mutator params are Default
+    {
+        // implementation of Default trait when generic mutator params are Default
         let mut where_items = Vec::<WhereClauseItem>::new();
         for ty in generic_types_for_field.clone() {
             let where_item = WhereClauseItem {

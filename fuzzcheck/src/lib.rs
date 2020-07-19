@@ -286,4 +286,3 @@ impl<M: Mutator> Clone for FuzzedInput<M> {
         }
     }
 }
-

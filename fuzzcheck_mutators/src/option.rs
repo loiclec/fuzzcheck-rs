@@ -1,6 +1,5 @@
-
-use fuzzcheck_traits::Mutator;
 use crate::HasDefaultMutator;
+use fuzzcheck_traits::Mutator;
 
 macro_rules! match_all_options {
     ( $main:expr, $( $others:expr ),* ) => {
@@ -34,12 +33,11 @@ impl<T> HasDefaultMutator for Option<T>
 where
     T: HasDefaultMutator,
 {
-    type Mutator = OptionMutator<<T as HasDefaultMutator> :: Mutator>;
+    type Mutator = OptionMutator<<T as HasDefaultMutator>::Mutator>;
     fn default_mutator() -> Self::Mutator {
         Self::Mutator::default()
     }
 }
-
 
 pub enum OptionMutatorUnmutateToken<Value, Token> {
     UnmutateSome(Token),

@@ -15,7 +15,7 @@ fn main() {
 
     let mut results = vec![(x, x_cache, x_step)];
 
-    for i in 0 .. 100 {
+    for i in 0..100 {
         let (x, x_cache) = m.arbitrary(i, 4096.0);
         let x_step = m.mutation_step_from_value(&x);
         results.push((x, x_cache, x_step));

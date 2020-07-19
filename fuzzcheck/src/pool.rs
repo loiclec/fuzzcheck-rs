@@ -66,9 +66,9 @@ extern crate fastrand;
 use fastrand::Rng;
 
 use crate::data_structures::{Slab, SlabKey, WeightedIndex};
+use crate::fuzzer::AnalysisResult;
 use crate::world::{FuzzerEvent, WorldAction};
 use crate::{Feature, FuzzedInput, Mutator};
-use crate::fuzzer::AnalysisResult;
 
 /// Index of an input in the Pool
 pub enum PoolIndex<M: Mutator> {
@@ -274,8 +274,11 @@ impl<M: Mutator> Pool<M> {
         result: AnalysisResult<M>,
         generation: usize,
     ) -> Vec<WorldAction<M::Value>> {
-
-        let AnalysisResult { existing_features, new_features, lowest_stack } = result;
+        let AnalysisResult {
+            existing_features,
+            new_features,
+            lowest_stack,
+        } = result;
 
         let mut actions: Vec<WorldAction<M::Value>> = Vec::new();
 
@@ -510,7 +513,7 @@ impl<M: Mutator> Pool<M> {
 
             for &f_key in &all_features {
                 let analyzed_f = &mut self.slab_features[f_key];
-                
+
                 let idx_to_delete_key = analyzed_f.inputs.iter().position(|&x| x == to_delete_key).unwrap();
                 analyzed_f.inputs.swap_remove(idx_to_delete_key);
 
@@ -725,9 +728,9 @@ impl<M: Mutator> Pool<M> {
 
     /// Returns the index of an interesting input in the pool
     pub fn random_index(&mut self) -> PoolIndex<M> {
-        if self.favored_input.is_some() && (self.rng.u8(0 .. 4) == 0 || self.inputs.is_empty()) {
+        if self.favored_input.is_some() && (self.rng.u8(0..4) == 0 || self.inputs.is_empty()) {
             PoolIndex::Favored
-        } else if self.lowest_stack_input.is_some() && self.rng.u8(0 .. 10) == 0 {
+        } else if self.lowest_stack_input.is_some() && self.rng.u8(0..10) == 0 {
             PoolIndex::LowestStack
         } else {
             let dist = WeightedIndex {
@@ -781,7 +784,11 @@ impl<M: Mutator> Pool<M> {
         }
     }
 
-    pub(crate) fn retrieve_source_input_for_unmutate(&mut self, idx: PoolIndex<M>, generation: usize) -> Option<&'_ mut FuzzedInput<M>> {
+    pub(crate) fn retrieve_source_input_for_unmutate(
+        &mut self,
+        idx: PoolIndex<M>,
+        generation: usize,
+    ) -> Option<&'_ mut FuzzedInput<M>> {
         match idx {
             PoolIndex::Normal(key) => self.slab_inputs.get_mut(key).map(|input| &mut input.data),
             PoolIndex::Favored => Some(self.get(idx)),
@@ -795,7 +802,7 @@ impl<M: Mutator> Pool<M> {
                 } else {
                     None
                 }
-            },
+            }
         }
     }
 
@@ -1051,23 +1058,21 @@ mod tests {
 
             let mut pool = Pool::<VoidMutator>::default();
 
-            for i in 0 .. fastrand::usize(0..100) {
+            for i in 0..fastrand::usize(0..100) {
                 let nbr_new_features = if new_features.is_empty() {
                     0
                 } else {
                     if i == 0 {
-                        fastrand::usize(1 .. new_features.len())
+                        fastrand::usize(1..new_features.len())
                     } else {
-                        fastrand::usize(0 .. new_features.len())
+                        fastrand::usize(0..new_features.len())
                     }
                 };
                 let mut new_features_1: Vec<_> = {
-                    let mut fs = new_features
-                    .iter()
-                    .map(|&&f| f).collect::<Vec<_>>();
+                    let mut fs = new_features.iter().map(|&&f| f).collect::<Vec<_>>();
 
                     fastrand::shuffle(&mut fs);
-                    fs[0 .. nbr_new_features].to_vec()
+                    fs[0..nbr_new_features].to_vec()
                 };
 
                 new_features_1.sort();
@@ -1076,30 +1081,31 @@ mod tests {
                 }
                 let nbr_existing_features = if new_features_1.is_empty() {
                     if added_features.len() > 1 {
-                        fastrand::usize(1 .. added_features.len())
+                        fastrand::usize(1..added_features.len())
                     } else {
                         1
                     }
                 } else if added_features.is_empty() {
                     0
                 } else {
-                    fastrand::usize(0 .. added_features.len())
+                    fastrand::usize(0..added_features.len())
                 };
 
                 let mut existing_features_1: Vec<FK> = {
                     let mut fs = added_features.clone();
                     fastrand::shuffle(&mut fs);
-                    fs[0 .. nbr_existing_features].to_vec()
+                    fs[0..nbr_existing_features].to_vec()
                 };
 
                 let slab = &pool.slab_features;
                 existing_features_1.sort_by(|&fk1, &fk2| slab[fk1].feature.cmp(&slab[fk2].feature));
 
                 let max_cplx: f64 = if !existing_features_1.is_empty() && new_features_1.is_empty() {
-                    let idx = fastrand::usize(0 .. existing_features_1.len());
+                    let idx = fastrand::usize(0..existing_features_1.len());
                     let fs = existing_features_1
                         .iter()
-                        .map(|&f_key| pool.slab_features[f_key].least_complexity).collect::<Vec<_>>();
+                        .map(|&f_key| pool.slab_features[f_key].least_complexity)
+                        .collect::<Vec<_>>();
                     fs[idx]
                 } else {
                     100.0
@@ -1115,7 +1121,11 @@ mod tests {
                 }
 
                 let prev_score = pool.score();
-                let analysis_result = AnalysisResult { existing_features: existing_features_1, new_features: new_features_1, lowest_stack: 0 };
+                let analysis_result = AnalysisResult {
+                    existing_features: existing_features_1,
+                    new_features: new_features_1,
+                    lowest_stack: 0,
+                };
                 // println!("adding input of cplx {:.2} with new features {:?} and existing features {:?}", cplx1, new_features_1, existing_features_1);
                 let _ = pool.add(mock(cplx1), cplx1, analysis_result, 0);
                 // pool.print_recap();
