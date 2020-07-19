@@ -1,6 +1,5 @@
 extern crate fuzzcheck_mutators;
 
-#[macro_use]
 extern crate fuzzcheck_mutators_derive;
 
 use fuzzcheck_mutators::HasDefaultMutator;
@@ -34,13 +33,13 @@ fn main() {
 
     let x = S::<u8, u8, u8>::default();
     let x_cache = m.cache_from_value(&x);
-    let x_step = m.mutation_step_from_value(&x);
+    let x_step = m.initial_step_from_value(&x);
 
     let mut results = vec![(x, x_cache, x_step)];
 
     for i in 0..10 {
         let (x, x_cache) = m.arbitrary(i, 100.0);
-        let x_step = m.mutation_step_from_value(&x);
+        let x_step = m.initial_step_from_value(&x);
         results.push((x, x_cache, x_step));
     }
     for _ in 0..100_000 {
@@ -51,7 +50,7 @@ fn main() {
         // println!("{:?}", x);
         let token = m.mutate(x, cache, step, 100.0);
 
-        let next = (x.clone(), cache.clone(), m.mutation_step_from_value(x));
+        let next = (x.clone(), cache.clone(), m.initial_step_from_value(x));
         let cplx = m.complexity(x, cache);
         assert!(cplx.is_finite() && cplx > 0.0, "{:.2}", cplx);
         let cache_from_scratch = m.cache_from_value(x);

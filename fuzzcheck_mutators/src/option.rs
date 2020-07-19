@@ -13,22 +13,17 @@ macro_rules! match_all_options {
     };
 }
 
+#[derive(Default)]
 pub struct OptionMutator<M: Mutator> {
     m: M,
+    rng: fastrand::Rng
 }
 impl<M: Mutator> OptionMutator<M> {
-    pub fn new(m: M) -> Self {
-        Self { m }
+    pub fn new(value_mutator: M) -> Self {
+        Self { m : value_mutator, rng: fastrand::Rng::new() }
     }
 }
-impl<M: Mutator> Default for OptionMutator<M>
-where
-    M: Default,
-{
-    fn default() -> Self {
-        Self::new(M::default())
-    }
-}
+
 impl<T> HasDefaultMutator for Option<T>
 where
     T: HasDefaultMutator,
@@ -77,11 +72,18 @@ impl<M: Mutator> Mutator for OptionMutator<M> {
         value.as_ref().map(|inner| self.m.cache_from_value(&inner))
     }
 
-    fn mutation_step_from_value(&self, value: &Self::Value) -> Self::MutationStep {
+    fn initial_step_from_value(&self, value: &Self::Value) -> Self::MutationStep {
         OptionMutatorStep {
             did_check_none: value.is_none(),
             inner_arbitrary: 0,
-            inner: value.as_ref().map(|inner| self.m.mutation_step_from_value(&inner)),
+            inner: value.as_ref().map(|inner| self.m.initial_step_from_value(&inner)),
+        }
+    }
+    fn random_step_from_value(&self, value: &Self::Value) -> Self::MutationStep {
+        OptionMutatorStep {
+            did_check_none: value.is_none(),
+            inner_arbitrary: self.rng.usize(..),
+            inner: value.as_ref().map(|inner| self.m.random_step_from_value(&inner)),
         }
     }
 

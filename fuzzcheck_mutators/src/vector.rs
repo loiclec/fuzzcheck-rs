@@ -33,13 +33,13 @@ pub struct MutationStep<S> {
     vector_step: usize,
     category: MutationCategory,
 }
-impl<S> Default for MutationStep<S> {
-    fn default() -> Self {
+impl<S> MutationStep<S> {
+    fn new(category: MutationCategory) -> Self {
         Self {
             inner: Vec::new(),
             element_step: 0,
             vector_step: 0,
-            category: MutationCategory::Vector,
+            category,
         }
     }
 }
@@ -378,11 +378,22 @@ impl<M: Mutator> Mutator for VecMutator<M> {
 
         VecMutatorCache { inner, sum_cplx }
     }
-    fn mutation_step_from_value(&self, value: &Self::Value) -> Self::MutationStep {
-        let inner: Vec<_> = value.iter().map(|x| self.m.mutation_step_from_value(x)).collect();
+    fn initial_step_from_value(&self, value: &Self::Value) -> Self::MutationStep {
+        let inner: Vec<_> = value.iter().map(|x| self.m.initial_step_from_value(x)).collect();
         MutationStep {
             inner,
-            ..MutationStep::default()
+            ..MutationStep::new(MutationCategory::Vector)
+        }
+    }
+    fn random_step_from_value(&self, value: &Self::Value) -> Self::MutationStep {
+        let inner: Vec<_> = value.iter().map(|x| self.m.random_step_from_value(x)).collect();
+        MutationStep {
+            inner,
+            ..MutationStep::new(if value.is_empty() || self.rng.bool() { 
+                MutationCategory::Vector 
+            } else {
+                MutationCategory::Element
+            })
         }
     }
 

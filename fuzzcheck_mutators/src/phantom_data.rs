@@ -1,28 +1,24 @@
 use fuzzcheck_traits::Mutator;
 
-#[derive(Clone)]
-pub struct VoidMutator {}
+use std::marker::PhantomData;
 
-impl Default for VoidMutator {
-    fn default() -> Self {
-        Self {}
-    }
+#[derive(Clone, Default)]
+pub struct PhantomDataMutator<T> {
+    _p: PhantomData<T>,
 }
 
-impl Mutator for VoidMutator {
-    type Value = ();
+impl<T> Mutator for PhantomDataMutator<T> {
+    type Value = PhantomData<T>;
     type Cache = ();
     type MutationStep = ();
     type UnmutateToken = ();
 
     fn cache_from_value(&self, _value: &Self::Value) -> Self::Cache {}
-    
     fn initial_step_from_value(&self, _value: &Self::Value) -> Self::MutationStep {}
-
     fn random_step_from_value(&self, _value: &Self::Value) -> Self::MutationStep {}
 
     fn arbitrary(&mut self, _seed: usize, _max_cplx: f64) -> (Self::Value, Self::Cache) {
-        ((), ())
+        (PhantomData, ())
     }
 
     fn max_complexity(&self) -> f64 {

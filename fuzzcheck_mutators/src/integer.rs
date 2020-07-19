@@ -22,9 +22,9 @@ pub fn binary_search_arbitrary(low: u8, high: u8, step: u64) -> u8 {
 
 macro_rules! impl_unsigned_mutator {
     ($name:ty,$name_mutator:ident,$size:expr) => {
-        #[derive(Clone)]
         pub struct $name_mutator {
             shuffled_integers: [u8; 256],
+            rng: fastrand::Rng,
         }
         impl Default for $name_mutator {
             fn default() -> Self {
@@ -32,7 +32,7 @@ macro_rules! impl_unsigned_mutator {
                 for (i, x) in shuffled_integers.iter_mut().enumerate() {
                     *x = binary_search_arbitrary(0, u8::MAX, i as u64);
                 }
-                $name_mutator { shuffled_integers }
+                $name_mutator { shuffled_integers, rng: fastrand::Rng::default() }
             }
         }
 
@@ -67,8 +67,12 @@ macro_rules! impl_unsigned_mutator {
             type UnmutateToken = $name; // old value
 
             fn cache_from_value(&self, _value: &Self::Value) -> Self::Cache {}
-            fn mutation_step_from_value(&self, _value: &Self::Value) -> Self::MutationStep {
+            
+            fn initial_step_from_value(&self, _value: &Self::Value) -> Self::MutationStep {
                 0
+            }
+            fn random_step_from_value(&self, _value: &Self::Value) -> Self::MutationStep {
+                self.rng.u64(..)
             }
 
             fn arbitrary(&mut self, seed: usize, _max_cplx: f64) -> (Self::Value, Self::Cache) {
@@ -136,9 +140,9 @@ impl_unsigned_mutator!(u64, U64Mutator, 64);
 
 macro_rules! impl_signed_mutator {
     ($name:ty,$name_unsigned:ty,$name_mutator:ident,$size:expr) => {
-        #[derive(Clone)]
         pub struct $name_mutator {
             shuffled_integers: [u8; 256],
+            rng: fastrand::Rng
         }
         impl Default for $name_mutator {
             fn default() -> Self {
@@ -146,7 +150,7 @@ macro_rules! impl_signed_mutator {
                 for (i, x) in shuffled_integers.iter_mut().enumerate() {
                     *x = binary_search_arbitrary(0, u8::MAX, i as u64);
                 }
-                $name_mutator { shuffled_integers }
+                $name_mutator { shuffled_integers, rng: fastrand::Rng::default() }
             }
         }
 
@@ -181,8 +185,11 @@ macro_rules! impl_signed_mutator {
             type UnmutateToken = $name; // old value
 
             fn cache_from_value(&self, _value: &Self::Value) -> Self::Cache {}
-            fn mutation_step_from_value(&self, _value: &Self::Value) -> Self::MutationStep {
+            fn initial_step_from_value(&self, _value: &Self::Value) -> Self::MutationStep {
                 0
+            }
+            fn random_step_from_value(&self, _value: &Self::Value) -> Self::MutationStep {
+                self.rng.u64(..)
             }
 
             fn arbitrary(&mut self, seed: usize, _max_cplx: f64) -> (Self::Value, Self::Cache) {

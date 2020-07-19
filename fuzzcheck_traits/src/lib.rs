@@ -91,8 +91,9 @@ pub trait Mutator: Sized {
     /// Compute the cache for the given value
     fn cache_from_value(&self, value: &Self::Value) -> Self::Cache;
     /// Compute the initial mutation step for the given value
-    fn mutation_step_from_value(&self, value: &Self::Value) -> Self::MutationStep;
-
+    fn initial_step_from_value(&self, value: &Self::Value) -> Self::MutationStep;
+    /// Compute a random mutation step for the given value
+    fn random_step_from_value(&self, value: &Self::Value) -> Self::MutationStep;
     /// The maximum complexity of an input of this type
     fn max_complexity(&self) -> f64;
     /// The minimum complexity of an input of this type

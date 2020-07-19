@@ -316,7 +316,7 @@ where
             .into_iter()
             .map(|value| {
                 let cache = self.state.mutator.cache_from_value(&value);
-                let mutation_step = self.state.mutator.mutation_step_from_value(&value);
+                let mutation_step = self.state.mutator.initial_step_from_value(&value);
                 FuzzedInput::new(value, cache, mutation_step)
             })
             .collect();
@@ -324,7 +324,7 @@ where
         if inputs.is_empty() {
             for i in 0..100 {
                 let (v, cache) = self.state.mutator.arbitrary(i, self.state.settings.max_input_cplx);
-                let mutation_step = self.state.mutator.mutation_step_from_value(&v);
+                let mutation_step = self.state.mutator.initial_step_from_value(&v);
                 inputs.push(FuzzedInput::new(v, cache, mutation_step));
             }
         }
@@ -390,7 +390,7 @@ where
             .report_event(FuzzerEvent::Start, Some(self.state.stats));
         let value = self.state.world.read_input_file()?;
         let cache = self.state.mutator.cache_from_value(&value);
-        let mutation_step = self.state.mutator.mutation_step_from_value(&value);
+        let mutation_step = self.state.mutator.initial_step_from_value(&value);
         let input = FuzzedInput::<M>::new(value, cache, mutation_step);
         let input_cplx = input.complexity(&self.state.mutator);
         self.state.settings.max_input_cplx = input_cplx - 0.01;
@@ -442,7 +442,7 @@ where
         FuzzerCommand::Read => {
             let value = fuzzer.state.world.read_input_file()?;
             let cache = fuzzer.state.mutator.cache_from_value(&value);
-            let mutation_step = fuzzer.state.mutator.mutation_step_from_value(&value);
+            let mutation_step = fuzzer.state.mutator.initial_step_from_value(&value);
 
             fuzzer.state.input_idx = FuzzerInputIndex::Temporary(FuzzedInput::new(value, cache, mutation_step));
             let input = fuzzer.state.get_input();

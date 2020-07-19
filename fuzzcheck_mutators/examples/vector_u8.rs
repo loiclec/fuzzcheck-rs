@@ -11,13 +11,13 @@ fn main() {
 
     let x = vec![];
     let x_cache = m.cache_from_value(&x);
-    let x_step = m.mutation_step_from_value(&x);
+    let x_step = m.initial_step_from_value(&x);
 
     let mut results = vec![(x, x_cache, x_step)];
 
     for i in 0..100 {
         let (x, x_cache) = m.arbitrary(i, 4096.0);
-        let x_step = m.mutation_step_from_value(&x);
+        let x_step = m.initial_step_from_value(&x);
         results.push((x, x_cache, x_step));
     }
 

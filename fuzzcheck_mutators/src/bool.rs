@@ -17,7 +17,10 @@ impl Mutator for BoolMutator {
 
     fn cache_from_value(&self, _value: &Self::Value) -> Self::Cache {}
 
-    fn mutation_step_from_value(&self, _value: &Self::Value) -> Self::MutationStep {
+    fn initial_step_from_value(&self, _value: &Self::Value) -> Self::MutationStep {
+        false
+    }
+    fn random_step_from_value(&self, _value: &Self::Value) -> Self::MutationStep {
         false
     }
 

@@ -252,7 +252,7 @@ impl<Mut: Mutator> FuzzedInput<Mut> {
     }
     pub fn default(m: &mut Mut) -> Self {
         let (value, cache) = m.arbitrary(0, 1.0);
-        let mutation_step = m.mutation_step_from_value(&value);
+        let mutation_step = m.initial_step_from_value(&value);
         Self::new(value, cache, mutation_step)
     }
 
@@ -260,7 +260,7 @@ impl<Mut: Mutator> FuzzedInput<Mut> {
         Self::new(
             self.value.clone(),
             self.cache.clone(),
-            m.mutation_step_from_value(&self.value),
+            m.initial_step_from_value(&self.value),
         )
     }
 

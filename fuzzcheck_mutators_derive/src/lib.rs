@@ -95,7 +95,11 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
         .zip(generic_types_for_field.clone())
         .map(|(identifier, ty)| StructField {
             attributes: Vec::new(),
-            visibility: None,
+            visibility: {
+                let mut tb = TokenBuilder::new();
+                tb.add("pub");
+                Some(tb.end())
+            },
             identifier: Some(identifier.clone()),
             ty: TokenTree::Ident(ty.clone()).into(),
         })
@@ -217,7 +221,11 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
         let mut mutator_struct_fields = basic_fields.clone();
         mutator_struct_fields.push(StructField {
             attributes: Vec::new(),
-            visibility: None,
+            visibility: {
+                let mut tb = TokenBuilder::new();
+                tb.add("pub");
+                Some(tb.end())
+            },
             identifier: Some(Ident::new("rng", Span::call_site())),
             ty: {
                 let mut tb = TokenBuilder::new();
@@ -502,13 +510,13 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
         }
 
         {
-            // mutation_step_from_value
-            tb.add("fn mutation_step_from_value ( & self , value : & Self :: Value  ) -> Self :: MutationStep { ");
+            // initial_step_from_value
+            tb.add("fn initial_step_from_value ( & self , value : & Self :: Value  ) -> Self :: MutationStep { ");
 
             let fields_iter = field_names.iter().zip(mutator_field_names.iter());
             for (field, mutator_field) in fields_iter.clone() {
                 tb.add(&format!(
-                    "let {m} = self . {m} . mutation_step_from_value ( & value . {f} ) ; ",
+                    "let {m} = self . {m} . initial_step_from_value ( & value . {f} ) ; ",
                     f = field,
                     m = mutator_field
                 ));
@@ -516,6 +524,31 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
             tb.add(";");
 
             tb.add("let step = 0 ;");
+
+            tb.add("Self :: MutationStep {");
+            for mutator_field in mutator_field_names.iter() {
+                tb.add(mutator_field);
+                tb.add(",");
+            }
+            tb.add("step , }");
+
+            tb.add("}");
+        }
+        {
+            // random_step_from_value
+            tb.add("fn random_step_from_value ( & self , value : & Self :: Value  ) -> Self :: MutationStep { ");
+
+            let fields_iter = field_names.iter().zip(mutator_field_names.iter());
+            for (field, mutator_field) in fields_iter.clone() {
+                tb.add(&format!(
+                    "let {m} = self . {m} . random_step_from_value ( & value . {f} ) ; ",
+                    f = field,
+                    m = mutator_field
+                ));
+            }
+            tb.add(";");
+
+            tb.add("let step = self . rng . u64 ( .. ) ;");
 
             tb.add("Self :: MutationStep {");
             for mutator_field in mutator_field_names.iter() {
@@ -656,6 +689,18 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
 
         tb.pop_group(Delimiter::Brace);
     }
+
+    // { // new method for mutator
+    //     let generics_stream = mutator_struct.generics.clone().to_token_stream();
+    //     tb.add("impl")
+    //         .stream(generics_stream.clone())
+    //         .extend_ident(mutator_struct.ident.clone())
+    //         .stream(generics_stream.clone())
+    //         .stream_opt(mutator_struct.where_clause.clone().map(|wc| wc.to_token_stream()))
+    //         .push_group(Delimiter::Brace);
+        
+    //     tb.add("fn new(")
+    // }
 
     {
         // implementation of Default trait when generic mutator params are Default

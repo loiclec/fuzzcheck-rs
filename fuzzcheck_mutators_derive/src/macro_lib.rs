@@ -344,6 +344,8 @@ impl Struct {
             for attribute in field.attributes.into_iter() {
                 tb.stream(attribute);
             }
+            tb.stream_opt(field.visibility);
+
             if let Some(ident) = field.identifier {
                 tb.extend_ident(ident);
                 tb.punct(":");

@@ -1183,7 +1183,8 @@ mod tests {
 
         fn cache_from_value(&self, _value: &Self::Value) -> Self::Cache {}
 
-        fn mutation_step_from_value(&self, _value: &Self::Value) -> Self::MutationStep {}
+        fn initial_step_from_value(&self, _value: &Self::Value) -> Self::MutationStep {}
+        fn random_step_from_value(&self, _value: &Self::Value) -> Self::MutationStep {}
 
         fn arbitrary(&mut self, _seed: usize, _max_cplx: f64) -> (Self::Value, Self::Cache) {
             (0.0, ())
