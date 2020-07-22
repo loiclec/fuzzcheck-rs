@@ -281,6 +281,7 @@ pub struct StructField {
     pub identifier: Option<Ident>,
     pub ty: TokenStream,
 }
+#[derive(Clone)]
 pub struct Enum {
     pub visibility: Option<TokenStream>,
     pub ident: Ident,
@@ -288,11 +289,13 @@ pub struct Enum {
     pub where_clause: Option<WhereClause>,
     pub items: Vec<EnumItem>,
 }
+#[derive(Clone)]
 pub struct EnumItem {
     pub attributes: Vec<TokenStream>,
     pub ident: Ident,
     pub data: Option<EnumItemData>,
 }
+#[derive(Clone)]
 pub enum EnumItemData {
     Discriminant(TokenTree),
     Struct(StructKind, Vec<StructField>),
@@ -324,6 +327,54 @@ pub struct WhereClauseItem {
 pub struct WhereClause {
     pub items: Vec<WhereClauseItem>,
 }
+impl Enum {
+    pub fn to_token_stream(self) -> TokenStream {
+        let mut tb = TokenBuilder::new();
+        tb.stream_opt(self.visibility);
+        tb.ident("enum");
+        tb.extend_ident(self.ident);
+        tb.stream(self.generics.to_token_stream());
+        
+        let where_clause = self.where_clause.map(|wc| wc.to_token_stream());
+        
+        tb.stream_opt(where_clause.clone());
+        
+        tb.push_group(Delimiter::Brace);
+        
+        for item in self.items {
+            for attribute in item.attributes.into_iter() {
+                tb.stream(attribute);
+            };
+
+            tb.extend_ident(item.ident);
+
+            match item.data {
+                Some(EnumItemData::Struct(struct_kind, fields)) => {
+                    let delimiter = if matches!(struct_kind, StructKind::Struct) { Delimiter::Brace } else { Delimiter::Parenthesis };
+                    tb.push_group(delimiter);
+                    for field in fields {
+                        tb.stream(field.to_token_stream());
+                        tb.add(",");
+                    }
+                    tb.pop_group(delimiter);
+                }
+                Some(EnumItemData::Discriminant(discriminant)) => {
+                    tb.add("=");
+                    tb.extend(discriminant);
+                }
+                None => {
+
+                }
+            }
+
+            tb.punct(",");
+        }
+        tb.pop_group(Delimiter::Brace);
+
+        tb.end()
+    }
+}
+
 impl Struct {
     pub fn to_token_stream(self) -> TokenStream {
         let mut tb = TokenBuilder::new();
