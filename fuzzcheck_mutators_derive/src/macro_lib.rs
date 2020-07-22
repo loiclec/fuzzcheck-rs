@@ -804,7 +804,7 @@ impl TokenParser {
         if let Some(ident) = self.eat_any_ident() {
             if self.open_paren() {
                 let struct_fields = self.eat_tuple_fields();
-
+                self.eat_eot();
                 Some(EnumItem {
                     attributes,
                     ident,
@@ -812,7 +812,7 @@ impl TokenParser {
                 })
             } else if self.open_brace() {
                 let struct_fields = self.eat_struct_fields();
-
+                self.eat_eot();
                 Some(EnumItem {
                     attributes,
                     ident,
@@ -861,6 +861,7 @@ impl TokenParser {
                     while let Some(item) = self.eat_enum_item() {
                         items.push(item);
                         if let Some(_) = self.eat_punct(',') {
+                            
                         } else {
                             break;
                         }
