@@ -16,10 +16,6 @@ pub fn derive_mutator(input: TokenStream) -> TokenStream {
         derive_struct_mutator(s, &mut tb);
     } else if let Some(e) = parser.eat_enumeration() {
         derive_enum_mutator(e, &mut tb)
-        // tb.add("compile_error ! (")
-        //     .string("fuzzcheck_mutators_derive cannot derive mutators for enumerations")
-        //     .add(") ;");
-    //tb.stream(e.whole);
     } else {
         tb.add("compile_error ! (")
             .string("fuzzcheck_mutators_derive could not parse the structure")
@@ -35,7 +31,7 @@ fn derive_struct_mutator(parsed_struct: Struct, tb: &mut TokenBuilder) {
     if !parsed_struct.struct_fields.is_empty() {
         derive_struct_mutator_with_fields(&parsed_struct, tb)
     } else {
-        todo!("Build mutator for empty struct");
+        derive_unit_mutator(parsed_struct, tb);
     }
 }
 
@@ -1211,4 +1207,34 @@ fn derive_enum_mutator_with_items(parsed_enum: &Enum, tb: &mut TokenBuilder) {
     };
 
     tb.stream(unmutate_enum.to_token_stream());
+}
+
+fn derive_unit_mutator(parsed_struct: Struct, tb: &mut TokenBuilder) {
+    
+    let generics_without_bounds = parsed_struct.generics.clone().removing_bounds_and_eq_type().0;
+
+    tb.add(&format!("type {name}Mutator",name=parsed_struct.ident));
+    tb.stream(parsed_struct.generics.clone().to_token_stream());
+    tb.stream_opt(parsed_struct.where_clause.clone().map(|wc| wc.to_token_stream()));
+    tb.add(&format!("= fuzzcheck_mutators :: unit :: UnitMutator < {name}", name=parsed_struct.ident));
+    tb.stream(generics_without_bounds.clone().to_token_stream());
+    tb.add("> ;");
+
+    tb.add("impl");
+    tb.stream(parsed_struct.generics.clone().to_token_stream());
+    tb.add(&format!("HasDefaultMutator for {name}", name=parsed_struct.ident));
+    tb.stream(generics_without_bounds.clone().to_token_stream());
+    tb.stream_opt(parsed_struct.where_clause.clone().map(|wc| wc.to_token_stream()));
+    tb.push_group(Delimiter::Brace);
+    
+    tb.add(&format!("type Mutator = {name}Mutator", name=parsed_struct.ident));
+    tb.stream(generics_without_bounds.clone().to_token_stream());
+    tb.add(";");
+    tb.add("fn default_mutator ( ) -> Self :: Mutator");
+    
+    tb.push_group(Delimiter::Brace);
+    tb.add(&format!("Self :: Mutator :: new ( {name} {{ }} ) ", name=parsed_struct.ident));
+    tb.pop_group(Delimiter::Brace);
+    
+    tb.pop_group(Delimiter::Brace);
 }
