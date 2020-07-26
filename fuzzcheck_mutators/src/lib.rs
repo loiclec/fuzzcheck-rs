@@ -6,9 +6,8 @@ pub use fuzzcheck_mutators_derive::*;
 pub mod bool;
 pub mod integer;
 pub mod option;
-pub mod phantom_data;
+pub mod unit;
 pub mod vector;
-pub mod void;
 pub mod chain;
 pub mod dictionary;
 

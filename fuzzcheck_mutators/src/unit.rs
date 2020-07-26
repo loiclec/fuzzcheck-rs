@@ -1,24 +1,63 @@
-use fuzzcheck_traits::Mutator;
 
 use std::marker::PhantomData;
 
-#[derive(Clone, Default)]
-pub struct PhantomDataMutator<T> {
-    _p: PhantomData<T>,
+use fuzzcheck_traits::Mutator;
+
+use crate::HasDefaultMutator;
+
+pub type VoidMutator = UnitMutator<()>;
+
+impl HasDefaultMutator for () {
+    type Mutator = VoidMutator;
+    fn default_mutator() -> Self::Mutator {
+        Self::Mutator::default()
+    }
 }
 
-impl<T> Mutator for PhantomDataMutator<T> {
-    type Value = PhantomData<T>;
+pub type PhantomDataMutator<T> = UnitMutator<PhantomData<T>>;
+impl<T> HasDefaultMutator for PhantomData<T> {
+    type Mutator = PhantomDataMutator<T>;
+    fn default_mutator() -> Self::Mutator {
+        Self::Mutator::default()
+    }
+}
+
+
+#[derive(Clone)]
+pub struct UnitMutator<T> where T: Clone {
+    value: T
+}
+
+impl<T> UnitMutator<T> where T: Clone {
+    pub fn new(value: T) -> Self {
+        Self {
+            value
+        }
+    }
+}
+
+impl<T> Default for UnitMutator<T> where T: Default + Clone {
+    fn default() -> Self {
+        Self {
+            value: T::default()
+        }
+    }
+}
+
+impl<T> Mutator for UnitMutator<T> where T: Clone {
+    type Value = T;
     type Cache = ();
     type MutationStep = ();
     type UnmutateToken = ();
 
     fn cache_from_value(&self, _value: &Self::Value) -> Self::Cache {}
+    
     fn initial_step_from_value(&self, _value: &Self::Value) -> Self::MutationStep {}
+
     fn random_step_from_value(&self, _value: &Self::Value) -> Self::MutationStep {}
 
     fn arbitrary(&mut self, _seed: usize, _max_cplx: f64) -> (Self::Value, Self::Cache) {
-        (PhantomData, ())
+        (self.value.clone(), ())
     }
 
     fn max_complexity(&self) -> f64 {
