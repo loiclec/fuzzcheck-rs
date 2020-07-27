@@ -1,3 +1,5 @@
+#![feature(never_type)]
+
 pub extern crate fastrand;
 pub extern crate fuzzcheck_mutators_derive;
 pub extern crate fuzzcheck_traits;

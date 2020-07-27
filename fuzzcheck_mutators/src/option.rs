@@ -87,13 +87,30 @@ impl<M: Mutator> Mutator for OptionMutator<M> {
         }
     }
 
-    fn arbitrary(&mut self, seed: usize, max_cplx: f64) -> (Self::Value, Self::Cache) {
+    fn ordered_arbitrary(&mut self, seed: usize, max_cplx: f64) -> Option<(Self::Value, Self::Cache)> {
         let seed = OptionMutatorArbitrarySeed::new(seed);
         if seed.check_none {
+            Some((None, None))
+        } else {
+            if let Some((inner_value, inner_cache)) = self.m.ordered_arbitrary(seed.inner_seed, max_cplx - 1.0) {
+                Some((Some(inner_value), Some(inner_cache)))
+            } else {
+                None
+            }
+        }
+    }
+    fn random_arbitrary(&mut self, max_cplx: f64) -> (Self::Value, Self::Cache) {
+        let max_cplx_some = self.m.max_complexity();
+        let odds = if max_cplx_some.is_finite() && max_cplx < 100.0 {
+            if max_cplx > 1.0 { max_cplx as usize } else { 2 }
+        } else {
+            100
+        };
+        if self.rng.usize(0 .. odds+1) == 0 {
             (None, None)
         } else {
-            let (inner_value, inner_cache) = self.m.arbitrary(seed.inner_seed, max_cplx - 1.0);
-            (Some(inner_value), Some(inner_cache))
+            let (value, cache) = self.m.random_arbitrary(max_cplx);
+            (Some(value), Some(cache))
         }
     }
 
@@ -119,27 +136,33 @@ impl<M: Mutator> Mutator for OptionMutator<M> {
         cache: &mut Self::Cache,
         step: &mut Self::MutationStep,
         max_cplx: f64,
-    ) -> Self::UnmutateToken {
+    ) -> Option<Self::UnmutateToken> {
         let inner_max_cplx = max_cplx - 1.0;
 
         if !step.did_check_none {
             let mut old_value = None;
             std::mem::swap(value, &mut old_value);
             step.did_check_none = true;
-            ToSome(old_value.unwrap())
+            Some(ToSome(old_value.unwrap()))
         } else if let Some((inner_value, inner_cache, inner_step)) =
             match_all_options!(value.as_mut(), cache.as_mut(), step.inner.as_mut())
         {
-            let inner_token = self.m.mutate(inner_value, inner_cache, inner_step, inner_max_cplx);
-            UnmutateSome(inner_token)
+            if let Some(inner_token) = self.m.mutate(inner_value, inner_cache, inner_step, inner_max_cplx) {
+                Some(UnmutateSome(inner_token))
+            } else {
+                None
+            }
         } else {
-            let (inner_value, inner_cache) = self.m.arbitrary(step.inner_arbitrary, inner_max_cplx);
-            *value = Some(inner_value);
-            *cache = Some(inner_cache);
-
-            step.inner_arbitrary += 1;
-
-            ToNone
+            if let Some((inner_value, inner_cache)) = self.m.ordered_arbitrary(step.inner_arbitrary, inner_max_cplx) {
+                *value = Some(inner_value);
+                *cache = Some(inner_cache);
+    
+                step.inner_arbitrary += 1;
+    
+                Some(ToNone)
+            } else {
+                None
+            }
         }
     }
 

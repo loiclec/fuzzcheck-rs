@@ -1,4 +1,5 @@
 #![allow(dead_code)]
+#![feature(proc_macro_quote)]
 
 mod token_builder;
 mod parser;
@@ -7,6 +8,8 @@ mod parser;
 
 use crate::token_builder::*;
 use crate::parser::*;
+
+use proc_macro::quote;
 
 use proc_macro::{Delimiter, Ident, Literal, Span, TokenStream, TokenTree};
 
@@ -1601,6 +1604,16 @@ fn derive_enum_mutator_with_items(parsed_enum: &Enum, tb: &mut TokenBuilder) {
 fn derive_unit_mutator(parsed_struct: Struct, tb: &mut TokenBuilder) {
     
     let generics_without_bounds = parsed_struct.generics.clone().removing_bounds_and_eq_type().0;
+    
+    let parsed_struct_ident: TokenStream = {
+        let mut tb = TokenBuilder::new();
+        tb.extend(parsed_struct.ident.clone());
+        tb.end()
+    };
+
+    let generics = parsed_struct.generics.clone().to_token_stream();
+    let wc = parsed_struct.where_clause.clone().map(|wc| wc.to_token_stream()).unwrap_or(quote!{});
+    tb.stream(quote! { type $parsed_struct_ident Mutator $generics $wc });
 
     tb.add(&format!("type {name}Mutator",name=parsed_struct.ident));
     tb.stream(parsed_struct.generics.clone().to_token_stream());

@@ -115,20 +115,20 @@ impl<M: Mutator> VecMutator<M> {
         step: &mut MutationStep<M::MutationStep>,
         idx: usize,
         spare_cplx: f64,
-    ) -> UnmutateVecToken<M> {
+    ) -> Option<UnmutateVecToken<M>> {
         let el = &mut value[idx];
         let el_cache = &mut cache.inner[idx];
         let el_step = &mut step.inner[idx];
 
         let old_cplx = self.m.complexity(el, el_cache);
 
-        let token = self.m.mutate(el, el_cache, el_step, spare_cplx);
-
-        let new_cplx = self.m.complexity(el, el_cache);
-
-        cache.sum_cplx += new_cplx - old_cplx;
-
-        UnmutateVecToken::Element(idx, token, old_cplx - new_cplx)
+        if let Some(token) = self.m.mutate(el, el_cache, el_step, spare_cplx) {
+            let new_cplx = self.m.complexity(el, el_cache);
+            cache.sum_cplx += new_cplx - old_cplx;
+            Some(UnmutateVecToken::Element(idx, token, old_cplx - new_cplx))
+        } else {
+            None
+        }
     }
 
     fn insert_element(
@@ -136,14 +136,14 @@ impl<M: Mutator> VecMutator<M> {
         value: &mut Vec<M::Value>,
         cache: &mut VecMutatorCache<M::Cache>,
         spare_cplx: f64,
-    ) -> UnmutateVecToken<M> {
+    ) -> Option<UnmutateVecToken<M>> {
         let idx = if value.is_empty() {
             0
         } else {
             self.rng.usize(0..value.len())
         };
 
-        let (el, el_cache) = self.m.arbitrary(self.rng.usize(..), spare_cplx);
+        let (el, el_cache) = self.m.random_arbitrary(spare_cplx);
         let el_cplx = self.m.complexity(&el, &el_cache);
 
         value.insert(idx, el);
@@ -153,16 +153,16 @@ impl<M: Mutator> VecMutator<M> {
 
         cache.sum_cplx += el_cplx;
 
-        token
+        Some(token)
     }
 
     fn remove_element(
         &mut self,
         value: &mut Vec<M::Value>,
         cache: &mut VecMutatorCache<M::Cache>,
-    ) -> UnmutateVecToken<M> {
+    ) -> Option<UnmutateVecToken<M>> {
         if value.is_empty() {
-            return UnmutateVecToken::Nothing;
+            return None
         }
 
         let idx = self.rng.usize(0..value.len());
@@ -177,16 +177,16 @@ impl<M: Mutator> VecMutator<M> {
 
         cache.sum_cplx -= el_cplx;
 
-        token
+        Some(token)
     }
 
     fn remove_many_elements(
         &mut self,
         value: &mut Vec<M::Value>,
         cache: &mut VecMutatorCache<M::Cache>,
-    ) -> UnmutateVecToken<M> {
+    ) -> Option<UnmutateVecToken<M>> {
         if value.is_empty() {
-            return UnmutateVecToken::Nothing;
+            return None
         }
         let start_idx = self.rng.usize(0..value.len());
 
@@ -210,7 +210,7 @@ impl<M: Mutator> VecMutator<M> {
 
         cache.sum_cplx -= removed_els_cplx;
 
-        token
+        Some(token)
     }
 
     fn insert_repeated_elements(
@@ -218,9 +218,9 @@ impl<M: Mutator> VecMutator<M> {
         value: &mut Vec<M::Value>,
         cache: &mut VecMutatorCache<M::Cache>,
         spare_cplx: f64,
-    ) -> UnmutateVecToken<M> {
+    ) -> Option<UnmutateVecToken<M>> {
         if spare_cplx < 0.01 {
-            return UnmutateVecToken::Nothing;
+            return None
         }
 
         let idx = if value.is_empty() {
@@ -240,11 +240,11 @@ impl<M: Mutator> VecMutator<M> {
         };
         if len == 0 {
             // TODO: maybe that shouldn't happen under normal circumstances?
-            return UnmutateVecToken::Nothing;
+            return None
         }
         // println!("len: {:.2}", len);
         // println!("max_cplx: {:.2}", target_cplx / (len as f64));
-        let (el, el_cache) = self.m.arbitrary(self.rng.usize(..), target_cplx / (len as f64));
+        let (el, el_cache) = self.m.random_arbitrary(target_cplx / (len as f64));
         let el_cplx = self.m.complexity(&el, &el_cache);
 
         insert_many(value, idx, repeat(el).take(len));
@@ -255,7 +255,7 @@ impl<M: Mutator> VecMutator<M> {
 
         let token = UnmutateVecToken::RemoveMany(idx..(idx + len), added_cplx);
 
-        token
+        Some(token)
     }
 
     // fn mutate_arbitrary(
@@ -339,7 +339,7 @@ impl<M: Mutator> VecMutator<M> {
                 break;
             }
             let cplx_element = crate::gen_f64(&self.rng, min_cplx_el..max_cplx_element);
-            let (x, x_cache) = self.m.arbitrary(self.rng.usize(..), cplx_element);
+            let (x, x_cache) = self.m.random_arbitrary(cplx_element);
             let x_cplx = self.m.complexity(&x, &x_cache);
             v.push(x);
             cache.inner.push(x_cache);
@@ -397,10 +397,15 @@ impl<M: Mutator> Mutator for VecMutator<M> {
         }
     }
 
-    fn arbitrary(&mut self, seed: usize, max_cplx: f64) -> (Self::Value, Self::Cache) {
-        if seed == 0 || max_cplx <= 4.0 {
-            return (Self::Value::default(), Self::Cache::default());
+    fn ordered_arbitrary(&mut self, seed: usize, max_cplx: f64) -> Option<(Self::Value, Self::Cache)> {
+        
+        if seed == 0 || max_cplx <= 1.0 {
+            return Some((Self::Value::default(), Self::Cache::default()));
+        } else {
+            return Some(self.random_arbitrary(max_cplx));
         }
+    }
+    fn random_arbitrary(&mut self, max_cplx: f64) -> (Self::Value, Self::Cache) {
         let target_cplx = fastrand::f64() * crate::gen_f64(&self.rng, 0.0..max_cplx);
         let lengths = self.choose_slice_length(target_cplx);
 
@@ -413,7 +418,7 @@ impl<M: Mutator> Mutator for VecMutator<M> {
             }
             assert!(lengths.1 > 0);
             let len = self.rng.usize(0..lengths.1);
-            let (el, el_cache) = self.m.arbitrary(0, 0.0);
+            let (el, el_cache) = self.m.random_arbitrary(0.0);
             let v = repeat(el).take(len).collect();
             let cache = Self::Cache {
                 inner: repeat(el_cache).take(len).collect(),
@@ -439,7 +444,7 @@ impl<M: Mutator> Mutator for VecMutator<M> {
         cache: &mut Self::Cache,
         step: &mut Self::MutationStep,
         max_cplx: f64,
-    ) -> Self::UnmutateToken {
+    ) -> Option<Self::UnmutateToken> {
         let spare_cplx = max_cplx - self.complexity(value, cache);
 
         let token = match step.category {
@@ -461,7 +466,7 @@ impl<M: Mutator> Mutator for VecMutator<M> {
                 token
             }
         };
-        if let UnmutateVecToken::Nothing = token {
+        if matches!(token, Some(UnmutateVecToken::Nothing) | None) {
             self.mutate(value, cache, step, max_cplx)
         } else {
             token

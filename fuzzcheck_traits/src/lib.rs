@@ -101,8 +101,10 @@ pub trait Mutator: Sized {
     /// The complexity of the current input
     fn complexity(&self, value: &Self::Value, cache: &Self::Cache) -> f64;
 
-    /// Create an arbitrary value
-    fn arbitrary(&mut self, seed: usize, max_cplx: f64) -> (Self::Value, Self::Cache);
+    /// Create an arbitrary value (TODO: more doc)
+    fn ordered_arbitrary(&mut self, seed: usize, max_cplx: f64) -> Option<(Self::Value, Self::Cache)>;
+    // TODO!
+    fn random_arbitrary(&mut self, max_cplx: f64) -> (Self::Value, Self::Cache);
 
     fn mutate(
         &mut self,
@@ -110,7 +112,7 @@ pub trait Mutator: Sized {
         cache: &mut Self::Cache,
         step: &mut Self::MutationStep,
         max_cplx: f64,
-    ) -> Self::UnmutateToken;
+    ) -> Option<Self::UnmutateToken>;
 
     fn unmutate(&self, value: &mut Self::Value, cache: &mut Self::Cache, t: Self::UnmutateToken);
 }

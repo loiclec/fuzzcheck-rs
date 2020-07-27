@@ -250,10 +250,13 @@ impl<Mut: Mutator> FuzzedInput<Mut> {
             mutation_step,
         }
     }
-    pub fn default(m: &mut Mut) -> Self {
-        let (value, cache) = m.arbitrary(0, 1.0);
-        let mutation_step = m.initial_step_from_value(&value);
-        Self::new(value, cache, mutation_step)
+    pub fn default(m: &mut Mut) -> Option<Self> {
+        if let Some((value, cache)) = m.ordered_arbitrary(0, 1.0) {
+            let mutation_step = m.initial_step_from_value(&value);
+            Some(Self::new(value, cache, mutation_step))
+        } else {
+            None
+        }
     }
 
     pub fn new_source(&self, m: &Mut) -> Self {
@@ -268,7 +271,7 @@ impl<Mut: Mutator> FuzzedInput<Mut> {
         m.complexity(&self.value, &self.cache)
     }
 
-    pub fn mutate(&mut self, m: &mut Mut, max_cplx: f64) -> Mut::UnmutateToken {
+    pub fn mutate(&mut self, m: &mut Mut, max_cplx: f64) -> Option<Mut::UnmutateToken> {
         m.mutate(&mut self.value, &mut self.cache, &mut self.mutation_step, max_cplx)
     }
 

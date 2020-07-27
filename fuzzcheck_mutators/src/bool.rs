@@ -1,12 +1,9 @@
 use fuzzcheck_traits::Mutator;
 
-#[derive(Clone)]
-pub struct BoolMutator {}
 
-impl Default for BoolMutator {
-    fn default() -> Self {
-        BoolMutator {}
-    }
+#[derive(Default)]
+pub struct BoolMutator {
+    rng: fastrand::Rng,
 }
 
 impl Mutator for BoolMutator {
@@ -24,9 +21,11 @@ impl Mutator for BoolMutator {
         false
     }
 
-    fn arbitrary(&mut self, seed: usize, _max_cplx: f64) -> (Self::Value, Self::Cache) {
-        let value = seed % 2 == 0;
-        (value, ())
+    fn ordered_arbitrary(&mut self, seed: usize, _max_cplx: f64) -> Option<(Self::Value, Self::Cache)> {
+        if seed == 0 { Some((true, ())) } else if seed == 1 { Some((false, ())) } else { None }
+    }
+    fn random_arbitrary(&mut self, _max_cplx: f64) -> (Self::Value, Self::Cache) {
+        (self.rng.bool(), ())
     }
 
     fn max_complexity(&self) -> f64 {
@@ -47,9 +46,13 @@ impl Mutator for BoolMutator {
         _cache: &mut Self::Cache,
         step: &mut Self::MutationStep,
         _max_cplx: f64,
-    ) -> Self::UnmutateToken {
-        *value = !*value;
-        *step = true;
+    ) -> Option<Self::UnmutateToken> {
+        if !*step {
+            *value = !*value;
+            Some(())
+        } else {
+            None
+        }
     }
 
     fn unmutate(&self, value: &mut Self::Value, _cache: &mut Self::Cache, _t: Self::UnmutateToken) {

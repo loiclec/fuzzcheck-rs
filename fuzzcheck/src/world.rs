@@ -46,6 +46,8 @@ impl FuzzerStats {
 #[derive(Clone)]
 pub enum FuzzerEvent {
     Start,
+    End,
+    CrashNoInput,
     Done,
     New,
     Replace(usize),
@@ -224,6 +226,19 @@ impl<S: Serializer> World<S> {
         match event {
             FuzzerEvent::Start => {
                 println!("START");
+                return;
+            }
+            FuzzerEvent::End => {                                                //;
+                println!("\n======================== END ========================");
+                println!(r#"Fuzzcheck cannot generate more arbitrary values of the input type. This may be
+because all possible values under the chosen maximum complexity were tested, or
+because the mutator does not know how to generate more values."#);
+                return;
+            }
+            FuzzerEvent::CrashNoInput => {                                       //;
+                println!("\n=================== CRASH DETECTED ===================");
+                println!(r#"A crash was detected, but the fuzzer cannot recover the crashing input.
+This should never happen, and is probably a bug in fuzzcheck. Sorry :("#);
                 return;
             }
             FuzzerEvent::Done => {

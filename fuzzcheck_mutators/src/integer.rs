@@ -1,6 +1,7 @@
 use crate::HasDefaultMutator;
 use fuzzcheck_traits::Mutator;
 
+// TODO: use option for mutate and arbitrary
 // TODO: explanation
 pub fn binary_search_arbitrary(low: u8, high: u8, step: u64) -> u8 {
     let next = low.wrapping_add(high.wrapping_sub(low) / 2);
@@ -75,8 +76,12 @@ macro_rules! impl_unsigned_mutator {
                 self.rng.u64(..)
             }
 
-            fn arbitrary(&mut self, seed: usize, _max_cplx: f64) -> (Self::Value, Self::Cache) {
+            fn ordered_arbitrary(&mut self, seed: usize, _max_cplx: f64) -> Option<(Self::Value, Self::Cache)> {
                 let value = self.uniform_permutation(seed as u64);
+                Some((value, ()))
+            }
+            fn random_arbitrary(&mut self, _max_cplx: f64) -> (Self::Value, Self::Cache) {
+                let value = self.uniform_permutation(self.rng.u64(..));
                 (value, ())
             }
 
@@ -98,7 +103,7 @@ macro_rules! impl_unsigned_mutator {
                 _cache: &mut Self::Cache,
                 step: &mut Self::MutationStep,
                 _max_cplx: f64,
-            ) -> Self::UnmutateToken {
+            ) -> Option<Self::UnmutateToken> {
                 let token = *value;
                 *value = {
                     let mut tmp_step = *step;
@@ -116,7 +121,7 @@ macro_rules! impl_unsigned_mutator {
                 };
                 *step = step.wrapping_add(1);
 
-                token
+                Some(token)
             }
 
             fn unmutate(&self, value: &mut Self::Value, _cache: &mut Self::Cache, t: Self::UnmutateToken) {
@@ -192,8 +197,12 @@ macro_rules! impl_signed_mutator {
                 self.rng.u64(..)
             }
 
-            fn arbitrary(&mut self, seed: usize, _max_cplx: f64) -> (Self::Value, Self::Cache) {
+            fn ordered_arbitrary(&mut self, seed: usize, _max_cplx: f64) -> Option<(Self::Value, Self::Cache)> {
                 let value = self.uniform_permutation(seed as u64) as $name;
+                Some((value, ()))
+            }
+            fn random_arbitrary(&mut self, _max_cplx: f64) -> (Self::Value, Self::Cache) {
+                let value = self.uniform_permutation(self.rng.u64(..)) as $name;
                 (value, ())
             }
 
@@ -215,7 +224,7 @@ macro_rules! impl_signed_mutator {
                 _cache: &mut Self::Cache,
                 step: &mut Self::MutationStep,
                 _max_cplx: f64,
-            ) -> Self::UnmutateToken {
+            ) -> Option<Self::UnmutateToken> {
                 let token = *value;
                 *value = {
                     let mut tmp_step = *step;
@@ -233,7 +242,7 @@ macro_rules! impl_signed_mutator {
                 };
                 *step = step.wrapping_add(1);
 
-                token
+                Some(token)
             }
 
             fn unmutate(&self, value: &mut Self::Value, _cache: &mut Self::Cache, t: Self::UnmutateToken) {

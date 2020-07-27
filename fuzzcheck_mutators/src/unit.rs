@@ -48,7 +48,7 @@ impl<T> Mutator for UnitMutator<T> where T: Clone {
     type Value = T;
     type Cache = ();
     type MutationStep = ();
-    type UnmutateToken = ();
+    type UnmutateToken = !;
 
     fn cache_from_value(&self, _value: &Self::Value) -> Self::Cache {}
     
@@ -56,7 +56,14 @@ impl<T> Mutator for UnitMutator<T> where T: Clone {
 
     fn random_step_from_value(&self, _value: &Self::Value) -> Self::MutationStep {}
 
-    fn arbitrary(&mut self, _seed: usize, _max_cplx: f64) -> (Self::Value, Self::Cache) {
+    fn ordered_arbitrary(&mut self, seed: usize, _max_cplx: f64) -> Option<(Self::Value, Self::Cache)> {
+        if seed == 0 {
+            Some((self.value.clone(), ()))
+        } else {
+            None
+        }
+    }
+    fn random_arbitrary(&mut self, _max_cplx: f64) -> (Self::Value, Self::Cache) {
         (self.value.clone(), ())
     }
 
@@ -78,7 +85,8 @@ impl<T> Mutator for UnitMutator<T> where T: Clone {
         _cache: &mut Self::Cache,
         _step: &mut Self::MutationStep,
         _max_cplx: f64,
-    ) -> Self::UnmutateToken {
+    ) -> Option<Self::UnmutateToken> {
+        None
     }
 
     fn unmutate(&self, _value: &mut Self::Value, _cache: &mut Self::Cache, _t: Self::UnmutateToken) {}

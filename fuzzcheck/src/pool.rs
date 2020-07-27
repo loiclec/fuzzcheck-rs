@@ -727,18 +727,20 @@ impl<M: Mutator> Pool<M> {
     }
 
     /// Returns the index of an interesting input in the pool
-    pub fn random_index(&mut self) -> PoolIndex<M> {
+    pub fn random_index(&mut self) -> Option<PoolIndex<M>> {
         if self.favored_input.is_some() && (self.rng.u8(0..4) == 0 || self.inputs.is_empty()) {
-            PoolIndex::Favored
+            Some(PoolIndex::Favored)
         } else if self.lowest_stack_input.is_some() && self.rng.u8(0..10) == 0 {
-            PoolIndex::LowestStack
-        } else {
+            Some(PoolIndex::LowestStack)
+        } else if self.cumulative_weights.last().unwrap_or(&0.0) > &0.0 {
             let dist = WeightedIndex {
                 cumulative_weights: &self.cumulative_weights,
             };
             let x = dist.sample(&mut self.rng);
             let key = self.inputs[x];
-            PoolIndex::Normal(key)
+            Some(PoolIndex::Normal(key))
+        } else {
+            None
         }
     }
 
@@ -804,6 +806,22 @@ impl<M: Mutator> Pool<M> {
                 }
             }
         }
+    }
+
+    pub(crate) fn mark_input_as_dead_end(&mut self, idx: PoolIndex<M>) {
+        match idx {
+            PoolIndex::Normal(key) => {
+                let input = &mut self.slab_inputs[key];
+                input.score = 0.0;
+            },
+            PoolIndex::Favored => {
+                self.favored_input = None;
+            },
+            PoolIndex::LowestStack => {
+                self.lowest_stack_input = None;
+            },
+        }
+        self.update_stats()
     }
 
     #[cfg(test)]
@@ -1186,7 +1204,10 @@ mod tests {
         fn initial_step_from_value(&self, _value: &Self::Value) -> Self::MutationStep {}
         fn random_step_from_value(&self, _value: &Self::Value) -> Self::MutationStep {}
 
-        fn arbitrary(&mut self, _seed: usize, _max_cplx: f64) -> (Self::Value, Self::Cache) {
+        fn ordered_arbitrary(&mut self, _seed: usize, _max_cplx: f64) -> Option<(Self::Value, Self::Cache)> {
+            Some((0.0, ()))
+        }
+        fn random_arbitrary(&mut self, _max_cplx: f64) -> (Self::Value, Self::Cache) {
             (0.0, ())
         }
 
@@ -1208,7 +1229,8 @@ mod tests {
             _cache: &mut Self::Cache,
             _step: &mut Self::MutationStep,
             _max_cplx: f64,
-        ) -> Self::UnmutateToken {
+        ) -> Option<Self::UnmutateToken> {
+            Some(())
         }
 
         fn unmutate(&self, _value: &mut Self::Value, _cache: &mut Self::Cache, _t: Self::UnmutateToken) {}

@@ -55,8 +55,16 @@ impl<M: Mutator> Mutator for DictionaryMutator<M> {
         }
     }
 
-    fn arbitrary(&mut self, seed: usize, max_cplx: f64) -> (Self::Value, Self::Cache) {
-        self.m.arbitrary(seed, max_cplx)
+    fn ordered_arbitrary(&mut self, seed: usize, max_cplx: f64) -> Option<(Self::Value, Self::Cache)> {
+        if seed < self.dictionary.len() {
+            Some(self.dictionary[seed].clone())
+        } else {
+            self.m.ordered_arbitrary(seed - self.dictionary.len(), max_cplx)
+        }
+    }
+
+    fn random_arbitrary(&mut self, max_cplx: f64) -> (Self::Value, Self::Cache) {
+        self.m.random_arbitrary(max_cplx)
     }
 
     fn max_complexity(&self) -> f64 {
@@ -77,7 +85,7 @@ impl<M: Mutator> Mutator for DictionaryMutator<M> {
         cache: &mut Self::Cache,
         step: &mut Self::MutationStep,
         max_cplx: f64,
-    ) -> Self::UnmutateToken {
+    ) -> Option<Self::UnmutateToken> {
         
         let token = if step.counter < self.dictionary.len() || self.rng.usize(..250) == 0 {
             let (new_value, new_cache) = self.dictionary[step.counter % self.dictionary.len()].clone();
@@ -85,9 +93,13 @@ impl<M: Mutator> Mutator for DictionaryMutator<M> {
             let old_value = std::mem::replace(value, new_value);
             let old_cache = std::mem::replace(cache, new_cache);
            
-            UnmutateToken::Replace(old_value, old_cache)
+            Some(UnmutateToken::Replace(old_value, old_cache))
         } else {
-            UnmutateToken::Unmutate(self.m.mutate(value, cache, &mut step.step, max_cplx))
+            if let Some(inner) = self.m.mutate(value, cache, &mut step.step, max_cplx) {
+                Some(UnmutateToken::Unmutate(inner))
+            } else {
+               None
+            }
         };
 
         step.counter += 1;
