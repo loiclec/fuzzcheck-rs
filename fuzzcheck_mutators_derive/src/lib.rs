@@ -1,10 +1,13 @@
 #![allow(dead_code)]
-mod macro_lib;
-mod macro_lib_test;
+
+mod token_builder;
+mod parser;
 
 //mod struct_derive;
 
-use crate::macro_lib::*;
+use crate::token_builder::*;
+use crate::parser::*;
+
 use proc_macro::{Delimiter, Ident, Literal, Span, TokenStream, TokenTree};
 
 #[proc_macro_derive(HasDefaultMutator)]
@@ -17,9 +20,9 @@ pub fn derive_mutator(input: TokenStream) -> TokenStream {
     } else if let Some(e) = parser.eat_enumeration() {
         derive_enum_mutator(e, &mut tb)
     } else {
-        tb.add("compile_error ! (")
-            .string("fuzzcheck_mutators_derive could not parse the structure")
-            .add(") ;");
+        tb.add("compile_error ! (");
+        tb.extend(TokenTree::from(Literal::string("fuzzcheck_mutators_derive could not parse the structure")));
+        tb.add(") ;");
     }
 
     // tb.eprint();
@@ -102,7 +105,7 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
 
     let value_struct_ident_with_generic_params = {
         let mut tb = TokenBuilder::new();
-        tb.extend_ident(parsed_struct.ident.clone());
+        tb.extend(parsed_struct.ident.clone());
         let generic_args = parsed_struct
             .generics
             .clone()
@@ -189,9 +192,9 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
                 lhs: TokenTree::Ident(generic_ty_for_field.clone()).into(),
                 rhs: {
                     let mut tb = TokenBuilder::new();
-                    tb.add("fuzzcheck_mutators :: fuzzcheck_traits :: Mutator < Value = ")
-                        .stream(field.ty.clone())
-                        .punct(">");
+                    tb.add("fuzzcheck_mutators :: fuzzcheck_traits :: Mutator < Value = ");
+                    tb.stream(field.ty.clone());
+                    tb.add(">");
                     tb.end()
                 },
             });
@@ -292,7 +295,9 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
             .iter()
             .map(|field| {
                 let mut tb = TokenBuilder::new();
-                tb.add(":: std :: option :: Option <").stream(field.ty.clone()).add(">");
+                tb.add(":: std :: option :: Option <");
+                tb.stream(field.ty.clone());
+                tb.add(">");
                 StructField {
                     ty: tb.end(),
                     ..field.clone()
@@ -335,7 +340,7 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
         tb.add("impl");
         tb.stream(generics.clone());
         tb.add(" :: core :: default :: Default for ");
-        tb.extend_ident(unmutate_token_struct.ident.clone());
+        tb.extend(unmutate_token_struct.ident.clone());
         tb.stream(generics);
         tb.push_group(Delimiter::Brace);
         tb.add(&format!(
@@ -354,13 +359,13 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
     {
         // implementation of Mutator trait
         let generics = mutator_struct.generics.clone().to_token_stream();
-        tb.add("impl")
-            .stream(generics.clone())
-            .add("fuzzcheck_mutators :: fuzzcheck_traits :: Mutator for")
-            .extend_ident(mutator_struct.ident.clone())
-            .stream(generics)
-            .stream_opt(mutator_struct.where_clause.clone().map(|wc| wc.to_token_stream()))
-            .push_group(Delimiter::Brace);
+        tb.add("impl");
+        tb.stream(generics.clone());
+        tb.add("fuzzcheck_mutators :: fuzzcheck_traits :: Mutator for");
+        tb.extend(mutator_struct.ident.clone());
+        tb.stream(generics);
+        tb.stream_opt(mutator_struct.where_clause.clone().map(|wc| wc.to_token_stream()));
+        tb.push_group(Delimiter::Brace);
 
         {
             // associated types
@@ -371,7 +376,7 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
             tb.add("type Cache = ");
             let cache_struct_ident_with_generic_params = {
                 let mut tb = TokenBuilder::new();
-                tb.extend_ident(mutator_cache_struct.ident.clone());
+                tb.extend(mutator_cache_struct.ident.clone());
                 let generic_args = {
                     let mut g = mutator_cache_struct.generics.clone();
                     for tp in g.type_params.iter_mut() {
@@ -392,7 +397,7 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
             tb.add("type MutationStep = ");
             let mutator_step_struct_ident_with_generic_params = {
                 let mut tb = TokenBuilder::new();
-                tb.extend_ident(mutator_step_struct.ident.clone());
+                tb.extend(mutator_step_struct.ident.clone());
                 let generic_args = {
                     let mut g = mutator_step_struct.generics.clone();
                     for tp in g.type_params.iter_mut() {
@@ -413,7 +418,7 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
             tb.add("type UnmutateToken = ");
             let unmutate_token_struct_ident_with_generic_params = {
                 let mut tb = TokenBuilder::new();
-                tb.extend_ident(unmutate_token_struct.ident.clone());
+                tb.extend(unmutate_token_struct.ident.clone());
                 let generic_args = {
                     let mut g = unmutate_token_struct.generics.clone();
                     for tp in g.type_params.iter_mut() {
@@ -689,7 +694,7 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
     //     let generics_stream = mutator_struct.generics.clone().to_token_stream();
     //     tb.add("impl")
     //         .stream(generics_stream.clone())
-    //         .extend_ident(mutator_struct.ident.clone())
+    //         .extend(mutator_struct.ident.clone())
     //         .stream(generics_stream.clone())
     //         .stream_opt(mutator_struct.where_clause.clone().map(|wc| wc.to_token_stream()))
     //         .push_group(Delimiter::Brace);
@@ -721,13 +726,13 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
 
         let generics_stream = mutator_struct.generics.clone().to_token_stream();
 
-        tb.add("impl")
-            .stream(generics_stream.clone())
-            .add(":: core :: default :: Default for")
-            .extend_ident(mutator_struct.ident.clone())
-            .stream(generics_stream.clone())
-            .stream(where_clause.to_token_stream())
-            .push_group(Delimiter::Brace);
+        tb.add("impl");
+        tb.stream(generics_stream.clone());
+        tb.add(":: core :: default :: Default for");
+        tb.extend(mutator_struct.ident.clone());
+        tb.stream(generics_stream.clone());
+        tb.stream(where_clause.to_token_stream());
+        tb.push_group(Delimiter::Brace);
 
         tb.add("fn default ( ) -> Self");
         tb.push_group(Delimiter::Brace);
@@ -735,7 +740,7 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
 
         tb.push_group(Delimiter::Brace);
         for field in mutator_struct.struct_fields.iter() {
-            tb.extend_ident(field.identifier.clone().unwrap());
+            tb.extend(field.identifier.clone().unwrap());
             tb.add(":");
             tb.add("<");
             tb.stream(field.ty.clone());
@@ -811,13 +816,13 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
 
         let generics_stream = generics.to_token_stream();
 
-        tb.add("impl")
-            .stream(generics_stream.clone())
-            .add("fuzzcheck_mutators :: HasDefaultMutator for")
-            .extend_ident(parsed_struct.ident.clone())
-            .stream(generics_stream.clone())
-            .stream(where_clause.to_token_stream())
-            .push_group(Delimiter::Brace);
+        tb.add("impl");
+        tb.stream(generics_stream.clone());
+        tb.add("fuzzcheck_mutators :: HasDefaultMutator for");
+        tb.extend(parsed_struct.ident.clone());
+        tb.stream(generics_stream.clone());
+        tb.stream(where_clause.to_token_stream());
+        tb.push_group(Delimiter::Brace);
 
         // associated type
         let generics_mutator = {
@@ -1005,7 +1010,7 @@ fn derive_enum_mutator_with_items(parsed_enum: &Enum, tb: &mut TokenBuilder) {
 
         let value_struct_ident_with_generic_params = {
             let mut tb = TokenBuilder::new();
-            tb.extend_ident(parsed_enum.ident.clone());
+            tb.extend(parsed_enum.ident.clone());
             let generic_args = parsed_enum
                 .generics
                 .clone()
@@ -1042,9 +1047,9 @@ fn derive_enum_mutator_with_items(parsed_enum: &Enum, tb: &mut TokenBuilder) {
                 lhs: TokenTree::Ident(generic_ty_for_field.clone()).into(),
                 rhs: {
                     let mut tb = TokenBuilder::new();
-                    tb.add("fuzzcheck_mutators :: fuzzcheck_traits :: Mutator < Value = ")
-                        .stream(field.ty.clone())
-                        .punct(">");
+                    tb.add("fuzzcheck_mutators :: fuzzcheck_traits :: Mutator < Value = ");
+                    tb.stream(field.ty.clone());
+                    tb.add(">");
                     tb.end()
                 },
             });
@@ -1141,7 +1146,7 @@ fn derive_enum_mutator_with_items(parsed_enum: &Enum, tb: &mut TokenBuilder) {
                      identifier: Some(Ident::new("inner", Span::call_site())),
                      ty: {
                         let mut tb = TokenBuilder::new();
-                        tb.extend_ident(cache_enum.ident.clone());
+                        tb.extend(cache_enum.ident.clone());
                         tb.stream(cache_enum.generics.clone().to_token_stream());
                         tb.end()
                      }
@@ -1177,7 +1182,7 @@ fn derive_enum_mutator_with_items(parsed_enum: &Enum, tb: &mut TokenBuilder) {
              identifier: Some(Ident::new("inner", Span::call_site())),
              ty: {
                  let mut tb = TokenBuilder::new();
-                 tb.extend_ident(step_enum.ident.clone());
+                 tb.extend(step_enum.ident.clone());
                  tb.stream(step_enum.generics.clone().to_token_stream());
                  tb.end()
              },
@@ -1249,13 +1254,13 @@ fn derive_enum_mutator_with_items(parsed_enum: &Enum, tb: &mut TokenBuilder) {
 
     { // impl Mutator
         let generics = mutator_struct.generics.clone().to_token_stream();
-        tb.add("impl")
-            .stream(generics.clone())
-            .add("fuzzcheck_mutators :: fuzzcheck_traits :: Mutator for")
-            .extend_ident(mutator_struct.ident.clone())
-            .stream(generics)
-            .stream_opt(mutator_struct.where_clause.clone().map(|wc| wc.to_token_stream()))
-            .push_group(Delimiter::Brace);
+        tb.add("impl");
+        tb.stream(generics.clone());
+        tb.add("fuzzcheck_mutators :: fuzzcheck_traits :: Mutator for");
+        tb.extend(mutator_struct.ident.clone());
+        tb.stream(generics);
+        tb.stream_opt(mutator_struct.where_clause.clone().map(|wc| wc.to_token_stream()));
+        tb.push_group(Delimiter::Brace);
 
         {
             // associated types
@@ -1266,7 +1271,7 @@ fn derive_enum_mutator_with_items(parsed_enum: &Enum, tb: &mut TokenBuilder) {
             tb.add("type Cache = ");
             let cache_struct_ident_with_generic_params = {
                 let mut tb = TokenBuilder::new();
-                tb.extend_ident(cache_struct.ident.clone());
+                tb.extend(cache_struct.ident.clone());
                 let generic_args = {
                     let mut g = cache_struct.generics.clone();
                     for tp in g.type_params.iter_mut() {
@@ -1287,7 +1292,7 @@ fn derive_enum_mutator_with_items(parsed_enum: &Enum, tb: &mut TokenBuilder) {
             tb.add("type MutationStep = ");
             let mutator_step_struct_ident_with_generic_params = {
                 let mut tb = TokenBuilder::new();
-                tb.extend_ident(step_struct.ident.clone());
+                tb.extend(step_struct.ident.clone());
                 let generic_args = {
                     let mut g = step_struct.generics.clone();
                     for tp in g.type_params.iter_mut() {
@@ -1308,7 +1313,7 @@ fn derive_enum_mutator_with_items(parsed_enum: &Enum, tb: &mut TokenBuilder) {
             tb.add("type UnmutateToken = ");
             let unmutate_token_struct_ident_with_generic_params = {
                 let mut tb = TokenBuilder::new();
-                tb.extend_ident(unmutate_enum.ident.clone());
+                tb.extend(unmutate_enum.ident.clone());
                 let generic_args = {
                     let mut g = unmutate_enum.generics.clone();
                     for tp in g.type_params.iter_mut() {
@@ -1398,7 +1403,7 @@ fn derive_enum_mutator_with_items(parsed_enum: &Enum, tb: &mut TokenBuilder) {
                     };
                     tb.push_group(delimiter);
                     for field in item_for_derive.fields.iter() {
-                        tb.extend_ident(field.name.clone());
+                        tb.extend(field.name.clone());
                         tb.add(",");
                     }
                     tb.pop_group(delimiter);
@@ -1409,7 +1414,7 @@ fn derive_enum_mutator_with_items(parsed_enum: &Enum, tb: &mut TokenBuilder) {
                     tb.add(&format!("XInnerMutatorCache :: {}", item.ident));
                     tb.push_group(Delimiter::Brace);
                     for field in item_for_derive.fields.iter() {
-                        tb.extend_ident(field.name.clone());
+                        tb.extend(field.name.clone());
                         tb.add(&format!(": self . {name} . cache_from_value ( & {name} ) ,", name=field.name));
                     }
                     tb.pop_group(Delimiter::Brace);
