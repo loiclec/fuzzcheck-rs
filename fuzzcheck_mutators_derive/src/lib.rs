@@ -1458,44 +1458,142 @@ fn derive_enum_mutator_with_items(parsed_enum: &Enum, tb: &mut TokenBuilder) {
             tb.pop_group(Delimiter::Brace);
         }
 
-        /*
-        {
-            // cache_from_value
-            tb.add("fn cache_from_value ( & self , value : & Self :: Value ) -> Self :: Cache {");
-            let fields_iter = field_names.iter().zip(mutator_field_names.iter());
-            for (field, mutator_field) in fields_iter.clone() {
-                tb.add(&format!(
-                    "let {m} = self . {m} . cache_from_value ( & value . {f} ) ; ",
-                    f = field,
-                    m = mutator_field
-                ));
-            }
-            let mut fields_iter = fields_iter;
-            tb.add("let cplx = ");
-            if let Some((field, mutator_field)) = fields_iter.next() {
-                tb.add(&format!(
-                    "self . {m} . complexity ( & value . {f} , & {m} ) ",
-                    f = field,
-                    m = mutator_field
-                ));
-            }
-            for (field, mutator_field) in fields_iter {
-                tb.add(&format!(
-                    "+ self . {m} . complexity ( & value . {f} , & {m} ) ",
-                    f = field,
-                    m = mutator_field
-                ));
-            }
-            tb.add(";");
+        { // initial step from value
+            tb.add("fn initial_step_from_value ( & self , value : & Self :: Value ) -> Self :: MutationStep");
+            tb.push_group(Delimiter::Brace);
 
-            tb.add("Self :: Cache {");
-            for mutator_field in mutator_field_names.iter() {
-                tb.add(mutator_field);
-                tb.add(",");
+            tb.add("match value");
+            tb.push_group(Delimiter::Brace);
+            for (item_for_derive, item) in items_for_derive.iter().zip(parsed_enum.items.iter()) {
+                tb.add(&format!("{} :: {}", parsed_enum.ident, item.ident));
+                if let Some(EnumItemData::Struct(kind, _)) = &item.data {
+                    let delimiter = match kind {
+                        StructKind::Struct => Delimiter::Brace,
+                        StructKind::Tuple => Delimiter::Parenthesis
+                    };
+                    tb.push_group(delimiter);
+                    for field in item_for_derive.fields.iter() {
+                        tb.extend(field.name.clone());
+                        tb.add(",");
+                    }
+                    tb.pop_group(delimiter);
+                    tb.add("=>");
+                    tb.push_group(Delimiter::Brace);
+
+                    tb.add("let inner = ");
+                    tb.add(&format!("XInnerMutationStep :: {}", item.ident));
+                    tb.push_group(Delimiter::Brace);
+                    for field in item_for_derive.fields.iter() {
+                        tb.extend(field.name.clone());
+                        tb.add(&format!(": self . {name} . initial_step_from_value ( & {name} ) ,", name=field.name));
+                    }
+                    tb.pop_group(Delimiter::Brace);
+                    tb.add(";");
+
+                    tb.add("let step = ");
+                    tb.extend(Literal::u64_suffixed(0));
+                    tb.add(";");
+
+                    tb.add(r#"XMutationStep {
+                        inner ,
+                        step ,
+                    }"#);
+
+                    tb.pop_group(Delimiter::Brace);
+                } else {
+                    tb.add("=>");
+                    tb.push_group(Delimiter::Brace);
+                    tb.add(&format!(r#"XMutationStep {{
+                        inner : XInnerMutationStep :: {} ,"#
+                        , item.ident
+                    ));
+                    tb.add("step :");
+                    tb.extend(Literal::u64_suffixed(0));
+                    tb.add("}");
+
+                    tb.pop_group(Delimiter::Brace);
+                }
+
             }
-            tb.add("cplx , } }");
+
+            { // initial step from value
+                
+            }
+
+            tb.pop_group(Delimiter::Brace);
+
+            tb.pop_group(Delimiter::Brace);
         }
-        */
+
+        { // random step from value
+            tb.add("fn random_step_from_value ( & self , value : & Self :: Value ) -> Self :: MutationStep");
+            tb.push_group(Delimiter::Brace);
+
+            tb.add("match value");
+            tb.push_group(Delimiter::Brace);
+            for (item_for_derive, item) in items_for_derive.iter().zip(parsed_enum.items.iter()) {
+                tb.add(&format!("{} :: {}", parsed_enum.ident, item.ident));
+                if let Some(EnumItemData::Struct(kind, _)) = &item.data {
+                    let delimiter = match kind {
+                        StructKind::Struct => Delimiter::Brace,
+                        StructKind::Tuple => Delimiter::Parenthesis
+                    };
+                    tb.push_group(delimiter);
+                    for field in item_for_derive.fields.iter() {
+                        tb.extend(field.name.clone());
+                        tb.add(",");
+                    }
+                    tb.pop_group(delimiter);
+                    tb.add("=>");
+                    tb.push_group(Delimiter::Brace);
+
+                    tb.add("let inner = ");
+                    tb.add(&format!("XInnerMutationStep :: {}", item.ident));
+                    tb.push_group(Delimiter::Brace);
+                    for field in item_for_derive.fields.iter() {
+                        tb.extend(field.name.clone());
+                        tb.add(&format!(": self . {name} . random_step_from_value ( & {name} ) ,", name=field.name));
+                    }
+                    tb.pop_group(Delimiter::Brace);
+                    tb.add(";");
+
+                    tb.add("let step = self . rng . u64 ( .. ) ;");
+                    tb.add(";");
+
+                    tb.add(r#"XMutationStep {
+                        inner ,
+                        step ,
+                    }"#);
+
+                    tb.pop_group(Delimiter::Brace);
+                } else {
+                    tb.add("=>");
+                    tb.push_group(Delimiter::Brace);
+                    tb.add(&format!(r#"XMutationStep {{
+                        inner : XInnerMutationStep :: {} ,"#
+                        , item.ident
+                    ));
+                    tb.add("step : self . rng . u64 ( .. )");
+                    tb.add("}");
+
+                    tb.pop_group(Delimiter::Brace);
+                }
+
+            }
+
+            { // initial step from value
+                
+            }
+
+            tb.pop_group(Delimiter::Brace);
+
+            tb.pop_group(Delimiter::Brace);
+        }
+
+        { // arbitrary
+            
+        }
+
         tb.pop_group(Delimiter::Brace);
     }
 }
