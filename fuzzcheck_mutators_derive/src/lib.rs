@@ -438,164 +438,100 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
         }"
     );
 
-    /*
-    {
-        // implementation of Default trait when generic mutator params are Default
-        let mut where_items = Vec::<WhereClauseItem>::new();
+    { // default impl
+        let mut additional_where_items = Vec::<WhereClauseItem>::new();
         for ty in generic_types_for_field.clone() {
             let where_item = WhereClauseItem {
                 for_lifetimes: None,
-                lhs: TokenTree::Ident(ty.clone()).into(),
-                rhs: {
-                    let mut tb = TokenBuilder::new();
-                    tb.add(":: core :: default :: Default");
-                    tb.end()
-                },
+                lhs: token_stream!(ty),
+                rhs: token_stream!(":: core :: default :: Default")
             };
-            where_items.push(where_item);
+            additional_where_items.push(where_item);
         }
         let where_clause = if let Some(mut where_clause) = mutator_struct.where_clause.clone() {
-            where_clause.items.extend(where_items);
+            where_clause.items.extend(additional_where_items);
             where_clause
         } else {
-            WhereClause { items: where_items }
+            WhereClause { items: additional_where_items }
         };
 
-        let generics_stream = mutator_struct.generics.clone().to_token_stream();
-
-        tb.add("impl");
-        tb.stream(generics_stream.clone());
-        tb.add(":: core :: default :: Default for");
-        tb.extend(mutator_struct.ident.clone());
-        tb.stream(generics_stream.clone());
-        tb.stream(where_clause.to_token_stream());
-        tb.push_group(Delimiter::Brace);
-
-        tb.add("fn default ( ) -> Self");
-        tb.push_group(Delimiter::Brace);
-        tb.add("Self ");
-
-        tb.push_group(Delimiter::Brace);
-        for field in mutator_struct.struct_fields.iter() {
-            tb.extend(field.identifier.clone().unwrap());
-            tb.add(":");
-            tb.add("<");
-            tb.stream(field.ty.clone());
-            tb.add(" as :: core :: default :: Default > :: default ( ) ,");
-        }
-        tb.pop_group(Delimiter::Brace);
-
-        tb.pop_group(Delimiter::Brace);
-
-        tb.pop_group(Delimiter::Brace);
+        extend_token_builder!(tb,
+        "impl" mutator_cache_struct.generics ":: core :: default :: Default for" mutator_struct.ident
+            generics_without_bounds where_clause 
+        "{
+            fn default ( ) -> Self {
+                Self {"
+                    mutator_struct.struct_fields.iter().map(|field| {
+                        token_stream!(field.identifier ":" "<" field.ty "as :: core :: default :: Default > :: default ( ) ,")
+                    }).collect::<Vec<_>>()
+                "}
+            }
+        }"
+        )
     }
-
     {
         // implementation of HasDefaultMutator trait when generic mutator params are HasDefaultMutator
-        let generics = value_generics_with_bounds_moved_to_where_clause; //parsed_struct.generics.clone().map(|g| g.removing_bounds_and_eq_type().0.to_token_stream());
-
         let mut where_items = Vec::<WhereClauseItem>::new();
         for field in parsed_struct.struct_fields.iter() {
             let where_item = WhereClauseItem {
                 for_lifetimes: None,
                 lhs: field.ty.clone(),
-                rhs: {
-                    let mut tb = TokenBuilder::new();
-                    tb.add("fuzzcheck_mutators :: HasDefaultMutator");
-                    tb.end()
-                },
+                rhs: token_stream!("fuzzcheck_mutators :: HasDefaultMutator"),
             };
             where_items.push(where_item);
             let where_item = WhereClauseItem {
                 for_lifetimes: None,
-                lhs: {
-                    let mut tb = TokenBuilder::new();
-                    tb.add("<");
-                    tb.stream(field.ty.clone());
-                    tb.add(" as fuzzcheck_mutators :: HasDefaultMutator > :: Mutator");
-                    tb.end()
-                },
-                rhs: {
-                    let mut tb = TokenBuilder::new();
-                    tb.add(":: core :: default :: Default");
-                    tb.end()
-                },
+                lhs: token_stream!("<" field.ty " as fuzzcheck_mutators :: HasDefaultMutator > :: Mutator"),
+                rhs: token_stream!(":: core :: default :: Default"),
             };
             where_items.push(where_item);
             let where_item = WhereClauseItem {
                 for_lifetimes: None,
                 lhs: field.ty.clone(),
-                rhs: {
-                    let mut tb = TokenBuilder::new();
-                    tb.add(":: core :: clone :: Clone");
-                    tb.end()
-                },
+                rhs: token_stream!(":: core :: clone :: Clone"),
             };
             where_items.push(where_item);
         }
         let where_item = WhereClauseItem {
             for_lifetimes: None,
             lhs: value_struct_ident_with_generic_params.clone(),
-            rhs: {
-                let mut tb = TokenBuilder::new();
-                tb.add(":: core :: clone :: Clone");
-                tb.end()
-            },
+            rhs: token_stream!(":: core :: clone :: Clone"),
         };
         where_items.push(where_item);
 
-        let where_clause = if let Some(mut where_clause) = value_where_clause_with_added_items_from_generics.clone() {
+        let where_clause = if let Some(mut where_clause) = parsed_struct.where_clause.clone() {
             where_clause.items.extend(where_items);
             where_clause
         } else {
             WhereClause { items: where_items }
         };
 
-        let generics_stream = generics.to_token_stream();
-
-        tb.add("impl");
-        tb.stream(generics_stream.clone());
-        tb.add("fuzzcheck_mutators :: HasDefaultMutator for");
-        tb.extend(parsed_struct.ident.clone());
-        tb.stream(generics_stream.clone());
-        tb.stream(where_clause.to_token_stream());
-        tb.push_group(Delimiter::Brace);
-
-        // associated type
         let generics_mutator = {
-            let generics = parsed_struct.generics.removing_bounds_and_eq_type().0;
-            let mut type_params = generics.type_params.clone();
+            let mut type_params = generics_without_bounds.type_params.clone();
             for field in parsed_struct.struct_fields.iter() {
-                let mut ty_ident = TokenBuilder::new();
-                ty_ident.add("<");
-                ty_ident.stream(field.ty.clone());
-                ty_ident.add(" as fuzzcheck_mutators :: HasDefaultMutator > :: Mutator");
-
                 type_params.push(TypeParam {
-                    attributes: Vec::new(),
-                    type_ident: ty_ident.end(),
-                    bounds: None,
-                    equal_ty: None,
+                    type_ident: token_stream!("<" field.ty "as fuzzcheck_mutators :: HasDefaultMutator > :: Mutator"),
+                    ..TypeParam::default()
                 });
             }
             Generics {
-                lifetime_params: generics.lifetime_params.clone(),
+                lifetime_params: generics_without_bounds.lifetime_params.clone(),
                 type_params,
             }
         };
-        tb.add(&format!("type Mutator = {}", mutator_struct.ident));
-        tb.stream(generics_mutator.to_token_stream());
-        tb.add(";");
 
-        tb.add(
-            "fn default_mutator ( ) -> Self :: Mutator {
-            Self :: Mutator :: default ( )
-        }"#,
-        );
+        extend_token_builder!(tb,
+        "impl" parsed_struct.generics "fuzzcheck_mutators :: HasDefaultMutator for" parsed_struct.ident 
+            generics_without_bounds where_clause 
+        "{
+            type Mutator = " mutator_struct.ident generics_mutator ";
 
-        tb.pop_group(Delimiter::Brace);
-        
-    }*/
+            fn default_mutator ( ) -> Self :: Mutator {
+                Self :: Mutator :: default ( )
+            }
+        }"
+        )
+    }
 }
 
 // fn derive_enum_mutator(parsed_enum: Enum, tb: &mut TokenBuilder) {
