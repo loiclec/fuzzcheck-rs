@@ -109,152 +109,135 @@ pub struct WhereClauseItem {
 pub struct WhereClause {
     pub items: Vec<WhereClauseItem>,
 }
-impl Enum {
-    pub fn to_token_stream(self) -> TokenStream {
-        let mut tb = TokenBuilder::new();
-        tb.stream_opt(self.visibility);
-        tb.add("enum");
-        tb.extend(self.ident);
-        tb.stream(self.generics.to_token_stream());
-        
-        let where_clause = self.where_clause.map(|wc| wc.to_token_stream());
-        
-        tb.stream_opt(where_clause.clone());
-        
-        tb.push_group(Delimiter::Brace);
-        
-        for item in self.items {
-            for attribute in item.attributes.into_iter() {
-                tb.stream(attribute);
-            };
 
-            tb.extend(item.ident);
-
-            match item.data {
-                Some(EnumItemData::Struct(struct_kind, fields)) => {
-                    let delimiter = if matches!(struct_kind, StructKind::Struct) { Delimiter::Brace } else { Delimiter::Parenthesis };
-                    tb.push_group(delimiter);
-                    for field in fields {
-                        tb.stream(field.to_token_stream());
-                        tb.add(",");
-                    }
-                    tb.pop_group(delimiter);
-                }
-                Some(EnumItemData::Discriminant(discriminant)) => {
-                    tb.add("=");
-                    tb.extend(discriminant);
-                }
-                None => {
-
-                }
-            }
-
-            tb.add(",");
+impl Generics {
+    pub fn mutating_lifetime_params(&self, mutate: impl Fn(&mut LifetimeParam)) -> Self {
+        let mut cloned = self.clone();
+        for lt in cloned.lifetime_params.iter_mut() {
+            mutate(lt)
         }
-        tb.pop_group(Delimiter::Brace);
-
-        tb.end()
+        cloned
+    }
+    pub fn mutating_type_params(&self, mutate: impl Fn(&mut TypeParam)) -> Self {
+        let mut cloned = self.clone();
+        for lt in cloned.type_params.iter_mut() {
+            mutate(lt)
+        }
+        cloned
     }
 }
 
-impl Struct {
-    pub fn to_token_stream(self) -> TokenStream {
-        let mut tb = TokenBuilder::new();
-        tb.stream_opt(self.visibility);
-        tb.add("struct");
-        tb.extend(self.ident);
-        tb.stream(self.generics.to_token_stream());
-        let delimiter = match self.kind {
-            StructKind::Struct => Delimiter::Brace,
-            StructKind::Tuple => Delimiter::Parenthesis,
+impl<'a> ToTokenStreamPart<'a> for Enum {
+    fn to_token_stream_part(&self) -> TokenStreamPart<'a> {
+
+        token_stream(&[
+            &self.visibility, &"enum", &self.ident, &self.generics, &self.where_clause,
+            &"{",
+                &joined_token_streams(self.items.iter().map(|item| {
+                    token_stream(&[
+                        &item.attributes, 
+                        &item.ident,
+                        &match &item.data {
+                            Some(EnumItemData::Struct(struct_kind, fields)) => {
+                                let (open, close) = if matches!(struct_kind, StructKind::Struct) { ("{", "}") } else { ("(", ")") };
+                                token_stream(&[
+                                    &open,
+                                    &joined_token_streams(fields.clone(), ","),
+                                    &close
+                                ])
+                            }
+                            Some(EnumItemData::Discriminant(discriminant)) => {
+                                token_stream(&[
+                                    &"=", &discriminant.clone()
+                                ])
+                            }
+                            None => {
+                                token_stream(&[])
+                            }
+                        }
+                    ])
+                }), ","),
+            &"}"
+        ])
+        .to_token_stream_part()
+    }
+}
+
+impl<'a> ToTokenStreamPart<'a> for Struct {
+    fn to_token_stream_part(&self) -> TokenStreamPart<'a> {
+        
+        let (open, close) = match self.kind {
+            StructKind::Struct => ("{", "}"),
+            StructKind::Tuple => ("(", ")"),
         };
-        let where_clause = self.where_clause.map(|wc| wc.to_token_stream());
-        if matches!(self.kind, StructKind::Struct) {
-            tb.stream_opt(where_clause.clone());
-        }
-        tb.push_group(delimiter);
-        for field in self.struct_fields {
-            for attribute in field.attributes.into_iter() {
-                tb.stream(attribute);
+        
+        let (first_where_clause_slot, second_where_clause_slot): (&dyn ToTokenStreamPart, &dyn ToTokenStreamPart) = {
+            if matches!(self.kind, StructKind::Struct) { 
+                (&self.where_clause , &"")
+            } else { 
+                (&"", &self.where_clause)
             }
-            tb.stream_opt(field.visibility);
+        };
 
-            if let Some(ident) = field.identifier {
-                tb.extend(ident);
-                tb.add(":");
-            }
-            tb.stream(field.ty);
-            tb.add(",");
-        }
-        tb.pop_group(delimiter);
-        if matches!(self.kind, StructKind::Tuple) {
-            tb.stream_opt(where_clause);
-        }
-        tb.end()
+        token_stream(&[
+            &self.visibility, &"struct", &self.ident, &self.generics, 
+            first_where_clause_slot,
+            &open,
+            &joined_token_streams(self.struct_fields.clone(), ","),
+            &close,
+            second_where_clause_slot,
+        ])
+        .to_token_stream_part()
     }
 }
-impl StructField {
-    pub fn to_token_stream(self) -> TokenStream {
-        let mut tb = TokenBuilder::new();
-        for attribute in self.attributes.into_iter() {
-            tb.stream(attribute);
-        }
-        tb.stream_opt(self.visibility);
-        if let Some(ident) = self.identifier {
-            tb.extend(ident);
-            tb.add(":");
-        }
-        tb.stream(self.ty);
-        tb.end()
+
+impl<'a> ToTokenStreamPart<'a> for StructField {
+    fn to_token_stream_part(&self) -> TokenStreamPart<'a> {
+        token_stream(&[
+            &self.attributes,
+            &self.visibility, 
+            &self.identifier.as_ref().map(|x| token_stream(&[x, &":"])),
+            &self.ty,
+        ])
+        .to_token_stream_part()
     }
 }
-impl LifetimeParam {
-    pub fn to_token_stream(self) -> TokenStream {
-        let mut tb = TokenBuilder::new();
-        tb.stream(self.ident);
-        if let Some(bounds) = self.bounds {
-            tb.add(":");
-            tb.stream(bounds);
-        }
-        tb.end()
+impl<'a> ToTokenStreamPart<'a> for LifetimeParam {
+    fn to_token_stream_part(&self) -> TokenStreamPart<'a> {
+        token_stream(&[
+            &self.ident,
+            &self.bounds.as_ref().map(|x| token_stream(&[&":", x]))
+        ])
+        .to_token_stream_part()
     }
 }
-impl TypeParam {
-    pub fn to_token_stream(self) -> TokenStream {
-        let mut tb = TokenBuilder::new();
-        for attribute in self.attributes.into_iter() {
-            tb.stream(attribute);
+impl<'a> ToTokenStreamPart<'a> for TypeParam {
+    fn to_token_stream_part(&self) -> TokenStreamPart<'a> {
+        token_stream(&[
+            &self.attributes,
+            &self.type_ident,
+            &self.bounds.as_ref().map(|x| token_stream(&[&":", x])),
+            &self.equal_ty.as_ref().map(|x| token_stream(&[&"=", x])),
+        ])
+        .to_token_stream_part()
+    }
+}
+impl<'a> ToTokenStreamPart<'a> for Generics {
+    fn to_token_stream_part(&self) -> TokenStreamPart<'a> {
+        if self.lifetime_params.is_empty() && self.type_params.is_empty() {
+            TokenStreamPart::None
+        } else {
+            token_stream(&[
+                &"<",
+                &joined_token_streams(self.lifetime_params.clone(), ","),
+                &joined_token_streams(self.type_params.clone(), ","),
+                &">"
+            ])
+            .to_token_stream_part()
         }
-        tb.stream(self.type_ident);
-        if let Some(bounds) = self.bounds {
-            tb.add(":");
-            tb.stream(bounds);
-        }
-        if let Some(eqty) = self.equal_ty {
-            tb.add("=");
-            tb.stream(eqty);
-        }
-        tb.end()
     }
 }
 impl Generics {
-    pub fn to_token_stream(self) -> TokenStream {
-        if self.lifetime_params.is_empty() && self.type_params.is_empty() {
-            return TokenStream::new();
-        }
-        let mut tb = TokenBuilder::new();
-        tb.add("<");
-        for item in self.lifetime_params.into_iter() {
-            tb.stream(item.to_token_stream());
-            tb.add(",");
-        }
-        for item in self.type_params.into_iter() {
-            tb.stream(item.to_token_stream());
-            tb.add(",");
-        }
-        tb.add(">");
-        tb.end()
-    }
     pub fn removing_bounds_and_eq_type(&self) -> (Self, Vec<Option<TokenStream>>) {
         let mut bounds = Vec::new();
         let mut new = self.clone();
@@ -270,25 +253,24 @@ impl Generics {
         (new, bounds)
     }
 }
-impl WhereClauseItem {
-    pub fn to_token_stream(self) -> TokenStream {
-        let mut tb = TokenBuilder::new();
-        tb.stream_opt(self.for_lifetimes);
-        tb.stream(self.lhs);
-        tb.add(":");
-        tb.stream(self.rhs);
-        tb.end()
+impl<'a> ToTokenStreamPart<'a> for WhereClauseItem {
+    fn to_token_stream_part(&self) -> TokenStreamPart<'a> {
+        token_stream(&[
+            &self.for_lifetimes,
+            &self.lhs,
+            &":",
+            &self.rhs
+        ])
+        .to_token_stream_part()
     }
 }
-impl WhereClause {
-    pub fn to_token_stream(self) -> TokenStream {
-        let mut tb = TokenBuilder::new();
-        tb.add("where");
-        for item in self.items.into_iter() {
-            tb.stream(item.to_token_stream());
-            tb.add(",");
-        }
-        tb.end()
+impl<'a> ToTokenStreamPart<'a> for WhereClause {
+    fn to_token_stream_part(&self) -> TokenStreamPart<'a> {
+        token_stream(&[
+            &"where",
+            &joined_token_streams(self.items.clone(), ",")
+        ])
+        .to_token_stream_part()
     }
 }
 
