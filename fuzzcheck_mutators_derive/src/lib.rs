@@ -9,9 +9,44 @@ mod parser;
 use crate::token_builder::*;
 use crate::parser::*;
 
-use proc_macro::quote;
+use proc_macro::{Ident, Literal, Span, TokenStream, TokenTree};
 
-use proc_macro::{Delimiter, Ident, Literal, Span, TokenStream, TokenTree};
+macro_rules! joined_token_streams {
+    ($iter:expr, $sep:expr) => {
+        {
+            #[allow(unused_mut)]
+            let mut tb = TokenBuilder::new();
+            for x in $iter {
+                x.add_to(&mut tb);
+                $sep.add_to(&mut tb);
+            }
+            tb.end()
+        }
+    };
+}
+
+macro_rules! extend_token_builder {
+    ($tb:expr, $($part:expr) *) => { 
+        {
+            $(
+                $part.add_to($tb);
+            )*
+        }
+    };
+}
+
+macro_rules! token_stream {
+    ($($part:expr) *) => { 
+        {
+            #[allow(unused_mut)]
+            let mut tb = TokenBuilder::new();
+            $(
+                $part.add_to(&mut tb);
+            )*
+            tb.end()
+        }
+    };
+}
 
 #[proc_macro_derive(HasDefaultMutator)]
 pub fn derive_mutator(input: TokenStream) -> TokenStream {
@@ -23,9 +58,11 @@ pub fn derive_mutator(input: TokenStream) -> TokenStream {
     } else if let Some(e) = parser.eat_enumeration() {
         // derive_enum_mutator(e, &mut tb)
     } else {
-        tb.add("compile_error ! (");
-        tb.extend(TokenTree::from(Literal::string("fuzzcheck_mutators_derive could not parse the structure")));
-        tb.add(") ;");
+        extend_token_builder!(&mut tb,
+            "compile_error ! ("
+            Literal::string("fuzzcheck_mutators_derive could not parse the structure")
+            ") ;"
+        )
     }
 
     // tb.eprint();
@@ -44,21 +81,17 @@ fn derive_struct_mutator(parsed_struct: Struct, tb: &mut TokenBuilder) {
 fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuilder) {
     let fields = &parsed_struct.struct_fields;
 
-    let mutator_field_names = fields
+    let mutator_field_idents = fields
         .iter()
         .enumerate()
         .map(|(i, f)| {
-            if let Some(ident) = &f.identifier {
+            let x = if let Some(ident) = &f.identifier {
                 format!("_{}", ident)
             } else {
                 format!("_{}", i)
-            }
+            };
+            Ident::new(&x, Span::call_site())
         })
-        .collect::<Vec<_>>();
-
-    let mutator_field_idents = mutator_field_names
-        .iter()
-        .map(|name| Ident::new(name, Span::call_site()))
         .collect::<Vec<_>>();
 
     let field_names = parsed_struct
@@ -74,7 +107,7 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
         })
         .collect::<Vec<_>>();
 
-    let generic_types_for_field = mutator_field_names
+    let generic_types_for_field = mutator_field_idents
         .iter()
         .map(|name| Ident::new(&format!("{}Type", name), Span::call_site()));
 
@@ -84,7 +117,7 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
             .clone()
             .map(|ident| TypeParam {
                 attributes: Vec::new(),
-                type_ident: TokenTree::Ident(ident).into(),
+                type_ident: token_stream!(ident),
                 bounds: None,
                 equal_ty: None,
             })
@@ -96,19 +129,15 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
         .zip(generic_types_for_field.clone())
         .map(|(identifier, ty)| StructField {
             attributes: Vec::new(),
-            visibility: {
-                let mut tb = TokenBuilder::new();
-                tb.add("pub");
-                Some(tb.end())
-            },
+            visibility: Some(token_stream!("pub")),
             identifier: Some(identifier.clone()),
-            ty: TokenTree::Ident(ty.clone()).into(),
+            ty: token_stream!(ty),
         })
         .collect::<Vec<_>>();
 
-    let value_struct_ident_with_generic_params = token_stream(&[
-        &parsed_struct.ident, &parsed_struct.generics.clone().removing_bounds_and_eq_type().0
-    ]);
+    let value_struct_ident_with_generic_params = token_stream!(
+        parsed_struct.ident parsed_struct.generics.clone().removing_bounds_and_eq_type().0
+    );
 
     let (
         mutator_struct,
@@ -167,7 +196,7 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
         for (field, generic_ty_for_field) in parsed_struct.struct_fields.iter().zip(generic_types_for_field.clone()) {
             let ty_param = TypeParam {
                 attributes: Vec::new(),
-                type_ident: TokenTree::Ident(generic_ty_for_field.clone()).into(),
+                type_ident: token_stream!(generic_ty_for_field),
                 bounds: None,
                 equal_ty: None,
             };
@@ -175,33 +204,19 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
             where_clause_items.push(WhereClauseItem {
                 for_lifetimes: None,
                 lhs: field.ty.clone(),
-                rhs: {
-                    let mut tb = TokenBuilder::new();
-                    tb.add(":: core :: clone :: Clone");
-                    tb.end()
-                },
+                rhs: token_stream!(":: core :: clone :: Clone"),
             });
             where_clause_items.push(WhereClauseItem {
                 for_lifetimes: None,
-                lhs: TokenTree::Ident(generic_ty_for_field.clone()).into(),
-                rhs: {
-                    let mut tb = TokenBuilder::new();
-                    tb.add("fuzzcheck_mutators :: fuzzcheck_traits :: Mutator < Value = ");
-                    tb.stream(field.ty.clone());
-                    tb.add(">");
-                    tb.end()
-                },
+                lhs: token_stream!(generic_ty_for_field),
+                rhs: token_stream!("fuzzcheck_mutators :: fuzzcheck_traits :: Mutator < Value = " field.ty ">"),
             });
         }
         /* 5. also add requirement that the whole value is Clone */
         where_clause_items.push(WhereClauseItem {
             for_lifetimes: None,
             lhs: value_struct_ident_with_generic_params.clone(),
-            rhs: {
-                let mut tb = TokenBuilder::new();
-                tb.add(":: core :: clone :: Clone");
-                tb.end()
-            },
+            rhs: token_stream!(":: core :: clone :: Clone"),
         });
 
         let main_mutator_where_clause = {
@@ -213,17 +228,9 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
         let mut mutator_struct_fields = basic_fields.clone();
         mutator_struct_fields.push(StructField {
             attributes: Vec::new(),
-            visibility: {
-                let mut tb = TokenBuilder::new();
-                tb.add("pub");
-                Some(tb.end())
-            },
+            visibility: Some(token_stream!("pub")),
             identifier: Some(Ident::new("rng", Span::call_site())),
-            ty: {
-                let mut tb = TokenBuilder::new();
-                tb.add("fuzzcheck_mutators :: fastrand :: Rng");
-                tb.end()
-            },
+            ty: token_stream!("fuzzcheck_mutators :: fastrand :: Rng"),
         });
 
         (
@@ -240,7 +247,7 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
         )
     };
 
-    tb.stream(token_stream(&[&mutator_struct])); // TODO: change with direct method on tb
+    tb.extend(&mutator_struct);
 
     let mutator_cache_struct = {
         let mut cache_fields = basic_fields.clone();
@@ -248,7 +255,7 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
             attributes: Vec::new(),
             visibility: None,
             identifier: Some(Ident::new("cplx", Span::call_site())),
-            ty: TokenTree::Ident(Ident::new("f64", Span::call_site())).into(),
+            ty: token_stream!("f64"),
         });
         Struct {
             visibility: parsed_struct.visibility.clone(),
@@ -260,8 +267,10 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
         }
     };
 
-    tb.add("# [ derive ( :: core :: clone :: Clone ) ]");
-    tb.add_part(&mutator_cache_struct);
+    extend_token_builder!(tb, 
+        "# [ derive ( :: core :: clone :: Clone ) ]" 
+        mutator_cache_struct
+    );
 
     let mutator_step_struct = {
         let mut step_fields = basic_fields.clone();
@@ -269,7 +278,7 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
             attributes: Vec::new(),
             visibility: None,
             identifier: Some(Ident::new("step", Span::call_site())),
-            ty: TokenTree::Ident(Ident::new("u64", Span::call_site())).into(),
+            ty: token_stream!("u64"),
         });
         Struct {
             visibility: parsed_struct.visibility.clone(),
@@ -281,19 +290,17 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
         }
     };
 
-    tb.add("# [ derive ( :: core :: clone :: Clone ) ]");
-    tb.add_part(&mutator_step_struct);
+    extend_token_builder!(tb, 
+        "# [ derive ( :: core :: clone :: Clone ) ]" 
+        mutator_step_struct
+    );
 
     let unmutate_token_struct = {
         let mut step_fields = basic_fields
             .iter()
             .map(|field| {
-                let mut tb = TokenBuilder::new();
-                tb.add(":: std :: option :: Option <");
-                tb.stream(field.ty.clone());
-                tb.add(">");
                 StructField {
-                    ty: tb.end(),
+                    ty: token_stream!(":: std :: option :: Option <" field.ty ">"),
                     ..field.clone()
                 }
             })
@@ -303,7 +310,7 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
             attributes: Vec::new(),
             visibility: None,
             identifier: Some(Ident::new("cplx", Span::call_site())),
-            ty: TokenTree::Ident(Ident::new("f64", Span::call_site())).into(),
+            ty: token_stream!("f64"),
         });
         Struct {
             visibility: parsed_struct.visibility.clone(),
@@ -315,104 +322,100 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
         }
     };
 
-    tb.add("# [ derive ( :: core :: clone :: Clone ) ]");
-    tb.add_part(&unmutate_token_struct);
+    extend_token_builder!(tb, 
+        "# [ derive ( :: core :: clone :: Clone ) ]" 
+        unmutate_token_struct
+    );
 
     // default impl for unmutate token
-    tb.stream(token_stream(&[
-        &"impl", &unmutate_token_struct.generics, &":: core :: default :: Default for", &unmutate_token_struct.ident, &unmutate_token_struct.generics, &"{",
-            &"fn default ( ) -> Self {",
-                &mutator_field_names.iter().map(|m|
-                    token_stream(&[
-                        &m.as_str(), &": None ," // TODO: field names as ident
-                    ])
-                ).collect::<Vec<_>>(),
-            &"}",
-        &"}"
-    ]));
+    extend_token_builder!(tb,
+        "impl" unmutate_token_struct.generics ":: core :: default :: Default for" unmutate_token_struct.ident unmutate_token_struct.generics "{"
+            "fn default ( ) -> Self {"
+                mutator_field_idents.iter().map(|m|
+                    token_stream!(m ": None ,")
+                ).collect::<Vec<_>>()
+            "}"
+        "}"
+    );
 
-
-    let fields_iter = field_names.iter().zip(mutator_field_names.iter());
+    let fields_iter = field_names.iter().zip(mutator_field_idents.iter());
 
     // implementation of Mutator trait
-    tb.stream(token_stream(&[
-        &"impl", &mutator_struct.generics, &"fuzzcheck_mutators :: fuzzcheck_traits :: Mutator for", 
-            &mutator_struct.ident, &mutator_struct.generics, &mutator_struct.where_clause, 
-        &"{",
-            &"type Value = ", &value_struct_ident_with_generic_params, &";",
-            &"type Cache = ", &mutator_cache_struct.ident,
-                &mutator_cache_struct.generics.mutating_type_params(|tp|
-                    tp.type_ident = token_stream(&[&"<", &tp.type_ident, &"as fuzzcheck_mutators :: fuzzcheck_traits :: Mutator > :: Cache"])
-                ),
-                &";",
+    extend_token_builder!(tb,
+        "impl" mutator_struct.generics "fuzzcheck_mutators :: fuzzcheck_traits :: Mutator for"
+            mutator_struct.ident mutator_struct.generics mutator_struct.where_clause
+        "{"
+            "type Value = " value_struct_ident_with_generic_params ";"
+            "type Cache = " mutator_cache_struct.ident
+                mutator_cache_struct.generics.mutating_type_params(|tp|
+                    tp.type_ident = token_stream!("<" tp.type_ident "as fuzzcheck_mutators :: fuzzcheck_traits :: Mutator > :: Cache")
+                )
+                ";"
             
-            &"type MutationStep = ",
-                &mutator_step_struct.ident,
-                &mutator_step_struct.generics.mutating_type_params(|tp|
-                    tp.type_ident = token_stream(&[&"<", &tp.type_ident, &"as fuzzcheck_mutators :: fuzzcheck_traits :: Mutator > :: Cache"])
-                ),
-                &";",
+            "type MutationStep = "
+                mutator_step_struct.ident
+                mutator_step_struct.generics.mutating_type_params(|tp|
+                    tp.type_ident = token_stream!("<" tp.type_ident "as fuzzcheck_mutators :: fuzzcheck_traits :: Mutator > :: Cache")
+                )
+                ";"
 
-            &"type UnmutateToken = ", 
-                &unmutate_token_struct.ident,
-                &unmutate_token_struct.generics.mutating_type_params(|tp|
-                    tp.type_ident = token_stream(&[&"<", &tp.type_ident, &"as fuzzcheck_mutators :: fuzzcheck_traits :: Mutator > :: UnmutateToken"])
-                ),
-                &";",
+            "type UnmutateToken = "
+                unmutate_token_struct.ident
+                unmutate_token_struct.generics.mutating_type_params(|tp|
+                    tp.type_ident = token_stream!("<" tp.type_ident "as fuzzcheck_mutators :: fuzzcheck_traits :: Mutator > :: UnmutateToken")
+                )
+                ";"
 
-            &"fn max_complexity ( & self ) -> f64 {",
-                &joined_token_streams(mutator_field_names.iter().map(|field_name| { // TODO: make field name an ident
-                    token_stream(&[&"self . ", &field_name.as_str(), &". max_complexity ( )"])
-                }), "+"),
-            &"}",
+            "fn max_complexity ( & self ) -> f64 {"
+                joined_token_streams!(mutator_field_idents.iter().map(|field_name| {
+                    token_stream!("self . " field_name ". max_complexity ( )")
+                }), "+")
+            "}"
 
-            &"fn min_complexity ( & self ) -> f64 {",
-                &joined_token_streams(mutator_field_names.iter().map(|field_name| { // TODO: make field name an ident
-                    token_stream(&[&"self . ", &field_name.as_str(), &". min_complexity ( )"])
-                }), "+"),
-            &"}",
+            "fn min_complexity ( & self ) -> f64 {"
+                joined_token_streams!(mutator_field_idents.iter().map(|field_name| {
+                    token_stream!("self . " field_name ". min_complexity ( )")
+                }), "+")
+            "}"
             
-            &"fn complexity ( & self , value : & Self :: Value , cache : & Self :: Cache ) -> f64 { cache . cplx }",
+            "fn complexity ( & self , value : & Self :: Value , cache : & Self :: Cache ) -> f64 { cache . cplx }"
 
-            &"fn cache_from_value ( & self , value : & Self :: Value ) -> Self :: Cache {",
+            "fn cache_from_value ( & self , value : & Self :: Value ) -> Self :: Cache {"
                 // declare all subcaches
-                &fields_iter.clone().map(|(field, mutator_field)| { // TODO: make field and mutator_field idents or streams
-                    let (m, f) = (mutator_field.as_str(), field.as_str());
-                    token_stream(&[&"let", &m, &"= self .", &m, &". cache_from_value ( & value .", &f, &") ;"])
-                }).collect::<Vec<_>>(),
+                fields_iter.clone().map(|(f, m)| {
+                    token_stream!("let" m "= self ." m ". cache_from_value ( & value ." f ") ;")
+                }).collect::<Vec<_>>()
                 // compute cplx
-                &joined_token_streams(fields_iter.clone().map(|(field, mutator_field)| {
-                    let (m, f) = (mutator_field.as_str(), field.as_str());
-                    token_stream(&[&"self . ", &m, &". complexity ( & value .", &f , &", &" , &m, &")"])
-                }), "+"),
+                joined_token_streams!(fields_iter.clone().map(|(f, m)| {
+                    token_stream!("self . " m ". complexity ( & value ." f ", &" m ")")
+                }), "+")
                 
-                &"Self :: Cache {",
-                    &joined_token_streams(mutator_field_names.iter().map(|x| x.as_str()), ","), // mutator field names not string
-                    &"cplx",
-                &"}",
-            &"}",
+                "Self :: Cache {"
+                    joined_token_streams!(mutator_field_idents.iter(), ",")
+                    "cplx"
+                "}"
+            "}"
 
-            &"fn initial_step_from_value ( & self , value : & Self :: Value ) -> Self :: MutationStep {",
+            "fn initial_step_from_value ( & self , value : & Self :: Value ) -> Self :: MutationStep {"
                 // init all substeps
-                &fields_iter.clone().map(|(field, mutator_field)| {
-                    let (m, f) = (mutator_field.as_str(), field.as_str());
-                    token_stream(&[&"self . ", &m, &". initial_step_from_value ( & value .", &f , &") ;"])
-                }).collect::<Vec<_>>(),
+                fields_iter.clone().map(|(f, m)| {
+                    token_stream!("self . " m ". initial_step_from_value ( & value ." f ") ;")
+                }).collect::<Vec<_>>()
 
-                &"let step = 0",
+                "let step = 0"
 
-                &"Self :: MutationStep {",
-                    &joined_token_streams(mutator_field_names.iter().map(|x| x.as_str()), ","), // mutator field names not string
-                    &"step",
-                &"}",
-            &"}",
+                "Self :: MutationStep {"
+                    joined_token_streams!(mutator_field_idents.iter(), ",")
+                    "step"
+                "}"
+            "}"
 
-            &r#"fn ordered_arbitrary ( & mut self , _seed : usize , max_cplx : f64 ) -> Option < ( Self :: Value , Self :: Cache ) > {
+            r#"fn ordered_arbitrary ( & mut self , _seed : usize , max_cplx : f64 ) -> Option < ( Self :: Value , Self :: Cache ) > {
                 Some ( self . random_arbitrary ( max_cplx ) )
-            }"#,
+            }"#
             
             // some parts were easier to write as a format string
-            &format!(r##"
+            format!(r##"
             "fn random_arbitrary ( & mut self , max_cplx : f64 ) -> ( Self :: Value , Self :: Cache ) {{
                 {subvals_decl}
 
@@ -438,16 +441,16 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
                 ))
             }}
             "##, 
-            subvals_decl = mutator_field_names.iter().map(|mutator_field| {
+            subvals_decl = mutator_field_idents.iter().map(|mutator_field| {
                 format!(r#"
                     let mut {m}_value : Option < _ > = None ;
                     let mut {m}_cache : Option < _ > = None ;
                     "#, m = mutator_field)
                 }).collect::<Vec<_>>().join(""),
 
-            nbr_fields = mutator_field_names.len(),
+            nbr_fields = mutator_field_idents.len(),
 
-            body_match = mutator_field_names.iter().enumerate().map(|(idx, mutator_field)| {
+            body_match = mutator_field_idents.iter().enumerate().map(|(idx, mutator_field)| {
                 format!(
                     r#"
                     {i} => {{ 
@@ -467,19 +470,19 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
                     format!("{f} : {m}_value . unwrap ( )", f = field, m = mutator_field)
                 }).collect::<Vec<_>>().join(",") ,
 
-                caches = mutator_field_names.iter().map(|mutator_field| {
+                caches = mutator_field_idents.iter().map(|mutator_field| {
                     format!("{m} : {m}_cache . unwrap ( )", m = mutator_field)
-                }).collect::<Vec<_>>().join(",") ,
-            ).as_str(),
+                }).collect::<Vec<_>>().join(",")
+            )
 
-            &r#"fn mutate ( & mut self , value : & mut Self :: Value , cache : & mut Self :: Cache , step : & mut Self :: MutationStep , max_cplx : f64 ) -> Self :: UnmutateToken
+            r#"fn mutate ( & mut self , value : & mut Self :: Value , cache : & mut Self :: Cache , step : & mut Self :: MutationStep , max_cplx : f64 ) -> Self :: UnmutateToken
             {
                 let orig_step = step . step ;
                 step . step += 1 ;
-                let current_cplx = self . complexity ( value , cache ) ;"#,
-                &format!("match orig_step % {}", mutator_field_names.len()).as_str(),
-                &"{",
-                    &mutator_field_names.iter().zip(field_names.iter()).enumerate().map(|(i, (mutator_field, field))| {
+                let current_cplx = self . complexity ( value , cache ) ;"#
+                format!("match orig_step % {}", mutator_field_idents.len())
+                "{"
+                    fields_iter.clone().enumerate().map(|(i, (field, mutator_field))| {
                         format!(
                             r#"
                             {i} => {{
@@ -501,15 +504,15 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
                             m = mutator_field,
                             f = field
                         )
-                    }).collect::<Vec<_>>(),
-                    &"_ => unreachable ! ( ) ",
-                &"}",
-            &"}",
+                    }).collect::<Vec<_>>()
+                    "_ => unreachable ! ( ) "
+                "}"
+            "}"
 
-            &r#"fn unmutate ( & self , value : & mut Self :: Value , cache : & mut Self :: Cache , t : Self :: UnmutateToken )
+            r#"fn unmutate ( & self , value : & mut Self :: Value , cache : & mut Self :: Cache , t : Self :: UnmutateToken )
             {
-                cache . cplx = t . cplx ;"#,
-                &mutator_field_names.iter().zip(field_names.iter()).map(|(mutator_field, field)| {
+                cache . cplx = t . cplx ;"#
+                mutator_field_idents.iter().zip(field_names.iter()).map(|(mutator_field, field)| {
                     format!(r#"
                         if let Some ( subtoken ) = t . {m} {{
                             self . {m} . unmutate ( & mut value . {f} , & mut cache . {m} , subtoken ) ;
@@ -517,10 +520,10 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
                         f = field,
                         m = mutator_field
                     )
-                }).collect::<Vec<_>>(),
-            &"}",
-        &"}"
-    ]));
+                }).collect::<Vec<_>>()
+            "}"
+        "}"
+    );
     /*
 
     {
