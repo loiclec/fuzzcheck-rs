@@ -43,7 +43,7 @@ impl TokenBuilderExtend for TokenStream {
 impl TokenBuilderExtend for usize {
     #[inline(never)]
     fn add_to(&self, tb: &mut TokenBuilder) {
-        tb.extend_tree(Literal::usize_suffixed(*self));
+        tb.extend_tree(Literal::usize_unsuffixed(*self));
     }
 }
 impl TokenBuilderExtend for f64 {
