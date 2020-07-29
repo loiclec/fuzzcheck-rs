@@ -40,6 +40,18 @@ impl TokenBuilderExtend for TokenStream {
         tb.stream(self.clone());
     }
 }
+impl TokenBuilderExtend for usize {
+    #[inline(never)]
+    fn add_to(&self, tb: &mut TokenBuilder) {
+        tb.extend_tree(Literal::usize_suffixed(*self));
+    }
+}
+impl TokenBuilderExtend for f64 {
+    #[inline(never)]
+    fn add_to(&self, tb: &mut TokenBuilder) {
+        tb.extend_tree(Literal::f64_suffixed(*self));
+    }
+}
 impl<T> TokenBuilderExtend for Option<T> where T: TokenBuilderExtend {
     #[inline(never)]
     fn add_to(&self, tb: &mut TokenBuilder) {

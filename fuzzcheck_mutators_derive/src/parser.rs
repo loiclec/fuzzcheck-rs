@@ -123,7 +123,7 @@ pub struct LifetimeParam {
     pub ident: TokenStream,
     pub bounds: Option<TokenStream>,
 }
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct TypeParam {
     pub attributes: Vec<TokenStream>,
     pub type_ident: TokenStream,
@@ -264,19 +264,16 @@ impl TokenBuilderExtend for Generics {
     }
 }
 impl Generics {
-    pub fn removing_bounds_and_eq_type(&self) -> (Self, Vec<Option<TokenStream>>) {
-        let mut bounds = Vec::new();
+    pub fn removing_bounds_and_eq_type(&self) -> Self {
         let mut new = self.clone();
         for lifetime_param in new.lifetime_params.iter_mut() {
-            bounds.push(lifetime_param.bounds.clone());
             lifetime_param.bounds = None;
         }
         for type_param in new.type_params.iter_mut() {
-            bounds.push(type_param.bounds.clone());
             type_param.bounds = None;
             type_param.equal_ty = None;
         }
-        (new, bounds)
+        new
     }
 }
 impl TokenBuilderExtend for WhereClauseItem {

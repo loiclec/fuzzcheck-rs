@@ -9,7 +9,7 @@ mod parser;
 use crate::token_builder::*;
 use crate::parser::*;
 
-use proc_macro::{Ident, Literal, Span, TokenStream, TokenTree};
+use proc_macro::{Ident, Literal, Span, TokenStream};
 
 macro_rules! joined_token_streams {
     ($iter:expr, $sep:expr) => {
@@ -55,7 +55,7 @@ pub fn derive_mutator(input: TokenStream) -> TokenStream {
 
     if let Some(s) = parser.eat_struct() {
         derive_struct_mutator(s, &mut tb);
-    } else if let Some(e) = parser.eat_enumeration() {
+    } else if let Some(_) = parser.eat_enumeration() {
         // derive_enum_mutator(e, &mut tb)
     } else {
         extend_token_builder!(&mut tb,
@@ -79,37 +79,34 @@ fn derive_struct_mutator(parsed_struct: Struct, tb: &mut TokenBuilder) {
 }
 
 fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuilder) {
-    let fields = &parsed_struct.struct_fields;
 
-    let mutator_field_idents = fields
+    let field_idents = parsed_struct
+        .struct_fields
         .iter()
         .enumerate()
         .map(|(i, f)| {
             let x = if let Some(ident) = &f.identifier {
-                format!("_{}", ident)
+                ident.to_string()
             } else {
-                format!("_{}", i)
+                format!("{}", i)
             };
             Ident::new(&x, Span::call_site())
         })
         .collect::<Vec<_>>();
 
-    let field_names = parsed_struct
-        .struct_fields
+    let mutator_field_idents = field_idents
         .iter()
-        .enumerate()
-        .map(|(i, f)| {
-            if let Some(ident) = &f.identifier {
-                ident.to_string()
-            } else {
-                format!("{}", i)
-            }
+        .map(|x| {
+            let x = format!("_{}", x);
+            Ident::new(&x, Span::call_site())
         })
         .collect::<Vec<_>>();
 
     let generic_types_for_field = mutator_field_idents
         .iter()
         .map(|name| Ident::new(&format!("{}Type", name), Span::call_site()));
+
+    let generics_without_bounds = parsed_struct.generics.removing_bounds_and_eq_type();
 
     let basic_generics = Generics {
         lifetime_params: Vec::new(),
@@ -136,71 +133,19 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
         .collect::<Vec<_>>();
 
     let value_struct_ident_with_generic_params = token_stream!(
-        parsed_struct.ident parsed_struct.generics.clone().removing_bounds_and_eq_type().0
+        parsed_struct.ident generics_without_bounds
     );
 
-    let (
-        mutator_struct,
-        value_generics_with_bounds_moved_to_where_clause,
-        value_where_clause_with_added_items_from_generics,
-    ) = {
-        /*
-        generics: existing generics without the bounds + generic mutator type params
-        where_clause_items: existing where_clause + existing generic bounds + “Mutator” conditions
-        mutator_field_types: the generic types for the sub-mutators, one for each field
-        */
-        /*
-        1. remove the bounds from the existing generics
-        2. put those bounds on new where_clause_items
-        */
-        let (mut generics, mut where_clause_items): (Generics, Vec<WhereClauseItem>) = {
-            let generics = &parsed_struct.generics;
-            let (generics, bounds) = generics.removing_bounds_and_eq_type();
-            let where_clause_items = generics
-                .lifetime_params
-                .iter()
-                .map(|lp| lp.ident.clone())
-                .chain(generics.type_params.iter().map(|tp| tp.type_ident.clone()))
-                .zip(bounds.iter())
-                .filter_map(|(lhs, rhs)| if let Some(rhs) = rhs { Some((lhs, rhs)) } else { None })
-                .map(|(lhs, rhs)| WhereClauseItem {
-                    for_lifetimes: None,
-                    lhs,
-                    rhs: rhs.clone(),
-                })
-                .collect();
+    let mutator_struct = {
+        let mut generics = parsed_struct.generics.clone();
 
-            (generics, where_clause_items)
-        };
+        let mut where_clause_items = vec![];
 
-        let value_generics_with_bounds_moved_to_where_clause = generics.clone();
-
-        /*
-        3. extend the existing where_clause_items with those found in 2.
-        */
-        if let Some(where_clause) = &parsed_struct.where_clause {
-            where_clause_items.extend(where_clause.items.iter().cloned());
-        }
-        let value_where_clause_with_added_items_from_generics = if where_clause_items.is_empty() {
-            None
-        } else {
-            Some(WhereClause {
-                items: where_clause_items.clone(),
-            })
-        };
-
-        /*
-        4. for each field, add a generic parameter for its mutator as well as a where_clause_item
-           ensuring it impls the Mutator trait and that it impls the Clone trait
-        */
         for (field, generic_ty_for_field) in parsed_struct.struct_fields.iter().zip(generic_types_for_field.clone()) {
-            let ty_param = TypeParam {
-                attributes: Vec::new(),
+            generics.type_params.push(TypeParam {
                 type_ident: token_stream!(generic_ty_for_field),
-                bounds: None,
-                equal_ty: None,
-            };
-            generics.type_params.push(ty_param);
+                ..TypeParam::default()
+            });
             where_clause_items.push(WhereClauseItem {
                 for_lifetimes: None,
                 lhs: field.ty.clone(),
@@ -212,18 +157,12 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
                 rhs: token_stream!("fuzzcheck_mutators :: fuzzcheck_traits :: Mutator < Value = " field.ty ">"),
             });
         }
-        /* 5. also add requirement that the whole value is Clone */
+
         where_clause_items.push(WhereClauseItem {
             for_lifetimes: None,
             lhs: value_struct_ident_with_generic_params.clone(),
             rhs: token_stream!(":: core :: clone :: Clone"),
         });
-
-        let main_mutator_where_clause = {
-            WhereClause {
-                items: where_clause_items,
-            }
-        };
 
         let mut mutator_struct_fields = basic_fields.clone();
         mutator_struct_fields.push(StructField {
@@ -233,18 +172,14 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
             ty: token_stream!("fuzzcheck_mutators :: fastrand :: Rng"),
         });
 
-        (
-            Struct {
-                visibility: parsed_struct.visibility.clone(),
-                ident: Ident::new(&format!("{}Mutator", parsed_struct.ident), Span::call_site()),
-                generics,
-                kind: StructKind::Struct,
-                where_clause: Some(main_mutator_where_clause),
-                struct_fields: mutator_struct_fields,
-            },
-            value_generics_with_bounds_moved_to_where_clause,
-            value_where_clause_with_added_items_from_generics,
-        )
+        Struct {
+            visibility: parsed_struct.visibility.clone(),
+            ident: Ident::new(&format!("{}Mutator", parsed_struct.ident), Span::call_site()),
+            generics,
+            kind: StructKind::Struct,
+            where_clause: Some(WhereClause { items: where_clause_items }),
+            struct_fields: mutator_struct_fields,
+        }
     };
 
     tb.extend(&mutator_struct);
@@ -329,58 +264,58 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
 
     // default impl for unmutate token
     extend_token_builder!(tb,
-        "impl" unmutate_token_struct.generics ":: core :: default :: Default for" unmutate_token_struct.ident unmutate_token_struct.generics "{"
-            "fn default ( ) -> Self {"
+        "impl" unmutate_token_struct.generics ":: core :: default :: Default for" unmutate_token_struct.ident unmutate_token_struct.generics "{
+            fn default ( ) -> Self {"
                 mutator_field_idents.iter().map(|m|
                     token_stream!(m ": None ,")
                 ).collect::<Vec<_>>()
-            "}"
-        "}"
+            "}
+        }"
     );
 
-    let fields_iter = field_names.iter().zip(mutator_field_idents.iter());
+    let fields_iter = field_idents.iter().zip(mutator_field_idents.iter());
 
     // implementation of Mutator trait
     extend_token_builder!(tb,
         "impl" mutator_struct.generics "fuzzcheck_mutators :: fuzzcheck_traits :: Mutator for"
-            mutator_struct.ident mutator_struct.generics mutator_struct.where_clause
-        "{"
-            "type Value = " value_struct_ident_with_generic_params ";"
-            "type Cache = " mutator_cache_struct.ident
+            mutator_struct.ident mutator_struct.generics.removing_bounds_and_eq_type() mutator_struct.where_clause
+        "{
+            type Value = " value_struct_ident_with_generic_params ";
+            type Cache = " mutator_cache_struct.ident
                 mutator_cache_struct.generics.mutating_type_params(|tp|
                     tp.type_ident = token_stream!("<" tp.type_ident "as fuzzcheck_mutators :: fuzzcheck_traits :: Mutator > :: Cache")
                 )
-                ";"
+                ";
             
-            "type MutationStep = "
+            type MutationStep = "
                 mutator_step_struct.ident
                 mutator_step_struct.generics.mutating_type_params(|tp|
                     tp.type_ident = token_stream!("<" tp.type_ident "as fuzzcheck_mutators :: fuzzcheck_traits :: Mutator > :: Cache")
                 )
-                ";"
+                ";
 
-            "type UnmutateToken = "
+            type UnmutateToken = "
                 unmutate_token_struct.ident
                 unmutate_token_struct.generics.mutating_type_params(|tp|
                     tp.type_ident = token_stream!("<" tp.type_ident "as fuzzcheck_mutators :: fuzzcheck_traits :: Mutator > :: UnmutateToken")
                 )
-                ";"
+                ";
 
-            "fn max_complexity ( & self ) -> f64 {"
+            fn max_complexity ( & self ) -> f64 {"
                 joined_token_streams!(mutator_field_idents.iter().map(|field_name| {
                     token_stream!("self . " field_name ". max_complexity ( )")
                 }), "+")
-            "}"
+            "}
 
-            "fn min_complexity ( & self ) -> f64 {"
+            fn min_complexity ( & self ) -> f64 {"
                 joined_token_streams!(mutator_field_idents.iter().map(|field_name| {
                     token_stream!("self . " field_name ". min_complexity ( )")
                 }), "+")
-            "}"
+            "}
             
-            "fn complexity ( & self , value : & Self :: Value , cache : & Self :: Cache ) -> f64 { cache . cplx }"
+            fn complexity ( & self , value : & Self :: Value , cache : & Self :: Cache ) -> f64 { cache . cplx }
 
-            "fn cache_from_value ( & self , value : & Self :: Value ) -> Self :: Cache {"
+            fn cache_from_value ( & self , value : & Self :: Value ) -> Self :: Cache {"
                 // declare all subcaches
                 fields_iter.clone().map(|(f, m)| {
                     token_stream!("let" m "= self ." m ". cache_from_value ( & value ." f ") ;")
@@ -392,140 +327,118 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
                 
                 "Self :: Cache {"
                     joined_token_streams!(mutator_field_idents.iter(), ",")
-                    "cplx"
-                "}"
-            "}"
+                    "cplx
+                }
+            }
 
-            "fn initial_step_from_value ( & self , value : & Self :: Value ) -> Self :: MutationStep {"
+            fn initial_step_from_value ( & self , value : & Self :: Value ) -> Self :: MutationStep {"
                 // init all substeps
                 fields_iter.clone().map(|(f, m)| {
                     token_stream!("self . " m ". initial_step_from_value ( & value ." f ") ;")
                 }).collect::<Vec<_>>()
 
-                "let step = 0"
+                "let step = 0
 
-                "Self :: MutationStep {"
+                Self :: MutationStep {"
                     joined_token_streams!(mutator_field_idents.iter(), ",")
-                    "step"
-                "}"
-            "}"
+                    "step
+                }
+            }
 
-            r#"fn ordered_arbitrary ( & mut self , _seed : usize , max_cplx : f64 ) -> Option < ( Self :: Value , Self :: Cache ) > {
+            fn ordered_arbitrary ( & mut self , _seed : usize , max_cplx : f64 ) -> Option < ( Self :: Value , Self :: Cache ) > {
                 Some ( self . random_arbitrary ( max_cplx ) )
-            }"#
-            
-            // some parts were easier to write as a format string
-            format!(r##"
-            "fn random_arbitrary ( & mut self , max_cplx : f64 ) -> ( Self :: Value , Self :: Cache ) {{
-                {subvals_decl}
+            }
 
-                let mut indices = ( 0 .. {nbr_fields} ) . collect :: < Vec < _ > > ( ) ;
+            fn random_arbitrary ( & mut self , max_cplx : f64 ) -> ( Self :: Value , Self :: Cache ) {"
+                mutator_field_idents.iter().map(|mutator_field| {
+                    format!("
+                        let mut {m}_value : Option < _ > = None ;
+                        let mut {m}_cache : Option < _ > = None ;
+                        ", m = mutator_field)
+                    }
+                ).collect::<Vec<_>>()
+                "let mut indices = ( 0 .. " mutator_field_idents.len() ") . collect :: < Vec < _ > > ( ) ;
                 fuzzcheck_mutators :: fastrand :: shuffle ( & mut indices ) ;
                 let seed = fuzzcheck_mutators :: fastrand :: usize ( .. ) ;
                 let mut cplx = f64 :: default ( ) ;
 
-                for idx in indices . iter ( ) {{
-                    match idx {{
-                        {body_match}
-                        _ => unreachable ! ( )
-                    }}
-                }}
-                ((
-                    Self :: Value {{
-                        {values}
-                    }} ,
-                    Self :: Cache {{
-                        {caches} ,
-                        cplx ,
-                    }} ,
-                ))
-            }}
-            "##, 
-            subvals_decl = mutator_field_idents.iter().map(|mutator_field| {
-                format!(r#"
-                    let mut {m}_value : Option < _ > = None ;
-                    let mut {m}_cache : Option < _ > = None ;
-                    "#, m = mutator_field)
-                }).collect::<Vec<_>>().join(""),
+                for idx in indices . iter ( ) {
+                    match idx {"
+                    mutator_field_idents.iter().enumerate().map(|(idx, mutator_field)| {
+                        format!(
+                            "
+                            {i} => {{ 
+                                let ( value , cache ) = self . {m} . random_arbitrary ( max_cplx - cplx ) ) ;
+                                cplx += self . {m} . complexity ( & value , & cache ) ; 
+        
+                                {m}_value = Some ( value ) ;
+                                {m}_cache = Some ( cache ) ;
+                            }}
+                            ",
+                                i = idx,
+                                m = mutator_field
+                            )
+                        }
+                    ).collect::<Vec<_>>()
+                            "_ => unreachable ! ( )
+                    }
+                }
+                (
+                    Self :: Value {"
+                        fields_iter.clone().map(|(f, m)| {
+                            format!("{f} : {m}_value . unwrap ( )", f = f, m = m)
+                        }).collect::<Vec<_>>()
+                    "},
+                    Self :: Cache {"
+                        mutator_field_idents.iter().map(|m| {
+                            format!("{m} : {m}_cache . unwrap ( )", m = m)
+                        }).collect::<Vec<_>>()
+                        "cplx 
+                    }
+                )
+            }
 
-            nbr_fields = mutator_field_idents.len(),
-
-            body_match = mutator_field_idents.iter().enumerate().map(|(idx, mutator_field)| {
-                format!(
-                    r#"
-                    {i} => {{ 
-                        let ( value , cache ) = self . {m} . random_arbitrary ( max_cplx - cplx ) ) ;
-                        cplx += self . {m} . complexity ( & value , & cache ) ; 
-
-                        {m}_value = Some ( value ) ;
-                        {m}_cache = Some ( cache ) ;
-                    }}
-                    "#,
-                        i = idx,
-                        m = mutator_field
-                    )
-                }).collect::<Vec<_>>().join(""),
-
-                values = fields_iter.clone().map(|(field, mutator_field)| {
-                    format!("{f} : {m}_value . unwrap ( )", f = field, m = mutator_field)
-                }).collect::<Vec<_>>().join(",") ,
-
-                caches = mutator_field_idents.iter().map(|mutator_field| {
-                    format!("{m} : {m}_cache . unwrap ( )", m = mutator_field)
-                }).collect::<Vec<_>>().join(",")
-            )
-
-            r#"fn mutate ( & mut self , value : & mut Self :: Value , cache : & mut Self :: Cache , step : & mut Self :: MutationStep , max_cplx : f64 ) -> Self :: UnmutateToken
+            fn mutate ( & mut self , value : & mut Self :: Value , cache : & mut Self :: Cache , step : & mut Self :: MutationStep , max_cplx : f64 ) -> Self :: UnmutateToken
             {
                 let orig_step = step . step ;
                 step . step += 1 ;
-                let current_cplx = self . complexity ( value , cache ) ;"#
-                format!("match orig_step % {}", mutator_field_idents.len())
-                "{"
-                    fields_iter.clone().enumerate().map(|(i, (field, mutator_field))| {
-                        format!(
-                            r#"
-                            {i} => {{
-                                let current_field_cplx = self . {m} . complexity ( & value . {f} , & cache . {m} ) ;
-                                let max_field_cplx = max_cplx - current_cplx - current_field_cplx ;
-                                let token = self
-                                    . {m}
-                                    . mutate ( & mut  value . {f} , & mut cache . {m} , & mut step . {m} , max_field_cplx ) ;
-                                let new_field_complexity = self . {m} . complexity ( & value . {f} , & cache . {m} ) ;
-                                cache . cplx = cache . cplx - current_field_cplx + new_field_complexity ;
-                                Self :: UnmutateToken {{
-                                    {m} : Some ( token ) ,
-                                    cplx : current_cplx ,
-                                    .. Self :: UnmutateToken :: default ( )
-                                }}
-                            }}
-                        "#,
-                            i = i,
-                            m = mutator_field,
-                            f = field
-                        )
-                    }).collect::<Vec<_>>()
-                    "_ => unreachable ! ( ) "
-                "}"
-            "}"
-
-            r#"fn unmutate ( & self , value : & mut Self :: Value , cache : & mut Self :: Cache , t : Self :: UnmutateToken )
-            {
-                cache . cplx = t . cplx ;"#
-                mutator_field_idents.iter().zip(field_names.iter()).map(|(mutator_field, field)| {
-                    format!(r#"
-                        if let Some ( subtoken ) = t . {m} {{
-                            self . {m} . unmutate ( & mut value . {f} , & mut cache . {m} , subtoken ) ;
-                        }}"#,
-                        f = field,
-                        m = mutator_field
+                let current_cplx = self . complexity ( value , cache ) ;
+                match orig_step % " mutator_field_idents.len() "{"
+                fields_iter.clone().enumerate().map(|(i, (f, m))| {
+                    token_stream!(
+                        i " => {"
+                            "let current_field_cplx = self ." m ". complexity ( & value ." f ", & cache ." m ") ;"
+                            "let max_field_cplx = max_cplx - current_cplx - current_field_cplx ;"
+                            "let token = self ." m ". mutate ( & mut  value ." f ", & mut cache ." m ", & mut step ." m ", max_field_cplx ) ;"
+                            "let new_field_complexity = self ." m ". complexity ( & value ." f ", & cache ." m ") ;"
+                            "cache . cplx = cache . cplx - current_field_cplx + new_field_complexity ;"
+                                "Self :: UnmutateToken {"
+                                    m ": Some ( token ) ,"
+                                    "cplx : current_cplx ,"
+                                    ".. Self :: UnmutateToken :: default ( )"
+                                "}"
+                        "}"
                     )
                 }).collect::<Vec<_>>()
-            "}"
-        "}"
-    );
-    /*
+                        "_ => unreachable ! ( )
+                }
+            }
 
+            fn unmutate ( & self , value : & mut Self :: Value , cache : & mut Self :: Cache , t : Self :: UnmutateToken )
+            {
+                cache . cplx = t . cplx ;"
+                fields_iter.map(|(f, m)| {
+                    token_stream!(
+                        "if let Some ( subtoken ) = t ." m "{"
+                            "self ." m ". unmutate ( & mut value ." f ", & mut cache ." m ", subtoken ) ;"
+                        "}"
+                    )
+                }).collect::<Vec<_>>()
+            "}
+        }"
+    );
+
+    /*
     {
         // implementation of Default trait when generic mutator params are Default
         let mut where_items = Vec::<WhereClauseItem>::new();
@@ -675,7 +588,7 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
         tb.add(";");
 
         tb.add(
-            r#"fn default_mutator ( ) -> Self :: Mutator {
+            "fn default_mutator ( ) -> Self :: Mutator {
             Self :: Mutator :: default ( )
         }"#,
         );
@@ -1252,7 +1165,7 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
 //                     }
 //                     tb.add(";");
 
-//                     tb.add(r#"XMutatorCache {
+//                     tb.add("XMutatorCache {
 //                         inner ,
 //                         cplx ,
 //                     }"#);
@@ -1261,7 +1174,7 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
 //                 } else {
 //                     tb.add("=>");
 //                     tb.push_group(Delimiter::Brace);
-//                     tb.add(&format!(r#"XMutatorCache {{
+//                     tb.add(&format!("XMutatorCache {{
 //                         inner : XInnerMutatorCache :: {} ,"#
 //                         , item.ident
 //                     ));
@@ -1319,7 +1232,7 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
 //                     tb.extend(Literal::u64_suffixed(0));
 //                     tb.add(";");
 
-//                     tb.add(r#"XMutationStep {
+//                     tb.add("XMutationStep {
 //                         inner ,
 //                         step ,
 //                     }"#);
@@ -1328,7 +1241,7 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
 //                 } else {
 //                     tb.add("=>");
 //                     tb.push_group(Delimiter::Brace);
-//                     tb.add(&format!(r#"XMutationStep {{
+//                     tb.add(&format!("XMutationStep {{
 //                         inner : XInnerMutationStep :: {} ,"#
 //                         , item.ident
 //                     ));
@@ -1385,7 +1298,7 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
 //                     tb.add("let step = self . rng . u64 ( .. ) ;");
 //                     tb.add(";");
 
-//                     tb.add(r#"XMutationStep {
+//                     tb.add("XMutationStep {
 //                         inner ,
 //                         step ,
 //                     }"#);
@@ -1394,7 +1307,7 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
 //                 } else {
 //                     tb.add("=>");
 //                     tb.push_group(Delimiter::Brace);
-//                     tb.add(&format!(r#"XMutationStep {{
+//                     tb.add(&format!("XMutationStep {{
 //                         inner : XInnerMutationStep :: {} ,"#
 //                         , item.ident
 //                     ));
