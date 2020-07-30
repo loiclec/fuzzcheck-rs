@@ -575,7 +575,7 @@ impl TokenParser {
                         }
                     }
                 } else {
-                    // struct struct
+                    // struct struct or empty struct
                     let where_clause = self.eat_where_clause();
                     if self.open_brace() {
                         let struct_fields = self.eat_struct_fields();
@@ -590,6 +590,15 @@ impl TokenParser {
                                 struct_fields,
                             });
                         }
+                    } else {
+                        return Some(Struct {
+                            visibility,
+                            ident,
+                            generics,
+                            kind: StructKind::Struct,
+                            where_clause,
+                            struct_fields: vec![],
+                        });
                     }
                 }
             }
