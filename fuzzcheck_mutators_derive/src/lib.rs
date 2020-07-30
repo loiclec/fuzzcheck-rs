@@ -53,6 +53,14 @@ macro_rules! token_stream {
     };
 }
 
+macro_rules! ident {
+    ($x:expr) => {
+        {
+            Ident::new($x, Span::call_site())
+        }
+    };
+}
+
 #[proc_macro_derive(HasDefaultMutator)]
 pub fn derive_mutator(input: TokenStream) -> TokenStream {
     let mut parser = TokenParser::new(input);
@@ -99,14 +107,13 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
     let mutator_field_idents = field_names
         .iter()
         .map(|x| {
-            let x = format!("_{}", x);
-            Ident::new(&x, Span::call_site())
+            ident!(&format!("_{}", x))
         })
         .collect::<Vec<_>>();
 
     let generic_types_for_field = mutator_field_idents
         .iter()
-        .map(|name| Ident::new(&format!("{}Type", name), Span::call_site()));
+        .map(|name| ident!(&format!("{}Type", name)));
 
     let generics_without_bounds = parsed_struct.generics.removing_bounds_and_eq_type();
 
@@ -115,10 +122,8 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
         type_params: generic_types_for_field
             .clone()
             .map(|ident| TypeParam {
-                attributes: Vec::new(),
                 type_ident: token_stream!(ident),
-                bounds: None,
-                equal_ty: None,
+                ..TypeParam::default()
             })
             .collect(),
     };
@@ -171,13 +176,13 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
         mutator_struct_fields.push(StructField {
             attributes: Vec::new(),
             visibility: Some(token_stream!("pub")),
-            identifier: Some(Ident::new("rng", Span::call_site())),
+            identifier: Some(ident!("rng")),
             ty: token_stream!("fuzzcheck_mutators :: fastrand :: Rng"),
         });
 
         Struct {
             visibility: parsed_struct.visibility.clone(),
-            ident: Ident::new(&format!("{}Mutator", parsed_struct.ident), Span::call_site()),
+            ident: ident!(&format!("{}Mutator", parsed_struct.ident)),
             generics,
             kind: StructKind::Struct,
             where_clause: Some(WhereClause { items: where_clause_items }),
@@ -192,12 +197,12 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
         cache_fields.push(StructField {
             attributes: Vec::new(),
             visibility: None,
-            identifier: Some(Ident::new("cplx", Span::call_site())),
+            identifier: Some(ident!("cplx")),
             ty: token_stream!("f64"),
         });
         Struct {
             visibility: parsed_struct.visibility.clone(),
-            ident: Ident::new(&format!("{}MutatorCache", parsed_struct.ident), Span::call_site()),
+            ident: ident!(&format!("{}MutatorCache", parsed_struct.ident)),
             generics: basic_generics.clone(),
             kind: StructKind::Struct,
             where_clause: None,
@@ -215,12 +220,12 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
         step_fields.push(StructField {
             attributes: Vec::new(),
             visibility: None,
-            identifier: Some(Ident::new("step", Span::call_site())),
+            identifier: Some(ident!("step")),
             ty: token_stream!("u64"),
         });
         Struct {
             visibility: parsed_struct.visibility.clone(),
-            ident: Ident::new(&format!("{}MutationStep", parsed_struct.ident), Span::call_site()),
+            ident: ident!(&format!("{}MutationStep", parsed_struct.ident)),
             generics: basic_generics.clone(),
             kind: StructKind::Struct,
             where_clause: None,
@@ -247,12 +252,12 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
         step_fields.push(StructField {
             attributes: Vec::new(),
             visibility: None,
-            identifier: Some(Ident::new("cplx", Span::call_site())),
+            identifier: Some(ident!("cplx")),
             ty: token_stream!("f64"),
         });
         Struct {
             visibility: parsed_struct.visibility.clone(),
-            ident: Ident::new(&format!("{}UnmutateToken", parsed_struct.ident), Span::call_site()),
+            ident: ident!(&format!("{}UnmutateToken", parsed_struct.ident)),
             generics: basic_generics,
             kind: StructKind::Struct,
             where_clause: None,
@@ -564,304 +569,201 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
 //     }
 // }
 
-// struct EnumItemDataForMutatorDerive {
-//     item: EnumItem, // Aa
-//     fields: Vec<EnumItemDataFieldForMutatorDerive>, // (u8, _Aa_0, _Aa_0_Type) or (pub x: u16, _Aa_x, _Aa_x_Type),  }
-// }
-// struct EnumItemDataFieldForMutatorDerive {
-//     field: StructField,
-//     name: Ident,
-//     mutator_ty: Ident,
-// }
+struct EnumItemDataForMutatorDerive {
+    item: EnumItem, // Aa
+    fields: Vec<EnumItemDataFieldForMutatorDerive>, // (u8, _Aa_0, _Aa_0_Type) or (pub x: u16, _Aa_x, _Aa_x_Type),  }
+}
+struct EnumItemDataFieldForMutatorDerive {
+    field: StructField,
+    name: Ident,
+    mutator_ty: Ident,
+}
 
-// fn derive_enum_mutator_with_items(parsed_enum: &Enum, tb: &mut TokenBuilder) {
-//     // let item_idents = parsed_enum
-//     //     .items
-//     //     .iter()
-//     //     .map(|f| f.ident.clone())
-//     //     .collect::<Vec<_>>();
+fn derive_enum_mutator_with_items(parsed_enum: &Enum, tb: &mut TokenBuilder) { 
+    let item_idents = parsed_enum
+        .items
+        .iter()
+        .map(|f| f.ident.clone())
+        .collect::<Vec<_>>();
 
-//     // let item_names = item_idents
-//     //     .iter()
-//     //     .map(|name| name.to_string())
-//     //     .collect::<Vec<_>>();
+    // let item_names = item_idents;
 
-//     // let fields_of_items = parsed_enum.items.iter().map(|item| {
-//     //     match &item.data {
-//     //         Some(EnumItemData::Discriminant(_)) | None => {
-//     //             todo!("generate mutator for enum item with no fields")
-//     //         }
-//     //         Some(EnumItemData::Struct(struct_kind, fields)) => {
+    let (basic_generics, items_for_derive, mutator_struct) = { // mutator struct
+        /*
+        generics: existing generics + generic mutator type params
+        where_clause_items: existing where_clause + “Mutator” conditions
+        mutator_field_types: the generic types for the sub-mutators, one for each field
+        */
+        let mut generics = parsed_enum.generics.removing_bounds_and_eq_type();
+        let mut where_clause = parsed_enum.where_clause.clone().unwrap_or_default();
+    
+        let items_for_derive = parsed_enum.items.iter().map(|item| {
+            EnumItemDataForMutatorDerive {
+                item: item.clone(),
+                fields: match &item.data {
+                    Some(EnumItemData::Struct(_, fields)) => {
+                        fields.iter().enumerate().map(|(i, field)| {
+                            let submutator_name = ident!(
+                                &format!(
+                                    "_{}_{}", 
+                                    item.ident, field.identifier.as_ref().map(Ident::to_string).unwrap_or(format!("{}", i))
+                                )
+                            );
+                            let submutator_type_ident = ident!(&format!("{}_Type", submutator_name));
+                            EnumItemDataFieldForMutatorDerive {
+                                field: field.clone(), 
+                                name: submutator_name, 
+                                mutator_ty: submutator_type_ident
+                            }
+                        }).collect::<Vec<_>>()
+                    }
+                    Some(EnumItemData::Discriminant(_)) => vec![],
+                    None => vec![]
+                }
+            }
+        }).collect::<Vec<_>>();
 
-//     //         }
-//     //     }
-//     // });
+        let fields_iter = items_for_derive.iter().flat_map(|item| item.fields.iter());
 
+        // the generic types corresponding to each field in each item
+        let basic_generics = Generics {
+            lifetime_params: Vec::new(),
+            type_params: fields_iter.clone().map(|x| &x.mutator_ty)
+                .map(|ident| TypeParam {
+                    type_ident: token_stream!(ident),
+                    ..TypeParam::default()
+                })
+                .collect(),
+        };
 
-//     let (basic_generics, items_for_derive, mutator_struct, value_struct_ident_with_generic_params) = { // mutator struct
-//         /*
-//         generics: existing generics without the bounds + generic mutator type params
-//         where_clause_items: existing where_clause + existing generic bounds + “Mutator” conditions
-//         mutator_field_types: the generic types for the sub-mutators, one for each field
-//         */
-//         /*
-//         1. remove the bounds from the existing generics
-//         2. put those bounds on new where_clause_items
-//         */
-//         let (mut generics, mut where_clause_items): (Generics, Vec<WhereClauseItem>) = {
-//             let generics = &parsed_enum.generics;
-//             let (generics, bounds) = generics.removing_bounds_and_eq_type();
-//             let where_clause_items = generics
-//                 .lifetime_params
-//                 .iter()
-//                 .map(|lp| lp.ident.clone())
-//                 .chain(generics.type_params.iter().map(|tp| tp.type_ident.clone()))
-//                 .zip(bounds.iter())
-//                 .filter_map(|(lhs, rhs)| if let Some(rhs) = rhs { Some((lhs, rhs)) } else { None })
-//                 .map(|(lhs, rhs)| WhereClauseItem {
-//                     for_lifetimes: None,
-//                     lhs,
-//                     rhs: rhs.clone(),
-//                 })
-//                 .collect();
+        let basic_fields = fields_iter.clone().map(|x| (&x.name, &x.mutator_ty))
+            .map(|(identifier, ty)| StructField {
+                attributes: Vec::new(),
+                visibility: Some(token_stream!("pub")),
+                identifier: Some(identifier.clone()),
+                ty: token_stream!(ty),
+            })
+            .collect::<Vec<_>>();
 
-//             (generics, where_clause_items)
-//         };
+        /*
+           for each field, add a generic parameter for its mutator as well as a where_clause_item
+           ensuring it impls the Mutator trait and that it impls the Clone trait
+        */
+        for EnumItemDataFieldForMutatorDerive { field, name: _, mutator_ty: submutator_ty } in fields_iter.clone() {
+            let ty_param = TypeParam {
+                attributes: Vec::new(),
+                type_ident: token_stream!(submutator_ty),
+                bounds: None,
+                equal_ty: None,
+            };
+            generics.type_params.push(ty_param);
+            where_clause.items.push(WhereClauseItem {
+                for_lifetimes: None,
+                lhs: field.ty.clone(),
+                rhs: token_stream!(":: core :: clone :: Clone"),
+            });
+            where_clause.items.push(WhereClauseItem {
+                for_lifetimes: None,
+                lhs: token_stream!(submutator_ty),
+                rhs: token_stream!("fuzzcheck_mutators :: fuzzcheck_traits :: Mutator < Value = " field.ty ">"),
+            });
+        }
+        /* also add requirement that the whole value is Clone */
+        where_clause.items.push(WhereClauseItem {
+            for_lifetimes: None,
+            lhs: token_stream!(parsed_enum.ident parsed_enum.generics.removing_bounds_and_eq_type()),
+            rhs: token_stream!(":: core :: clone :: Clone"),
+        });
 
+        let mut mutator_struct_fields = basic_fields.clone();
+        mutator_struct_fields.push(StructField {
+            attributes: Vec::new(),
+            visibility: Some(token_stream!("pub")),
+            identifier: Some(ident!("rng")),
+            ty: token_stream!("fuzzcheck_mutators :: fastrand :: Rng"),
+        });
 
-//         /*
-//         3. extend the existing where_clause_items with those found in 2.
-//         */
-//         if let Some(where_clause) = &parsed_enum.where_clause {
-//             where_clause_items.extend(where_clause.items.iter().cloned());
-//         }
-//         // let value_where_clause_with_added_items_from_generics = if where_clause_items.is_empty() {
-//         //     None
-//         // } else {
-//         //     Some(WhereClause {
-//         //         items: where_clause_items.clone(),
-//         //     })
-//         // };
+        (basic_generics, items_for_derive, Struct {
+            visibility: parsed_enum.visibility.clone(),
+            ident: ident!(&format!("{}Mutator", parsed_enum.ident)),
+            generics,
+            kind: StructKind::Struct,
+            where_clause: Some(where_clause),
+            struct_fields: mutator_struct_fields,
+        })
+    };
+    extend_token_builder!(tb, mutator_struct);
 
-//         let items_for_derive = parsed_enum.items.iter().map(|item| {
-//             EnumItemDataForMutatorDerive {
-//                 item: item.clone(),
-//                 fields: match &item.data {
-//                     Some(EnumItemData::Struct(_, fields)) => {
-//                         fields.iter().enumerate().map(|(i, field)| {
-//                             let submutator_name = {
-//                                 Ident::new(
-//                                     &format!(
-//                                         "_{}_{}", 
-//                                         item.ident, field.clone().identifier.map(|ident| ident.to_string()).unwrap_or(
-//                                             format!("{}", i)
-//                                         )
-//                                     ), 
-//                                     Span::call_site()
-//                                 )
-//                             };
-//                             let submutator_type_ident = {
-//                                 Ident::new(
-//                                     &format!("{}_Type", submutator_name), 
-//                                     Span::call_site()
-//                                 )
-//                             };
-//                             EnumItemDataFieldForMutatorDerive {
-//                                 field: field.clone(), 
-//                                 name: submutator_name, 
-//                                 mutator_ty: submutator_type_ident
-//                             }
-//                         }).collect::<Vec<_>>()
-//                     }
-//                     Some(EnumItemData::Discriminant(_)) => vec![],
-//                     None => vec![]
-//                 }
-//             }
-//         }).collect::<Vec<_>>();
+    /*
+        the enum items to use for “Inner” version of mutator types
+        e.g. if the original enum is:
+        enum X {
+            Aa(u8, u16)
+            Bb { x: bool }
+            Cc
+        }
+        then the inner items are:
+            Aa { _0: _Aa_0_Type, _1: _Aa_1_Type }
+            Bb { _x: _Bb_x_Type }
+            Cc
+    */
+    let inner_items = items_for_derive.iter().map(|item| {
+        EnumItem {
+            attributes: Vec::new(),
+            ident: item.item.ident.clone(),
+            data: if item.fields.is_empty() { None } else { 
+                Some(EnumItemData::Struct(
+                    StructKind::Struct, 
+                    item.fields.iter().map(|field| {
+                        StructField {
+                            identifier: Some(field.name.clone()),
+                            ty: token_stream!(field.mutator_ty),
+                            ..StructField::default()
+                        }
+                    }).collect()
+                ))
+            },
+        }
+    }).collect::<Vec<_>>();
 
-//         let basic_generics = Generics {
-//             lifetime_params: Vec::new(),
-//             type_params: items_for_derive.iter().flat_map(|item| item.fields.iter()).map(|x| x.mutator_ty.clone())
-//                 .map(|ident| TypeParam {
-//                     attributes: Vec::new(),
-//                     type_ident: TokenTree::Ident(ident).into(),
-//                     bounds: None,
-//                     equal_ty: None,
-//                 })
-//                 .collect(),
-//         };
+    let (cache_enum, cache_struct) = { // mutator cache
+        let cache_enum = Enum {
+            visibility: parsed_enum.visibility.clone(),
+            ident: ident!(&format!("{}InnerMutatorCache", parsed_enum.ident.clone())),
+            generics: basic_generics.clone(),
+            where_clause: None,
+            items: inner_items.clone(),
+         };
 
-//         let basic_fields = items_for_derive.iter().flat_map(|item| item.fields.iter()).map(|x| (x.name.clone(), x.mutator_ty.clone()))
-//             .map(|(identifier, ty)| StructField {
-//                 attributes: Vec::new(),
-//                 visibility: {
-//                     let mut tb = TokenBuilder::new();
-//                     tb.add("pub");
-//                     Some(tb.end())
-//                 },
-//                 identifier: Some(identifier.clone()),
-//                 ty: TokenTree::Ident(ty.clone()).into(),
-//             })
-//             .collect::<Vec<_>>();
-
-//         let value_struct_ident_with_generic_params = {
-//             let mut tb = TokenBuilder::new();
-//             tb.extend(parsed_enum.ident.clone());
-//             let generic_args = parsed_enum
-//                 .generics
-//                 .clone()
-//                 .removing_bounds_and_eq_type()
-//                 .0
-//                 .to_token_stream();
-//             tb.stream(generic_args);
-//             tb.end()
-//         };
-
-//         /*
-//         4. for each field, add a generic parameter for its mutator as well as a where_clause_item
-//            ensuring it impls the Mutator trait and that it impls the Clone trait
-//         */
-//         for EnumItemDataFieldForMutatorDerive { field, name: _, mutator_ty: generic_ty_for_field } in items_for_derive.iter().flat_map(|item| item.fields.iter()) {
-//             let ty_param = TypeParam {
-//                 attributes: Vec::new(),
-//                 type_ident: TokenTree::Ident(generic_ty_for_field.clone()).into(),
-//                 bounds: None,
-//                 equal_ty: None,
-//             };
-//             generics.type_params.push(ty_param);
-//             where_clause_items.push(WhereClauseItem {
-//                 for_lifetimes: None,
-//                 lhs: field.ty.clone(),
-//                 rhs: {
-//                     let mut tb = TokenBuilder::new();
-//                     tb.add(":: core :: clone :: Clone");
-//                     tb.end()
-//                 },
-//             });
-//             where_clause_items.push(WhereClauseItem {
-//                 for_lifetimes: None,
-//                 lhs: TokenTree::Ident(generic_ty_for_field.clone()).into(),
-//                 rhs: {
-//                     let mut tb = TokenBuilder::new();
-//                     tb.add("fuzzcheck_mutators :: fuzzcheck_traits :: Mutator < Value = ");
-//                     tb.stream(field.ty.clone());
-//                     tb.add(">");
-//                     tb.end()
-//                 },
-//             });
-//         }
-//         /* 5. also add requirement that the whole value is Clone */
-//         where_clause_items.push(WhereClauseItem {
-//             for_lifetimes: None,
-//             lhs: value_struct_ident_with_generic_params.clone(),
-//             rhs: {
-//                 let mut tb = TokenBuilder::new();
-//                 tb.add(":: core :: clone :: Clone");
-//                 tb.end()
-//             },
-//         });
-
-//         let main_mutator_where_clause = {
-//             WhereClause {
-//                 items: where_clause_items,
-//             }
-//         };
-
-//         let mut mutator_struct_fields = basic_fields.clone();
-//         mutator_struct_fields.push(StructField {
-//             attributes: Vec::new(),
-//             visibility: {
-//                 let mut tb = TokenBuilder::new();
-//                 tb.add("pub");
-//                 Some(tb.end())
-//             },
-//             identifier: Some(Ident::new("rng", Span::call_site())),
-//             ty: {
-//                 let mut tb = TokenBuilder::new();
-//                 tb.add("fuzzcheck_mutators :: fastrand :: Rng");
-//                 tb.end()
-//             },
-//         });
-
-//         (basic_generics, items_for_derive, Struct {
-//             visibility: parsed_enum.visibility.clone(),
-//             ident: Ident::new(&format!("{}Mutator", parsed_enum.ident), Span::call_site()),
-//             generics,
-//             kind: StructKind::Struct,
-//             where_clause: Some(main_mutator_where_clause),
-//             struct_fields: mutator_struct_fields,
-//         }, value_struct_ident_with_generic_params)
-//     };
-
-//     tb.stream(mutator_struct.clone().to_token_stream());
-
-//     let inner_items = {
-//         let mut items = Vec::<EnumItem>::new();
-
-//         for item in &items_for_derive {
-//             items.push(EnumItem {
-//                 attributes: Vec::new(),
-//                 ident: item.item.ident.clone(),
-//                 data: if item.fields.is_empty() { None } else { 
-//                     Some(EnumItemData::Struct(
-//                         StructKind::Struct, 
-//                         item.fields.iter().map(|field| {
-//                             StructField {
-//                                 attributes: Vec::new(),
-//                                 visibility: None,
-//                                 identifier: Some(field.name.clone()),
-//                                 ty: TokenTree::Ident(field.mutator_ty.clone()).into(),
-//                             }
-//                         }).collect()
-//                     ))
-//                 },
-//             });
-//         }
-//         items
-//     };
-
-//     let (cache_enum, cache_struct) = { // mutator cache
-//         let cache_enum = Enum {
-//             visibility: parsed_enum.visibility.clone(),
-//             ident: Ident::new(&format!("{}InnerMutatorCache", parsed_enum.ident.clone()), Span::call_site()),
-//             generics: basic_generics.clone(),
-//             where_clause: None,
-//             items: inner_items.clone(),
-//          };
-
-//          let cache_struct = Struct {
-//              visibility: parsed_enum.visibility.clone(),
-//              ident: Ident::new(&format!("{}MutatorCache", parsed_enum.ident.clone()), Span::call_site()),
-//              generics: basic_generics.clone(),
-//              kind: StructKind::Struct,
-//              where_clause: None,
-//              struct_fields: vec![
-//                  StructField { 
-//                      attributes: Vec::new(), 
-//                      visibility: None, 
-//                      identifier: Some(Ident::new("inner", Span::call_site())),
-//                      ty: {
-//                         let mut tb = TokenBuilder::new();
-//                         tb.extend(cache_enum.ident.clone());
-//                         tb.stream(cache_enum.generics.clone().to_token_stream());
-//                         tb.end()
-//                      }
-//                 },
-//                 StructField { 
-//                     attributes: Vec::new(), 
-//                     visibility: None, 
-//                     identifier: Some(Ident::new("cplx", Span::call_site())),
-//                     ty: TokenTree::Ident(Ident::new("f64", Span::call_site())).into()
-//                }
-//              ],
+         let cache_struct = Struct {
+             visibility: parsed_enum.visibility.clone(),
+             ident: ident!(&format!("{}MutatorCache", parsed_enum.ident.clone())),
+             generics: basic_generics.clone(),
+             kind: StructKind::Struct,
+             where_clause: None,
+             struct_fields: vec![
+                 StructField { 
+                     identifier: Some(ident!("inner")),
+                     ty: token_stream!(cache_enum.ident cache_enum.generics),
+                     ..StructField::default()
+                },
+                StructField { 
+                    identifier: Some(ident!("cplx")),
+                    ty: token_stream!("f64"),
+                    ..StructField::default()
+               }
+             ],
             
-//          };
+         };
 
-//          (cache_enum, cache_struct)
-//     };
+         (cache_enum, cache_struct)
+    };
 
-//     tb.stream(cache_enum.clone().to_token_stream());
-//     tb.stream(cache_struct.clone().to_token_stream());
+    extend_token_builder!(tb,
+        cache_enum
+        cache_struct
+    );
+}
 
 //     let (step_enum, step_struct) = { // mutation step
 //         let step_enum = Enum {

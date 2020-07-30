@@ -92,7 +92,7 @@ pub struct Struct {
     pub where_clause: Option<WhereClause>,
     pub struct_fields: Vec<StructField>,
 }
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct StructField {
     pub attributes: Vec<TokenStream>,
     pub visibility: Option<TokenStream>,
@@ -141,7 +141,7 @@ pub struct WhereClauseItem {
     pub lhs: TokenStream,
     pub rhs: TokenStream,
 }
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct WhereClause {
     pub items: Vec<WhereClauseItem>,
 }
