@@ -28,9 +28,8 @@ macro_rules! join_token_streams {
     };
 }
 
-
 macro_rules! extend_token_builder {
-    ($tb:expr, $($part:expr) *) => { 
+    ($tb:expr, $($part:expr) *) => {
         {
             $(
                 $part.add_to($tb);
@@ -39,7 +38,7 @@ macro_rules! extend_token_builder {
     };
 }
 macro_rules! token_stream {
-    ($($part:expr) *) => { 
+    ($($part:expr) *) => {
         {
             #[allow(unused_mut)]
             let mut tb = TokenBuilder::new();
@@ -187,10 +186,9 @@ impl Generics {
 
 impl TokenBuilderExtend for Enum {
     fn add_to(&self, tb: &mut TokenBuilder) {
-
         extend_token_builder!(tb,
-            self.visibility "enum" self.ident self.generics self.where_clause 
-            "{" 
+            self.visibility "enum" self.ident self.generics self.where_clause
+            "{"
             join_token_streams!(&self.items, item,
                 item.attributes item.ident
                 match &item.data {
@@ -216,16 +214,14 @@ impl TokenBuilderExtend for Enum {
 
 impl TokenBuilderExtend for Struct {
     fn add_to(&self, tb: &mut TokenBuilder) {
-
-        let (first_where_clause_slot, second_where_clause_slot) =
-            if matches!(self.kind, StructKind::Struct) { 
-                (token_stream!(self.where_clause), token_stream!())
-            } else { 
-                (token_stream!(), token_stream!(self.where_clause))
-            };
+        let (first_where_clause_slot, second_where_clause_slot) = if matches!(self.kind, StructKind::Struct) {
+            (token_stream!(self.where_clause), token_stream!())
+        } else {
+            (token_stream!(), token_stream!(self.where_clause))
+        };
 
         extend_token_builder!(tb,
-            self.visibility "struct" self.ident self.generics 
+            self.visibility "struct" self.ident self.generics
             first_where_clause_slot
             self.kind.open()
             join_token_streams!(&self.struct_fields, _ , , ",")
@@ -266,7 +262,6 @@ impl TokenBuilderExtend for TypeParam {
 impl TokenBuilderExtend for Generics {
     fn add_to(&self, tb: &mut TokenBuilder) {
         if self.lifetime_params.is_empty() && self.type_params.is_empty() {
-
         } else {
             extend_token_builder!(tb,
                 "<"
@@ -688,7 +683,6 @@ impl TokenParser {
                     while let Some(item) = self.eat_enum_item() {
                         items.push(item);
                         if let Some(_) = self.eat_punct(',') {
-                            
                         } else {
                             break;
                         }

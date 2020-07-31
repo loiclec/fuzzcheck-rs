@@ -1,4 +1,3 @@
-
 use proc_macro::{Delimiter, Group, Ident, Literal, Punct, Spacing, Span, TokenStream, TokenTree};
 
 pub trait TokenBuilderExtend {
@@ -52,7 +51,10 @@ impl TokenBuilderExtend for f64 {
         tb.extend_tree(Literal::f64_suffixed(*self));
     }
 }
-impl<T> TokenBuilderExtend for Option<T> where T: TokenBuilderExtend {
+impl<T> TokenBuilderExtend for Option<T>
+where
+    T: TokenBuilderExtend,
+{
     #[inline(never)]
     fn add_to(&self, tb: &mut TokenBuilder) {
         if let Some(x) = self {
@@ -60,7 +62,10 @@ impl<T> TokenBuilderExtend for Option<T> where T: TokenBuilderExtend {
         }
     }
 }
-impl<T> TokenBuilderExtend for Vec<T> where T: TokenBuilderExtend {
+impl<T> TokenBuilderExtend for Vec<T>
+where
+    T: TokenBuilderExtend,
+{
     #[inline(never)]
     fn add_to(&self, tb: &mut TokenBuilder) {
         for x in self.iter() {
@@ -161,7 +166,9 @@ impl TokenBuilder {
                                     _ => (),
                                 }
                             }
-                            self.extend_tree(TokenTree::from(Literal::usize_unsuffixed(part.parse().expect(INTEGER_ERROR))))
+                            self.extend_tree(TokenTree::from(Literal::usize_unsuffixed(
+                                part.parse().expect(INTEGER_ERROR),
+                            )))
                         }
                         '\'' => {
                             if let Some('\'') = chars.last() {
