@@ -68,8 +68,8 @@ pub fn derive_mutator(input: TokenStream) -> TokenStream {
 
     if let Some(s) = parser.eat_struct() {
         derive_struct_mutator(s, &mut tb);
-    } else if let Some(_) = parser.eat_enumeration() {
-        // derive_enum_mutator(e, &mut tb)
+    } else if let Some(e) = parser.eat_enumeration() {
+        derive_enum_mutator(e, &mut tb)
     } else {
         extend_token_builder!(&mut tb,
             "compile_error ! ("
@@ -123,7 +123,7 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
             .clone()
             .map(|ident| TypeParam {
                 type_ident: token_stream!(ident),
-                ..TypeParam::default()
+                ..<_>::default()
             })
             .collect(),
     };
@@ -152,7 +152,7 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
         for (field, generic_ty_for_field) in parsed_struct.struct_fields.iter().zip(generic_types_for_field.clone()) {
             generics.type_params.push(TypeParam {
                 type_ident: token_stream!(generic_ty_for_field),
-                ..TypeParam::default()
+                ..<_>::default()
             });
             where_clause_items.push(WhereClauseItem {
                 for_lifetimes: None,
@@ -538,7 +538,7 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
             for field in parsed_struct.struct_fields.iter() {
                 type_params.push(TypeParam {
                     type_ident: token_stream!("<" field.ty "as fuzzcheck_mutators :: HasDefaultMutator > :: Mutator"),
-                    ..TypeParam::default()
+                    ..<_>::default()
                 });
             }
             Generics {
@@ -561,13 +561,13 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
     }
 }
 
-// fn derive_enum_mutator(parsed_enum: Enum, tb: &mut TokenBuilder) {
-//     if !parsed_enum.items.is_empty() {
-//         derive_enum_mutator_with_items(&parsed_enum, tb)
-//     } else {
-//         todo!("Build mutator for empty enum");
-//     }
-// }
+fn derive_enum_mutator(parsed_enum: Enum, tb: &mut TokenBuilder) {
+    if !parsed_enum.items.is_empty() {
+        derive_enum_mutator_with_items(&parsed_enum, tb)
+    } else {
+        todo!("Build mutator for empty enum");
+    }
+}
 
 struct EnumItemDataForMutatorDerive {
     item: EnumItem, // Aa
@@ -597,28 +597,33 @@ fn derive_enum_mutator_with_items(parsed_enum: &Enum, tb: &mut TokenBuilder) {
         let mut generics = parsed_enum.generics.removing_bounds_and_eq_type();
         let mut where_clause = parsed_enum.where_clause.clone().unwrap_or_default();
     
+        /*
+            items_for_derive contains the items of the enum plus some information about
+            their fields such as the name and type of the submutators associated with them
+        */
         let items_for_derive = parsed_enum.items.iter().map(|item| {
             EnumItemDataForMutatorDerive {
                 item: item.clone(),
-                fields: match &item.data {
-                    Some(EnumItemData::Struct(_, fields)) => {
-                        fields.iter().enumerate().map(|(i, field)| {
-                            let submutator_name = ident!(
-                                &format!(
-                                    "_{}_{}", 
-                                    item.ident, field.identifier.as_ref().map(Ident::to_string).unwrap_or(format!("{}", i))
-                                )
-                            );
-                            let submutator_type_ident = ident!(&format!("{}_Type", submutator_name));
-                            EnumItemDataFieldForMutatorDerive {
-                                field: field.clone(), 
-                                name: submutator_name, 
-                                mutator_ty: submutator_type_ident
-                            }
-                        }).collect::<Vec<_>>()
-                    }
-                    Some(EnumItemData::Discriminant(_)) => vec![],
-                    None => vec![]
+                fields: if let Some(EnumItemData::Struct(_, fields)) = &item.data {
+                    fields.iter().enumerate().map(|(i, field)| {
+                        let submutator_name = ident!(
+                            &format!(
+                                "_{}_{}", 
+                                item.ident, 
+                                field.identifier
+                                    .as_ref().map(<_>::to_string)
+                                    .unwrap_or(format!("{}", i))
+                            )
+                        );
+                        let submutator_type_ident = ident!(&format!("{}_Type", submutator_name));
+                        EnumItemDataFieldForMutatorDerive {
+                            field: field.clone(), 
+                            name: submutator_name, 
+                            mutator_ty: submutator_type_ident
+                        }
+                    }).collect::<Vec<_>>()
+                } else {
+                    vec![]
                 }
             }
         }).collect::<Vec<_>>();
@@ -631,7 +636,7 @@ fn derive_enum_mutator_with_items(parsed_enum: &Enum, tb: &mut TokenBuilder) {
             type_params: fields_iter.clone().map(|x| &x.mutator_ty)
                 .map(|ident| TypeParam {
                     type_ident: token_stream!(ident),
-                    ..TypeParam::default()
+                    ..<_>::default()
                 })
                 .collect(),
         };
@@ -651,10 +656,8 @@ fn derive_enum_mutator_with_items(parsed_enum: &Enum, tb: &mut TokenBuilder) {
         */
         for EnumItemDataFieldForMutatorDerive { field, name: _, mutator_ty: submutator_ty } in fields_iter.clone() {
             let ty_param = TypeParam {
-                attributes: Vec::new(),
                 type_ident: token_stream!(submutator_ty),
-                bounds: None,
-                equal_ty: None,
+                ..<_>::default()
             };
             generics.type_params.push(ty_param);
             where_clause.items.push(WhereClauseItem {
@@ -718,7 +721,7 @@ fn derive_enum_mutator_with_items(parsed_enum: &Enum, tb: &mut TokenBuilder) {
                         StructField {
                             identifier: Some(field.name.clone()),
                             ty: token_stream!(field.mutator_ty),
-                            ..StructField::default()
+                            ..<_>::default()
                         }
                     }).collect()
                 ))
@@ -745,12 +748,12 @@ fn derive_enum_mutator_with_items(parsed_enum: &Enum, tb: &mut TokenBuilder) {
                  StructField { 
                      identifier: Some(ident!("inner")),
                      ty: token_stream!(cache_enum.ident cache_enum.generics),
-                     ..StructField::default()
+                     ..<_>::default()
                 },
                 StructField { 
                     identifier: Some(ident!("cplx")),
                     ty: token_stream!("f64"),
-                    ..StructField::default()
+                    ..<_>::default()
                }
              ],
             
@@ -763,438 +766,279 @@ fn derive_enum_mutator_with_items(parsed_enum: &Enum, tb: &mut TokenBuilder) {
         cache_enum
         cache_struct
     );
-}
 
-//     let (step_enum, step_struct) = { // mutation step
-//         let step_enum = Enum {
-//             visibility: parsed_enum.visibility.clone(),
-//             ident: Ident::new(&format!("{}InnerMutationStep", parsed_enum.ident.clone()), Span::call_site()),
-//             generics: basic_generics.clone(),
-//             where_clause: None,
-//             items: inner_items.clone(),
-//          };
+    let (step_enum, step_struct) = { // mutation step
+        let step_enum = Enum {
+            visibility: parsed_enum.visibility.clone(),
+            ident: ident!(&format!("{}InnerMutationStep", parsed_enum.ident)),
+            generics: basic_generics.clone(),
+            where_clause: None,
+            items: inner_items.clone(),
+         };
 
-//          let field_inner = StructField {
-//              attributes: Vec::new(),
-//              visibility: None,
-//              identifier: Some(Ident::new("inner", Span::call_site())),
-//              ty: {
-//                  let mut tb = TokenBuilder::new();
-//                  tb.extend(step_enum.ident.clone());
-//                  tb.stream(step_enum.generics.clone().to_token_stream());
-//                  tb.end()
-//              },
-//          };
-//          let field_step = StructField {
-//             attributes: Vec::new(),
-//             visibility: None,
-//             identifier: Some(Ident::new("step", Span::call_site())),
-//             ty: {
-//                 let mut tb = TokenBuilder::new();
-//                 tb.add("u64");
-//                 tb.end()
-//             },
-//         };
+         let field_inner = StructField {
+             identifier: Some(ident!("inner")),
+             ty: token_stream!(step_enum.ident step_enum.generics),
+             ..<_>::default()
+         };
+         let field_step = StructField {
+            identifier: Some(ident!("step")),
+            ty: token_stream!("u64"),
+            ..<_>::default()
+        };
 
-//          let step_struct = Struct {
-//              visibility: parsed_enum.visibility.clone(),
-//              ident: Ident::new(&format!("{}MutationStep", parsed_enum.ident.clone()), Span::call_site()),
-//              generics: basic_generics.clone(),
-//              kind: StructKind::Struct,
-//              where_clause: None,
-//              struct_fields: vec![field_inner, field_step],
-//          };
+         let step_struct = Struct {
+             visibility: parsed_enum.visibility.clone(),
+             ident: ident!(&format!("{}MutationStep", parsed_enum.ident)),
+             generics: basic_generics.clone(),
+             kind: StructKind::Struct,
+             where_clause: None,
+             struct_fields: vec![field_inner, field_step],
+         };
 
-//          (step_enum, step_struct)
-//     };
+         (step_enum, step_struct)
+    };
 
-//     tb.stream(step_enum.clone().to_token_stream());
-//     tb.stream(step_struct.clone().to_token_stream());
+    extend_token_builder!(tb,
+        step_enum
+        step_struct
+    );
 
-//     let unmutate_enum = {
-//         let unmutate_enum = Enum {
-//             visibility: parsed_enum.visibility.clone(),
-//             ident: Ident::new(&format!("{}UnmutateToken", parsed_enum.ident.clone()), Span::call_site()),
-//             generics: basic_generics.clone(),
-//             where_clause: None,
-//             items: inner_items.clone().into_iter().map(|inner_item| {
-//                 EnumItem {
-//                     attributes: inner_item.attributes,
-//                     ident: inner_item.ident,
-//                     data: match inner_item.data {
-//                         Some(EnumItemData::Struct(kind, fields)) => {
-//                             Some(EnumItemData::Struct(kind, fields.into_iter().map(|field| {
-//                                 StructField {
-//                                     attributes: field.attributes,
-//                                     visibility: field.visibility,
-//                                     identifier: field.identifier,
-//                                     ty: {
-//                                         let mut tb = TokenBuilder::new();
-//                                         tb.add(":: std :: option :: Option :: <");
-//                                         tb.stream(field.ty);
-//                                         tb.add(">");
-//                                         tb.end()
-//                                     },
-//                                 }
-//                             }).collect()))
-//                         }
-//                         data @ Some(EnumItemData::Discriminant(_)) | data @ None => { 
-//                             data
-//                         }
-//                     },
-//                 }
-//             }).collect(),
-//          };
-//          unmutate_enum
-//     };
 
-//     tb.stream(unmutate_enum.clone().to_token_stream());
+    let unmutate_enum = {
+        let unmutate_enum = Enum {
+            visibility: parsed_enum.visibility.clone(),
+            ident: ident!(&format!("{}UnmutateToken", parsed_enum.ident)),
+            generics: basic_generics.clone(),
+            where_clause: None,
+            items: inner_items.clone().into_iter().map(|inner_item| {
+                EnumItem {
+                    data: match inner_item.data {
+                        Some(EnumItemData::Struct(kind, fields)) => {
+                            Some(EnumItemData::Struct(kind, fields.into_iter().map(|field| {
+                                StructField {
+                                    ty: token_stream!(":: std :: option :: Option :: <" field.ty ">"),
+                                    .. field
+                                }
+                            }).collect()))
+                        }
+                        data @ Some(EnumItemData::Discriminant(_)) | data @ None => { 
+                            data
+                        }
+                    },
+                    .. inner_item
+                }
+            }).collect(),
+         };
+         unmutate_enum
+    };
 
-//     { // impl Mutator
-//         let generics = mutator_struct.generics.clone().to_token_stream();
-//         tb.add("impl");
-//         tb.stream(generics.clone());
-//         tb.add("fuzzcheck_mutators :: fuzzcheck_traits :: Mutator for");
-//         tb.extend(mutator_struct.ident.clone());
-//         tb.stream(generics);
-//         tb.stream_opt(mutator_struct.where_clause.clone().map(|wc| wc.to_token_stream()));
-//         tb.push_group(Delimiter::Brace);
+    tb.extend(&unmutate_enum);
 
-//         {
-//             // associated types
-//             tb.add("type Value = ");
-//             tb.stream(value_struct_ident_with_generic_params.clone());
-//             tb.add(";");
-
-//             tb.add("type Cache = ");
-//             let cache_struct_ident_with_generic_params = {
-//                 let mut tb = TokenBuilder::new();
-//                 tb.extend(cache_struct.ident.clone());
-//                 let generic_args = {
-//                     let mut g = cache_struct.generics.clone();
-//                     for tp in g.type_params.iter_mut() {
-//                         let mut tb = TokenBuilder::new();
-//                         tb.add("<");
-//                         tb.stream(tp.type_ident.clone());
-//                         tb.add(" as fuzzcheck_mutators :: fuzzcheck_traits :: Mutator > :: Cache");
-//                         tp.type_ident = tb.end();
-//                     }
-//                     g.to_token_stream()
-//                 };
-//                 tb.stream(generic_args);
-//                 tb.end()
-//             };
-//             tb.stream(cache_struct_ident_with_generic_params);
-//             tb.add(";");
-
-//             tb.add("type MutationStep = ");
-//             let mutator_step_struct_ident_with_generic_params = {
-//                 let mut tb = TokenBuilder::new();
-//                 tb.extend(step_struct.ident.clone());
-//                 let generic_args = {
-//                     let mut g = step_struct.generics.clone();
-//                     for tp in g.type_params.iter_mut() {
-//                         let mut tb = TokenBuilder::new();
-//                         tb.add("<");
-//                         tb.stream(tp.type_ident.clone());
-//                         tb.add(" as fuzzcheck_mutators :: fuzzcheck_traits :: Mutator > :: MutationStep");
-//                         tp.type_ident = tb.end();
-//                     }
-//                     g.to_token_stream()
-//                 };
-//                 tb.stream(generic_args);
-//                 tb.end()
-//             };
-//             tb.stream(mutator_step_struct_ident_with_generic_params);
-//             tb.add(";");
-
-//             tb.add("type UnmutateToken = ");
-//             let unmutate_token_struct_ident_with_generic_params = {
-//                 let mut tb = TokenBuilder::new();
-//                 tb.extend(unmutate_enum.ident.clone());
-//                 let generic_args = {
-//                     let mut g = unmutate_enum.generics.clone();
-//                     for tp in g.type_params.iter_mut() {
-//                         let mut tb = TokenBuilder::new();
-//                         tb.add("<");
-//                         tb.stream(tp.type_ident.clone());
-//                         tb.add(" as fuzzcheck_mutators :: fuzzcheck_traits :: Mutator > :: UnmutateToken");
-//                         tp.type_ident = tb.end();
-//                     }
-//                     g.to_token_stream()
-//                 };
-//                 tb.stream(generic_args);
-//                 tb.end()
-//             };
-//             tb.stream(unmutate_token_struct_ident_with_generic_params);
-//             tb.add(";");
-//         }
-
-//         let cplx_choose_item = ((parsed_enum.items.len() as f64).log2() * 100.0).round() / 100.0;
-//         let cplx_choose_item_literal = TokenTree::Literal(Literal::f64_suffixed(cplx_choose_item));
-
-//         {
-//             // max_complexity
-//             tb.add("fn max_complexity ( & self ) -> f64 { ");
-            
-//             tb.extend(cplx_choose_item_literal.clone());
-//             if items_for_derive.iter().find(|item| !item.fields.is_empty()).is_some() {
-//                 tb.add("+ core :: cmp :: max ( ");
-//                 for item_data in items_for_derive.iter().filter(|item| !item.fields.is_empty()) {
-//                     let mut mutator_field_names_iter = item_data.fields.iter().map(|field| field.name.clone());
-//                     if let Some(fst_field_name) = mutator_field_names_iter.next() {
-//                         tb.add(&format!("self . {} . max_complexity ( ) ", fst_field_name));
-//                     }
-//                     for field_name in mutator_field_names_iter {
-//                         tb.add(&format!("+ self . {} . max_complexity ( ) ", field_name));
-//                     }
-//                     tb.add(",");
-//                 }
-//                 tb.add(")");
-//             }
-
-//             tb.add("}");
-//         }
-
-//         {
-//             // min_complexity
-//             tb.add("fn min_complexity ( & self ) -> f64 { ");
-            
-//             tb.extend(cplx_choose_item_literal.clone());
-//             if items_for_derive.iter().find(|item| !item.fields.is_empty()).is_some() {
-//                 tb.add("+ core :: cmp :: min ( ");
-//                 for item_data in items_for_derive.iter().filter(|item| !item.fields.is_empty()) {
-//                     let mut mutator_field_names_iter = item_data.fields.iter().map(|field| field.name.clone());
-//                     if let Some(fst_field_name) = mutator_field_names_iter.next() {
-//                         tb.add(&format!("self . {} . min_complexity ( ) ", fst_field_name));
-//                     }
-//                     for field_name in mutator_field_names_iter {
-//                         tb.add(&format!("+ self . {} . min_complexity ( ) ", field_name));
-//                     }
-//                     tb.add(",");
-//                 }
-//                 tb.add(")");
-//             }
-
-//             tb.add("}");
-//         }
-
-//         {
-//             // complexity
-//             tb.add(
-//                 "fn complexity ( & self , value : & Self :: Value , cache : & Self :: Cache ) -> f64 { cache . cplx }",
-//             );
-//         }
+    { // impl Mutator
+        let parsed_enum_generics_without_bounds = parsed_enum.generics.removing_bounds_and_eq_type();
+        let mutator_struct_generics_without_bounds = mutator_struct.generics.removing_bounds_and_eq_type();
         
-//         { // cache from value
-//             tb.add("fn cache_from_value ( & self , value : & Self :: Value ) -> Self :: Cache");
-//             tb.push_group(Delimiter::Brace);
+        let cplx_choose_item = ((parsed_enum.items.len() as f64).log2() * 100.0).round() / 100.0;
+        let enum_has_fields = items_for_derive.iter().find(|item| !item.fields.is_empty()).is_some();
 
-//             tb.add("match value");
-//             tb.push_group(Delimiter::Brace);
-//             for (item_for_derive, item) in items_for_derive.iter().zip(parsed_enum.items.iter()) {
-//                 tb.add(&format!("{} :: {}", parsed_enum.ident, item.ident));
-//                 if let Some(EnumItemData::Struct(kind, _)) = &item.data {
-//                     let delimiter = match kind {
-//                         StructKind::Struct => Delimiter::Brace,
-//                         StructKind::Tuple => Delimiter::Parenthesis
-//                     };
-//                     tb.push_group(delimiter);
-//                     for field in item_for_derive.fields.iter() {
-//                         tb.extend(field.name.clone());
-//                         tb.add(",");
-//                     }
-//                     tb.pop_group(delimiter);
-//                     tb.add("=>");
-//                     tb.push_group(Delimiter::Brace);
+        let items_with_fields_iter = items_for_derive.iter().filter(|item| !item.fields.is_empty());
 
-//                     tb.add("let inner = ");
-//                     tb.add(&format!("XInnerMutatorCache :: {}", item.ident));
-//                     tb.push_group(Delimiter::Brace);
-//                     for field in item_for_derive.fields.iter() {
-//                         tb.extend(field.name.clone());
-//                         tb.add(&format!(": self . {name} . cache_from_value ( & {name} ) ,", name=field.name));
-//                     }
-//                     tb.pop_group(Delimiter::Brace);
-//                     tb.add(";");
+        extend_token_builder!(tb,
+            "impl" mutator_struct.generics "fuzzcheck_mutators :: fuzzcheck_traits :: Mutator for" 
+                mutator_struct.ident mutator_struct_generics_without_bounds mutator_struct.where_clause
+            "{
+                type Value = " parsed_enum.ident parsed_enum_generics_without_bounds ";
+                type Cache = " 
+                    cache_struct.ident cache_struct.generics.mutating_type_params(|tp| 
+                        tp.type_ident = token_stream!("<" tp.type_ident "as fuzzcheck_mutators :: fuzzcheck_traits :: Mutator > :: Cache")
+                    )
+                    ";
+                type MutationStep = " 
+                    step_struct.ident step_struct.generics.mutating_type_params(|tp| 
+                        tp.type_ident = token_stream!("<" tp.type_ident "as fuzzcheck_mutators :: fuzzcheck_traits :: Mutator > :: MutationStep")
+                    )
+                    ";
+                type UnmutateToken = " 
+                    unmutate_enum.ident unmutate_enum.generics.mutating_type_params(|tp|
+                        tp.type_ident = token_stream!("<" tp.type_ident "as fuzzcheck_mutators :: fuzzcheck_traits :: Mutator > :: UnmutateToken")
+                    )
+                ";
 
-//                     tb.add("let cplx = ");
-//                     tb.extend(cplx_choose_item_literal.clone());
-//                     for field in item_for_derive.fields.iter() {
-//                         tb.add(&format!("+ self . {name} . complexity ( & {name} ) ", name=field.name));
-//                     }
-//                     tb.add(";");
+                fn max_complexity ( & self ) -> f64 {"
+                    cplx_choose_item 
+                    if enum_has_fields {
+                        token_stream!(
+                            "+ [ "
+                                joined_token_streams!(items_with_fields_iter.clone().map(|item| {
+                                    joined_token_streams!(item.fields.iter().map(|field|
+                                        token_stream!("self ." field.name ". max_complexity ( ) ")
+                                    ), "+")
+                                }), ",")
+                            "] . iter ( ) . max ( )"
+                        )
+                    } else {
+                        token_stream!()
+                    }
+                "}
+                fn min_complexity ( & self ) -> f64 {"
+                    cplx_choose_item 
+                    if enum_has_fields {
+                        token_stream!(
+                            "+ ["
+                                joined_token_streams!(items_with_fields_iter.clone().map(|item| {
+                                    joined_token_streams!(item.fields.iter().map(|field|
+                                        token_stream!("self ." field.name ". min_complexity ( ) ")
+                                    ), "+")
+                                }), ",")
+                            "] . iter ( ) . min ( )"
+                        )
+                    } else {
+                        token_stream!()
+                    }
+                "}
+                fn complexity ( & self , value : & Self :: Value , cache : & Self :: Cache ) -> f64 { 
+                    cache . cplx 
+                }
 
-//                     tb.add("XMutatorCache {
-//                         inner ,
-//                         cplx ,
-//                     }"#);
+                fn cache_from_value ( & self , value : & Self :: Value ) -> Self :: Cache {
+                    match value {"
+                        items_for_derive.iter().map(|item| {
+                            if let Some(EnumItemData::Struct(kind, _)) = &item.item.data {
+                                token_stream!(
+                                    parsed_enum.ident "::" item.item.ident 
+                                    kind.open()
+                                        joined_token_streams!(item.fields.iter().map(|f| {
+                                            if let Some(ident) = &f.field.identifier {
+                                                token_stream!(ident ":" f.name)
+                                            } else {
+                                                token_stream!(f.name)
+                                            }
+                                        }), ",")
+                                    kind.close()
+                                    "=> {
+                                        let inner = XInnerMutatorCache :: " item.item.ident 
+                                        "{"
+                                            joined_token_streams!(item.fields.iter().map(|f| 
+                                                token_stream!(f.name ": self ." f.name ". cache_from_value ( &" f.name ")" )
+                                            ),",")
+                                        "} ;
+                                        let cplx = " cplx_choose_item 
+                                            item.fields.iter().map(|f| 
+                                                token_stream!("+ self ." f.name ". complexity ( &" f.name ", & inner . " f.name " )")
+                                            ).collect::<Vec<_>>()
+                                        ";
+                                        XMutatorCache {
+                                            inner ,
+                                            cplx ,
+                                        }
+                                    }"
+                                )
+                            } else {
+                                token_stream!(
+                                    parsed_enum.ident "::" item.item.ident "=> {
+                                        XMutatorCache {
+                                            inner : XInnerMutatorCache ::" item.item.ident ",
+                                            cplx : " cplx_choose_item "
+                                        }
+                                    }"
+                                )
+                            }
+                        }).collect::<Vec<_>>()
+                    "}
+                }
 
-//                     tb.pop_group(Delimiter::Brace);
-//                 } else {
-//                     tb.add("=>");
-//                     tb.push_group(Delimiter::Brace);
-//                     tb.add(&format!("XMutatorCache {{
-//                         inner : XInnerMutatorCache :: {} ,"#
-//                         , item.ident
-//                     ));
-//                     tb.add("cplx :");
-//                     tb.extend(cplx_choose_item_literal.clone());
-//                     tb.add("}");
+                fn initial_step_from_value ( & self , value : & Self :: Value ) -> Self :: MutationStep {
+                    match value {"
+                        items_for_derive.iter().map(|item| {
+                            if let Some(EnumItemData::Struct(kind, _)) = &item.item.data {
+                                token_stream!(
+                                    parsed_enum.ident "::" item.item.ident 
+                                    kind.open() 
+                                        joined_token_streams!(item.fields.iter().map(|f| {
+                                            if let Some(ident) = &f.field.identifier {
+                                                token_stream!(ident ":" f.name)
+                                            } else {
+                                                token_stream!(f.name)
+                                            }
+                                        }), ",")
+                                    kind.close()
+                                    "=> {
+                                        let inner = XInnerMutationStep :: " item.item.ident 
+                                        "{"
+                                            joined_token_streams!(item.fields.iter().map(|f| 
+                                                token_stream!(f.name ": self ." f.name ". initial_step_from_value ( &" f.name ")" )
+                                            ),",")
+                                        "} ;
+                                        let step = 0 ;
+                                        XMutationStep {
+                                            inner ,
+                                            step ,
+                                        }
+                                    }"
+                                )
+                            } else {
+                                token_stream!(
+                                    parsed_enum.ident "::" item.item.ident "=> {
+                                        XMutationStep {
+                                            inner : XInnerMutationStep ::" item.item.ident ",
+                                            step : 0
+                                        }
+                                    }"
+                                )
+                            }
+                        }).collect::<Vec<_>>()
+                    "}
+                }
 
-//                     tb.pop_group(Delimiter::Brace);
-//                 }
-
-//             }
-
-//             { // initial step from value
-                
-//             }
-
-//             tb.pop_group(Delimiter::Brace);
-
-//             tb.pop_group(Delimiter::Brace);
-//         }
-
-//         { // initial step from value
-//             tb.add("fn initial_step_from_value ( & self , value : & Self :: Value ) -> Self :: MutationStep");
-//             tb.push_group(Delimiter::Brace);
-
-//             tb.add("match value");
-//             tb.push_group(Delimiter::Brace);
-//             for (item_for_derive, item) in items_for_derive.iter().zip(parsed_enum.items.iter()) {
-//                 tb.add(&format!("{} :: {}", parsed_enum.ident, item.ident));
-//                 if let Some(EnumItemData::Struct(kind, _)) = &item.data {
-//                     let delimiter = match kind {
-//                         StructKind::Struct => Delimiter::Brace,
-//                         StructKind::Tuple => Delimiter::Parenthesis
-//                     };
-//                     tb.push_group(delimiter);
-//                     for field in item_for_derive.fields.iter() {
-//                         tb.extend(field.name.clone());
-//                         tb.add(",");
-//                     }
-//                     tb.pop_group(delimiter);
-//                     tb.add("=>");
-//                     tb.push_group(Delimiter::Brace);
-
-//                     tb.add("let inner = ");
-//                     tb.add(&format!("XInnerMutationStep :: {}", item.ident));
-//                     tb.push_group(Delimiter::Brace);
-//                     for field in item_for_derive.fields.iter() {
-//                         tb.extend(field.name.clone());
-//                         tb.add(&format!(": self . {name} . initial_step_from_value ( & {name} ) ,", name=field.name));
-//                     }
-//                     tb.pop_group(Delimiter::Brace);
-//                     tb.add(";");
-
-//                     tb.add("let step = ");
-//                     tb.extend(Literal::u64_suffixed(0));
-//                     tb.add(";");
-
-//                     tb.add("XMutationStep {
-//                         inner ,
-//                         step ,
-//                     }"#);
-
-//                     tb.pop_group(Delimiter::Brace);
-//                 } else {
-//                     tb.add("=>");
-//                     tb.push_group(Delimiter::Brace);
-//                     tb.add(&format!("XMutationStep {{
-//                         inner : XInnerMutationStep :: {} ,"#
-//                         , item.ident
-//                     ));
-//                     tb.add("step :");
-//                     tb.extend(Literal::u64_suffixed(0));
-//                     tb.add("}");
-
-//                     tb.pop_group(Delimiter::Brace);
-//                 }
-
-//             }
-
-//             { // initial step from value
-                
-//             }
-
-//             tb.pop_group(Delimiter::Brace);
-
-//             tb.pop_group(Delimiter::Brace);
-//         }
-
-//         { // random step from value
-//             tb.add("fn random_step_from_value ( & self , value : & Self :: Value ) -> Self :: MutationStep");
-//             tb.push_group(Delimiter::Brace);
-
-//             tb.add("match value");
-//             tb.push_group(Delimiter::Brace);
-//             for (item_for_derive, item) in items_for_derive.iter().zip(parsed_enum.items.iter()) {
-//                 tb.add(&format!("{} :: {}", parsed_enum.ident, item.ident));
-//                 if let Some(EnumItemData::Struct(kind, _)) = &item.data {
-//                     let delimiter = match kind {
-//                         StructKind::Struct => Delimiter::Brace,
-//                         StructKind::Tuple => Delimiter::Parenthesis
-//                     };
-//                     tb.push_group(delimiter);
-//                     for field in item_for_derive.fields.iter() {
-//                         tb.extend(field.name.clone());
-//                         tb.add(",");
-//                     }
-//                     tb.pop_group(delimiter);
-//                     tb.add("=>");
-//                     tb.push_group(Delimiter::Brace);
-
-//                     tb.add("let inner = ");
-//                     tb.add(&format!("XInnerMutationStep :: {}", item.ident));
-//                     tb.push_group(Delimiter::Brace);
-//                     for field in item_for_derive.fields.iter() {
-//                         tb.extend(field.name.clone());
-//                         tb.add(&format!(": self . {name} . random_step_from_value ( & {name} ) ,", name=field.name));
-//                     }
-//                     tb.pop_group(Delimiter::Brace);
-//                     tb.add(";");
-
-//                     tb.add("let step = self . rng . u64 ( .. ) ;");
-//                     tb.add(";");
-
-//                     tb.add("XMutationStep {
-//                         inner ,
-//                         step ,
-//                     }"#);
-
-//                     tb.pop_group(Delimiter::Brace);
-//                 } else {
-//                     tb.add("=>");
-//                     tb.push_group(Delimiter::Brace);
-//                     tb.add(&format!("XMutationStep {{
-//                         inner : XInnerMutationStep :: {} ,"#
-//                         , item.ident
-//                     ));
-//                     tb.add("step : self . rng . u64 ( .. )");
-//                     tb.add("}");
-
-//                     tb.pop_group(Delimiter::Brace);
-//                 }
-
-//             }
-
-//             { // initial step from value
-                
-//             }
-
-//             tb.pop_group(Delimiter::Brace);
-
-//             tb.pop_group(Delimiter::Brace);
-//         }
-
-//         { // arbitrary
-            
-//         }
-
-//         tb.pop_group(Delimiter::Brace);
-//     }
-// }
+                fn random_step_from_value ( & self , value : & Self :: Value ) -> Self :: MutationStep {
+                    match value {"
+                        items_for_derive.iter().map(|item| {
+                            if let Some(EnumItemData::Struct(kind, _)) = &item.item.data {
+                                token_stream!(
+                                    parsed_enum.ident "::" item.item.ident 
+                                    kind.open() 
+                                        joined_token_streams!(item.fields.iter().map(|f| {
+                                            if let Some(ident) = &f.field.identifier {
+                                                token_stream!(ident ":" f.name)
+                                            } else {
+                                                token_stream!(f.name)
+                                            }
+                                        }), ",")
+                                    kind.close()
+                                    "=> {
+                                        let inner = XInnerMutationStep :: " item.item.ident 
+                                        "{"
+                                            joined_token_streams!(item.fields.iter().map(|f| 
+                                                token_stream!(f.name ": self ." f.name ". random_step_from_value ( &" f.name ")" )
+                                            ),",")
+                                        "} ;
+                                        let step = self . rng . u64 ( .. ) ;
+                                        XMutationStep {
+                                            inner ,
+                                            step ,
+                                        }
+                                    }"
+                                )
+                            } else {
+                                token_stream!(
+                                    parsed_enum.ident "::" item.item.ident "=> {
+                                        XMutationStep {
+                                            inner : XInnerMutationStep ::" item.item.ident ",
+                                            step : self . rng . u64 ( .. )
+                                        }
+                                    }"
+                                )
+                            }
+                        }).collect::<Vec<_>>()
+                    "}
+                }
+            }"
+            // + arbitraries
+            // + mutate
+        )
+    }
+}
 
 fn derive_unit_mutator(parsed_struct: Struct, tb: &mut TokenBuilder) {
     

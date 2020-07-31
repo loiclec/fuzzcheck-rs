@@ -82,6 +82,20 @@ pub enum StructKind {
     Struct,
     Tuple,
 }
+impl StructKind {
+    pub fn open(&self) -> &str {
+        match self {
+            StructKind::Struct => "{",
+            StructKind::Tuple => "(",
+        }
+    }
+    pub fn close(&self) -> &str {
+        match self {
+            StructKind::Struct => "}",
+            StructKind::Tuple => ")",
+        }
+    }
+}
 
 #[derive(Clone)]
 pub struct Struct {
