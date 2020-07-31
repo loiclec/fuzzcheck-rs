@@ -643,9 +643,8 @@ fn derive_enum_mutator_with_items(parsed_enum: &Enum, tb: &mut TokenBuilder) {
             lifetime_params: Vec::new(),
             type_params: fields_iter
                 .clone()
-                .map(|x| &x.mutator_ty)
-                .map(|ident| TypeParam {
-                    type_ident: token_stream!(ident),
+                .map(|x| TypeParam {
+                    type_ident: token_stream!(x.mutator_ty),
                     ..<_>::default()
                 })
                 .collect(),
@@ -653,12 +652,11 @@ fn derive_enum_mutator_with_items(parsed_enum: &Enum, tb: &mut TokenBuilder) {
 
         let basic_fields = fields_iter
             .clone()
-            .map(|x| (&x.name, &x.mutator_ty))
-            .map(|(identifier, ty)| StructField {
+            .map(|x| StructField {
                 attributes: Vec::new(),
                 visibility: Some(token_stream!("pub")),
-                identifier: Some(identifier.clone()),
-                ty: token_stream!(ty),
+                identifier: Some(x.mutator_ty.clone()),
+                ty: token_stream!(x.name),
             })
             .collect::<Vec<_>>();
 
