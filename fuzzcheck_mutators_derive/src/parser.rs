@@ -7,7 +7,7 @@
 use proc_macro::token_stream::IntoIter;
 use proc_macro::{Delimiter, Ident, Literal, Punct, Spacing, TokenStream, TokenTree};
 
-macro_rules! join_token_streams {
+macro_rules! join_ts {
     ($iter:expr, $part_pat:pat, $($part:expr) *, $sep:expr) => {
         {
             let mut iter = $iter.into_iter();
@@ -18,7 +18,7 @@ macro_rules! join_token_streams {
                 if add_sep {
                     $sep.add_to(&mut tb);
                 }
-                extend_token_builder!(&mut tb,
+                extend_ts!(&mut tb,
                     $($part) *
                 );
                 add_sep = true;
@@ -28,7 +28,7 @@ macro_rules! join_token_streams {
     };
 }
 
-macro_rules! extend_token_builder {
+macro_rules! extend_ts {
     ($tb:expr, $($part:expr) *) => {
         {
             $(
@@ -37,7 +37,7 @@ macro_rules! extend_token_builder {
         }
     };
 }
-macro_rules! token_stream {
+macro_rules! ts {
     ($($part:expr) *) => {
         {
             #[allow(unused_mut)]
@@ -186,24 +186,24 @@ impl Generics {
 
 impl TokenBuilderExtend for Enum {
     fn add_to(&self, tb: &mut TokenBuilder) {
-        extend_token_builder!(tb,
+        extend_ts!(tb,
             self.visibility "enum" self.ident self.generics self.where_clause
             "{"
-            join_token_streams!(&self.items, item,
+            join_ts!(&self.items, item,
                 item.attributes item.ident
                 match &item.data {
                     Some(EnumItemData::Struct(kind, fields)) => {
-                        token_stream!(
+                        ts!(
                             kind.open()
-                            join_token_streams!(fields, x , x , ",")
+                            join_ts!(fields, x , x , ",")
                             kind.close()
                         )
                     }
                     Some(EnumItemData::Discriminant(discriminant)) => {
-                        token_stream!("=" discriminant)
+                        ts!("=" discriminant)
                     }
                     None => {
-                        token_stream!()
+                        ts!()
                     }
                 }
             , ",")
@@ -215,16 +215,16 @@ impl TokenBuilderExtend for Enum {
 impl TokenBuilderExtend for Struct {
     fn add_to(&self, tb: &mut TokenBuilder) {
         let (first_where_clause_slot, second_where_clause_slot) = if matches!(self.kind, StructKind::Struct) {
-            (token_stream!(self.where_clause), token_stream!())
+            (ts!(self.where_clause), ts!())
         } else {
-            (token_stream!(), token_stream!(self.where_clause))
+            (ts!(), ts!(self.where_clause))
         };
 
-        extend_token_builder!(tb,
+        extend_ts!(tb,
             self.visibility "struct" self.ident self.generics
             first_where_clause_slot
             self.kind.open()
-            join_token_streams!(&self.struct_fields, x , x , ",")
+            join_ts!(&self.struct_fields, x , x , ",")
             self.kind.close()
             second_where_clause_slot
         )
@@ -233,29 +233,29 @@ impl TokenBuilderExtend for Struct {
 
 impl TokenBuilderExtend for StructField {
     fn add_to(&self, tb: &mut TokenBuilder) {
-        extend_token_builder!(tb,
+        extend_ts!(tb,
             self.attributes
             self.visibility
-            self.identifier.as_ref().map(|x| token_stream!(x ":"))
+            self.identifier.as_ref().map(|x| ts!(x ":"))
             self.ty
         )
     }
 }
 impl TokenBuilderExtend for LifetimeParam {
     fn add_to(&self, tb: &mut TokenBuilder) {
-        extend_token_builder!(tb,
+        extend_ts!(tb,
             self.ident
-            self.bounds.as_ref().map(|x| token_stream!(":" x))
+            self.bounds.as_ref().map(|x| ts!(":" x))
         )
     }
 }
 impl TokenBuilderExtend for TypeParam {
     fn add_to(&self, tb: &mut TokenBuilder) {
-        extend_token_builder!(tb,
+        extend_ts!(tb,
             self.attributes
             self.type_ident
-            self.bounds.as_ref().map(|x| token_stream!(":" x))
-            self.equal_ty.as_ref().map(|x| token_stream!("=" x))
+            self.bounds.as_ref().map(|x| ts!(":" x))
+            self.equal_ty.as_ref().map(|x| ts!("=" x))
         )
     }
 }
@@ -263,10 +263,10 @@ impl TokenBuilderExtend for Generics {
     fn add_to(&self, tb: &mut TokenBuilder) {
         if self.lifetime_params.is_empty() && self.type_params.is_empty() {
         } else {
-            extend_token_builder!(tb,
+            extend_ts!(tb,
                 "<"
-                join_token_streams!(&self.lifetime_params, x , x , ",")
-                join_token_streams!(&self.type_params, x , x , ",")
+                join_ts!(&self.lifetime_params, x , x , ",")
+                join_ts!(&self.type_params, x , x , ",")
                 ">"
             )
         }
@@ -287,16 +287,16 @@ impl Generics {
 }
 impl TokenBuilderExtend for WhereClauseItem {
     fn add_to(&self, tb: &mut TokenBuilder) {
-        extend_token_builder!(tb,
+        extend_ts!(tb,
             self.for_lifetimes self.lhs ":" self.rhs
         )
     }
 }
 impl TokenBuilderExtend for WhereClause {
     fn add_to(&self, tb: &mut TokenBuilder) {
-        extend_token_builder!(tb,
+        extend_ts!(tb,
             "where"
-            join_token_streams!(&self.items, x , x , ",")
+            join_ts!(&self.items, x , x , ",")
         )
     }
 }

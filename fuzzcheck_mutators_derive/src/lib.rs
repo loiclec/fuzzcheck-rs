@@ -110,21 +110,12 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
         .struct_fields
         .iter()
         .enumerate()
-        .map(|(i, f)| {
-            if let Some(ident) = &f.identifier {
-                ident.to_string()
-            } else {
-                format!("{}", i)
-            }
-        })
+        .map(|(i, f)| ident!(f.identifier.as_ref().map(|z| z.to_string()).unwrap_or(i.to_string())))
         .collect::<Vec<_>>();
 
-    let mutator_field_idents = field_names
-        .iter()
-        .map(|x| ident!(&format!("_{}", x)))
-        .collect::<Vec<_>>();
+    let mutator_field_idents = field_names.iter().map(|x| ident!("_" x)).collect::<Vec<_>>();
 
-    let generic_types_for_field = mutator_field_idents.iter().map(|name| ident!(&format!("{}Type", name)));
+    let generic_types_for_field = mutator_field_idents.iter().map(|name| ident!(name "Type"));
 
     let generics_without_bounds = parsed_struct.generics.removing_bounds_and_eq_type();
 
@@ -192,7 +183,7 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
 
         Struct {
             visibility: parsed_struct.visibility.clone(),
-            ident: ident!(&format!("{}Mutator", parsed_struct.ident)),
+            ident: ident!(parsed_struct.ident "Mutator"),
             generics,
             kind: StructKind::Struct,
             where_clause: Some(WhereClause {
@@ -214,7 +205,7 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
         });
         Struct {
             visibility: parsed_struct.visibility.clone(),
-            ident: ident!(&format!("{}MutatorCache", parsed_struct.ident)),
+            ident: ident!(parsed_struct.ident "MutatorCache"),
             generics: basic_generics.clone(),
             kind: StructKind::Struct,
             where_clause: None,
@@ -237,7 +228,7 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
         });
         Struct {
             visibility: parsed_struct.visibility.clone(),
-            ident: ident!(&format!("{}MutationStep", parsed_struct.ident)),
+            ident: ident!(parsed_struct.ident "MutationStep"),
             generics: basic_generics.clone(),
             kind: StructKind::Struct,
             where_clause: None,
@@ -267,7 +258,7 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
         });
         Struct {
             visibility: parsed_struct.visibility.clone(),
-            ident: ident!(&format!("{}UnmutateToken", parsed_struct.ident)),
+            ident: ident!(parsed_struct.ident "UnmutateToken"),
             generics: basic_generics,
             kind: StructKind::Struct,
             where_clause: None,
@@ -340,7 +331,7 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
 
             fn cache_from_value ( & self , value : & Self :: Value ) -> Self :: Cache {"
                 // declare all subcaches
-                join_ts!(fields_iter.clone(), (f, m), 
+                join_ts!(fields_iter.clone(), (f, m),
                     "let" m "= self ." m ". cache_from_value ( & value ." f ") ;"
                 , "")
                 // compute cplx
@@ -356,7 +347,7 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
 
             fn initial_step_from_value ( & self , value : & Self :: Value ) -> Self :: MutationStep {"
                 // init all substeps
-                join_ts!(fields_iter.clone(), (f, m), 
+                join_ts!(fields_iter.clone(), (f, m),
                     "let" m "= self ." m ". initial_step_from_value ( & value ." f ") ;"
                 , "")
 
@@ -370,7 +361,7 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
             
             fn random_step_from_value ( & self , value : & Self :: Value ) -> Self :: MutationStep {"
                 // init all substeps
-                join_ts!(fields_iter.clone(), (f, m), 
+                join_ts!(fields_iter.clone(), (f, m),
                     "let" m "= self ." m ". random_step_from_value ( & value ." f ") ;"
                 , "")
 
@@ -387,12 +378,9 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
             }
 
             fn random_arbitrary ( & mut self , max_cplx : f64 ) -> ( Self :: Value , Self :: Cache ) {"
-                join_ts!(&mutator_field_idents, mutator_field,
-                    format!("
-                        let mut {m}_value : Option < _ > = None ;
-                        let mut {m}_cache : Option < _ > = None ;
-                        ", m = mutator_field
-                    )
+                join_ts!(&mutator_field_idents, m,
+                    "let mut" ident!(m "_value") ": Option < _ > = None ;
+                     let mut" ident!(m "_cache") ": Option < _ > = None ;"
                 ,"")
                 "let mut indices = ( 0 .. " mutator_field_idents.len() ") . collect :: < Vec < _ > > ( ) ;
                 fuzzcheck_mutators :: fastrand :: shuffle ( & mut indices ) ;
@@ -401,20 +389,13 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
 
                 for idx in indices . iter ( ) {
                     match idx {"
-                    join_ts!(mutator_field_idents.iter().enumerate(), (idx, mutator_field),
-                        format!(
-                            "
-                            {i} => {{ 
-                                let ( value , cache ) = self . {m} . random_arbitrary ( max_cplx - cplx ) ;
-                                cplx += self . {m} . complexity ( & value , & cache ) ; 
-        
-                                {m}_value = Some ( value ) ;
-                                {m}_cache = Some ( cache ) ;
-                            }}
-                            ",
-                                i = idx,
-                                m = mutator_field
-                        )
+                    join_ts!(mutator_field_idents.iter().enumerate(), (i, m),
+                        i "=> {
+                            let ( value , cache ) = self . " m " . random_arbitrary ( max_cplx - cplx ) ;
+                            cplx += self . " m ". complexity ( & value , & cache ) ; " 
+                            ident!(m "_value") "= Some ( value ) ;"
+                            ident!(m "_cache") "= Some ( cache ) ;
+                        }"
                     , "")
                             "_ => unreachable ! ( )
                     }
@@ -422,12 +403,12 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
                 (
                     Self :: Value {"
                         join_ts!(fields_iter.clone(), (f, m),
-                            format!("{f} : {m}_value . unwrap ( ) ,", f = f, m = m)
+                            f ":" ident!(m "_value") ". unwrap ( ) ,"
                         ,"")
                     "} ,
                     Self :: Cache {"
                         join_ts!(&mutator_field_idents, m,
-                            format!("{m} : {m}_cache . unwrap ( ) ,", m = m)
+                            m ":" ident!(m "_cache")" . unwrap ( ) ,"
                         ,"")
                         "cplx
                     }
@@ -612,16 +593,14 @@ fn derive_enum_mutator_with_items(parsed_enum: &Enum, tb: &mut TokenBuilder) {
                         .iter()
                         .enumerate()
                         .map(|(i, field)| {
-                            let submutator_name = ident!(&format!(
-                                "_{}_{}",
-                                item.ident,
-                                field
+                            let submutator_name = ident!(
+                                "_" item.ident "_" field
                                     .identifier
                                     .as_ref()
                                     .map(<_>::to_string)
-                                    .unwrap_or(format!("{}", i))
-                            ));
-                            let submutator_type_ident = ident!(&format!("{}_Type", submutator_name));
+                                    .unwrap_or(i.to_string())
+                            );
+                            let submutator_type_ident = ident!(submutator_name "_Type");
                             EnumItemDataFieldForMutatorDerive {
                                 field: field.clone(),
                                 name: submutator_name,
@@ -705,7 +684,7 @@ fn derive_enum_mutator_with_items(parsed_enum: &Enum, tb: &mut TokenBuilder) {
             items_for_derive,
             Struct {
                 visibility: parsed_enum.visibility.clone(),
-                ident: ident!(&format!("{}Mutator", parsed_enum.ident)),
+                ident: ident!(parsed_enum.ident "Mutator"),
                 generics,
                 kind: StructKind::Struct,
                 where_clause: Some(where_clause),
@@ -755,7 +734,7 @@ fn derive_enum_mutator_with_items(parsed_enum: &Enum, tb: &mut TokenBuilder) {
         // mutator cache
         let cache_enum = Enum {
             visibility: parsed_enum.visibility.clone(),
-            ident: ident!(&format!("{}InnerMutatorCache", parsed_enum.ident.clone())),
+            ident: ident!(parsed_enum.ident "InnerMutatorCache"),
             generics: basic_generics.clone(),
             where_clause: None,
             items: inner_items.clone(),
@@ -763,7 +742,7 @@ fn derive_enum_mutator_with_items(parsed_enum: &Enum, tb: &mut TokenBuilder) {
 
         let cache_struct = Struct {
             visibility: parsed_enum.visibility.clone(),
-            ident: ident!(&format!("{}MutatorCache", parsed_enum.ident.clone())),
+            ident: ident!(parsed_enum.ident "MutatorCache"),
             generics: basic_generics.clone(),
             kind: StructKind::Struct,
             where_clause: None,
@@ -795,7 +774,7 @@ fn derive_enum_mutator_with_items(parsed_enum: &Enum, tb: &mut TokenBuilder) {
         // mutation step
         let step_enum = Enum {
             visibility: parsed_enum.visibility.clone(),
-            ident: ident!(&format!("{}InnerMutationStep", parsed_enum.ident)),
+            ident: ident!(parsed_enum.ident "InnerMutationStep"),
             generics: basic_generics.clone(),
             where_clause: None,
             items: inner_items.clone(),
@@ -814,7 +793,7 @@ fn derive_enum_mutator_with_items(parsed_enum: &Enum, tb: &mut TokenBuilder) {
 
         let step_struct = Struct {
             visibility: parsed_enum.visibility.clone(),
-            ident: ident!(&format!("{}MutationStep", parsed_enum.ident)),
+            ident: ident!(parsed_enum.ident "MutationStep"),
             generics: basic_generics.clone(),
             kind: StructKind::Struct,
             where_clause: None,
@@ -834,7 +813,7 @@ fn derive_enum_mutator_with_items(parsed_enum: &Enum, tb: &mut TokenBuilder) {
     let unmutate_enum = {
         let unmutate_enum = Enum {
             visibility: parsed_enum.visibility.clone(),
-            ident: ident!(&format!("{}UnmutateToken", parsed_enum.ident)),
+            ident: ident!(parsed_enum.ident "UnmutateToken"),
             generics: basic_generics.clone(),
             where_clause: None,
             items: inner_items
@@ -946,7 +925,7 @@ fn derive_enum_mutator_with_items(parsed_enum: &Enum, tb: &mut TokenBuilder) {
                                         let mut cplx = " cplx_choose_item ";"
                                         join_ts!(&item.fields, f,
                                             "let" ident!("inner_" f.name) "= self ." f.name ". cache_from_value ( &" f.name ") ;"
-                                            "cplx += self ." f.name ". complexity ( &" f.name ", &" ident!("inner_" f.name) " ) ;" 
+                                            "cplx += self ." f.name ". complexity ( &" f.name ", &" ident!("inner_" f.name) " ) ;"
                                         , "")
                                         "let inner = XInnerMutatorCache :: " item.item.ident
                                         "{"
@@ -1060,7 +1039,7 @@ fn derive_enum_mutator_with_items(parsed_enum: &Enum, tb: &mut TokenBuilder) {
 
 fn derive_unit_mutator(parsed_struct: Struct, tb: &mut TokenBuilder) {
     let generics_without_bounds = parsed_struct.generics.clone().removing_bounds_and_eq_type();
-    let mutator_ident = format!("{}Mutator", parsed_struct.ident);
+    let mutator_ident = ident!(parsed_struct.ident "Mutator");
 
     extend_ts!(tb,
     "type" mutator_ident generics_without_bounds parsed_struct.where_clause
