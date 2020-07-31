@@ -11,18 +11,32 @@ use crate::parser::*;
 
 use proc_macro::{Ident, Literal, Span, TokenStream};
 
-macro_rules! joined_token_streams {
-    ($iter:expr, $sep:expr) => {
+macro_rules! opt_token_stream {
+    ($opt:expr, $map_pat:pat, $($part:expr) *) => {
+        {
+            if let Some($map_pat) = $opt {
+                token_stream!($($part) *)
+            } else {
+                token_stream!()
+            }
+        }
+    };
+}
+
+macro_rules! join_token_streams {
+    ($iter:expr, $part_pat:pat, $($part:expr) *, $sep:expr) => {
         {
             let mut iter = $iter.into_iter();
             #[allow(unused_mut)]
             let mut tb = TokenBuilder::new();
             let mut add_sep = false;
-            while let Some(x) = iter.next() {
+            while let Some($part_pat) = iter.next() {
                 if add_sep {
                     $sep.add_to(&mut tb);
                 }
-                x.add_to(&mut tb);
+                extend_token_builder!(&mut tb,
+                    $($part) *
+                );
                 add_sep = true;
             }
             tb.end()
@@ -315,15 +329,15 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
                 ";
 
             fn max_complexity ( & self ) -> f64 {"
-                joined_token_streams!(mutator_field_idents.iter().map(|field_name| {
-                    token_stream!("self . " field_name ". max_complexity ( )")
-                }), "+")
+                join_token_streams!(&mutator_field_idents, field_name,
+                    "self . " field_name ". max_complexity ( )"
+                , "+")
             "}
 
             fn min_complexity ( & self ) -> f64 {"
-                joined_token_streams!(mutator_field_idents.iter().map(|field_name| {
-                    token_stream!("self . " field_name ". min_complexity ( )")
-                }), "+")
+                join_token_streams!(&mutator_field_idents, field_name,
+                    "self . " field_name ". min_complexity ( )"
+                , "+")
             "}
             
             fn complexity ( & self , value : & Self :: Value , cache : & Self :: Cache ) -> f64 { cache . cplx }
@@ -334,12 +348,12 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
                     token_stream!("let" m "= self ." m ". cache_from_value ( & value ." f ") ;")
                 }).collect::<Vec<_>>()
                 // compute cplx
-                "let cplx =" joined_token_streams!(fields_iter.clone().map(|(f, m)| {
-                    token_stream!("self . " m ". complexity ( & value ." f ", &" m ")")
-                }), "+") ";"
+                "let cplx =" join_token_streams!(fields_iter.clone(), (f, m),
+                    "self . " m ". complexity ( & value ." f ", &" m ")"
+                , "+") ";"
                 
                 "Self :: Cache {"
-                    joined_token_streams!(mutator_field_idents.iter(), ",")
+                    join_token_streams!(&mutator_field_idents, _ , , ",")
                     ", cplx
                 }
             }
@@ -353,7 +367,7 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
                 "let step = 0 ;
 
                 Self :: MutationStep {"
-                    joined_token_streams!(mutator_field_idents.iter(), ",")
+                    join_token_streams!(&mutator_field_idents, _ , , ",")
                     ", step
                 }
             }
@@ -367,7 +381,7 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
                 "let step = self . rng . u64 ( .. ) ;
 
                 Self :: MutationStep {"
-                    joined_token_streams!(mutator_field_idents.iter(), ",")
+                    join_token_streams!(&mutator_field_idents, _ , , ",")
                     ", step
                 }
             }
@@ -580,14 +594,6 @@ struct EnumItemDataFieldForMutatorDerive {
 }
 
 fn derive_enum_mutator_with_items(parsed_enum: &Enum, tb: &mut TokenBuilder) { 
-    let item_idents = parsed_enum
-        .items
-        .iter()
-        .map(|f| f.ident.clone())
-        .collect::<Vec<_>>();
-
-    // let item_names = item_idents;
-
     let (basic_generics, items_for_derive, mutator_struct) = { // mutator struct
         /*
         generics: existing generics + generic mutator type params
@@ -870,11 +876,11 @@ fn derive_enum_mutator_with_items(parsed_enum: &Enum, tb: &mut TokenBuilder) {
                     if enum_has_fields {
                         token_stream!(
                             "+ [ "
-                                joined_token_streams!(items_with_fields_iter.clone().map(|item| {
-                                    joined_token_streams!(item.fields.iter().map(|field|
-                                        token_stream!("self ." field.name ". max_complexity ( ) ")
-                                    ), "+")
-                                }), ",")
+                                join_token_streams!(items_with_fields_iter.clone(), item,
+                                    join_token_streams!(&item.fields, field,
+                                        "self ." field.name ". max_complexity ( ) "
+                                    , "+")
+                                , ",")
                             "] . iter ( ) . max ( )"
                         )
                     } else {
@@ -886,11 +892,11 @@ fn derive_enum_mutator_with_items(parsed_enum: &Enum, tb: &mut TokenBuilder) {
                     if enum_has_fields {
                         token_stream!(
                             "+ ["
-                                joined_token_streams!(items_with_fields_iter.clone().map(|item| {
-                                    joined_token_streams!(item.fields.iter().map(|field|
+                                join_token_streams!(items_with_fields_iter.clone(), item,
+                                    join_token_streams!(&item.fields, field,
                                         token_stream!("self ." field.name ". min_complexity ( ) ")
-                                    ), "+")
-                                }), ",")
+                                    , "+")
+                                , ",")
                             "] . iter ( ) . min ( )"
                         )
                     } else {
@@ -908,25 +914,22 @@ fn derive_enum_mutator_with_items(parsed_enum: &Enum, tb: &mut TokenBuilder) {
                                 token_stream!(
                                     parsed_enum.ident "::" item.item.ident 
                                     kind.open()
-                                        joined_token_streams!(item.fields.iter().map(|f| {
-                                            if let Some(ident) = &f.field.identifier {
-                                                token_stream!(ident ":" f.name)
-                                            } else {
-                                                token_stream!(f.name)
-                                            }
-                                        }), ",")
+                                        join_token_streams!(&item.fields, f,
+                                            opt_token_stream!(&f.field.identifier, f, ":" f) f.name
+                                            
+                                        , ",")
                                     kind.close()
                                     "=> {
                                         let inner = XInnerMutatorCache :: " item.item.ident 
                                         "{"
-                                            joined_token_streams!(item.fields.iter().map(|f| 
-                                                token_stream!(f.name ": self ." f.name ". cache_from_value ( &" f.name ")" )
-                                            ),",")
+                                            join_token_streams!(&item.fields, f,
+                                                f.name ": self ." f.name ". cache_from_value ( &" f.name ")"
+                                            , ",")
                                         "} ;
                                         let cplx = " cplx_choose_item 
-                                            item.fields.iter().map(|f| 
-                                                token_stream!("+ self ." f.name ". complexity ( &" f.name ", & inner . " f.name " )")
-                                            ).collect::<Vec<_>>()
+                                            join_token_streams!(&item.fields, f,
+                                                "+ self ." f.name ". complexity ( &" f.name ", & inner . " f.name " )"
+                                            ,"")
                                         ";
                                         XMutatorCache {
                                             inner ,
@@ -955,20 +958,16 @@ fn derive_enum_mutator_with_items(parsed_enum: &Enum, tb: &mut TokenBuilder) {
                                 token_stream!(
                                     parsed_enum.ident "::" item.item.ident 
                                     kind.open() 
-                                        joined_token_streams!(item.fields.iter().map(|f| {
-                                            if let Some(ident) = &f.field.identifier {
-                                                token_stream!(ident ":" f.name)
-                                            } else {
-                                                token_stream!(f.name)
-                                            }
-                                        }), ",")
+                                        join_token_streams!(&item.fields, f,
+                                            opt_token_stream!(&f.field.identifier, ident, ident ":") f.name
+                                        , ",")
                                     kind.close()
                                     "=> {
                                         let inner = XInnerMutationStep :: " item.item.ident 
                                         "{"
-                                            joined_token_streams!(item.fields.iter().map(|f| 
-                                                token_stream!(f.name ": self ." f.name ". initial_step_from_value ( &" f.name ")" )
-                                            ),",")
+                                            join_token_streams!(&item.fields, f,
+                                                f.name ": self ." f.name ". initial_step_from_value ( &" f.name ")"
+                                            ,",")
                                         "} ;
                                         let step = 0 ;
                                         XMutationStep {
@@ -998,20 +997,16 @@ fn derive_enum_mutator_with_items(parsed_enum: &Enum, tb: &mut TokenBuilder) {
                                 token_stream!(
                                     parsed_enum.ident "::" item.item.ident 
                                     kind.open() 
-                                        joined_token_streams!(item.fields.iter().map(|f| {
-                                            if let Some(ident) = &f.field.identifier {
-                                                token_stream!(ident ":" f.name)
-                                            } else {
-                                                token_stream!(f.name)
-                                            }
-                                        }), ",")
+                                        join_token_streams!(&item.fields, f,
+                                            opt_token_stream!(&f.field.identifier, ident, ident ":") f.name
+                                        , ",")
                                     kind.close()
                                     "=> {
                                         let inner = XInnerMutationStep :: " item.item.ident 
                                         "{"
-                                            joined_token_streams!(item.fields.iter().map(|f| 
-                                                token_stream!(f.name ": self ." f.name ". random_step_from_value ( &" f.name ")" )
-                                            ),",")
+                                            join_token_streams!(&item.fields, f,
+                                                f.name ": self ." f.name ". random_step_from_value ( &" f.name ")"
+                                            ,",")
                                         "} ;
                                         let step = self . rng . u64 ( .. ) ;
                                         XMutationStep {
