@@ -195,7 +195,7 @@ impl TokenBuilderExtend for Enum {
                     Some(EnumItemData::Struct(kind, fields)) => {
                         token_stream!(
                             kind.open()
-                            join_token_streams!(fields, _ , , ",")
+                            join_token_streams!(fields, x , x , ",")
                             kind.close()
                         )
                     }
@@ -224,7 +224,7 @@ impl TokenBuilderExtend for Struct {
             self.visibility "struct" self.ident self.generics
             first_where_clause_slot
             self.kind.open()
-            join_token_streams!(&self.struct_fields, _ , , ",")
+            join_token_streams!(&self.struct_fields, x , x , ",")
             self.kind.close()
             second_where_clause_slot
         )
@@ -265,8 +265,8 @@ impl TokenBuilderExtend for Generics {
         } else {
             extend_token_builder!(tb,
                 "<"
-                join_token_streams!(&self.lifetime_params, _ , , ",")
-                join_token_streams!(&self.type_params, _ , , ",")
+                join_token_streams!(&self.lifetime_params, x , x , ",")
+                join_token_streams!(&self.type_params, x , x , ",")
                 ">"
             )
         }
@@ -296,7 +296,7 @@ impl TokenBuilderExtend for WhereClause {
     fn add_to(&self, tb: &mut TokenBuilder) {
         extend_token_builder!(tb,
             "where"
-            join_token_streams!(&self.items, _ , , ",")
+            join_token_streams!(&self.items, x , x , ",")
         )
     }
 }
