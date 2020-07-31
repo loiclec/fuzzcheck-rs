@@ -11,7 +11,7 @@ use crate::token_builder::*;
 
 use proc_macro::{Ident, Literal, Span, TokenStream};
 
-macro_rules! opt_token_stream {
+macro_rules! opt_ts {
     ($opt:expr, $map_pat:pat, $($part:expr) *) => {
         {
             if let Some($map_pat) = $opt {
@@ -34,7 +34,7 @@ macro_rules! join_ts {
                 if add_sep {
                     $sep.add_to(&mut tb);
                 }
-                extend_token_builder!(&mut tb,
+                extend_ts!(&mut tb,
                     $($part) *
                 );
                 add_sep = true;
@@ -44,7 +44,7 @@ macro_rules! join_ts {
     };
 }
 
-macro_rules! extend_token_builder {
+macro_rules! extend_ts {
     ($tb:expr, $($part:expr) *) => {
         {
             $(
@@ -87,7 +87,7 @@ pub fn derive_mutator(input: TokenStream) -> TokenStream {
     } else if let Some(e) = parser.eat_enumeration() {
         derive_enum_mutator(e, &mut tb)
     } else {
-        extend_token_builder!(&mut tb,
+        extend_ts!(&mut tb,
             "compile_error ! ("
             Literal::string("fuzzcheck_mutators_derive could not parse the structure")
             ") ;"
@@ -222,7 +222,7 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
         }
     };
 
-    extend_token_builder!(tb,
+    extend_ts!(tb,
         "# [ derive ( :: core :: clone :: Clone ) ]"
         mutator_cache_struct
     );
@@ -245,7 +245,7 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
         }
     };
 
-    extend_token_builder!(tb,
+    extend_ts!(tb,
         "# [ derive ( :: core :: clone :: Clone ) ]"
         mutator_step_struct
     );
@@ -275,13 +275,13 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
         }
     };
 
-    extend_token_builder!(tb,
+    extend_ts!(tb,
         "# [ derive ( :: core :: clone :: Clone ) ]"
         unmutate_token_struct
     );
 
     // default impl for unmutate token
-    extend_token_builder!(tb,
+    extend_ts!(tb,
         "impl" unmutate_token_struct.generics ":: core :: default :: Default for" unmutate_token_struct.ident unmutate_token_struct.generics "{
             fn default ( ) -> Self {
                 Self {"
@@ -299,7 +299,7 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
     // TODO: arbitrary/random/ordered
 
     // implementation of Mutator trait
-    extend_token_builder!(tb,
+    extend_ts!(tb,
         "impl" mutator_struct.generics "fuzzcheck_mutators :: fuzzcheck_traits :: Mutator for"
             mutator_struct.ident mutator_struct.generics.removing_bounds_and_eq_type() mutator_struct.where_clause
         "{
@@ -490,7 +490,7 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
             }
         };
 
-        extend_token_builder!(tb,
+        extend_ts!(tb,
         "impl" mutator_struct.generics ":: core :: default :: Default for" mutator_struct.ident
             mutator_struct.generics.removing_bounds_and_eq_type() where_clause
         "{
@@ -555,7 +555,7 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
             }
         };
 
-        extend_token_builder!(tb,
+        extend_ts!(tb,
         "impl" parsed_struct.generics "fuzzcheck_mutators :: HasDefaultMutator for" parsed_struct.ident
             generics_without_bounds where_clause
         "{
@@ -713,7 +713,7 @@ fn derive_enum_mutator_with_items(parsed_enum: &Enum, tb: &mut TokenBuilder) {
             },
         )
     };
-    extend_token_builder!(tb, mutator_struct);
+    extend_ts!(tb, mutator_struct);
 
     /*
         the enum items to use for “Inner” version of mutator types
@@ -784,7 +784,7 @@ fn derive_enum_mutator_with_items(parsed_enum: &Enum, tb: &mut TokenBuilder) {
         (cache_enum, cache_struct)
     };
 
-    extend_token_builder!(tb,
+    extend_ts!(tb,
         "# [ derive ( core :: clone :: Clone ) ] "
         cache_enum
         "# [ derive ( core :: clone :: Clone ) ] "
@@ -824,7 +824,7 @@ fn derive_enum_mutator_with_items(parsed_enum: &Enum, tb: &mut TokenBuilder) {
         (step_enum, step_struct)
     };
 
-    extend_token_builder!(tb,
+    extend_ts!(tb,
         "# [ derive ( core :: clone :: Clone ) ] "
         step_enum
         "# [ derive ( core :: clone :: Clone ) ] "
@@ -873,7 +873,7 @@ fn derive_enum_mutator_with_items(parsed_enum: &Enum, tb: &mut TokenBuilder) {
 
         let items_with_fields_iter = items_for_derive.iter().filter(|item| !item.fields.is_empty());
 
-        extend_token_builder!(tb,
+        extend_ts!(tb,
             "impl" mutator_struct.generics "fuzzcheck_mutators :: fuzzcheck_traits :: Mutator for"
                 mutator_struct.ident mutator_struct_generics_without_bounds mutator_struct.where_clause
             "{
@@ -938,7 +938,7 @@ fn derive_enum_mutator_with_items(parsed_enum: &Enum, tb: &mut TokenBuilder) {
                                     parsed_enum.ident "::" item.item.ident
                                     kind.open()
                                         join_ts!(&item.fields, f,
-                                            opt_token_stream!(&f.field.identifier, f, f ":") f.name
+                                            opt_ts!(&f.field.identifier, f, f ":") f.name
 
                                         , ",")
                                     kind.close()
@@ -982,7 +982,7 @@ fn derive_enum_mutator_with_items(parsed_enum: &Enum, tb: &mut TokenBuilder) {
                                     parsed_enum.ident "::" item.item.ident
                                     kind.open()
                                         join_ts!(&item.fields, f,
-                                            opt_token_stream!(&f.field.identifier, ident, ident ":") f.name
+                                            opt_ts!(&f.field.identifier, ident, ident ":") f.name
                                         , ",")
                                     kind.close()
                                     "=> {
@@ -1021,7 +1021,7 @@ fn derive_enum_mutator_with_items(parsed_enum: &Enum, tb: &mut TokenBuilder) {
                                     parsed_enum.ident "::" item.item.ident
                                     kind.open()
                                         join_ts!(&item.fields, f,
-                                            opt_token_stream!(&f.field.identifier, ident, ident ":") f.name
+                                            opt_ts!(&f.field.identifier, ident, ident ":") f.name
                                         , ",")
                                     kind.close()
                                     "=> {
@@ -1062,7 +1062,7 @@ fn derive_unit_mutator(parsed_struct: Struct, tb: &mut TokenBuilder) {
     let generics_without_bounds = parsed_struct.generics.clone().removing_bounds_and_eq_type();
     let mutator_ident = format!("{}Mutator", parsed_struct.ident);
 
-    extend_token_builder!(tb,
+    extend_ts!(tb,
     "type" mutator_ident generics_without_bounds parsed_struct.where_clause
         "= fuzzcheck_mutators :: unit :: UnitMutator < " parsed_struct.ident generics_without_bounds "> ;"
 
