@@ -86,6 +86,7 @@ pub trait Mutator: Sized {
     type Value: Clone;
     type Cache: Clone;
     type MutationStep: Clone;
+    type ArbitraryStep: Clone + Default;
     type UnmutateToken;
 
     /// Compute the cache for the given value
@@ -101,9 +102,7 @@ pub trait Mutator: Sized {
     /// The complexity of the current input
     fn complexity(&self, value: &Self::Value, cache: &Self::Cache) -> f64;
 
-    /// Create an arbitrary value (TODO: more doc)
-    fn ordered_arbitrary(&mut self, seed: usize, max_cplx: f64) -> Option<(Self::Value, Self::Cache)>;
-    // TODO!
+    fn ordered_arbitrary(&mut self, step: &mut Self::ArbitraryStep, max_cplx: f64) -> Option<(Self::Value, Self::Cache)>;
     fn random_arbitrary(&mut self, max_cplx: f64) -> (Self::Value, Self::Cache);
 
     fn mutate(

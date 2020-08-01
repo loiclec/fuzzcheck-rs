@@ -1197,6 +1197,7 @@ mod tests {
         type Value = f64;
         type Cache = ();
         type MutationStep = ();
+        type ArbitraryStep = ();
         type UnmutateToken = ();
 
         fn cache_from_value(&self, _value: &Self::Value) -> Self::Cache {}
@@ -1204,7 +1205,7 @@ mod tests {
         fn initial_step_from_value(&self, _value: &Self::Value) -> Self::MutationStep {}
         fn random_step_from_value(&self, _value: &Self::Value) -> Self::MutationStep {}
 
-        fn ordered_arbitrary(&mut self, _seed: usize, _max_cplx: f64) -> Option<(Self::Value, Self::Cache)> {
+        fn ordered_arbitrary(&mut self, _step: &mut Self::ArbitraryStep, _max_cplx: f64) -> Option<(Self::Value, Self::Cache)> {
             Some((0.0, ()))
         }
         fn random_arbitrary(&mut self, _max_cplx: f64) -> (Self::Value, Self::Cache) {

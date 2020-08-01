@@ -65,6 +65,7 @@ macro_rules! impl_unsigned_mutator {
             type Value = $name;
             type Cache = ();
             type MutationStep = u64; // mutation step
+            type ArbitraryStep = u64;
             type UnmutateToken = $name; // old value
 
             fn cache_from_value(&self, _value: &Self::Value) -> Self::Cache {}
@@ -76,9 +77,14 @@ macro_rules! impl_unsigned_mutator {
                 self.rng.u64(..)
             }
 
-            fn ordered_arbitrary(&mut self, seed: usize, _max_cplx: f64) -> Option<(Self::Value, Self::Cache)> {
-                let value = self.uniform_permutation(seed as u64);
-                Some((value, ()))
+            fn ordered_arbitrary(&mut self, step: &mut Self::ArbitraryStep, _max_cplx: f64) -> Option<(Self::Value, Self::Cache)> {
+                if *step > <$name>::MAX as u64 {
+                    None
+                } else {
+                    let value = self.uniform_permutation(*step);
+                    *step += 1;
+                    Some((value, ()))
+                }
             }
             fn random_arbitrary(&mut self, _max_cplx: f64) -> (Self::Value, Self::Cache) {
                 let value = self.uniform_permutation(self.rng.u64(..));
@@ -187,6 +193,7 @@ macro_rules! impl_signed_mutator {
             type Value = $name;
             type Cache = ();
             type MutationStep = u64; // mutation step
+            type ArbitraryStep = u64;
             type UnmutateToken = $name; // old value
 
             fn cache_from_value(&self, _value: &Self::Value) -> Self::Cache {}
@@ -197,9 +204,14 @@ macro_rules! impl_signed_mutator {
                 self.rng.u64(..)
             }
 
-            fn ordered_arbitrary(&mut self, seed: usize, _max_cplx: f64) -> Option<(Self::Value, Self::Cache)> {
-                let value = self.uniform_permutation(seed as u64) as $name;
-                Some((value, ()))
+            fn ordered_arbitrary(&mut self, step: &mut Self::ArbitraryStep, _max_cplx: f64) -> Option<(Self::Value, Self::Cache)> {
+                if *step > <$name_unsigned>::MAX as u64 {
+                    None
+                } else {
+                    let value = self.uniform_permutation(*step) as $name;
+                    *step += 1;
+                    Some((value, ()))
+                }
             }
             fn random_arbitrary(&mut self, _max_cplx: f64) -> (Self::Value, Self::Cache) {
                 let value = self.uniform_permutation(self.rng.u64(..)) as $name;

@@ -354,6 +354,7 @@ impl<M: Mutator> Mutator for VecMutator<M> {
     type Value = Vec<M::Value>;
     type Cache = VecMutatorCache<M::Cache>;
     type MutationStep = MutationStep<M::MutationStep>;
+    type ArbitraryStep = bool; // false: check empty vector, true: random
     type UnmutateToken = UnmutateVecToken<M>;
 
     fn max_complexity(&self) -> f64 {
@@ -397,9 +398,9 @@ impl<M: Mutator> Mutator for VecMutator<M> {
         }
     }
 
-    fn ordered_arbitrary(&mut self, seed: usize, max_cplx: f64) -> Option<(Self::Value, Self::Cache)> {
-        
-        if seed == 0 || max_cplx <= 1.0 {
+    fn ordered_arbitrary(&mut self, step: &mut Self::ArbitraryStep, max_cplx: f64) -> Option<(Self::Value, Self::Cache)> {
+        if !*step || max_cplx <= 1.0 {
+            *step = true;
             return Some((Self::Value::default(), Self::Cache::default()));
         } else {
             return Some(self.random_arbitrary(max_cplx));

@@ -34,30 +34,30 @@ where
     }
 }
 
-pub enum OptionMutatorUnmutateToken<Value, Token> {
+pub enum UnmutateToken<Value, Token> {
     UnmutateSome(Token),
     ToSome(Value),
     ToNone,
 }
-use crate::option::OptionMutatorUnmutateToken::{ToNone, ToSome, UnmutateSome};
+use crate::option::UnmutateToken::{ToNone, ToSome, UnmutateSome};
 
 #[derive(Debug, Clone)]
-pub struct OptionMutatorStep<MS> {
+pub struct MutatorStep<MS, AS> {
     did_check_none: bool,
-    inner_arbitrary: usize,
+    inner_arbitrary: AS,
     inner: Option<MS>,
 }
 
-struct OptionMutatorArbitrarySeed {
+#[derive(Clone)]
+pub struct ArbitraryStep<T> where T: Default + Clone {
     check_none: bool,
-    inner_seed: usize,
+    inner_step: T,
 }
-
-impl OptionMutatorArbitrarySeed {
-    fn new(seed: usize) -> Self {
+impl<T> Default for ArbitraryStep<T> where T: Default + Clone {
+    fn default() -> Self {
         Self {
-            check_none: seed == 0,
-            inner_seed: seed.saturating_sub(1),
+            check_none: true,
+            inner_step: <_>::default()
         }
     }
 }
@@ -65,34 +65,35 @@ impl OptionMutatorArbitrarySeed {
 impl<M: Mutator> Mutator for OptionMutator<M> {
     type Value = Option<M::Value>;
     type Cache = Option<M::Cache>;
-    type MutationStep = OptionMutatorStep<M::MutationStep>;
-    type UnmutateToken = OptionMutatorUnmutateToken<M::Value, M::UnmutateToken>;
+    type MutationStep = MutatorStep<M::MutationStep, M::ArbitraryStep>;
+    type ArbitraryStep = ArbitraryStep<M::ArbitraryStep>;
+    type UnmutateToken = UnmutateToken<M::Value, M::UnmutateToken>;
 
     fn cache_from_value(&self, value: &Self::Value) -> Self::Cache {
         value.as_ref().map(|inner| self.m.cache_from_value(&inner))
     }
 
     fn initial_step_from_value(&self, value: &Self::Value) -> Self::MutationStep {
-        OptionMutatorStep {
+        MutatorStep {
             did_check_none: value.is_none(),
-            inner_arbitrary: 0,
+            inner_arbitrary: <_>::default(),
             inner: value.as_ref().map(|inner| self.m.initial_step_from_value(&inner)),
         }
     }
     fn random_step_from_value(&self, value: &Self::Value) -> Self::MutationStep {
-        OptionMutatorStep {
+        MutatorStep {
             did_check_none: value.is_none(),
-            inner_arbitrary: self.rng.usize(..),
+            inner_arbitrary: <_>::default(),
             inner: value.as_ref().map(|inner| self.m.random_step_from_value(&inner)),
         }
     }
 
-    fn ordered_arbitrary(&mut self, seed: usize, max_cplx: f64) -> Option<(Self::Value, Self::Cache)> {
-        let seed = OptionMutatorArbitrarySeed::new(seed);
-        if seed.check_none {
+    fn ordered_arbitrary(&mut self, step: &mut Self::ArbitraryStep, max_cplx: f64) -> Option<(Self::Value, Self::Cache)> {
+        if step.check_none {
+            step.check_none = false;
             Some((None, None))
         } else {
-            if let Some((inner_value, inner_cache)) = self.m.ordered_arbitrary(seed.inner_seed, max_cplx - 1.0) {
+            if let Some((inner_value, inner_cache)) = self.m.ordered_arbitrary(&mut step.inner_step, max_cplx - 1.0) {
                 Some((Some(inner_value), Some(inner_cache)))
             } else {
                 None
@@ -153,12 +154,10 @@ impl<M: Mutator> Mutator for OptionMutator<M> {
                 None
             }
         } else {
-            if let Some((inner_value, inner_cache)) = self.m.ordered_arbitrary(step.inner_arbitrary, inner_max_cplx) {
+            if let Some((inner_value, inner_cache)) = self.m.ordered_arbitrary(&mut step.inner_arbitrary, inner_max_cplx) {
                 *value = Some(inner_value);
                 *cache = Some(inner_cache);
-    
-                step.inner_arbitrary += 1;
-    
+
                 Some(ToNone)
             } else {
                 None

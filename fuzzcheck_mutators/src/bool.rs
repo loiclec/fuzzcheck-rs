@@ -1,15 +1,27 @@
 use fuzzcheck_traits::Mutator;
 
-
 #[derive(Default)]
 pub struct BoolMutator {
     rng: fastrand::Rng,
+}
+
+#[derive(Clone)]
+pub enum ArbitraryStep {
+    Never = 0,
+    Once = 1,
+    Twice = 2
+}
+impl Default for ArbitraryStep {
+    fn default() -> Self {
+        Self::Never
+    }
 }
 
 impl Mutator for BoolMutator {
     type Value = bool;
     type Cache = ();
     type MutationStep = bool; // true if it has been mutated, false otherwise
+    type ArbitraryStep = ArbitraryStep; // None if it has never been called, false if it has been called once, true othewise
     type UnmutateToken = ();
 
     fn cache_from_value(&self, _value: &Self::Value) -> Self::Cache {}
@@ -21,8 +33,20 @@ impl Mutator for BoolMutator {
         false
     }
 
-    fn ordered_arbitrary(&mut self, seed: usize, _max_cplx: f64) -> Option<(Self::Value, Self::Cache)> {
-        if seed == 0 { Some((true, ())) } else if seed == 1 { Some((false, ())) } else { None }
+    fn ordered_arbitrary(&mut self, step: &mut Self::ArbitraryStep, _max_cplx: f64) -> Option<(Self::Value, Self::Cache)> {
+        match step {
+            ArbitraryStep::Never => {
+                *step = ArbitraryStep::Once;
+                Some((false, ()))
+            },
+            ArbitraryStep::Once => {
+                *step = ArbitraryStep::Twice;
+                Some((true, ()))
+            },
+            ArbitraryStep::Twice => {
+                None
+            },
+        }
     }
     fn random_arbitrary(&mut self, _max_cplx: f64) -> (Self::Value, Self::Cache) {
         (self.rng.bool(), ())

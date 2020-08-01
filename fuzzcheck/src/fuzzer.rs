@@ -54,7 +54,7 @@ pub(crate) struct AnalysisResult<M: Mutator> {
 struct FuzzerState<M: Mutator, S: Serializer<Value = M::Value>> {
     mutator: M,
     pool: Pool<M>,
-    arbitrary_step: usize,
+    arbitrary_step: M::ArbitraryStep,
     input_idx: FuzzerInputIndex<M>,
     stats: FuzzerStats,
     settings: ResolvedCommandLineArguments,
@@ -119,9 +119,8 @@ where
     }
 
     fn arbitrary_input(&mut self) -> Option<FuzzedInput<M>> {
-        if let Some((v, cache)) = self.mutator.ordered_arbitrary(self.arbitrary_step, self.settings.max_input_cplx) {
+        if let Some((v, cache)) = self.mutator.ordered_arbitrary(&mut self.arbitrary_step, self.settings.max_input_cplx) {
             let mutation_step = self.mutator.initial_step_from_value(&v);
-            self.arbitrary_step += 1;
             Some(FuzzedInput::new(v, cache, mutation_step))
         } else {
             None
@@ -161,7 +160,7 @@ where
             state: FuzzerState {
                 mutator,
                 pool: Pool::default(),
-                arbitrary_step: 0,
+                arbitrary_step: <_>::default(),
                 input_idx: FuzzerInputIndex::None,
                 stats: FuzzerStats::new(),
                 settings,

@@ -251,7 +251,7 @@ impl<Mut: Mutator> FuzzedInput<Mut> {
         }
     }
     pub fn default(m: &mut Mut) -> Option<Self> {
-        if let Some((value, cache)) = m.ordered_arbitrary(0, 1.0) {
+        if let Some((value, cache)) = m.ordered_arbitrary(&mut <_>::default(), 1.0) {
             let mutation_step = m.initial_step_from_value(&value);
             Some(Self::new(value, cache, mutation_step))
         } else {
