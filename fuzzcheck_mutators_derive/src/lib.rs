@@ -24,13 +24,49 @@ macro_rules! opt_ts {
 }
 
 macro_rules! join_ts {
-    ($iter:expr, $part_pat:pat, $($part:expr) *, $sep:expr) => {
+    ($iter:expr) => {
         {
-            let mut iter = $iter.into_iter();
+            #[allow(unused_mut)]
+            let mut tb = TokenBuilder::new();
+            for part in $iter {
+                tb.extend(part);
+            }
+            tb.end()
+        }
+    };
+    ($iter:expr, separator: $sep:expr) => {
+        {
             #[allow(unused_mut)]
             let mut tb = TokenBuilder::new();
             let mut add_sep = false;
-            while let Some($part_pat) = iter.next() {
+            for part in $iter {
+                if add_sep {
+                    $sep.add_to(&mut tb);
+                }
+                tb.extend(part);
+                add_sep = true;
+            }
+            tb.end()
+        }
+    };
+    ($iter:expr, $part_pat:pat, $($part:expr) *) => {
+        {
+            #[allow(unused_mut)]
+            let mut tb = TokenBuilder::new();
+            for $part_pat in $iter {
+                extend_ts!(&mut tb,
+                    $($part) *
+                );
+            }
+            tb.end()
+        }
+    };
+    ($iter:expr, $part_pat:pat, $($part:expr) *, separator: $sep:expr) => {
+        {
+            #[allow(unused_mut)]
+            let mut tb = TokenBuilder::new();
+            let mut add_sep = false;
+            for $part_pat in $iter {
                 if add_sep {
                     $sep.add_to(&mut tb);
                 }
@@ -278,7 +314,7 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
                 Self {"
                     join_ts!(&mutator_field_idents, m,
                         m ": None ,"
-                    , "")
+                    )
                     "cplx : f64 :: default ( )
                 }
             }
@@ -318,13 +354,13 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
             fn max_complexity ( & self ) -> f64 {"
                 join_ts!(&mutator_field_idents, field_name,
                     "self . " field_name ". max_complexity ( )"
-                , "+")
+                , separator: "+")
             "}
 
             fn min_complexity ( & self ) -> f64 {"
                 join_ts!(&mutator_field_idents, field_name,
                     "self . " field_name ". min_complexity ( )"
-                , "+")
+                , separator: "+")
             "}
             
             fn complexity ( & self , value : & Self :: Value , cache : & Self :: Cache ) -> f64 { cache . cplx }
@@ -333,14 +369,14 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
                 // declare all subcaches
                 join_ts!(fields_iter.clone(), (f, m),
                     "let" m "= self ." m ". cache_from_value ( & value ." f ") ;"
-                , "")
+                )
                 // compute cplx
                 "let cplx =" join_ts!(fields_iter.clone(), (f, m),
                     "self . " m ". complexity ( & value ." f ", &" m ")"
-                , "+") ";"
+                , separator: "+") ";"
 
                 "Self :: Cache {"
-                    join_ts!(&mutator_field_idents, x , x , ",")
+                    join_ts!(&mutator_field_idents, x , x , separator: ",")
                     ", cplx
                 }
             }
@@ -349,12 +385,12 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
                 // init all substeps
                 join_ts!(fields_iter.clone(), (f, m),
                     "let" m "= self ." m ". initial_step_from_value ( & value ." f ") ;"
-                , "")
+                )
 
                 "let step = 0 ;
 
                 Self :: MutationStep {"
-                    join_ts!(&mutator_field_idents, x , x , ",")
+                    join_ts!(&mutator_field_idents, separator: ",")
                     ", step
                 }
             }
@@ -363,12 +399,12 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
                 // init all substeps
                 join_ts!(fields_iter.clone(), (f, m),
                     "let" m "= self ." m ". random_step_from_value ( & value ." f ") ;"
-                , "")
+                )
 
                 "let step = self . rng . u64 ( .. ) ;
 
                 Self :: MutationStep {"
-                    join_ts!(&mutator_field_idents, x , x , ",")
+                    join_ts!(&mutator_field_idents, separator: ",")
                     ", step
                 }
             }
@@ -381,7 +417,7 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
                 join_ts!(&mutator_field_idents, m,
                     "let mut" ident!(m "_value") ": Option < _ > = None ;
                      let mut" ident!(m "_cache") ": Option < _ > = None ;"
-                ,"")
+                )
                 "let mut indices = ( 0 .. " mutator_field_idents.len() ") . collect :: < Vec < _ > > ( ) ;
                 fuzzcheck_mutators :: fastrand :: shuffle ( & mut indices ) ;
                 let seed = fuzzcheck_mutators :: fastrand :: usize ( .. ) ;
@@ -396,7 +432,7 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
                             ident!(m "_value") "= Some ( value ) ;"
                             ident!(m "_cache") "= Some ( cache ) ;
                         }"
-                    , "")
+                    )
                             "_ => unreachable ! ( )
                     }
                 }
@@ -404,12 +440,12 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
                     Self :: Value {"
                         join_ts!(fields_iter.clone(), (f, m),
                             f ":" ident!(m "_value") ". unwrap ( ) ,"
-                        ,"")
+                        )
                     "} ,
                     Self :: Cache {"
                         join_ts!(&mutator_field_idents, m,
                             m ":" ident!(m "_cache")" . unwrap ( ) ,"
-                        ,"")
+                        )
                         "cplx
                     }
                 )
@@ -434,7 +470,7 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
                             .. Self :: UnmutateToken :: default ( )
                         } )
                     }"
-                , "")
+                )
                     "_ => unreachable ! ( )
                 }
             }
@@ -446,7 +482,7 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
                     "if let Some ( subtoken ) = t ." m "{"
                         "self ." m ". unmutate ( & mut value ." f ", & mut cache ." m ", subtoken ) ;"
                     "}"
-                , "")
+                )
             "}
         }"
     );
@@ -479,7 +515,7 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
                 Self {"
                     join_ts!(&mutator_struct.struct_fields, field,
                         field.identifier ":" "<" field.ty "as :: core :: default :: Default > :: default ( )"
-                    , ",")
+                    , separator: ",")
                 "}
             }
         }"
@@ -881,8 +917,8 @@ fn derive_enum_mutator_with_items(parsed_enum: &Enum, tb: &mut TokenBuilder) {
                                 join_ts!(items_with_fields_iter.clone(), item,
                                     join_ts!(&item.fields, field,
                                         "self ." field.name ". max_complexity ( ) "
-                                    , "+")
-                                , ",")
+                                    , separator: "+")
+                                , separator: ",")
                             "] . iter ( ) . max_by ( | x , y | x . partial_cmp ( y ) . unwrap_or ( core :: cmp :: Ordering :: Equal ) ) . unwrap ( )"
                         )
                     } else {
@@ -897,8 +933,8 @@ fn derive_enum_mutator_with_items(parsed_enum: &Enum, tb: &mut TokenBuilder) {
                                 join_ts!(items_with_fields_iter.clone(), item,
                                     join_ts!(&item.fields, field,
                                         "self ." field.name ". min_complexity ( ) "
-                                    , "+")
-                                , ",")
+                                    , separator: "+")
+                                , separator: ",")
                             "] . iter ( ) . min_by ( | x , y | x . partial_cmp ( y ) . unwrap_or ( core :: cmp :: Ordering :: Equal ) ) . unwrap ( )"
                         )
                     } else {
@@ -911,7 +947,7 @@ fn derive_enum_mutator_with_items(parsed_enum: &Enum, tb: &mut TokenBuilder) {
 
                 fn cache_from_value ( & self , value : & Self :: Value ) -> Self :: Cache {
                     match value {"
-                        items_for_derive.iter().map(|item| {
+                        join_ts!(&items_for_derive, item,
                             if let Some(EnumItemData::Struct(kind, _)) = &item.item.data {
                                 ts!(
                                     parsed_enum.ident "::" item.item.ident
@@ -919,19 +955,19 @@ fn derive_enum_mutator_with_items(parsed_enum: &Enum, tb: &mut TokenBuilder) {
                                         join_ts!(&item.fields, f,
                                             opt_ts!(&f.field.identifier, f, f ":") f.name
 
-                                        , ",")
+                                        , separator: ",")
                                     kind.close()
                                     "=> {
                                         let mut cplx = " cplx_choose_item ";"
                                         join_ts!(&item.fields, f,
                                             "let" ident!("inner_" f.name) "= self ." f.name ". cache_from_value ( &" f.name ") ;"
                                             "cplx += self ." f.name ". complexity ( &" f.name ", &" ident!("inner_" f.name) " ) ;"
-                                        , "")
+                                        )
                                         "let inner = XInnerMutatorCache :: " item.item.ident
                                         "{"
                                             join_ts!(&item.fields, f,
                                                 f.name ":" ident!("inner_" f.name)
-                                            , ",")
+                                            , separator: ",")
                                         "} ;
                                         XMutatorCache {
                                             inner ,
@@ -949,27 +985,27 @@ fn derive_enum_mutator_with_items(parsed_enum: &Enum, tb: &mut TokenBuilder) {
                                     }"
                                 )
                             }
-                        }).collect::<Vec<_>>()
+                        )
                     "}
                 }
 
                 fn initial_step_from_value ( & self , value : & Self :: Value ) -> Self :: MutationStep {
                     match value {"
-                        items_for_derive.iter().map(|item| {
+                        join_ts!(&items_for_derive, item,
                             if let Some(EnumItemData::Struct(kind, _)) = &item.item.data {
                                 ts!(
                                     parsed_enum.ident "::" item.item.ident
                                     kind.open()
                                         join_ts!(&item.fields, f,
                                             opt_ts!(&f.field.identifier, ident, ident ":") f.name
-                                        , ",")
+                                        , separator: ",")
                                     kind.close()
                                     "=> {
                                         let inner = XInnerMutationStep :: " item.item.ident
                                         "{"
                                             join_ts!(&item.fields, f,
                                                 f.name ": self ." f.name ". initial_step_from_value ( &" f.name ")"
-                                            ,",")
+                                            , separator: ",")
                                         "} ;
                                         let step = 0 ;
                                         XMutationStep {
@@ -988,27 +1024,27 @@ fn derive_enum_mutator_with_items(parsed_enum: &Enum, tb: &mut TokenBuilder) {
                                     }"
                                 )
                             }
-                        }).collect::<Vec<_>>()
+                        )
                     "}
                 }
 
                 fn random_step_from_value ( & self , value : & Self :: Value ) -> Self :: MutationStep {
                     match value {"
-                        items_for_derive.iter().map(|item| {
+                        join_ts!(items_for_derive, item,
                             if let Some(EnumItemData::Struct(kind, _)) = &item.item.data {
                                 ts!(
                                     parsed_enum.ident "::" item.item.ident
                                     kind.open()
                                         join_ts!(&item.fields, f,
                                             opt_ts!(&f.field.identifier, ident, ident ":") f.name
-                                        , ",")
+                                        , separator: ",")
                                     kind.close()
                                     "=> {
                                         let inner = XInnerMutationStep :: " item.item.ident
                                         "{"
                                             join_ts!(&item.fields, f,
                                                 f.name ": self ." f.name ". random_step_from_value ( &" f.name ")"
-                                            ,",")
+                                            , separator: ",")
                                         "} ;
                                         let step = self . rng . u64 ( .. ) ;
                                         XMutationStep {
@@ -1027,12 +1063,26 @@ fn derive_enum_mutator_with_items(parsed_enum: &Enum, tb: &mut TokenBuilder) {
                                     }"
                                 )
                             }
-                        }).collect::<Vec<_>>()
+                        )
                     "}
                 }
+
+                fn ordered_arbitrary ( & mut self , step : usize , max_cplx : f64 ) -> Option < ( Self :: Value , Self :: Cache ) > {
+                    todo ! ( )
+                }
+
+                fn random_arbitrary ( & mut self , max_cplx : f64 ) -> ( Self :: Value , Self :: Cache ) {
+                    todo ! ( )
+                }
+
+                fn mutate ( & mut self , value : & mut Self :: Value , cache : & mut Self :: Cache , step : & mut Self :: MutationStep , max_cplx : f64 ) -> Option < Self :: UnmutateToken > {
+                    todo ! ( )
+                }
+
+                fn unmutate ( & self , value : & mut Self :: Value , cache : & mut Self :: Cache , t : Self :: UnmutateToken ) {
+                    todo ! ( )
+                }
             }"
-            // + arbitraries
-            // + mutate
         )
     }
 }
@@ -1042,16 +1092,16 @@ fn derive_unit_mutator(parsed_struct: Struct, tb: &mut TokenBuilder) {
     let mutator_ident = ident!(parsed_struct.ident "Mutator");
 
     extend_ts!(tb,
-    "type" mutator_ident generics_without_bounds parsed_struct.where_clause
-        "= fuzzcheck_mutators :: unit :: UnitMutator < " parsed_struct.ident generics_without_bounds "> ;"
+        "type" mutator_ident generics_without_bounds
+            "= fuzzcheck_mutators :: unit :: UnitMutator < " parsed_struct.ident generics_without_bounds "> ;"
 
-    "impl" parsed_struct.generics "HasDefaultMutator for"
-        parsed_struct.ident generics_without_bounds parsed_struct.where_clause
-    "{
-        type Mutator = " mutator_ident generics_without_bounds ";
-        fn default_mutator ( ) -> Self :: Mutator {
-            Self :: Mutator :: new ( " parsed_struct.ident " { } )
-        }
-    }"
+        "impl" parsed_struct.generics "HasDefaultMutator for"
+            parsed_struct.ident generics_without_bounds parsed_struct.where_clause
+        "{
+            type Mutator = " mutator_ident generics_without_bounds ";
+            fn default_mutator ( ) -> Self :: Mutator {
+                Self :: Mutator :: new ( " parsed_struct.ident " { } )
+            }
+        }"
     );
 }
