@@ -107,7 +107,7 @@ macro_rules! ident {
     ($($x:expr) *) => {{
         let mut s = String::new();
         $(
-            s.push_str(&format!("{}", $x));
+            s.push_str(&$x.to_string());
         )*
         Ident::new(&s, Span::call_site())
     }};
@@ -141,39 +141,52 @@ fn derive_struct_mutator(parsed_struct: Struct, tb: &mut TokenBuilder) {
     }
 }
 
+struct DerivedStructFieldIdentifiers {
+    orig: Ident,
+    muta: Ident,
+    m_value: Ident,
+    m_cache: Ident,
+}
+
 fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuilder) {
-    let field_names = parsed_struct
+
+    let field_idents = parsed_struct
         .struct_fields
         .iter()
         .enumerate()
-        .map(|(i, f)| ident!(f.identifier.as_ref().map(|z| z.to_string()).unwrap_or(i.to_string())))
+        .map(|(i, f)| {
+            let orig = ident!(f.identifier.as_ref().map(|z| z.to_string()).unwrap_or(i.to_string()));
+            let muta = ident!("_" orig);
+            let m_value = ident!(muta "_value");
+            let m_cache = ident!(muta "_cache");
+            DerivedStructFieldIdentifiers {
+                orig,
+                muta,
+                m_value,
+                m_cache
+            }
+        })
         .collect::<Vec<_>>();
-
-    let mutator_field_idents = field_names.iter().map(|x| ident!("_" x)).collect::<Vec<_>>();
-
-    let generic_types_for_field = mutator_field_idents.iter().map(|name| ident!(name "Type"));
 
     let generics_without_bounds = parsed_struct.generics.removing_bounds_and_eq_type();
 
     let basic_generics = Generics {
         lifetime_params: Vec::new(),
-        type_params: generic_types_for_field
-            .clone()
-            .map(|ident| TypeParam {
-                type_ident: ts!(ident),
+        type_params: field_idents.iter()
+            .map(|ids| TypeParam {
+                type_ident: ts!(ident!(ids.muta "Type")),
                 ..<_>::default()
             })
             .collect(),
     };
 
-    let basic_fields = mutator_field_idents
+    let basic_fields = field_idents
         .iter()
-        .zip(generic_types_for_field.clone())
-        .map(|(identifier, ty)| StructField {
+        .map(|ids| StructField {
             attributes: Vec::new(),
             visibility: Some(ts!("pub")),
-            identifier: Some(identifier.clone()),
-            ty: ts!(ty),
+            identifier: Some(ids.muta.clone()),
+            ty: ts!(ident!(ids.muta "Type")),
         })
         .collect::<Vec<_>>();
 
@@ -186,20 +199,15 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
 
         let mut where_clause_items = parsed_struct.where_clause.clone().map(|wc| wc.items).unwrap_or(vec![]);
 
-        for (field, generic_ty_for_field) in parsed_struct.struct_fields.iter().zip(generic_types_for_field.clone()) {
+        for field in basic_fields.iter() {
             generics.type_params.push(TypeParam {
-                type_ident: ts!(generic_ty_for_field),
+                type_ident: field.ty.clone(),
                 ..<_>::default()
             });
             where_clause_items.push(WhereClauseItem {
                 for_lifetimes: None,
                 lhs: field.ty.clone(),
-                rhs: ts!(":: core :: clone :: Clone"),
-            });
-            where_clause_items.push(WhereClauseItem {
-                for_lifetimes: None,
-                lhs: ts!(generic_ty_for_field),
-                rhs: ts!("fuzzcheck_mutators :: fuzzcheck_traits :: Mutator < Value = " field.ty ">"),
+                rhs: ts!(":: core :: clone :: Clone + fuzzcheck_mutators :: fuzzcheck_traits :: Mutator < Value = " field.ty ">"),
             });
         }
 
@@ -312,18 +320,14 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
         "impl" unmutate_token_struct.generics ":: core :: default :: Default for" unmutate_token_struct.ident unmutate_token_struct.generics "{
             fn default ( ) -> Self {
                 Self {"
-                    join_ts!(&mutator_field_idents, m,
-                        m ": None ,"
+                    join_ts!(&field_idents, ids,
+                        ids.muta ": None ,"
                     )
                     "cplx : f64 :: default ( )
                 }
             }
         }"
     );
-
-    let fields_iter = field_names.iter().zip(mutator_field_idents.iter());
-
-    // TODO: arbitrary/random/ordered
 
     // implementation of Mutator trait
     extend_ts!(tb,
@@ -352,14 +356,14 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
                 ";
 
             fn max_complexity ( & self ) -> f64 {"
-                join_ts!(&mutator_field_idents, field_name,
-                    "self . " field_name ". max_complexity ( )"
+                join_ts!(&field_idents, ids,
+                    "self . " ids.muta ". max_complexity ( )"
                 , separator: "+")
             "}
 
             fn min_complexity ( & self ) -> f64 {"
-                join_ts!(&mutator_field_idents, field_name,
-                    "self . " field_name ". min_complexity ( )"
+                join_ts!(&field_idents, ids,
+                    "self . " ids.muta ". min_complexity ( )"
                 , separator: "+")
             "}
             
@@ -367,44 +371,44 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
 
             fn cache_from_value ( & self , value : & Self :: Value ) -> Self :: Cache {"
                 // declare all subcaches
-                join_ts!(fields_iter.clone(), (f, m),
-                    "let" m "= self ." m ". cache_from_value ( & value ." f ") ;"
+                join_ts!(&field_idents, ids,
+                    "let" ids.muta "= self ." ids.muta ". cache_from_value ( & value ." ids.orig ") ;"
                 )
                 // compute cplx
-                "let cplx =" join_ts!(fields_iter.clone(), (f, m),
-                    "self . " m ". complexity ( & value ." f ", &" m ")"
+                "let cplx =" join_ts!(&field_idents, ids,
+                    "self . " ids.muta ". complexity ( & value ." ids.orig ", &" ids.muta ")"
                 , separator: "+") ";"
 
                 "Self :: Cache {"
-                    join_ts!(&mutator_field_idents, x , x , separator: ",")
+                    join_ts!(&field_idents, ids , ids.muta , separator: ",")
                     ", cplx
                 }
             }
 
             fn initial_step_from_value ( & self , value : & Self :: Value ) -> Self :: MutationStep {"
                 // init all substeps
-                join_ts!(fields_iter.clone(), (f, m),
-                    "let" m "= self ." m ". initial_step_from_value ( & value ." f ") ;"
+                join_ts!(&field_idents, ids,
+                    "let" ids.muta "= self ." ids.muta ". initial_step_from_value ( & value ." ids.orig ") ;"
                 )
 
                 "let step = 0 ;
 
                 Self :: MutationStep {"
-                    join_ts!(&mutator_field_idents, separator: ",")
+                join_ts!(&field_idents, ids , ids.muta , separator: ",")
                     ", step
                 }
             }
             
             fn random_step_from_value ( & self , value : & Self :: Value ) -> Self :: MutationStep {"
                 // init all substeps
-                join_ts!(fields_iter.clone(), (f, m),
-                    "let" m "= self ." m ". random_step_from_value ( & value ." f ") ;"
+                join_ts!(&field_idents, ids,
+                    "let" ids.muta "= self ." ids.muta ". random_step_from_value ( & value ." ids.orig ") ;"
                 )
 
                 "let step = self . rng . u64 ( .. ) ;
 
                 Self :: MutationStep {"
-                    join_ts!(&mutator_field_idents, separator: ",")
+                    join_ts!(&field_idents, ids , ids.muta , separator: ",")
                     ", step
                 }
             }
@@ -414,23 +418,23 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
             }
 
             fn random_arbitrary ( & mut self , max_cplx : f64 ) -> ( Self :: Value , Self :: Cache ) {"
-                join_ts!(&mutator_field_idents, m,
-                    "let mut" ident!(m "_value") ": Option < _ > = None ;
-                     let mut" ident!(m "_cache") ": Option < _ > = None ;"
+                join_ts!(&field_idents, ids,
+                    "let mut" ids.m_value ": Option < _ > = None ;
+                     let mut" ids.m_cache ": Option < _ > = None ;"
                 )
-                "let mut indices = ( 0 .. " mutator_field_idents.len() ") . collect :: < Vec < _ > > ( ) ;
+                "let mut indices = ( 0 .. " field_idents.len() ") . collect :: < Vec < _ > > ( ) ;
                 fuzzcheck_mutators :: fastrand :: shuffle ( & mut indices ) ;
                 let seed = fuzzcheck_mutators :: fastrand :: usize ( .. ) ;
                 let mut cplx = f64 :: default ( ) ;
 
                 for idx in indices . iter ( ) {
                     match idx {"
-                    join_ts!(mutator_field_idents.iter().enumerate(), (i, m),
+                    join_ts!(field_idents.iter().enumerate(), (i, ids),
                         i "=> {
-                            let ( value , cache ) = self . " m " . random_arbitrary ( max_cplx - cplx ) ;
-                            cplx += self . " m ". complexity ( & value , & cache ) ; " 
-                            ident!(m "_value") "= Some ( value ) ;"
-                            ident!(m "_cache") "= Some ( cache ) ;
+                            let ( value , cache ) = self . " ids.muta " . random_arbitrary ( max_cplx - cplx ) ;
+                            cplx += self . " ids.muta ". complexity ( & value , & cache ) ; " 
+                            ids.m_value "= Some ( value ) ;"
+                            ids.m_cache "= Some ( cache ) ;
                         }"
                     )
                             "_ => unreachable ! ( )
@@ -438,13 +442,13 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
                 }
                 (
                     Self :: Value {"
-                        join_ts!(fields_iter.clone(), (f, m),
-                            f ":" ident!(m "_value") ". unwrap ( ) ,"
+                        join_ts!(&field_idents, ids,
+                            ids.orig ":" ids.m_value ". unwrap ( ) ,"
                         )
                     "} ,
                     Self :: Cache {"
-                        join_ts!(&mutator_field_idents, m,
-                            m ":" ident!(m "_cache")" . unwrap ( ) ,"
+                        join_ts!(&field_idents, ids,
+                            ids.muta ":" ids.m_cache " . unwrap ( ) ,"
                         )
                         "cplx
                     }
@@ -456,16 +460,16 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
                 let orig_step = step . step ;
                 step . step += 1 ;
                 let current_cplx = self . complexity ( value , cache ) ;
-                match orig_step % " mutator_field_idents.len() "{"
-                join_ts!(fields_iter.clone().enumerate(), (i, (f, m)),
+                match orig_step % " field_idents.len() "{"
+                join_ts!(field_idents.iter().enumerate(), (i, ids),
                     i " => {
-                        let current_field_cplx = self ." m ". complexity ( & value ." f ", & cache ." m ") ;
+                        let current_field_cplx = self ." ids.muta ". complexity ( & value ." ids.orig ", & cache ." ids.muta ") ;
                         let max_field_cplx = max_cplx - current_cplx - current_field_cplx ;
-                        let token = self ." m ". mutate ( & mut  value ." f ", & mut cache ." m ", & mut step ." m ", max_field_cplx ) ;
-                        let new_field_complexity = self ." m ". complexity ( & value ." f ", & cache ." m ") ;
+                        let token = self ." ids.muta ". mutate ( & mut  value ." ids.orig ", & mut cache ." ids.muta ", & mut step ." ids.muta ", max_field_cplx ) ;
+                        let new_field_complexity = self ." ids.muta ". complexity ( & value ." ids.orig ", & cache ." ids.muta ") ;
                         cache . cplx = cache . cplx - current_field_cplx + new_field_complexity ;
                         Some ( Self :: UnmutateToken {"
-                            m ": token ,
+                            ids.muta ": token ,
                             cplx : current_cplx ,
                             .. Self :: UnmutateToken :: default ( )
                         } )
@@ -478,9 +482,9 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
             fn unmutate ( & self , value : & mut Self :: Value , cache : & mut Self :: Cache , t : Self :: UnmutateToken )
             {
                 cache . cplx = t . cplx ;"
-                join_ts!(fields_iter, (f, m),
-                    "if let Some ( subtoken ) = t ." m "{"
-                        "self ." m ". unmutate ( & mut value ." f ", & mut cache ." m ", subtoken ) ;"
+                join_ts!(&field_idents, ids,
+                    "if let Some ( subtoken ) = t ." ids.muta "{"
+                        "self ." ids.muta ". unmutate ( & mut value ." ids.orig ", & mut cache ." ids.muta ", subtoken ) ;"
                     "}"
                 )
             "}
@@ -489,22 +493,17 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
 
     {
         // default impl
-        let mut additional_where_items = Vec::<WhereClauseItem>::new();
-        for ty in generic_types_for_field.clone() {
-            let where_item = WhereClauseItem {
-                for_lifetimes: None,
-                lhs: ts!(ty),
-                rhs: ts!(":: core :: default :: Default"),
-            };
-            additional_where_items.push(where_item);
-        }
-        let where_clause = if let Some(mut where_clause) = mutator_struct.where_clause.clone() {
-            where_clause.items.extend(additional_where_items);
-            where_clause
-        } else {
-            WhereClause {
-                items: additional_where_items,
+        let where_clause = {
+            let mut where_clause = mutator_struct.where_clause.clone().unwrap_or_default();
+
+            for field in &basic_fields {
+                where_clause.items.push(WhereClauseItem {
+                    for_lifetimes: None,
+                    lhs: ts!(field.ty),
+                    rhs: ts!(":: core :: default :: Default"),
+                });
             }
+            where_clause
         };
 
         extend_ts!(tb,
@@ -522,40 +521,28 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
         )
     }
     {
-        // implementation of HasDefaultMutator trait when generic mutator params are HasDefaultMutator
-        let mut where_items = Vec::<WhereClauseItem>::new();
-        for field in parsed_struct.struct_fields.iter() {
-            let where_item = WhereClauseItem {
-                for_lifetimes: None,
-                lhs: field.ty.clone(),
-                rhs: ts!("fuzzcheck_mutators :: HasDefaultMutator"),
-            };
-            where_items.push(where_item);
-            let where_item = WhereClauseItem {
-                for_lifetimes: None,
-                lhs: ts!("<" field.ty " as fuzzcheck_mutators :: HasDefaultMutator > :: Mutator"),
-                rhs: ts!(":: core :: default :: Default"),
-            };
-            where_items.push(where_item);
-            let where_item = WhereClauseItem {
-                for_lifetimes: None,
-                lhs: field.ty.clone(),
-                rhs: ts!(":: core :: clone :: Clone"),
-            };
-            where_items.push(where_item);
-        }
-        let where_item = WhereClauseItem {
-            for_lifetimes: None,
-            lhs: value_struct_ident_with_generic_params.clone(),
-            rhs: ts!(":: core :: clone :: Clone"),
-        };
-        where_items.push(where_item);
-
-        let where_clause = if let Some(mut where_clause) = parsed_struct.where_clause.clone() {
-            where_clause.items.extend(where_items);
+        let where_clause = {
+            let mut where_clause = parsed_struct.where_clause.clone().unwrap_or_default();
+            for field in parsed_struct.struct_fields.iter() {
+                where_clause.items.extend(vec![
+                    WhereClauseItem {
+                        for_lifetimes: None,
+                        lhs: field.ty.clone(),
+                        rhs: ts!(":: core :: clone :: Clone + fuzzcheck_mutators :: HasDefaultMutator"),
+                    },
+                    WhereClauseItem {
+                        for_lifetimes: None,
+                        lhs: ts!("<" field.ty " as fuzzcheck_mutators :: HasDefaultMutator > :: Mutator"),
+                        rhs: ts!(":: core :: default :: Default"),
+                    },
+                    WhereClauseItem {
+                        for_lifetimes: None,
+                        lhs: value_struct_ident_with_generic_params.clone(),
+                        rhs: ts!(":: core :: clone :: Clone"),
+                    }
+                ]);
+            }
             where_clause
-        } else {
-            WhereClause { items: where_items }
         };
 
         let generics_mutator = {
@@ -954,7 +941,6 @@ fn derive_enum_mutator_with_items(parsed_enum: &Enum, tb: &mut TokenBuilder) {
                                     kind.open()
                                         join_ts!(&item.fields, f,
                                             opt_ts!(&f.field.identifier, f, f ":") f.name
-
                                         , separator: ",")
                                     kind.close()
                                     "=> {
