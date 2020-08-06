@@ -134,6 +134,14 @@ pub struct EnumItem {
     pub ident: Ident,
     pub data: Option<EnumItemData>,
 }
+impl EnumItem {
+    pub fn get_fields(&self) -> Option<&[StructField]> {
+        match &self.data {
+            None | Some(EnumItemData::Discriminant(_)) => None,
+            Some(EnumItemData::Struct(_, fields)) => Some(fields)
+        }
+    }
+}
 #[derive(Clone)]
 pub enum EnumItemData {
     Discriminant(TokenTree),
