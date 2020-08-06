@@ -1274,12 +1274,12 @@ fn derive_enum_mutator_with_items(parsed_enum: &Enum, tb: &mut TokenBuilder) {
                                             let field_ident = &fields[0].identifier;
                                             ts!(
                                                 "if let Some ( ( inner_value , inner_cache ) ) = self ." inner_field_ident " . ordered_arbitrary (" inner_field_ident ", max_cplx ) {"
-                                                    "let value = " parsed_enum.ident "::" item.ident 
+                                                    "let cplx = " cplx_choose_item " + self ." inner_field_ident ". complexity ( & inner_value , & inner_cache ) ;
+                                                    let value = " parsed_enum.ident "::" item.ident 
                                                         kind.open() 
                                                             opt_ts!(field_ident, ident, ident ":") "inner_value"
                                                         kind.close()
                                                         ";
-                                                    let cplx = " cplx_choose_item " + self ." inner_field_ident ". complexity ( & inner_value , & inner_cache ) ;
                                                     let cache = " cache_struct.ident " {
                                                         inner : " cache_enum.ident " :: " inner_item.ident "{"
                                                             inner_field_ident ": inner_cache" 
@@ -1312,16 +1312,16 @@ fn derive_enum_mutator_with_items(parsed_enum: &Enum, tb: &mut TokenBuilder) {
                                                                 }
                                                                 ";"
                                                             )
-                                                            "let value = " parsed_enum.ident "::" item.ident 
+                                                            "let cplx =" cplx_choose_item join_ts!(&inner_fields_identifiers, ident, 
+                                                                "+ self ." ident ". complexity ( &" ident!(ident "_value") ", & " ident!(ident "_cache") ")" 
+                                                            ) ";
+                                                            let value = " parsed_enum.ident "::" item.ident 
                                                             kind.open() 
                                                                 join_ts!(fields.iter().zip(inner_fields_identifiers.iter()), (field, inner_ident),
                                                                     opt_ts!(&field.identifier, ident, ident ":") ident!(inner_ident "_value")
                                                                 , separator: ",")
                                                             kind.close()
                                                             ";
-                                                            let cplx =" cplx_choose_item join_ts!(&inner_fields_identifiers, ident, 
-                                                                "+ self ." ident ". complexity ( &" ident!(ident "_value") ", & " ident!(ident "_cache") ")" 
-                                                            ) ";
                                                             let cache = " cache_struct.ident " {
                                                                 inner : " cache_enum.ident " :: " inner_item.ident "{"
                                                                     join_ts!(&inner_fields_identifiers, ident, 
@@ -1381,17 +1381,17 @@ fn derive_enum_mutator_with_items(parsed_enum: &Enum, tb: &mut TokenBuilder) {
                                         join_ts!(&inner_fields_identifiers, ident, 
                                             "let (" ident!(ident "_value") "," ident!(ident "_cache")" ) = self ." ident ". random_arbitrary ( max_cplx ) ;"
                                         )
-                                        "let value = " parsed_enum.ident "::" item.ident 
+                                        "let cplx = " 
+                                        cplx_choose_item join_ts!(&inner_fields_identifiers, ident, 
+                                            "+ self ." ident ". complexity ( &" ident!(ident "_value") ", &" ident!(ident "_cache") ")"
+                                        ) ";
+                                        let value = " parsed_enum.ident "::" item.ident 
                                             kind.open()
                                             join_ts!(fields.iter().zip(inner_fields_identifiers.iter()), (field, inner_ident), 
                                                 opt_ts!(&field.identifier, ident, ident ":") ident!(inner_ident "_value")
                                             , separator: ",")
                                             kind.close()
                                             ";
-                                        let cplx = " 
-                                            cplx_choose_item join_ts!(&inner_fields_identifiers, ident, 
-                                                "+ self ." ident ". complexity ( &" ident!(ident "_value") ", &" ident!(ident "_cache") ")"
-                                            ) ";
                                         let cache = " cache_struct.ident "{
                                             inner :" cache_enum.ident "::" inner_item.ident "{"
                                                 join_ts!(&inner_fields_identifiers, ident, 

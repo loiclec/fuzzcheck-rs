@@ -274,6 +274,7 @@ impl TokenBuilderExtend for Generics {
             extend_ts!(tb,
                 "<"
                 join_ts!(&self.lifetime_params, x , x , ",")
+                if !self.lifetime_params.is_empty() { ts!(",") } else { ts!() }
                 join_ts!(&self.type_params, x , x , ",")
                 ">"
             )
