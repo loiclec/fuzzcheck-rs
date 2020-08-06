@@ -106,7 +106,7 @@ impl StructKind {
 
 #[derive(Clone)]
 pub struct Struct {
-    pub visibility: Option<TokenStream>,
+    pub visibility: TokenStream,
     pub ident: Ident,
     pub generics: Generics,
     pub kind: StructKind,
@@ -116,13 +116,13 @@ pub struct Struct {
 #[derive(Clone, Default)]
 pub struct StructField {
     pub attributes: Vec<TokenStream>,
-    pub visibility: Option<TokenStream>,
+    pub visibility: TokenStream,
     pub identifier: Option<Ident>,
     pub ty: TokenStream,
 }
 #[derive(Clone)]
 pub struct Enum {
-    pub visibility: Option<TokenStream>,
+    pub visibility: TokenStream,
     pub ident: Ident,
     pub generics: Generics,
     pub where_clause: Option<WhereClause>,
@@ -151,7 +151,7 @@ pub struct TypeParam {
     pub bounds: Option<TokenStream>,
     pub equal_ty: Option<TokenStream>,
 }
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct Generics {
     pub lifetime_params: Vec<LifetimeParam>,
     pub type_params: Vec<TypeParam>,
@@ -1379,17 +1379,15 @@ impl TokenParser {
     }
 
     #[inline(never)]
-    pub fn eat_visibility(&mut self) -> Option<TokenStream> {
+    pub fn eat_visibility(&mut self) -> TokenStream {
         let mut tb = TokenBuilder::new();
         if let Some(pub_ident) = self.eat_ident("pub") {
             tb.extend_tree(pub_ident);
             if let Some(tt) = self.eat_group(Delimiter::Bracket) {
                 tb.extend_tree(tt);
             }
-            Some(tb.end())
-        } else {
-            None
         }
+        tb.end()
     }
 }
 

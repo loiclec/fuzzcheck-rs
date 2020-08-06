@@ -146,6 +146,8 @@ struct DerivedStructFieldIdentifiers {
     muta: Ident,
     m_value: Ident,
     m_cache: Ident,
+    ty: TokenStream,
+    generic_type: TokenStream,
 }
 
 fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuilder) {
@@ -159,11 +161,15 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
             let muta = ident!("_" orig);
             let m_value = ident!(muta "_value");
             let m_cache = ident!(muta "_cache");
+            let ty = f.ty.clone();
+            let generic_type = ts!(ident!(muta "Type"));
             DerivedStructFieldIdentifiers {
                 orig,
                 muta,
                 m_value,
-                m_cache
+                m_cache,
+                ty,
+                generic_type,
             }
         })
         .collect::<Vec<_>>();
@@ -174,7 +180,7 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
         lifetime_params: Vec::new(),
         type_params: field_idents.iter()
             .map(|ids| TypeParam {
-                type_ident: ts!(ident!(ids.muta "Type")),
+                type_ident: ids.generic_type.clone(),
                 ..<_>::default()
             })
             .collect(),
@@ -184,9 +190,9 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
         .iter()
         .map(|ids| StructField {
             attributes: Vec::new(),
-            visibility: Some(ts!("pub")),
+            visibility: ts!("pub"),
             identifier: Some(ids.muta.clone()),
-            ty: ts!(ident!(ids.muta "Type")),
+            ty: ids.generic_type.clone(),
         })
         .collect::<Vec<_>>();
 
@@ -199,15 +205,20 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
 
         let mut where_clause_items = parsed_struct.where_clause.clone().map(|wc| wc.items).unwrap_or(vec![]);
 
-        for field in basic_fields.iter() {
+        for ids in field_idents.iter() {
             generics.type_params.push(TypeParam {
-                type_ident: field.ty.clone(),
+                type_ident: ids.generic_type.clone(),
                 ..<_>::default()
             });
             where_clause_items.push(WhereClauseItem {
                 for_lifetimes: None,
-                lhs: field.ty.clone(),
-                rhs: ts!(":: core :: clone :: Clone + fuzzcheck_mutators :: fuzzcheck_traits :: Mutator < Value = " field.ty ">"),
+                lhs: ids.ty.clone(),
+                rhs: ts!(":: core :: clone :: Clone") 
+            });
+            where_clause_items.push(WhereClauseItem {
+                for_lifetimes: None,
+                lhs: ids.generic_type.clone(),
+                rhs: ts!("fuzzcheck_mutators :: fuzzcheck_traits :: Mutator < Value = " ids.ty ">")
             });
         }
 
@@ -220,7 +231,7 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
         let mut mutator_struct_fields = basic_fields.clone();
         mutator_struct_fields.push(StructField {
             attributes: Vec::new(),
-            visibility: Some(ts!("pub")),
+            visibility: ts!("pub"),
             identifier: Some(ident!("rng")),
             ty: ts!("fuzzcheck_mutators :: fastrand :: Rng"),
         });
@@ -243,7 +254,7 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
         let mut cache_fields = basic_fields.clone();
         cache_fields.push(StructField {
             attributes: Vec::new(),
-            visibility: None,
+            visibility: ts!(),
             identifier: Some(ident!("cplx")),
             ty: ts!("f64"),
         });
@@ -266,7 +277,7 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
         let mut step_fields = basic_fields.clone();
         step_fields.push(StructField {
             attributes: Vec::new(),
-            visibility: None,
+            visibility: ts!(),
             identifier: Some(ident!("step")),
             ty: ts!("u64"),
         });
@@ -285,6 +296,64 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
         mutator_step_struct
     );
 
+    let (arbitrary_inner_step_enum, arbitrary_step_struct) = {
+        let inner_enum = Enum {
+            visibility: ts!("pub"),
+            ident: ident!(parsed_struct.ident "InnerArbitraryStep"),
+            generics: <_>::default(),
+            where_clause: None,
+            items: field_idents.iter().map(|ids| {
+                EnumItem {
+                    attributes: Vec::new(),
+                    ident: ids.muta.clone(),
+                    data: None,
+                }
+            }).collect()
+        };
+        let mut step_fields = field_idents.iter().map(|ids|
+            StructField {
+                identifier: Some(ids.muta.clone()), 
+                ty: ts!(ids.generic_type),
+                ..<_>::default()
+            }
+        ).collect::<Vec<_>>();
+    
+        step_fields.push(StructField {
+            identifier: Some(ident!("fields")), 
+            ty: ts!(":: std :: vec :: Vec <" inner_enum.ident ">"),
+            ..<_>::default()
+        });
+
+        let step_struct = Struct {
+            visibility: ts!("pub"),
+            ident: ident!(parsed_struct.ident "ArbitraryStep"),
+            generics: basic_generics.clone(),
+            kind: StructKind::Struct,
+            where_clause: None,
+            struct_fields: step_fields,
+        };
+        (inner_enum, step_struct)
+    };
+    extend_ts!(tb,
+        "# [ derive ( :: core :: clone :: Clone ) ]"
+        arbitrary_inner_step_enum
+        "# [ derive ( :: core :: clone :: Clone ) ]"
+        arbitrary_step_struct
+
+        "impl" arbitrary_step_struct.generics ":: core :: default :: Default for" arbitrary_step_struct.ident 
+            arbitrary_step_struct.generics 
+        "{
+            fn default ( ) -> Self {
+                Self {"
+                    join_ts!(&field_idents, ids,
+                        ids.muta ": < _ > :: default ( ) ,"
+                    )
+                    "fields : < _ > :: default ( )
+                }
+            }
+        }"
+    );
+
     let unmutate_token_struct = {
         let mut step_fields = basic_fields
             .iter()
@@ -296,7 +365,7 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
 
         step_fields.push(StructField {
             attributes: Vec::new(),
-            visibility: None,
+            visibility: ts!(),
             identifier: Some(ident!("cplx")),
             ty: ts!("f64"),
         });
@@ -348,6 +417,12 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
                 )
                 ";
 
+            type ArbitraryStep = "
+                arbitrary_step_struct.ident
+                arbitrary_step_struct.generics.mutating_type_params(|tp|
+                    tp.type_ident = ts!("<" tp.type_ident "as fuzzcheck_mutators :: fuzzcheck_traits :: Mutator > :: MutationStep")
+                )
+                ";
             type UnmutateToken = "
                 unmutate_token_struct.ident
                 unmutate_token_struct.generics.mutating_type_params(|tp|
@@ -413,7 +488,7 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
                 }
             }
 
-            fn ordered_arbitrary ( & mut self , _seed : usize , max_cplx : f64 ) -> Option < ( Self :: Value , Self :: Cache ) > {
+            fn ordered_arbitrary ( & mut self , step : & mut Self :: ArbitraryStep , max_cplx : f64 ) -> Option < ( Self :: Value , Self :: Cache ) > {
                 Some ( self . random_arbitrary ( max_cplx ) )
             }
 
@@ -655,7 +730,7 @@ fn derive_enum_mutator_with_items(parsed_enum: &Enum, tb: &mut TokenBuilder) {
             .clone()
             .map(|x| StructField {
                 attributes: Vec::new(),
-                visibility: Some(ts!("pub")),
+                visibility: ts!("pub"),
                 identifier: Some(x.name.clone()),
                 ty: ts!(x.mutator_ty),
             })
@@ -697,7 +772,7 @@ fn derive_enum_mutator_with_items(parsed_enum: &Enum, tb: &mut TokenBuilder) {
         let mut mutator_struct_fields = basic_fields.clone();
         mutator_struct_fields.push(StructField {
             attributes: Vec::new(),
-            visibility: Some(ts!("pub")),
+            visibility: ts!("pub"),
             identifier: Some(ident!("rng")),
             ty: ts!("fuzzcheck_mutators :: fastrand :: Rng"),
         });
