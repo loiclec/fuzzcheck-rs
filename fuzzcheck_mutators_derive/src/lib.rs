@@ -1269,7 +1269,7 @@ fn derive_enum_mutator_with_items(parsed_enum: &Enum, tb: &mut TokenBuilder) {
                                                             opt_ts!(field_ident, ident, ident ":") "inner_value"
                                                         kind.close()
                                                         ";
-                                                    let cplx = self ." inner_field_ident ". complexity ( & inner_value , & inner_cache ) ;
+                                                    let cplx = " cplx_choose_item " + self ." inner_field_ident ". complexity ( & inner_value , & inner_cache ) ;
                                                     let cache = " cache_struct.ident " {
                                                         inner : " cache_enum.ident " :: " inner_item.ident "{"
                                                             inner_field_ident ": inner_cache" 
@@ -1309,9 +1309,9 @@ fn derive_enum_mutator_with_items(parsed_enum: &Enum, tb: &mut TokenBuilder) {
                                                                 , separator: ",")
                                                             kind.close()
                                                             ";
-                                                            let cplx =" join_ts!(&inner_fields_identifiers, ident, 
-                                                                "self ." ident ". complexity ( &" ident!(ident "_value") ", & " ident!(ident "_cache") ")" 
-                                                            , separator: "+") ";
+                                                            let cplx =" cplx_choose_item join_ts!(&inner_fields_identifiers, ident, 
+                                                                "+ self ." ident ". complexity ( &" ident!(ident "_value") ", & " ident!(ident "_cache") ")" 
+                                                            ) ";
                                                             let cache = " cache_struct.ident " {
                                                                 inner : " cache_enum.ident " :: " inner_item.ident "{"
                                                                     join_ts!(&inner_fields_identifiers, ident, 
@@ -1359,7 +1359,56 @@ fn derive_enum_mutator_with_items(parsed_enum: &Enum, tb: &mut TokenBuilder) {
                 }
 
                 fn random_arbitrary ( & mut self , max_cplx : f64 ) -> ( Self :: Value , Self :: Cache ) {
-                    todo ! ( )
+                    let step = self . rng . usize ( .. ) ;
+                    let max_cplx = max_cplx - " cplx_choose_item ";
+                    match step % " parsed_enum.items.len() " {"
+                    join_ts!(parsed_enum.items.iter().zip(inner_items.iter()).enumerate(), (i, (item, inner_item)), 
+                        i "=> {"
+                            match &item.data {
+                                Some(EnumItemData::Struct(kind, fields)) => {
+                                    let inner_fields_identifiers = inner_item.get_fields().unwrap().iter().map(|f| f.identifier.as_ref().unwrap()).take(fields.len()).collect::<Vec<_>>();
+                                    ts!(
+                                        join_ts!(&inner_fields_identifiers, ident, 
+                                            "let (" ident!(ident "_value") "," ident!(ident "_cache")" ) = self ." ident ". random_arbitrary ( max_cplx ) ;"
+                                        )
+                                        "let value = " parsed_enum.ident "::" item.ident 
+                                            kind.open()
+                                            join_ts!(fields.iter().zip(inner_fields_identifiers.iter()), (field, inner_ident), 
+                                                opt_ts!(&field.identifier, ident, ident ":") ident!(inner_ident "_value")
+                                            , separator: ",")
+                                            kind.close()
+                                            ";
+                                        let cplx = " 
+                                            cplx_choose_item join_ts!(&inner_fields_identifiers, ident, 
+                                                "+ self ." ident ". complexity ( &" ident!(ident "_value") ", &" ident!(ident "_cache") ")"
+                                            ) ";
+                                        let cache = " cache_struct.ident "{
+                                            inner :" cache_enum.ident "::" inner_item.ident "{"
+                                                join_ts!(&inner_fields_identifiers, ident, 
+                                                    ident ":" ident!(ident "_cache")
+                                                , separator: ",")
+                                            "} ,
+                                            cplx"
+                                        "} ;
+                                        ( value , cache )
+                                        "
+                                    )
+                                }
+                                None | Some(EnumItemData::Discriminant(_)) => {
+                                    ts!(
+                                        "let value = " parsed_enum.ident "::" item.ident ";
+                                        let cache = " cache_struct.ident "{
+                                            inner :" cache_enum.ident "::" inner_item.ident ","
+                                            "cplx : " cplx_choose_item
+                                        "} ;
+                                        ( value , cache )"
+                                    )
+                                }
+                            }
+                        "}"
+                    )
+                        "_ => unreachable ! ( )"
+                    "}
                 }
 
                 fn mutate ( & mut self , value : & mut Self :: Value , cache : & mut Self :: Cache , step : & mut Self :: MutationStep , max_cplx : f64 ) -> Option < Self :: UnmutateToken > {
