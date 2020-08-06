@@ -1,8 +1,16 @@
+use crate::HasDefaultMutator;
 use fuzzcheck_traits::Mutator;
 
 #[derive(Default)]
 pub struct BoolMutator {
     rng: fastrand::Rng,
+}
+
+impl HasDefaultMutator for bool {
+    type Mutator = BoolMutator;
+    fn default_mutator() -> Self::Mutator {
+        <_>::default()
+    }   
 }
 
 #[derive(Clone)]
