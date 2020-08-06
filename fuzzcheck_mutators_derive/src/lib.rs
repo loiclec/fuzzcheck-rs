@@ -334,6 +334,16 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
         };
         (inner_enum, step_struct)
     };
+    let ar_step_default_where_clause = WhereClause {
+        items: arbitrary_step_struct.generics.type_params.iter().map(|tp| 
+            WhereClauseItem {
+                for_lifetimes: None,
+                lhs: tp.type_ident.clone(),
+                rhs: ts!(":: core :: default :: Default"),
+            }
+        ).collect(),
+    };
+
     extend_ts!(tb,
         "# [ derive ( :: core :: clone :: Clone ) ]"
         arbitrary_inner_step_enum
@@ -341,7 +351,7 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
         arbitrary_step_struct
 
         "impl" arbitrary_step_struct.generics ":: core :: default :: Default for" arbitrary_step_struct.ident 
-            arbitrary_step_struct.generics 
+            arbitrary_step_struct.generics ar_step_default_where_clause
         "{
             fn default ( ) -> Self {
                 Self {"
@@ -420,7 +430,7 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
             type ArbitraryStep = "
                 arbitrary_step_struct.ident
                 arbitrary_step_struct.generics.mutating_type_params(|tp|
-                    tp.type_ident = ts!("<" tp.type_ident "as fuzzcheck_mutators :: fuzzcheck_traits :: Mutator > :: MutationStep")
+                    tp.type_ident = ts!("<" tp.type_ident "as fuzzcheck_mutators :: fuzzcheck_traits :: Mutator > :: ArbitraryStep")
                 )
                 ";
             type UnmutateToken = "
