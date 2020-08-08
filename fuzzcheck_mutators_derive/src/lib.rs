@@ -993,16 +993,23 @@ fn derive_enum_mutator_with_items(parsed_enum: &Enum, tb: &mut TokenBuilder) {
             ..<_>::default()
         };
     
+        let mut generics = basic_generics.clone();
+        generics.type_params.push(TypeParam {
+            type_ident: ts!("ArbitraryStep"),
+            ..TypeParam::default()
+        });
+
+
         let field_ar_step = StructField {
             identifier: Some(ident!("arbitrary_step")),
-            ty: ts!("Option <" ar_step_struct.ident ar_step_struct.generics ">"),
+            ty: ts!("Option < ArbitraryStep >"),
             ..<_>::default()
         };
-
+        
         let step_struct = Struct {
             visibility: parsed_enum.visibility.clone(),
             ident: ident!(parsed_enum.ident "MutationStep"),
-            generics: basic_generics.clone(),
+            generics,
             kind: StructKind::Struct,
             where_clause: None,
             struct_fields: vec![field_inner, field_step, field_ar_step],
@@ -1017,7 +1024,19 @@ fn derive_enum_mutator_with_items(parsed_enum: &Enum, tb: &mut TokenBuilder) {
         "# [ derive ( core :: clone :: Clone ) ] "
         step_struct
     );
-
+    
+    let step_struct_generics_for_assoc_type = {
+        let mut generics = step_struct.generics.clone();
+        let _ = generics.type_params.pop().unwrap();
+        generics = generics.mutating_type_params(|tp|
+            tp.type_ident = ts!("<" tp.type_ident "as fuzzcheck_mutators :: fuzzcheck_traits :: Mutator > :: MutationStep")
+        );
+        generics.type_params.push(TypeParam {
+            type_ident: ts!("Self :: ArbitraryStep"),
+            ..TypeParam::default()
+        });
+        generics
+    };
 
     let unmutate_enum = {
 
@@ -1080,7 +1099,7 @@ fn derive_enum_mutator_with_items(parsed_enum: &Enum, tb: &mut TokenBuilder) {
     };
 
     let unmutate_enum_generics_for_assoc_type = {
-        let mut generics = basic_generics.clone();
+        let mut generics = unmutate_enum.generics.clone();
         let _ = generics.type_params.pop().unwrap();
         let _ = generics.type_params.pop().unwrap();
         generics = generics.mutating_type_params(|tp|
@@ -1119,16 +1138,12 @@ fn derive_enum_mutator_with_items(parsed_enum: &Enum, tb: &mut TokenBuilder) {
                         tp.type_ident = ts!("<" tp.type_ident "as fuzzcheck_mutators :: fuzzcheck_traits :: Mutator > :: Cache")
                     )
                     ";
-                type MutationStep = "
-                    step_struct.ident step_struct.generics.mutating_type_params(|tp|
-                        tp.type_ident = ts!("<" tp.type_ident "as fuzzcheck_mutators :: fuzzcheck_traits :: Mutator > :: MutationStep")
-                    )
-                    ";
                 type ArbitraryStep = "
                 ar_step_struct.ident ar_step_struct.generics.mutating_type_params(|tp|
                     tp.type_ident = ts!("<" tp.type_ident "as fuzzcheck_mutators :: fuzzcheck_traits :: Mutator > :: ArbitraryStep")
                 )
                 ";
+                type MutationStep = " step_struct.ident step_struct_generics_for_assoc_type ";
                 type UnmutateToken = " unmutate_enum.ident unmutate_enum_generics_for_assoc_type ";
 
                 fn max_complexity ( & self ) -> f64 {"
@@ -1232,6 +1247,7 @@ fn derive_enum_mutator_with_items(parsed_enum: &Enum, tb: &mut TokenBuilder) {
                                         " step_struct.ident " {
                                             inner ,
                                             step ,
+                                            arbitrary_step : < _ > :: default ( )
                                         }
                                     }"
                                 )
@@ -1240,7 +1256,8 @@ fn derive_enum_mutator_with_items(parsed_enum: &Enum, tb: &mut TokenBuilder) {
                                     parsed_enum.ident "::" item.item.ident "=> {
                                         " step_struct.ident " {
                                             inner : " step_enum.ident " ::" item.item.ident ",
-                                            step : 0
+                                            step : 0 ,
+                                            arbitrary_step : < _ > :: default ( )
                                         }
                                     }"
                                 )
@@ -1271,6 +1288,7 @@ fn derive_enum_mutator_with_items(parsed_enum: &Enum, tb: &mut TokenBuilder) {
                                         " step_struct.ident " {
                                             inner ,
                                             step ,
+                                            arbitrary_step : < _ > :: default ( )
                                         }
                                     }"
                                 )
@@ -1279,7 +1297,8 @@ fn derive_enum_mutator_with_items(parsed_enum: &Enum, tb: &mut TokenBuilder) {
                                     parsed_enum.ident "::" item.item.ident "=> {
                                         " step_struct.ident " {
                                             inner : " step_enum.ident " ::" item.item.ident ",
-                                            step : self . rng . usize ( .. )
+                                            step : self . rng . usize ( .. ) ,
+                                            arbitrary_step : < _ > :: default ( )
                                         }
                                     }"
                                 )
@@ -1471,20 +1490,37 @@ fn derive_enum_mutator_with_items(parsed_enum: &Enum, tb: &mut TokenBuilder) {
                 }
 
                 fn mutate ( & mut self , value : & mut Self :: Value , cache : & mut Self :: Cache , step : & mut Self :: MutationStep , max_cplx : f64 ) -> Option < Self :: UnmutateToken > {
-                    if let Some ( ar_step ) = step . arbitrary_step {
-                        return self . ordered_arbitrary ( ar_step , max_cplx ) ;
+                    if let Some ( ar_step ) = & mut step . arbitrary_step {
+                        if let Some ( ( mut v , mut c ) ) = self . ordered_arbitrary ( ar_step , max_cplx ) {
+                            std :: mem :: swap ( value , & mut v ) ;
+                            std :: mem :: swap ( cache , & mut c ) ;"
+                            "return Some (" unmutate_enum.ident ":: ___Replace ( v , c ) )
+                        } else {
+                            step . arbitrary_step = None ;
+                            return None
+                        }
+                    } else {
+                        return None
                     }
                     match ( value , cache . inner , step . inner ) {"
                     join_ts!(parsed_enum.items.iter().zip(inner_items.iter()), (item, inner_item),
                         match &item.data {
                             Some(EnumItemData::Struct(kind, fields)) => {
                                 if fields.is_empty() {
-                                    ts!("return self . ordered_arbitrary ( ar_step , max_cplx ) ;")
+                                    ts!("
+                                        if let Some ( ( mut v , mut c ) ) = self . ordered_arbitrary ( ar_step , max_cplx ) {
+                                            std :: mem :: swap ( value , & mut v ) ;
+                                            std :: mem :: swap ( cache , & mut c ) ;
+                                            return" unmutate_enum.ident ":: ___Replace ( v , c ) 
+                                        } else {
+                                            return None
+                                        }
+                                    ")
                                 } else {
                                     let inner_fields = inner_item.get_fields().unwrap();
-                                    let pattern_fields_value = join_ts!(fields.iter().zip(inner_fields), (field, inner_field), opt_ts!(&field.identifier, ident, ident ":") ident!(inner_field.identifier.as_ref().unwrap() "_value") , separator: ",") ;
-                                    let pattern_fields_cache = join_ts!(inner_fields, field, field.identifier ":" ident!(field.identifier.as_ref().unwrap() "_cache") , separator: ",") ;
-                                    let pattern_fields_step = join_ts!(inner_fields, field, field.identifier ":" ident!(field.identifier.as_ref().unwrap() "_step") , separator: ",") ;
+                                    let pattern_fields_value = join_ts!(fields.iter().zip(inner_fields), (field, inner_field), opt_ts!(&field.identifier, ident, ident ":") "ref mut" ident!(inner_field.identifier.as_ref().unwrap() "_value") , separator: ",") ;
+                                    let pattern_fields_cache = join_ts!(inner_fields, field, field.identifier ":" "ref mut" ident!(field.identifier.as_ref().unwrap() "_cache") , separator: ",") ;
+                                    let pattern_fields_step = join_ts!(inner_fields, field, field.identifier ":" "ref mut" ident!(field.identifier.as_ref().unwrap() "_step") , separator: ",") ;
                                     ts!(
                                         "(" 
                                             parsed_enum.ident "::" item.ident kind.open() pattern_fields_value kind.close() 
@@ -1502,7 +1538,24 @@ fn derive_enum_mutator_with_items(parsed_enum: &Enum, tb: &mut TokenBuilder) {
                                                         i "=> {"{
                                                             let inner_field = &inner_fields[i];
                                                             let inner_field_ident = inner_field.identifier.as_ref().unwrap();
-                                                            ts!("self ." inner_item.ident ". mutate ( & mut " ident!(inner_field_ident "_value") ", & mut" ident!(inner_field_ident "_cache") ", & mut" ident!(inner_field_ident "_step") ")")
+                                                            ts!("
+                                                                let max_cplx = max_cplx - " cplx_choose_item "- self ." inner_field_ident ". complexity ( & " ident!(inner_field_ident "_value") ", & " ident!(inner_field_ident "_cache") ") ;
+                                                                if let Some ( field_token ) = self ." inner_field_ident ". mutate ( & mut" ident!(inner_field_ident "_value") ", & mut" ident!(inner_field_ident "_cache") ", & mut" ident!(inner_field_ident "_step") ", max_cplx ) {
+                                                                    return Some (" unmutate_enum.ident "::" inner_item.ident "{"
+                                                                        join_ts!(0 .. fields.len(), j,
+                                                                            if i == j {
+                                                                                ts!(inner_field_ident ": Some ( field_token )")
+                                                                            } else {
+                                                                                let inner_field = &inner_fields[j];
+                                                                                let inner_field_ident = inner_field.identifier.as_ref().unwrap();
+                                                                                ts!(inner_field_ident ": None")
+                                                                            }
+                                                                        , separator: ",")
+                                                                    "} )"
+                                                                "} else {
+                                                                    return None
+                                                                }"
+                                                            )
                                                         }"}"
                                                     )
                                                     "_ => unreachable ! ( )
@@ -1512,11 +1565,14 @@ fn derive_enum_mutator_with_items(parsed_enum: &Enum, tb: &mut TokenBuilder) {
                                                 let inner_field = &inner_fields[0];
                                                 let inner_field_ident = inner_field.identifier.as_ref().unwrap();
                                                 ts!(
-                                                    "if let Some ( ( v , c ) ) = self ." inner_item.ident ". mutate ( & mut " ident!(inner_field_ident "_value") ", & mut" ident!(inner_field_ident "_cache") " , & mut" ident!(inner_field_ident "_step") ") {"
-                                                        unmutate_enum.ident ":: Replace ("
-                                                    "} else {
-                                                        
-                                                    }"
+                                                    "let max_cplx = max_cplx - " cplx_choose_item "- self ." inner_field_ident ". complexity ( & " ident!(inner_field_ident "_value") ", & " ident!(inner_field_ident "_cache") ") ;
+                                                    if let Some ( field_token ) = self ." inner_field_ident ". mutate ( & mut " ident!(inner_field_ident "_value") ", & mut" ident!(inner_field_ident "_cache") " , & mut" ident!(inner_field_ident "_step") ", max_cplx ) { 
+                                                        return Some (" unmutate_enum.ident "::" inner_item.ident "{"
+                                                            inner_field_ident ": Some ( field_token )
+                                                        } )
+                                                    } else {
+                                                        return None
+                                                    }"    
                                                 )
                                             }
                                         "}"
@@ -1526,10 +1582,18 @@ fn derive_enum_mutator_with_items(parsed_enum: &Enum, tb: &mut TokenBuilder) {
                             None | Some(EnumItemData::Discriminant(_)) => {
                                 ts!(
                                     "(" item.ident ", _ , _ )  => {
-                                        let ( v , c ) = self . ordered_arbitrary ( & mut step . ar_step , max_cplx ) ;
-                                        std :: mem :: replace ( value , v ) ;
-                                        std :: mem :: replace ( cache , c ) ;"
-                                        unmutate_enum.ident ":: ___Replace ( ( v , c ) )
+                                        if let Some ( ar_step ) = & mut step . arbitrary_step {
+                                            if let Some ( ( mut v , mut c ) ) = self . ordered_arbitrary ( & mut ar_step , max_cplx ) {
+                                                std :: mem :: swap ( value , & mut v ) ;
+                                                std :: mem :: swap ( cache , & mut c ) ;"
+                                                "return Some (" unmutate_enum.ident ":: ___Replace ( v , c ) )
+                                            } else {
+                                                step . arbitrary_step = None ;
+                                                return None
+                                            }
+                                        } else {
+                                            return None
+                                        }
                                     }"
                                 )
                             }
