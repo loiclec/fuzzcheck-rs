@@ -84,7 +84,7 @@ fn token_tree_as_ident(tt: &TokenTree, what: &str) -> Option<Ident> {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Copy)]
 pub enum StructKind {
     Struct,
     Tuple,
@@ -135,10 +135,10 @@ pub struct EnumItem {
     pub data: Option<EnumItemData>,
 }
 impl EnumItem {
-    pub fn get_fields(&self) -> Option<&[StructField]> {
+    pub fn get_fields(&self) -> Option<(StructKind, &[StructField])> {
         match &self.data {
             None | Some(EnumItemData::Discriminant(_)) => None,
-            Some(EnumItemData::Struct(_, fields)) => Some(fields)
+            Some(EnumItemData::Struct(kind, fields)) => Some((*kind, fields))
         }
     }
 }
@@ -176,13 +176,6 @@ pub struct WhereClause {
 }
 
 impl Generics {
-    pub fn mutating_lifetime_params(&self, mutate: impl Fn(&mut LifetimeParam)) -> Self {
-        let mut cloned = self.clone();
-        for lt in cloned.lifetime_params.iter_mut() {
-            mutate(lt)
-        }
-        cloned
-    }
     pub fn mutating_type_params(&self, mutate: impl Fn(&mut TypeParam)) -> Self {
         let mut cloned = self.clone();
         for lt in cloned.type_params.iter_mut() {
