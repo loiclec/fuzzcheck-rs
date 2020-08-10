@@ -505,20 +505,6 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
                     , step
                 }
             }
-            
-            fn random_step_from_value ( & self , value : & Self :: Value ) -> Self :: MutationStep {"
-                // init all substeps
-                join_ts!(&field_idents, ids,
-                    "let" ids.muta "= self ." ids.muta ". random_step_from_value ( & value ." ids.orig ") ;"
-                )
-
-                "let step = self . rng . usize ( .. ) ;
-
-                Self :: MutationStep {"
-                    join_ts!(&field_idents, ids , ids.muta , separator: ",")
-                    ", step
-                }
-            }
 
             fn ordered_arbitrary ( & mut self , step : & mut Self :: ArbitraryStep , max_cplx : f64 ) -> Option < ( Self :: Value , Self :: Cache ) > {
                 Some ( self . random_arbitrary ( max_cplx ) )
@@ -562,7 +548,7 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
                 )
             }
 
-            fn mutate ( & mut self , value : & mut Self :: Value , cache : & mut Self :: Cache , step : & mut Self :: MutationStep , max_cplx : f64 ) -> Option < Self :: UnmutateToken >
+            fn ordered_mutate ( & mut self , value : & mut Self :: Value , cache : & mut Self :: Cache , step : & mut Self :: MutationStep , max_cplx : f64 ) -> Option < Self :: UnmutateToken >
             {
                 if step . inner . is_empty ( ) {
                     return None
@@ -1396,10 +1382,6 @@ fn derive_enum_mutator_with_items(parsed_enum: &Enum, tb: &mut TokenBuilder) {
                     "}
                 }
 
-                fn random_step_from_value ( & self , value : & Self :: Value ) -> Self :: MutationStep {
-                    todo ! ( )
-                }
-
                 fn ordered_arbitrary ( & mut self , step : & mut Self :: ArbitraryStep , max_cplx : f64 ) -> Option < ( Self :: Value , Self :: Cache ) > {
                     if step . inner . is_empty ( ) { return None }
                     let orig_step = step . step ;
@@ -1582,7 +1564,7 @@ fn derive_enum_mutator_with_items(parsed_enum: &Enum, tb: &mut TokenBuilder) {
                     "}
                 }
 
-                fn mutate ( & mut self , mut value : & mut Self :: Value , mut cache : & mut Self :: Cache , step : & mut Self :: MutationStep , max_cplx : f64 ) -> Option < Self :: UnmutateToken > {
+                fn ordered_mutate ( & mut self , mut value : & mut Self :: Value , mut cache : & mut Self :: Cache , step : & mut Self :: MutationStep , max_cplx : f64 ) -> Option < Self :: UnmutateToken > {
                     if let Some ( ar_step ) = & mut step . arbitrary_step {
                         if let Some ( ( mut v , mut c ) ) = self . ordered_arbitrary ( ar_step , max_cplx ) {
                             std :: mem :: swap ( value , & mut v ) ;
@@ -1681,6 +1663,10 @@ fn derive_enum_mutator_with_items(parsed_enum: &Enum, tb: &mut TokenBuilder) {
                     } else {
                        None
                     }
+                }
+
+                fn random_mutate ( & mut self , value : & mut Self :: Value , cache : & mut Self :: Cache , max_cplx : f64 ) -> Self :: UnmutateToken {
+                    
                 }
 
                 fn unmutate ( & self , value : & mut Self :: Value , cache : & mut Self :: Cache , t : Self :: UnmutateToken ) {

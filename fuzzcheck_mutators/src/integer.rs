@@ -22,7 +22,7 @@ pub fn binary_search_arbitrary(low: u8, high: u8, step: u64) -> u8 {
 }
 
 macro_rules! impl_unsigned_mutator {
-    ($name:ty,$name_mutator:ident,$size:expr) => {
+    ($name:ty,$name_mutator:ident,$rand:path,$size:expr) => {
         pub struct $name_mutator {
             shuffled_integers: [u8; 256],
             rng: fastrand::Rng,
@@ -73,9 +73,6 @@ macro_rules! impl_unsigned_mutator {
             fn initial_step_from_value(&self, _value: &Self::Value) -> Self::MutationStep {
                 0
             }
-            fn random_step_from_value(&self, _value: &Self::Value) -> Self::MutationStep {
-                self.rng.u64(..)
-            }
 
             fn ordered_arbitrary(&mut self, step: &mut Self::ArbitraryStep, _max_cplx: f64) -> Option<(Self::Value, Self::Cache)> {
                 if *step > <$name>::MAX as u64 {
@@ -103,7 +100,7 @@ macro_rules! impl_unsigned_mutator {
                 8.0
             }
 
-            fn mutate(
+            fn ordered_mutate(
                 &mut self,
                 value: &mut Self::Value,
                 _cache: &mut Self::Cache,
@@ -129,6 +126,14 @@ macro_rules! impl_unsigned_mutator {
 
                 Some(token)
             }
+            fn random_mutate(
+                &mut self,
+                value: &mut Self::Value,
+                _cache: &mut Self::Cache,
+                _max_cplx: f64,
+            ) -> Self::UnmutateToken {
+                std::mem::replace(value, $rand(..))
+            }
 
             fn unmutate(&self, value: &mut Self::Value, _cache: &mut Self::Cache, t: Self::UnmutateToken) {
                 *value = t;
@@ -144,13 +149,13 @@ macro_rules! impl_unsigned_mutator {
     };
 }
 
-impl_unsigned_mutator!(u8, U8Mutator, 8);
-impl_unsigned_mutator!(u16, U16Mutator, 16);
-impl_unsigned_mutator!(u32, U32Mutator, 32);
-impl_unsigned_mutator!(u64, U64Mutator, 64);
+impl_unsigned_mutator!(u8, U8Mutator, fastrand::u8, 8);
+impl_unsigned_mutator!(u16, U16Mutator, fastrand::u16, 16);
+impl_unsigned_mutator!(u32, U32Mutator, fastrand::u32, 32);
+impl_unsigned_mutator!(u64, U64Mutator, fastrand::u64, 64);
 
 macro_rules! impl_signed_mutator {
-    ($name:ty,$name_unsigned:ty,$name_mutator:ident,$size:expr) => {
+    ($name:ty,$name_unsigned:ty,$name_mutator:ident,$rand:path,$size:expr) => {
         pub struct $name_mutator {
             shuffled_integers: [u8; 256],
             rng: fastrand::Rng
@@ -200,9 +205,6 @@ macro_rules! impl_signed_mutator {
             fn initial_step_from_value(&self, _value: &Self::Value) -> Self::MutationStep {
                 0
             }
-            fn random_step_from_value(&self, _value: &Self::Value) -> Self::MutationStep {
-                self.rng.u64(..)
-            }
 
             fn ordered_arbitrary(&mut self, step: &mut Self::ArbitraryStep, _max_cplx: f64) -> Option<(Self::Value, Self::Cache)> {
                 if *step > <$name_unsigned>::MAX as u64 {
@@ -230,7 +232,7 @@ macro_rules! impl_signed_mutator {
                 8.0
             }
 
-            fn mutate(
+            fn ordered_mutate(
                 &mut self,
                 value: &mut Self::Value,
                 _cache: &mut Self::Cache,
@@ -256,6 +258,14 @@ macro_rules! impl_signed_mutator {
 
                 Some(token)
             }
+            fn random_mutate(
+                &mut self,
+                value: &mut Self::Value,
+                _cache: &mut Self::Cache,
+                _max_cplx: f64,
+            ) -> Self::UnmutateToken {
+                std::mem::replace(value, $rand(..))
+            }
 
             fn unmutate(&self, value: &mut Self::Value, _cache: &mut Self::Cache, t: Self::UnmutateToken) {
                 *value = t;
@@ -264,7 +274,7 @@ macro_rules! impl_signed_mutator {
     };
 }
 
-impl_signed_mutator!(i8, u8, I8Mutator, 8);
-impl_signed_mutator!(i16, u16, I16Mutator, 16);
-impl_signed_mutator!(i32, u32, I32Mutator, 32);
-impl_signed_mutator!(i64, u64, I64Mutator, 64);
+impl_signed_mutator!(i8, u8, I8Mutator, fastrand::i8, 8);
+impl_signed_mutator!(i16, u16, I16Mutator, fastrand::i16, 16);
+impl_signed_mutator!(i32, u32, I32Mutator, fastrand::i32, 32);
+impl_signed_mutator!(i64, u64, I64Mutator, fastrand::i64, 64);

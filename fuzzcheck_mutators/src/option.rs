@@ -34,9 +34,9 @@ where
     }
 }
 
-pub enum UnmutateToken<Value, Token> {
+pub enum UnmutateToken<Value, Cache, Token> {
     UnmutateSome(Token),
-    ToSome(Value),
+    ToSome(Value, Cache),
     ToNone,
 }
 use crate::option::UnmutateToken::{ToNone, ToSome, UnmutateSome};
@@ -67,7 +67,7 @@ impl<M: Mutator> Mutator for OptionMutator<M> {
     type Cache = Option<M::Cache>;
     type MutationStep = MutatorStep<M::MutationStep, M::ArbitraryStep>;
     type ArbitraryStep = ArbitraryStep<M::ArbitraryStep>;
-    type UnmutateToken = UnmutateToken<M::Value, M::UnmutateToken>;
+    type UnmutateToken = UnmutateToken<M::Value, M::Cache, M::UnmutateToken>;
 
     fn cache_from_value(&self, value: &Self::Value) -> Self::Cache {
         value.as_ref().map(|inner| self.m.cache_from_value(&inner))
@@ -78,13 +78,6 @@ impl<M: Mutator> Mutator for OptionMutator<M> {
             did_check_none: value.is_none(),
             inner_arbitrary: <_>::default(),
             inner: value.as_ref().map(|inner| self.m.initial_step_from_value(&inner)),
-        }
-    }
-    fn random_step_from_value(&self, value: &Self::Value) -> Self::MutationStep {
-        MutatorStep {
-            did_check_none: value.is_none(),
-            inner_arbitrary: <_>::default(),
-            inner: value.as_ref().map(|inner| self.m.random_step_from_value(&inner)),
         }
     }
 
@@ -131,7 +124,7 @@ impl<M: Mutator> Mutator for OptionMutator<M> {
         }
     }
 
-    fn mutate(
+    fn ordered_mutate(
         &mut self,
         value: &mut Self::Value,
         cache: &mut Self::Cache,
@@ -141,14 +134,14 @@ impl<M: Mutator> Mutator for OptionMutator<M> {
         let inner_max_cplx = max_cplx - 1.0;
 
         if !step.did_check_none {
-            let mut old_value = None;
-            std::mem::swap(value, &mut old_value);
+            let old_value = std::mem::replace(value, None);
+            let old_cache = std::mem::replace(cache, None);
             step.did_check_none = true;
-            Some(ToSome(old_value.unwrap()))
+            Some(ToSome(old_value.unwrap(), old_cache.unwrap()))
         } else if let Some((inner_value, inner_cache, inner_step)) =
             match_all_options!(value.as_mut(), cache.as_mut(), step.inner.as_mut())
         {
-            if let Some(inner_token) = self.m.mutate(inner_value, inner_cache, inner_step, inner_max_cplx) {
+            if let Some(inner_token) = self.m.ordered_mutate(inner_value, inner_cache, inner_step, inner_max_cplx) {
                 Some(UnmutateSome(inner_token))
             } else {
                 None
@@ -165,6 +158,39 @@ impl<M: Mutator> Mutator for OptionMutator<M> {
         }
     }
 
+    fn random_mutate(
+        &mut self,
+        mut value: &mut Self::Value,
+        mut cache: &mut Self::Cache,
+        max_cplx: f64,
+    ) -> Self::UnmutateToken {
+        let current_cplx = self.complexity(value, cache);
+        let switch_to_none;
+        match (&mut value, &mut cache) {
+            (Some(value), Some(cache)) => {
+                let ratio = 1.0 / current_cplx;
+                switch_to_none = fastrand::f64() < ratio ;
+                if !switch_to_none {
+                    return Self::UnmutateToken::UnmutateSome(self.m.random_mutate(value, cache, max_cplx - 1.0))
+                }
+            }
+            (None, None) => {
+                let (v, c) = self.random_arbitrary(max_cplx - 1.0);
+                *value = v;
+                *cache = c;
+                return Self::UnmutateToken::ToNone
+            },
+            _ => unreachable!()
+        }
+        if switch_to_none {
+            let old_value = std::mem::replace(value, None);
+            let old_cache = std::mem::replace(cache, None);
+            return Self::UnmutateToken::ToSome(old_value.unwrap(), old_cache.unwrap())
+        } else {
+            unreachable!()
+        }
+    }
+
     fn unmutate(&self, value: &mut Self::Value, cache: &mut Self::Cache, t: Self::UnmutateToken) {
         match t {
             UnmutateSome(t) => {
@@ -172,11 +198,13 @@ impl<M: Mutator> Mutator for OptionMutator<M> {
                 let inner_cache = cache.as_mut().unwrap();
                 self.m.unmutate(inner_value, inner_cache, t);
             }
-            ToSome(v) => {
+            ToSome(v, c) => {
                 *value = Some(v);
+                *cache = Some(c);
             }
             ToNone => {
                 *value = None;
+                *cache = None;
             }
         }
     }

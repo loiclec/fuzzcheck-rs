@@ -272,7 +272,7 @@ impl<Mut: Mutator> FuzzedInput<Mut> {
     }
 
     pub fn mutate(&mut self, m: &mut Mut, max_cplx: f64) -> Option<Mut::UnmutateToken> {
-        m.mutate(&mut self.value, &mut self.cache, &mut self.mutation_step, max_cplx)
+        m.ordered_mutate(&mut self.value, &mut self.cache, &mut self.mutation_step, max_cplx)
     }
 
     pub fn unmutate(&mut self, m: &Mut, t: Mut::UnmutateToken) {

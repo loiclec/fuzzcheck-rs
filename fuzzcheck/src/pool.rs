@@ -1203,7 +1203,6 @@ mod tests {
         fn cache_from_value(&self, _value: &Self::Value) -> Self::Cache {}
 
         fn initial_step_from_value(&self, _value: &Self::Value) -> Self::MutationStep {}
-        fn random_step_from_value(&self, _value: &Self::Value) -> Self::MutationStep {}
 
         fn ordered_arbitrary(&mut self, _step: &mut Self::ArbitraryStep, _max_cplx: f64) -> Option<(Self::Value, Self::Cache)> {
             Some((0.0, ()))
@@ -1224,7 +1223,7 @@ mod tests {
             *value
         }
 
-        fn mutate(
+        fn ordered_mutate(
             &mut self,
             _value: &mut Self::Value,
             _cache: &mut Self::Cache,
@@ -1232,6 +1231,14 @@ mod tests {
             _max_cplx: f64,
         ) -> Option<Self::UnmutateToken> {
             Some(())
+        }
+        fn random_mutate(
+            &mut self,
+            _value: &mut Self::Value,
+            _cache: &mut Self::Cache,
+            _max_cplx: f64,
+        ) -> Self::UnmutateToken {
+            
         }
 
         fn unmutate(&self, _value: &mut Self::Value, _cache: &mut Self::Cache, _t: Self::UnmutateToken) {}

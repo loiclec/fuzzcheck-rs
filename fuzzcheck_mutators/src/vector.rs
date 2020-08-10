@@ -122,7 +122,7 @@ impl<M: Mutator> VecMutator<M> {
 
         let old_cplx = self.m.complexity(el, el_cache);
 
-        if let Some(token) = self.m.mutate(el, el_cache, el_step, spare_cplx) {
+        if let Some(token) = self.m.ordered_mutate(el, el_cache, el_step, spare_cplx) {
             let new_cplx = self.m.complexity(el, el_cache);
             cache.sum_cplx += new_cplx - old_cplx;
             Some(UnmutateVecToken::Element(idx, token, old_cplx - new_cplx))
@@ -386,17 +386,6 @@ impl<M: Mutator> Mutator for VecMutator<M> {
             ..MutationStep::new(MutationCategory::Vector)
         }
     }
-    fn random_step_from_value(&self, value: &Self::Value) -> Self::MutationStep {
-        let inner: Vec<_> = value.iter().map(|x| self.m.random_step_from_value(x)).collect();
-        MutationStep {
-            inner,
-            ..MutationStep::new(if value.is_empty() || self.rng.bool() { 
-                MutationCategory::Vector 
-            } else {
-                MutationCategory::Element
-            })
-        }
-    }
 
     fn ordered_arbitrary(&mut self, step: &mut Self::ArbitraryStep, max_cplx: f64) -> Option<(Self::Value, Self::Cache)> {
         if !*step || max_cplx <= 1.0 {
@@ -439,7 +428,7 @@ impl<M: Mutator> Mutator for VecMutator<M> {
         self.new_input_with_length_and_complexity(target_len, target_cplx)
     }
 
-    fn mutate(
+    fn ordered_mutate(
         &mut self,
         value: &mut Self::Value,
         cache: &mut Self::Cache,
@@ -468,10 +457,18 @@ impl<M: Mutator> Mutator for VecMutator<M> {
             }
         };
         if matches!(token, Some(UnmutateVecToken::Nothing) | None) {
-            self.mutate(value, cache, step, max_cplx)
+            Some(self.random_mutate(value, cache, max_cplx))
         } else {
             token
         }
+    }
+    fn random_mutate(
+        &mut self,
+        value: &mut Self::Value,
+        cache: &mut Self::Cache,
+        max_cplx: f64,
+    ) -> Self::UnmutateToken {
+        todo!()
     }
 
     fn unmutate(&self, value: &mut Self::Value, cache: &mut Self::Cache, t: Self::UnmutateToken) {

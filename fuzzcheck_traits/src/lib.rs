@@ -93,8 +93,6 @@ pub trait Mutator: Sized {
     fn cache_from_value(&self, value: &Self::Value) -> Self::Cache;
     /// Compute the initial mutation step for the given value
     fn initial_step_from_value(&self, value: &Self::Value) -> Self::MutationStep;
-    /// Compute a random mutation step for the given value
-    fn random_step_from_value(&self, value: &Self::Value) -> Self::MutationStep;
     /// The maximum complexity of an input of this type
     fn max_complexity(&self) -> f64;
     /// The minimum complexity of an input of this type
@@ -105,13 +103,20 @@ pub trait Mutator: Sized {
     fn ordered_arbitrary(&mut self, step: &mut Self::ArbitraryStep, max_cplx: f64) -> Option<(Self::Value, Self::Cache)>;
     fn random_arbitrary(&mut self, max_cplx: f64) -> (Self::Value, Self::Cache);
 
-    fn mutate(
+    fn ordered_mutate(
         &mut self,
         value: &mut Self::Value,
         cache: &mut Self::Cache,
         step: &mut Self::MutationStep,
         max_cplx: f64,
     ) -> Option<Self::UnmutateToken>;
+    
+    fn random_mutate(
+        &mut self,
+        value: &mut Self::Value,
+        cache: &mut Self::Cache,
+        max_cplx: f64,
+    ) -> Self::UnmutateToken;
 
     fn unmutate(&self, value: &mut Self::Value, cache: &mut Self::Cache, t: Self::UnmutateToken);
 }
