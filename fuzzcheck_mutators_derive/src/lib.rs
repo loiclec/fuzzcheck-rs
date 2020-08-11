@@ -110,15 +110,22 @@ macro_rules! ident {
     }};
 }
 
-#[proc_macro_derive(HasDefaultMutator)]
-pub fn derive_mutator(input: TokenStream) -> TokenStream {
-    let mut parser = TokenParser::new(input);
+#[proc_macro_attribute]
+pub fn fuzzcheck_derive_mutator(attr: TokenStream, input: TokenStream) -> TokenStream {
     let mut tb = TokenBuilder::new();
+    input.add_to(&mut tb);
+
+    let mut parser = TokenParser::new(input);
+
+    while let Some(_) = parser.eat_outer_attribute() {}
+
+    let mut attr_parser = TokenParser::new(attr);
+    let derive_default = attr_parser.eat_ident("DefaultMutator").is_some();
 
     if let Some(s) = parser.eat_struct() {
-        derive_struct_mutator(s, &mut tb);
+        derive_struct_mutator(s, derive_default, &mut tb);
     } else if let Some(e) = parser.eat_enumeration() {
-        derive_enum_mutator(e, &mut tb)
+        derive_enum_mutator(e, derive_default, &mut tb)
     } else {
         extend_ts!(&mut tb,
             "compile_error ! ("
@@ -126,15 +133,15 @@ pub fn derive_mutator(input: TokenStream) -> TokenStream {
             ") ;"
         )
     }
-    tb.eprint();
+    //tb.eprint();
     tb.end()
 }
 
-fn derive_struct_mutator(parsed_struct: Struct, tb: &mut TokenBuilder) {
+fn derive_struct_mutator(parsed_struct: Struct, derive_default: bool, tb: &mut TokenBuilder) {
     if !parsed_struct.struct_fields.is_empty() {
-        derive_struct_mutator_with_fields(&parsed_struct, tb)
+        derive_struct_mutator_with_fields(&parsed_struct, derive_default, tb)
     } else {
-        derive_unit_mutator(parsed_struct, tb);
+        derive_unit_mutator(parsed_struct, derive_default, tb);
     }
 }
 
@@ -147,7 +154,7 @@ struct DerivedStructFieldIdentifiers {
     generic_type: TokenStream,
 }
 
-fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuilder) {
+fn derive_struct_mutator_with_fields(parsed_struct: &Struct, derive_default: bool, tb: &mut TokenBuilder) {
 
     let field_idents = parsed_struct
         .struct_fields
@@ -620,8 +627,7 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
             "}
         }"
     );
-
-    {
+    if derive_default {
         // default impl
         let where_clause = {
             let mut where_clause = mutator_struct.where_clause.clone().unwrap_or_default();
@@ -648,9 +654,8 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
                 "}
             }
         }"
-        )
-    }
-    {
+        );
+
         let where_clause = {
             let mut where_clause = parsed_struct.where_clause.clone().unwrap_or_default();
             for field in parsed_struct.struct_fields.iter() {
@@ -703,17 +708,16 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
     }
 }
 
-fn derive_enum_mutator(parsed_enum: Enum, tb: &mut TokenBuilder) {
+fn derive_enum_mutator(parsed_enum: Enum, derive_default: bool, tb: &mut TokenBuilder) {
     if !parsed_enum.items.is_empty() {
-        derive_enum_mutator_with_items(&parsed_enum, tb)
+        derive_enum_mutator_with_items(&parsed_enum, derive_default, tb)
     } else {
         todo!("Build mutator for empty enum");
     }
 }
 
-fn derive_enum_mutator_with_items(parsed_enum: &Enum, tb: &mut TokenBuilder) {
-    
-    
+fn derive_enum_mutator_with_items(parsed_enum: &Enum, derive_default: bool, tb: &mut TokenBuilder) {
+
     let (basic_generics, generic_items, mutator_struct) = {
         // mutator struct
         /*
@@ -828,6 +832,15 @@ fn derive_enum_mutator_with_items(parsed_enum: &Enum, tb: &mut TokenBuilder) {
         }
     ).collect::<Vec<_>>();
     let filtered_generic_items = generic_items.clone().into_iter().filter_map(|x| x).collect::<Vec<_>>();
+
+    let empty_enum_items = parsed_enum.items.clone().into_iter().filter(|x| 
+        if let Some(data) = x.get_struct_data() {
+            data.1.is_empty()
+        } else {
+            true
+        }
+    ).collect::<Vec<_>>();
+
 
 
     let (cache_enum, cache_struct) = {
@@ -1320,98 +1333,100 @@ fn derive_enum_mutator_with_items(parsed_enum: &Enum, tb: &mut TokenBuilder) {
                     let mut inner_step_to_remove : Option < usize > = None ;
                     let mut recurse = false ;
                     step . step += 1 ;
-                    let inner_len = step . inner . len ( ) ;
-                    match & mut step . inner [ orig_step % inner_len ] {"
-                    join_ts!(parsed_enum.items.iter().zip(ar_step_enum.items), (item, ar_step_item), 
-                        ar_step_item.pattern_match(&ar_step_enum.ident, None)
-                        "=> {"
-                        match item.get_struct_data() {
-                            Some((kind, fields)) if !fields.is_empty() => {
-                                if fields.len() == 1 {
-                                    let inner_field_ident = ar_step_item.get_fields_unchecked()[0].safe_ident();
-                                    let field = &fields[0];
-                                    ts!(
-                                        "if let Some ( ( inner_value , inner_cache ) ) = self ." inner_field_ident " . ordered_arbitrary (" inner_field_ident ", max_cplx ) {"
-                                            "let cplx = " cplx_choose_item " + self ." inner_field_ident ". complexity ( & inner_value , & inner_cache ) ;
-                                            let value = " parsed_enum.ident "::" item.ident 
-                                                kind.open() 
-                                                    field.expr_field(ts!("inner_value"))
-                                                kind.close()
-                                                ";
-                                            let cache = " cache_struct.ident " {
-                                                inner : Some (" cache_enum.ident " :: " ar_step_item.ident "{"
-                                                    inner_field_ident ": inner_cache" 
-                                                "} ) ,
-                                                cplx
-                                            } ;
-                                            return Some ( ( value , cache ) )"
-                                        "} else {
-                                            step . step -= 1 ;
-                                            inner_step_to_remove = Some ( step . step ) ;
-                                            recurse = true ;
-                                        }"
-                                    )
-                                } else {
-                                    let inner_fields_identifiers = ar_step_item.get_fields_unchecked().iter().map(|f| f.safe_ident()).take(fields.len()).collect::<Vec<_>>();
-                                    ts!(
-                                        "let orig_step = * step ;
-                                        * step += 1 ;
-                                        match orig_step %" fields.len() "{"
-                                            join_ts!(0 .. fields.len(), i, 
-                                                i "=> {"
-                                                    join_ts!(inner_fields_identifiers.iter().enumerate(), (j, ident),
-                                                        "let (" ident!(ident "_value") ", " ident!(ident "_cache")  ") ="
-                                                        if j == i {
-                                                            ts!("self ." ident ". ordered_arbitrary ( " ident ", max_cplx ) . unwrap_or_else ( | | {
-                                                                self . " ident ". random_arbitrary ( max_cplx )
-                                                            } )")
-                                                        } else {
-                                                            ts!("self . " ident ". random_arbitrary ( max_cplx )")
-                                                        }
-                                                        ";"
-                                                    )
-                                                    "let cplx =" cplx_choose_item join_ts!(&inner_fields_identifiers, ident, 
-                                                        "+ self ." ident ". complexity ( &" ident!(ident "_value") ", & " ident!(ident "_cache") ")" 
-                                                    ) ";
-                                                    let value = " parsed_enum.ident "::" item.ident 
-                                                    kind.open() 
-                                                        join_ts!(fields.iter().zip(inner_fields_identifiers.iter()), (field, inner_ident),
-                                                            field.expr_field(ts!(ident!(inner_ident "_value")))
-                                                        , separator: ",")
-                                                    kind.close()
-                                                    ";
-                                                    let cache = " cache_struct.ident " {
-                                                        inner : Some (" cache_enum.ident " :: " ar_step_item.ident "{"
-                                                            join_ts!(&inner_fields_identifiers, ident, 
-                                                                ident ":" ident!(ident "_cache")
-                                                            , separator: ",")
-                                                        "} )
-                                                        , cplx
-                                                    } ;
-                                                    return Some ( ( value , cache ) )
-                                                    "
-                                                "}"
-                                            )
-                                            "_ => unreachable ! ( )"
-                                        "}"
-                                    )
-                                }
-                            }
-                            _ => {
-                                let kind = item.get_struct_data().map(|d| d.0);
-                                ts!(
-                                    "step . step -= 1 ;
-                                    inner_step_to_remove = Some ( step . step ) ;
-                                    let value =" parsed_enum.ident "::" item.ident opt_ts!(kind, k, k.open() k.close()) ";
+                    if orig_step < " parsed_enum.items.len() - filtered_enum_items.len() "{"
+                        "match orig_step {"
+                            join_ts!(empty_enum_items.iter().enumerate(), (i, item),
+                                i "=> {
+                                        let value =" parsed_enum.ident "::" item.ident opt_ts!(item.get_struct_data().map(|d| d.0), kind, kind.open() kind.close()) ";
                                     let cache =" cache_struct.ident " {
-                                        inner : Some (" cache_enum.ident " :: " ar_step_item.ident ") ,
+                                        inner : None ,
                                         cplx : " cplx_choose_item "
                                     } ;
-                                    return Some ( ( value , cache ) )"
+                                    return Some ( ( value , cache ) )
+                                }"
+                            )
+                            "_ => unreachable ! ( )"
+                        "}
+                    }
+                    let inner_len = step . inner . len ( ) ;
+                    match & mut step . inner [ orig_step % inner_len ] {"
+                    join_ts!(filtered_enum_items.iter().zip(ar_step_enum.items), (item, ar_step_item), 
+                        ar_step_item.pattern_match(&ar_step_enum.ident, None)
+                        "=> {"{
+                            let fields = item.get_fields_unchecked();
+                            let kind = item.get_struct_data().unwrap().0;
+                            if fields.len() == 1 {
+                                let inner_field_ident = ar_step_item.get_fields_unchecked()[0].safe_ident();
+                                let field = &fields[0];
+                                ts!(
+                                    "if let Some ( ( inner_value , inner_cache ) ) = self ." inner_field_ident " . ordered_arbitrary (" inner_field_ident ", max_cplx ) {"
+                                        "let cplx = " cplx_choose_item " + self ." inner_field_ident ". complexity ( & inner_value , & inner_cache ) ;
+                                        let value = " parsed_enum.ident "::" item.ident 
+                                            kind.open() 
+                                                field.expr_field(ts!("inner_value"))
+                                            kind.close()
+                                            ";
+                                        let cache = " cache_struct.ident " {
+                                            inner : Some (" cache_enum.ident " :: " ar_step_item.ident "{"
+                                                inner_field_ident ": inner_cache" 
+                                            "} ) ,
+                                            cplx
+                                        } ;
+                                        return Some ( ( value , cache ) )"
+                                    "} else {
+                                        step . step -= 1 ;
+                                        inner_step_to_remove = Some ( step . step ) ;
+                                        recurse = true ;
+                                    }"
+                                )
+                            } else {
+                                let inner_fields_identifiers = ar_step_item.get_fields_unchecked().iter().map(|f| f.safe_ident()).take(fields.len()).collect::<Vec<_>>();
+                                ts!(
+                                    "let orig_step = * step ;
+                                    * step += 1 ;
+                                    match orig_step %" fields.len() "{"
+                                        join_ts!(0 .. fields.len(), i, 
+                                            i "=> {"
+                                                join_ts!(inner_fields_identifiers.iter().enumerate(), (j, ident),
+                                                    "let (" ident!(ident "_value") ", " ident!(ident "_cache")  ") ="
+                                                    if j == i {
+                                                        ts!("self ." ident ". ordered_arbitrary ( " ident ", max_cplx ) . unwrap_or_else ( | | {
+                                                            self . " ident ". random_arbitrary ( max_cplx )
+                                                        } )")
+                                                    } else {
+                                                        ts!("self . " ident ". random_arbitrary ( max_cplx )")
+                                                    }
+                                                    ";"
+                                                )
+                                                "let cplx =" cplx_choose_item join_ts!(&inner_fields_identifiers, ident, 
+                                                    "+ self ." ident ". complexity ( &" ident!(ident "_value") ", & " ident!(ident "_cache") ")" 
+                                                ) ";
+                                                let value = " parsed_enum.ident "::" item.ident 
+                                                kind.open() 
+                                                    join_ts!(fields.iter().zip(inner_fields_identifiers.iter()), (field, inner_ident),
+                                                        field.expr_field(ts!(ident!(inner_ident "_value")))
+                                                    , separator: ",")
+                                                kind.close()
+                                                ";
+                                                let cache = " cache_struct.ident " {
+                                                    inner : Some (" cache_enum.ident " :: " ar_step_item.ident "{"
+                                                        join_ts!(&inner_fields_identifiers, ident, 
+                                                            ident ":" ident!(ident "_cache")
+                                                        , separator: ",")
+                                                    "} )
+                                                    , cplx
+                                                } ;
+                                                return Some ( ( value , cache ) )
+                                                "
+                                            "}"
+                                        )
+                                        "_ => unreachable ! ( )"
+                                    "}"
                                 )
                             }
                         }
-                        "}" 
+                        "}"
+
                     )
                     "}
                     # [ allow ( unreachable_code ) ]
@@ -1686,21 +1701,23 @@ fn derive_enum_mutator_with_items(parsed_enum: &Enum, tb: &mut TokenBuilder) {
     }
 }
 
-fn derive_unit_mutator(parsed_struct: Struct, tb: &mut TokenBuilder) {
-    let generics_without_bounds = parsed_struct.generics.clone().removing_bounds_and_eq_type();
-    let mutator_ident = ident!(parsed_struct.ident "Mutator");
+fn derive_unit_mutator(parsed_struct: Struct, derive_default: bool, tb: &mut TokenBuilder) {
+    if derive_default {
+        let generics_without_bounds = parsed_struct.generics.clone().removing_bounds_and_eq_type();
+        let mutator_ident = ident!(parsed_struct.ident "Mutator");
 
-    extend_ts!(tb,
-        "type" mutator_ident generics_without_bounds
-            "= fuzzcheck_mutators :: unit :: UnitMutator < " parsed_struct.ident generics_without_bounds "> ;"
+        extend_ts!(tb,
+            "type" mutator_ident generics_without_bounds
+                "= fuzzcheck_mutators :: unit :: UnitMutator < " parsed_struct.ident generics_without_bounds "> ;"
 
-        "impl" parsed_struct.generics "HasDefaultMutator for"
-            parsed_struct.ident generics_without_bounds parsed_struct.where_clause
-        "{
-            type Mutator = " mutator_ident generics_without_bounds ";
-            fn default_mutator ( ) -> Self :: Mutator {
-                Self :: Mutator :: new ( " parsed_struct.ident " { } )
-            }
-        }"
-    );
+            "impl" parsed_struct.generics "HasDefaultMutator for"
+                parsed_struct.ident generics_without_bounds parsed_struct.where_clause
+            "{
+                type Mutator = " mutator_ident generics_without_bounds ";
+                fn default_mutator ( ) -> Self :: Mutator {
+                    Self :: Mutator :: new ( " parsed_struct.ident " { } )
+                }
+            }"
+        );
+    }
 }

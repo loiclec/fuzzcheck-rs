@@ -7,9 +7,10 @@ members = [
     "fuzzcheck_mutators",
     "fuzzcheck_mutators_derive",
     "fuzzcheck_serializer",
-    "fuzzcheck_traits"
+    "fuzzcheck_traits",
+    "fuzzcheck_mutators_derive/tests/*"
 ]
 
 exclude = [
-    "usage_tests"
+    "usage_tests",
 ]

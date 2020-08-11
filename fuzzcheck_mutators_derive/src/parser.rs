@@ -746,6 +746,7 @@ impl TokenParser {
                 }
             }
         }
+        self.backtrack(visibility);
         None
     }
 
@@ -833,7 +834,7 @@ impl TokenParser {
                 }
             }
         }
-        // self.backtrack(tb.end());
+        self.backtrack(visibility);
         return None;
     }
 
@@ -1257,17 +1258,12 @@ impl TokenParser {
 
     #[inline(never)]
     pub fn eat_outer_attribute(&mut self) -> Option<TokenStream> {
-        let mut tb = TokenBuilder::new();
         let nbr_sign = self.eat_punct('#')?;
-        if self.open_bracket() {
+        if let Some(content) = self.eat_group(Delimiter::Bracket) {
+            let mut tb = TokenBuilder::new();
             tb.extend_tree(nbr_sign);
-            if let Some(content) = self.eat_any_group() {
-                tb.extend_tree(content);
-                Some(tb.end())
-            } else {
-                // self.backtrack(tb.end());
-                None
-            }
+            tb.extend_tree(content);
+            Some(tb.end())
         } else {
             None
         }
