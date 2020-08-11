@@ -441,7 +441,7 @@ impl<M: Mutator> Mutator for VecMutator<M> {
             }
         };
         if matches!(token, Some(UnmutateVecToken::Nothing) | None) {
-            Some(self.random_mutate(value, cache, max_cplx))
+            self.ordered_mutate(value, cache, step, max_cplx)
         } else {
             token
         }
