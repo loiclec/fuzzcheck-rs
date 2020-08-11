@@ -500,7 +500,7 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
                     join_ts!(&field_idents, ids , ids.muta , separator: ",")
                     ", inner : vec ! [" join_ts!(&mutator_inner_step_enum.items, item,
                         mutator_inner_step_enum.ident "::" item.ident
-                    ) "]
+                    , separator: ",") "]
                     , step
                 }
             }
@@ -562,7 +562,7 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
                     mutator_inner_step_enum.ident "::" ids.muta " => {
                         let current_field_cplx = self ." ids.muta ". complexity ( & value ." ids.orig ", & cache ." ids.muta ") ;
                         let max_field_cplx = max_cplx - current_cplx - current_field_cplx ;
-                        if let Some ( token ) = self ." ids.muta ". mutate ( & mut  value ." ids.orig ", & mut cache ." ids.muta ", & mut step ." ids.muta ", max_field_cplx ) {
+                        if let Some ( token ) = self ." ids.muta ". ordered_mutate ( & mut  value ." ids.orig ", & mut cache ." ids.muta ", & mut step ." ids.muta ", max_field_cplx ) {
                             let new_field_complexity = self ." ids.muta ". complexity ( & value ." ids.orig ", & cache ." ids.muta ") ;
                             cache . cplx = cache . cplx - current_field_cplx + new_field_complexity ;
                             return Some ( Self :: UnmutateToken {"
@@ -582,10 +582,31 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, tb: &mut TokenBuild
                     step . inner . remove ( idx ) ;
                 }
                 if recurse {
-                    self . mutate ( value , cache , step )
+                    self . ordered_mutate ( value , cache , step , max_cplx )
                 } else {
                     None
                 }
+            }
+
+            fn random_mutate ( & mut self , value : & mut Self :: Value , cache : & mut Self :: Cache , max_cplx : f64 ) -> Self :: UnmutateToken {
+                let current_cplx = self . complexity ( value , cache ) ;
+                match self . rng . usize ( .. ) % " field_idents.len() " {"
+                    join_ts!(field_idents.iter().enumerate(), (i, ids), 
+                        i "=> {
+                            let current_field_cplx = self ." ids.muta ". complexity ( & value ." ids.orig ", & cache ." ids.muta ") ;
+                            let max_field_cplx = max_cplx - current_cplx - current_field_cplx ;
+                            let token = self ." ids.muta ". random_mutate ( & mut  value ." ids.orig ", & mut cache ." ids.muta ", max_field_cplx ) ;
+                            let new_field_complexity = self ." ids.muta ". complexity ( & value ." ids.orig ", & cache ." ids.muta ") ;
+                            cache . cplx = cache . cplx - current_field_cplx + new_field_complexity ;
+                            return Self :: UnmutateToken {"
+                                ids.muta ": Some ( token ) ,
+                                cplx : current_cplx ,
+                                .. Self :: UnmutateToken :: default ( )
+                            }
+                        }"
+                    )
+                    "_ => unreachable ! ( )"
+                "}
             }
 
             fn unmutate ( & self , value : & mut Self :: Value , cache : & mut Self :: Cache , t : Self :: UnmutateToken )

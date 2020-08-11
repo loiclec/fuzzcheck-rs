@@ -122,7 +122,7 @@ impl<M: Mutator> VecMutator<M> {
 
         let old_cplx = self.m.complexity(el, el_cache);
 
-        if let Some(token) = self.m.ordered_mutate(el, el_cache, el_step, spare_cplx) {
+        if let Some(token) = self.m.ordered_mutate(el, el_cache, el_step, spare_cplx + old_cplx) {
             let new_cplx = self.m.complexity(el, el_cache);
             cache.sum_cplx += new_cplx - old_cplx;
             Some(UnmutateVecToken::Element(idx, token, old_cplx - new_cplx))
@@ -257,22 +257,6 @@ impl<M: Mutator> VecMutator<M> {
 
         Some(token)
     }
-
-    // fn mutate_arbitrary(
-    //     &mut self,
-    //     value: &mut Vec<M::Value>,
-    //     cache: &mut VecMutatorCache<M::Cache>,
-    //     step: &mut VecMutatorStep<M::MutationStep>,
-    //     max_cplx: f64,
-    // ) -> UnmutateVecToken<M> {
-    //     let (mut tmp_value, mut tmp_cache) = self.arbitrary(step.pick_step.cycle, max_cplx);
-    //     std::mem::swap(value, &mut tmp_value);
-    //     std::mem::swap(cache, &mut tmp_cache);
-
-    //     step.increment_mutation_step_category();
-
-    //     UnmutateVecToken::Replace(tmp_value, tmp_cache)
-    // }
 
     fn choose_slice_length(&self, target_cplx: f64) -> (Option<usize>, usize) {
         let min_cplx_el = self.m.min_complexity();
@@ -468,7 +452,41 @@ impl<M: Mutator> Mutator for VecMutator<M> {
         cache: &mut Self::Cache,
         max_cplx: f64,
     ) -> Self::UnmutateToken {
-        todo!()
+
+        let spare_cplx = max_cplx - self.complexity(value, cache);
+
+        if value.is_empty() || self.rng.usize(0..10) == 0 {
+            // vector mutation
+            match self.rng.usize(0 .. 4) {
+                0 => {
+                    self.insert_element(value, cache, spare_cplx)
+                }
+                1 => {
+                    self.remove_element(value, cache)
+                }
+                2 => {
+                    self.insert_repeated_elements(value, cache, spare_cplx)
+                }
+                3 => {
+                    self.remove_many_elements(value, cache)
+                }
+                _ => unreachable!()
+            }.unwrap_or_else(|| 
+                self.random_mutate(value, cache, max_cplx)
+            )
+        } else {
+            // element mutation
+            let idx = self.rng.usize(0 .. value.len());
+            let el = &mut value[idx];
+            let el_cache = &mut cache.inner[idx];
+
+            let old_el_cplx = self.m.complexity(el, el_cache);
+            let token = self.m.random_mutate(el, el_cache, spare_cplx + old_el_cplx);
+
+            let new_el_cplx = self.m.complexity(el, el_cache);
+            cache.sum_cplx += new_el_cplx - old_el_cplx;
+            UnmutateVecToken::Element(idx, token, old_el_cplx - new_el_cplx)
+        }
     }
 
     fn unmutate(&self, value: &mut Self::Value, cache: &mut Self::Cache, t: Self::UnmutateToken) {
