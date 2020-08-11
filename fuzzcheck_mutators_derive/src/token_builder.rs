@@ -106,10 +106,10 @@ impl TokenBuilder {
         self.groups.pop().unwrap().1
     }
 
-    #[inline(never)]
-    pub fn eprint(&self) {
-        eprintln!("{}", self.groups.last().unwrap().1.to_string());
-    }
+    // #[inline(never)]
+    // pub fn eprint(&self) {
+    //     eprintln!("{}", self.groups.last().unwrap().1.to_string());
+    // }
 
     #[inline(never)]
     pub fn extend_tree<T: Into<TokenTree>>(&mut self, tt: T) {

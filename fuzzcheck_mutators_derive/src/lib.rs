@@ -243,7 +243,7 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, derive_default: boo
             visibility: parsed_struct.visibility.clone(),
             ident: ident!(parsed_struct.ident "Mutator"),
             generics,
-            kind: StructKind::Struct,
+            kind: Some(StructKind::Struct),
             where_clause: Some(WhereClause {
                 items: where_clause_items,
             }),
@@ -257,7 +257,7 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, derive_default: boo
         let mut cache_fields = basic_fields.clone();
         cache_fields.push(StructField {
             attributes: Vec::new(),
-            visibility: ts!(),
+            visibility: ts!("pub"),
             identifier: StructFieldIdentifier::Named(ident!("cplx")),
             ty: ts!("f64"),
         });
@@ -265,14 +265,15 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, derive_default: boo
             visibility: parsed_struct.visibility.clone(),
             ident: ident!(parsed_struct.ident "MutatorCache"),
             generics: basic_generics.clone(),
-            kind: StructKind::Struct,
+            kind: Some(StructKind::Struct),
             where_clause: None,
             struct_fields: cache_fields.clone(),
         }
     };
 
     extend_ts!(tb,
-        "# [ derive ( :: core :: clone :: Clone ) ]"
+        "# [ derive ( :: core :: clone :: Clone ) ]
+        # [ allow ( non_camel_case_types ) ]"
         mutator_cache_struct
     );
 
@@ -294,11 +295,12 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, derive_default: boo
         let mut step_fields = basic_fields.clone();
         step_fields.push(StructField {
             attributes: Vec::new(),
-            visibility: ts!(),
+            visibility: ts!("pub"),
             identifier: StructFieldIdentifier::Named(ident!("step")),
             ty: ts!("usize"),
         });
         step_fields.push(StructField {
+            visibility: ts!("pub"),
             identifier: StructFieldIdentifier::Named(ident!("inner")),
             ty: ts!("Vec <" inner.ident ">"),
             ..StructField::default()
@@ -308,34 +310,36 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, derive_default: boo
             visibility: parsed_struct.visibility.clone(),
             ident: ident!(parsed_struct.ident "MutationStep"),
             generics: basic_generics.clone(),
-            kind: StructKind::Struct,
+            kind: Some(StructKind::Struct),
             where_clause: None,
             struct_fields: step_fields,
         })
     };
 
     extend_ts!(tb,
-        "# [ derive ( :: core :: clone :: Clone ) ]"
+        "# [ derive ( :: core :: clone :: Clone ) ]
+        # [ allow ( non_camel_case_types ) ]"
         mutator_inner_step_enum
-        "# [ derive ( :: core :: clone :: Clone ) ]"
+        "# [ derive ( :: core :: clone :: Clone ) ]
+        # [ allow ( non_camel_case_types ) ]"
         mutator_step_struct
     );
 
-    let (arbitrary_inner_step_enum, arbitrary_step_struct) = {
-        let inner_enum = Enum {
-            visibility: ts!("pub"),
-            ident: ident!(parsed_struct.ident "InnerArbitraryStep"),
-            generics: <_>::default(),
-            where_clause: None,
-            items: field_idents.iter().map(|ids| {
-                EnumItem {
-                    attributes: Vec::new(),
-                    ident: ids.muta.clone(),
-                    data: None,
-                }
-            }).collect()
-        };
-        let mut step_fields = field_idents.iter().map(|ids|
+    let /*(arbitrary_inner_step_enum,*/ arbitrary_step_struct /*)*/ = {
+        // let inner_enum = Enum {
+        //     visibility: ts!("pub"),
+        //     ident: ident!(parsed_struct.ident "InnerArbitraryStep"),
+        //     generics: <_>::default(),
+        //     where_clause: None,
+        //     items: field_idents.iter().map(|ids| {
+        //         EnumItem {
+        //             attributes: Vec::new(),
+        //             ident: ids.muta.clone(),
+        //             data: None,
+        //         }
+        //     }).collect()
+        // };
+        let /*mut*/ step_fields = field_idents.iter().map(|ids|
             StructField {
                 identifier: StructFieldIdentifier::Named(ids.muta.clone()), 
                 ty: ts!(ids.generic_type),
@@ -343,50 +347,52 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, derive_default: boo
             }
         ).collect::<Vec<_>>();
     
-        step_fields.push(StructField {
-            identifier: StructFieldIdentifier::Named(ident!("fields")), 
-            ty: ts!(":: std :: vec :: Vec <" inner_enum.ident ">"),
-            ..<_>::default()
-        });
+        // step_fields.push(StructField {
+        //     identifier: StructFieldIdentifier::Named(ident!("fields")), 
+        //     ty: ts!(":: std :: vec :: Vec <" inner_enum.ident ">"),
+        //     ..<_>::default()
+        // });
 
         let step_struct = Struct {
             visibility: ts!("pub"),
             ident: ident!(parsed_struct.ident "ArbitraryStep"),
             generics: basic_generics.clone(),
-            kind: StructKind::Struct,
+            kind: Some(StructKind::Struct),
             where_clause: None,
             struct_fields: step_fields,
         };
-        (inner_enum, step_struct)
+        /*(inner_enum, */ step_struct /*)*/
     };
-    let ar_step_default_where_clause = WhereClause {
-        items: arbitrary_step_struct.generics.type_params.iter().map(|tp| 
-            WhereClauseItem {
-                for_lifetimes: None,
-                lhs: tp.type_ident.clone(),
-                rhs: ts!(":: core :: default :: Default"),
-            }
-        ).collect(),
-    };
+    // let ar_step_default_where_clause = WhereClause {
+    //     items: arbitrary_step_struct.generics.type_params.iter().map(|tp| 
+    //         WhereClauseItem {
+    //             for_lifetimes: None,
+    //             lhs: tp.type_ident.clone(),
+    //             rhs: ts!(":: core :: default :: Default"),
+    //         }
+    //     ).collect(),
+    // };
 
     extend_ts!(tb,
-        "# [ derive ( :: core :: clone :: Clone ) ]"
-        arbitrary_inner_step_enum
-        "# [ derive ( :: core :: clone :: Clone ) ]"
+        //"# [ derive ( :: core :: clone :: Clone ) ]
+        //# [ allow ( non_camel_case_types ) ]"
+        //arbitrary_inner_step_enum
+        "# [ derive ( :: core :: clone :: Clone , :: core :: default :: Default ) ]
+        # [ allow ( non_camel_case_types ) ]"
         arbitrary_step_struct
 
-        "impl" arbitrary_step_struct.generics ":: core :: default :: Default for" arbitrary_step_struct.ident 
-            arbitrary_step_struct.generics ar_step_default_where_clause
-        "{
-            fn default ( ) -> Self {
-                Self {"
-                    join_ts!(&field_idents, ids,
-                        ids.muta ": < _ > :: default ( ) ,"
-                    )
-                    "fields : < _ > :: default ( )
-                }
-            }
-        }"
+    //     "impl" arbitrary_step_struct.generics ":: core :: default :: Default for" arbitrary_step_struct.ident 
+    //         arbitrary_step_struct.generics ar_step_default_where_clause
+    //     "{
+    //         fn default ( ) -> Self {
+    //             Self {"
+    //                 join_ts!(&field_idents, ids,
+    //                     ids.muta ": < _ > :: default ( ) ,"
+    //                 )
+    //                 "fields : < _ > :: default ( )
+    //             }
+    //         }
+    //     }"
     );
 
     let unmutate_token_struct = {
@@ -400,7 +406,7 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, derive_default: boo
 
         step_fields.push(StructField {
             attributes: Vec::new(),
-            visibility: ts!(),
+            visibility: ts!("pub"),
             identifier: StructFieldIdentifier::Named(ident!("cplx")),
             ty: ts!("f64"),
         });
@@ -408,14 +414,15 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, derive_default: boo
             visibility: parsed_struct.visibility.clone(),
             ident: ident!(parsed_struct.ident "UnmutateToken"),
             generics: basic_generics,
-            kind: StructKind::Struct,
+            kind: Some(StructKind::Struct),
             where_clause: None,
             struct_fields: step_fields,
         }
     };
 
     extend_ts!(tb,
-        "# [ derive ( :: core :: clone :: Clone ) ]"
+        "# [ derive ( :: core :: clone :: Clone ) ]
+        # [ allow ( non_camel_case_types ) ]"
         unmutate_token_struct
     );
 
@@ -568,7 +575,7 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, derive_default: boo
                 join_ts!(field_idents.iter(), ids,
                     mutator_inner_step_enum.ident "::" ids.muta " => {
                         let current_field_cplx = self ." ids.muta ". complexity ( & value ." ids.orig ", & cache ." ids.muta ") ;
-                        let max_field_cplx = max_cplx - current_cplx - current_field_cplx ;
+                        let max_field_cplx = max_cplx - current_cplx + current_field_cplx ;
                         if let Some ( token ) = self ." ids.muta ". ordered_mutate ( & mut  value ." ids.orig ", & mut cache ." ids.muta ", & mut step ." ids.muta ", max_field_cplx ) {
                             let new_field_complexity = self ." ids.muta ". complexity ( & value ." ids.orig ", & cache ." ids.muta ") ;
                             cache . cplx = cache . cplx - current_field_cplx + new_field_complexity ;
@@ -583,15 +590,14 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, derive_default: boo
                         }
                     }"
                 )
-                    "_ => unreachable ! ( )
-                }
+                "}
                 if let Some ( idx ) = inner_step_to_remove {
                     step . inner . remove ( idx ) ;
                 }
                 if recurse {
                     self . ordered_mutate ( value , cache , step , max_cplx )
                 } else {
-                    None
+                    unreachable ! ( )
                 }
             }
 
@@ -601,7 +607,7 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, derive_default: boo
                     join_ts!(field_idents.iter().enumerate(), (i, ids), 
                         i "=> {
                             let current_field_cplx = self ." ids.muta ". complexity ( & value ." ids.orig ", & cache ." ids.muta ") ;
-                            let max_field_cplx = max_cplx - current_cplx - current_field_cplx ;
+                            let max_field_cplx = max_cplx - current_cplx + current_field_cplx ;
                             let token = self ." ids.muta ". random_mutate ( & mut  value ." ids.orig ", & mut cache ." ids.muta ", max_field_cplx ) ;
                             let new_field_complexity = self ." ids.muta ". complexity ( & value ." ids.orig ", & cache ." ids.muta ") ;
                             cache . cplx = cache . cplx - current_field_cplx + new_field_complexity ;
@@ -718,7 +724,7 @@ fn derive_enum_mutator(parsed_enum: Enum, derive_default: bool, tb: &mut TokenBu
 
 fn derive_enum_mutator_with_items(parsed_enum: &Enum, derive_default: bool, tb: &mut TokenBuilder) {
 
-    let (basic_generics, generic_items, mutator_struct) = {
+    let (basic_generics, generic_items, flattened_fields, submutator_fields, mutator_struct) = {
         // mutator struct
         /*
         generics: existing generics + generic mutator type params
@@ -752,13 +758,13 @@ fn derive_enum_mutator_with_items(parsed_enum: &Enum, derive_default: bool, tb: 
                 }
             ).collect::<Vec<_>>();
 
-        let submutator_fields = generic_items.iter().filter_map(|x| x.as_ref()).flat_map(|x| x.get_fields_unchecked());
+        let submutator_fields = generic_items.iter().filter_map(|x| x.as_ref()).flat_map(|x| x.get_fields_unchecked()).cloned().collect::<Vec<_>>();
 
         // the generic types corresponding to each field in each item
         let basic_generics = Generics {
             lifetime_params: Vec::new(),
             type_params: submutator_fields
-                .clone()
+                .iter()
                 .map(|x| TypeParam {
                     type_ident: x.ty.clone(),
                     ..<_>::default()
@@ -801,7 +807,7 @@ fn derive_enum_mutator_with_items(parsed_enum: &Enum, derive_default: bool, tb: 
             rhs: ts!(":: core :: clone :: Clone"),
         });
 
-        let mut mutator_struct_fields = submutator_fields.cloned().collect::<Vec<_>>();
+        let mut mutator_struct_fields = submutator_fields.clone();
         mutator_struct_fields.push(StructField {
             attributes: Vec::new(),
             visibility: ts!("pub"),
@@ -812,11 +818,13 @@ fn derive_enum_mutator_with_items(parsed_enum: &Enum, derive_default: bool, tb: 
         (
             basic_generics,
             generic_items,
+            flattened_fields,
+            submutator_fields,
             Struct {
                 visibility: parsed_enum.visibility.clone(),
                 ident: ident!(parsed_enum.ident "Mutator"),
                 generics,
-                kind: StructKind::Struct,
+                kind: Some(StructKind::Struct),
                 where_clause: Some(where_clause),
                 struct_fields: mutator_struct_fields,
             },
@@ -857,15 +865,17 @@ fn derive_enum_mutator_with_items(parsed_enum: &Enum, derive_default: bool, tb: 
             visibility: parsed_enum.visibility.clone(),
             ident: ident!(parsed_enum.ident "MutatorCache"),
             generics: basic_generics.clone(),
-            kind: StructKind::Struct,
+            kind: Some(StructKind::Struct),
             where_clause: None,
             struct_fields: vec![
                 StructField {
+                    visibility: ts!("pub"),
                     identifier: StructFieldIdentifier::Named(ident!("inner")),
                     ty: ts!("Option <" cache_enum.ident cache_enum.generics ">"),
                     ..<_>::default()
                 },
                 StructField {
+                    visibility: ts!("pub"),
                     identifier: StructFieldIdentifier::Named(ident!("cplx")),
                     ty: ts!("f64"),
                     ..<_>::default()
@@ -911,11 +921,13 @@ fn derive_enum_mutator_with_items(parsed_enum: &Enum, derive_default: bool, tb: 
         };
 
         let field_inner = StructField {
+            visibility: ts!("pub"),
             identifier: StructFieldIdentifier::Named(ident!("inner")),
             ty: ts!("Vec <" step_enum.ident step_enum.generics ">"),
             ..<_>::default()
         };
         let field_step = StructField {
+            visibility: ts!("pub"),
             identifier: StructFieldIdentifier::Named(ident!("step")),
             ty: ts!("usize"),
             ..<_>::default()
@@ -925,7 +937,7 @@ fn derive_enum_mutator_with_items(parsed_enum: &Enum, derive_default: bool, tb: 
             visibility: parsed_enum.visibility.clone(),
             ident: ident!(parsed_enum.ident "ArbitraryStep"),
             generics: basic_generics.clone(),
-            kind: StructKind::Struct,
+            kind: Some(StructKind::Struct),
             where_clause: None,
             struct_fields: vec![field_inner, field_step],
         };
@@ -1035,11 +1047,13 @@ fn derive_enum_mutator_with_items(parsed_enum: &Enum, derive_default: bool, tb: 
         };
 
         let field_inner = StructField {
+            visibility: ts!("pub"),
             identifier: StructFieldIdentifier::Named(ident!("inner")),
             ty: ts!("Option <" step_enum.ident step_enum.generics ">"),
             ..<_>::default()
         };
         let field_step = StructField {
+            visibility: ts!("pub"),
             identifier: StructFieldIdentifier::Named(ident!("step")),
             ty: ts!("usize"),
             ..<_>::default()
@@ -1062,7 +1076,7 @@ fn derive_enum_mutator_with_items(parsed_enum: &Enum, derive_default: bool, tb: 
             visibility: parsed_enum.visibility.clone(),
             ident: ident!(parsed_enum.ident "MutationStep"),
             generics,
-            kind: StructKind::Struct,
+            kind: Some(StructKind::Struct),
             where_clause: None,
             struct_fields: vec![field_inner, field_step, field_ar_step],
         };
@@ -1155,15 +1169,17 @@ fn derive_enum_mutator_with_items(parsed_enum: &Enum, derive_default: bool, tb: 
             visibility: parsed_enum.visibility.clone(),
             ident: ident!(parsed_enum.ident "UnmutateToken"),
             generics,
-            kind: StructKind::Struct,
+            kind: Some(StructKind::Struct),
             where_clause: None,
             struct_fields: vec![
                 StructField {
+                    visibility: ts!("pub"),
                     identifier: StructFieldIdentifier::Named(ident!("inner")),
                     ty: ts!(unmutate_enum.ident unmutate_enum.generics),
                     ..StructField::default()
                 },
                 StructField {
+                    visibility: ts!("pub"),
                     identifier: StructFieldIdentifier::Named(ident!("cplx")),
                     ty: ts!("f64"),
                     ..StructField::default()
@@ -1328,10 +1344,7 @@ fn derive_enum_mutator_with_items(parsed_enum: &Enum, derive_default: bool, tb: 
                 }
 
                 fn ordered_arbitrary ( & mut self , step : & mut Self :: ArbitraryStep , max_cplx : f64 ) -> Option < ( Self :: Value , Self :: Cache ) > {
-                    if step . inner . is_empty ( ) { return None }
                     let orig_step = step . step ;
-                    let mut inner_step_to_remove : Option < usize > = None ;
-                    let mut recurse = false ;
                     step . step += 1 ;
                     if orig_step < " parsed_enum.items.len() - filtered_enum_items.len() "{"
                         "match orig_step {"
@@ -1347,99 +1360,109 @@ fn derive_enum_mutator_with_items(parsed_enum: &Enum, derive_default: bool, tb: 
                             )
                             "_ => unreachable ! ( )"
                         "}
-                    }
-                    let inner_len = step . inner . len ( ) ;
-                    match & mut step . inner [ orig_step % inner_len ] {"
-                    join_ts!(filtered_enum_items.iter().zip(ar_step_enum.items), (item, ar_step_item), 
-                        ar_step_item.pattern_match(&ar_step_enum.ident, None)
-                        "=> {"{
-                            let fields = item.get_fields_unchecked();
-                            let kind = item.get_struct_data().unwrap().0;
-                            if fields.len() == 1 {
-                                let inner_field_ident = ar_step_item.get_fields_unchecked()[0].safe_ident();
-                                let field = &fields[0];
-                                ts!(
-                                    "if let Some ( ( inner_value , inner_cache ) ) = self ." inner_field_ident " . ordered_arbitrary (" inner_field_ident ", max_cplx ) {"
-                                        "let cplx = " cplx_choose_item " + self ." inner_field_ident ". complexity ( & inner_value , & inner_cache ) ;
-                                        let value = " parsed_enum.ident "::" item.ident 
-                                            kind.open() 
-                                                field.expr_field(ts!("inner_value"))
-                                            kind.close()
-                                            ";
-                                        let cache = " cache_struct.ident " {
-                                            inner : Some (" cache_enum.ident " :: " ar_step_item.ident "{"
-                                                inner_field_ident ": inner_cache" 
-                                            "} ) ,
-                                            cplx
-                                        } ;
-                                        return Some ( ( value , cache ) )"
-                                    "} else {
-                                        step . step -= 1 ;
-                                        inner_step_to_remove = Some ( step . step ) ;
-                                        recurse = true ;
-                                    }"
-                                )
-                            } else {
-                                let inner_fields_identifiers = ar_step_item.get_fields_unchecked().iter().map(|f| f.safe_ident()).take(fields.len()).collect::<Vec<_>>();
-                                ts!(
-                                    "let orig_step = * step ;
-                                    * step += 1 ;
-                                    match orig_step %" fields.len() "{"
-                                        join_ts!(0 .. fields.len(), i, 
-                                            i "=> {"
-                                                join_ts!(inner_fields_identifiers.iter().enumerate(), (j, ident),
-                                                    "let (" ident!(ident "_value") ", " ident!(ident "_cache")  ") ="
-                                                    if j == i {
-                                                        ts!("self ." ident ". ordered_arbitrary ( " ident ", max_cplx ) . unwrap_or_else ( | | {
-                                                            self . " ident ". random_arbitrary ( max_cplx )
-                                                        } )")
-                                                    } else {
-                                                        ts!("self . " ident ". random_arbitrary ( max_cplx )")
-                                                    }
-                                                    ";"
-                                                )
-                                                "let cplx =" cplx_choose_item join_ts!(&inner_fields_identifiers, ident, 
-                                                    "+ self ." ident ". complexity ( &" ident!(ident "_value") ", & " ident!(ident "_cache") ")" 
-                                                ) ";
-                                                let value = " parsed_enum.ident "::" item.ident 
+                    } else {"
+                        if filtered_enum_items.is_empty() {
+                        ts!("return None")
+                        } else { ts!(
+                        "
+                        if step . inner . is_empty ( ) { return None }
+                        let mut inner_step_to_remove : Option < usize > = None ;
+                        let mut recurse = false ;
+                        let inner_len = step . inner . len ( ) ;
+                        let orig_step = orig_step % inner_len ;
+                        match & mut step . inner [ orig_step ] {"
+                        join_ts!(filtered_enum_items.iter().zip(ar_step_enum.items), (item, ar_step_item), 
+                            ar_step_item.pattern_match(&ar_step_enum.ident, None)
+                            "=> {"{
+                                let fields = item.get_fields_unchecked();
+                                let kind = item.get_struct_data().unwrap().0;
+                                if fields.len() == 1 {
+                                    let inner_field_ident = ar_step_item.get_fields_unchecked()[0].safe_ident();
+                                    let field = &fields[0];
+                                    ts!(
+                                        "if let Some ( ( inner_value , inner_cache ) ) = self ." inner_field_ident " . ordered_arbitrary (" inner_field_ident ", max_cplx ) {"
+                                            "let cplx = " cplx_choose_item " + self ." inner_field_ident ". complexity ( & inner_value , & inner_cache ) ;
+                                            let value = " parsed_enum.ident "::" item.ident 
                                                 kind.open() 
-                                                    join_ts!(fields.iter().zip(inner_fields_identifiers.iter()), (field, inner_ident),
-                                                        field.expr_field(ts!(ident!(inner_ident "_value")))
-                                                    , separator: ",")
+                                                    field.expr_field(ts!("inner_value"))
                                                 kind.close()
                                                 ";
-                                                let cache = " cache_struct.ident " {
-                                                    inner : Some (" cache_enum.ident " :: " ar_step_item.ident "{"
-                                                        join_ts!(&inner_fields_identifiers, ident, 
-                                                            ident ":" ident!(ident "_cache")
+                                            let cache = " cache_struct.ident " {
+                                                inner : Some (" cache_enum.ident " :: " ar_step_item.ident "{"
+                                                    inner_field_ident ": inner_cache" 
+                                                "} ) ,
+                                                cplx
+                                            } ;
+                                            return Some ( ( value , cache ) )"
+                                        "} else {
+                                            step . step -= 1 ;
+                                            inner_step_to_remove = Some ( orig_step ) ;
+                                            recurse = true ;
+                                        }"
+                                    )
+                                } else {
+                                    let inner_fields_identifiers = ar_step_item.get_fields_unchecked().iter().map(|f| f.safe_ident()).take(fields.len()).collect::<Vec<_>>();
+                                    ts!(
+                                        "let orig_step = * step ;
+                                        * step += 1 ;
+                                        match orig_step %" fields.len() "{"
+                                            join_ts!(0 .. fields.len(), i, 
+                                                i "=> {"
+                                                    join_ts!(inner_fields_identifiers.iter().enumerate(), (j, ident),
+                                                        "let (" ident!(ident "_value") ", " ident!(ident "_cache")  ") ="
+                                                        if j == i {
+                                                            ts!("self ." ident ". ordered_arbitrary ( " ident ", max_cplx ) . unwrap_or_else ( | | {
+                                                                self . " ident ". random_arbitrary ( max_cplx )
+                                                            } )")
+                                                        } else {
+                                                            ts!("self . " ident ". random_arbitrary ( max_cplx )")
+                                                        }
+                                                        ";"
+                                                    )
+                                                    "let cplx =" cplx_choose_item join_ts!(&inner_fields_identifiers, ident, 
+                                                        "+ self ." ident ". complexity ( &" ident!(ident "_value") ", & " ident!(ident "_cache") ")" 
+                                                    ) ";
+                                                    let value = " parsed_enum.ident "::" item.ident 
+                                                    kind.open() 
+                                                        join_ts!(fields.iter().zip(inner_fields_identifiers.iter()), (field, inner_ident),
+                                                            field.expr_field(ts!(ident!(inner_ident "_value")))
                                                         , separator: ",")
-                                                    "} )
-                                                    , cplx
-                                                } ;
-                                                return Some ( ( value , cache ) )
-                                                "
-                                            "}"
-                                        )
-                                        "_ => unreachable ! ( )"
-                                    "}"
-                                )
+                                                    kind.close()
+                                                    ";
+                                                    let cache = " cache_struct.ident " {
+                                                        inner : Some (" cache_enum.ident " :: " ar_step_item.ident "{"
+                                                            join_ts!(&inner_fields_identifiers, ident, 
+                                                                ident ":" ident!(ident "_cache")
+                                                            , separator: ",")
+                                                        "} )
+                                                        , cplx
+                                                    } ;
+                                                    return Some ( ( value , cache ) )
+                                                    "
+                                                "}"
+                                            )
+                                            "_ => unreachable ! ( )"
+                                        "}"
+                                    )
+                                }
                             }
-                        }
-                        "}"
-
-                    )
+                            "}"
+    
+                        )
+                        "}
+                        # [ allow ( unreachable_code ) ]
+                        {
+                            if let Some ( idx ) = inner_step_to_remove {
+                                step . inner . remove ( idx ) ;
+                            }
+                            if recurse {
+                                self . ordered_arbitrary ( step , max_cplx )
+                            } else {
+                                None
+                            }
+                        }"
+                        )}
                     "}
-                    # [ allow ( unreachable_code ) ]
-                    {
-                        if let Some ( idx ) = inner_step_to_remove {
-                            step . inner . remove ( idx ) ;
-                        }
-                        if recurse {
-                            self . ordered_arbitrary ( step , max_cplx )
-                        } else {
-                            None
-                        }
-                    }
                 }
 
                 fn random_arbitrary ( & mut self , max_cplx : f64 ) -> ( Self :: Value , Self :: Cache ) {
@@ -1542,6 +1565,7 @@ fn derive_enum_mutator_with_items(parsed_enum: &Enum, derive_default: bool, tb: 
                                                     let max_cplx = max_cplx - " cplx_choose_item "- old_field_cplx ;
                                                     if let Some ( field_token ) = self ." generic_ident ". ordered_mutate ( " value_ident "," cache_ident ", inner_step , max_cplx ) {
                                                         let new_field_cplx = self ." generic_ident ". complexity ( & " value_ident ", & " cache_ident ") ;
+                                                        let old_cplx = * cplx ;
                                                         * cplx += new_field_cplx - old_field_cplx ;
                                                         return Some (" unmutate_struct.ident " { inner : " unmutate_enum.ident "::" generic_item.ident "{"
                                                             join_ts!(0 .. fields.len(), j,
@@ -1553,7 +1577,7 @@ fn derive_enum_mutator_with_items(parsed_enum: &Enum, derive_default: bool, tb: 
                                                                     ts!(generic_field_ident ": None")
                                                                 }
                                                             , separator: ",")
-                                                        "} , cplx : old_field_cplx } )"
+                                                        "} , cplx : old_cplx } )"
                                                     "} else {
                                                         step_to_remove = Some ( orig_step ) ;
                                                     }"
@@ -1579,77 +1603,77 @@ fn derive_enum_mutator_with_items(parsed_enum: &Enum, derive_default: bool, tb: 
                                     return None
                                 }
                             } else {
-                                unreachable ! ( )
+                                return None
                             }
                         }
                     }
-                    if recurse {
-                        self . ordered_mutate ( value , cache , step , max_cplx )
-                    } else {
-                       None
+                    # [ allow ( unreachable_code ) ] 
+                    {
+                        if recurse {
+                            self . ordered_mutate ( value , cache , step , max_cplx )
+                        } else {
+                            None
+                        }
                     }
                 }
 
                 fn random_mutate ( & mut self , mut value : & mut Self :: Value , mut cache : & mut Self :: Cache , max_cplx : f64 ) -> Self :: UnmutateToken {
                     let use_arbitrary = self . rng . f64 ( ) <" cplx_choose_item " / self . complexity ( & value , & cache ) ;
                     if use_arbitrary {
-                        let ( v , c ) = self . random_arbitrary ( max_cplx - " cplx_choose_item " ) ;
+                        let ( v , c ) = self . random_arbitrary ( max_cplx ) ;
                         let old_value = std :: mem :: replace ( value , v ) ;
                         let old_cache = std :: mem :: replace ( cache , c ) ;
                         return" unmutate_struct.ident " { inner : " unmutate_enum.ident " :: ___Replace ( old_value , old_cache ) , cplx : f64 :: default ( ) }
                     } else {
                         match ( & mut value , & mut cache ) {"
-                        join_ts!(parsed_enum.items.iter().zip(generic_items.iter()), (item, generic_item),
-                            if let Some(generic_item) = generic_item {
-                                let generic_fields = generic_item.get_fields_unchecked();
-                                let fields = item.get_fields_unchecked();
-                                ts!(
-                                    "(" item.pattern_match(&parsed_enum.ident, Some(ident!("_value")))
-                                    "," cache_struct.ident "{ inner : Some (" 
-                                        generic_item.pattern_match(&cache_enum.ident, Some(ident!("_cache")))
-                                        ") , cplx }"
-                                    ") => {
-                                        match self . rng . usize ( .. ) % " fields.len() "{"
-                                        join_ts!(fields.iter().zip(generic_fields.iter()).enumerate(), (i, (field, generic_field)), 
-                                            i "=> {"{
-                                            let generic_ident = generic_field.safe_ident();
-                                            let value_ident = ident!(field.safe_ident() "_value");
-                                            let cache_ident = ident!(generic_field.safe_ident() "_cache");
-                                            ts!("
-                                                let old_field_cplx = self ." generic_ident ". complexity ( & " value_ident ", & " cache_ident ") ;
-                                                let max_cplx = max_cplx - " cplx_choose_item "- old_field_cplx ;
-                                                let field_token = self ." generic_ident ". random_mutate ( " value_ident "," cache_ident ", max_cplx ) ;
-                                                let new_field_cplx = self ." generic_ident ". complexity ( & " value_ident ", & " cache_ident ") ;
-                                                * cplx += new_field_cplx - old_field_cplx ;
-                                                return" unmutate_struct.ident " { inner : " unmutate_enum.ident "::" generic_item.ident "{"
-                                                    join_ts!(0 .. fields.len(), j,
-                                                        if i == j {
-                                                            ts!(generic_ident ": Some ( field_token )")
-                                                        } else {
-                                                            let generic_field = &generic_fields[j];
-                                                            let generic_field_ident = generic_field.safe_ident();
-                                                            ts!(generic_field_ident ": None")
-                                                        }
-                                                    , separator: ",")
-                                                "} , cplx : old_field_cplx } "
-                                            )
-                                            }"}"
+                        join_ts!(filtered_enum_items.iter().zip(filtered_generic_items.iter()), (item, generic_item), {
+                            let generic_item = generic_item;
+                            let generic_fields = generic_item.get_fields_unchecked();
+                            let fields = item.get_fields_unchecked();
+                            ts!(
+                                "(" item.pattern_match(&parsed_enum.ident, Some(ident!("_value")))
+                                "," cache_struct.ident "{ inner : Some (" 
+                                    generic_item.pattern_match(&cache_enum.ident, Some(ident!("_cache")))
+                                    ") , cplx }"
+                                ") => {
+                                    match self . rng . usize ( .. ) % " fields.len() "{"
+                                    join_ts!(fields.iter().zip(generic_fields.iter()).enumerate(), (i, (field, generic_field)), 
+                                        i "=> {"{
+                                        let generic_ident = generic_field.safe_ident();
+                                        let value_ident = ident!(field.safe_ident() "_value");
+                                        let cache_ident = ident!(generic_field.safe_ident() "_cache");
+                                        ts!("
+                                            let old_field_cplx = self ." generic_ident ". complexity ( & " value_ident ", & " cache_ident ") ;
+                                            let max_cplx = max_cplx - " cplx_choose_item "- old_field_cplx ;
+                                            let field_token = self ." generic_ident ". random_mutate ( " value_ident "," cache_ident ", max_cplx ) ;
+                                            let new_field_cplx = self ." generic_ident ". complexity ( & " value_ident ", & " cache_ident ") ;
+                                            let old_cplx = * cplx ;
+                                            * cplx += new_field_cplx - old_field_cplx ;
+                                            return" unmutate_struct.ident " { inner : " unmutate_enum.ident "::" generic_item.ident "{"
+                                                join_ts!(0 .. fields.len(), j,
+                                                    if i == j {
+                                                        ts!(generic_ident ": Some ( field_token )")
+                                                    } else {
+                                                        let generic_field = &generic_fields[j];
+                                                        let generic_field_ident = generic_field.safe_ident();
+                                                        ts!(generic_field_ident ": None")
+                                                    }
+                                                , separator: ",")
+                                            "} , cplx : old_cplx } "
                                         )
-                                            "_ => unreachable ! ( )"
-                                        "}
-                                    }"
-                                )
-                            } else {
-                                ts!(
-                                    "( value , cache ) => {
-                                        let ( v , c ) = self . random_arbitrary ( max_cplx - " cplx_choose_item " ) ;
-                                        let old_value = std :: mem :: replace ( * value , v ) ;
-                                        let old_cache = std :: mem :: replace ( * cache , c ) ;
-                                        return" unmutate_struct.ident " { inner : " unmutate_enum.ident " :: ___Replace ( old_value , old_cache ) , cplx : f64 :: default ( ) }
-                                    }"
-                                )
-                            }
-                        )
+                                        }"}"
+                                    )
+                                        "_ => unreachable ! ( )"
+                                    "}
+                                }"
+                            )
+                        })
+                            "( value , cache ) => {
+                                let ( v , c ) = self . random_arbitrary ( max_cplx ) ;
+                                let old_value = std :: mem :: replace ( * value , v ) ;
+                                let old_cache = std :: mem :: replace ( * cache , c ) ;
+                                return" unmutate_struct.ident " { inner : " unmutate_enum.ident " :: ___Replace ( old_value , old_cache ) , cplx : f64 :: default ( ) }
+                            }"
                         "}
                     }
                 }
@@ -1697,7 +1721,88 @@ fn derive_enum_mutator_with_items(parsed_enum: &Enum, derive_default: bool, tb: 
                     "}
                 }
             }"
-        )
+        );
+        if derive_default {
+            // default impl
+            let where_clause = {
+                let mut where_clause = mutator_struct.where_clause.clone().unwrap_or_default();
+    
+                for field in &submutator_fields {
+                    where_clause.items.push(WhereClauseItem {
+                        for_lifetimes: None,
+                        lhs: ts!(field.ty),
+                        rhs: ts!(":: core :: default :: Default"),
+                    });
+                }
+                where_clause
+            };
+    
+            extend_ts!(tb,
+            "impl" mutator_struct.generics ":: core :: default :: Default for" mutator_struct.ident
+                mutator_struct.generics.removing_bounds_and_eq_type() where_clause
+            "{
+                fn default ( ) -> Self {
+                    Self {"
+                        join_ts!(&mutator_struct.struct_fields, field,
+                            field.safe_ident() ":" "<" field.ty "as :: core :: default :: Default > :: default ( )"
+                        , separator: ",")
+                    "}
+                }
+            }"
+            );
+            
+            let generics_without_bounds = parsed_enum.generics.removing_bounds_and_eq_type();
+
+            let where_clause = {
+                let mut where_clause = parsed_enum.where_clause.clone().unwrap_or_default();
+                for field in flattened_fields.iter() {
+                    where_clause.items.extend(vec![
+                        WhereClauseItem {
+                            for_lifetimes: None,
+                            lhs: field.ty.clone(),
+                            rhs: ts!(":: core :: clone :: Clone + fuzzcheck_mutators :: HasDefaultMutator"),
+                        },
+                        WhereClauseItem {
+                            for_lifetimes: None,
+                            lhs: ts!("<" field.ty " as fuzzcheck_mutators :: HasDefaultMutator > :: Mutator"),
+                            rhs: ts!(":: core :: default :: Default"),
+                        },
+                        WhereClauseItem {
+                            for_lifetimes: None,
+                            lhs: ts!(parsed_enum.ident generics_without_bounds),
+                            rhs: ts!(":: core :: clone :: Clone"),
+                        }
+                    ]);
+                }
+                where_clause
+            };
+    
+            let generics_mutator = {
+                let mut type_params = generics_without_bounds.type_params.clone();
+                for field in &flattened_fields {
+                    type_params.push(TypeParam {
+                        type_ident: ts!("<" field.ty "as fuzzcheck_mutators :: HasDefaultMutator > :: Mutator"),
+                        ..<_>::default()
+                    });
+                }
+                Generics {
+                    lifetime_params: generics_without_bounds.lifetime_params.clone(),
+                    type_params,
+                }
+            };
+    
+            extend_ts!(tb,
+            "impl" parsed_enum.generics "fuzzcheck_mutators :: HasDefaultMutator for" parsed_enum.ident
+                generics_without_bounds where_clause
+            "{
+                type Mutator = " mutator_struct.ident generics_mutator ";
+    
+                fn default_mutator ( ) -> Self :: Mutator {
+                    Self :: Mutator :: default ( )
+                }
+            }"
+            )
+        }
     }
 }
 
@@ -1710,12 +1815,12 @@ fn derive_unit_mutator(parsed_struct: Struct, derive_default: bool, tb: &mut Tok
             "type" mutator_ident generics_without_bounds
                 "= fuzzcheck_mutators :: unit :: UnitMutator < " parsed_struct.ident generics_without_bounds "> ;"
 
-            "impl" parsed_struct.generics "HasDefaultMutator for"
+            "impl" parsed_struct.generics "fuzzcheck_mutators :: HasDefaultMutator for"
                 parsed_struct.ident generics_without_bounds parsed_struct.where_clause
             "{
                 type Mutator = " mutator_ident generics_without_bounds ";
                 fn default_mutator ( ) -> Self :: Mutator {
-                    Self :: Mutator :: new ( " parsed_struct.ident " { } )
+                    Self :: Mutator :: default ( )
                 }
             }"
         );

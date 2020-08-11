@@ -149,7 +149,7 @@ pub enum StructKind {
     Tuple,
 }
 impl StructKind {
-    pub fn open(&self) -> &str {
+    pub fn open(&self) -> &'static str {
         match self {
             StructKind::Struct => "{",
             StructKind::Tuple => "(",
@@ -180,7 +180,7 @@ pub struct Struct {
     pub visibility: TokenStream,
     pub ident: Ident,
     pub generics: Generics,
-    pub kind: StructKind,
+    pub kind: Option<StructKind>,
     pub where_clause: Option<WhereClause>,
     pub struct_fields: Vec<StructField>,
 }
@@ -344,7 +344,7 @@ impl TokenBuilderExtend for Enum {
 
 impl TokenBuilderExtend for Struct {
     fn add_to(&self, tb: &mut TokenBuilder) {
-        let (first_where_clause_slot, second_where_clause_slot) = if matches!(self.kind, StructKind::Struct) {
+        let (first_where_clause_slot, second_where_clause_slot) = if matches!(self.kind, Some(StructKind::Struct)) {
             (ts!(self.where_clause), ts!())
         } else {
             (ts!(), ts!(self.where_clause))
@@ -353,9 +353,9 @@ impl TokenBuilderExtend for Struct {
         extend_ts!(tb,
             self.visibility "struct" self.ident self.generics
             first_where_clause_slot
-            self.kind.open()
+            self.kind.as_ref().map(|k| k.open())
             join_ts!(&self.struct_fields, separator: ",")
-            self.kind.close()
+            self.kind.as_ref().map(|k| k.close())
             second_where_clause_slot
         )
     }
@@ -532,10 +532,10 @@ impl TokenParser {
         self.open_delim(Delimiter::Parenthesis)
     }
 
-    #[inline(never)]
-    pub fn open_bracket(&mut self) -> bool {
-        self.open_delim(Delimiter::Bracket)
-    }
+    // #[inline(never)]
+    // pub fn open_bracket(&mut self) -> bool {
+    //     self.open_delim(Delimiter::Bracket)
+    // }
 
     #[inline(never)]
     pub fn is_eot(&mut self) -> bool {
@@ -711,7 +711,7 @@ impl TokenParser {
                                 visibility,
                                 ident,
                                 generics,
-                                kind: StructKind::Tuple,
+                                kind: Some(StructKind::Tuple),
                                 where_clause,
                                 struct_fields,
                             });
@@ -728,7 +728,7 @@ impl TokenParser {
                                 visibility,
                                 ident,
                                 generics,
-                                kind: StructKind::Struct,
+                                kind: Some(StructKind::Struct),
                                 where_clause,
                                 struct_fields,
                             });
@@ -738,7 +738,7 @@ impl TokenParser {
                             visibility,
                             ident,
                             generics,
-                            kind: StructKind::Struct,
+                            kind: None,
                             where_clause,
                             struct_fields: vec![],
                         });

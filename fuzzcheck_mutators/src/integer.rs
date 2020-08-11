@@ -107,6 +107,9 @@ macro_rules! impl_unsigned_mutator {
                 step: &mut Self::MutationStep,
                 _max_cplx: f64,
             ) -> Option<Self::UnmutateToken> {
+                if *step > 10u64.saturating_add(<$name>::MAX as u64) {
+                    return None
+                }
                 let token = *value;
                 *value = {
                     let mut tmp_step = *step;

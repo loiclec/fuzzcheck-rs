@@ -90,9 +90,9 @@ impl<T> Mutator for UnitMutator<T> where T: Clone {
     }
     fn random_mutate(
         &mut self,
-        value: &mut Self::Value,
-        cache: &mut Self::Cache,
-        max_cplx: f64,
+        _value: &mut Self::Value,
+        _cache: &mut Self::Cache,
+        _max_cplx: f64,
     ) -> Self::UnmutateToken {
         
     }
