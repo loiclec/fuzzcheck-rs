@@ -164,30 +164,25 @@ impl<M: Mutator> Mutator for OptionMutator<M> {
         mut cache: &mut Self::Cache,
         max_cplx: f64,
     ) -> Self::UnmutateToken {
-        let current_cplx = self.complexity(value, cache);
-        let switch_to_none;
-        match (&mut value, &mut cache) {
-            (Some(value), Some(cache)) => {
-                let ratio = 1.0 / current_cplx;
-                switch_to_none = fastrand::f64() < ratio ;
-                if !switch_to_none {
-                    return Self::UnmutateToken::UnmutateSome(self.m.random_mutate(value, cache, max_cplx - 1.0))
-                }
-            }
-            (None, None) => {
-                let (v, c) = self.random_arbitrary(max_cplx - 1.0);
-                *value = v;
-                *cache = c;
-                return Self::UnmutateToken::ToNone
-            },
-            _ => unreachable!()
-        }
+        // e.g. current value has cplx 99.0 , there is a 1/100 chance that it switches to None
+        let switch_to_none = value.is_some() && fastrand::f64() < 1.0 / self.complexity(value, cache);
         if switch_to_none {
             let old_value = std::mem::replace(value, None);
             let old_cache = std::mem::replace(cache, None);
-            return Self::UnmutateToken::ToSome(old_value.unwrap(), old_cache.unwrap())
+            Self::UnmutateToken::ToSome(old_value.unwrap(), old_cache.unwrap())
         } else {
-            unreachable!()
+            match (&mut value, &mut cache) {
+                (Some(value), Some(cache)) => {
+                    Self::UnmutateToken::UnmutateSome(self.m.random_mutate(value, cache, max_cplx - 1.0))
+                }
+                (None, None) => {
+                    let (v, c) = self.random_arbitrary(max_cplx - 1.0);
+                    *value = v;
+                    *cache = c;
+                    Self::UnmutateToken::ToNone
+                },
+                _ => unreachable!()
+            }
         }
     }
 

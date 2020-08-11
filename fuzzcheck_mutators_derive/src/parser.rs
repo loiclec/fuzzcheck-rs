@@ -5,16 +5,64 @@
 // commit 1c753ca
 
 use proc_macro::token_stream::IntoIter;
-use proc_macro::{Delimiter, Ident, Literal, Punct, Spacing, TokenStream, TokenTree};
+use proc_macro::{Delimiter, Ident, Literal, Punct, Spacing, Span, TokenStream, TokenTree};
+
+// macro_rules! opt_ts {
+//     ($opt:expr, $map_pat:pat, $($part:expr) *) => {
+//         {
+//             if let Some($map_pat) = $opt {
+//                 ts!($($part) *)
+//             } else {
+//                 ts!()
+//             }
+//         }
+//     };
+// }
 
 macro_rules! join_ts {
-    ($iter:expr, $part_pat:pat, $($part:expr) *, $sep:expr) => {
+    ($iter:expr) => {
         {
-            let mut iter = $iter.into_iter();
+            #[allow(unused_mut)]
+            let mut tb = TokenBuilder::new();
+            for part in $iter {
+                tb.extend(part);
+            }
+            tb.end()
+        }
+    };
+    ($iter:expr, separator: $sep:expr) => {
+        {
             #[allow(unused_mut)]
             let mut tb = TokenBuilder::new();
             let mut add_sep = false;
-            while let Some($part_pat) = iter.next() {
+            for part in $iter {
+                if add_sep {
+                    $sep.add_to(&mut tb);
+                }
+                tb.extend(part);
+                add_sep = true;
+            }
+            tb.end()
+        }
+    };
+    ($iter:expr, $part_pat:pat, $($part:expr) *) => {
+        {
+            #[allow(unused_mut)]
+            let mut tb = TokenBuilder::new();
+            for $part_pat in $iter {
+                extend_ts!(&mut tb,
+                    $($part) *
+                );
+            }
+            tb.end()
+        }
+    };
+    ($iter:expr, $part_pat:pat, $($part:expr) *, separator: $sep:expr) => {
+        {
+            #[allow(unused_mut)]
+            let mut tb = TokenBuilder::new();
+            let mut add_sep = false;
+            for $part_pat in $iter {
                 if add_sep {
                     $sep.add_to(&mut tb);
                 }
@@ -37,6 +85,7 @@ macro_rules! extend_ts {
         }
     };
 }
+
 macro_rules! ts {
     ($($part:expr) *) => {
         {
@@ -48,6 +97,16 @@ macro_rules! ts {
             tb.end()
         }
     };
+}
+
+macro_rules! ident {
+    ($($x:expr) *) => {{
+        let mut s = String::new();
+        $(
+            s.push_str(&$x.to_string());
+        )*
+        Ident::new(&s, Span::call_site())
+    }};
 }
 
 use crate::token_builder::*;
@@ -105,6 +164,18 @@ impl StructKind {
 }
 
 #[derive(Clone)]
+pub enum StructFieldIdentifier {
+    Named(Ident),
+    Position(usize)
+}
+impl Default for StructFieldIdentifier {
+    fn default() -> Self {
+        Self::Position(0)
+    }
+}
+
+
+#[derive(Clone)]
 pub struct Struct {
     pub visibility: TokenStream,
     pub ident: Ident,
@@ -117,8 +188,30 @@ pub struct Struct {
 pub struct StructField {
     pub attributes: Vec<TokenStream>,
     pub visibility: TokenStream,
-    pub identifier: Option<Ident>,
+    pub identifier: StructFieldIdentifier,
     pub ty: TokenStream,
+}
+impl StructField {
+    #[inline(never)]
+    pub fn access(&self) -> TokenStream {
+        match &self.identifier {
+            StructFieldIdentifier::Named(x) => ts!(x),
+            StructFieldIdentifier::Position(i) => ts!(i)
+        }
+    }
+    #[inline(never)]
+    pub fn safe_ident(&self) -> Ident {
+        match &self.identifier {
+            StructFieldIdentifier::Named(x) => x.clone(),
+            StructFieldIdentifier::Position(i) => ident!("_" i)
+        }
+    }
+    pub fn expr_field(&self, rhs: TokenStream) -> TokenStream {
+        match &self.identifier {
+            StructFieldIdentifier::Named(x) => ts!(x ":" rhs),
+            StructFieldIdentifier::Position(_) => rhs
+        }
+    }
 }
 #[derive(Clone)]
 pub struct Enum {
@@ -135,10 +228,46 @@ pub struct EnumItem {
     pub data: Option<EnumItemData>,
 }
 impl EnumItem {
-    pub fn get_fields(&self) -> Option<(StructKind, &[StructField])> {
+    #[inline(never)]
+    pub fn get_struct_data(&self) -> Option<(StructKind, &[StructField])> {
         match &self.data {
             None | Some(EnumItemData::Discriminant(_)) => None,
             Some(EnumItemData::Struct(kind, fields)) => Some((*kind, fields))
+        }
+    }
+    #[inline(never)]
+    pub fn get_fields_unchecked(&self) -> &[StructField] {
+        self.get_struct_data().unwrap().1
+    }
+
+    #[inline(never)]
+    pub fn pattern_match(&self, enum_ident: &Ident, binding_append: Option<Ident>) -> TokenStream {
+        match &self.data {
+            Some(EnumItemData::Struct(kind, fields)) => {
+                ts!(
+                    enum_ident "::" self.ident 
+                    kind.open()
+                        join_ts!(fields.iter(), field, 
+                            match &field.identifier {
+                                StructFieldIdentifier::Named(x) => {
+                                    ts!(x ":")
+                                }
+                                StructFieldIdentifier::Position(_) => {
+                                    ts!("")
+                                }
+                            }
+                            if let Some(binding_append) = &binding_append {
+                                ident!(field.safe_ident() binding_append)
+                            } else {
+                                field.safe_ident()
+                            }
+                        , separator: ",")
+                    kind.close()
+                )
+            }
+            None | Some(EnumItemData::Discriminant(_)) => {
+                ts!(enum_ident "::" self.ident)
+            }
         }
     }
 }
@@ -196,7 +325,7 @@ impl TokenBuilderExtend for Enum {
                     Some(EnumItemData::Struct(kind, fields)) => {
                         ts!(
                             kind.open()
-                            join_ts!(fields, x , x , ",")
+                            join_ts!(fields, separator: ",")
                             kind.close()
                         )
                     }
@@ -207,7 +336,7 @@ impl TokenBuilderExtend for Enum {
                         ts!()
                     }
                 }
-            , ",")
+            , separator: ",")
             "}"
         )
     }
@@ -225,7 +354,7 @@ impl TokenBuilderExtend for Struct {
             self.visibility "struct" self.ident self.generics
             first_where_clause_slot
             self.kind.open()
-            join_ts!(&self.struct_fields, x , x , ",")
+            join_ts!(&self.struct_fields, separator: ",")
             self.kind.close()
             second_where_clause_slot
         )
@@ -237,7 +366,10 @@ impl TokenBuilderExtend for StructField {
         extend_ts!(tb,
             self.attributes
             self.visibility
-            self.identifier.as_ref().map(|x| ts!(x ":"))
+            match &self.identifier {
+                StructFieldIdentifier::Named(x) => ts!(x ":"),
+                StructFieldIdentifier::Position(_) => ts!()
+            }
             self.ty
         )
     }
@@ -266,9 +398,9 @@ impl TokenBuilderExtend for Generics {
         } else {
             extend_ts!(tb,
                 "<"
-                join_ts!(&self.lifetime_params, x , x , ",")
+                join_ts!(&self.lifetime_params, separator: ",")
                 if !self.lifetime_params.is_empty() { ts!(",") } else { ts!() }
-                join_ts!(&self.type_params, x , x , ",")
+                join_ts!(&self.type_params, separator: ",")
                 ">"
             )
         }
@@ -298,7 +430,7 @@ impl TokenBuilderExtend for WhereClause {
     fn add_to(&self, tb: &mut TokenBuilder) {
         extend_ts!(tb,
             "where"
-            join_ts!(&self.items, x , x , ",")
+            join_ts!(&self.items, separator: ",")
         )
     }
 }
@@ -802,11 +934,14 @@ impl TokenParser {
 
     #[inline(never)]
     pub fn eat_tuple_fields(&mut self) -> Vec<StructField> {
-        if let Some(field) = self.eat_tuple_field() {
+        let mut i = 0;
+        if let Some(field) = self.eat_tuple_field(i) {
+            i += 1;
             let mut fields = Vec::new();
             fields.push(field);
             while let Some(_) = self.eat_punct(',') {
-                if let Some(field) = self.eat_tuple_field() {
+                if let Some(field) = self.eat_tuple_field(i) {
+                    i += 1;
                     fields.push(field);
                 } else {
                     break;
@@ -819,7 +954,7 @@ impl TokenParser {
     }
 
     #[inline(never)]
-    pub fn eat_tuple_field(&mut self) -> Option<StructField> {
+    pub fn eat_tuple_field(&mut self, i: usize) -> Option<StructField> {
         let mut attributes = Vec::new();
         while let Some(attribute) = self.eat_outer_attribute() {
             attributes.push(attribute);
@@ -829,7 +964,7 @@ impl TokenParser {
             Some(StructField {
                 attributes,
                 visibility,
-                identifier: None,
+                identifier: StructFieldIdentifier::Position(i),
                 ty,
             })
         } else {
@@ -864,7 +999,7 @@ impl TokenParser {
                 Some(StructField {
                     attributes,
                     visibility,
-                    identifier: Some(identifier),
+                    identifier: StructFieldIdentifier::Named(identifier),
                     ty,
                 })
             } else {
