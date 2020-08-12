@@ -174,7 +174,10 @@ fn main() {{
 impl SrcLibRs {
     pub fn init_instrumented(library: &str) -> Self {
         let content = format!(
-            r#"
+            r##"
+// this is needed by fuzzcheck_derive_mutator
+#![feature(move_ref_pattern)]
+
 extern crate {library};
 extern crate fuzzcheck_mutators;
 extern crate serde;
@@ -183,24 +186,38 @@ extern crate serde;
 pub extern crate fuzzcheck_serializer;
 
 use serde::{{Serialize, Deserialize}};
-use fuzzcheck_mutators::DefaultMutator;
 
-#[derive(Clone, Default, DefaultMutator, Serialize, Deserialize)]
-pub struct SampleData<A, B, C> {{
+use fuzzcheck_mutators::fuzzcheck_derive_mutator;
+
+// use #[fuzzcheck_derive_mutator] to create a mutator called SampleEnumMutator
+// and use #[fuzzcheck_derive_mutator(DefaultMutator)] to make that mutator the
+// default mutator of SampleEnum
+
+#[fuzzcheck_derive_mutator(DefaultMutator)]
+#[derive(Clone, Serialize, Deserialize)]
+pub enum SampleEnum<T> {{
+    A(u8),
+    B {{ x: bool , y: Option<T> }},
+    C,
+    D
+}}
+
+#[fuzzcheck_derive_mutator(DefaultMutator)]
+#[derive(Clone, Serialize, Deserialize)]
+pub struct SampleStruct<A, B, C> {{
     a: A,
     b: Vec<B>,
     c: C
 }}
 
-
 // Note: the test function should not be generic, otherwise it will get monomorphised
 // when compiling the non-instrumented crate, and will therefore not be instrumented
-pub fn test(input: &[SampleData<u8, Option<u8>, u8>]) -> bool {{
+pub fn test(input: &[SampleStruct<u8, Option<u8>, SampleEnum<u8>>]) -> bool {{
     if 
         input.len() > 5 &&
         input[0].a == 0 &&
         input[0].b == vec![Some(2), None, Some(187)] &&
-        input[0].c == 9 &&
+        matches!(input[0].c, SampleEnum::C) &&
         input[1].a == 189 &&
         input[1].b.len() > 5 &&
         input[1].b[0] == Some(89) &&
@@ -209,22 +226,22 @@ pub fn test(input: &[SampleData<u8, Option<u8>, u8>]) -> bool {{
         input[1].b[3] == Some(189) &&
         input[1].b[4] == None &&
         input[1].b[5] == Some(32) &&
-        input[1].c == 19 &&
-        input[2].a == 200&&
+        matches!(input[1].c, SampleEnum::A(0..=10)) &&
+        input[2].a == 200 &&
         input[2].b.len() < 5 &&
-        input[2].c == 132 &&
+        matches!(input[2].c, SampleEnum::B {{ x: false, y: Some(36) }} ) &&
         input[3].a == 78 &&
         input[3].b.len() == 3 &&
         input[3].b[0] == Some(90) &&
         input[3].b[1] == Some(80) &&
         input[3].b[2] == Some(70) &&
-        input[3].c == 156 &&
+        matches!(input[3].c, SampleEnum::D) &&
         input[4].a == 1 &&
         input[4].b == vec![Some(255), None, None, None] &&
-        input[4].c == 150 &&
+        matches!(input[4].c, SampleEnum::C) &&
         input[5].a == 10 &&
         input[5].b == vec![] &&
-        input[5].c == 43
+        matches!(input[5].c, SampleEnum::B {{ x: true, y : None }})
     {{
         false
     }}
@@ -232,7 +249,7 @@ pub fn test(input: &[SampleData<u8, Option<u8>, u8>]) -> bool {{
         true
     }}
 }}
-"#,
+"##,
             library = library
         )
         .into_bytes();
@@ -396,19 +413,19 @@ extern crate fuzzcheck_traits;
 
 // Note: fuzzcheck_serializer was re-exported by the instrumented crate
 // This must be done because fuzzcheck_serializer uses serde’s Serialize and 
-// Deserialize traits and because serde is compiled in the instrumented crate. 
-// If, instead, we added fuzzcheck_serializer to the non-instrumented crate’s 
-// dependencies, it would be recompiled. Two serde crates with incompatible 
+// Deserialize traits and because serde is already compiled in the instrumented
+// crate. Adding fuzzcheck_serializer to the non-instrumented crate’s 
+// dependencies would compile it once more. Two serde crates with incompatible
 // Serialize traits would then live in the same binary. This can result in 
 // confusing error messages.
 use {0}_instrumented_fuzz::fuzzcheck_serializer;
 
-use {0}_instrumented_fuzz::{{SampleData, test}};
+use {0}_instrumented_fuzz::*;
 use fuzzcheck_mutators::DefaultMutator;
 use fuzzcheck_serializer::SerdeSerializer;
 
 fn main() {{
-    let mutator = Vec::<SampleData<u8, Option<u8>, u8>>::default_mutator();
+    let mutator = Vec::<SampleStruct<u8, Option<u8>, SampleEnum<u8>>>::default_mutator();
     let serializer = SerdeSerializer::default();
     let _ = fuzzcheck::launch(test, mutator, serializer);
 }}
