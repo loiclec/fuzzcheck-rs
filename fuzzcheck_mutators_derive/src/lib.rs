@@ -951,6 +951,13 @@ fn derive_enum_mutator_with_items(parsed_enum: &Enum, derive_default: bool, tb: 
         ar_step_struct
     );
 
+    let mut sorted_ar_step_enum_items = ar_step_enum.items.clone();
+    sorted_ar_step_enum_items.sort_by(|x, y| {
+        let x = x.get_struct_data().map(|fs| fs.1.len()).unwrap_or(0);
+        let y = y.get_struct_data().map(|fs| fs.1.len()).unwrap_or(0);
+        x.cmp(&y)
+    });
+
     // Default impl for ar_step_struct
     {
         let ar_step_default_where_clause = WhereClause {
@@ -962,12 +969,6 @@ fn derive_enum_mutator_with_items(parsed_enum: &Enum, derive_default: bool, tb: 
                 }
             ).collect(),
         };
-        let mut sorted_items = ar_step_enum.items.clone();
-        sorted_items.sort_by(|x, y| {
-            let x = x.get_struct_data().map(|fs| fs.1.len()).unwrap_or(0);
-            let y = y.get_struct_data().map(|fs| fs.1.len()).unwrap_or(0);
-            x.cmp(&y)
-        });
 
         extend_ts!(tb,
             "impl" ar_step_struct.generics ":: core :: default :: Default for" ar_step_struct.ident 
@@ -976,7 +977,7 @@ fn derive_enum_mutator_with_items(parsed_enum: &Enum, derive_default: bool, tb: 
                 fn default ( ) -> Self {
                     Self {
                         inner : vec ! ["
-                            join_ts!(&sorted_items, item,
+                            join_ts!(&sorted_ar_step_enum_items, item,
                                 ar_step_enum.ident "::" item.ident "{"
                                     join_ts!(item.get_fields_unchecked(), field,
                                         field.safe_ident() ": < _ > :: default ( )" 
@@ -1527,7 +1528,6 @@ fn derive_enum_mutator_with_items(parsed_enum: &Enum, derive_default: bool, tb: 
                             let old_cache = std :: mem :: replace ( cache , c ) ;
                             return Some (" unmutate_struct.ident " { inner : " unmutate_enum.ident " :: ___Replace ( old_value , old_cache ) , cplx : f64 :: default ( ) } )
                         } else {
-                            step . arbitrary_step = None ;
                             return None
                         }
                     }
@@ -1548,7 +1548,26 @@ fn derive_enum_mutator_with_items(parsed_enum: &Enum, derive_default: bool, tb: 
                                 ts!(
                                     "
                                     if steps . is_empty ( ) {
-                                        step . arbitrary_step = Some ( < _ > :: default ( ) ) ;
+                                        step . arbitrary_step = Some ("
+                                            ar_step_struct.ident "{
+                                                inner : vec ! ["
+                                                    join_ts!(&sorted_ar_step_enum_items, ar_item,
+                                                        if ar_item.ident.to_string() == generic_item.ident.to_string() {
+                                                            ts!()
+                                                        } else {
+                                                            ts!(
+                                                                ar_step_enum.ident "::" ar_item.ident "{"
+                                                                join_ts!(ar_item.get_fields_unchecked(), field,
+                                                                    field.safe_ident() ": < _ > :: default ( )" 
+                                                                , separator: ",")
+                                                            "} ,"
+                                                            )
+                                                        }
+                                                    )
+                                                "] ,
+                                                step : < _ > :: default ( )
+                                            }"
+                                        ") ;
                                         recurse = true ;
                                     } else {
                                         let orig_step = step . step % steps . len ( ) ;
@@ -1593,19 +1612,7 @@ fn derive_enum_mutator_with_items(parsed_enum: &Enum, derive_default: bool, tb: 
                                 "}"
                             )
                         })
-                        "( value , cache , _ ) => {
-                            if let Some ( ar_step ) = & mut step . arbitrary_step {
-                                if let Some ( ( v , c ) ) = self . ordered_arbitrary ( ar_step , max_cplx ) {
-                                    let old_value = std :: mem :: replace ( * value , v ) ;
-                                    let old_cache = std :: mem :: replace ( * cache , c ) ;
-                                    return Some (" unmutate_struct.ident " { inner : " unmutate_enum.ident " :: ___Replace ( old_value , old_cache ) , cplx : f64 :: default ( ) } )
-                                } else {
-                                    return None
-                                }
-                            } else {
-                                return None
-                            }
-                        }
+                        "( value , cache , _ ) => unreachable ! ( ) 
                     }
                     # [ allow ( unreachable_code ) ] 
                     {

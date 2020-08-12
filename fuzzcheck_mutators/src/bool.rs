@@ -77,6 +77,7 @@ impl Mutator for BoolMutator {
         _max_cplx: f64,
     ) -> Option<Self::UnmutateToken> {
         if !*step {
+            *step = !*step;
             Some(std::mem::replace(value, !*value))
         } else {
             None
