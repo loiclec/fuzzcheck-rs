@@ -1,4 +1,3 @@
-
 // use fuzzcheck_traits::Mutator;
 
 // #[derive(Default)]
@@ -27,15 +26,15 @@
 //         self.m.cache_from_value(value)
 //     }
 
-//     fn initial_step_from_value(&self, value: &Self::Value) -> Self::MutationStep { 
-//         Step { 
+//     fn initial_step_from_value(&self, value: &Self::Value) -> Self::MutationStep {
+//         Step {
 //             inner: self.m.initial_step_from_value(value),
 //             inner_dead_end: false
 //         }
 //     }
 
-//     fn random_step_from_value(&self, value: &Self::Value) -> Self::MutationStep { 
-//         Step { 
+//     fn random_step_from_value(&self, value: &Self::Value) -> Self::MutationStep {
+//         Step {
 //             inner: self.m.random_step_from_value(value),
 //             inner_dead_end: false
 //         }

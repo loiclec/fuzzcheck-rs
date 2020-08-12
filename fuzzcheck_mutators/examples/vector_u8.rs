@@ -3,9 +3,9 @@ extern crate fuzzcheck_mutators;
 
 extern crate fuzzcheck_mutators_derive;
 
-use fuzzcheck_mutators::DefaultMutator;
 use fuzzcheck_mutators::fuzzcheck_derive_mutator;
 use fuzzcheck_mutators::fuzzcheck_traits::Mutator;
+use fuzzcheck_mutators::DefaultMutator;
 
 // #[fuzzcheck_derive_mutator(DefaultMutator)]
 // #[derive(Clone, PartialEq, Eq, Debug)]
@@ -18,15 +18,15 @@ fn main() {
     let mut m = Vec::<u8>::default_mutator();
 
     let mut results = vec![];
-    
+
     let mut ar_step = <_>::default();
     for i in 0..100 {
         if let Some((x, x_cache)) = m.ordered_arbitrary(&mut ar_step, 100.0) {
             let x_step = m.initial_step_from_value(&x);
             results.push((x, x_cache, x_step));
         } else {
-            println!("could not generate more than {} arbitraries", i+1);
-            break
+            println!("could not generate more than {} arbitraries", i + 1);
+            break;
         }
     }
     println!("results len: {}", results.len());
@@ -34,7 +34,7 @@ fn main() {
     for _ in 0..1000 {
         if results.is_empty() {
             println!("cannot mutate anything after {} runs", count);
-            break
+            break;
         }
         let len = results.len();
         let idx = fastrand::usize(0..len);
@@ -65,7 +65,7 @@ fn main() {
     }
     for _ in 0..100_000 {
         if results.is_empty() {
-            break
+            break;
         }
         let len = results.len();
         let (x, cache, step) = &mut results[fastrand::usize(0..len)];
@@ -84,7 +84,7 @@ fn main() {
             m.unmutate(x, cache, token);
             assert!(x.clone() == prev_x);
         } else {
-            continue
+            continue;
         }
     }
     println!("{}", results.len());

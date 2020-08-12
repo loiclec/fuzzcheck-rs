@@ -1,4 +1,3 @@
-
 // use fuzzcheck_traits::Mutator;
 
 // pub struct DictionaryMutator<M: Mutator> {
@@ -12,8 +11,8 @@
 //             let cache = value_mutator.cache_from_value(&v);
 //             (v, cache)
 //         }).collect();
-//         Self { 
-//             m: value_mutator, 
+//         Self {
+//             m: value_mutator,
 //             dictionary,
 //             rng: fastrand::Rng::new()
 //         }
@@ -41,14 +40,14 @@
 //         self.m.cache_from_value(value)
 //     }
 
-//     fn initial_step_from_value(&self, value: &Self::Value) -> Self::MutationStep { 
+//     fn initial_step_from_value(&self, value: &Self::Value) -> Self::MutationStep {
 //         MutationStep {
 //             counter: 0,
 //             step: self.m.initial_step_from_value(value)
 //         }
 //     }
 
-//     fn random_step_from_value(&self, value: &Self::Value) -> Self::MutationStep { 
+//     fn random_step_from_value(&self, value: &Self::Value) -> Self::MutationStep {
 //         MutationStep {
 //             counter: self.rng.usize(..),
 //             step: self.m.random_step_from_value(value)
@@ -86,13 +85,13 @@
 //         step: &mut Self::MutationStep,
 //         max_cplx: f64,
 //     ) -> Option<Self::UnmutateToken> {
-        
+
 //         let token = if step.counter < self.dictionary.len() || self.rng.usize(..250) == 0 {
 //             let (new_value, new_cache) = self.dictionary[step.counter % self.dictionary.len()].clone();
-            
+
 //             let old_value = std::mem::replace(value, new_value);
 //             let old_cache = std::mem::replace(cache, new_cache);
-           
+
 //             Some(UnmutateToken::Replace(old_value, old_cache))
 //         } else {
 //             if let Some(inner) = self.m.mutate(value, cache, &mut step.step, max_cplx) {

@@ -162,7 +162,7 @@ impl<M: Mutator> VecMutator<M> {
         cache: &mut VecMutatorCache<M::Cache>,
     ) -> Option<UnmutateVecToken<M>> {
         if value.is_empty() {
-            return None
+            return None;
         }
 
         let idx = self.rng.usize(0..value.len());
@@ -186,7 +186,7 @@ impl<M: Mutator> VecMutator<M> {
         cache: &mut VecMutatorCache<M::Cache>,
     ) -> Option<UnmutateVecToken<M>> {
         if value.is_empty() {
-            return None
+            return None;
         }
         let start_idx = self.rng.usize(0..value.len());
 
@@ -220,7 +220,7 @@ impl<M: Mutator> VecMutator<M> {
         spare_cplx: f64,
     ) -> Option<UnmutateVecToken<M>> {
         if spare_cplx < 0.01 {
-            return None
+            return None;
         }
 
         let idx = if value.is_empty() {
@@ -240,7 +240,7 @@ impl<M: Mutator> VecMutator<M> {
         };
         if len == 0 {
             // TODO: maybe that shouldn't happen under normal circumstances?
-            return None
+            return None;
         }
         // println!("len: {:.2}", len);
         // println!("max_cplx: {:.2}", target_cplx / (len as f64));
@@ -371,7 +371,11 @@ impl<M: Mutator> Mutator for VecMutator<M> {
         }
     }
 
-    fn ordered_arbitrary(&mut self, step: &mut Self::ArbitraryStep, max_cplx: f64) -> Option<(Self::Value, Self::Cache)> {
+    fn ordered_arbitrary(
+        &mut self,
+        step: &mut Self::ArbitraryStep,
+        max_cplx: f64,
+    ) -> Option<(Self::Value, Self::Cache)> {
         if !*step || max_cplx <= 1.0 {
             *step = true;
             return Some((Self::Value::default(), Self::Cache::default()));
@@ -452,31 +456,21 @@ impl<M: Mutator> Mutator for VecMutator<M> {
         cache: &mut Self::Cache,
         max_cplx: f64,
     ) -> Self::UnmutateToken {
-
         let spare_cplx = max_cplx - self.complexity(value, cache);
 
         if value.is_empty() || self.rng.usize(0..10) == 0 {
             // vector mutation
-            match self.rng.usize(0 .. 4) {
-                0 => {
-                    self.insert_element(value, cache, spare_cplx)
-                }
-                1 => {
-                    self.remove_element(value, cache)
-                }
-                2 => {
-                    self.insert_repeated_elements(value, cache, spare_cplx)
-                }
-                3 => {
-                    self.remove_many_elements(value, cache)
-                }
-                _ => unreachable!()
-            }.unwrap_or_else(|| 
-                self.random_mutate(value, cache, max_cplx)
-            )
+            match self.rng.usize(0..4) {
+                0 => self.insert_element(value, cache, spare_cplx),
+                1 => self.remove_element(value, cache),
+                2 => self.insert_repeated_elements(value, cache, spare_cplx),
+                3 => self.remove_many_elements(value, cache),
+                _ => unreachable!(),
+            }
+            .unwrap_or_else(|| self.random_mutate(value, cache, max_cplx))
         } else {
             // element mutation
-            let idx = self.rng.usize(0 .. value.len());
+            let idx = self.rng.usize(0..value.len());
             let el = &mut value[idx];
             let el_cache = &mut cache.inner[idx];
 

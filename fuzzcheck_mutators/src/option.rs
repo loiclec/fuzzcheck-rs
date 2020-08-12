@@ -16,11 +16,14 @@ macro_rules! match_all_options {
 #[derive(Default)]
 pub struct OptionMutator<M: Mutator> {
     m: M,
-    rng: fastrand::Rng
+    rng: fastrand::Rng,
 }
 impl<M: Mutator> OptionMutator<M> {
     pub fn new(value_mutator: M) -> Self {
-        Self { m : value_mutator, rng: fastrand::Rng::new() }
+        Self {
+            m: value_mutator,
+            rng: fastrand::Rng::new(),
+        }
     }
 }
 
@@ -49,15 +52,21 @@ pub struct MutatorStep<MS, AS> {
 }
 
 #[derive(Clone)]
-pub struct ArbitraryStep<T> where T: Default + Clone {
+pub struct ArbitraryStep<T>
+where
+    T: Default + Clone,
+{
     check_none: bool,
     inner_step: T,
 }
-impl<T> Default for ArbitraryStep<T> where T: Default + Clone {
+impl<T> Default for ArbitraryStep<T>
+where
+    T: Default + Clone,
+{
     fn default() -> Self {
         Self {
             check_none: true,
-            inner_step: <_>::default()
+            inner_step: <_>::default(),
         }
     }
 }
@@ -81,7 +90,11 @@ impl<M: Mutator> Mutator for OptionMutator<M> {
         }
     }
 
-    fn ordered_arbitrary(&mut self, step: &mut Self::ArbitraryStep, max_cplx: f64) -> Option<(Self::Value, Self::Cache)> {
+    fn ordered_arbitrary(
+        &mut self,
+        step: &mut Self::ArbitraryStep,
+        max_cplx: f64,
+    ) -> Option<(Self::Value, Self::Cache)> {
         if step.check_none {
             step.check_none = false;
             Some((None, None))
@@ -96,11 +109,15 @@ impl<M: Mutator> Mutator for OptionMutator<M> {
     fn random_arbitrary(&mut self, max_cplx: f64) -> (Self::Value, Self::Cache) {
         let max_cplx_some = self.m.max_complexity();
         let odds = if max_cplx_some.is_finite() && max_cplx < 100.0 {
-            if max_cplx > 1.0 { max_cplx as usize } else { 2 }
+            if max_cplx > 1.0 {
+                max_cplx as usize
+            } else {
+                2
+            }
         } else {
             100
         };
-        if self.rng.usize(0 .. odds+1) == 0 {
+        if self.rng.usize(0..odds + 1) == 0 {
             (None, None)
         } else {
             let (value, cache) = self.m.random_arbitrary(max_cplx);
@@ -141,13 +158,18 @@ impl<M: Mutator> Mutator for OptionMutator<M> {
         } else if let Some((inner_value, inner_cache, inner_step)) =
             match_all_options!(value.as_mut(), cache.as_mut(), step.inner.as_mut())
         {
-            if let Some(inner_token) = self.m.ordered_mutate(inner_value, inner_cache, inner_step, inner_max_cplx) {
+            if let Some(inner_token) = self
+                .m
+                .ordered_mutate(inner_value, inner_cache, inner_step, inner_max_cplx)
+            {
                 Some(UnmutateSome(inner_token))
             } else {
                 None
             }
         } else {
-            if let Some((inner_value, inner_cache)) = self.m.ordered_arbitrary(&mut step.inner_arbitrary, inner_max_cplx) {
+            if let Some((inner_value, inner_cache)) =
+                self.m.ordered_arbitrary(&mut step.inner_arbitrary, inner_max_cplx)
+            {
                 *value = Some(inner_value);
                 *cache = Some(inner_cache);
 
@@ -180,8 +202,8 @@ impl<M: Mutator> Mutator for OptionMutator<M> {
                     *value = v;
                     *cache = c;
                     Self::UnmutateToken::ToNone
-                },
-                _ => unreachable!()
+                }
+                _ => unreachable!(),
             }
         }
     }

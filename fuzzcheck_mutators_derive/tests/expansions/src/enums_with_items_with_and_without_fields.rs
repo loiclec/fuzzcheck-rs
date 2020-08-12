@@ -4,7 +4,7 @@ use fuzzcheck_mutators::fuzzcheck_derive_mutator;
 #[derive(Clone)]
 pub enum X {
     A(u8),
-    B
+    B,
 }
 
 // #[fuzzcheck_derive_mutator]

@@ -6,12 +6,12 @@ pub extern crate fuzzcheck_traits;
 pub use fuzzcheck_mutators_derive::*;
 
 pub mod bool;
+pub mod chain;
+pub mod dictionary;
 pub mod integer;
 pub mod option;
 pub mod unit;
 pub mod vector;
-pub mod chain;
-pub mod dictionary;
 
 use fuzzcheck_traits::Mutator;
 use std::ops::Range;

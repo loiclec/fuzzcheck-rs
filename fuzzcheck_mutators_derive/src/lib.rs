@@ -155,7 +155,6 @@ struct DerivedStructFieldIdentifiers {
 }
 
 fn derive_struct_mutator_with_fields(parsed_struct: &Struct, derive_default: bool, tb: &mut TokenBuilder) {
-
     let field_idents = parsed_struct
         .struct_fields
         .iter()
@@ -181,7 +180,8 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, derive_default: boo
 
     let basic_generics = Generics {
         lifetime_params: Vec::new(),
-        type_params: field_idents.iter()
+        type_params: field_idents
+            .iter()
             .map(|ids| TypeParam {
                 type_ident: ids.generic_type.clone(),
                 ..<_>::default()
@@ -216,12 +216,12 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, derive_default: boo
             where_clause_items.push(WhereClauseItem {
                 for_lifetimes: None,
                 lhs: ids.ty.clone(),
-                rhs: ts!(":: core :: clone :: Clone") 
+                rhs: ts!(":: core :: clone :: Clone"),
             });
             where_clause_items.push(WhereClauseItem {
                 for_lifetimes: None,
                 lhs: ids.generic_type.clone(),
-                rhs: ts!("fuzzcheck_mutators :: fuzzcheck_traits :: Mutator < Value = " ids.ty ">")
+                rhs: ts!("fuzzcheck_mutators :: fuzzcheck_traits :: Mutator < Value = " ids.ty ">"),
             });
         }
 
@@ -283,15 +283,16 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, derive_default: boo
             ident: ident!(parsed_struct.ident "InnerMutationStep"),
             generics: Generics::default(),
             where_clause: None,
-            items: field_idents.iter().map(|f| {
-                EnumItem {
+            items: field_idents
+                .iter()
+                .map(|f| EnumItem {
                     attributes: Vec::new(),
                     ident: f.muta.clone(),
                     data: None,
-                }
-            }).collect()
+                })
+                .collect(),
         };
-        
+
         let mut step_fields = basic_fields.clone();
         step_fields.push(StructField {
             attributes: Vec::new(),
@@ -305,15 +306,18 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, derive_default: boo
             ty: ts!("Vec <" inner.ident ">"),
             ..StructField::default()
         });
-        
-        (inner, Struct {
-            visibility: parsed_struct.visibility.clone(),
-            ident: ident!(parsed_struct.ident "MutationStep"),
-            generics: basic_generics.clone(),
-            kind: Some(StructKind::Struct),
-            where_clause: None,
-            struct_fields: step_fields,
-        })
+
+        (
+            inner,
+            Struct {
+                visibility: parsed_struct.visibility.clone(),
+                ident: ident!(parsed_struct.ident "MutationStep"),
+                generics: basic_generics.clone(),
+                kind: Some(StructKind::Struct),
+                where_clause: None,
+                struct_fields: step_fields,
+            },
+        )
     };
 
     extend_ts!(tb,
@@ -364,7 +368,7 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, derive_default: boo
         /*(inner_enum, */ step_struct /*)*/
     };
     // let ar_step_default_where_clause = WhereClause {
-    //     items: arbitrary_step_struct.generics.type_params.iter().map(|tp| 
+    //     items: arbitrary_step_struct.generics.type_params.iter().map(|tp|
     //         WhereClauseItem {
     //             for_lifetimes: None,
     //             lhs: tp.type_ident.clone(),
@@ -381,7 +385,7 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, derive_default: boo
         # [ allow ( non_camel_case_types ) ]"
         arbitrary_step_struct
 
-    //     "impl" arbitrary_step_struct.generics ":: core :: default :: Default for" arbitrary_step_struct.ident 
+    //     "impl" arbitrary_step_struct.generics ":: core :: default :: Default for" arbitrary_step_struct.ident
     //         arbitrary_step_struct.generics ar_step_default_where_clause
     //     "{
     //         fn default ( ) -> Self {
@@ -604,7 +608,7 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, derive_default: boo
             fn random_mutate ( & mut self , value : & mut Self :: Value , cache : & mut Self :: Cache , max_cplx : f64 ) -> Self :: UnmutateToken {
                 let current_cplx = self . complexity ( value , cache ) ;
                 match self . rng . usize ( .. ) % " field_idents.len() " {"
-                    join_ts!(field_idents.iter().enumerate(), (i, ids), 
+                    join_ts!(field_idents.iter().enumerate(), (i, ids),
                         i "=> {
                             let current_field_cplx = self ." ids.muta ". complexity ( & value ." ids.orig ", & cache ." ids.muta ") ;
                             let max_field_cplx = max_cplx - current_cplx + current_field_cplx ;
@@ -680,7 +684,7 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, derive_default: boo
                         for_lifetimes: None,
                         lhs: value_struct_ident_with_generic_params.clone(),
                         rhs: ts!(":: core :: clone :: Clone"),
-                    }
+                    },
                 ]);
             }
             where_clause
@@ -723,7 +727,6 @@ fn derive_enum_mutator(parsed_enum: Enum, derive_default: bool, tb: &mut TokenBu
 }
 
 fn derive_enum_mutator_with_items(parsed_enum: &Enum, derive_default: bool, tb: &mut TokenBuilder) {
-
     let (basic_generics, generic_items, flattened_fields, submutator_fields, mutator_struct) = {
         // mutator struct
         /*
@@ -737,28 +740,32 @@ fn derive_enum_mutator_with_items(parsed_enum: &Enum, derive_default: bool, tb: 
         let generic_items = parsed_enum
             .items
             .iter()
-            .map(|item|
-                match &item.data {
-                    Some(EnumItemData::Struct(_, fields)) if !fields.is_empty() => {
-                        Some(EnumItem {
-                            attributes: Vec::new(),
-                            ident: item.ident.clone(),
-                            data: Some(EnumItemData::Struct(StructKind::Struct, fields.iter().map(|f| 
-                                StructField {
-                                    identifier: StructFieldIdentifier::Named(ident!(item.ident f.safe_ident())),
-                                    ty: ts!(ident!(item.ident f.safe_ident() "Type")),
-                                    ..StructField::default()
-                                }
-                            ).collect()))
-                        })
-                    }
-                    _ => {
-                        None
-                    }
-                }
-            ).collect::<Vec<_>>();
+            .map(|item| match &item.data {
+                Some(EnumItemData::Struct(_, fields)) if !fields.is_empty() => Some(EnumItem {
+                    attributes: Vec::new(),
+                    ident: item.ident.clone(),
+                    data: Some(EnumItemData::Struct(
+                        StructKind::Struct,
+                        fields
+                            .iter()
+                            .map(|f| StructField {
+                                identifier: StructFieldIdentifier::Named(ident!(item.ident f.safe_ident())),
+                                ty: ts!(ident!(item.ident f.safe_ident() "Type")),
+                                ..StructField::default()
+                            })
+                            .collect(),
+                    )),
+                }),
+                _ => None,
+            })
+            .collect::<Vec<_>>();
 
-        let submutator_fields = generic_items.iter().filter_map(|x| x.as_ref()).flat_map(|x| x.get_fields_unchecked()).cloned().collect::<Vec<_>>();
+        let submutator_fields = generic_items
+            .iter()
+            .filter_map(|x| x.as_ref())
+            .flat_map(|x| x.get_fields_unchecked())
+            .cloned()
+            .collect::<Vec<_>>();
 
         // the generic types corresponding to each field in each item
         let basic_generics = Generics {
@@ -772,12 +779,14 @@ fn derive_enum_mutator_with_items(parsed_enum: &Enum, derive_default: bool, tb: 
                 .collect(),
         };
 
-        let flattened_fields = parsed_enum.items.iter().flat_map(|item| {
-            match item.get_struct_data() {
-                Some((_, fields)) if !fields.is_empty() => { fields.to_vec() }
-                _ => { vec![] }
-            }
-        }).collect::<Vec<_>>();
+        let flattened_fields = parsed_enum
+            .items
+            .iter()
+            .flat_map(|item| match item.get_struct_data() {
+                Some((_, fields)) if !fields.is_empty() => fields.to_vec(),
+                _ => vec![],
+            })
+            .collect::<Vec<_>>();
 
         /*
            for each field, add a generic parameter for its mutator as well as a where_clause_item
@@ -832,24 +841,32 @@ fn derive_enum_mutator_with_items(parsed_enum: &Enum, derive_default: bool, tb: 
     };
     extend_ts!(tb, mutator_struct);
 
-    let filtered_enum_items = parsed_enum.items.clone().into_iter().filter(|x| 
-        if let Some(data) = x.get_struct_data() {
-            !data.1.is_empty()
-        } else {
-            false
-        }
-    ).collect::<Vec<_>>();
+    let filtered_enum_items = parsed_enum
+        .items
+        .clone()
+        .into_iter()
+        .filter(|x| {
+            if let Some(data) = x.get_struct_data() {
+                !data.1.is_empty()
+            } else {
+                false
+            }
+        })
+        .collect::<Vec<_>>();
     let filtered_generic_items = generic_items.clone().into_iter().filter_map(|x| x).collect::<Vec<_>>();
 
-    let empty_enum_items = parsed_enum.items.clone().into_iter().filter(|x| 
-        if let Some(data) = x.get_struct_data() {
-            data.1.is_empty()
-        } else {
-            true
-        }
-    ).collect::<Vec<_>>();
-
-
+    let empty_enum_items = parsed_enum
+        .items
+        .clone()
+        .into_iter()
+        .filter(|x| {
+            if let Some(data) = x.get_struct_data() {
+                data.1.is_empty()
+            } else {
+                true
+            }
+        })
+        .collect::<Vec<_>>();
 
     let (cache_enum, cache_struct) = {
         // mutator cache
@@ -900,24 +917,25 @@ fn derive_enum_mutator_with_items(parsed_enum: &Enum, derive_default: bool, tb: 
             ident: ident!(parsed_enum.ident "InnerArbitraryStep"),
             generics: basic_generics.clone(),
             where_clause: None,
-            items: filtered_generic_items.iter()
-                .map(|item| 
-            {
-                if let Some((_, fields @ [_, _, ..])) = item.get_struct_data() {
-                    let mut fields = fields.to_vec();
-                    fields.push(StructField {
-                        identifier: StructFieldIdentifier::Named(ident!("step")),
-                        ty: ts!("usize"),  
-                        ..StructField::default()
-                    });
-                    EnumItem {
-                        data: Some(EnumItemData::Struct(StructKind::Struct, fields)),
-                        ..item.clone()
+            items: filtered_generic_items
+                .iter()
+                .map(|item| {
+                    if let Some((_, fields @ [_, _, ..])) = item.get_struct_data() {
+                        let mut fields = fields.to_vec();
+                        fields.push(StructField {
+                            identifier: StructFieldIdentifier::Named(ident!("step")),
+                            ty: ts!("usize"),
+                            ..StructField::default()
+                        });
+                        EnumItem {
+                            data: Some(EnumItemData::Struct(StructKind::Struct, fields)),
+                            ..item.clone()
+                        }
+                    } else {
+                        item.clone()
                     }
-                } else {
-                    item.clone()
-                }
-            }).collect(),
+                })
+                .collect(),
         };
 
         let field_inner = StructField {
@@ -961,17 +979,20 @@ fn derive_enum_mutator_with_items(parsed_enum: &Enum, derive_default: bool, tb: 
     // Default impl for ar_step_struct
     {
         let ar_step_default_where_clause = WhereClause {
-            items: ar_step_struct.generics.type_params.iter().map(|tp| 
-                WhereClauseItem {
+            items: ar_step_struct
+                .generics
+                .type_params
+                .iter()
+                .map(|tp| WhereClauseItem {
                     for_lifetimes: None,
                     lhs: tp.type_ident.clone(),
                     rhs: ts!(":: core :: default :: Default"),
-                }
-            ).collect(),
+                })
+                .collect(),
         };
 
         extend_ts!(tb,
-            "impl" ar_step_struct.generics ":: core :: default :: Default for" ar_step_struct.ident 
+            "impl" ar_step_struct.generics ":: core :: default :: Default for" ar_step_struct.ident
                 ar_step_struct.generics ar_step_default_where_clause
             "{
                 fn default ( ) -> Self {
@@ -980,7 +1001,7 @@ fn derive_enum_mutator_with_items(parsed_enum: &Enum, derive_default: bool, tb: 
                             join_ts!(&sorted_ar_step_enum_items, item,
                                 ar_step_enum.ident "::" item.ident "{"
                                     join_ts!(item.get_fields_unchecked(), field,
-                                        field.safe_ident() ": < _ > :: default ( )" 
+                                        field.safe_ident() ": < _ > :: default ( )"
                                     , separator: ",")
                                 "}"
                             , separator: ",")
@@ -993,51 +1014,59 @@ fn derive_enum_mutator_with_items(parsed_enum: &Enum, derive_default: bool, tb: 
     }
 
     let (step_enum_inners, step_enum, step_struct) = {
+        let step_enum_inners = filtered_generic_items
+            .iter()
+            .map(|item| {
+                let fields = item.get_fields_unchecked();
 
-        let step_enum_inners = filtered_generic_items.iter().map(|item| {
-            let fields = item.get_fields_unchecked();
+                let generics = Generics {
+                    lifetime_params: vec![],
+                    type_params: fields
+                        .iter()
+                        .map(|f| TypeParam {
+                            type_ident: f.ty.clone(),
+                            ..TypeParam::default()
+                        })
+                        .collect(),
+                };
+                Enum {
+                    visibility: parsed_enum.visibility.clone(),
+                    ident: ident!(parsed_enum.ident item.ident "InnerMutationStep"),
+                    generics,
+                    where_clause: None,
+                    items: fields
+                        .iter()
+                        .map(|f| EnumItem {
+                            attributes: vec![],
+                            ident: f.safe_ident(),
+                            data: Some(EnumItemData::Struct(
+                                StructKind::Tuple,
+                                vec![StructField {
+                                    ty: f.ty.clone(),
+                                    ..StructField::default()
+                                }],
+                            )),
+                        })
+                        .collect(),
+                }
+            })
+            .collect::<Vec<_>>();
 
-            let generics = Generics {
-                lifetime_params: vec![],
-                type_params: fields.iter().map(|f| {
-                    TypeParam {
-                        type_ident: f.ty.clone(),
-                        ..TypeParam::default()
-                    }
-                }).collect(),
-            };
-            Enum {
-                visibility: parsed_enum.visibility.clone(),
-                ident: ident!(parsed_enum.ident item.ident "InnerMutationStep"),
-                generics,
-                where_clause: None,
-                items: fields.iter().map(|f| {
-                    EnumItem {
-                        attributes: vec![],
-                        ident: f.safe_ident(),
-                        data: Some(EnumItemData::Struct(StructKind::Tuple, vec![
-                            StructField {
-                                ty: f.ty.clone(),
-                                ..StructField::default()
-                            }
-                        ])),
-                    }
-                }).collect(),
-            }
-        }).collect::<Vec<_>>();
-
-        let step_enum_items = filtered_generic_items.iter().zip(step_enum_inners.iter()).map(|(inner_item, step)| {
-            EnumItem {
+        let step_enum_items = filtered_generic_items
+            .iter()
+            .zip(step_enum_inners.iter())
+            .map(|(inner_item, step)| EnumItem {
                 attributes: vec![],
                 ident: ident!(inner_item.ident),
-                data: Some(EnumItemData::Struct(StructKind::Tuple, vec![
-                    StructField {
+                data: Some(EnumItemData::Struct(
+                    StructKind::Tuple,
+                    vec![StructField {
                         ty: ts!("Vec <" step.ident step.generics ">"),
-                        ..StructField::default() 
-                    }
-                ])),
-            }
-        }).collect::<Vec<_>>();
+                        ..StructField::default()
+                    }],
+                )),
+            })
+            .collect::<Vec<_>>();
 
         let step_enum = Enum {
             visibility: parsed_enum.visibility.clone(),
@@ -1059,20 +1088,19 @@ fn derive_enum_mutator_with_items(parsed_enum: &Enum, derive_default: bool, tb: 
             ty: ts!("usize"),
             ..<_>::default()
         };
-    
+
         let mut generics = basic_generics.clone();
         generics.type_params.push(TypeParam {
             type_ident: ts!("ArbitraryStep"),
             ..TypeParam::default()
         });
 
-
         let field_ar_step = StructField {
             identifier: StructFieldIdentifier::Named(ident!("arbitrary_step")),
             ty: ts!("Option < ArbitraryStep >"),
             ..<_>::default()
         };
-        
+
         let step_struct = Struct {
             visibility: parsed_enum.visibility.clone(),
             ident: ident!(parsed_enum.ident "MutationStep"),
@@ -1086,7 +1114,7 @@ fn derive_enum_mutator_with_items(parsed_enum: &Enum, derive_default: bool, tb: 
     };
 
     extend_ts!(tb,
-        join_ts!(&step_enum_inners, e,  
+        join_ts!(&step_enum_inners, e,
             "# [ derive ( core :: clone :: Clone ) ] "
             e
         )
@@ -1095,13 +1123,14 @@ fn derive_enum_mutator_with_items(parsed_enum: &Enum, derive_default: bool, tb: 
         "# [ derive ( core :: clone :: Clone ) ] "
         step_struct
     );
-    
+
     let step_struct_generics_for_assoc_type = {
         let mut generics = step_struct.generics.clone();
         let _ = generics.type_params.pop().unwrap();
-        generics = generics.mutating_type_params(|tp|
-            tp.type_ident = ts!("<" tp.type_ident "as fuzzcheck_mutators :: fuzzcheck_traits :: Mutator > :: MutationStep")
-        );
+        generics = generics.mutating_type_params(|tp| {
+            tp.type_ident =
+                ts!("<" tp.type_ident "as fuzzcheck_mutators :: fuzzcheck_traits :: Mutator > :: MutationStep")
+        });
         generics.type_params.push(TypeParam {
             type_ident: ts!("Self :: ArbitraryStep"),
             ..TypeParam::default()
@@ -1110,7 +1139,6 @@ fn derive_enum_mutator_with_items(parsed_enum: &Enum, derive_default: bool, tb: 
     };
 
     let (unmutate_enum, unmutate_struct) = {
-
         let mut items = filtered_generic_items
             .iter()
             .map(|inner_item| EnumItem {
@@ -1130,22 +1158,25 @@ fn derive_enum_mutator_with_items(parsed_enum: &Enum, derive_default: bool, tb: 
                 ..inner_item.clone()
             })
             .collect::<Vec<_>>();
-        
+
         items.push(EnumItem {
             attributes: Vec::new(),
             ident: ident!("___Replace"),
-            data: Some(EnumItemData::Struct(StructKind::Tuple, vec![
-                StructField {
-                    identifier: StructFieldIdentifier::Position(0), 
-                    ty: ts!(ident!("___Value")),
-                    ..StructField::default()
-                },
-                StructField {
-                    identifier: StructFieldIdentifier::Position(1), 
-                    ty: ts!(ident!("___Cache")),
-                    ..StructField::default()
-                }
-            ])),
+            data: Some(EnumItemData::Struct(
+                StructKind::Tuple,
+                vec![
+                    StructField {
+                        identifier: StructFieldIdentifier::Position(0),
+                        ty: ts!(ident!("___Value")),
+                        ..StructField::default()
+                    },
+                    StructField {
+                        identifier: StructFieldIdentifier::Position(1),
+                        ty: ts!(ident!("___Cache")),
+                        ..StructField::default()
+                    },
+                ],
+            )),
         });
 
         let mut generics = basic_generics.clone();
@@ -1195,9 +1226,10 @@ fn derive_enum_mutator_with_items(parsed_enum: &Enum, derive_default: bool, tb: 
         let mut generics = unmutate_struct.generics.clone();
         let _ = generics.type_params.pop().unwrap();
         let _ = generics.type_params.pop().unwrap();
-        generics = generics.mutating_type_params(|tp|
-            tp.type_ident = ts!("<" tp.type_ident "as fuzzcheck_mutators :: fuzzcheck_traits :: Mutator > :: UnmutateToken")
-        );
+        generics = generics.mutating_type_params(|tp| {
+            tp.type_ident =
+                ts!("<" tp.type_ident "as fuzzcheck_mutators :: fuzzcheck_traits :: Mutator > :: UnmutateToken")
+        });
         generics.type_params.push(TypeParam {
             type_ident: ts!("Self :: Value"),
             ..TypeParam::default()
@@ -1287,7 +1319,7 @@ fn derive_enum_mutator_with_items(parsed_enum: &Enum, derive_default: bool, tb: 
                                             "let" ident!("inner_" f.safe_ident()) "= self ." generic_f.safe_ident() ". cache_from_value ( &" f.safe_ident() ") ;"
                                             "cplx += self ." generic_f.safe_ident() ". complexity ( &" f.safe_ident() ", &" ident!("inner_" f.safe_ident()) " ) ;"
                                         )
-                                        "let inner = Some (" cache_enum.ident " :: " item.ident 
+                                        "let inner = Some (" cache_enum.ident " :: " item.ident
                                         "{"
                                             join_ts!(item_fields.iter().zip(generic_fields.iter()), (item_f, generic_f),
                                                 generic_f.safe_ident() ":" ident!("inner_" item_f.safe_ident())
@@ -1372,7 +1404,7 @@ fn derive_enum_mutator_with_items(parsed_enum: &Enum, derive_default: bool, tb: 
                         let inner_len = step . inner . len ( ) ;
                         let orig_step = orig_step % inner_len ;
                         match & mut step . inner [ orig_step ] {"
-                        join_ts!(filtered_enum_items.iter().zip(ar_step_enum.items), (item, ar_step_item), 
+                        join_ts!(filtered_enum_items.iter().zip(ar_step_enum.items), (item, ar_step_item),
                             ar_step_item.pattern_match(&ar_step_enum.ident, None)
                             "=> {"{
                                 let fields = item.get_fields_unchecked();
@@ -1383,14 +1415,14 @@ fn derive_enum_mutator_with_items(parsed_enum: &Enum, derive_default: bool, tb: 
                                     ts!(
                                         "if let Some ( ( inner_value , inner_cache ) ) = self ." inner_field_ident " . ordered_arbitrary (" inner_field_ident ", max_cplx ) {"
                                             "let cplx = " cplx_choose_item " + self ." inner_field_ident ". complexity ( & inner_value , & inner_cache ) ;
-                                            let value = " parsed_enum.ident "::" item.ident 
-                                                kind.open() 
+                                            let value = " parsed_enum.ident "::" item.ident
+                                                kind.open()
                                                     field.expr_field(ts!("inner_value"))
                                                 kind.close()
                                                 ";
                                             let cache = " cache_struct.ident " {
                                                 inner : Some (" cache_enum.ident " :: " ar_step_item.ident "{"
-                                                    inner_field_ident ": inner_cache" 
+                                                    inner_field_ident ": inner_cache"
                                                 "} ) ,
                                                 cplx
                                             } ;
@@ -1407,7 +1439,7 @@ fn derive_enum_mutator_with_items(parsed_enum: &Enum, derive_default: bool, tb: 
                                         "let orig_step = * step ;
                                         * step += 1 ;
                                         match orig_step %" fields.len() "{"
-                                            join_ts!(0 .. fields.len(), i, 
+                                            join_ts!(0 .. fields.len(), i,
                                                 i "=> {"
                                                     join_ts!(inner_fields_identifiers.iter().enumerate(), (j, ident),
                                                         "let (" ident!(ident "_value") ", " ident!(ident "_cache")  ") ="
@@ -1420,11 +1452,11 @@ fn derive_enum_mutator_with_items(parsed_enum: &Enum, derive_default: bool, tb: 
                                                         }
                                                         ";"
                                                     )
-                                                    "let cplx =" cplx_choose_item join_ts!(&inner_fields_identifiers, ident, 
-                                                        "+ self ." ident ". complexity ( &" ident!(ident "_value") ", & " ident!(ident "_cache") ")" 
+                                                    "let cplx =" cplx_choose_item join_ts!(&inner_fields_identifiers, ident,
+                                                        "+ self ." ident ". complexity ( &" ident!(ident "_value") ", & " ident!(ident "_cache") ")"
                                                     ) ";
-                                                    let value = " parsed_enum.ident "::" item.ident 
-                                                    kind.open() 
+                                                    let value = " parsed_enum.ident "::" item.ident
+                                                    kind.open()
                                                         join_ts!(fields.iter().zip(inner_fields_identifiers.iter()), (field, inner_ident),
                                                             field.expr_field(ts!(ident!(inner_ident "_value")))
                                                         , separator: ",")
@@ -1432,7 +1464,7 @@ fn derive_enum_mutator_with_items(parsed_enum: &Enum, derive_default: bool, tb: 
                                                     ";
                                                     let cache = " cache_struct.ident " {
                                                         inner : Some (" cache_enum.ident " :: " ar_step_item.ident "{"
-                                                            join_ts!(&inner_fields_identifiers, ident, 
+                                                            join_ts!(&inner_fields_identifiers, ident,
                                                                 ident ":" ident!(ident "_cache")
                                                             , separator: ",")
                                                         "} )
@@ -1448,7 +1480,7 @@ fn derive_enum_mutator_with_items(parsed_enum: &Enum, derive_default: bool, tb: 
                                 }
                             }
                             "}"
-    
+
                         )
                         "}
                         # [ allow ( unreachable_code ) ]
@@ -1470,30 +1502,30 @@ fn derive_enum_mutator_with_items(parsed_enum: &Enum, derive_default: bool, tb: 
                     let step = self . rng . usize ( .. ) ;
                     let max_cplx = max_cplx - " cplx_choose_item ";
                     match step % " parsed_enum.items.len() " {"
-                    join_ts!(parsed_enum.items.iter().zip(generic_items.iter()).enumerate(), (i, (item, generic_item)), 
+                    join_ts!(parsed_enum.items.iter().zip(generic_items.iter()).enumerate(), (i, (item, generic_item)),
                         i "=> {"
                             match &item.data {
                                 Some(EnumItemData::Struct(kind, fields)) if !fields.is_empty() => {
                                     let generic_item = generic_item.as_ref().unwrap();
                                     let inner_fields_identifiers = generic_item.get_fields_unchecked().iter().map(|f| f.safe_ident()).take(fields.len()).collect::<Vec<_>>();
                                     ts!(
-                                        join_ts!(&inner_fields_identifiers, ident, 
+                                        join_ts!(&inner_fields_identifiers, ident,
                                             "let (" ident!(ident "_value") "," ident!(ident "_cache")" ) = self ." ident ". random_arbitrary ( max_cplx ) ;"
                                         )
-                                        "let cplx = " 
-                                        cplx_choose_item join_ts!(&inner_fields_identifiers, ident, 
+                                        "let cplx = "
+                                        cplx_choose_item join_ts!(&inner_fields_identifiers, ident,
                                             "+ self ." ident ". complexity ( &" ident!(ident "_value") ", &" ident!(ident "_cache") ")"
                                         ) ";
-                                        let value = " parsed_enum.ident "::" item.ident 
+                                        let value = " parsed_enum.ident "::" item.ident
                                             kind.open()
-                                            join_ts!(fields.iter().zip(inner_fields_identifiers.iter()), (field, inner_ident), 
+                                            join_ts!(fields.iter().zip(inner_fields_identifiers.iter()), (field, inner_ident),
                                                 field.expr_field(ts!(ident!(inner_ident "_value")))
                                             , separator: ",")
                                             kind.close()
                                             ";
                                         let cache = " cache_struct.ident "{
                                             inner : Some (" cache_enum.ident "::" generic_item.ident "{"
-                                                join_ts!(&inner_fields_identifiers, ident, 
+                                                join_ts!(&inner_fields_identifiers, ident,
                                                     ident ":" ident!(ident "_cache")
                                                 , separator: ",")
                                             "} ) ,
@@ -1538,9 +1570,9 @@ fn derive_enum_mutator_with_items(parsed_enum: &Enum, derive_default: bool, tb: 
                             let fields = item.get_fields_unchecked();
                             let generic_fields = generic_item.get_fields_unchecked();
                             ts!(
-                                "(" 
+                                "("
                                     item.pattern_match(&parsed_enum.ident, Some(ident!("_value")))
-                                "," 
+                                ","
                                     cache_struct.ident "{ inner : Some (" generic_item.pattern_match(&cache_enum.ident, Some(ident!("_cache"))) ") , cplx }"
                                 ","
                                     "Some (" step_enum.ident "::" generic_item.ident "( steps ) )"
@@ -1558,7 +1590,7 @@ fn derive_enum_mutator_with_items(parsed_enum: &Enum, derive_default: bool, tb: 
                                                             ts!(
                                                                 ar_step_enum.ident "::" ar_item.ident "{"
                                                                 join_ts!(ar_item.get_fields_unchecked(), field,
-                                                                    field.safe_ident() ": < _ > :: default ( )" 
+                                                                    field.safe_ident() ": < _ > :: default ( )"
                                                                 , separator: ",")
                                                             "} ,"
                                                             )
@@ -1612,7 +1644,7 @@ fn derive_enum_mutator_with_items(parsed_enum: &Enum, derive_default: bool, tb: 
                                 "}"
                             )
                         })
-                        "( value , cache , _ ) => unreachable ! ( ) 
+                        "( value , cache , _ ) => unreachable ! ( )
                     }
                     # [ allow ( unreachable_code ) ] 
                     {
@@ -1639,12 +1671,12 @@ fn derive_enum_mutator_with_items(parsed_enum: &Enum, derive_default: bool, tb: 
                             let fields = item.get_fields_unchecked();
                             ts!(
                                 "(" item.pattern_match(&parsed_enum.ident, Some(ident!("_value")))
-                                "," cache_struct.ident "{ inner : Some (" 
+                                "," cache_struct.ident "{ inner : Some ("
                                     generic_item.pattern_match(&cache_enum.ident, Some(ident!("_cache")))
                                     ") , cplx }"
                                 ") => {
                                     match self . rng . usize ( .. ) % " fields.len() "{"
-                                    join_ts!(fields.iter().zip(generic_fields.iter()).enumerate(), (i, (field, generic_field)), 
+                                    join_ts!(fields.iter().zip(generic_fields.iter()).enumerate(), (i, (field, generic_field)),
                                         i "=> {"{
                                         let generic_ident = generic_field.safe_ident();
                                         let value_ident = ident!(field.safe_ident() "_value");
@@ -1699,7 +1731,7 @@ fn derive_enum_mutator_with_items(parsed_enum: &Enum, derive_default: bool, tb: 
                                     item.pattern_match(&parsed_enum.ident, Some(ident!("_value")))
                                     ","
                                     cache_struct.ident "{
-                                        inner : Some (" 
+                                        inner : Some ("
                                             generic_item.pattern_match(&cache_enum.ident, Some(ident!("_cache")))
                                         ") , cplx"
                                     "}
@@ -1733,7 +1765,7 @@ fn derive_enum_mutator_with_items(parsed_enum: &Enum, derive_default: bool, tb: 
             // default impl
             let where_clause = {
                 let mut where_clause = mutator_struct.where_clause.clone().unwrap_or_default();
-    
+
                 for field in &submutator_fields {
                     where_clause.items.push(WhereClauseItem {
                         for_lifetimes: None,
@@ -1743,7 +1775,7 @@ fn derive_enum_mutator_with_items(parsed_enum: &Enum, derive_default: bool, tb: 
                 }
                 where_clause
             };
-    
+
             extend_ts!(tb,
             "impl" mutator_struct.generics ":: core :: default :: Default for" mutator_struct.ident
                 mutator_struct.generics.removing_bounds_and_eq_type() where_clause
@@ -1757,7 +1789,7 @@ fn derive_enum_mutator_with_items(parsed_enum: &Enum, derive_default: bool, tb: 
                 }
             }"
             );
-            
+
             let generics_without_bounds = parsed_enum.generics.removing_bounds_and_eq_type();
 
             let where_clause = {
@@ -1778,12 +1810,12 @@ fn derive_enum_mutator_with_items(parsed_enum: &Enum, derive_default: bool, tb: 
                             for_lifetimes: None,
                             lhs: ts!(parsed_enum.ident generics_without_bounds),
                             rhs: ts!(":: core :: clone :: Clone"),
-                        }
+                        },
                     ]);
                 }
                 where_clause
             };
-    
+
             let generics_mutator = {
                 let mut type_params = generics_without_bounds.type_params.clone();
                 for field in &flattened_fields {
@@ -1797,7 +1829,7 @@ fn derive_enum_mutator_with_items(parsed_enum: &Enum, derive_default: bool, tb: 
                     type_params,
                 }
             };
-    
+
             extend_ts!(tb,
             "impl" parsed_enum.generics "fuzzcheck_mutators :: DefaultMutator for" parsed_enum.ident
                 generics_without_bounds where_clause

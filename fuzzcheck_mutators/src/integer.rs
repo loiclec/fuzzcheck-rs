@@ -33,7 +33,10 @@ macro_rules! impl_unsigned_mutator {
                 for (i, x) in shuffled_integers.iter_mut().enumerate() {
                     *x = binary_search_arbitrary(0, u8::MAX, i as u64);
                 }
-                $name_mutator { shuffled_integers, rng: fastrand::Rng::default() }
+                $name_mutator {
+                    shuffled_integers,
+                    rng: fastrand::Rng::default(),
+                }
             }
         }
 
@@ -69,12 +72,16 @@ macro_rules! impl_unsigned_mutator {
             type UnmutateToken = $name; // old value
 
             fn cache_from_value(&self, _value: &Self::Value) -> Self::Cache {}
-            
+
             fn initial_step_from_value(&self, _value: &Self::Value) -> Self::MutationStep {
                 0
             }
 
-            fn ordered_arbitrary(&mut self, step: &mut Self::ArbitraryStep, _max_cplx: f64) -> Option<(Self::Value, Self::Cache)> {
+            fn ordered_arbitrary(
+                &mut self,
+                step: &mut Self::ArbitraryStep,
+                _max_cplx: f64,
+            ) -> Option<(Self::Value, Self::Cache)> {
                 if *step > <$name>::MAX as u64 {
                     None
                 } else {
@@ -108,7 +115,7 @@ macro_rules! impl_unsigned_mutator {
                 _max_cplx: f64,
             ) -> Option<Self::UnmutateToken> {
                 if *step > 10u64.saturating_add(<$name>::MAX as u64) {
-                    return None
+                    return None;
                 }
                 let token = *value;
                 *value = {
@@ -161,7 +168,7 @@ macro_rules! impl_signed_mutator {
     ($name:ty,$name_unsigned:ty,$name_mutator:ident,$rand:path,$size:expr) => {
         pub struct $name_mutator {
             shuffled_integers: [u8; 256],
-            rng: fastrand::Rng
+            rng: fastrand::Rng,
         }
         impl Default for $name_mutator {
             fn default() -> Self {
@@ -169,7 +176,10 @@ macro_rules! impl_signed_mutator {
                 for (i, x) in shuffled_integers.iter_mut().enumerate() {
                     *x = binary_search_arbitrary(0, u8::MAX, i as u64);
                 }
-                $name_mutator { shuffled_integers, rng: fastrand::Rng::default() }
+                $name_mutator {
+                    shuffled_integers,
+                    rng: fastrand::Rng::default(),
+                }
             }
         }
 
@@ -209,7 +219,11 @@ macro_rules! impl_signed_mutator {
                 0
             }
 
-            fn ordered_arbitrary(&mut self, step: &mut Self::ArbitraryStep, _max_cplx: f64) -> Option<(Self::Value, Self::Cache)> {
+            fn ordered_arbitrary(
+                &mut self,
+                step: &mut Self::ArbitraryStep,
+                _max_cplx: f64,
+            ) -> Option<(Self::Value, Self::Cache)> {
                 if *step > <$name_unsigned>::MAX as u64 {
                     None
                 } else {

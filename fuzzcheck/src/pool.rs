@@ -813,13 +813,13 @@ impl<M: Mutator> Pool<M> {
             PoolIndex::Normal(key) => {
                 let input = &mut self.slab_inputs[key];
                 input.score = 0.0;
-            },
+            }
             PoolIndex::Favored => {
                 self.favored_input = None;
-            },
+            }
             PoolIndex::LowestStack => {
                 self.lowest_stack_input = None;
-            },
+            }
         }
         self.update_stats()
     }
@@ -1204,7 +1204,11 @@ mod tests {
 
         fn initial_step_from_value(&self, _value: &Self::Value) -> Self::MutationStep {}
 
-        fn ordered_arbitrary(&mut self, _step: &mut Self::ArbitraryStep, _max_cplx: f64) -> Option<(Self::Value, Self::Cache)> {
+        fn ordered_arbitrary(
+            &mut self,
+            _step: &mut Self::ArbitraryStep,
+            _max_cplx: f64,
+        ) -> Option<(Self::Value, Self::Cache)> {
             Some((0.0, ()))
         }
         fn random_arbitrary(&mut self, _max_cplx: f64) -> (Self::Value, Self::Cache) {
@@ -1238,7 +1242,6 @@ mod tests {
             _cache: &mut Self::Cache,
             _max_cplx: f64,
         ) -> Self::UnmutateToken {
-            
         }
 
         fn unmutate(&self, _value: &mut Self::Value, _cache: &mut Self::Cache, _t: Self::UnmutateToken) {}

@@ -166,14 +166,13 @@ impl StructKind {
 #[derive(Clone)]
 pub enum StructFieldIdentifier {
     Named(Ident),
-    Position(usize)
+    Position(usize),
 }
 impl Default for StructFieldIdentifier {
     fn default() -> Self {
         Self::Position(0)
     }
 }
-
 
 #[derive(Clone)]
 pub struct Struct {
@@ -196,20 +195,20 @@ impl StructField {
     pub fn access(&self) -> TokenStream {
         match &self.identifier {
             StructFieldIdentifier::Named(x) => ts!(x),
-            StructFieldIdentifier::Position(i) => ts!(i)
+            StructFieldIdentifier::Position(i) => ts!(i),
         }
     }
     #[inline(never)]
     pub fn safe_ident(&self) -> Ident {
         match &self.identifier {
             StructFieldIdentifier::Named(x) => x.clone(),
-            StructFieldIdentifier::Position(i) => ident!("_" i)
+            StructFieldIdentifier::Position(i) => ident!("_" i),
         }
     }
     pub fn expr_field(&self, rhs: TokenStream) -> TokenStream {
         match &self.identifier {
             StructFieldIdentifier::Named(x) => ts!(x ":" rhs),
-            StructFieldIdentifier::Position(_) => rhs
+            StructFieldIdentifier::Position(_) => rhs,
         }
     }
 }
@@ -232,7 +231,7 @@ impl EnumItem {
     pub fn get_struct_data(&self) -> Option<(StructKind, &[StructField])> {
         match &self.data {
             None | Some(EnumItemData::Discriminant(_)) => None,
-            Some(EnumItemData::Struct(kind, fields)) => Some((*kind, fields))
+            Some(EnumItemData::Struct(kind, fields)) => Some((*kind, fields)),
         }
     }
     #[inline(never)]
@@ -243,31 +242,27 @@ impl EnumItem {
     #[inline(never)]
     pub fn pattern_match(&self, enum_ident: &Ident, binding_append: Option<Ident>) -> TokenStream {
         match &self.data {
-            Some(EnumItemData::Struct(kind, fields)) => {
-                ts!(
-                    enum_ident "::" self.ident 
-                    kind.open()
-                        join_ts!(fields.iter(), field, 
-                            match &field.identifier {
-                                StructFieldIdentifier::Named(x) => {
-                                    ts!(x ":")
-                                }
-                                StructFieldIdentifier::Position(_) => {
-                                    ts!("")
-                                }
+            Some(EnumItemData::Struct(kind, fields)) => ts!(
+                enum_ident "::" self.ident
+                kind.open()
+                    join_ts!(fields.iter(), field,
+                        match &field.identifier {
+                            StructFieldIdentifier::Named(x) => {
+                                ts!(x ":")
                             }
-                            if let Some(binding_append) = &binding_append {
-                                ident!(field.safe_ident() binding_append)
-                            } else {
-                                field.safe_ident()
+                            StructFieldIdentifier::Position(_) => {
+                                ts!("")
                             }
-                        , separator: ",")
-                    kind.close()
-                )
-            }
-            None | Some(EnumItemData::Discriminant(_)) => {
-                ts!(enum_ident "::" self.ident)
-            }
+                        }
+                        if let Some(binding_append) = &binding_append {
+                            ident!(field.safe_ident() binding_append)
+                        } else {
+                            field.safe_ident()
+                        }
+                    , separator: ",")
+                kind.close()
+            ),
+            None | Some(EnumItemData::Discriminant(_)) => ts!(enum_ident "::" self.ident),
         }
     }
 }

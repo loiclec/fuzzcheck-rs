@@ -2,9 +2,9 @@ extern crate fuzzcheck_mutators;
 
 extern crate fuzzcheck_mutators_derive;
 
-use fuzzcheck_mutators::DefaultMutator;
 use fuzzcheck_mutators::fuzzcheck_derive_mutator;
 use fuzzcheck_mutators::fuzzcheck_traits::Mutator;
+use fuzzcheck_mutators::DefaultMutator;
 
 #[fuzzcheck_derive_mutator(DefaultMutator)]
 #[derive(PartialEq, Eq, Debug, Default)]
@@ -74,7 +74,6 @@ fn main() {
         let (x, cache, step) = &mut results[fastrand::usize(0..len)];
         let prev_x = x.clone();
         if let Some(token) = m.ordered_mutate(x, cache, step, 100.0) {
-
             let cplx = m.complexity(x, cache);
             assert!(cplx.is_finite() && cplx > 0.0, "{:.2}", cplx);
             let cache_from_scratch = m.cache_from_value(x);

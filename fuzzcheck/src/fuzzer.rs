@@ -25,7 +25,7 @@ use std::convert::TryFrom;
 enum FuzzerInputIndex<M: Mutator> {
     None,
     Temporary(FuzzedInput<M>),
-    Pool(PoolIndex<M>)
+    Pool(PoolIndex<M>),
 }
 
 struct AnalysisCache<M: Mutator> {
@@ -67,7 +67,7 @@ impl<M: Mutator, S: Serializer<Value = M::Value>> FuzzerState<M, S> {
         match &self.input_idx {
             FuzzerInputIndex::None => None,
             FuzzerInputIndex::Temporary(input) => Some(input),
-            FuzzerInputIndex::Pool(idx) => Some(self.pool.get_ref(*idx))
+            FuzzerInputIndex::Pool(idx) => Some(self.pool.get_ref(*idx)),
         }
     }
 }
@@ -102,11 +102,11 @@ where
                     if let Some(input) = self.get_input() {
                         let cplx = input.complexity(&self.mutator);
                         let _ = self.world.save_artifact(&input.value, cplx);
-    
+
                         exit(TerminationStatus::Crash as i32);
                     } else {
                         let _ = self.world.report_event(FuzzerEvent::CrashNoInput, Some(self.stats));
-    
+
                         exit(TerminationStatus::Crash as i32);
                     }
                 }
@@ -119,7 +119,10 @@ where
     }
 
     fn arbitrary_input(&mut self) -> Option<FuzzedInput<M>> {
-        if let Some((v, cache)) = self.mutator.ordered_arbitrary(&mut self.arbitrary_step, self.settings.max_input_cplx) {
+        if let Some((v, cache)) = self
+            .mutator
+            .ordered_arbitrary(&mut self.arbitrary_step, self.settings.max_input_cplx)
+        {
             let mutation_step = self.mutator.initial_step_from_value(&v);
             Some(FuzzedInput::new(v, cache, mutation_step))
         } else {
@@ -287,7 +290,7 @@ where
         self.state.stats.total_number_of_runs += 1;
 
         if let Some(result) = self.analyze(cplx) {
-                                // call state.get_input again to satisfy borrow checker
+            // call state.get_input again to satisfy borrow checker
             let input_cloned = self.state.get_input().unwrap().new_source(&self.state.mutator);
             let actions = self
                 .state
@@ -313,7 +316,7 @@ where
                 if cplx < self.state.settings.max_input_cplx {
                     self.test_input_and_analyze()?;
                 }
-        
+
                 // Retrieving the input may fail because the input may have been deleted
                 if let Some(input) = self
                     .state
@@ -331,7 +334,7 @@ where
         } else {
             if let Some(input) = self.state.arbitrary_input() {
                 let cplx = input.complexity(&self.state.mutator);
-                self.state.input_idx = FuzzerInputIndex::Temporary(input); 
+                self.state.input_idx = FuzzerInputIndex::Temporary(input);
 
                 if cplx < self.state.settings.max_input_cplx {
                     self.test_input_and_analyze()?;
@@ -366,10 +369,10 @@ where
             if let Some(input) = self.state.arbitrary_input() {
                 inputs.push(input);
             } else {
-                break
+                break;
             }
         }
-        
+
         inputs.drain_filter(|i| i.complexity(&self.state.mutator) > self.state.settings.max_input_cplx);
         assert!(!inputs.is_empty());
 
