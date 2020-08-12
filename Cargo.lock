@@ -45,7 +45,7 @@ dependencies = [
  "cfg-if 0.1.10 (registry+https://github.com/rust-lang/crates.io-index)",
  "fastrand 1.3.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "fuzzcheck_arg_parser 0.3.0",
- "fuzzcheck_traits 0.3.0",
+ "fuzzcheck_traits 0.4.0",
  "getopts 0.2.21 (registry+https://github.com/rust-lang/crates.io-index)",
  "libc 0.2.74 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
@@ -63,7 +63,7 @@ version = "0.3.0"
 dependencies = [
  "fastrand 1.3.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "fuzzcheck_mutators_derive 0.3.0",
- "fuzzcheck_traits 0.3.0",
+ "fuzzcheck_traits 0.4.0",
 ]
 
 [[package]]
@@ -74,14 +74,14 @@ version = "0.3.0"
 name = "fuzzcheck_serializer"
 version = "0.3.0"
 dependencies = [
- "fuzzcheck_traits 0.3.0",
+ "fuzzcheck_traits 0.4.0",
  "serde 1.0.115 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde_json 1.0.57 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
 name = "fuzzcheck_traits"
-version = "0.3.0"
+version = "0.4.0"
 
 [[package]]
 name = "getopts"

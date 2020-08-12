@@ -1,12 +1,12 @@
 [package]
 name = "fuzzcheck_traits"
-version = "0.3.0"
+version = "0.4.0"
 authors = ["Loïc Lecrenier <loic.lecrenier@me.com>"]
 edition = "2018"
 description = "Definition of traits used by fuzzcheck-rs"
 repository = "https://git.sr.ht/~loic/fuzzcheck-rs"
 license = "MIT"
 keywords = ["fuzzing", "test"]
-categories = ["development-tools"]
+categories = ["development"]
 
 [dependencies]

@@ -18,7 +18,7 @@ serde_serializer = ["serde", "serde_json"]
 
 [dependencies.fuzzcheck_traits]
 path = "../fuzzcheck_traits"
-version = "0.3.0"
+version = "0.4.0"
 
 [dependencies.serde]
 version = "1.0"
