@@ -7,6 +7,6 @@ description = "Definition of traits used by fuzzcheck-rs"
 repository = "https://git.sr.ht/~loic/fuzzcheck-rs"
 license = "MIT"
 keywords = ["fuzzing", "test"]
-categories = ["development"]
+categories = ["development-tools"]
 
 [dependencies]
