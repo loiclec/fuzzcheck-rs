@@ -1,4 +1,4 @@
-use crate::HasDefaultMutator;
+use crate::DefaultMutator;
 use fastrand::Rng;
 use fuzzcheck_traits::Mutator;
 
@@ -10,11 +10,11 @@ pub struct VecMutator<M: Mutator> {
     pub rng: Rng,
     pub m: M,
 }
-impl<T> HasDefaultMutator for Vec<T>
+impl<T> DefaultMutator for Vec<T>
 where
-    T: HasDefaultMutator,
+    T: DefaultMutator,
 {
-    type Mutator = VecMutator<<T as HasDefaultMutator>::Mutator>;
+    type Mutator = VecMutator<<T as DefaultMutator>::Mutator>;
     fn default_mutator() -> Self::Mutator {
         Self::Mutator::default()
     }

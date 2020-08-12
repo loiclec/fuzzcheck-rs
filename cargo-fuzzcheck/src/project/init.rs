@@ -183,9 +183,9 @@ extern crate serde;
 pub extern crate fuzzcheck_serializer;
 
 use serde::{{Serialize, Deserialize}};
-use fuzzcheck_mutators::HasDefaultMutator;
+use fuzzcheck_mutators::DefaultMutator;
 
-#[derive(Clone, Default, HasDefaultMutator, Serialize, Deserialize)]
+#[derive(Clone, Default, DefaultMutator, Serialize, Deserialize)]
 pub struct SampleData<A, B, C> {{
     a: A,
     b: Vec<B>,
@@ -404,7 +404,7 @@ extern crate fuzzcheck_traits;
 use {0}_instrumented_fuzz::fuzzcheck_serializer;
 
 use {0}_instrumented_fuzz::{{SampleData, test}};
-use fuzzcheck_mutators::HasDefaultMutator;
+use fuzzcheck_mutators::DefaultMutator;
 use fuzzcheck_serializer::SerdeSerializer;
 
 fn main() {{

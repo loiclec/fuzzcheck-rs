@@ -63,15 +63,15 @@ cargo fuzzcheck init
 
 A sample test function was created at `fuzz/instrumented/src/lib.rs`.
 The generated file contains an example of a custom data type being
-fuzzed. The derive proc_macro `HasDefaultMutator` automatically generates a
+fuzzed. The derive proc_macro `DefaultMutator` automatically generates a
 mutator called `SampleDataMutator`. Calling 
 `SampleData<A, B, C>::default_mutator()` returns an instance of that 
-mutator if `A`, `Vec<B>`, and `C` all implement `HasDefaultMutator`. For now,
+mutator if `A`, `Vec<B>`, and `C` all implement `DefaultMutator`. For now,
 only mutators for structs whose fields do not use private types can be 
 automatically generated.
 
 ```rust
-#[derive(Clone, HasDefaultMutator, ...)]
+#[derive(Clone, DefaultMutator, ...)]
 pub struct SampleData<A, B, C> {
     a: A,
     b: Vec<B>,
@@ -258,7 +258,7 @@ input in the `crash.minified` folder.
 
 ## Creating a Mutator
 
-If you would like to fuzz-test your own custom type without the `HasDefaultMutator` derive attribute, you will have to create
+If you would like to fuzz-test your own custom type without the `DefaultMutator` derive attribute, you will have to create
 a `Mutator` for it. You can do so by creating a type that conforms to
 the `Mutator` trait.
 

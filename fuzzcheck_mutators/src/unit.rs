@@ -3,11 +3,11 @@ use std::marker::PhantomData;
 
 use fuzzcheck_traits::Mutator;
 
-use crate::HasDefaultMutator;
+use crate::DefaultMutator;
 
 pub type VoidMutator = UnitMutator<()>;
 
-impl HasDefaultMutator for () {
+impl DefaultMutator for () {
     type Mutator = VoidMutator;
     fn default_mutator() -> Self::Mutator {
         Self::Mutator::default()
@@ -15,7 +15,7 @@ impl HasDefaultMutator for () {
 }
 
 pub type PhantomDataMutator<T> = UnitMutator<PhantomData<T>>;
-impl<T> HasDefaultMutator for PhantomData<T> {
+impl<T> DefaultMutator for PhantomData<T> {
     type Mutator = PhantomDataMutator<T>;
     fn default_mutator() -> Self::Mutator {
         Self::Mutator::default()

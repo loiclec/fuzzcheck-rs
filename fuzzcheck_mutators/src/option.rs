@@ -1,4 +1,4 @@
-use crate::HasDefaultMutator;
+use crate::DefaultMutator;
 use fuzzcheck_traits::Mutator;
 
 macro_rules! match_all_options {
@@ -24,11 +24,11 @@ impl<M: Mutator> OptionMutator<M> {
     }
 }
 
-impl<T> HasDefaultMutator for Option<T>
+impl<T> DefaultMutator for Option<T>
 where
-    T: HasDefaultMutator,
+    T: DefaultMutator,
 {
-    type Mutator = OptionMutator<<T as HasDefaultMutator>::Mutator>;
+    type Mutator = OptionMutator<<T as DefaultMutator>::Mutator>;
     fn default_mutator() -> Self::Mutator {
         Self::Mutator::default()
     }

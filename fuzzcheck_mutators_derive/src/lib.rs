@@ -669,11 +669,11 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, derive_default: boo
                     WhereClauseItem {
                         for_lifetimes: None,
                         lhs: field.ty.clone(),
-                        rhs: ts!(":: core :: clone :: Clone + fuzzcheck_mutators :: HasDefaultMutator"),
+                        rhs: ts!(":: core :: clone :: Clone + fuzzcheck_mutators :: DefaultMutator"),
                     },
                     WhereClauseItem {
                         for_lifetimes: None,
-                        lhs: ts!("<" field.ty " as fuzzcheck_mutators :: HasDefaultMutator > :: Mutator"),
+                        lhs: ts!("<" field.ty " as fuzzcheck_mutators :: DefaultMutator > :: Mutator"),
                         rhs: ts!(":: core :: default :: Default"),
                     },
                     WhereClauseItem {
@@ -690,7 +690,7 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, derive_default: boo
             let mut type_params = generics_without_bounds.type_params.clone();
             for field in parsed_struct.struct_fields.iter() {
                 type_params.push(TypeParam {
-                    type_ident: ts!("<" field.ty "as fuzzcheck_mutators :: HasDefaultMutator > :: Mutator"),
+                    type_ident: ts!("<" field.ty "as fuzzcheck_mutators :: DefaultMutator > :: Mutator"),
                     ..<_>::default()
                 });
             }
@@ -701,7 +701,7 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, derive_default: boo
         };
 
         extend_ts!(tb,
-        "impl" parsed_struct.generics "fuzzcheck_mutators :: HasDefaultMutator for" parsed_struct.ident
+        "impl" parsed_struct.generics "fuzzcheck_mutators :: DefaultMutator for" parsed_struct.ident
             generics_without_bounds where_clause
         "{
             type Mutator = " mutator_struct.ident generics_mutator ";
@@ -1760,11 +1760,11 @@ fn derive_enum_mutator_with_items(parsed_enum: &Enum, derive_default: bool, tb: 
                         WhereClauseItem {
                             for_lifetimes: None,
                             lhs: field.ty.clone(),
-                            rhs: ts!(":: core :: clone :: Clone + fuzzcheck_mutators :: HasDefaultMutator"),
+                            rhs: ts!(":: core :: clone :: Clone + fuzzcheck_mutators :: DefaultMutator"),
                         },
                         WhereClauseItem {
                             for_lifetimes: None,
-                            lhs: ts!("<" field.ty " as fuzzcheck_mutators :: HasDefaultMutator > :: Mutator"),
+                            lhs: ts!("<" field.ty " as fuzzcheck_mutators :: DefaultMutator > :: Mutator"),
                             rhs: ts!(":: core :: default :: Default"),
                         },
                         WhereClauseItem {
@@ -1781,7 +1781,7 @@ fn derive_enum_mutator_with_items(parsed_enum: &Enum, derive_default: bool, tb: 
                 let mut type_params = generics_without_bounds.type_params.clone();
                 for field in &flattened_fields {
                     type_params.push(TypeParam {
-                        type_ident: ts!("<" field.ty "as fuzzcheck_mutators :: HasDefaultMutator > :: Mutator"),
+                        type_ident: ts!("<" field.ty "as fuzzcheck_mutators :: DefaultMutator > :: Mutator"),
                         ..<_>::default()
                     });
                 }
@@ -1792,7 +1792,7 @@ fn derive_enum_mutator_with_items(parsed_enum: &Enum, derive_default: bool, tb: 
             };
     
             extend_ts!(tb,
-            "impl" parsed_enum.generics "fuzzcheck_mutators :: HasDefaultMutator for" parsed_enum.ident
+            "impl" parsed_enum.generics "fuzzcheck_mutators :: DefaultMutator for" parsed_enum.ident
                 generics_without_bounds where_clause
             "{
                 type Mutator = " mutator_struct.ident generics_mutator ";
@@ -1815,7 +1815,7 @@ fn derive_unit_mutator(parsed_struct: Struct, derive_default: bool, tb: &mut Tok
             "type" mutator_ident generics_without_bounds
                 "= fuzzcheck_mutators :: unit :: UnitMutator < " parsed_struct.ident generics_without_bounds "> ;"
 
-            "impl" parsed_struct.generics "fuzzcheck_mutators :: HasDefaultMutator for"
+            "impl" parsed_struct.generics "fuzzcheck_mutators :: DefaultMutator for"
                 parsed_struct.ident generics_without_bounds parsed_struct.where_clause
             "{
                 type Mutator = " mutator_ident generics_without_bounds ";

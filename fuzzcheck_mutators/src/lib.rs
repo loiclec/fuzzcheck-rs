@@ -16,7 +16,7 @@ pub mod dictionary;
 use fuzzcheck_traits::Mutator;
 use std::ops::Range;
 
-pub trait HasDefaultMutator: Clone {
+pub trait DefaultMutator: Clone {
     type Mutator: Mutator<Value = Self> + Default;
     fn default_mutator() -> Self::Mutator;
 }

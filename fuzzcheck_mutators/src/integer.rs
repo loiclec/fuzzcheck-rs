@@ -1,4 +1,4 @@
-use crate::HasDefaultMutator;
+use crate::DefaultMutator;
 use fuzzcheck_traits::Mutator;
 
 // TODO: use option for mutate and arbitrary
@@ -143,7 +143,7 @@ macro_rules! impl_unsigned_mutator {
             }
         }
 
-        impl HasDefaultMutator for $name {
+        impl DefaultMutator for $name {
             type Mutator = $name_mutator;
             fn default_mutator() -> Self::Mutator {
                 <$name_mutator>::default()

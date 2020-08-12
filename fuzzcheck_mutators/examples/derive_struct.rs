@@ -2,7 +2,7 @@ extern crate fuzzcheck_mutators;
 
 extern crate fuzzcheck_mutators_derive;
 
-use fuzzcheck_mutators::HasDefaultMutator;
+use fuzzcheck_mutators::DefaultMutator;
 use fuzzcheck_mutators::fuzzcheck_derive_mutator;
 use fuzzcheck_mutators::fuzzcheck_traits::Mutator;
 
