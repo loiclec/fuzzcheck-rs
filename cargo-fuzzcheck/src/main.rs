@@ -8,6 +8,7 @@ use std::string::String;
 
 use std::env;
 
+pub const COMMAND_UI: &str = "ui";
 pub const COMMAND_INIT: &str = "init";
 pub const COMMAND_RUN: &str = "run";
 pub const COMMAND_CLEAN: &str = "clean";
@@ -26,6 +27,9 @@ fn _main() -> Result<(), CargoFuzzcheckError> {
     let mut help = format!(
         r#"
 USAGE:
+    fuzzcheck {ui}
+    => Launch the terminal user interface (recommended)
+
     fuzzcheck {init} <optional path to fuzzcheck-rs git repo>
     => Initialize the fuzz folder
 
@@ -41,6 +45,7 @@ SUBCOMMANDS:
     {tmin}    Minify a crashing test input, requires --{input_file}
     {cmin}    Minify a corpus of test inputs, requires --{in_corpus}
 "#,
+        ui = COMMAND_UI,
         init = COMMAND_INIT,
         clean = COMMAND_CLEAN,
         run = COMMAND_RUN,
@@ -109,6 +114,10 @@ cargo-fuzzcheck {run} target1 {cmin} --{in_corpus} "fuzz-corpus" --{corpus_size}
     let root_path = &std::env::current_dir()?;
 
     match env_args[start_idx].as_str() {
+        COMMAND_UI => {
+            // let _ = ui::launch_app();
+            Ok(())
+        },
         COMMAND_INIT => {
             let fuzzcheck_path = if env_args.len() > (start_idx + 1) {
                 env_args[start_idx + 1].as_str().trim()

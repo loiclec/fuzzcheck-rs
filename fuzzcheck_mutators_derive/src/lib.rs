@@ -446,6 +446,7 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, derive_default: boo
 
     // implementation of Mutator trait
     extend_ts!(tb,
+        // TODO: I think there is a bug here if the generics have an equal clause in the struct
         "impl" mutator_struct.generics "fuzzcheck_mutators :: fuzzcheck_traits :: Mutator for"
             mutator_struct.ident mutator_struct.generics.removing_bounds_and_eq_type() mutator_struct.where_clause
         "{

@@ -12,14 +12,23 @@ categories = ["development-tools"]
 
 [dependencies]
 getopts = "0.2"
+# tui = "0.13.0"
+# termion = "1.5"
+# json = "0.12"
 
-[dependencies.serde]
-version = "1.0"
-features = ["derive"]
+[dependencies.decent-toml-rs-alternative]
+path = "../../decent-toml-rs-alternative"
+# git = "https://git.sr.ht/~loic/decent-toml-rs-alternative"
 
-[dependencies.toml]
-version = "0.5"
-features = ["preserve_order"]
+# [dependencies.decent-serde-json-alternative]
+# git = "https://git.sr.ht/~loic/decent-serde-json-alternative"
+
+# [dependencies.decent-serde-json-derive-alternative]
+# git = "https://git.sr.ht/~loic/decent-serde-json-derive-alternative"
+
+[dependencies.decent-serde-toml-derive-alternative]
+git = "https://git.sr.ht/~loic/decent-serde-toml-derive-alternative"
+
 
 [dependencies.fuzzcheck_arg_parser]
 path = "../fuzzcheck_arg_parser"

@@ -1,4 +1,4 @@
-extern crate toml;
+use decent_toml_rs_alternative as toml;
 use crate::default_target;
 use crate::project::*;
 
@@ -318,7 +318,7 @@ codegen-units = 16
             target = DEFAULT_TARGET_NAME
         );
 
-        let toml = toml::from_str(&content).unwrap();
+        let toml = toml::parse_toml(&content).unwrap();
 
         Self { toml }
     }
@@ -394,7 +394,9 @@ codegen-units = 16
             fuzzcheck_mutators_dep = fuzzcheck_mutators_dep,
             fuzzcheck_serializer_dep = fuzzcheck_serializer_dep
         );
-        let toml = toml::from_str(&content).unwrap();
+
+        let toml = toml::parse_toml(&content).unwrap();
+
         Self { toml }
     }
 }

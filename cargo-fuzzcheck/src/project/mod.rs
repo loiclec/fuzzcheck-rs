@@ -2,12 +2,14 @@ pub mod init;
 pub mod read;
 pub mod write;
 
+use decent_toml_rs_alternative as toml;
+use toml::TomlValue;
+
+use decent_serde_toml_derive_alternative::{FromToml, ToToml};
+
 extern crate fuzzcheck_arg_parser;
 use fuzzcheck_arg_parser::CommandLineArguments;
 use fuzzcheck_arg_parser::DEFAULT_ARGUMENTS;
-
-extern crate serde;
-use serde::{Deserialize, Serialize};
 
 use std::path::PathBuf;
 use std::result::Result;
@@ -76,7 +78,7 @@ pub struct BuildRs {
 
 #[derive(Debug)]
 pub struct CargoToml {
-    pub toml: toml::Value,
+    pub toml: HashMap<String, TomlValue>,
 }
 
 #[derive(Debug)]
@@ -102,7 +104,7 @@ impl Root {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, FromToml, ToToml)]
 pub struct Config {
     pub coverage_level: Option<u8>,
     pub trace_compares: Option<bool>,
@@ -165,11 +167,9 @@ impl Config {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, FromToml, ToToml)]
 pub struct ConfigToml {
     pub default: Config,
-
-    #[serde(flatten)]
     pub targets: HashMap<String, Config>,
 }
 impl ConfigToml {

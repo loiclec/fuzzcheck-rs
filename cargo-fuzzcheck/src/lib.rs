@@ -1,4 +1,5 @@
 pub mod project;
+// pub mod ui;
 
 use init::{DEFAULT_COVERAGE_LEVEL, DEFAULT_LTO, DEFAULT_STACK_DEPTH, DEFAULT_TRACE_COMPARES};
 use project::*;
@@ -12,6 +13,9 @@ use std::process::Command;
 
 use std::cmp::Ordering;
 
+use std::io::Read;
+
+
 impl NonInitializedRoot {
     pub fn init_command(&self, fuzzcheck_path_or_version: &str) -> Result<(), CargoFuzzcheckError> {
         let fuzz_folder = &self.path.join("fuzz");
@@ -23,12 +27,16 @@ impl NonInitializedRoot {
 
 impl Root {
     pub fn clean_command(&self) -> Result<(), CargoFuzzcheckError> {
-        Command::new("cargo")
+        let mut command  = Command::new("cargo")
             .current_dir(self.non_instrumented_folder())
             .args(vec!["clean"])
             .stdout(std::process::Stdio::inherit())
             .stderr(std::process::Stdio::inherit())
-            .output()?;
+            .spawn()?;
+            //.output()?;
+        let mut out = command.stdout.take().unwrap();
+        let mut v = vec![];
+        let _ = out.read_to_end(&mut v);
 
         Command::new("cargo")
             .current_dir(self.instrumented_folder())

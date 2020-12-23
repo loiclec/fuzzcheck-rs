@@ -1,3 +1,7 @@
+
+use decent_toml_rs_alternative as toml;
+use toml::ToToml;
+
 use crate::project::*;
 
 use std::result::Result;
@@ -29,7 +33,10 @@ impl Fuzz {
         }
 
         let config_toml_path = path.join("fuzzcheck.toml");
-        let config_toml_contents = toml::to_string_pretty(&self.config_toml).unwrap();
+
+        let config_toml_value = self.config_toml.to_toml().unwrap();
+        let config_toml_contents = toml::to_toml_file_content(config_toml_value);
+        
         fs::write(config_toml_path, config_toml_contents.into_bytes())?;
 
         Ok(())
@@ -104,9 +111,12 @@ impl BuildRs {
 impl CargoToml {
     pub fn write(&self, path: &Path) -> Result<(), io::Error> {
         let cargo_toml_path = path.join("Cargo.toml");
+        
+        let config_toml_contents = toml::print(&self.toml);
+
         fs::write(
             cargo_toml_path,
-            &toml::to_string_pretty(&self.toml).unwrap().into_bytes(),
+            &config_toml_contents.into_bytes(),
         )?;
 
         Ok(())

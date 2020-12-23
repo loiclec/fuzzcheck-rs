@@ -10,6 +10,9 @@ use std::io::Read;
 
 use std::collections::HashMap;
 
+use decent_toml_rs_alternative as toml;
+use toml::FromToml;
+
 impl NonInitializedRoot {
     pub fn from_path(root_folder: &Path) -> Result<Self, NonInitializedRootError> {
         let cargo_toml_path = root_folder.join("Cargo.toml");
@@ -18,12 +21,10 @@ impl NonInitializedRoot {
         let cargo_toml = CargoToml::from_file(cargo_toml_file)?;
 
         let name = cargo_toml
-            .toml
-            .as_table()
+            .toml.get("package")
             .and_then(|v| v.get("package"))
             .and_then(|v| v.get("name"))
-            .and_then(|v| v.as_str())
-            .map(|v| v.to_string())
+            .and_then(|v| v.as_string())
             .ok_or(NonInitializedRootError::CannotFindNameInCargoToml)?;
 
         let fuzz_path = root_folder.join("fuzz");
@@ -46,12 +47,9 @@ impl Root {
         let cargo_toml = CargoToml::from_file(cargo_toml_file)?;
 
         let name = cargo_toml
-            .toml
-            .as_table()
-            .and_then(|v| v.get("package"))
+            .toml.get("package")
             .and_then(|v| v.get("name"))
-            .and_then(|v| v.as_str())
-            .map(|v| v.to_string())
+            .and_then(|v| v.as_string())
             .ok_or(RootError::CannotFindNameInCargoToml)?;
 
         let fuzz_path = root_folder.join("fuzz");
@@ -109,15 +107,20 @@ impl Fuzz {
             let _ = f.read_to_string(&mut string)?;
             Ok(string)
         }) {
-            let config_toml: ConfigToml = toml::from_str(&config_toml_string).map_err(|e| ConfigTomlError::from(e))?;
-            if !config_toml.is_valid() {
-                // TODO: is_valid function should return a ConfigTomlError with details and also check its pathbufs
-                return Err(ConfigTomlError::CoverageLevelNotValid)?;
+            let config_toml_value = TomlValue::Table(toml::parse_toml(&config_toml_string).map_err(|e| ConfigTomlError::from(e))?);
+            if let Some(config_toml) = ConfigToml::from_toml(Some(&config_toml_value)) {
+                if !config_toml.is_valid() {
+                    // TODO: is_valid function should return a ConfigTomlError with details and also check its pathbufs
+                    Err(ConfigTomlError::CoverageLevelNotValid)
+                } else {
+                    Ok(config_toml)
+                }
+            } else {
+                Err(ConfigTomlError::WrongFormat)
             }
-            config_toml
         } else {
-            ConfigToml::empty()
-        };
+            Ok(ConfigToml::empty())
+        }?;
 
         Ok(Self {
             non_instrumented,
@@ -303,7 +306,9 @@ impl CargoToml {
     pub fn from_file(mut file: fs::File) -> Result<CargoToml, CargoTomlError> {
         let mut content = Vec::new();
         let _ = file.read_to_end(&mut content)?;
-        let toml: toml::Value = toml::from_slice(&content)?;
+        
+        let content_string = String::from_utf8(content).unwrap();
+        let toml = toml::parse_toml(&content_string)?;
 
         Ok(CargoToml { toml })
     }
@@ -379,12 +384,13 @@ impl From<ConfigTomlError> for FuzzError {
 
 #[derive(Debug)]
 pub enum ConfigTomlError {
-    CannotDeserializeToml(toml::de::Error),
+    CannotDeserializeToml(toml::TomlError),
+    WrongFormat, // TODO: need better error messages
     CoverageLevelNotValid,
 }
 
-impl From<toml::de::Error> for ConfigTomlError {
-    fn from(e: toml::de::Error) -> Self {
+impl From<toml::TomlError> for ConfigTomlError {
+    fn from(e: toml::TomlError) -> Self {
         Self::CannotDeserializeToml(e)
     }
 }
@@ -499,15 +505,15 @@ pub enum SrcLibRsError {
 #[derive(Debug)]
 pub enum CargoTomlError {
     IoError(io::Error),
-    CannotParseToml(toml::de::Error),
+    CannotParseToml(toml::TomlError),
 }
 impl From<io::Error> for CargoTomlError {
     fn from(e: io::Error) -> Self {
         Self::IoError(e)
     }
 }
-impl From<toml::de::Error> for CargoTomlError {
-    fn from(e: toml::de::Error) -> Self {
+impl From<toml::TomlError> for CargoTomlError {
+    fn from(e: toml::TomlError) -> Self {
         Self::CannotParseToml(e)
     }
 }
