@@ -175,9 +175,6 @@ impl SrcLibRs {
     pub fn init_instrumented(library: &str) -> Self {
         let content = format!(
             r##"
-// this is needed by fuzzcheck_derive_mutator
-#![feature(move_ref_pattern)]
-
 extern crate {library};
 extern crate fuzzcheck_mutators;
 extern crate decent_serde_json_alternative;
