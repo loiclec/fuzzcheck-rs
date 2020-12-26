@@ -1,4 +1,3 @@
-#![feature(move_ref_pattern)]
 extern crate fuzzcheck_mutators;
 
 extern crate fuzzcheck_mutators_derive;

@@ -1,4 +1,4 @@
-#![feature(move_ref_pattern)]
+
 extern crate fuzzcheck_mutators;
 
 // mod empty_structs;

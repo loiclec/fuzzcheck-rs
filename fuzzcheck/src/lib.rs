@@ -3,7 +3,6 @@
 
 #![feature(drain_filter)]
 #![feature(never_type)]
-#![feature(ptr_offset_from)]
 #![feature(is_sorted)]
 #![feature(link_llvm_intrinsics)]
 #![feature(thread_local)]

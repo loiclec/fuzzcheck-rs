@@ -1,9 +1,7 @@
-#![feature(move_ref_pattern)]
 extern crate fuzzcheck_mutators;
 
 extern crate fuzzcheck_mutators_derive;
 
-use fuzzcheck_mutators::fuzzcheck_derive_mutator;
 use fuzzcheck_mutators::fuzzcheck_traits::Mutator;
 use fuzzcheck_mutators::DefaultMutator;
 
