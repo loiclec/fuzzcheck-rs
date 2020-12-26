@@ -181,13 +181,11 @@ impl SrcLibRs {
 extern crate {library};
 extern crate fuzzcheck_mutators;
 extern crate decent_serde_json_alternative;
-extern crate decent_serde_json_derive_alternative;
 
 // re-export fuzzcheck_serializer so it can be used by the fuzz targets
 pub extern crate fuzzcheck_serializer;
 
 use decent_serde_json_alternative::{{FromJson, ToJson}};
-use decent_serde_json_derive_alternative::{{FromJson, ToJson}};
 
 use fuzzcheck_mutators::fuzzcheck_derive_mutator;
 
@@ -348,10 +346,10 @@ features = ["serde-json-alternative"]
 
 [dependencies.json]
 version = "0.12"
-[dependencies.decent-serde-json-derive-alternative]
-version = "0.1"
+
 [dependencies.decent-serde-json-alternative]
 version = "0.1"
+features = ["derive"]
 
 # Prevent this from interfering with workspaces
 [workspace]

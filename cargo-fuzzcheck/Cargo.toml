@@ -17,10 +17,9 @@ getopts = "0.2"
 # json = "0.12"
 
 [dependencies.decent-toml-rs-alternative]
+path = "../../decent-toml-rs-alternative"
 version = "0.1"
-
-[dependencies.decent-serde-toml-derive-alternative]
-version = "0.1"
+features = ["derive"]
 
 [dependencies.fuzzcheck_arg_parser]
 path = "../fuzzcheck_arg_parser"

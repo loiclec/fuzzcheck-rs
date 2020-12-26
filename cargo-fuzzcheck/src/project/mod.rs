@@ -3,9 +3,8 @@ pub mod read;
 pub mod write;
 
 use decent_toml_rs_alternative as toml;
+use toml::{FromToml, ToToml};
 use toml::TomlValue;
-
-use decent_serde_toml_derive_alternative::{FromToml, ToToml};
 
 extern crate fuzzcheck_arg_parser;
 use fuzzcheck_arg_parser::CommandLineArguments;

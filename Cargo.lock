@@ -17,7 +17,6 @@ checksum = "cf1de2fe8c75bc145a2f577add951f8134889b4795d47466a54a5c846d691693"
 name = "cargo-fuzzcheck"
 version = "0.4.0"
 dependencies = [
- "decent-serde-toml-derive-alternative",
  "decent-toml-rs-alternative",
  "fuzzcheck_arg_parser",
  "getopts",
@@ -38,8 +37,6 @@ checksum = "baf1de4339761588bc0619e3cbc0120ee582ebb74b53b4efbf79117bd2da40fd"
 [[package]]
 name = "decent-serde-json-alternative"
 version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1da669f645e8093e5d0be74beb9099c10d20148747bef44edd5cd269e61b12ff"
 dependencies = [
  "json",
 ]
@@ -47,8 +44,6 @@ dependencies = [
 [[package]]
 name = "decent-serde-json-derive-alternative"
 version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "56239b4461db6cb26b89bf0f818dc53500430c798b387f6588ae266dd7840d3c"
 dependencies = [
  "decent-synquote-alternative",
  "proc-macro2",
@@ -76,8 +71,9 @@ dependencies = [
 [[package]]
 name = "decent-toml-rs-alternative"
 version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a8556353d27dc9ed5320fe287c99bcdaa773dd97c34f21edf30c4721d53a6c47"
+dependencies = [
+ "decent-serde-toml-derive-alternative",
+]
 
 [[package]]
 name = "fastrand"
