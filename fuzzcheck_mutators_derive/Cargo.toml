@@ -11,3 +11,7 @@ categories = ["development-tools"]
 
 [lib]
 proc-macro = true
+
+[dependencies]
+decent-synquote-alternative = "0.1"
+proc-macro2 = "1.0"

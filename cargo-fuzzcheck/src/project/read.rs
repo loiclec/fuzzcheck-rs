@@ -22,7 +22,6 @@ impl NonInitializedRoot {
 
         let name = cargo_toml
             .toml.get("package")
-            .and_then(|v| v.get("package"))
             .and_then(|v| v.get("name"))
             .and_then(|v| v.as_string())
             .ok_or(NonInitializedRootError::CannotFindNameInCargoToml)?;

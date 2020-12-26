@@ -36,9 +36,29 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "baf1de4339761588bc0619e3cbc0120ee582ebb74b53b4efbf79117bd2da40fd"
 
 [[package]]
+name = "decent-serde-json-alternative"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1da669f645e8093e5d0be74beb9099c10d20148747bef44edd5cd269e61b12ff"
+dependencies = [
+ "json",
+]
+
+[[package]]
+name = "decent-serde-json-derive-alternative"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "56239b4461db6cb26b89bf0f818dc53500430c798b387f6588ae266dd7840d3c"
+dependencies = [
+ "decent-synquote-alternative",
+ "proc-macro2",
+]
+
+[[package]]
 name = "decent-serde-toml-derive-alternative"
 version = "0.1.0"
-source = "git+https://git.sr.ht/~loic/decent-serde-toml-derive-alternative#ac401b375d195bc281e8001c524af9369be4a1c3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6c1b48f4e5319ef672116ffc5e8d784f654a7b1e2c96a0aae884dd3802ad6ed2"
 dependencies = [
  "decent-synquote-alternative",
  "proc-macro2",
@@ -47,7 +67,8 @@ dependencies = [
 [[package]]
 name = "decent-synquote-alternative"
 version = "0.1.0"
-source = "git+https://git.sr.ht/~loic/decent-synquote-alternative?branch=master#35d82a9029efb9503d28d018cc43cc656503997f"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c5298c2b893fb4094476d9e1ab509b2dd753e96a5f0932e01d8c0a1bc01abc82"
 dependencies = [
  "proc-macro2",
 ]
@@ -55,6 +76,8 @@ dependencies = [
 [[package]]
 name = "decent-toml-rs-alternative"
 version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a8556353d27dc9ed5320fe287c99bcdaa773dd97c34f21edf30c4721d53a6c47"
 
 [[package]]
 name = "fastrand"
@@ -97,12 +120,19 @@ dependencies = [
 [[package]]
 name = "fuzzcheck_mutators_derive"
 version = "0.4.0"
+dependencies = [
+ "decent-synquote-alternative",
+ "proc-macro2",
+]
 
 [[package]]
 name = "fuzzcheck_serializer"
 version = "0.4.0"
 dependencies = [
+ "decent-serde-json-alternative",
+ "decent-serde-json-derive-alternative",
  "fuzzcheck_traits",
+ "json",
  "serde",
  "serde_json",
 ]
@@ -134,6 +164,12 @@ name = "itoa"
 version = "0.4.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "dc6f3ad7b9d11a0c00842ff8de1b60ee58661048eb8049ed33c73594f359d7e6"
+
+[[package]]
+name = "json"
+version = "0.12.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "078e285eafdfb6c4b434e0d31e8cfcb5115b651496faca5749b88fafd4f23bfd"
 
 [[package]]
 name = "libc"

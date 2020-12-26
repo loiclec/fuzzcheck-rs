@@ -11,45 +11,15 @@
 
 extern crate fuzzcheck_traits;
 
-#[cfg(feature = "serde_serializer")]
-extern crate serde;
-#[cfg(feature = "serde_serializer")]
-extern crate serde_json;
+#[cfg(feature = "serde-json")]
+mod serde_serializer;
+#[cfg(feature = "serde-json")]
+pub use serde_serializer::SerdeSerializer;
 
-#[cfg(feature = "serde_serializer")]
-use std::marker::PhantomData;
-
-/// `SerdeSerializer<T>` uses `serde` and `serde_json` to serialize the test
-/// inputs (of arbitrary type `T: Serializable+ for<'e> Deserializable<'e>`)
-/// to a json file.
-#[cfg(feature = "serde_serializer")]
-pub struct SerdeSerializer<S> {
-    phantom: PhantomData<S>,
-}
-
-#[cfg(feature = "serde_serializer")]
-impl<S> Default for SerdeSerializer<S> {
-    fn default() -> Self {
-        Self { phantom: PhantomData }
-    }
-}
-
-#[cfg(feature = "serde_serializer")]
-impl<S> fuzzcheck_traits::Serializer for SerdeSerializer<S>
-where
-    S: serde::Serialize + for<'e> serde::Deserialize<'e>,
-{
-    type Value = S;
-    fn extension(&self) -> &str {
-        "json"
-    }
-    fn from_data(&self, data: &[u8]) -> Option<S> {
-        serde_json::from_slice(data).ok()
-    }
-    fn to_data(&self, value: &Self::Value) -> Vec<u8> {
-        serde_json::to_vec(value).unwrap()
-    }
-}
+#[cfg(feature = "serde-json-alternative")]
+mod json_serializer;
+#[cfg(feature = "serde-json-alternative")]
+pub use json_serializer::JsonSerializer;
 
 /**
 A Serializer for Vec<u8> that simply copies the bytes from/to the files.

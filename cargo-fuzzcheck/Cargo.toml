@@ -17,18 +17,10 @@ getopts = "0.2"
 # json = "0.12"
 
 [dependencies.decent-toml-rs-alternative]
-path = "../../decent-toml-rs-alternative"
-# git = "https://git.sr.ht/~loic/decent-toml-rs-alternative"
-
-# [dependencies.decent-serde-json-alternative]
-# git = "https://git.sr.ht/~loic/decent-serde-json-alternative"
-
-# [dependencies.decent-serde-json-derive-alternative]
-# git = "https://git.sr.ht/~loic/decent-serde-json-derive-alternative"
+version = "0.1"
 
 [dependencies.decent-serde-toml-derive-alternative]
-git = "https://git.sr.ht/~loic/decent-serde-toml-derive-alternative"
-
+version = "0.1"
 
 [dependencies.fuzzcheck_arg_parser]
 path = "../fuzzcheck_arg_parser"
@@ -37,3 +29,5 @@ version = "0.4.0"
 [[bin]]
 name = "cargo-fuzzcheck"
 path = "src/main.rs"
+
+[package.decent-toml-rs-alternative]

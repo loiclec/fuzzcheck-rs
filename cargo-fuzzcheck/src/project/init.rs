@@ -180,12 +180,14 @@ impl SrcLibRs {
 
 extern crate {library};
 extern crate fuzzcheck_mutators;
-extern crate serde;
+extern crate decent_serde_json_alternative;
+extern crate decent_serde_json_derive_alternative;
 
 // re-export fuzzcheck_serializer so it can be used by the fuzz targets
 pub extern crate fuzzcheck_serializer;
 
-use serde::{{Serialize, Deserialize}};
+use decent_serde_json_alternative::{{FromJson, ToJson}};
+use decent_serde_json_derive_alternative::{{FromJson, ToJson}};
 
 use fuzzcheck_mutators::fuzzcheck_derive_mutator;
 
@@ -194,7 +196,7 @@ use fuzzcheck_mutators::fuzzcheck_derive_mutator;
 // default mutator of SampleEnum
 
 #[fuzzcheck_derive_mutator(DefaultMutator)]
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, FromJson, ToJson)]
 pub enum SampleEnum<T> {{
     A(u8),
     B {{ x: bool , y: Option<T> }},
@@ -203,7 +205,7 @@ pub enum SampleEnum<T> {{
 }}
 
 #[fuzzcheck_derive_mutator(DefaultMutator)]
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, FromJson, ToJson)]
 pub struct SampleStruct<A, B, C> {{
     a: A,
     b: Vec<B>,
@@ -337,19 +339,19 @@ cargo-fuzzcheck = true
 [dependencies.{library}]
 path = "../.."
 
-[dependencies.serde]
-version = '1.0'
-features = ["derive"]
-
-[dependencies.serde_json]
-version = '1.0'
-
 [dependencies.fuzzcheck_mutators]
 {fuzzcheck_mutators_dep}
 
 [dependencies.fuzzcheck_serializer]
 {fuzzcheck_serializer_dep}
-features = ["serde_serializer"]
+features = ["serde-json-alternative"]
+
+[dependencies.json]
+version = "0.12"
+[dependencies.decent-serde-json-derive-alternative]
+version = "0.1"
+[dependencies.decent-serde-json-alternative]
+version = "0.1"
 
 # Prevent this from interfering with workspaces
 [workspace]
@@ -370,23 +372,11 @@ codegen-units = 16
 opt-level = 0
 codegen-units = 16
 
-[profile.release.package.syn]
+[profile.release.package.decent-synquote-alternative]
 opt-level = 0
 codegen-units = 16
 
-[profile.release.package.quote]
-opt-level = 0
-codegen-units = 16
-
-[profile.release.package.serde]
-opt-level = 0
-codegen-units = 16
-
-[profile.release.package.serde_derive]
-opt-level = 0
-codegen-units = 16
-
-[profile.release.package.serde_json]
+[profile.release.package.decent-serde-json-derive-alternative]
 opt-level = 0
 codegen-units = 16
 "##,
@@ -424,11 +414,11 @@ use {0}_instrumented_fuzz::fuzzcheck_serializer;
 
 use {0}_instrumented_fuzz::*;
 use fuzzcheck_mutators::DefaultMutator;
-use fuzzcheck_serializer::SerdeSerializer;
+use fuzzcheck_serializer::JsonSerializer;
 
 fn main() {{
     let mutator = Vec::<SampleStruct<u8, Option<u8>, SampleEnum<u8>>>::default_mutator();
-    let serializer = SerdeSerializer::default();
+    let serializer = JsonSerializer::default();
     let _ = fuzzcheck::launch(test, mutator, serializer);
 }}
 "#,

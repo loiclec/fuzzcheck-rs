@@ -1,12 +1,10 @@
-mod parser;
-mod token_builder;
 
-//mod struct_derive;
+use proc_macro2::{Ident, Literal, Span, TokenStream};
 
-use crate::parser::*;
-use crate::token_builder::*;
+use decent_synquote_alternative as synquote;
 
-use proc_macro::{Ident, Literal, Span, TokenStream};
+use synquote::parser::*;
+use synquote::token_builder::*;
 
 macro_rules! opt_ts {
     ($opt:expr, $map_pat:pat, $($part:expr) *) => {
@@ -111,7 +109,9 @@ macro_rules! ident {
 }
 
 #[proc_macro_attribute]
-pub fn fuzzcheck_derive_mutator(attr: TokenStream, input: TokenStream) -> TokenStream {
+pub fn fuzzcheck_derive_mutator(attr: proc_macro::TokenStream, input: proc_macro::TokenStream) -> proc_macro::TokenStream {
+    let (attr, input) = (proc_macro2::TokenStream::from(attr), proc_macro2::TokenStream::from(input));
+
     let mut tb = TokenBuilder::new();
     input.add_to(&mut tb);
 
@@ -134,7 +134,7 @@ pub fn fuzzcheck_derive_mutator(attr: TokenStream, input: TokenStream) -> TokenS
         )
     }
     //tb.eprint();
-    tb.end()
+    tb.end().into()
 }
 
 fn derive_struct_mutator(parsed_struct: Struct, derive_default: bool, tb: &mut TokenBuilder) {
