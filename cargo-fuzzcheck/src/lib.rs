@@ -13,9 +13,6 @@ use std::process::Command;
 
 use std::cmp::Ordering;
 
-use std::io::Read;
-
-
 impl NonInitializedRoot {
     pub fn init_command(&self, fuzzcheck_path_or_version: &str) -> Result<(), CargoFuzzcheckError> {
         let fuzz_folder = &self.path.join("fuzz");
@@ -27,16 +24,12 @@ impl NonInitializedRoot {
 
 impl Root {
     pub fn clean_command(&self) -> Result<(), CargoFuzzcheckError> {
-        let mut command  = Command::new("cargo")
+        Command::new("cargo")
             .current_dir(self.non_instrumented_folder())
             .args(vec!["clean"])
             .stdout(std::process::Stdio::inherit())
             .stderr(std::process::Stdio::inherit())
-            .spawn()?;
-            //.output()?;
-        let mut out = command.stdout.take().unwrap();
-        let mut v = vec![];
-        let _ = out.read_to_end(&mut v);
+            .output()?;
 
         Command::new("cargo")
             .current_dir(self.instrumented_folder())
