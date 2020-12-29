@@ -1,6 +1,6 @@
 
 
-use std::{path::PathBuf};
+use std::{path::{Path, PathBuf}};
 
 use termion::event::Key;
 use tui::{Frame, backend::Backend, layout::{Alignment, Constraint, Direction, Layout}, style::{Color, Style}, text::Text, widgets::{Block, Borders, Paragraph, Wrap}};
@@ -11,20 +11,18 @@ use super::framework::{Move, UserInput, default_style, highlight_style};
 
 pub struct State {
     pub root_path: PathBuf,
-    pub non_initialized_root: Result<NonInitializedRoot, NonInitializedRootError>,
-    pub init_error: Option<CargoFuzzcheckError>,
+    pub non_initialized_root: NonInitializedRoot,
     focus: Focus,
 }
 
 impl State {
-    pub fn new(root_path: PathBuf) -> Self {
-        let non_initialized_root = NonInitializedRoot::from_path(&root_path);
-        Self {
-            root_path: root_path,
-            non_initialized_root: non_initialized_root,
-            init_error: None,
+    pub fn new(root_path: &Path) -> Result<Self, NonInitializedRootError> {
+        let non_initialized_root = NonInitializedRoot::from_path(root_path)?;
+        Ok(Self {
+            root_path: root_path.to_path_buf(),
+            non_initialized_root,
             focus: Focus::Quit
-        }
+        })
     }
 }
 
@@ -41,6 +39,7 @@ pub enum Update {
 
 pub enum OutMessage {
     Initialized,
+    Error(CargoFuzzcheckError),
     Quit
 }
 
@@ -63,27 +62,27 @@ impl State {
     pub fn update(&mut self, u: Update) -> Option<OutMessage> {
         match u {
             Update::Initialize(fuzzcheck_path) => {
-                match &self.non_initialized_root {
-                    Ok(root) => {
-                        let fuzzcheck_path = fuzzcheck_path.unwrap_or(env!("CARGO_PKG_VERSION").to_string());
-                        let result = root.init_command(&fuzzcheck_path);
-                        match result {
-                            Ok(_) => {
-                                Some(OutMessage::Initialized)
-                            }
-                            Err(err) => {
-                                self.init_error = Some(err);
-                                None
-                            }
-                        }
+                let fuzzcheck_path = fuzzcheck_path.unwrap_or(env!("CARGO_PKG_VERSION").to_string());
+                let result = self.non_initialized_root.init_command(&fuzzcheck_path);
+                match result {
+                    Ok(_) => {
+                        Some(OutMessage::Initialized)
                     }
-                    Err(_) => { None }
+                    Err(err) => {
+                        Some(OutMessage::Error(err))
+                    }
                 }
             }
-            Update::Move(Move::Left) | Update::Move(Move::Right) => {
+            Update::Move(Move::Left) => {
+                match self.focus {
+                    Focus::Quit => { self.focus = Focus::Initialize; None }
+                    _ => { None }
+                }
+            }
+            Update::Move(Move::Right) => {
                 match self.focus {
                     Focus::Initialize => { self.focus = Focus::Quit; None }
-                    Focus::Quit => { self.focus = Focus::Initialize; None }
+                    _ => { None }
                 }
             }
             Update::Move(Move::Up) | Update::Move(Move::Down) => { None }
@@ -96,24 +95,27 @@ impl State {
     pub fn draw<B>(&mut self, frame: &mut Frame<B>) where B: Backend {
         let chunks = Layout::default()
             .direction(Direction::Vertical)
-            .constraints([Constraint::Length(5), Constraint::Length(3), Constraint::Min(0)].as_ref())
+            .constraints([Constraint::Length(5), Constraint::Min(0)].as_ref())
             .split(frame.size());
 
-        let bottom_chunks = Layout::default()
-            .direction(Direction::Horizontal)
-            .constraints([Constraint::Percentage(50), Constraint::Percentage(50)].as_ref())
-            .split(chunks[1]);
-
         let block = Block::default()
-            .title("Fuzzcheck")
-            .border_style(Style::default().fg(Color::White))
             .style(Style::default().bg(Color::Black));
 
         frame.render_widget(block, frame.size());
 
-        let text = Text::raw("The fuzz folder has not been initialized yet. Would you like to create it?");
+        let bottom_chunks = Layout::default()
+            .direction(Direction::Vertical)
+            .constraints([Constraint::Length(3), Constraint::Min(0)].as_ref())
+            .split(chunks[1]);
+
+        let button_areas = Layout::default()
+            .direction(Direction::Horizontal)
+            .constraints([Constraint::Percentage(50), Constraint::Percentage(50)].as_ref())
+            .split(bottom_chunks[0]);
+
+        let text = Text::from("The fuzz folder has not been created yet. Would you like to create it?");
         let p = Paragraph::new(text)
-            .block(Block::default().title("Paragraph").borders(Borders::ALL))
+            .block(Block::default().borders(Borders::ALL))
             .style(default_style())
             .alignment(Alignment::Center)
             .wrap(Wrap { trim: true });
@@ -133,7 +135,7 @@ impl State {
             }
         }
 
-        frame.render_widget(initialize_button, bottom_chunks[0]) ;
-        frame.render_widget(quit_button, bottom_chunks[1]) ;
+        frame.render_widget(initialize_button, button_areas[0]) ;
+        frame.render_widget(quit_button, button_areas[1]) ;
     }
 }
