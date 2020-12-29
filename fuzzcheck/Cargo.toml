@@ -10,6 +10,17 @@ license = "MIT"
 keywords = ["fuzzing", "test"]
 categories = ["development-tools"]
 
+[dependencies.base64]
+version = "0.13"
+
+[dependencies.json]
+version = "0.12"
+
+[dependencies.decent-serde-json-alternative]
+path = "../../decent-serde-json-alternative"
+version = "0.1"
+features = ["derive"]
+
 [dependencies.getopts]
 version = "0.2"
 
@@ -26,8 +37,8 @@ version = "0.1.10"
 default_features = false
 version = "0.2"
 
-[dependencies.fuzzcheck_arg_parser]
-path = "../fuzzcheck_arg_parser"
+[dependencies.fuzzcheck_common]
+path = "../fuzzcheck_common"
 version = "0.4.0"
 
 [target.'cfg(not(fuzzcheck))'.dependencies.fuzzcheck_traits]

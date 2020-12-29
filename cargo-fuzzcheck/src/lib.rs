@@ -1,10 +1,10 @@
 pub mod project;
-// pub mod ui;
+pub mod ui;
 
 use init::{DEFAULT_COVERAGE_LEVEL, DEFAULT_LTO, DEFAULT_STACK_DEPTH, DEFAULT_TRACE_COMPARES};
 use project::*;
 
-use fuzzcheck_arg_parser::*;
+use fuzzcheck_common::arg::*;
 
 use std::fmt::{self, Display};
 use std::path::{Path, PathBuf};

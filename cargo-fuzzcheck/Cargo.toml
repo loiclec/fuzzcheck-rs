@@ -12,17 +12,23 @@ categories = ["development-tools"]
 
 [dependencies]
 getopts = "0.2"
-# tui = "0.13.0"
-# termion = "1.5"
-# json = "0.12"
+tui = "0.13.0"
+termion = "1.5"
+json = "0.12"
+libc = "0.2"
 
 [dependencies.decent-toml-rs-alternative]
 path = "../../decent-toml-rs-alternative"
 version = "0.1"
 features = ["derive"]
 
-[dependencies.fuzzcheck_arg_parser]
-path = "../fuzzcheck_arg_parser"
+[dependencies.decent-serde-json-alternative]
+path = "../../decent-serde-json-alternative"
+version = "0.1"
+features = ["derive"]
+
+[dependencies.fuzzcheck_common]
+path = "../fuzzcheck_common"
 version = "0.4.0"
 
 [[bin]]

@@ -254,11 +254,11 @@ impl Iterator for SignalIterator {
     }
 }
 
-impl Signal {
-    pub fn iterator() -> SignalIterator {
-        SignalIterator { next: 0 }
-    }
-}
+// impl Signal {
+//     pub fn iterator() -> SignalIterator {
+//         SignalIterator { next: 0 }
+//     }
+// }
 
 impl TryFrom<libc::c_int> for Signal {
     type Error = Error;

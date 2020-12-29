@@ -27,14 +27,6 @@ pub trait DefaultMutator: Clone {
 #[inline(always)]
 pub fn gen_f64(rng: &fastrand::Rng, range: Range<f64>) -> f64 {
     range.start + rng.f64() * (range.end - range.start)
-    // assert!(range.start.is_finite() && range.end.is_finite());
-
-    // let granularity = u32::MAX;
-    // let granularity_f = granularity as f64;
-
-    // let x = rng.u32(0 .. granularity);
-
-    // range.start + ((range.end - range.start) / granularity_f) * (x as f64)
 }
 
 #[must_use]

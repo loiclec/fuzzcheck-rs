@@ -2,15 +2,16 @@
 //!to the [Pool] and uses an evolutionary algorithm using [Mutator] to find new interesting
 //! test inputs.
 
-use crate::code_coverage_sensor::shared_sensor;
+use crate::{code_coverage_sensor::shared_sensor, world::WorldAction};
 use crate::data_structures::{LargeStepFindIter, SlabKey};
 use crate::nix_subset as nix;
 use crate::pool::{AnalyzedFeature, Pool, PoolIndex};
 use crate::signals_handler::{set_signal_handlers, set_timer};
-use crate::world::{FuzzerEvent, FuzzerStats, World};
+use crate::world::{FuzzerEvent, FuzzerStats};
+use crate::ui_world::{TuiWorld};
 use crate::{Feature, FuzzedInput, Mutator, Serializer};
 
-use fuzzcheck_arg_parser::{FuzzerCommand, ResolvedCommandLineArguments};
+use fuzzcheck_common::arg::{FuzzerCommand, ResolvedCommandLineArguments};
 
 use nix::signal;
 
@@ -58,7 +59,7 @@ struct FuzzerState<M: Mutator, S: Serializer<Value = M::Value>> {
     input_idx: FuzzerInputIndex<M>,
     stats: FuzzerStats,
     settings: ResolvedCommandLineArguments,
-    world: World<S>,
+    world: TuiWorld<S>,
     analysis_cache: AnalysisCache<M>,
 }
 
@@ -95,8 +96,8 @@ where
     fn receive_signal(&self, signal: i32) -> ! {
         use signal::Signal::{self, *};
         if let Ok(signal) = Signal::try_from(signal) {
-            self.world
-                .report_event(FuzzerEvent::CaughtSignal(signal), Some(self.stats));
+            self.world.do_actions(vec![WorldAction::ReportEvent(FuzzerEvent::CaughtSignal(signal as i32))], &self.stats).unwrap();
+
             match signal {
                 SIGABRT | SIGBUS | SIGSEGV | SIGFPE | SIGALRM => {
                     if let Some(input) = self.get_input() {
@@ -105,7 +106,8 @@ where
 
                         exit(TerminationStatus::Crash as i32);
                     } else {
-                        let _ = self.world.report_event(FuzzerEvent::CrashNoInput, Some(self.stats));
+                        self.world.do_actions(vec![WorldAction::ReportEvent(FuzzerEvent::CrashNoInput)], &self.stats).unwrap();
+                        //let _ = self.world.report_event(FuzzerEvent::CrashNoInput, Some(self.stats));
 
                         exit(TerminationStatus::Crash as i32);
                     }
@@ -158,7 +160,7 @@ where
     M: Mutator,
     S: Serializer<Value = M::Value>,
 {
-    pub fn new(test: F, mutator: M, settings: ResolvedCommandLineArguments, world: World<S>) -> Self {
+    pub fn new(test: F, mutator: M, settings: ResolvedCommandLineArguments, world: TuiWorld<S>) -> Self {
         Fuzzer {
             state: FuzzerState {
                 mutator,
@@ -188,7 +190,7 @@ where
         mutator: &M,
         input: &FuzzedInput<M>,
         timeout: usize,
-        world: &World<S>,
+        world: &TuiWorld<S>,
         stats: FuzzerStats,
     ) -> Result<(), std::io::Error> {
         let sensor = shared_sensor();
@@ -213,7 +215,8 @@ where
         }
 
         if result.is_err() || !result.unwrap() {
-            world.report_event(FuzzerEvent::TestFailure, Some(stats));
+            world.do_actions(vec![WorldAction::ReportEvent(FuzzerEvent::TestFailure)], &stats)?;
+            //world.report_event(FuzzerEvent::TestFailure, Some(stats));
             let mut features: Vec<Feature> = Vec::new();
             sensor.iterate_over_collected_features(|f| features.push(f));
             world.save_artifact(&input.value, input.complexity(mutator))?;
@@ -342,7 +345,8 @@ where
 
                 Ok(())
             } else {
-                self.state.world.report_event(FuzzerEvent::End, None);
+                self.state.world.do_actions(vec![WorldAction::ReportEvent(FuzzerEvent::End)], &self.state.stats)?;
+                //self.state.world.report_event(FuzzerEvent::End, None);
                 exit(TerminationStatus::Success as i32);
             }
         }
@@ -386,18 +390,14 @@ where
     }
 
     fn main_loop(&mut self) -> Result<(), std::io::Error> {
-        self.state
-            .world
-            .report_event(FuzzerEvent::Start, Some(self.state.stats));
+        self.state.world.do_actions(vec![WorldAction::ReportEvent(FuzzerEvent::Start)], &self.state.stats)?;
         self.process_initial_inputs()?;
-        self.state
-            .world
-            .report_event(FuzzerEvent::DidReadCorpus, Some(self.state.stats));
+        self.state.world.do_actions(vec![WorldAction::ReportEvent(FuzzerEvent::DidReadCorpus)], &self.state.stats)?;
 
         while self.state.stats.total_number_of_runs < self.max_iter() {
             self.process_next_inputs()?;
         }
-        self.state.world.report_event(FuzzerEvent::Done, Some(self.state.stats));
+        self.state.world.do_actions(vec![WorldAction::ReportEvent(FuzzerEvent::Done)], &self.state.stats)?;
 
         Ok(())
     }
@@ -408,15 +408,11 @@ where
     /// The number of inputs to keep is taken from
     /// [`self.settings.corpus_size`](FuzzerSettings::corpus_size)
     fn corpus_minifying_loop(&mut self) -> Result<(), std::io::Error> {
-        self.state
-            .world
-            .report_event(FuzzerEvent::Start, Some(self.state.stats));
-
+        self.state.world.do_actions(vec![WorldAction::ReportEvent(FuzzerEvent::Start)], &self.state.stats)?;
+        
         self.process_initial_inputs()?;
 
-        self.state
-            .world
-            .report_event(FuzzerEvent::DidReadCorpus, Some(self.state.stats));
+        self.state.world.do_actions(vec![WorldAction::ReportEvent(FuzzerEvent::DidReadCorpus)], &self.state.stats)?;
 
         while self.state.pool.len() > self.state.settings.corpus_size {
             let actions = self.state.pool.remove_lowest_scoring_input();
@@ -424,14 +420,12 @@ where
             self.state.world.do_actions(actions, &self.state.stats)?;
         }
 
-        self.state.world.report_event(FuzzerEvent::Done, Some(self.state.stats));
+        self.state.world.do_actions(vec![WorldAction::ReportEvent(FuzzerEvent::Done)], &self.state.stats)?;
         Ok(())
     }
 
     fn input_minifying_loop(&mut self) -> Result<(), std::io::Error> {
-        self.state
-            .world
-            .report_event(FuzzerEvent::Start, Some(self.state.stats));
+        self.state.world.do_actions(vec![WorldAction::ReportEvent(FuzzerEvent::Start)], &self.state.stats)?;
         let value = self.state.world.read_input_file()?;
         let cache = self.state.mutator.cache_from_value(&value);
         let mutation_step = self.state.mutator.initial_step_from_value(&value);
@@ -478,7 +472,7 @@ where
 {
     let command = args.command;
 
-    let mut fuzzer = Fuzzer::new(test, mutator, args.clone(), World::new(serializer, args));
+    let mut fuzzer = Fuzzer::new(test, mutator, args.clone(), TuiWorld::new(serializer, args));
     unsafe { fuzzer.state.set_up_signal_handler() };
     match command {
         FuzzerCommand::Fuzz => fuzzer.main_loop()?,

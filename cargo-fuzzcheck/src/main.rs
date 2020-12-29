@@ -2,7 +2,7 @@ extern crate cargo_fuzzcheck;
 use cargo_fuzzcheck::project;
 use cargo_fuzzcheck::*;
 
-use fuzzcheck_arg_parser::*;
+use fuzzcheck_common::arg::*;
 
 use std::string::String;
 
@@ -115,7 +115,8 @@ cargo-fuzzcheck {run} target1 {cmin} --{in_corpus} "fuzz-corpus" --{corpus_size}
 
     match env_args[start_idx].as_str() {
         COMMAND_UI => {
-            // let _ = ui::launch_app();
+            //let project = project::Root::from_path(root_path);
+            let _ = ui::launch_app(root_path.clone());
             Ok(())
         },
         COMMAND_INIT => {

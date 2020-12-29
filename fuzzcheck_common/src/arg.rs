@@ -1,5 +1,5 @@
 use getopts::Options;
-use std::path::PathBuf;
+use std::{net::{SocketAddr, ToSocketAddrs}, path::PathBuf};
 
 #[derive(Debug, Clone, Copy)]
 pub enum FuzzerCommand {
@@ -20,6 +20,7 @@ pub const NO_OUT_CORPUS_FLAG: &str = "no-out-corpus";
 pub const ARTIFACTS_FLAG: &str = "artifacts";
 pub const NO_ARTIFACTS_FLAG: &str = "no-artifacts";
 pub const CORPUS_SIZE_FLAG: &str = "corpus-size";
+pub const SOCK_ADDR_FLAG: &str = "socket-address";
 
 pub const COMMAND_FUZZ: &str = "fuzz";
 pub const COMMAND_MINIFY_INPUT: &str = "tmin";
@@ -60,6 +61,7 @@ pub struct ResolvedCommandLineArguments {
     pub corpus_in: Option<PathBuf>,
     pub corpus_out: Option<PathBuf>,
     pub artifacts_folder: Option<PathBuf>,
+    pub socket_address: Option<SocketAddr>,
 }
 
 #[derive(Debug, Clone)]
@@ -77,6 +79,8 @@ pub struct CommandLineArguments {
     pub no_in_corpus: Option<()>,
     pub no_out_corpus: Option<()>,
     pub no_artifacts: Option<()>,
+
+    pub socket_address: Option<SocketAddr>,
 }
 
 #[must_use]
@@ -146,6 +150,17 @@ pub fn options_parser() -> Options {
         .as_str(),
         "N",
     );
+
+    options.optopt(
+        "",
+        SOCK_ADDR_FLAG,
+        format!(
+            "address of the TCP socket for communication between cargo-fuzzcheck and the fuzz target",
+        )
+        .as_str(),
+        "127.0.0.1:0",
+    );
+
     options.optflag("", "help", "print this help menu");
 
     options
@@ -211,6 +226,14 @@ impl CommandLineArguments {
 
         let timeout: Option<usize> = matches.opt_str(TIMEOUT_FLAG).and_then(|x| x.parse::<usize>().ok());
 
+        let socket_address = matches.opt_str(SOCK_ADDR_FLAG).and_then(|x| {
+            if let Some(mut addrs) = x.to_socket_addrs().ok() {
+                addrs.next()
+            } else {
+                None
+            }
+        });
+
         Ok(Self {
             command,
             max_nbr_of_runs,
@@ -224,6 +247,7 @@ impl CommandLineArguments {
             no_in_corpus,
             no_out_corpus,
             no_artifacts,
+            socket_address,
         })
     }
 
@@ -269,6 +293,8 @@ impl CommandLineArguments {
 
         let timeout: usize = self.timeout.unwrap_or(defaults.timeout);
 
+        let socket_address = self.socket_address;
+
         ResolvedCommandLineArguments {
             command,
             max_nbr_of_runs,
@@ -279,6 +305,7 @@ impl CommandLineArguments {
             corpus_in,
             corpus_out,
             artifacts_folder,
+            socket_address,
         }
     }
 }

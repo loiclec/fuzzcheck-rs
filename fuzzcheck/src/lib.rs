@@ -14,11 +14,12 @@ mod data_structures;
 
 mod fuzzer;
 mod world;
+mod ui_world;
 
 mod pool;
 mod signals_handler;
 
-use fuzzcheck_arg_parser::{
+use fuzzcheck_common::arg::{
     options_parser, ResolvedCommandLineArguments, COMMAND_FUZZ, COMMAND_MINIFY_CORPUS, COMMAND_MINIFY_INPUT,
     CORPUS_SIZE_FLAG, INPUT_FILE_FLAG, IN_CORPUS_FLAG,
 };

@@ -48,6 +48,9 @@ impl ByteSerializer {
 
 impl fuzzcheck_traits::Serializer for ByteSerializer {
     type Value = Vec<u8>;
+    fn is_utf8(&self) -> bool {
+        false
+    }
     fn extension(&self) -> &str {
         self.ext
     }

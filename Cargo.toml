@@ -1,7 +1,7 @@
 [workspace]
 
 members = [
-    "fuzzcheck_arg_parser",
+    "fuzzcheck_common",
     "cargo-fuzzcheck",
     "fuzzcheck",
     "fuzzcheck_mutators",

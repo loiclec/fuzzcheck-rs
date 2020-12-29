@@ -131,6 +131,7 @@ pub trait Mutator: Sized {
 */
 pub trait Serializer {
     type Value;
+    fn is_utf8(&self) -> bool;
     fn extension(&self) -> &str;
     fn from_data(&self, data: &[u8]) -> Option<Self::Value>;
     fn to_data(&self, value: &Self::Value) -> Vec<u8>;

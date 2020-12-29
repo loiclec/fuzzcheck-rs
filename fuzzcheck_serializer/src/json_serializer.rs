@@ -21,6 +21,10 @@ where
     S: decent_serde_json_alternative::FromJson + decent_serde_json_alternative::ToJson,
 {
     type Value = S;
+
+    fn is_utf8(&self) -> bool {
+        true
+    }
     fn extension(&self) -> &str {
         "json"
     }
