@@ -1,4 +1,3 @@
-
 use decent_toml_rs_alternative as toml;
 extern crate fuzzcheck_common;
 use fuzzcheck_common::arg::DEFAULT_ARGUMENTS;

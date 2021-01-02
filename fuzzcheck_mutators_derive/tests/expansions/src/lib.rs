@@ -1,4 +1,3 @@
-
 extern crate fuzzcheck_mutators;
 
 // mod empty_structs;

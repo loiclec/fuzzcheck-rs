@@ -1,4 +1,3 @@
-
 use std::io::prelude::*;
 use std::net::TcpStream;
 
@@ -23,7 +22,6 @@ pub fn read(stream: &mut TcpStream) -> String {
 
     String::from_utf8_lossy(&buffer).to_string()
 }
-
 
 #[derive(Clone, Copy, Default)]
 pub struct FuzzerStats {

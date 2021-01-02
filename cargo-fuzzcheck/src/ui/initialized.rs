@@ -1,79 +1,210 @@
-
-
-use std::{path::PathBuf};
+use std::{collections::HashMap, ffi::OsString, rc::Rc};
 
 use termion::event::Key;
-use tui::{Frame, backend::Backend, layout::{Alignment, Constraint, Direction, Layout}, style::{Color, Style}, text::{Span, Spans, Text}, widgets::{Block, Borders, Paragraph, Wrap}};
+use tui::{Frame, backend::Backend, layout::{Constraint, Direction, Layout, Rect}, widgets::{Block, Borders}};
 
-use crate::{CargoFuzzcheckError, project::{NonInitializedRoot, Root, read::NonInitializedRootError}};
+use crate::project::Root;
 
-use super::framework::{Move, UserInput, default_style, highlight_style};
+use super::{
+    framework::{
+        Theme, Either, Focusable, HorizontalMove, InnerFocusable, ParentView, VerticalMove, ViewState,
+    },
+    horizontal_list_view::{self, HorizontalListView},
+    run_fuzz::{self, RunFuzzView},
+};
 
-pub struct State {
-    pub root: Root,
+pub struct InitializedView {
+    pub root: Rc<Root>,
     focus: Focus,
+    fuzz_target_list: HorizontalListView,
+    run_fuzz_views: Vec<RunFuzzView>,
 }
 
-impl State {
-    pub fn new(root: Root) -> Self {
-        Self {
-            root,
-            focus: Focus::Quit
+impl InitializedView {
+    pub fn new(root: Rc<Root>) -> Self {
+        let fuzz_target_list = HorizontalListView::new(
+            "Fuzz Targets",
+            fuzz_targets_from_root(&root)
+                .keys()
+                .map(|k| k.to_str().unwrap().to_string()),
+        );
+
+        let run_fuzz_views = fuzz_target_list
+            .items
+            .iter()
+            .map(|fuzz_target| RunFuzzView::new(root.clone(), fuzz_target.clone()))
+            .collect();
+        let focus = Focus::Sidebar;
+
+        let mut res = Self {
+            root: root,
+            focus,
+            fuzz_target_list,
+            run_fuzz_views,
+        };
+        res.update_focus(res.focus);
+        res
+    }
+}
+
+impl InitializedView {
+    fn current_run_fuzz_view(&self) -> Option<&RunFuzzView> {
+        if let Some(selected) = self.fuzz_target_list.state.selected() {
+            self.run_fuzz_views.get(selected)
+        } else {
+            None
+        }
+    }
+    fn current_run_fuzz_view_as_mut(&mut self) -> Option<&mut RunFuzzView> {
+        if let Some(selected) = self.fuzz_target_list.state.selected() {
+            self.run_fuzz_views.get_mut(selected)
+        } else {
+            None
         }
     }
 }
 
-enum Focus {
-    Initialize,
-    Quit
+#[derive(Clone, Copy)]
+pub enum Focus {
+    Sidebar,
+    Main,
 }
 
 pub enum Update {
-    Initialize(Option<String>),
-    Move(Move),
-    Quit
+    Sidebar(HorizontalMove),
+    RunFuzz(run_fuzz::Update),
+    SwitchFocus(Focus),
+    SelectTarget(usize),
 }
 
-pub enum OutMessage {
-    Initialized,
-    Quit
-}
+pub enum OutMessage {}
 
-impl State {
-    pub fn convert_in_message(&self, input: UserInput) -> Option<Update> {
-        if let Some(mv) = Move::from(&input) {
-            return Some(Update::Move(mv))
-        }
-        match input {
-            UserInput::Key(Key::Char('\n')) => {
-                match self.focus {
-                    Focus::Initialize => { Some(Update::Initialize(None)) }
-                    Focus::Quit => { Some(Update::Quit) }
+impl InnerFocusable for InitializedView {
+    type Focus = self::Focus;
+
+    fn focus(&mut self) -> &mut Self::Focus {
+        &mut self.focus
+    }
+
+    fn view_in_focus(&mut self) -> Option<&mut dyn Focusable> {
+        match self.focus {
+            Focus::Sidebar => Some(&mut self.fuzz_target_list),
+            Focus::Main => {
+                if self.fuzz_target_list.state.selected().is_none() {
+                    Some(&mut self.fuzz_target_list)
+                } else {
+                    Some(self.current_run_fuzz_view_as_mut().unwrap())
                 }
             }
-            _ => None,
+        }
+    }
+}
+
+impl ViewState for InitializedView {
+    type Update = self::Update;
+    type InMessage = Key;
+    type OutMessage = self::OutMessage;
+
+    fn convert_in_message(&self, message: Self::InMessage) -> Option<Self::Update> {
+        match self.focus {
+            Focus::Sidebar => Self::handle_child_in_message(&self.fuzz_target_list, message).or_else(|| {
+                if let Some(VerticalMove::Down) = VerticalMove::from(&message) {
+                    Some(Update::SwitchFocus(Focus::Main))
+                } else if matches!(message, Key::Char('\n') | Key::Esc) {
+                    Some(Update::SwitchFocus(Focus::Main))
+                } else {
+                    None
+                }
+            }),
+            Focus::Main => {
+                if let Some(run_fuzz) = self.current_run_fuzz_view() {
+                    Self::handle_child_in_message(run_fuzz, message).or_else(|| {
+                        if matches!(message, Key::Esc) {
+                            Some(Update::SwitchFocus(Focus::Sidebar))
+                        } else if let Some(VerticalMove::Up) = VerticalMove::from(&message) {
+                            Some(Update::SwitchFocus(Focus::Sidebar))
+                        } else {
+                            None
+                        }
+                    })
+                } else {
+                    Some(Update::SwitchFocus(Focus::Sidebar))
+                }
+            }
         }
     }
 
-    pub fn update(&mut self, u: Update) -> Option<OutMessage> {
-        None
+    fn update(&mut self, u: Self::Update) -> Option<Self::OutMessage> {
+        match u {
+            Update::Sidebar(u) => self
+                .fuzz_target_list
+                .update(u)
+                .and_then(|out| <Self as ParentView<HorizontalListView>>::handle_child_out_message(self, out)),
+            Update::RunFuzz(u) => self
+                .current_run_fuzz_view_as_mut()
+                .and_then(|run_fuzz| run_fuzz.update(u))
+                .and_then(|out| <Self as ParentView<RunFuzzView>>::handle_child_out_message(self, out)),
+            Update::SwitchFocus(f) => {
+                self.update_focus(f);
+                None
+            }
+            Update::SelectTarget(target) => {
+                //self.run_fuzz = Some(RunFuzzView::new(self.root.clone(), target));
+                None
+            }
+        }
     }
 
-    pub fn draw<B>(&mut self, frame: &mut Frame<B>) where B: Backend {
+    fn draw<B>(&self, frame: &mut Frame<B>, theme: &Theme, area: Rect)
+    where
+        B: Backend,
+    {
         let chunks = Layout::default()
             .direction(Direction::Vertical)
-            .constraints([Constraint::Length(5), Constraint::Min(0)].as_ref())
-            .split(frame.size());
+            .constraints([Constraint::Length(3), Constraint::Min(0)].as_ref())
+            .split(area);
 
-        let block = Block::default()
-            .style(Style::default().bg(Color::Black));
+        self.fuzz_target_list.draw(frame, theme, chunks[0]);
 
-        frame.render_widget(block, frame.size());
-
-        let fuzz_targets = self.root.fuzz.non_instrumented.fuzz_targets.targets.keys().map(|k| Span::from(k.to_str().unwrap()) ).collect::<Vec<_>>();
-        let spans = Spans::from(fuzz_targets);
-        let list = Paragraph::new(spans);
-
-        frame.render_widget(list, chunks[1])
+        if let Some(run_fuzz) = self.current_run_fuzz_view() {
+            run_fuzz.draw(frame, theme, chunks[1])
+        }
     }
+}
+
+impl ParentView<HorizontalListView> for InitializedView {
+    fn convert_child_update(update: <HorizontalListView as ViewState>::Update) -> Self::Update {
+        Self::Update::Sidebar(update)
+    }
+
+    fn convert_to_child_in_message(message: Self::InMessage) -> Option<HorizontalMove> {
+        HorizontalMove::from(&message)
+    }
+
+    fn convert_child_out_message(
+        &self,
+        message: horizontal_list_view::OutMessage,
+    ) -> super::framework::Either<Update, OutMessage> {
+        match message {
+            horizontal_list_view::OutMessage::Select(target) => Either::Left(Update::SelectTarget(target)),
+        }
+    }
+}
+
+impl ParentView<RunFuzzView> for InitializedView {
+    fn convert_child_update(update: run_fuzz::Update) -> Self::Update {
+        Self::Update::RunFuzz(update)
+    }
+
+    fn convert_to_child_in_message(message: Self::InMessage) -> Option<<RunFuzzView as ViewState>::InMessage> {
+        Some(message)
+    }
+
+    fn convert_child_out_message(&self, message: run_fuzz::OutMessage) -> super::framework::Either<Update, OutMessage> {
+        match message {}
+    }
+}
+
+fn fuzz_targets_from_root(root: &Root) -> &HashMap<OsString, Vec<u8>> {
+    &root.fuzz.non_instrumented.fuzz_targets.targets
 }

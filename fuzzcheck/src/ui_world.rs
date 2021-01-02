@@ -1,15 +1,16 @@
-
 use decent_serde_json_alternative::{FromJson, ToJson};
-use fuzzcheck_common::{arg::{FuzzerCommand, ResolvedCommandLineArguments}, ipc};
-use std::{cell::{RefCell}, collections::hash_map::DefaultHasher, net::TcpStream};
+use fuzzcheck_common::{
+    arg::{FuzzerCommand, ResolvedCommandLineArguments},
+    ipc,
+};
 use std::fs;
 use std::hash::{Hash, Hasher};
 use std::io::{self, Result};
 use std::time::Instant;
+use std::{cell::RefCell, collections::hash_map::DefaultHasher, net::TcpStream};
 
-
+use crate::world::{FuzzerEvent, FuzzerStats, WorldAction};
 use crate::Serializer;
-use crate::world::{WorldAction, FuzzerStats, FuzzerEvent};
 
 pub struct TuiWorld<S: Serializer> {
     stream: RefCell<TcpStream>,
@@ -22,7 +23,7 @@ pub struct TuiWorld<S: Serializer> {
 enum TuiMessage {
     AddInput { hash: String, input: String },
     RemoveInput { hash: String, input: String },
-    ReportEvent { event: FuzzerEvent, stats: FuzzerStats }
+    ReportEvent { event: FuzzerEvent, stats: FuzzerStats },
 }
 
 impl<S: Serializer> TuiWorld<S> {
@@ -61,9 +62,7 @@ impl<S: Serializer> TuiWorld<S> {
                     let (hash, input) = self.hash_and_string_of_input(x);
                     TuiMessage::RemoveInput { hash, input }
                 }
-                WorldAction::ReportEvent(event) => {
-                    TuiMessage::ReportEvent { event, stats: *stats }
-                },
+                WorldAction::ReportEvent(event) => TuiMessage::ReportEvent { event, stats: *stats },
             };
 
             let mut stream = self.stream.borrow_mut();
@@ -72,7 +71,6 @@ impl<S: Serializer> TuiWorld<S> {
         Ok(())
     }
 }
-
 
 impl<S: Serializer> TuiWorld<S> {
     pub fn set_start_time(&mut self) {

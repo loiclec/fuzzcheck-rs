@@ -1,24 +1,53 @@
-use std::path::PathBuf;
+use std::{path::PathBuf, rc::Rc};
 
-use tui::{Frame, backend::Backend};
+use termion::event::Key;
+use tui::{backend::Backend, layout::Rect, Frame};
 
 use crate::project::{self, Root};
 
+use crate::ui::framework::ViewState;
 use crate::ui::preinit;
 
-use super::{error_view, initialized, events::Event, framework::{Either}};
+use super::{error_view, events::Event, framework::{Either, ParentView, Theme}, initialized};
 
 pub struct State {
     pub root_path: PathBuf,
     pub phase: Phase,
 }
 
+impl State {
+    pub fn new(root_path: PathBuf) -> Self {
+        match project::Root::from_path(&root_path) {
+            Ok(root) => {
+                let state = initialized::InitializedView::new(Rc::new(root));
+                State {
+                    root_path: root_path.clone(),
+                    phase: Phase::Initialized(state),
+                }
+            }
+            Err(_) => match preinit::PreInitView::new(&root_path) {
+                Ok(state) => State {
+                    root_path: root_path.clone(),
+                    phase: Phase::PreInit(state),
+                },
+                Err(err) => {
+                    let state = error_view::ErrorView::new(Box::new(err));
+                    State {
+                        root_path: root_path.clone(),
+                        phase: Phase::Error(state),
+                    }
+                }
+            },
+        }
+    }
+}
+
 pub enum Phase {
-    Error(error_view::State),
-    PreInit(preinit::State),
-    Initialized(initialized::State),
+    Error(error_view::ErrorView),
+    PreInit(preinit::PreInitView),
+    Initialized(initialized::InitializedView),
     _Started,
-    _Ended
+    _Ended,
 }
 
 pub enum Update {
@@ -29,159 +58,121 @@ pub enum Update {
 }
 
 pub enum OutMessage {
-    Quit
+    Quit,
 }
 
-impl State {
+impl ViewState for State {
+    type Update = self::Update;
 
-    pub fn convert_preinit_out_message(&self, message: preinit::OutMessage) -> Either<Update, OutMessage> {
-        match message {
-            preinit::OutMessage::Initialized => {
-                match Root::from_path(&self.root_path) {
-                    Ok(root) => {
-                        let state = initialized::State::new(root);
-                        Either::Left(Update::ChangePhase(Phase::Initialized(state)))
-                    }
-                    Err(err) => {
-                        let state =  error_view::State::new(Box::new(err));
-                        Either::Left(Update::ChangePhase(Phase::Error(state)))
-                    }
-                }
-            }
-            preinit::OutMessage::Quit => {
-                Either::Right(OutMessage::Quit)
-            }
-            preinit::OutMessage::Error(err) => {
-                Either::Left(Update::ChangePhase(Phase::Error(error_view::State::new(Box::new(err)))))
-            }
-        }
-    }
-    
-    pub fn convert_error_out_message(&self, _message: error_view::OutMessage) -> Either<Update, OutMessage> {
-        Either::Right(OutMessage::Quit)
-    }
-    
+    type InMessage = Event<()>;
 
-    pub fn new(root_path: PathBuf) -> Self {
-        match project::Root::from_path(&root_path) {
-            Ok(root) => {
-                let state = initialized::State::new(root);
-                State {
-                    root_path: root_path.clone(),
-                    phase: Phase::Initialized(state),
-                }
-            }
-            Err(_) => {
-                match preinit::State::new(&root_path) {
-                    Ok(state) => {
-                        State {
-                            root_path: root_path.clone(),
-                            phase: Phase::PreInit(state),
-                        }
-                    }
-                    Err(err) => {
-                        let state = error_view::State::new(Box::new(err));
-                        State {
-                            root_path: root_path.clone(),
-                            phase: Phase::Error(state),
-                        }
-                    }
-                }
-            }
-        }
-    }
+    type OutMessage = self::OutMessage;
 
-    pub fn convert_in_message(&self, event: Event<()>) -> Option<Update> {
+    fn convert_in_message(&self, message: Self::InMessage) -> Option<Self::Update> {
         match &self.phase {
-            Phase::PreInit(state) => {
-                match event {
-                    Event::UserInput(u) => {
-                        state.convert_in_message(u).map(Update::PreInit)
-                    }
-                    Event::_Subscription(_) => { 
-                        None 
-                    }
-                }
-            }
-            Phase::Error(state) => { 
-                match event {
-                    Event::UserInput(u) => {
-                        state.convert_in_message(u).map(Update::Error)
-                    }
-                    Event::_Subscription(_) => { 
-                        None 
-                    }
-                }
-             }
-            Phase::Initialized(state) => { 
-                match event {
-                    Event::UserInput(u) => {
-                        state.convert_in_message(u).map(Update::Initialized)
-                    }
-                    Event::_Subscription(_) => { 
-                        None 
-                    }
-                }
-             }
-            Phase::_Started => { None }
-            Phase::_Ended => { None }
+            Phase::PreInit(state) => Self::handle_child_in_message(state, message),
+            Phase::Error(state) => Self::handle_child_in_message(state, message),
+            Phase::Initialized(state) => Self::handle_child_in_message(state, message),
+            Phase::_Started => None,
+            Phase::_Ended => None,
         }
     }
 
-    pub fn update(&mut self, u: Update) -> Option<OutMessage> {
+    fn update(&mut self, u: Self::Update) -> Option<Self::OutMessage> {
         if let Update::ChangePhase(phase) = u {
             self.phase = phase;
             None
         } else {
             match (&mut self.phase, u) {
-                (Phase::Error(state), Update::Error(u)) => { 
-                    if let Some(out) = state.update(u) {
-                        match self.convert_error_out_message(out) {
-                            Either::Left(u) => {
-                                self.update(u)
-                            }
-                            Either::Right(out) => { 
-                                Some(out) 
-                            }
-                        }
-                    } else {
-                        None
-                    }
-                }
-                (Phase::PreInit(state), Update::PreInit(u)) => {
-                    if let Some(out) = state.update(u) {
-                        match self.convert_preinit_out_message(out) {
-                            Either::Left(u) => {
-                                self.update(u)
-                            }
-                            Either::Right(out) => { 
-                                Some(out) 
-                            }
-                        }
-                    } else {
-                        None
-                    }
-                }
-                (Phase::Initialized(state), _) => { None }
-                (Phase::_Started, _) => { None }
-                (Phase::_Ended, _) => { None }
-                _ => { None }
+                (Phase::Error(state), Update::Error(u)) => state
+                    .update(u)
+                    .and_then(|out| <Self as ParentView<error_view::ErrorView>>::handle_child_out_message(self, out)),
+                (Phase::PreInit(state), Update::PreInit(u)) => state
+                    .update(u)
+                    .and_then(|out| <Self as ParentView<preinit::PreInitView>>::handle_child_out_message(self, out)),
+                (Phase::Initialized(state), Update::Initialized(u)) => state.update(u).and_then(|out| {
+                    <Self as ParentView<initialized::InitializedView>>::handle_child_out_message(self, out)
+                }),
+                (Phase::_Started, _) => None,
+                (Phase::_Ended, _) => None,
+                _ => None,
             }
         }
     }
-    pub fn draw<B>(&mut self, frame: &mut Frame<B>) where B: Backend {
-        match &mut self.phase {
-            Phase::PreInit(state) => { 
-                state.draw(frame) 
-            }
-            Phase::Error(state) => {
-                state.draw(frame)
-            }
-            Phase::Initialized(state) => {
-                state.draw(frame)
-             }
+    fn draw<B>(&self, frame: &mut Frame<B>, theme: &Theme, area: Rect)
+    where
+        B: Backend,
+    {
+        match &self.phase {
+            Phase::PreInit(state) => state.draw(frame, theme, area),
+            Phase::Error(state) => state.draw(frame, theme, area),
+            Phase::Initialized(state) => state.draw(frame, theme, area),
             Phase::_Started => {}
             Phase::_Ended => {}
         }
+    }
+}
+
+impl ParentView<preinit::PreInitView> for State {
+    fn convert_child_update(update: <preinit::PreInitView as ViewState>::Update) -> Self::Update {
+        Self::Update::PreInit(update)
+    }
+
+    fn convert_to_child_in_message(message: Self::InMessage) -> Option<<preinit::PreInitView as ViewState>::InMessage> {
+        match message {
+            Event::UserInput(u) => Some(u),
+            Event::_Subscription(_) => None,
+        }
+    }
+
+    fn convert_child_out_message(
+        &self,
+        message: <preinit::PreInitView as ViewState>::OutMessage,
+    ) -> Either<Self::Update, Self::OutMessage> {
+        match message {
+            preinit::OutMessage::Initialized => match Root::from_path(&self.root_path) {
+                Ok(root) => {
+                    let state = initialized::InitializedView::new(Rc::new(root));
+                    Either::Left(Update::ChangePhase(Phase::Initialized(state)))
+                }
+                Err(err) => {
+                    let state = error_view::ErrorView::new(Box::new(err));
+                    Either::Left(Update::ChangePhase(Phase::Error(state)))
+                }
+            },
+            preinit::OutMessage::Quit => Either::Right(OutMessage::Quit),
+            preinit::OutMessage::Error(err) => Either::Left(Update::ChangePhase(Phase::Error(
+                error_view::ErrorView::new(Box::new(err)),
+            ))),
+        }
+    }
+}
+impl ParentView<error_view::ErrorView> for State {
+    fn convert_child_update(update: <error_view::ErrorView as ViewState>::Update) -> Self::Update {
+        Self::Update::Error(update)
+    }
+    fn convert_to_child_in_message(message: Self::InMessage) -> Option<Key> {
+        match message {
+            Event::UserInput(u) => Some(u),
+            Event::_Subscription(_) => None,
+        }
+    }
+
+    fn convert_child_out_message(&self, _message: error_view::OutMessage) -> Either<Update, OutMessage> {
+        Either::Right(OutMessage::Quit)
+    }
+}
+impl ParentView<initialized::InitializedView> for State {
+    fn convert_child_update(update: <initialized::InitializedView as ViewState>::Update) -> Self::Update {
+        Self::Update::Initialized(update)
+    }
+    fn convert_to_child_in_message(message: Self::InMessage) -> Option<Key> {
+        match message {
+            Event::UserInput(u) => Some(u),
+            Event::_Subscription(_) => None,
+        }
+    }
+    fn convert_child_out_message(&self, message: initialized::OutMessage) -> Either<Update, OutMessage> {
+        match message {}
     }
 }

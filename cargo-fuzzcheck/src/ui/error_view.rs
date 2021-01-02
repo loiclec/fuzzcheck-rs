@@ -1,45 +1,53 @@
-
-
-
+use super::framework::{Theme, ViewState};
 use std::fmt::Debug;
-use tui::{Frame, backend::Backend, layout::{Alignment, Constraint, Direction, Layout}, style::{Color, Style}, text::Text, widgets::{Block, Borders, Paragraph, Wrap}};
-use super::framework::{UserInput, default_style, highlight_style};
+use termion::event::Key;
+use tui::{
+    backend::Backend,
+    layout::{Alignment, Constraint, Direction, Layout, Rect},
+    style::{Color, Style},
+    text::Text,
+    widgets::{Block, Borders, Paragraph, Wrap},
+    Frame,
+};
 
-pub struct State {
+pub struct ErrorView {
     error: Box<dyn Debug>,
 }
 
-impl State {
+impl ErrorView {
     pub fn new(error: Box<dyn Debug>) -> Self {
-        Self {
-            error
-        }
+        Self { error }
     }
 }
 
 pub struct Update;
 pub struct OutMessage;
 
-impl State {
-    pub fn convert_in_message(&self, _input: UserInput) -> Option<Update> {
+impl ViewState for ErrorView {
+    type Update = self::Update;
+    type InMessage = Key;
+    type OutMessage = self::OutMessage;
+
+    fn convert_in_message(&self, _input: Key) -> Option<Update> {
         Some(Update)
     }
 
-    pub fn update(&mut self, _u: Update) -> Option<OutMessage> {
+    fn update(&mut self, _u: Update) -> Option<OutMessage> {
         Some(OutMessage)
     }
 
-    pub fn draw<B>(&mut self, frame: &mut Frame<B>) where B: Backend {
+    fn draw<B>(&self, frame: &mut Frame<B>, theme: &Theme, area: Rect)
+    where
+        B: Backend,
+    {
         let chunks = Layout::default()
             .direction(Direction::Vertical)
             .constraints([Constraint::Length(5), Constraint::Min(0)].as_ref())
-            .split(frame.size());
+            .split(area);
 
-        let block = Block::default()
-            .style(Style::default().bg(Color::Black));
+        let block = Block::default().style(Style::default().bg(Color::Black));
 
-        frame.render_widget(block, frame.size());
-
+        frame.render_widget(block, area);
 
         let bottom_chunks = Layout::default()
             .direction(Direction::Vertical)
@@ -49,18 +57,21 @@ impl State {
         let text = Text::from(format!(
             r#"Error: {:?}
 
-            Press 'q' or Enter to exit."#
-        , self.error));
+            Press 'q' or Enter to exit."#,
+            self.error
+        ));
         let p = Paragraph::new(text)
             .block(Block::default().borders(Borders::ALL))
-            .style(default_style())
+            .style(theme.default)
             .alignment(Alignment::Left)
             .wrap(Wrap { trim: true });
 
         frame.render_widget(p, bottom_chunks[0]);
 
-
-        let quit_button = Paragraph::new(Text::raw("Quit")).block(Block::default().borders(Borders::ALL)).alignment(Alignment::Center).style(highlight_style());
+        let quit_button = Paragraph::new(Text::raw("Quit"))
+            .block(Block::default().borders(Borders::ALL))
+            .alignment(Alignment::Center)
+            .style(theme.highlight);
 
         frame.render_widget(quit_button, bottom_chunks[1]);
     }

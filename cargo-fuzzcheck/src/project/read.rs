@@ -21,7 +21,8 @@ impl NonInitializedRoot {
         let cargo_toml = CargoToml::from_file(cargo_toml_file)?;
 
         let name = cargo_toml
-            .toml.get("package")
+            .toml
+            .get("package")
             .and_then(|v| v.get("name"))
             .and_then(|v| v.as_string())
             .ok_or(NonInitializedRootError::CannotFindNameInCargoToml)?;
@@ -46,7 +47,8 @@ impl Root {
         let cargo_toml = CargoToml::from_file(cargo_toml_file)?;
 
         let name = cargo_toml
-            .toml.get("package")
+            .toml
+            .get("package")
             .and_then(|v| v.get("name"))
             .and_then(|v| v.as_string())
             .ok_or(RootError::CannotFindNameInCargoToml)?;
@@ -106,7 +108,8 @@ impl Fuzz {
             let _ = f.read_to_string(&mut string)?;
             Ok(string)
         }) {
-            let config_toml_value = TomlValue::Table(toml::parse_toml(&config_toml_string).map_err(|e| ConfigTomlError::from(e))?);
+            let config_toml_value =
+                TomlValue::Table(toml::parse_toml(&config_toml_string).map_err(|e| ConfigTomlError::from(e))?);
             if let Some(config_toml) = ConfigToml::from_toml(Some(&config_toml_value)) {
                 if !config_toml.is_valid() {
                     // TODO: is_valid function should return a ConfigTomlError with details and also check its pathbufs
@@ -305,7 +308,7 @@ impl CargoToml {
     pub fn from_file(mut file: fs::File) -> Result<CargoToml, CargoTomlError> {
         let mut content = Vec::new();
         let _ = file.read_to_end(&mut content)?;
-        
+
         let content_string = String::from_utf8(content).unwrap();
         let toml = toml::parse_toml(&content_string)?;
 

@@ -1,5 +1,8 @@
 use getopts::Options;
-use std::{net::{SocketAddr, ToSocketAddrs}, path::PathBuf};
+use std::{
+    net::{SocketAddr, ToSocketAddrs},
+    path::PathBuf,
+};
 
 #[derive(Debug, Clone, Copy)]
 pub enum FuzzerCommand {
@@ -154,10 +157,7 @@ pub fn options_parser() -> Options {
     options.optopt(
         "",
         SOCK_ADDR_FLAG,
-        format!(
-            "address of the TCP socket for communication between cargo-fuzzcheck and the fuzz target",
-        )
-        .as_str(),
+        format!("address of the TCP socket for communication between cargo-fuzzcheck and the fuzz target",).as_str(),
         "127.0.0.1:0",
     );
 

@@ -1,17 +1,16 @@
-
-use std::{sync::mpsc::Sender};
 use std::net::SocketAddr;
 use std::net::TcpListener;
 use std::net::TcpStream;
+use std::sync::mpsc::Sender;
 
 use fuzzcheck_common::ipc;
 
+use decent_serde_json_alternative::FromJson;
 use json;
-use decent_serde_json_alternative::{FromJson};
 
 #[derive(Debug, Clone, FromJson)]
 pub enum FuzzingEvent {
-    A
+    A,
 }
 
 pub fn _create_listener() -> (TcpListener, SocketAddr) {
@@ -25,7 +24,6 @@ pub fn _accept(listener: TcpListener) -> TcpStream {
 }
 
 pub fn _receive_fuzz_target_messages(mut stream: TcpStream, tx: Sender<FuzzingEvent>) {
-
     let mut all_bytes = Vec::<u8>::new();
 
     loop {

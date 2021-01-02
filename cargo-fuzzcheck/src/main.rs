@@ -118,7 +118,7 @@ cargo-fuzzcheck {run} target1 {cmin} --{in_corpus} "fuzz-corpus" --{corpus_size}
             //let project = project::Root::from_path(root_path);
             let _ = ui::launch_app(root_path.clone());
             Ok(())
-        },
+        }
         COMMAND_INIT => {
             let fuzzcheck_path = if env_args.len() > (start_idx + 1) {
                 env_args[start_idx + 1].as_str().trim()

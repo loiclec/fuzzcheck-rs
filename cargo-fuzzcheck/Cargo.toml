@@ -12,7 +12,8 @@ categories = ["development-tools"]
 
 [dependencies]
 getopts = "0.2"
-tui = "0.13.0"
+tui = "0.14.0"
+unicode-width = "0.1"
 termion = "1.5"
 json = "0.12"
 libc = "0.2"

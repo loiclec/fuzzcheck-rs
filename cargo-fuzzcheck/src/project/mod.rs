@@ -3,8 +3,8 @@ pub mod read;
 pub mod write;
 
 use decent_toml_rs_alternative as toml;
-use toml::{FromToml, ToToml};
 use toml::TomlValue;
+use toml::{FromToml, ToToml};
 
 extern crate fuzzcheck_common;
 use fuzzcheck_common::arg::CommandLineArguments;
@@ -281,7 +281,7 @@ impl Config {
             no_in_corpus: args.no_in_corpus.or(self.no_in_corpus.map(|_| ())),
             no_out_corpus: args.no_out_corpus.or(self.no_out_corpus.map(|_| ())),
             no_artifacts: args.no_artifacts.or(self.no_artifacts.map(|_| ())),
-            socket_address: args.socket_address.clone()
+            socket_address: args.socket_address.clone(),
         }
     }
 }

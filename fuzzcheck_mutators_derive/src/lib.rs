@@ -1,4 +1,3 @@
-
 use proc_macro2::{Ident, Literal, Span, TokenStream};
 
 #[macro_use]
@@ -22,8 +21,14 @@ macro_rules! opt_ts {
 }
 
 #[proc_macro_attribute]
-pub fn fuzzcheck_derive_mutator(attr: proc_macro::TokenStream, input: proc_macro::TokenStream) -> proc_macro::TokenStream {
-    let (attr, input) = (proc_macro2::TokenStream::from(attr), proc_macro2::TokenStream::from(input));
+pub fn fuzzcheck_derive_mutator(
+    attr: proc_macro::TokenStream,
+    input: proc_macro::TokenStream,
+) -> proc_macro::TokenStream {
+    let (attr, input) = (
+        proc_macro2::TokenStream::from(attr),
+        proc_macro2::TokenStream::from(input),
+    );
 
     let mut tb = TokenBuilder::new();
     input.add_to(&mut tb);
@@ -253,13 +258,14 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, derive_default: boo
     );
 
     let arbitrary_step_struct = {
-        let step_fields = field_idents.iter().map(|ids|
-            StructField {
-                identifier: StructFieldIdentifier::Named(ids.muta.clone()), 
+        let step_fields = field_idents
+            .iter()
+            .map(|ids| StructField {
+                identifier: StructFieldIdentifier::Named(ids.muta.clone()),
                 ty: ts!(ids.generic_type),
                 ..<_>::default()
-            }
-        ).collect::<Vec<_>>();
+            })
+            .collect::<Vec<_>>();
 
         let step_struct = Struct {
             visibility: ts!("pub"),
@@ -1017,10 +1023,8 @@ fn derive_enum_mutator_with_items(parsed_enum: &Enum, derive_default: bool, tb: 
     let step_struct_generics_for_assoc_type = {
         let mut generics = step_struct.generics.clone();
         let _ = generics.type_params.pop().unwrap();
-        generics = generics.mutating_type_params(|tp| {
-            tp.type_ident =
-                ts!("<" tp.type_ident "as " mutator_trait " > :: MutationStep")
-        });
+        generics = generics
+            .mutating_type_params(|tp| tp.type_ident = ts!("<" tp.type_ident "as " mutator_trait " > :: MutationStep"));
         generics.type_params.push(TypeParam {
             type_ident: ts!("Self :: ArbitraryStep"),
             ..TypeParam::default()
@@ -1117,8 +1121,7 @@ fn derive_enum_mutator_with_items(parsed_enum: &Enum, derive_default: bool, tb: 
         let _ = generics.type_params.pop().unwrap();
         let _ = generics.type_params.pop().unwrap();
         generics = generics.mutating_type_params(|tp| {
-            tp.type_ident =
-                ts!("<" tp.type_ident "as " mutator_trait " > :: UnmutateToken")
+            tp.type_ident = ts!("<" tp.type_ident "as " mutator_trait " > :: UnmutateToken")
         });
         generics.type_params.push(TypeParam {
             type_ident: ts!("Self :: Value"),
