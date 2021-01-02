@@ -7,12 +7,13 @@ use toml::TomlValue;
 use toml::{FromToml, ToToml};
 
 extern crate fuzzcheck_common;
-use fuzzcheck_common::arg::CommandLineArguments;
+use fuzzcheck_common::arg::{CommandLineArguments, DefaultArguments, FuzzerCommand};
 
 use std::path::PathBuf;
-use std::result::Result;
+use std::{fmt::Display, result::Result};
 
 use std::collections::HashMap;
+
 use std::ffi::OsString;
 
 #[derive(Debug)]
@@ -100,11 +101,29 @@ impl Root {
     pub fn artifacts_folder(&self) -> PathBuf {
         self.fuzz_folder().join("artifacts")
     }
+    pub fn default_arguments(&self, target_name: &str) -> DefaultArguments {
+        let mut defaults = DefaultArguments::default();
+
+        let defaults_corpus = self.corpora_folder().join(target_name);
+        let defaults_artifacts = self.artifacts_folder().join(target_name);
+
+        defaults.in_corpus = defaults_corpus.clone();
+        defaults.out_corpus = defaults_corpus;
+        defaults.artifacts = defaults_artifacts;
+
+        defaults
+    }
+    pub fn full_config(&self, target_name: &str, args: &CommandLineArguments) -> FullConfig {
+        let mut config = FullConfig::default();
+        config.override_with_config(self.fuzz.config_toml.resolved_config(target_name));
+        config.override_with_arguments_or_defaults(args);
+        config
+    }
 }
 
 #[derive(Debug, FromToml, ToToml)]
 pub struct Config {
-    pub coverage_level: Option<u8>,
+    pub coverage_level: Option<CoverageLevel>,
     pub trace_compares: Option<bool>,
     pub stack_depth: Option<bool>,
 
@@ -117,7 +136,7 @@ pub struct Config {
     pub extra_cargo_flags: Option<Vec<String>>,
 
     pub corpus_size: Option<usize>,
-    pub max_cplx: Option<usize>,
+    pub max_cplx: Option<f64>,
     pub max_nbr_of_runs: Option<usize>,
     pub timeout: Option<usize>,
 
@@ -131,6 +150,31 @@ pub struct Config {
 }
 
 impl Config {
+    fn default() -> Self {
+        let full = FullConfig::default();
+        let args = DefaultArguments::default();
+        Self {
+            coverage_level: Some(full.coverage_level),
+            trace_compares: Some(full.trace_compares),
+            stack_depth: Some(full.stack_depth),
+            instrumented_default_features: Some(full.instrumented_default_features),
+            non_instrumented_default_features: Some(full.non_instrumented_default_features),
+            instrumented_features: Some(full.instrumented_features),
+            non_instrumented_features: Some(full.non_instrumented_features),
+            lto: Some(full.lto),
+            extra_cargo_flags: Some(full.extra_cargo_flags),
+            corpus_size: Some(args.corpus_size),
+            max_cplx: Some(full.max_cplx),
+            max_nbr_of_runs: Some(full.max_nbr_of_runs),
+            timeout: Some(full.timeout),
+            in_corpus: None, // no value here because it is target-specific
+            out_corpus: None,
+            artifacts: None,
+            no_in_corpus: Some(false),
+            no_out_corpus: Some(false),
+            no_artifacts: Some(false),
+        }
+    }
     fn empty() -> Self {
         Self {
             coverage_level: None,
@@ -160,8 +204,286 @@ impl Config {
         }
     }
 
-    fn is_valid(&self) -> bool {
-        matches!(self.coverage_level, Some(1..=4) | None)
+    // fn full(&self, args: &FullCommandLineArguments) -> FullConfig {
+    //     FullConfig {
+    //         coverage_level: self.coverage_level.unwrap_or(DEFAULT_COVERAGE_LEVEL),
+    //         trace_compares: self.trace_compares.unwrap_or(DEFAULT_TRACE_COMPARES),
+    //         stack_depth: self.stack_depth.unwrap_or(DEFAULT_STACK_DEPTH),
+    //         instrumented_default_features: self.instrumented_default_features.unwrap_or(true),
+    //         non_instrumented_default_features: self.non_instrumented_default_features.unwrap_or(true),
+    //         instrumented_features: self.instrumented_features.unwrap_or(vec![]),
+    //         non_instrumented_features: self.non_instrumented_features.unwrap_or(vec![]),
+    //         lto: self.lto.unwrap_or(DEFAULT_LTO),
+    //         extra_cargo_flags: self.extra_cargo_flags.unwrap_or(vec![]),
+    //         corpus_size: self.corpus_size.unwrap_or(args.corpus_size),
+    //         max_cplx: self.max_cplx.unwrap_or(args.max_input_cplx as usize),
+    //         max_nbr_of_runs: self.max_nbr_of_runs.unwrap_or(args.max_nbr_of_runs),
+    //         timeout: self.timeout.unwrap_or(args.timeout),
+    //         in_corpus: self.in_corpus.clone().or(args.corpus_in),
+    //         out_corpus: self.out_corpus.clone().or(args.corpus_out),
+    //         artifacts: self.artifacts.clone().or(args.artifacts_folder),
+    //     }
+    // }
+}
+
+#[derive(Clone)]
+pub enum FullFuzzerCommand {
+    Fuzz,
+    Read { input_file: PathBuf },
+    MinifyInput { input_file: PathBuf },
+    MinifyCorpus { corpus_size: usize },
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum CoverageLevel {
+    One,
+    Two,
+    Three,
+    Four,
+}
+impl Into<usize> for CoverageLevel {
+    fn into(self) -> usize {
+        match self {
+            CoverageLevel::One => 1,
+            CoverageLevel::Two => 2,
+            CoverageLevel::Three => 3,
+            CoverageLevel::Four => 4,
+        }
+    }
+}
+impl Display for CoverageLevel {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", <Self as Into<usize>>::into(*self))
+    }
+}
+impl FromToml for CoverageLevel {
+    fn from_toml(from: Option<&TomlValue>) -> Option<Self> {
+        from.map(|value| match value {
+            TomlValue::Integer(1) => Some(Self::One),
+            TomlValue::Integer(2) => Some(Self::Two),
+            TomlValue::Integer(3) => Some(Self::Three),
+            TomlValue::Integer(4) => Some(Self::Four),
+            _ => None,
+        })
+        .flatten()
+    }
+}
+impl ToToml for CoverageLevel {
+    fn to_toml(&self) -> Option<TomlValue> {
+        Some(TomlValue::Integer(<Self as Into<usize>>::into(*self) as i64))
+    }
+}
+
+#[derive(Clone)]
+pub struct FullConfig {
+    pub command: FullFuzzerCommand,
+
+    pub coverage_level: CoverageLevel,
+    pub trace_compares: bool,
+    pub stack_depth: bool,
+
+    pub instrumented_default_features: bool,
+    pub non_instrumented_default_features: bool,
+    pub instrumented_features: Vec<String>,
+    pub non_instrumented_features: Vec<String>,
+
+    pub lto: bool,
+    pub extra_cargo_flags: Vec<String>,
+
+    pub max_cplx: f64,
+    pub max_nbr_of_runs: usize,
+    pub timeout: usize,
+
+    pub in_corpus: Option<PathBuf>,
+    pub out_corpus: Option<PathBuf>,
+    pub artifacts: Option<PathBuf>,
+}
+
+impl Default for FullConfig {
+    fn default() -> FullConfig {
+        let default_arguments = DefaultArguments::default();
+        FullConfig {
+            command: FullFuzzerCommand::Fuzz,
+            coverage_level: CoverageLevel::Four,
+            trace_compares: true,
+            stack_depth: false,
+            instrumented_default_features: true,
+            non_instrumented_default_features: true,
+            instrumented_features: vec![],
+            non_instrumented_features: vec![],
+            lto: true,
+            extra_cargo_flags: vec![],
+            max_cplx: default_arguments.max_input_cplx,
+            max_nbr_of_runs: default_arguments.max_nbr_of_runs,
+            timeout: default_arguments.timeout,
+            in_corpus: Some(default_arguments.in_corpus),
+            out_corpus: Some(default_arguments.out_corpus),
+            artifacts: Some(default_arguments.artifacts),
+        }
+    }
+}
+impl FullConfig {
+    fn override_with_config(&mut self, config: Config) {
+        let Config {
+            coverage_level,
+            trace_compares,
+            stack_depth,
+            instrumented_default_features,
+            non_instrumented_default_features,
+            instrumented_features,
+            non_instrumented_features,
+            lto,
+            extra_cargo_flags,
+            corpus_size,
+            max_cplx,
+            max_nbr_of_runs,
+            timeout,
+            in_corpus,
+            out_corpus,
+            artifacts,
+            no_in_corpus,
+            no_out_corpus,
+            no_artifacts,
+        } = config;
+
+        if let Some(coverage_level) = coverage_level {
+            self.coverage_level = coverage_level;
+        }
+        if let Some(trace_compares) = trace_compares {
+            self.trace_compares = trace_compares;
+        }
+        if let Some(stack_depth) = stack_depth {
+            self.stack_depth = stack_depth;
+        }
+        if let Some(instrumented_default_features) = instrumented_default_features {
+            self.instrumented_default_features = instrumented_default_features;
+        }
+        if let Some(non_instrumented_default_features) = non_instrumented_default_features {
+            self.non_instrumented_default_features = non_instrumented_default_features;
+        }
+        if let Some(instrumented_features) = instrumented_features {
+            self.instrumented_features = instrumented_features;
+        }
+        if let Some(non_instrumented_features) = non_instrumented_features {
+            self.non_instrumented_features = non_instrumented_features;
+        }
+        if let Some(lto) = lto {
+            self.lto = lto;
+        }
+        if let Some(extra_cargo_flags) = extra_cargo_flags {
+            self.extra_cargo_flags = extra_cargo_flags;
+        }
+        if let Some(corpus_size) = corpus_size {
+            if let FullFuzzerCommand::MinifyCorpus { .. } = self.command {
+                self.command = FullFuzzerCommand::MinifyCorpus { corpus_size };
+            }
+        }
+        if let Some(max_cplx) = max_cplx {
+            self.max_cplx = max_cplx;
+        }
+        if let Some(max_nbr_of_runs) = max_nbr_of_runs {
+            self.max_nbr_of_runs = max_nbr_of_runs;
+        }
+        if let Some(timeout) = timeout {
+            self.timeout = timeout;
+        }
+        if let Some(in_corpus) = in_corpus {
+            self.in_corpus = Some(in_corpus);
+        }
+        if let Some(out_corpus) = out_corpus {
+            self.out_corpus = Some(out_corpus);
+        }
+        if let Some(artifacts) = artifacts {
+            self.artifacts = Some(artifacts);
+        }
+        if let Some(true) = no_in_corpus {
+            self.in_corpus = None;
+        }
+        if let Some(true) = no_out_corpus {
+            self.out_corpus = None;
+        }
+        if let Some(true) = no_artifacts {
+            self.artifacts = None;
+        }
+    }
+    fn override_with_arguments_or_defaults(&mut self, args: &CommandLineArguments) {
+        let defaults = DefaultArguments::default();
+
+        let CommandLineArguments {
+            command,
+            max_nbr_of_runs,
+            max_input_cplx,
+            timeout,
+            corpus_size,
+            input_file,
+            corpus_in,
+            corpus_out,
+            artifacts_folder,
+            no_in_corpus,
+            no_out_corpus,
+            no_artifacts,
+            socket_address: _,
+        } = args;
+
+        self.command = match command {
+            FuzzerCommand::MinifyInput => FullFuzzerCommand::MinifyInput {
+                input_file: input_file
+                    .clone()
+                    .expect("An input file must be given when minifying an input'"),
+            },
+            FuzzerCommand::Fuzz => FullFuzzerCommand::Fuzz,
+            FuzzerCommand::Read => FullFuzzerCommand::Read {
+                input_file: input_file
+                    .clone()
+                    .expect("An input file must be given when when reading an input"),
+            },
+            FuzzerCommand::MinifyCorpus => FullFuzzerCommand::MinifyCorpus {
+                corpus_size: corpus_size.unwrap_or(defaults.corpus_size),
+            },
+        };
+
+        if let Some(corpus_size) = corpus_size {
+            if let FullFuzzerCommand::MinifyCorpus { .. } = self.command {
+                self.command = FullFuzzerCommand::MinifyCorpus {
+                    corpus_size: *corpus_size,
+                };
+            }
+        }
+        if let Some(max_cplx) = max_input_cplx {
+            self.max_cplx = *max_cplx;
+        }
+        if let Some(max_nbr_of_runs) = max_nbr_of_runs {
+            self.max_nbr_of_runs = *max_nbr_of_runs;
+        }
+        if let Some(timeout) = timeout {
+            self.timeout = *timeout;
+        }
+        if let Some(in_corpus) = corpus_in {
+            self.in_corpus = Some(in_corpus.clone());
+        } else if matches!(self.command, FullFuzzerCommand::MinifyCorpus{..}) {
+            self.in_corpus = Some(defaults.in_corpus);
+        }
+        if let Some(out_corpus) = corpus_out {
+            self.out_corpus = Some(out_corpus.clone());
+        } else if matches!(self.command, FullFuzzerCommand::MinifyCorpus{..}) {
+            self.out_corpus = Some(defaults.out_corpus);
+        }
+        if let Some(artifacts) = artifacts_folder {
+            self.artifacts = Some(artifacts.clone());
+        }
+        if let Some(()) = no_in_corpus {
+            if !matches!(self.command, FullFuzzerCommand::MinifyCorpus{..}) {
+                self.in_corpus = None;
+            }
+        }
+        if let Some(()) = no_out_corpus {
+            if !matches!(self.command, FullFuzzerCommand::MinifyCorpus{..}) {
+                self.out_corpus = None;
+            }
+        }
+        if let Some(()) = no_artifacts {
+            self.artifacts = None;
+        }
     }
 }
 
@@ -176,9 +498,6 @@ impl ConfigToml {
             default: Config::empty(),
             targets: HashMap::new(),
         }
-    }
-    pub fn is_valid(&self) -> bool {
-        self.default.is_valid() && self.targets.values().all(|x| x.is_valid())
     }
     pub fn resolved_config(&self, target_name: &str) -> Config {
         let target_config = self.targets.get(target_name);
@@ -262,26 +581,6 @@ impl ConfigToml {
                 .and_then(|c| c.no_artifacts.as_ref())
                 .or(self.default.no_artifacts.as_ref())
                 .cloned(),
-        }
-    }
-}
-
-impl Config {
-    pub fn resolve_arguments(&self, args: &CommandLineArguments) -> CommandLineArguments {
-        CommandLineArguments {
-            command: args.command,
-            max_input_cplx: args.max_input_cplx.or(self.max_cplx.map(|x| x as f64)),
-            timeout: args.timeout.or(self.timeout),
-            corpus_size: args.corpus_size.or(self.corpus_size),
-            max_nbr_of_runs: args.max_nbr_of_runs.or(self.max_nbr_of_runs),
-            input_file: args.input_file.clone(),
-            corpus_in: args.corpus_in.clone().or(self.in_corpus.clone()),
-            corpus_out: args.corpus_out.clone().or(self.out_corpus.clone()),
-            artifacts_folder: args.artifacts_folder.clone().or(self.artifacts.clone()),
-            no_in_corpus: args.no_in_corpus.or(self.no_in_corpus.map(|_| ())),
-            no_out_corpus: args.no_out_corpus.or(self.no_out_corpus.map(|_| ())),
-            no_artifacts: args.no_artifacts.or(self.no_artifacts.map(|_| ())),
-            socket_address: args.socket_address.clone(),
         }
     }
 }

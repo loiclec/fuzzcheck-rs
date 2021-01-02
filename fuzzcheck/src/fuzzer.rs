@@ -11,7 +11,7 @@ use crate::world::{FuzzerEvent, FuzzerStats};
 use crate::{code_coverage_sensor::shared_sensor, world::WorldAction};
 use crate::{Feature, FuzzedInput, Mutator, Serializer};
 
-use fuzzcheck_common::arg::{FuzzerCommand, ResolvedCommandLineArguments};
+use fuzzcheck_common::arg::{FullCommandLineArguments, FuzzerCommand};
 
 use nix::signal;
 
@@ -58,7 +58,7 @@ struct FuzzerState<M: Mutator, S: Serializer<Value = M::Value>> {
     arbitrary_step: M::ArbitraryStep,
     input_idx: FuzzerInputIndex<M>,
     stats: FuzzerStats,
-    settings: ResolvedCommandLineArguments,
+    settings: FullCommandLineArguments,
     world: TuiWorld<S>,
     analysis_cache: AnalysisCache<M>,
 }
@@ -167,7 +167,7 @@ where
     M: Mutator,
     S: Serializer<Value = M::Value>,
 {
-    pub fn new(test: F, mutator: M, settings: ResolvedCommandLineArguments, world: TuiWorld<S>) -> Self {
+    pub fn new(test: F, mutator: M, settings: FullCommandLineArguments, world: TuiWorld<S>) -> Self {
         Fuzzer {
             state: FuzzerState {
                 mutator,
@@ -485,7 +485,7 @@ pub fn launch<T, F, M, S>(
     test: F,
     mutator: M,
     serializer: S,
-    args: ResolvedCommandLineArguments,
+    args: FullCommandLineArguments,
 ) -> Result<(), std::io::Error>
 where
     T: ?Sized,

@@ -1,4 +1,4 @@
-use std::{path::PathBuf, rc::Rc};
+use std::{path::PathBuf, rc::Rc, sync::mpsc::Sender};
 
 use termion::event::Key;
 use tui::{backend::Backend, layout::Rect, Frame};
@@ -12,34 +12,39 @@ use super::{
     error_view,
     events::Event,
     framework::{Either, ParentView, Theme},
-    initialized,
+    fuzz_target_comm::FuzzingEvent,
+    fuzzing, initialized,
 };
 
 pub struct State {
     pub root_path: PathBuf,
     pub phase: Phase,
+    pub sender: Sender<Event<FuzzingEvent>>,
 }
 
 impl State {
-    pub fn new(root_path: PathBuf) -> Self {
+    pub fn new(root_path: PathBuf, sender: Sender<Event<FuzzingEvent>>) -> Self {
         match project::Root::from_path(&root_path) {
             Ok(root) => {
                 let state = initialized::InitializedView::new(Rc::new(root));
                 State {
                     root_path: root_path.clone(),
                     phase: Phase::Initialized(state),
+                    sender,
                 }
             }
             Err(_) => match preinit::PreInitView::new(&root_path) {
                 Ok(state) => State {
                     root_path: root_path.clone(),
                     phase: Phase::PreInit(state),
+                    sender,
                 },
                 Err(err) => {
                     let state = error_view::ErrorView::new(Box::new(err));
                     State {
                         root_path: root_path.clone(),
                         phase: Phase::Error(state),
+                        sender,
                     }
                 }
             },
@@ -51,7 +56,7 @@ pub enum Phase {
     Error(error_view::ErrorView),
     PreInit(preinit::PreInitView),
     Initialized(initialized::InitializedView),
-    _Started,
+    Fuzzing(fuzzing::FuzzingView),
     _Ended,
 }
 
@@ -69,7 +74,7 @@ pub enum OutMessage {
 impl ViewState for State {
     type Update = self::Update;
 
-    type InMessage = Event<()>;
+    type InMessage = Event<FuzzingEvent>;
 
     type OutMessage = self::OutMessage;
 
@@ -78,7 +83,7 @@ impl ViewState for State {
             Phase::PreInit(state) => Self::handle_child_in_message(state, message),
             Phase::Error(state) => Self::handle_child_in_message(state, message),
             Phase::Initialized(state) => Self::handle_child_in_message(state, message),
-            Phase::_Started => None,
+            Phase::Fuzzing(state) => todo!(),
             Phase::_Ended => None,
         }
     }
@@ -98,7 +103,9 @@ impl ViewState for State {
                 (Phase::Initialized(state), Update::Initialized(u)) => state.update(u).and_then(|out| {
                     <Self as ParentView<initialized::InitializedView>>::handle_child_out_message(self, out)
                 }),
-                (Phase::_Started, _) => None,
+                (Phase::Fuzzing(state), _) => {
+                    todo!()
+                }
                 (Phase::_Ended, _) => None,
                 _ => None,
             }
@@ -112,7 +119,9 @@ impl ViewState for State {
             Phase::PreInit(state) => state.draw(frame, theme, area),
             Phase::Error(state) => state.draw(frame, theme, area),
             Phase::Initialized(state) => state.draw(frame, theme, area),
-            Phase::_Started => {}
+            Phase::Fuzzing(state) => {
+                todo!()
+            }
             Phase::_Ended => {}
         }
     }
@@ -126,7 +135,7 @@ impl ParentView<preinit::PreInitView> for State {
     fn convert_to_child_in_message(message: Self::InMessage) -> Option<<preinit::PreInitView as ViewState>::InMessage> {
         match message {
             Event::UserInput(u) => Some(u),
-            Event::_Subscription(_) => None,
+            Event::Subscription(_) => None,
         }
     }
 
@@ -159,7 +168,7 @@ impl ParentView<error_view::ErrorView> for State {
     fn convert_to_child_in_message(message: Self::InMessage) -> Option<Key> {
         match message {
             Event::UserInput(u) => Some(u),
-            Event::_Subscription(_) => None,
+            Event::Subscription(_) => None,
         }
     }
 
@@ -174,7 +183,7 @@ impl ParentView<initialized::InitializedView> for State {
     fn convert_to_child_in_message(message: Self::InMessage) -> Option<Key> {
         match message {
             Event::UserInput(u) => Some(u),
-            Event::_Subscription(_) => None,
+            Event::Subscription(_) => None,
         }
     }
     fn convert_child_out_message(&self, message: initialized::OutMessage) -> Either<Update, OutMessage> {

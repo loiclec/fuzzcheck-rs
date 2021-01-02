@@ -4,6 +4,7 @@ mod horizontal_list_view;
 mod text_field_view;
 
 mod error_view;
+mod fuzzing;
 mod initialized;
 mod preinit;
 mod run_fuzz;
@@ -26,7 +27,7 @@ use termion::screen::AlternateScreen;
 
 use tui::{backend::TermionBackend, Terminal};
 
-use self::framework::Theme;
+use self::{framework::Theme, fuzz_target_comm::FuzzingEvent};
 
 pub fn launch_app(root_path: PathBuf) -> Result<(), Box<dyn Error>> {
     // Terminal initialization
@@ -36,9 +37,9 @@ pub fn launch_app(root_path: PathBuf) -> Result<(), Box<dyn Error>> {
     let backend = TermionBackend::new(stdout);
     let mut terminal = Terminal::new(backend)?;
 
-    let events = events::Events::<()>::new();
+    let events = events::Events::<FuzzingEvent>::new();
 
-    let mut state = app::State::new(root_path);
+    let mut state = app::State::new(root_path, events.tx.clone());
 
     'main_loop: loop {
         terminal.draw(|f| {
@@ -56,7 +57,7 @@ pub fn launch_app(root_path: PathBuf) -> Result<(), Box<dyn Error>> {
                     break 'main_loop;
                 }
             }
-            events::Event::_Subscription(_) => {}
+            _ => {}
         }
 
         if let Some(update) = state.convert_in_message(event) {

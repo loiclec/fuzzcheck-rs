@@ -1,17 +1,12 @@
 use decent_toml_rs_alternative as toml;
 extern crate fuzzcheck_common;
-use fuzzcheck_common::arg::DEFAULT_ARGUMENTS;
 
 use crate::default_target;
 use crate::project::*;
 
 use std::path::Path;
 
-pub const DEFAULT_TARGET_NAME: &str = "target1";
-pub const DEFAULT_LTO: bool = true;
-pub const DEFAULT_COVERAGE_LEVEL: u8 = 4;
-pub const DEFAULT_TRACE_COMPARES: bool = true;
-pub const DEFAULT_STACK_DEPTH: bool = false;
+const DEFAULT_TARGET_NAME: &str = "target1";
 
 impl Fuzz {
     pub fn init(path: &Path, library: &str, fuzzcheck_path_or_version: &str) -> Self {
@@ -66,32 +61,7 @@ fuzzcheck-rs
         config_targets.insert("target1".to_string(), config_target);
 
         let config_toml = ConfigToml {
-            default: Config {
-                coverage_level: Some(DEFAULT_COVERAGE_LEVEL),
-                trace_compares: Some(DEFAULT_TRACE_COMPARES),
-                stack_depth: Some(DEFAULT_STACK_DEPTH),
-
-                lto: Some(DEFAULT_LTO),
-                extra_cargo_flags: None,
-
-                instrumented_default_features: None,
-                non_instrumented_default_features: None,
-                instrumented_features: None,
-                non_instrumented_features: None,
-
-                corpus_size: Some(100),
-                max_nbr_of_runs: None,
-                max_cplx: Some(DEFAULT_ARGUMENTS.max_input_cplx),
-                timeout: None,
-
-                in_corpus: None,
-                out_corpus: None,
-                artifacts: None,
-
-                no_in_corpus: None,
-                no_out_corpus: None,
-                no_artifacts: None,
-            },
+            default: Config::default(),
             targets: config_targets,
         };
 

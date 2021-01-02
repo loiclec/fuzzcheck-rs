@@ -1,6 +1,6 @@
 use std::{error::Error, fmt::Display, rc::Rc, write};
 
-use fuzzcheck_common::arg::{options_parser, CommandLineArguments, ResolvedCommandLineArguments, DEFAULT_ARGUMENTS};
+use fuzzcheck_common::arg::{options_parser, CommandLineArguments};
 
 /**
     This view presents the default configuration for a particular fuzz target,
@@ -16,7 +16,7 @@ use tui::{
     Frame,
 };
 
-use crate::project::Root;
+use crate::project::{FullConfig, Root};
 
 use super::{
     framework::{Either, Focusable, InnerFocusable, ParentView, Theme, ViewState},
@@ -52,10 +52,10 @@ impl Display for ArgParseError {
 pub struct RunFuzzView {
     pub root: Rc<Root>,
     fuzz_target: String,
-    initial_args: ResolvedCommandLineArguments,
-    final_args: ResolvedCommandLineArguments,
+    initial_config: FullConfig,
+    final_config: FullConfig,
     error: Option<ArgParseError>,
-    max_input_cplx_field: TextFieldView,
+    max_cplx_field: TextFieldView,
     focus: Focus,
     focused: bool,
 }
@@ -63,19 +63,16 @@ pub struct RunFuzzView {
 impl RunFuzzView {
     pub fn new(root: Rc<Root>, fuzz_target: String) -> Self {
         let options_parser = options_parser();
-        let args = CommandLineArguments::from_parser(&options_parser, &["fuzz".to_string()]).unwrap();
-        let config = root.fuzz.config_toml.resolved_config(&fuzz_target);
-        let args = config.resolve_arguments(&args);
-        let args = args.resolved(DEFAULT_ARGUMENTS);
-        let max_input_cplx = format!("{}", args.max_input_cplx);
+        let config = root.full_config(&fuzz_target, &CommandLineArguments::default());
+        let max_cplx = format!("{}", config.max_cplx);
 
         Self {
             root,
             fuzz_target,
-            initial_args: args.clone(),
-            final_args: args,
+            initial_config: config.clone(),
+            final_config: config,
             error: None,
-            max_input_cplx_field: TextFieldView::new(max_input_cplx),
+            max_cplx_field: TextFieldView::new(max_cplx),
             focus: Focus::RunButton,
             focused: false,
         }
@@ -120,7 +117,7 @@ impl InnerFocusable for RunFuzzView {
 
     fn view_in_focus(&mut self) -> Option<&mut dyn Focusable> {
         match self.focus {
-            Focus::MaxInputComplexity => Some(&mut self.max_input_cplx_field),
+            Focus::MaxInputComplexity => Some(&mut self.max_cplx_field),
             Focus::RunButton => None,
         }
     }
@@ -134,7 +131,7 @@ pub enum Update {
 }
 
 pub enum OutMessage {
-    Run(ResolvedCommandLineArguments),
+    Run(FullConfig),
 }
 
 impl ViewState for RunFuzzView {
@@ -155,7 +152,7 @@ impl ViewState for RunFuzzView {
                 _ => {}
             },
             Focus::MaxInputComplexity => {
-                if let Some(u) = Self::handle_child_in_message(&self.max_input_cplx_field, message) {
+                if let Some(u) = Self::handle_child_in_message(&self.max_cplx_field, message) {
                     return Some(u);
                 }
             }
@@ -174,33 +171,33 @@ impl ViewState for RunFuzzView {
 
     fn update(&mut self, u: Self::Update) -> Option<Self::OutMessage> {
         match u {
-            Update::Run => Some(OutMessage::Run(self.final_args.clone())),
+            Update::Run => Some(OutMessage::Run(self.final_config.clone())),
             Update::SwitchFocus(f) => {
                 self.update_focus(f);
                 None
             }
             Update::MaxInputComplexityView(u) => self
-                .max_input_cplx_field
+                .max_cplx_field
                 .update(u)
                 .and_then(|out| self.handle_child_out_message(out)),
 
             Update::SetMaxInputComplexity(s) => {
                 if s.is_empty() {
-                    self.final_args.max_input_cplx = self.initial_args.max_input_cplx;
+                    self.final_config.max_cplx = self.initial_config.max_cplx;
                     self.error = None;
                 } else {
                     match str::parse::<f64>(s.trim()) {
                         Ok(cplx) => {
                             if cplx <= 0.0 {
-                                self.final_args.max_input_cplx = self.initial_args.max_input_cplx;
+                                self.final_config.max_cplx = self.initial_config.max_cplx;
                                 self.error = Some(ArgParseError::MaxInputComplexity(Box::new(FloatEqualZeroError)))
                             } else {
-                                self.final_args.max_input_cplx = cplx;
+                                self.final_config.max_cplx = cplx;
                                 self.error = None;
                             }
                         }
                         Err(e) => {
-                            self.final_args.max_input_cplx = self.initial_args.max_input_cplx;
+                            self.final_config.max_cplx = self.initial_config.max_cplx;
                             self.error = Some(ArgParseError::MaxInputComplexity(Box::new(e)))
                         }
                     }
@@ -254,8 +251,7 @@ impl ViewState for RunFuzzView {
         let inner_max_cplx_block = max_cplx_block.inner(chunks[0]);
         frame.render_widget(max_cplx_block, chunks[0]);
 
-        self.max_input_cplx_field
-            .draw(frame, &inner_theme, inner_max_cplx_block);
+        self.max_cplx_field.draw(frame, &inner_theme, inner_max_cplx_block);
 
         match &self.error {
             Some(err) => {
@@ -284,7 +280,7 @@ impl ViewState for RunFuzzView {
                         inner_theme.default,
                     )),
                     Spans::from(Span::styled(
-                        crate::strings_from_resolved_args(self.final_args.clone()).join(" "),
+                        crate::strings_from_resolved_args(&self.final_config).join(" "),
                         inner_theme.emphasis,
                     )),
                 ])

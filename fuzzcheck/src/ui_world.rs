@@ -1,6 +1,6 @@
 use decent_serde_json_alternative::{FromJson, ToJson};
 use fuzzcheck_common::{
-    arg::{FuzzerCommand, ResolvedCommandLineArguments},
+    arg::{FullCommandLineArguments, FuzzerCommand},
     ipc,
 };
 use std::fs;
@@ -14,7 +14,7 @@ use crate::Serializer;
 
 pub struct TuiWorld<S: Serializer> {
     stream: RefCell<TcpStream>,
-    settings: ResolvedCommandLineArguments,
+    settings: FullCommandLineArguments,
     instant: Instant,
     serializer: S,
 }
@@ -27,7 +27,7 @@ enum TuiMessage {
 }
 
 impl<S: Serializer> TuiWorld<S> {
-    pub fn new(serializer: S, settings: ResolvedCommandLineArguments) -> Self {
+    pub fn new(serializer: S, settings: FullCommandLineArguments) -> Self {
         let stream = RefCell::new(TcpStream::connect(settings.socket_address.unwrap()).unwrap());
         Self {
             stream,

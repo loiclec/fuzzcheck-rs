@@ -12,13 +12,14 @@ where
     S: Send + 'static,
 {
     UserInput(Key),
-    _Subscription(S),
+    Subscription(S),
 }
 
 pub struct Events<S>
 where
     S: Send + 'static,
 {
+    pub tx: mpsc::Sender<Event<S>>,
     rx: mpsc::Receiver<Event<S>>,
     _input_handle: thread::JoinHandle<()>,
 }
@@ -48,6 +49,7 @@ where
         };
 
         Events {
+            tx,
             rx,
             _input_handle: input_handle,
         }

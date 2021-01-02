@@ -4,7 +4,7 @@ use cargo_fuzzcheck::*;
 
 use fuzzcheck_common::arg::*;
 
-use std::string::String;
+use std::{process, string::String};
 
 use std::env;
 
@@ -156,13 +156,22 @@ cargo-fuzzcheck {run} target1 {cmin} --{in_corpus} "fuzz-corpus" --{corpus_size}
                     return Ok(()); // TODO: change that
                 }
             };
+
+            let config = root.full_config(target_name, &args);
+
             let r = match args.command {
-                FuzzerCommand::Fuzz => root.run_command(&args, target_name).map(|_| ()),
-                FuzzerCommand::MinifyInput => root.input_minify_command(&args, target_name),
+                FuzzerCommand::Fuzz => root
+                    .run_command(target_name, &config, || process::Stdio::inherit())
+                    .and_then(|child| child.wait_with_output().map_err(|err| err.into()))
+                    .map(|_| ()),
+                FuzzerCommand::MinifyInput => root.input_minify_command(target_name, &config),
                 FuzzerCommand::Read => {
                     panic!("unimplemented");
                 }
-                FuzzerCommand::MinifyCorpus => root.launch_executable(&args, target_name),
+                FuzzerCommand::MinifyCorpus => root
+                    .launch_executable(&target_name, &config, || process::Stdio::inherit())
+                    .and_then(|child| child.wait_with_output().map_err(|err| err.into()))
+                    .map(|_| ()),
             };
             if let Err(e) = r {
                 println!("{}", e);

@@ -111,12 +111,7 @@ impl Fuzz {
             let config_toml_value =
                 TomlValue::Table(toml::parse_toml(&config_toml_string).map_err(|e| ConfigTomlError::from(e))?);
             if let Some(config_toml) = ConfigToml::from_toml(Some(&config_toml_value)) {
-                if !config_toml.is_valid() {
-                    // TODO: is_valid function should return a ConfigTomlError with details and also check its pathbufs
-                    Err(ConfigTomlError::CoverageLevelNotValid)
-                } else {
-                    Ok(config_toml)
-                }
+                Ok(config_toml)
             } else {
                 Err(ConfigTomlError::WrongFormat)
             }

@@ -13,17 +13,17 @@ pub enum FuzzingEvent {
     A,
 }
 
-pub fn _create_listener() -> (TcpListener, SocketAddr) {
+pub fn create_listener() -> (TcpListener, SocketAddr) {
     let server_listener = TcpListener::bind("127.0.0.1:0").unwrap();
     let addr = server_listener.local_addr().unwrap();
     (server_listener, addr)
 }
 
-pub fn _accept(listener: TcpListener) -> TcpStream {
+pub fn accept(listener: TcpListener) -> TcpStream {
     listener.accept().unwrap().0
 }
 
-pub fn _receive_fuzz_target_messages(mut stream: TcpStream, tx: Sender<FuzzingEvent>) {
+pub fn receive_fuzz_target_messages(mut stream: TcpStream, tx: Sender<FuzzingEvent>) {
     let mut all_bytes = Vec::<u8>::new();
 
     loop {

@@ -20,7 +20,7 @@ mod pool;
 mod signals_handler;
 
 use fuzzcheck_common::arg::{
-    options_parser, ResolvedCommandLineArguments, COMMAND_FUZZ, COMMAND_MINIFY_CORPUS, COMMAND_MINIFY_INPUT,
+    options_parser, FullCommandLineArguments, COMMAND_FUZZ, COMMAND_MINIFY_CORPUS, COMMAND_MINIFY_INPUT,
     CORPUS_SIZE_FLAG, INPUT_FILE_FLAG, IN_CORPUS_FLAG,
 };
 
@@ -116,7 +116,7 @@ fuzzcheck {cmin} --{in_corpus} "fuzz-corpus" --{corpus_size} 25
     )
     .as_str();
 
-    let args = match ResolvedCommandLineArguments::from_parser(&parser, &env_args[1..]) {
+    let args = match FullCommandLineArguments::from_parser(&parser, &env_args[1..]) {
         Ok(r) => r,
         Err(e) => {
             println!("{}\n\n{}", e, help);

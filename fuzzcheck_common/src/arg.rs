@@ -11,6 +11,11 @@ pub enum FuzzerCommand {
     Read,
     MinifyCorpus,
 }
+impl Default for FuzzerCommand {
+    fn default() -> Self {
+        Self::Fuzz
+    }
+}
 
 pub const TIMEOUT_FLAG: &str = "timeout";
 pub const MAX_NBR_RUNS_FLAG: &str = "max-iter";
@@ -31,30 +36,33 @@ pub const COMMAND_MINIFY_CORPUS: &str = "cmin";
 pub const COMMAND_READ: &str = "read";
 
 #[derive(Clone)]
-pub struct DefaultArguments<'a> {
+pub struct DefaultArguments {
     pub command: FuzzerCommand,
-    pub in_corpus: &'a str,
-    pub out_corpus: &'a str,
-    pub artifacts: &'a str,
+    pub in_corpus: PathBuf,
+    pub out_corpus: PathBuf,
+    pub artifacts: PathBuf,
     pub max_nbr_of_runs: usize,
-    pub max_input_cplx: usize,
+    pub max_input_cplx: f64,
     pub timeout: usize,
     pub corpus_size: usize,
 }
-
-pub const DEFAULT_ARGUMENTS: DefaultArguments<'static> = DefaultArguments {
-    command: FuzzerCommand::Fuzz,
-    in_corpus: "corpus",
-    out_corpus: "corpus",
-    artifacts: "artifacts",
-    max_nbr_of_runs: core::usize::MAX,
-    max_input_cplx: 4096,
-    timeout: 0,
-    corpus_size: 100,
-};
+impl Default for DefaultArguments {
+    fn default() -> Self {
+        Self {
+            command: FuzzerCommand::Fuzz,
+            in_corpus: PathBuf::from("corpus".to_string()),
+            out_corpus: PathBuf::from("corpus".to_string()),
+            artifacts: PathBuf::from("artifacts".to_string()),
+            max_nbr_of_runs: core::usize::MAX,
+            max_input_cplx: 4096.0,
+            timeout: 0,
+            corpus_size: 100,
+        }
+    }
+}
 
 #[derive(Debug, Clone)]
-pub struct ResolvedCommandLineArguments {
+pub struct FullCommandLineArguments {
     pub command: FuzzerCommand,
     pub max_nbr_of_runs: usize,
     pub max_input_cplx: f64,
@@ -67,7 +75,7 @@ pub struct ResolvedCommandLineArguments {
     pub socket_address: Option<SocketAddr>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Default, Debug, Clone)]
 pub struct CommandLineArguments {
     pub command: FuzzerCommand,
     pub max_nbr_of_runs: Option<usize>,
@@ -89,6 +97,8 @@ pub struct CommandLineArguments {
 #[must_use]
 pub fn options_parser() -> Options {
     let mut options = Options::new();
+
+    let defaults = DefaultArguments::default();
 
     options.long_only(true);
     options.optopt("", IN_CORPUS_FLAG, "folder for the input corpus", "PATH");
@@ -127,7 +137,7 @@ pub fn options_parser() -> Options {
         CORPUS_SIZE_FLAG,
         format!(
             "target size of the corpus (default: {default})",
-            default = DEFAULT_ARGUMENTS.corpus_size
+            default = defaults.corpus_size
         )
         .as_str(),
         "N",
@@ -137,7 +147,7 @@ pub fn options_parser() -> Options {
         MAX_INPUT_CPLX_FLAG,
         format!(
             "maximum allowed complexity of inputs (default: {default})",
-            default = DEFAULT_ARGUMENTS.max_input_cplx
+            default = defaults.max_input_cplx
         )
         .as_str(),
         "N",
@@ -148,7 +158,7 @@ pub fn options_parser() -> Options {
         TIMEOUT_FLAG,
         format!(
             "maximum allowed time in milliseconds for a single run to finish, or 0 for no limit (default: {default})",
-            default = DEFAULT_ARGUMENTS.timeout
+            default = defaults.timeout
         )
         .as_str(),
         "N",
@@ -251,7 +261,7 @@ impl CommandLineArguments {
         })
     }
 
-    pub fn resolved(&self, defaults: DefaultArguments) -> ResolvedCommandLineArguments {
+    pub fn resolved(&self, defaults: DefaultArguments) -> FullCommandLineArguments {
         let command = self.command;
 
         let max_input_cplx: f64 = self.max_input_cplx.unwrap_or(defaults.max_input_cplx as f64);
@@ -295,7 +305,7 @@ impl CommandLineArguments {
 
         let socket_address = self.socket_address;
 
-        ResolvedCommandLineArguments {
+        FullCommandLineArguments {
             command,
             max_nbr_of_runs,
             max_input_cplx,
@@ -310,11 +320,11 @@ impl CommandLineArguments {
     }
 }
 
-impl ResolvedCommandLineArguments {
+impl FullCommandLineArguments {
     /// Get the command line arguments to the fuzzer from the option parser
     /// # Errors
     /// TODO
     pub fn from_parser(options: &Options, args: &[String]) -> Result<Self, String> {
-        Ok(CommandLineArguments::from_parser(options, args)?.resolved(DEFAULT_ARGUMENTS))
+        Ok(CommandLineArguments::from_parser(options, args)?.resolved(DefaultArguments::default()))
     }
 }

@@ -1,6 +1,5 @@
 use std::{collections::HashMap, ffi::OsString, rc::Rc};
 
-use fuzzcheck_common::arg::ResolvedCommandLineArguments;
 use termion::event::Key;
 use tui::{
     backend::Backend,
@@ -8,7 +7,7 @@ use tui::{
     Frame,
 };
 
-use crate::project::Root;
+use crate::project::{FullConfig, Root};
 
 use super::{
     framework::{Either, Focusable, HorizontalMove, InnerFocusable, ParentView, Theme, VerticalMove, ViewState},
@@ -81,7 +80,7 @@ pub enum Update {
 }
 
 pub enum OutMessage {
-    Run(ResolvedCommandLineArguments),
+    Run(FullConfig),
 }
 
 impl InnerFocusable for InitializedView {
@@ -207,7 +206,7 @@ impl ParentView<RunFuzzView> for InitializedView {
 
     fn convert_child_out_message(&self, message: run_fuzz::OutMessage) -> super::framework::Either<Update, OutMessage> {
         match message {
-            run_fuzz::OutMessage::Run(args) => Either::Right(OutMessage::Run(args)),
+            run_fuzz::OutMessage::Run(config) => Either::Right(OutMessage::Run(config)),
         }
     }
 }

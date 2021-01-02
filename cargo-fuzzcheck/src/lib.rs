@@ -1,13 +1,15 @@
 pub mod project;
 pub mod ui;
 
-use init::{DEFAULT_COVERAGE_LEVEL, DEFAULT_LTO, DEFAULT_STACK_DEPTH, DEFAULT_TRACE_COMPARES};
 use project::*;
 
 use fuzzcheck_common::arg::*;
 
-use std::fmt::{self, Display};
 use std::path::{Path, PathBuf};
+use std::{
+    fmt::{self, Display},
+    process::{self, Stdio},
+};
 
 use std::process::Command;
 
@@ -43,18 +45,15 @@ impl Root {
 
     pub fn run_command(
         &self,
-        args: &CommandLineArguments,
         target_name: &str,
-    ) -> Result<std::process::Output, CargoFuzzcheckError> {
-        let config = self.fuzz.config_toml.resolved_config(target_name);
-
-        let s = self.command_line_arguments_string(&config, args, target_name);
-
-        self.instrumented_compile(target_name)?;
+        config: &FullConfig,
+        stdio: impl Fn() -> Stdio,
+    ) -> Result<process::Child, CargoFuzzcheckError> {
+        self.instrumented_compile(config)?;
 
         let mut rustflags: String = "--cfg fuzzcheck -Ctarget-cpu=native".to_string();
 
-        if config.trace_compares.unwrap_or(DEFAULT_TRACE_COMPARES) {
+        if config.trace_compares {
             rustflags.push_str(" --cfg trace_compares");
         }
 
@@ -88,70 +87,72 @@ impl Root {
             .arg("--release")
             .arg("--target")
             .arg(default_target())
-            .args(config.extra_cargo_flags.unwrap_or(vec![]));
+            .args(config.extra_cargo_flags.clone());
 
-        if matches!(config.non_instrumented_default_features, Some(false)) {
+        if !config.non_instrumented_default_features {
             cargo_command.arg("--no-default-features");
         }
-        if let Some(features) = config.non_instrumented_features {
-            // non-empty
-            if !features.is_empty() {
-                cargo_command.arg("--features").args(features);
-            }
+
+        // non-empty
+        if !config.non_instrumented_features.is_empty() {
+            cargo_command
+                .arg("--features")
+                .args(config.non_instrumented_features.clone());
         }
-        // TODO: features!!
-        cargo_command
+
+        let child = cargo_command
             .arg("--")
-            .args(s)
-            .stdout(std::process::Stdio::inherit())
-            .stderr(std::process::Stdio::inherit())
-            .output()
-            .map_err(|e| e.into())
+            .args(self.command_line_arguments_string(config))
+            .stdout(stdio()) // std::process::Stdio::inherit())
+            .stderr(stdio()) //std::process::Stdio::inherit())
+            .spawn()?;
+
+        Ok(child)
     }
 
-    pub fn launch_executable(&self, args: &CommandLineArguments, target_name: &str) -> Result<(), CargoFuzzcheckError> {
-        let config = self.fuzz.config_toml.resolved_config(target_name);
-
-        let s = self.command_line_arguments_string(&config, args, target_name);
-
+    pub fn launch_executable(
+        &self,
+        target_name: &str,
+        config: &FullConfig,
+        stdio: impl Fn() -> Stdio,
+    ) -> Result<process::Child, CargoFuzzcheckError> {
         let exec = self
             .non_instrumented_folder()
             .join(format!("target/{}/release/{}", default_target(), target_name));
 
-        Command::new(exec)
-            .args(s)
-            .stdout(std::process::Stdio::inherit())
-            .stderr(std::process::Stdio::inherit())
-            .output()?;
+        let child = Command::new(exec)
+            .args(self.command_line_arguments_string(config))
+            .stdout(stdio())
+            .stderr(stdio())
+            .spawn()?;
+        //.output()?;
 
-        Ok(())
+        Ok(child)
     }
 
-    fn instrumented_compile(&self, target_name: &str) -> Result<(), CargoFuzzcheckError> {
+    fn instrumented_compile(&self, config: &FullConfig) -> Result<(), CargoFuzzcheckError> {
         let mut rustflags: String = "--cfg fuzzcheck \
                                      -Ctarget-cpu=native \
                                      -Cmetadata=fuzzing \
                                      -Cpasses=sancov"
             .into();
 
-        let config = self.fuzz.config_toml.resolved_config(target_name);
-
-        if config.lto.unwrap_or(DEFAULT_LTO) {
+        if config.lto {
             rustflags.push_str(" -Clinker-plugin-lto=1");
         }
 
         rustflags.push_str(&format!(
             " -Cllvm-args=-sanitizer-coverage-level={}",
-            config.coverage_level.unwrap_or(DEFAULT_COVERAGE_LEVEL)
+            config.coverage_level
         ));
 
-        if config.trace_compares.unwrap_or(DEFAULT_TRACE_COMPARES) {
+        if config.trace_compares {
             rustflags.push_str(" --cfg trace_compares");
             rustflags.push_str(" -Cllvm-args=-sanitizer-coverage-trace-compares");
         }
         rustflags.push_str(" -Cllvm-args=-sanitizer-coverage-inline-8bit-counters");
 
-        if config.stack_depth.unwrap_or(DEFAULT_STACK_DEPTH) {
+        if config.stack_depth {
             rustflags.push_str(" -Cllvm-args=-sanitizer-coverage-stack-depth");
         }
 
@@ -169,16 +170,16 @@ impl Root {
             .arg("--release")
             .arg("--target")
             .arg(default_target())
-            .args(config.extra_cargo_flags.unwrap_or(vec![]));
+            .args(config.extra_cargo_flags.clone());
 
-        if matches!(config.instrumented_default_features, Some(false)) {
+        if !config.instrumented_default_features {
             cargo_command.arg("--no-default-features");
             println!("no default features!");
         }
-        if let Some(features) = config.instrumented_features {
-            if !features.is_empty() {
-                cargo_command.arg("--features").args(features);
-            }
+        if !config.instrumented_features.is_empty() {
+            cargo_command
+                .arg("--features")
+                .args(config.instrumented_features.clone());
         }
 
         let output = cargo_command
@@ -195,14 +196,13 @@ impl Root {
         }
     }
 
-    pub fn input_minify_command(
-        &self,
-        arguments: &CommandLineArguments,
-        target_name: &str,
-    ) -> Result<(), CargoFuzzcheckError> {
-        let mut arguments = arguments.clone();
-
-        let file_to_minify = (&arguments.input_file).as_ref().unwrap().clone();
+    pub fn input_minify_command(&self, target_name: &str, config: &FullConfig) -> Result<(), CargoFuzzcheckError> {
+        let mut config = config.clone();
+        let file_to_minify = if let FullFuzzerCommand::MinifyInput { input_file } = config.command {
+            input_file.clone()
+        } else {
+            panic!()
+        };
 
         let artifacts_folder = {
             let mut x = file_to_minify.parent().unwrap().to_path_buf();
@@ -212,7 +212,7 @@ impl Root {
         };
 
         let _ = std::fs::create_dir(&artifacts_folder);
-        arguments.artifacts_folder = Some(artifacts_folder.clone());
+        config.artifacts = Some(artifacts_folder.clone());
 
         fn simplest_input_file(folder: &Path) -> Option<PathBuf> {
             let files_with_complexity = std::fs::read_dir(folder)
@@ -233,12 +233,13 @@ impl Root {
                 .map(|x| x.0)
         }
 
-        if let Some(simplest) = simplest_input_file(&artifacts_folder.as_path()) {
-            arguments.input_file = Some(simplest);
-        }
-        arguments.command = FuzzerCommand::Read;
+        let mut simplest = simplest_input_file(&artifacts_folder.as_path()).unwrap_or(file_to_minify);
+        config.command = FullFuzzerCommand::Read {
+            input_file: simplest.clone(),
+        };
 
-        let o = self.run_command(&arguments, target_name)?;
+        let child = self.run_command(target_name, &config, || Stdio::inherit())?;
+        let o = child.wait_with_output()?;
 
         assert!(!o.status.success());
 
@@ -248,99 +249,81 @@ impl Root {
         //     std::fs::copy(arguments.input_file, artifacts_folder.to_owned() + arguments.input_file);
         // }
 
-        arguments.command = FuzzerCommand::MinifyInput;
-
         loop {
-            arguments.input_file = simplest_input_file(&artifacts_folder).or(arguments.input_file);
+            simplest = simplest_input_file(&artifacts_folder).unwrap_or(simplest.clone());
+            config.command = FullFuzzerCommand::MinifyInput {
+                input_file: simplest.clone(),
+            };
 
-            self.launch_executable(&arguments, target_name)?;
+            self.launch_executable(target_name, &config, || Stdio::inherit())?;
         }
     }
 
-    fn command_line_arguments_string(
-        &self,
-        config: &Config,
-        args: &CommandLineArguments,
-        target_name: &str,
-    ) -> Vec<String> {
-        let mut defaults = DEFAULT_ARGUMENTS.clone();
-
-        let defaults_corpus = self
-            .corpora_folder()
-            .join(target_name)
-            .as_path()
-            .to_str()
-            .unwrap()
-            .to_owned();
-        let defaults_artifacts = self
-            .artifacts_folder()
-            .join(target_name)
-            .as_path()
-            .to_str()
-            .unwrap()
-            .to_owned();
-
-        defaults.in_corpus = &defaults_corpus;
-        defaults.out_corpus = &defaults_corpus;
-        defaults.artifacts = &defaults_artifacts;
-
-        let args = config.resolve_arguments(args).resolved(defaults);
-        strings_from_resolved_args(args)
+    fn command_line_arguments_string(&self, config: &FullConfig) -> Vec<String> {
+        strings_from_resolved_args(config)
     }
 }
 
-pub fn strings_from_resolved_args(args: ResolvedCommandLineArguments) -> Vec<String> {
+pub fn strings_from_resolved_args(config: &FullConfig) -> Vec<String> {
     let mut s: Vec<String> = Vec::new();
 
-    let input_file_args = args
-        .input_file
-        .clone()
-        .map(|f| vec!["--".to_owned() + INPUT_FILE_FLAG, path_str(f)]);
-
-    let corpus_in_args = args
-        .corpus_in
-        .map(|f| vec!["--".to_owned() + IN_CORPUS_FLAG, path_str(f)])
+    let corpus_in_args = config
+        .in_corpus
+        .as_ref()
+        .map(|f| vec!["--".to_owned() + IN_CORPUS_FLAG, path_str_ref(f)])
         .unwrap_or_else(|| vec!["--".to_owned() + NO_IN_CORPUS_FLAG]);
 
-    let corpus_out_args = args
-        .corpus_out
-        .map(|f| vec!["--".to_owned() + OUT_CORPUS_FLAG, path_str(f)])
+    let corpus_out_args = config
+        .out_corpus
+        .as_ref()
+        .map(|f| vec!["--".to_owned() + OUT_CORPUS_FLAG, path_str_ref(f)])
         .unwrap_or_else(|| vec!["--".to_owned() + NO_OUT_CORPUS_FLAG]);
 
-    let artifacts_args = args
-        .artifacts_folder
-        .map(|f| vec!["--".to_owned() + ARTIFACTS_FLAG, path_str(f)])
+    let artifacts_args = config
+        .artifacts
+        .as_ref()
+        .map(|f| vec!["--".to_owned() + ARTIFACTS_FLAG, path_str_ref(f)])
         .unwrap_or_else(|| vec!["--".to_owned() + NO_ARTIFACTS_FLAG]);
 
-    match args.command {
-        FuzzerCommand::Read => s.push(COMMAND_READ.to_owned()),
-        FuzzerCommand::MinifyInput => s.push(COMMAND_MINIFY_INPUT.to_owned()),
-        FuzzerCommand::MinifyCorpus => s.push(COMMAND_MINIFY_CORPUS.to_owned()),
-        FuzzerCommand::Fuzz => s.push(COMMAND_FUZZ.to_owned()),
-    };
+    let input_file_args = match &config.command {
+        FullFuzzerCommand::Fuzz => {
+            s.push(COMMAND_FUZZ.to_owned());
+            None
+        }
+        FullFuzzerCommand::Read { input_file } => {
+            s.push(COMMAND_READ.to_owned());
+            Some(input_file.clone())
+        }
+        FullFuzzerCommand::MinifyInput { input_file } => {
+            s.push(COMMAND_MINIFY_INPUT.to_owned());
+            Some(input_file.clone())
+        }
+        FullFuzzerCommand::MinifyCorpus { corpus_size } => {
+            s.push(COMMAND_MINIFY_CORPUS.to_owned());
+            s.append(&mut vec!["--".to_owned() + CORPUS_SIZE_FLAG, corpus_size.to_string()]);
+            None
+        }
+    }
+    .map(|f| vec!["--".to_owned() + INPUT_FILE_FLAG, path_str(f)]);
 
     if let Some(input_file_args) = input_file_args {
         s.append(&mut input_file_args.clone());
     }
-    s.append(&mut vec![
-        "--".to_owned() + CORPUS_SIZE_FLAG,
-        args.corpus_size.to_string(),
-    ]);
 
     s.append(&mut corpus_in_args.clone());
     s.append(&mut corpus_out_args.clone());
     s.append(&mut artifacts_args.clone());
     s.append(&mut vec![
         "--".to_owned() + MAX_INPUT_CPLX_FLAG,
-        args.max_input_cplx.to_string(),
+        config.max_cplx.to_string(),
     ]);
 
     s.append(&mut vec![
         "--".to_owned() + MAX_NBR_RUNS_FLAG,
-        args.max_nbr_of_runs.to_string(),
+        config.max_nbr_of_runs.to_string(),
     ]);
 
-    s.append(&mut vec!["--".to_owned() + TIMEOUT_FLAG, args.timeout.to_string()]);
+    s.append(&mut vec!["--".to_owned() + TIMEOUT_FLAG, config.timeout.to_string()]);
 
     s
 }
@@ -412,5 +395,8 @@ impl From<String> for CargoFuzzcheckError {
 }
 
 fn path_str(p: PathBuf) -> String {
+    p.as_path().to_str().unwrap().to_owned()
+}
+fn path_str_ref(p: &PathBuf) -> String {
     p.as_path().to_str().unwrap().to_owned()
 }
