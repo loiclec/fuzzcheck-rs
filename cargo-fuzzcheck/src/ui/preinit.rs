@@ -15,7 +15,7 @@ use crate::{
     CargoFuzzcheckError,
 };
 
-use super::framework::{Theme, HorizontalMove, ViewState};
+use super::framework::{HorizontalMove, Theme, ViewState};
 
 pub struct PreInitView {
     pub root_path: PathBuf,

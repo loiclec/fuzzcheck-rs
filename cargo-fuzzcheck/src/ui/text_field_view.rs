@@ -1,14 +1,9 @@
-use std::cmp::max;
+use std::cmp::min;
 
 use framework::HorizontalMove;
 
 use termion::event::Key;
-use tui::{
-    layout::Rect,
-    style::Style,
-    text::{Span, Text},
-    widgets::Paragraph,
-};
+use tui::{layout::Rect, widgets::Paragraph};
 
 use super::framework::{self, Theme};
 
@@ -60,6 +55,7 @@ impl framework::ViewState for TextFieldView {
             Key::Left => Some(Update::MoveCaret(HorizontalMove::Left)),
             Key::Right => Some(Update::MoveCaret(HorizontalMove::Right)),
             Key::Backspace => Some(Update::Delete),
+            Key::Char('\t') => None, // disallow tabs
             Key::Char('\n') => None, // disallow newlines
             Key::Char(c) => Some(Update::Insert(c)),
             _ => None,
@@ -70,20 +66,24 @@ impl framework::ViewState for TextFieldView {
         match u {
             Update::Insert(c) => {
                 self.input.insert(self.caret, c);
-                self.caret = self.caret.saturating_add(1);
+                self.caret = self.caret + 1;
                 Some(OutMessage::Edited(self.input.clone()))
             }
             Update::Delete => {
-                self.input.remove(self.caret);
-                self.caret = self.caret.saturating_sub(1);
-                Some(OutMessage::Edited(self.input.clone()))
+                if self.caret > 0 {
+                    self.input.remove(self.caret - 1);
+                    self.caret = self.caret.saturating_sub(1);
+                    Some(OutMessage::Edited(self.input.clone()))
+                } else {
+                    None
+                }
             }
             Update::MoveCaret(HorizontalMove::Left) => {
                 self.caret = self.caret.saturating_sub(1);
                 None
             }
             Update::MoveCaret(HorizontalMove::Right) => {
-                self.caret = max(self.input.len(), self.caret + 1);
+                self.caret = min(self.input.len(), self.caret + 1);
                 None
             }
         }
@@ -93,12 +93,10 @@ impl framework::ViewState for TextFieldView {
     where
         B: tui::backend::Backend,
     {
-        let p = Paragraph::new(self.input.as_str()).style(
-            if self.focused { theme.highlight } else { theme.default }
-        );
+        let p = Paragraph::new(self.input.as_str()).style(if self.focused { theme.highlight } else { theme.default });
         frame.render_widget(p, chunk);
-        if self.focused {
+        if theme.focus && self.focused {
             frame.set_cursor(chunk.x + self.caret as u16, chunk.y)
-        };
+        }
     }
 }

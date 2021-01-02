@@ -1,14 +1,17 @@
 use std::{collections::HashMap, ffi::OsString, rc::Rc};
 
+use fuzzcheck_common::arg::ResolvedCommandLineArguments;
 use termion::event::Key;
-use tui::{Frame, backend::Backend, layout::{Constraint, Direction, Layout, Rect}, widgets::{Block, Borders}};
+use tui::{
+    backend::Backend,
+    layout::{Constraint, Direction, Layout, Rect},
+    Frame,
+};
 
 use crate::project::Root;
 
 use super::{
-    framework::{
-        Theme, Either, Focusable, HorizontalMove, InnerFocusable, ParentView, VerticalMove, ViewState,
-    },
+    framework::{Either, Focusable, HorizontalMove, InnerFocusable, ParentView, Theme, VerticalMove, ViewState},
     horizontal_list_view::{self, HorizontalListView},
     run_fuzz::{self, RunFuzzView},
 };
@@ -77,7 +80,9 @@ pub enum Update {
     SelectTarget(usize),
 }
 
-pub enum OutMessage {}
+pub enum OutMessage {
+    Run(ResolvedCommandLineArguments),
+}
 
 impl InnerFocusable for InitializedView {
     type Focus = self::Focus;
@@ -148,7 +153,7 @@ impl ViewState for InitializedView {
                 self.update_focus(f);
                 None
             }
-            Update::SelectTarget(target) => {
+            Update::SelectTarget(_target) => {
                 //self.run_fuzz = Some(RunFuzzView::new(self.root.clone(), target));
                 None
             }
@@ -201,7 +206,9 @@ impl ParentView<RunFuzzView> for InitializedView {
     }
 
     fn convert_child_out_message(&self, message: run_fuzz::OutMessage) -> super::framework::Either<Update, OutMessage> {
-        match message {}
+        match message {
+            run_fuzz::OutMessage::Run(args) => Either::Right(OutMessage::Run(args)),
+        }
     }
 }
 

@@ -8,7 +8,12 @@ use crate::project::{self, Root};
 use crate::ui::framework::ViewState;
 use crate::ui::preinit;
 
-use super::{error_view, events::Event, framework::{Either, ParentView, Theme}, initialized};
+use super::{
+    error_view,
+    events::Event,
+    framework::{Either, ParentView, Theme},
+    initialized,
+};
 
 pub struct State {
     pub root_path: PathBuf,
@@ -173,6 +178,10 @@ impl ParentView<initialized::InitializedView> for State {
         }
     }
     fn convert_child_out_message(&self, message: initialized::OutMessage) -> Either<Update, OutMessage> {
-        match message {}
+        match message {
+            initialized::OutMessage::Run(args) => {
+                todo!()
+            }
+        }
     }
 }

@@ -2,7 +2,6 @@ use framework::{HorizontalMove, ViewState};
 use hlist::HList;
 use tui::{
     layout::Rect,
-    style::Style,
     widgets::{Block, Borders},
 };
 
@@ -100,7 +99,11 @@ impl ViewState for HorizontalListView {
     where
         B: tui::backend::Backend,
     {
-        let inner_theme = if self.focused { Theme::primary() } else { Theme::secondary() };
+        let inner_theme = if self.focused {
+            Theme::primary()
+        } else {
+            Theme::secondary()
+        };
         let list_items = self.items.iter().map(|s| HListItem::new(s.clone())).collect::<Vec<_>>();
         let list = HList::new(list_items)
             .block(

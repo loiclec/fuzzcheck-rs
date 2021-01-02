@@ -263,8 +263,6 @@ impl Root {
         args: &CommandLineArguments,
         target_name: &str,
     ) -> Vec<String> {
-        let mut s: Vec<String> = Vec::new();
-
         let mut defaults = DEFAULT_ARGUMENTS.clone();
 
         let defaults_corpus = self
@@ -287,59 +285,64 @@ impl Root {
         defaults.artifacts = &defaults_artifacts;
 
         let args = config.resolve_arguments(args).resolved(defaults);
-
-        let input_file_args = args
-            .input_file
-            .clone()
-            .map(|f| vec!["--".to_owned() + INPUT_FILE_FLAG, path_str(f)]);
-
-        let corpus_in_args = args
-            .corpus_in
-            .map(|f| vec!["--".to_owned() + IN_CORPUS_FLAG, path_str(f)])
-            .unwrap_or_else(|| vec!["--".to_owned() + NO_IN_CORPUS_FLAG]);
-
-        let corpus_out_args = args
-            .corpus_out
-            .map(|f| vec!["--".to_owned() + OUT_CORPUS_FLAG, path_str(f)])
-            .unwrap_or_else(|| vec!["--".to_owned() + NO_OUT_CORPUS_FLAG]);
-
-        let artifacts_args = args
-            .artifacts_folder
-            .map(|f| vec!["--".to_owned() + ARTIFACTS_FLAG, path_str(f)])
-            .unwrap_or_else(|| vec!["--".to_owned() + NO_ARTIFACTS_FLAG]);
-
-        match args.command {
-            FuzzerCommand::Read => s.push(COMMAND_READ.to_owned()),
-            FuzzerCommand::MinifyInput => s.push(COMMAND_MINIFY_INPUT.to_owned()),
-            FuzzerCommand::MinifyCorpus => s.push(COMMAND_MINIFY_CORPUS.to_owned()),
-            FuzzerCommand::Fuzz => s.push(COMMAND_FUZZ.to_owned()),
-        };
-
-        if let Some(input_file_args) = input_file_args {
-            s.append(&mut input_file_args.clone());
-        }
-        s.append(&mut vec![
-            "--".to_owned() + CORPUS_SIZE_FLAG,
-            args.corpus_size.to_string(),
-        ]);
-
-        s.append(&mut corpus_in_args.clone());
-        s.append(&mut corpus_out_args.clone());
-        s.append(&mut artifacts_args.clone());
-        s.append(&mut vec![
-            "--".to_owned() + MAX_INPUT_CPLX_FLAG,
-            args.max_input_cplx.to_string(),
-        ]);
-
-        s.append(&mut vec![
-            "--".to_owned() + MAX_NBR_RUNS_FLAG,
-            args.max_nbr_of_runs.to_string(),
-        ]);
-
-        s.append(&mut vec!["--".to_owned() + TIMEOUT_FLAG, args.timeout.to_string()]);
-
-        s
+        strings_from_resolved_args(args)
     }
+}
+
+pub fn strings_from_resolved_args(args: ResolvedCommandLineArguments) -> Vec<String> {
+    let mut s: Vec<String> = Vec::new();
+
+    let input_file_args = args
+        .input_file
+        .clone()
+        .map(|f| vec!["--".to_owned() + INPUT_FILE_FLAG, path_str(f)]);
+
+    let corpus_in_args = args
+        .corpus_in
+        .map(|f| vec!["--".to_owned() + IN_CORPUS_FLAG, path_str(f)])
+        .unwrap_or_else(|| vec!["--".to_owned() + NO_IN_CORPUS_FLAG]);
+
+    let corpus_out_args = args
+        .corpus_out
+        .map(|f| vec!["--".to_owned() + OUT_CORPUS_FLAG, path_str(f)])
+        .unwrap_or_else(|| vec!["--".to_owned() + NO_OUT_CORPUS_FLAG]);
+
+    let artifacts_args = args
+        .artifacts_folder
+        .map(|f| vec!["--".to_owned() + ARTIFACTS_FLAG, path_str(f)])
+        .unwrap_or_else(|| vec!["--".to_owned() + NO_ARTIFACTS_FLAG]);
+
+    match args.command {
+        FuzzerCommand::Read => s.push(COMMAND_READ.to_owned()),
+        FuzzerCommand::MinifyInput => s.push(COMMAND_MINIFY_INPUT.to_owned()),
+        FuzzerCommand::MinifyCorpus => s.push(COMMAND_MINIFY_CORPUS.to_owned()),
+        FuzzerCommand::Fuzz => s.push(COMMAND_FUZZ.to_owned()),
+    };
+
+    if let Some(input_file_args) = input_file_args {
+        s.append(&mut input_file_args.clone());
+    }
+    s.append(&mut vec![
+        "--".to_owned() + CORPUS_SIZE_FLAG,
+        args.corpus_size.to_string(),
+    ]);
+
+    s.append(&mut corpus_in_args.clone());
+    s.append(&mut corpus_out_args.clone());
+    s.append(&mut artifacts_args.clone());
+    s.append(&mut vec![
+        "--".to_owned() + MAX_INPUT_CPLX_FLAG,
+        args.max_input_cplx.to_string(),
+    ]);
+
+    s.append(&mut vec![
+        "--".to_owned() + MAX_NBR_RUNS_FLAG,
+        args.max_nbr_of_runs.to_string(),
+    ]);
+
+    s.append(&mut vec!["--".to_owned() + TIMEOUT_FLAG, args.timeout.to_string()]);
+
+    s
 }
 
 fn use_gold_linker() -> bool {

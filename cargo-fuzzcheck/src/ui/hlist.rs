@@ -52,10 +52,10 @@ impl<'a> HListItem<'a> {
         }
     }
 
-    pub fn style(mut self, style: Style) -> HListItem<'a> {
-        self.style = style;
-        self
-    }
+    // pub fn style(mut self, style: Style) -> HListItem<'a> {
+    //     self.style = style;
+    //     self
+    // }
 
     pub fn width(&self) -> usize {
         self.content.width() + 2

@@ -3,7 +3,7 @@ use tui::{
     backend::Backend,
     layout::Rect,
     style::{Color, Style},
-    widgets::{Block, Borders},
+    widgets::Borders,
     Frame,
 };
 
@@ -107,33 +107,39 @@ impl HorizontalMove {
 // }
 
 pub struct Theme {
+    pub focus: bool,
     pub block_borders: Borders,
     pub default: Style,
     pub highlight: Style,
     pub block_highlight: Style,
+    pub emphasis: Style,
+    pub error: Style,
+    pub disabled: Style,
 }
 
 impl Theme {
     pub fn primary() -> Self {
         Self {
+            focus: true,
             block_borders: Borders::ALL,
             default: Style::default().bg(Color::Black).fg(Color::White),
             highlight: Style::default().bg(Color::Yellow).fg(Color::Black),
             block_highlight: Style::default().bg(Color::Black).fg(Color::Yellow),
+            emphasis: Style::default().bg(Color::Black).fg(Color::LightBlue),
+            error: Style::default().bg(Color::Black).fg(Color::Red),
+            disabled: Style::default().bg(Color::Black).fg(Color::DarkGray),
         }
     }
     pub fn secondary() -> Self {
         Self {
+            focus: false,
             block_borders: Borders::ALL,
             default: Style::default().bg(Color::Black).fg(Color::DarkGray),
             highlight: Style::default().bg(Color::DarkGray).fg(Color::Gray),
             block_highlight: Style::default().bg(Color::Black).fg(Color::White),
+            emphasis: Style::default().bg(Color::Black).fg(Color::DarkGray),
+            error: Style::default().bg(Color::Black).fg(Color::Gray),
+            disabled: Style::default().bg(Color::Black).fg(Color::DarkGray),
         }
-    }
-    pub fn style_block_default<'a>(&self, block: Block<'a>) -> Block<'a> {
-        block.borders(self.block_borders).style(self.default)
-    }
-    pub fn style_block_highlight<'a>(&self, block: Block<'a>) -> Block<'a> {
-        block.borders(self.block_borders).style(self.block_highlight)
     }
 }
