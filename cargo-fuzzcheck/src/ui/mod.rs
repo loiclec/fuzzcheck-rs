@@ -51,7 +51,7 @@ pub fn launch_app(root_path: PathBuf) -> Result<(), Box<dyn Error>> {
 
     let mut state = app::State::new(root_path, events.tx.clone());
 
-    let mut _child_process = None;
+    let mut child_process = None;
 
     'main_loop: loop {
         terminal.draw(|f| {
@@ -79,28 +79,32 @@ pub fn launch_app(root_path: PathBuf) -> Result<(), Box<dyn Error>> {
                         break 'main_loop;
                     }
                     app::OutMessage::StartFuzzing { root, target_name, config } => {
-                        // Terminal initialization
-                        terminal.clear()?;
-                        std::mem::drop(terminal); 
+                        if child_process.is_none() { 
+                            // Terminal initialization
+                            terminal.clear()?;
+                            std::mem::drop(terminal); 
 
-                        root.build_command(target_name.as_ref(), &config, &Stdio::inherit).unwrap();
-                        
-                        let (listener, socket_address) = fuzz_target_comm::create_listener();
+                            root.build_command(target_name.as_ref(), &config, &Stdio::inherit).unwrap();
 
-                        events.add_stream(move |tx| {
-                            fuzz_target_comm::receive_fuzz_target_messages(listener, tx)
-                        });
+                            let (listener, socket_address) = fuzz_target_comm::create_listener();
 
-                        let out = state.update(app::Update::ChangePhase(app::Phase::Fuzzing(FuzzingView::new())));
-                        assert!(out.is_none());
+                            events.add_stream(move |tx| {
+                                fuzz_target_comm::receive_fuzz_target_messages(listener, tx)
+                            });
 
-                        let mut config = config;
-                        config.socket_address = Some(socket_address);
-                        
-                        let child = root.launch_executable(target_name.as_ref(), &config, &Stdio::null).unwrap();
-                        _child_process = Some(child);
+                            let out = state.update(app::Update::ChangePhase(app::Phase::Fuzzing(FuzzingView::new())));
+                            assert!(out.is_none());
 
-                        terminal = set_ui_terminal(true)?;
+                            let mut config = config;
+                            config.socket_address = Some(socket_address);
+
+                            let child = root.launch_executable(target_name.as_ref(), &config, &Stdio::null).unwrap();
+                            child_process = Some(child);
+
+                            terminal = set_ui_terminal(true)?;
+                        } else {
+                            panic!()
+                        }
                     }
                 }
             }

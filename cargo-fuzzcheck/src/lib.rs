@@ -143,8 +143,10 @@ impl Root {
             .non_instrumented_folder()
             .join(format!("target/{}/release/{}", default_target(), target_name));
 
+        let args = strings_from_config(config); 
+
         let child = Command::new(exec)
-            .args(strings_from_config(config))
+            .args(args)
             .stdout(stdio())
             .stderr(stdio())
             .spawn()?;
@@ -280,8 +282,8 @@ impl Root {
             config.command = FullFuzzerCommand::MinifyInput {
                 input_file: simplest.clone(),
             };
-
-            self.launch_executable(target_name, &config, || Stdio::inherit())?;
+            let mut c = self.launch_executable(target_name, &config, || Stdio::inherit())?;
+            c.wait()?;
         }
     }
 }

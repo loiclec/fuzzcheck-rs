@@ -6,7 +6,7 @@ use crate::data_structures::{LargeStepFindIter, SlabKey};
 use crate::nix_subset as nix;
 use crate::pool::{AnalyzedFeature, Pool, PoolIndex};
 use crate::signals_handler::{set_signal_handlers, set_timer};
-use crate::ui_world::TuiWorld;
+use crate::world::World;
 use fuzzcheck_common::ipc::{FuzzerEvent, FuzzerStats};
 use crate::{code_coverage_sensor::shared_sensor, world::WorldAction};
 use crate::{Feature, FuzzedInput, Mutator, Serializer};
@@ -59,7 +59,7 @@ struct FuzzerState<M: Mutator, S: Serializer<Value = M::Value>> {
     input_idx: FuzzerInputIndex<M>,
     stats: FuzzerStats,
     settings: FullCommandLineArguments,
-    world: TuiWorld<S>,
+    world: World<S>,
     analysis_cache: AnalysisCache<M>,
 }
 
@@ -167,7 +167,7 @@ where
     M: Mutator,
     S: Serializer<Value = M::Value>,
 {
-    pub fn new(test: F, mutator: M, settings: FullCommandLineArguments, world: TuiWorld<S>) -> Self {
+    pub fn new(test: F, mutator: M, settings: FullCommandLineArguments, world: World<S>) -> Self {
         Fuzzer {
             state: FuzzerState {
                 mutator,
@@ -197,7 +197,7 @@ where
         mutator: &M,
         input: &FuzzedInput<M>,
         timeout: usize,
-        world: &TuiWorld<S>,
+        world: &World<S>,
         stats: FuzzerStats,
     ) -> Result<(), std::io::Error> {
         let sensor = shared_sensor();
@@ -497,7 +497,7 @@ where
 {
     let command = args.command;
 
-    let mut fuzzer = Fuzzer::new(test, mutator, args.clone(), TuiWorld::new(serializer, args));
+    let mut fuzzer = Fuzzer::new(test, mutator, args.clone(), World::new(serializer, args));
     unsafe { fuzzer.state.set_up_signal_handler() };
     match command {
         FuzzerCommand::Fuzz => fuzzer.main_loop()?,

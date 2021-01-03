@@ -13,7 +13,6 @@ mod code_coverage_sensor;
 mod data_structures;
 
 mod fuzzer;
-mod ui_world;
 mod world;
 
 mod pool;
