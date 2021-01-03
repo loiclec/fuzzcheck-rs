@@ -297,6 +297,8 @@ pub struct FullConfig {
     pub in_corpus: Option<PathBuf>,
     pub out_corpus: Option<PathBuf>,
     pub artifacts: Option<PathBuf>,
+
+    pub socket_address: Option<std::net::SocketAddr>,
 }
 
 impl Default for FullConfig {
@@ -319,6 +321,7 @@ impl Default for FullConfig {
             in_corpus: Some(default_arguments.in_corpus),
             out_corpus: Some(default_arguments.out_corpus),
             artifacts: Some(default_arguments.artifacts),
+            socket_address: None,
         }
     }
 }
@@ -422,7 +425,7 @@ impl FullConfig {
             no_in_corpus,
             no_out_corpus,
             no_artifacts,
-            socket_address: _,
+            socket_address,
         } = args;
 
         self.command = match command {
@@ -483,6 +486,9 @@ impl FullConfig {
         }
         if let Some(()) = no_artifacts {
             self.artifacts = None;
+        }
+        if let Some(socket_address) = socket_address {
+            self.socket_address = Some(socket_address.clone());
         }
     }
 }

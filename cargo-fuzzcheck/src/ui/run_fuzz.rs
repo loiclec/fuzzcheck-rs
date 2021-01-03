@@ -1,6 +1,6 @@
 use std::{error::Error, fmt::Display, rc::Rc, write};
 
-use fuzzcheck_common::arg::{options_parser, CommandLineArguments};
+use fuzzcheck_common::arg::{CommandLineArguments};
 
 /**
     This view presents the default configuration for a particular fuzz target,
@@ -62,10 +62,11 @@ pub struct RunFuzzView {
 
 impl RunFuzzView {
     pub fn new(root: Rc<Root>, fuzz_target: String) -> Self {
-        let options_parser = options_parser();
         let config = root.full_config(&fuzz_target, &CommandLineArguments::default());
         let max_cplx = format!("{}", config.max_cplx);
-
+        if matches!(config.command, crate::project::FullFuzzerCommand::MinifyCorpus{..}) {
+            panic!()
+        }
         Self {
             root,
             fuzz_target,
@@ -280,7 +281,7 @@ impl ViewState for RunFuzzView {
                         inner_theme.default,
                     )),
                     Spans::from(Span::styled(
-                        crate::strings_from_resolved_args(&self.final_config).join(" "),
+                        crate::strings_from_config(&self.final_config).join(" "),
                         inner_theme.emphasis,
                     )),
                 ])

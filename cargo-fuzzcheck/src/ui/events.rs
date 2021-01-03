@@ -1,4 +1,4 @@
-use std::io;
+use std::{io, time::Duration};
 use std::sync::mpsc;
 use std::thread;
 
@@ -13,6 +13,7 @@ where
 {
     UserInput(Key),
     Subscription(S),
+    Tick
 }
 
 pub struct Events<S>
@@ -22,6 +23,7 @@ where
     pub tx: mpsc::Sender<Event<S>>,
     rx: mpsc::Receiver<Event<S>>,
     _input_handle: thread::JoinHandle<()>,
+    _tick_handle: thread::JoinHandle<()>,
 }
 
 impl<S> Events<S>
@@ -48,10 +50,22 @@ where
             })
         };
 
+        let tick_handle = {
+            let tx = tx.clone();
+
+            std::thread::spawn(move || {
+                loop {
+                    std::thread::sleep(Duration::from_millis(100));
+                    tx.send(Event::Tick);
+                }
+            })
+        };
+
         Events {
             tx,
             rx,
             _input_handle: input_handle,
+            _tick_handle: tick_handle,
         }
     }
 

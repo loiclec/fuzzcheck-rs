@@ -123,7 +123,9 @@ dependencies = [
 name = "fuzzcheck_common"
 version = "0.4.0"
 dependencies = [
+ "decent-serde-json-alternative",
  "getopts",
+ "json",
 ]
 
 [[package]]

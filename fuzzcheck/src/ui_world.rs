@@ -9,7 +9,10 @@ use std::io::{self, Result};
 use std::time::Instant;
 use std::{cell::RefCell, collections::hash_map::DefaultHasher, net::TcpStream};
 
-use crate::world::{FuzzerEvent, FuzzerStats, WorldAction};
+use crate::world::{WorldAction};
+
+use fuzzcheck_common::ipc::{FuzzerStats, FuzzerEvent, TuiMessage};
+
 use crate::Serializer;
 
 pub struct TuiWorld<S: Serializer> {
@@ -17,13 +20,6 @@ pub struct TuiWorld<S: Serializer> {
     settings: FullCommandLineArguments,
     instant: Instant,
     serializer: S,
-}
-
-#[derive(FromJson, ToJson)]
-enum TuiMessage {
-    AddInput { hash: String, input: String },
-    RemoveInput { hash: String, input: String },
-    ReportEvent { event: FuzzerEvent, stats: FuzzerStats },
 }
 
 impl<S: Serializer> TuiWorld<S> {

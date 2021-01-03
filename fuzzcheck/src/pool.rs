@@ -67,7 +67,8 @@ use fastrand::Rng;
 
 use crate::data_structures::{Slab, SlabKey, WeightedIndex};
 use crate::fuzzer::AnalysisResult;
-use crate::world::{FuzzerEvent, WorldAction};
+use fuzzcheck_common::ipc::{FuzzerEvent};
+use crate::world::{WorldAction};
 use crate::{Feature, FuzzedInput, Mutator};
 
 /// Index of an input in the Pool

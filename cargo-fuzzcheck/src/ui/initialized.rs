@@ -1,4 +1,4 @@
-use std::{collections::HashMap, ffi::OsString, rc::Rc};
+use std::{ffi::{OsString}, path::{PathBuf}, rc::Rc};
 
 use termion::event::Key;
 use tui::{
@@ -26,9 +26,7 @@ impl InitializedView {
     pub fn new(root: Rc<Root>) -> Self {
         let fuzz_target_list = HorizontalListView::new(
             "Fuzz Targets",
-            fuzz_targets_from_root(&root)
-                .keys()
-                .map(|k| k.to_str().unwrap().to_string()),
+            fuzz_targets_from_root(&root).into_iter(),
         );
 
         let run_fuzz_views = fuzz_target_list
@@ -50,6 +48,13 @@ impl InitializedView {
 }
 
 impl InitializedView {
+    fn current_target_name(&self) -> Option<String> {
+        if let Some(selected) = self.fuzz_target_list.state.selected() {
+            Some(self.fuzz_target_list.items[selected].clone())
+        } else {
+            None
+        }
+    }
     fn current_run_fuzz_view(&self) -> Option<&RunFuzzView> {
         if let Some(selected) = self.fuzz_target_list.state.selected() {
             self.run_fuzz_views.get(selected)
@@ -80,7 +85,7 @@ pub enum Update {
 }
 
 pub enum OutMessage {
-    Run(FullConfig),
+    Run { root: Rc<Root>, target_name: String, config: FullConfig },
 }
 
 impl InnerFocusable for InitializedView {
@@ -206,11 +211,16 @@ impl ParentView<RunFuzzView> for InitializedView {
 
     fn convert_child_out_message(&self, message: run_fuzz::OutMessage) -> super::framework::Either<Update, OutMessage> {
         match message {
-            run_fuzz::OutMessage::Run(config) => Either::Right(OutMessage::Run(config)),
+            run_fuzz::OutMessage::Run(config) => Either::Right(OutMessage::Run { root: self.root.clone(), target_name: self.current_target_name().unwrap() , config }),
         }
     }
 }
 
-fn fuzz_targets_from_root(root: &Root) -> &HashMap<OsString, Vec<u8>> {
-    &root.fuzz.non_instrumented.fuzz_targets.targets
+fn fuzz_targets_from_root(root: &Root) -> Vec<String> {
+    let mut targets = root.fuzz.non_instrumented.fuzz_targets.targets.keys().map(|k| {
+        let target = PathBuf::from(k);
+        target.file_stem().unwrap().to_str().unwrap().to_string()
+    }).collect::<Vec<_>>();
+    targets.sort();
+    targets
 }

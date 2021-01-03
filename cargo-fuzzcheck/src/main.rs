@@ -132,7 +132,7 @@ cargo-fuzzcheck {run} target1 {cmin} --{in_corpus} "fuzz-corpus" --{corpus_size}
         }
         COMMAND_CLEAN => {
             let root = project::Root::from_path(root_path)?;
-            let result = root.clean_command();
+            let result = root.clean_command(&process::Stdio::inherit);
             println!("{:#?}", result);
             Ok(())
         }
@@ -160,11 +160,13 @@ cargo-fuzzcheck {run} target1 {cmin} --{in_corpus} "fuzz-corpus" --{corpus_size}
             let config = root.full_config(target_name, &args);
 
             let r = match args.command {
-                FuzzerCommand::Fuzz => root
-                    .run_command(target_name, &config, || process::Stdio::inherit())
-                    .and_then(|child| child.wait_with_output().map_err(|err| err.into()))
-                    .map(|_| ()),
-                FuzzerCommand::MinifyInput => root.input_minify_command(target_name, &config),
+                FuzzerCommand::Fuzz => {
+                    root.build_command(target_name, &config, &process::Stdio::inherit)?;
+                    let exec = root.launch_executable(target_name, &config, &process::Stdio::inherit)?;
+                    exec.wait_with_output()?;
+                    Ok(())
+                },
+                FuzzerCommand::MinifyInput => root.input_minify_command(target_name, &config, &process::Stdio::inherit),
                 FuzzerCommand::Read => {
                     panic!("unimplemented");
                 }

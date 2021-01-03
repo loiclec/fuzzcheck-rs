@@ -8,6 +8,8 @@ use fuzzcheck_common::ipc;
 use decent_serde_json_alternative::FromJson;
 use json;
 
+use super::events::Event;
+
 #[derive(Debug, Clone, FromJson)]
 pub enum FuzzingEvent {
     A,
@@ -23,7 +25,7 @@ pub fn accept(listener: TcpListener) -> TcpStream {
     listener.accept().unwrap().0
 }
 
-pub fn receive_fuzz_target_messages(mut stream: TcpStream, tx: Sender<FuzzingEvent>) {
+pub fn receive_fuzz_target_messages(mut stream: TcpStream, tx: Sender<Event<FuzzingEvent>>) {
     let mut all_bytes = Vec::<u8>::new();
 
     loop {
@@ -31,7 +33,7 @@ pub fn receive_fuzz_target_messages(mut stream: TcpStream, tx: Sender<FuzzingEve
         let j = json::parse(&s).unwrap();
         let event = FuzzingEvent::from_json(&j).unwrap();
 
-        tx.send(event).unwrap();
+        tx.send(Event::Subscription(event)).unwrap();
 
         all_bytes.clear();
     }

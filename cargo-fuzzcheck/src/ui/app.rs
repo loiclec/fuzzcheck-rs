@@ -1,5 +1,6 @@
 use std::{path::PathBuf, rc::Rc, sync::mpsc::Sender};
 
+use project::FullConfig;
 use termion::event::Key;
 use tui::{backend::Backend, layout::Rect, Frame};
 
@@ -69,6 +70,7 @@ pub enum Update {
 
 pub enum OutMessage {
     Quit,
+    StartFuzzing { root: Rc<Root>, target_name: String, config: FullConfig },
 }
 
 impl ViewState for State {
@@ -136,6 +138,7 @@ impl ParentView<preinit::PreInitView> for State {
         match message {
             Event::UserInput(u) => Some(u),
             Event::Subscription(_) => None,
+            Event::Tick => { None }
         }
     }
 
@@ -169,6 +172,7 @@ impl ParentView<error_view::ErrorView> for State {
         match message {
             Event::UserInput(u) => Some(u),
             Event::Subscription(_) => None,
+            Event::Tick => { None }
         }
     }
 
@@ -184,12 +188,13 @@ impl ParentView<initialized::InitializedView> for State {
         match message {
             Event::UserInput(u) => Some(u),
             Event::Subscription(_) => None,
+            Event::Tick => { None }
         }
     }
     fn convert_child_out_message(&self, message: initialized::OutMessage) -> Either<Update, OutMessage> {
         match message {
-            initialized::OutMessage::Run(args) => {
-                todo!()
+            initialized::OutMessage::Run { root, target_name, config } => {
+                Either::Right(OutMessage::StartFuzzing { root, target_name, config })
             }
         }
     }

@@ -1,3 +1,6 @@
+
+use decent_serde_json_alternative::{FromJson, ToJson};
+
 use std::io::prelude::*;
 use std::net::TcpStream;
 
@@ -23,7 +26,16 @@ pub fn read(stream: &mut TcpStream) -> String {
     String::from_utf8_lossy(&buffer).to_string()
 }
 
-#[derive(Clone, Copy, Default)]
+
+#[derive(Clone, FromJson, ToJson)]
+pub enum TuiMessage {
+    AddInput { hash: String, input: String },
+    RemoveInput { hash: String, input: String },
+    ReportEvent { event: FuzzerEvent, stats: FuzzerStats },
+}
+
+
+#[derive(Clone, Copy, Default, FromJson, ToJson)]
 pub struct FuzzerStats {
     pub total_number_of_runs: usize,
     pub number_of_runs_since_last_reset_time: usize,
@@ -46,7 +58,7 @@ impl FuzzerStats {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, FromJson, ToJson)]
 pub enum FuzzerEvent {
     Start,
     End,
