@@ -15,15 +15,15 @@ pub fn write(stream: &mut TcpStream, message: &str) {
     stream.flush().unwrap();
 }
 
-pub fn read(stream: &mut TcpStream) -> String {
+pub fn read(stream: &mut TcpStream) -> Option<String> {
     let mut be_len = [0u8; std::mem::size_of::<u32>()];
-    stream.read_exact(&mut be_len).unwrap();
+    stream.read_exact(&mut be_len).ok()?;
 
     let len = u32::from_be_bytes(be_len);
     let mut buffer = std::iter::repeat(0u8).take(len as usize).collect::<Box<[_]>>();
-    stream.read_exact(&mut buffer).unwrap();
+    stream.read_exact(&mut buffer).ok()?;
 
-    String::from_utf8_lossy(&buffer).to_string()
+    Some(String::from_utf8_lossy(&buffer).to_string())
 }
 
 
@@ -58,7 +58,7 @@ impl FuzzerStats {
     }
 }
 
-#[derive(Clone, FromJson, ToJson)]
+#[derive(Clone, Copy, FromJson, ToJson)]
 pub enum FuzzerEvent {
     Start,
     End,

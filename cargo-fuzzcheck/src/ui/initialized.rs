@@ -85,7 +85,7 @@ pub enum Update {
 }
 
 pub enum OutMessage {
-    Run { root: Rc<Root>, target_name: String, config: FullConfig },
+    StartFuzzing { root: Rc<Root>, target_name: String, config: FullConfig },
 }
 
 impl InnerFocusable for InitializedView {
@@ -211,7 +211,7 @@ impl ParentView<RunFuzzView> for InitializedView {
 
     fn convert_child_out_message(&self, message: run_fuzz::OutMessage) -> super::framework::Either<Update, OutMessage> {
         match message {
-            run_fuzz::OutMessage::Run(config) => Either::Right(OutMessage::Run { root: self.root.clone(), target_name: self.current_target_name().unwrap() , config }),
+            run_fuzz::OutMessage::StartFuzzing(config) => Either::Right(OutMessage::StartFuzzing { root: self.root.clone(), target_name: self.current_target_name().unwrap() , config }),
         }
     }
 }

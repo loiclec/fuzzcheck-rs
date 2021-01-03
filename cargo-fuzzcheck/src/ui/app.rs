@@ -9,22 +9,23 @@ use crate::project::{self, Root};
 use crate::ui::framework::ViewState;
 use crate::ui::preinit;
 
+use fuzzcheck_common::ipc::TuiMessage;
+
 use super::{
     error_view,
     events::Event,
     framework::{Either, ParentView, Theme},
-    fuzz_target_comm::FuzzingEvent,
     fuzzing, initialized,
 };
 
 pub struct State {
     pub root_path: PathBuf,
     pub phase: Phase,
-    pub sender: Sender<Event<FuzzingEvent>>,
+    pub sender: Sender<Event<TuiMessage>>,
 }
 
 impl State {
-    pub fn new(root_path: PathBuf, sender: Sender<Event<FuzzingEvent>>) -> Self {
+    pub fn new(root_path: PathBuf, sender: Sender<Event<TuiMessage>>) -> Self {
         match project::Root::from_path(&root_path) {
             Ok(root) => {
                 let state = initialized::InitializedView::new(Rc::new(root));
@@ -65,6 +66,7 @@ pub enum Update {
     Error(error_view::Update),
     PreInit(preinit::Update),
     Initialized(initialized::Update),
+    Fuzzing(fuzzing::Update),
     ChangePhase(Phase),
 }
 
@@ -76,7 +78,7 @@ pub enum OutMessage {
 impl ViewState for State {
     type Update = self::Update;
 
-    type InMessage = Event<FuzzingEvent>;
+    type InMessage = Event<TuiMessage>;
 
     type OutMessage = self::OutMessage;
 
@@ -85,7 +87,7 @@ impl ViewState for State {
             Phase::PreInit(state) => Self::handle_child_in_message(state, message),
             Phase::Error(state) => Self::handle_child_in_message(state, message),
             Phase::Initialized(state) => Self::handle_child_in_message(state, message),
-            Phase::Fuzzing(state) => todo!(),
+            Phase::Fuzzing(state) => Self::handle_child_in_message(state, message),
             Phase::_Ended => None,
         }
     }
@@ -105,8 +107,8 @@ impl ViewState for State {
                 (Phase::Initialized(state), Update::Initialized(u)) => state.update(u).and_then(|out| {
                     <Self as ParentView<initialized::InitializedView>>::handle_child_out_message(self, out)
                 }),
-                (Phase::Fuzzing(state), _) => {
-                    todo!()
+                (Phase::Fuzzing(state), Update::Fuzzing(u)) => {
+                    state.update(u).and_then(|out| <Self as ParentView<fuzzing::FuzzingView>>::handle_child_out_message(self, out))
                 }
                 (Phase::_Ended, _) => None,
                 _ => None,
@@ -121,9 +123,7 @@ impl ViewState for State {
             Phase::PreInit(state) => state.draw(frame, theme, area),
             Phase::Error(state) => state.draw(frame, theme, area),
             Phase::Initialized(state) => state.draw(frame, theme, area),
-            Phase::Fuzzing(state) => {
-                todo!()
-            }
+            Phase::Fuzzing(state) => { state.draw(frame, theme, area) }
             Phase::_Ended => {}
         }
     }
@@ -193,9 +193,26 @@ impl ParentView<initialized::InitializedView> for State {
     }
     fn convert_child_out_message(&self, message: initialized::OutMessage) -> Either<Update, OutMessage> {
         match message {
-            initialized::OutMessage::Run { root, target_name, config } => {
+            initialized::OutMessage::StartFuzzing { root, target_name, config } => {
                 Either::Right(OutMessage::StartFuzzing { root, target_name, config })
             }
+        }
+    }
+}
+impl ParentView<fuzzing::FuzzingView> for State {
+    fn convert_child_update(update: <fuzzing::FuzzingView as ViewState>::Update) -> Self::Update {
+        Self::Update::Fuzzing(update)
+    }
+    fn convert_to_child_in_message(message: Self::InMessage) -> Option<<fuzzing::FuzzingView as ViewState>::InMessage> {
+        match message {
+            Event::UserInput(_) => None,
+            Event::Subscription(m) => Some(m),
+            Event::Tick => { None }
+        }
+    }
+    fn convert_child_out_message(&self, message: <fuzzing::FuzzingView as ViewState>::OutMessage) -> Either<Update, OutMessage> {
+        match message {
+            
         }
     }
 }

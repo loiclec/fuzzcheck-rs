@@ -125,14 +125,14 @@ impl InnerFocusable for RunFuzzView {
 }
 
 pub enum Update {
-    Run,
+    StartFuzzing,
     SwitchFocus(Focus),
     MaxInputComplexityView(<TextFieldView as ViewState>::Update),
     SetMaxInputComplexity(String),
 }
 
 pub enum OutMessage {
-    Run(FullConfig),
+    StartFuzzing(FullConfig),
 }
 
 impl ViewState for RunFuzzView {
@@ -145,7 +145,7 @@ impl ViewState for RunFuzzView {
             Focus::RunButton => match message {
                 Key::Char('\n') => {
                     if self.error.is_none() {
-                        return Some(Update::Run);
+                        return Some(Update::StartFuzzing);
                     } else {
                         return None;
                     }
@@ -172,7 +172,7 @@ impl ViewState for RunFuzzView {
 
     fn update(&mut self, u: Self::Update) -> Option<Self::OutMessage> {
         match u {
-            Update::Run => Some(OutMessage::Run(self.final_config.clone())),
+            Update::StartFuzzing => Some(OutMessage::StartFuzzing(self.final_config.clone())),
             Update::SwitchFocus(f) => {
                 self.update_focus(f);
                 None

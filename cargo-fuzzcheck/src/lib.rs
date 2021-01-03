@@ -347,6 +347,10 @@ pub fn strings_from_config(config: &FullConfig) -> Vec<String> {
 
     s.append(&mut vec!["--".to_owned() + TIMEOUT_FLAG, config.timeout.to_string()]);
 
+    if let Some(socket_address) = config.socket_address {
+        s.append(&mut vec!["--".to_owned() + SOCK_ADDR_FLAG, format!("{}",socket_address)]);
+    }
+
     s
 }
 

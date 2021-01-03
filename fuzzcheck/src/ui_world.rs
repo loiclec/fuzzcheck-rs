@@ -3,7 +3,7 @@ use fuzzcheck_common::{
     arg::{FullCommandLineArguments, FuzzerCommand},
     ipc,
 };
-use std::fs;
+use std::{fs, time::Duration};
 use std::hash::{Hash, Hasher};
 use std::io::{self, Result};
 use std::time::Instant;
@@ -16,7 +16,7 @@ use fuzzcheck_common::ipc::{FuzzerStats, FuzzerEvent, TuiMessage};
 use crate::Serializer;
 
 pub struct TuiWorld<S: Serializer> {
-    stream: RefCell<TcpStream>,
+    stream: Option<RefCell<TcpStream>>,
     settings: FullCommandLineArguments,
     instant: Instant,
     serializer: S,
@@ -24,7 +24,11 @@ pub struct TuiWorld<S: Serializer> {
 
 impl<S: Serializer> TuiWorld<S> {
     pub fn new(serializer: S, settings: FullCommandLineArguments) -> Self {
-        let stream = RefCell::new(TcpStream::connect(settings.socket_address.unwrap()).unwrap());
+        let stream  = if let Some(socket_address) = settings.socket_address {
+            Some(RefCell::new(TcpStream::connect(socket_address).unwrap()))
+        } else {
+            None
+        };
         Self {
             stream,
             settings,
@@ -49,6 +53,7 @@ impl<S: Serializer> TuiWorld<S> {
 
     pub(crate) fn do_actions(&self, actions: Vec<WorldAction<S::Value>>, stats: &FuzzerStats) -> Result<()> {
         for a in actions {
+            let is_failure = matches!(a, WorldAction::ReportEvent(FuzzerEvent::TestFailure));
             let message = match a {
                 WorldAction::Add(x) => {
                     let (hash, input) = self.hash_and_string_of_input(x);
@@ -58,13 +63,78 @@ impl<S: Serializer> TuiWorld<S> {
                     let (hash, input) = self.hash_and_string_of_input(x);
                     TuiMessage::RemoveInput { hash, input }
                 }
-                WorldAction::ReportEvent(event) => TuiMessage::ReportEvent { event, stats: *stats },
+                WorldAction::ReportEvent(event) => {
+                    self.report_event(event.clone(), Some(*stats));
+                    TuiMessage::ReportEvent { event, stats: *stats }
+                },
             };
 
-            let mut stream = self.stream.borrow_mut();
-            ipc::write(&mut stream, &message.to_json().to_string());
+            if let Some(stream) = &self.stream {
+                let mut stream = stream.borrow_mut();
+                ipc::write(&mut stream, &message.to_json().to_string());
+            }
         }
         Ok(())
+    }
+    fn report_event(&self, event: FuzzerEvent, stats: Option<FuzzerStats>) {
+    // println uses a lock, which may mess up the signal handling
+        match event {
+            FuzzerEvent::Start => {
+                println!("START");
+                return;
+            }
+            FuzzerEvent::End => {
+                //;
+                println!("\n======================== END ========================");
+                println!(
+                    r#"Fuzzcheck cannot generate more arbitrary values of the input type. This may be
+because all possible values under the chosen maximum complexity were tested, or
+because the mutator does not know how to generate more values."#
+                );
+                return;
+            }
+            FuzzerEvent::CrashNoInput => {
+                //;
+                println!("\n=================== CRASH DETECTED ===================");
+                println!(
+                    r#"A crash was detected, but the fuzzer cannot recover the crashing input.
+This should never happen, and is probably a bug in fuzzcheck. Sorry :("#
+                );
+                return;
+            }
+            FuzzerEvent::Done => {
+                println!("DONE");
+                return;
+            }
+            FuzzerEvent::New => print!("NEW\t"),
+            FuzzerEvent::Remove => print!("REMOVE\t"),
+            FuzzerEvent::DidReadCorpus => {
+                println!("FINISHED READING CORPUS");
+                return;
+            }
+            FuzzerEvent::CaughtSignal(signal) => {
+                match signal {
+                    _ => println!("\n================ SIGNAL {} ================", signal),
+                }
+            },
+            FuzzerEvent::TestFailure => {
+                println!("\n================ TEST FAILED ================");
+            },
+            FuzzerEvent::Replace(count) => {
+                print!("RPLC {}\t", count);
+            }
+            FuzzerEvent::ReplaceLowestStack(stack) => {
+                print!("STACK {}\n", stack);
+            }
+        };
+        if let Some(stats) = stats {
+            print!("{}\t", stats.total_number_of_runs);
+            print!("score: {:.2}\t", stats.score);
+            print!("pool: {}\t", stats.pool_size);
+            print!("exec/s: {}\t", stats.exec_per_s);
+            print!("cplx: {:.2}\t", stats.avg_cplx);
+            println!();
+        }
     }
 }
 

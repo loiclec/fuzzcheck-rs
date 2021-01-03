@@ -17,8 +17,10 @@ use std::{io::{self, Stdout}, process::Stdio, time::Duration};
 use std::{error::Error, path::PathBuf};
 
 use events::EXIT_KEY;
+use fuzzcheck_common::ipc::TuiMessage;
+use fuzzing::FuzzingView;
 
-use crate::ui::framework::ViewState;
+use crate::{strings_from_config, ui::framework::ViewState};
 
 // use comm::FuzzingEvent;
 use termion::{input::MouseTerminal, raw::RawTerminal};
@@ -27,14 +29,14 @@ use termion::screen::AlternateScreen;
 
 use tui::{Terminal, backend::{Backend, TermionBackend}, layout::Rect};
 
-use self::{framework::Theme, fuzz_target_comm::FuzzingEvent};
+use self::{framework::Theme};
 
 
 type TerminalAlias = Terminal<TermionBackend<AlternateScreen<MouseTerminal<RawTerminal<Stdout>>>>>;
 
-fn set_ui_terminal() -> Result<TerminalAlias, Box<dyn Error>> {
+fn set_ui_terminal(raw: bool) -> Result<TerminalAlias, Box<dyn Error>> {
     let stdout = io::stdout().into_raw_mode()?;
-    stdout.activate_raw_mode()?;
+    if raw { stdout.activate_raw_mode()? } else { stdout.suspend_raw_mode()? };
     let stdout = MouseTerminal::from(stdout);
     let stdout = AlternateScreen::from(stdout);
     let backend = TermionBackend::new(stdout);
@@ -43,11 +45,13 @@ fn set_ui_terminal() -> Result<TerminalAlias, Box<dyn Error>> {
 
 pub fn launch_app(root_path: PathBuf) -> Result<(), Box<dyn Error>> {
     // Terminal initialization
-    let mut terminal = set_ui_terminal()?;
+    let mut terminal = set_ui_terminal(true)?;
 
-    let events = events::Events::<FuzzingEvent>::new();
+    let mut events = events::Events::<TuiMessage>::new();
 
     let mut state = app::State::new(root_path, events.tx.clone());
+
+    let mut _child_process = None;
 
     'main_loop: loop {
         terminal.draw(|f| {
@@ -79,9 +83,24 @@ pub fn launch_app(root_path: PathBuf) -> Result<(), Box<dyn Error>> {
                         terminal.clear()?;
                         std::mem::drop(terminal); 
 
-                        let _ = root.build_command(target_name.as_ref(), &config, &Stdio::inherit);
+                        root.build_command(target_name.as_ref(), &config, &Stdio::inherit).unwrap();
+                        
+                        let (listener, socket_address) = fuzz_target_comm::create_listener();
 
-                        terminal = set_ui_terminal()?;
+                        events.add_stream(move |tx| {
+                            fuzz_target_comm::receive_fuzz_target_messages(listener, tx)
+                        });
+
+                        let out = state.update(app::Update::ChangePhase(app::Phase::Fuzzing(FuzzingView::new())));
+                        assert!(out.is_none());
+
+                        let mut config = config;
+                        config.socket_address = Some(socket_address);
+                        
+                        let child = root.launch_executable(target_name.as_ref(), &config, &Stdio::null).unwrap();
+                        _child_process = Some(child);
+
+                        terminal = set_ui_terminal(true)?;
                     }
                 }
             }
