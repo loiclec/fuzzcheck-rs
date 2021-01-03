@@ -54,7 +54,7 @@ where
             let tx = tx.clone();
 
             std::thread::spawn(move || loop {
-                std::thread::sleep(Duration::from_millis(100));
+                std::thread::sleep(Duration::from_millis(1000));
                 if let Err(_) = tx.send(Event::Tick) {
                     return;
                 }

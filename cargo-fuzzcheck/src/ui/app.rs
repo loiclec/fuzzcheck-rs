@@ -215,8 +215,8 @@ impl ParentView<fuzzing::FuzzingView> for State {
     }
     fn convert_to_child_in_message(message: Self::InMessage) -> Option<<fuzzing::FuzzingView as ViewState>::InMessage> {
         match message {
-            Event::UserInput(_) => None,
-            Event::Subscription(m) => Some(m),
+            Event::UserInput(x) => Some(fuzzing::InMessage::Key(x)),
+            Event::Subscription(m) => Some(fuzzing::InMessage::TuiMessage(m)),
             Event::Tick => None,
         }
     }

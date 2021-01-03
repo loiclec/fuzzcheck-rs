@@ -78,7 +78,7 @@ where
     Self: 'static,
 {
     fn update_stats(&mut self) {
-        let microseconds = self.world.elapsed_time();
+        let microseconds = self.world.elapsed_time_since_last_checkpoint();
 
         let nbr_runs = self.stats.total_number_of_runs - self.stats.number_of_runs_since_last_reset_time;
         let nbr_runs_times_million = nbr_runs * 1_000_000;
@@ -88,7 +88,7 @@ where
         self.stats.score = self.pool.score();
         self.stats.avg_cplx = self.pool.average_complexity;
         if microseconds > 1_000_000 {
-            self.world.set_start_time();
+            self.world.set_checkpoint_instant();
             self.stats.number_of_runs_since_last_reset_time = self.stats.total_number_of_runs;
         }
     }
@@ -389,7 +389,8 @@ where
         inputs.drain_filter(|i| i.complexity(&self.state.mutator) > self.state.settings.max_input_cplx);
         assert!(!inputs.is_empty());
 
-        self.state.world.set_start_time();
+        self.state.world.set_start_instant();
+        self.state.world.set_checkpoint_instant();
         for input in inputs {
             self.state.input_idx = FuzzerInputIndex::Temporary(input);
             self.test_input_and_analyze()?;
@@ -460,7 +461,8 @@ where
 
         self.state.pool.add_favored_input(input);
 
-        self.state.world.set_start_time();
+        self.state.world.set_start_instant();
+        self.state.world.set_checkpoint_instant();
         loop {
             self.process_next_inputs()?;
         }

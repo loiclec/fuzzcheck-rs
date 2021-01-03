@@ -29,7 +29,14 @@ pub fn read(stream: &mut TcpStream) -> Option<String> {
 pub enum TuiMessage {
     AddInput { hash: String, input: String },
     RemoveInput { hash: String, input: String },
-    ReportEvent { event: FuzzerEvent, stats: FuzzerStats },
+    ReportEvent(TuiMessageEvent),
+}
+
+#[derive(Clone, FromJson, ToJson)]
+pub struct TuiMessageEvent {
+    pub event: FuzzerEvent,
+    pub stats: FuzzerStats,
+    pub time_ms: usize,
 }
 
 #[derive(Clone, Copy, Default, FromJson, ToJson)]

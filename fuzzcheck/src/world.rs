@@ -1,7 +1,7 @@
 use decent_serde_json_alternative::ToJson;
 use fuzzcheck_common::{
     arg::{FullCommandLineArguments, FuzzerCommand},
-    ipc,
+    ipc::{self, TuiMessageEvent},
 };
 use std::fs;
 use std::hash::{Hash, Hasher};
@@ -22,7 +22,8 @@ pub(crate) enum WorldAction<T> {
 pub struct World<S: Serializer> {
     stream: Option<RefCell<TcpStream>>,
     settings: FullCommandLineArguments,
-    instant: Instant,
+    initial_instant: Instant,
+    checkpoint_instant: Instant,
     serializer: S,
 }
 
@@ -36,7 +37,8 @@ impl<S: Serializer> World<S> {
         Self {
             stream,
             settings,
-            instant: std::time::Instant::now(),
+            initial_instant: std::time::Instant::now(),
+            checkpoint_instant: std::time::Instant::now(),
             serializer,
         }
     }
@@ -70,7 +72,11 @@ impl<S: Serializer> World<S> {
                 }
                 WorldAction::ReportEvent(event) => {
                     self.report_event(event.clone(), Some(*stats));
-                    TuiMessage::ReportEvent { event, stats: *stats }
+                    TuiMessage::ReportEvent(TuiMessageEvent {
+                        event,
+                        stats: *stats,
+                        time_ms: self.elapsed_time_since_start() / 1000,
+                    })
                 }
             };
 
@@ -169,11 +175,17 @@ This should never happen, and is probably a bug in fuzzcheck. Sorry :("#
         }
     }
 
-    pub fn set_start_time(&mut self) {
-        self.instant = Instant::now();
+    pub fn set_start_instant(&mut self) {
+        self.initial_instant = Instant::now();
     }
-    pub fn elapsed_time(&self) -> usize {
-        self.instant.elapsed().as_micros() as usize
+    pub fn set_checkpoint_instant(&mut self) {
+        self.checkpoint_instant = Instant::now();
+    }
+    pub fn elapsed_time_since_start(&self) -> usize {
+        self.initial_instant.elapsed().as_micros() as usize
+    }
+    pub fn elapsed_time_since_last_checkpoint(&self) -> usize {
+        self.checkpoint_instant.elapsed().as_micros() as usize
     }
 
     pub fn read_input_corpus(&self) -> Result<Vec<S::Value>> {

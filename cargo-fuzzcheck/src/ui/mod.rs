@@ -57,7 +57,7 @@ pub fn launch_app(root_path: PathBuf) -> Result<(), Box<dyn Error>> {
 
     let mut state = app::State::new(root_path, events.tx.clone());
 
-    let mut child_process = None;
+    let mut child_process: Option<std::process::Child> = None;
 
     'main_loop: loop {
         terminal.draw(|f| {
@@ -121,6 +121,10 @@ pub fn launch_app(root_path: PathBuf) -> Result<(), Box<dyn Error>> {
             }
         } else {
         }
+    }
+
+    if let Some(child) = &mut child_process {
+        child.kill()?;
     }
 
     Ok(())
