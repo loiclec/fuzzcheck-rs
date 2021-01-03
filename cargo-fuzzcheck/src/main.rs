@@ -165,7 +165,7 @@ cargo-fuzzcheck {run} target1 {cmin} --{in_corpus} "fuzz-corpus" --{corpus_size}
                     let exec = root.launch_executable(target_name, &config, &process::Stdio::inherit)?;
                     exec.wait_with_output()?;
                     Ok(())
-                },
+                }
                 FuzzerCommand::MinifyInput => root.input_minify_command(target_name, &config, &process::Stdio::inherit),
                 FuzzerCommand::Read => {
                     panic!("unimplemented");

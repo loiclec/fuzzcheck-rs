@@ -1,13 +1,10 @@
-use std::{io, net::TcpListener, time::Duration};
 use std::sync::mpsc;
 use std::thread;
+use std::{io, time::Duration};
 
-use fuzzcheck_common::ipc::TuiMessage;
 use termion::event::Key;
 use termion::input::TermRead;
 use thread::JoinHandle;
-
-use super::fuzz_target_comm;
 
 pub const EXIT_KEY: Key = Key::Ctrl('c');
 
@@ -17,7 +14,7 @@ where
 {
     UserInput(Key),
     Subscription(S),
-    Tick
+    Tick,
 }
 
 pub struct Events<S>
@@ -29,7 +26,10 @@ where
     handles: Vec<JoinHandle<()>>,
 }
 
-impl<S> Events<S> where S: Send + 'static {
+impl<S> Events<S>
+where
+    S: Send + 'static,
+{
     pub fn new() -> Self {
         let (tx, rx) = mpsc::channel();
         let input_handle = {
@@ -53,12 +53,10 @@ impl<S> Events<S> where S: Send + 'static {
         let tick_handle = {
             let tx = tx.clone();
 
-            std::thread::spawn(move || {
-                loop {
-                    std::thread::sleep(Duration::from_millis(100000));
-                    if let Err(_) = tx.send(Event::Tick) {
-                        return;
-                    }
+            std::thread::spawn(move || loop {
+                std::thread::sleep(Duration::from_millis(100));
+                if let Err(_) = tx.send(Event::Tick) {
+                    return;
                 }
             })
         };
@@ -72,9 +70,7 @@ impl<S> Events<S> where S: Send + 'static {
 
     pub fn add_stream(&mut self, stream: impl FnOnce(mpsc::Sender<Event<S>>) + Send + 'static) {
         let tx = self.tx.clone();
-        self.handles.push(thread::spawn(move ||
-            stream(tx)
-        ));
+        self.handles.push(thread::spawn(move || stream(tx)));
     }
 
     pub fn next(&self) -> Result<Event<S>, mpsc::RecvError> {

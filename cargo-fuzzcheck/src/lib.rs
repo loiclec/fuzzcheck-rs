@@ -42,7 +42,7 @@ impl Root {
 
         Ok(())
     }
-    
+
     pub fn non_instrumented_compile(
         &self,
         target_name: &str,
@@ -98,14 +98,10 @@ impl Root {
                 .args(config.non_instrumented_features.clone());
         }
 
-        let child = cargo_command
-        .stdout(stdio()) 
-        .stderr(stdio())
-        .spawn()?;
+        let child = cargo_command.stdout(stdio()).stderr(stdio()).spawn()?;
 
         Ok(child)
     }
-
 
     pub fn build_command(
         &self,
@@ -113,21 +109,20 @@ impl Root {
         config: &FullConfig,
         stdio: &impl Fn() -> Stdio,
     ) -> Result<(), CargoFuzzcheckError> {
-        
         let instrumented_command = self.instrumented_compile(config, stdio)?;
         let instrumented_output = instrumented_command.wait_with_output()?;
         if !instrumented_output.status.success() {
             return Err("Could not compile the instrumented part of the fuzz target"
                 .to_string()
-                .into())
+                .into());
         }
-    
+
         let non_instrumented_command = self.non_instrumented_compile(target_name, config, stdio)?;
         let non_instrumented_output = non_instrumented_command.wait_with_output()?;
         if !non_instrumented_output.status.success() {
             return Err("Could not compile the non instrumented part of the fuzz target"
                 .to_string()
-                .into())
+                .into());
         }
 
         Ok(())
@@ -143,18 +138,18 @@ impl Root {
             .non_instrumented_folder()
             .join(format!("target/{}/release/{}", default_target(), target_name));
 
-        let args = strings_from_config(config); 
+        let args = strings_from_config(config);
 
-        let child = Command::new(exec)
-            .args(args)
-            .stdout(stdio())
-            .stderr(stdio())
-            .spawn()?;
+        let child = Command::new(exec).args(args).stdout(stdio()).stderr(stdio()).spawn()?;
 
         Ok(child)
     }
 
-    fn instrumented_compile(&self, config: &FullConfig, stdio: impl Fn() -> Stdio) -> Result<process::Child, CargoFuzzcheckError> {
+    fn instrumented_compile(
+        &self,
+        config: &FullConfig,
+        stdio: impl Fn() -> Stdio,
+    ) -> Result<process::Child, CargoFuzzcheckError> {
         let mut rustflags: String = "--cfg fuzzcheck \
                                      -Ctarget-cpu=native \
                                      -Cmetadata=fuzzing \
@@ -206,11 +201,8 @@ impl Root {
                 .args(config.instrumented_features.clone());
         }
 
-        let child = cargo_command
-            .stdout(stdio())
-            .stderr(stdio())
-            .spawn()?;
-        
+        let child = cargo_command.stdout(stdio()).stderr(stdio()).spawn()?;
+
         Ok(child)
         //     .output()?;
 
@@ -223,7 +215,12 @@ impl Root {
         // }
     }
 
-    pub fn input_minify_command(&self, target_name: &str, config: &FullConfig, stdio: &impl Fn() -> Stdio) -> Result<(), CargoFuzzcheckError> {
+    pub fn input_minify_command(
+        &self,
+        target_name: &str,
+        config: &FullConfig,
+        stdio: &impl Fn() -> Stdio,
+    ) -> Result<(), CargoFuzzcheckError> {
         let mut config = config.clone();
         let file_to_minify = if let FullFuzzerCommand::MinifyInput { input_file } = config.command {
             input_file.clone()
@@ -350,7 +347,10 @@ pub fn strings_from_config(config: &FullConfig) -> Vec<String> {
     s.append(&mut vec!["--".to_owned() + TIMEOUT_FLAG, config.timeout.to_string()]);
 
     if let Some(socket_address) = config.socket_address {
-        s.append(&mut vec!["--".to_owned() + SOCK_ADDR_FLAG, format!("{}",socket_address)]);
+        s.append(&mut vec![
+            "--".to_owned() + SOCK_ADDR_FLAG,
+            format!("{}", socket_address),
+        ]);
     }
 
     s

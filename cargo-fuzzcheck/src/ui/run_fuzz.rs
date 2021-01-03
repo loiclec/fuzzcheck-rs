@@ -1,6 +1,6 @@
 use std::{error::Error, fmt::Display, rc::Rc, write};
 
-use fuzzcheck_common::arg::{CommandLineArguments};
+use fuzzcheck_common::arg::CommandLineArguments;
 
 /**
     This view presents the default configuration for a particular fuzz target,

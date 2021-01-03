@@ -1,8 +1,7 @@
 use fuzzcheck_common::ipc::{FuzzerEvent, FuzzerStats, TuiMessage};
 
-use super::{framework::{Theme, ViewState}};
-use std::fmt::Debug;
-use termion::event::Key;
+use super::framework::{Theme, ViewState};
+
 use tui::{
     backend::Backend,
     layout::{Alignment, Constraint, Direction, Layout, Rect},
@@ -13,7 +12,7 @@ use tui::{
 };
 
 pub struct FuzzingView {
-    message: String
+    message: String,
 }
 
 impl FuzzingView {
@@ -25,27 +24,31 @@ impl FuzzingView {
 }
 
 fn stats_to_string(stats: FuzzerStats) -> String {
-    format!("{}  score: {:.2}  pool: {}  exec/s: {}  cplx:{:.2}", stats.total_number_of_runs, stats.score, stats.pool_size, stats.exec_per_s, stats.avg_cplx)
+    format!(
+        "{}  score: {:.2}  pool: {}  exec/s: {}  cplx:{:.2}",
+        stats.total_number_of_runs, stats.score, stats.pool_size, stats.exec_per_s, stats.avg_cplx
+    )
 }
 
 fn event_to_string(event: FuzzerEvent) -> String {
     match event {
-        FuzzerEvent::Start => { "Start" }
-        FuzzerEvent::End => { "End" }
-        FuzzerEvent::CrashNoInput => { "Fuzzcheck crashed, but the crashing input could not be retrieved" }
-        FuzzerEvent::Done => { "Done" }
-        FuzzerEvent::New => { "NEW" }
-        FuzzerEvent::Replace(x) => { "RPLC" }
-        FuzzerEvent::ReplaceLowestStack(_) => { "STCK" }
-        FuzzerEvent::Remove => { "RMV " }
-        FuzzerEvent::DidReadCorpus => { "did read corpus" }
-        FuzzerEvent::CaughtSignal(_) => { "Signal Caught" }
-        FuzzerEvent::TestFailure => { "Test Failure" }
-    }.to_string()
+        FuzzerEvent::Start => "Start",
+        FuzzerEvent::End => "End",
+        FuzzerEvent::CrashNoInput => "Fuzzcheck crashed, but the crashing input could not be retrieved",
+        FuzzerEvent::Done => "Done",
+        FuzzerEvent::New => "NEW",
+        FuzzerEvent::Replace(x) => "RPLC",
+        FuzzerEvent::ReplaceLowestStack(_) => "STCK",
+        FuzzerEvent::Remove => "RMV ",
+        FuzzerEvent::DidReadCorpus => "did read corpus",
+        FuzzerEvent::CaughtSignal(_) => "Signal Caught",
+        FuzzerEvent::TestFailure => "Test Failure",
+    }
+    .to_string()
 }
 
 pub enum Update {
-    ChangeMessage(String)
+    ChangeMessage(String),
 }
 pub enum OutMessage {}
 
@@ -56,15 +59,13 @@ impl ViewState for FuzzingView {
 
     fn convert_in_message(&self, message: Self::InMessage) -> Option<Update> {
         match message {
-            TuiMessage::AddInput { hash, input } => {
-                None
-            }
-            TuiMessage::RemoveInput { hash, input } => {
-                None
-            }
-            TuiMessage::ReportEvent { event, stats } => {
-                Some(Update::ChangeMessage(format!("{}\n{}", event_to_string(event), stats_to_string(stats))))
-            }
+            TuiMessage::AddInput { hash, input } => None,
+            TuiMessage::RemoveInput { hash, input } => None,
+            TuiMessage::ReportEvent { event, stats } => Some(Update::ChangeMessage(format!(
+                "{}\n{}",
+                event_to_string(event),
+                stats_to_string(stats)
+            ))),
         }
     }
 

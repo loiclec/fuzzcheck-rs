@@ -3,13 +3,13 @@ use fuzzcheck_common::{
     arg::{FullCommandLineArguments, FuzzerCommand},
     ipc,
 };
-use std::{fs};
+use std::fs;
 use std::hash::{Hash, Hasher};
 use std::io::{self, Result};
 use std::time::Instant;
 use std::{cell::RefCell, collections::hash_map::DefaultHasher, net::TcpStream};
 
-use fuzzcheck_common::ipc::{FuzzerStats, FuzzerEvent, TuiMessage};
+use fuzzcheck_common::ipc::{FuzzerEvent, FuzzerStats, TuiMessage};
 
 use crate::Serializer;
 
@@ -28,7 +28,7 @@ pub struct World<S: Serializer> {
 
 impl<S: Serializer> World<S> {
     pub fn new(serializer: S, settings: FullCommandLineArguments) -> Self {
-        let stream  = if let Some(socket_address) = settings.socket_address {
+        let stream = if let Some(socket_address) = settings.socket_address {
             Some(RefCell::new(TcpStream::connect(socket_address).unwrap()))
         } else {
             None
@@ -71,7 +71,7 @@ impl<S: Serializer> World<S> {
                 WorldAction::ReportEvent(event) => {
                     self.report_event(event.clone(), Some(*stats));
                     TuiMessage::ReportEvent { event, stats: *stats }
-                },
+                }
             };
 
             if let Some(stream) = &self.stream {
@@ -111,7 +111,7 @@ impl<S: Serializer> World<S> {
     }
 
     fn report_event(&self, event: FuzzerEvent, stats: Option<FuzzerStats>) {
-    // println uses a lock, which may mess up the signal handling
+        // println uses a lock, which may mess up the signal handling
         match event {
             FuzzerEvent::Start => {
                 println!("START");
@@ -146,14 +146,12 @@ This should never happen, and is probably a bug in fuzzcheck. Sorry :("#
                 println!("FINISHED READING CORPUS");
                 return;
             }
-            FuzzerEvent::CaughtSignal(signal) => {
-                match signal {
-                    _ => println!("\n================ SIGNAL {} ================", signal),
-                }
+            FuzzerEvent::CaughtSignal(signal) => match signal {
+                _ => println!("\n================ SIGNAL {} ================", signal),
             },
             FuzzerEvent::TestFailure => {
                 println!("\n================ TEST FAILED ================");
-            },
+            }
             FuzzerEvent::Replace(count) => {
                 print!("RPLC {}\t", count);
             }

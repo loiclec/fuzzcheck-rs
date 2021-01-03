@@ -7,9 +7,9 @@ use crate::nix_subset as nix;
 use crate::pool::{AnalyzedFeature, Pool, PoolIndex};
 use crate::signals_handler::{set_signal_handlers, set_timer};
 use crate::world::World;
-use fuzzcheck_common::ipc::{FuzzerEvent, FuzzerStats};
 use crate::{code_coverage_sensor::shared_sensor, world::WorldAction};
 use crate::{Feature, FuzzedInput, Mutator, Serializer};
+use fuzzcheck_common::ipc::{FuzzerEvent, FuzzerStats};
 
 use fuzzcheck_common::arg::{FullCommandLineArguments, FuzzerCommand};
 

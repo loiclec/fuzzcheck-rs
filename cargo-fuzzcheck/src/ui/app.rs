@@ -72,7 +72,11 @@ pub enum Update {
 
 pub enum OutMessage {
     Quit,
-    StartFuzzing { root: Rc<Root>, target_name: String, config: FullConfig },
+    StartFuzzing {
+        root: Rc<Root>,
+        target_name: String,
+        config: FullConfig,
+    },
 }
 
 impl ViewState for State {
@@ -107,9 +111,9 @@ impl ViewState for State {
                 (Phase::Initialized(state), Update::Initialized(u)) => state.update(u).and_then(|out| {
                     <Self as ParentView<initialized::InitializedView>>::handle_child_out_message(self, out)
                 }),
-                (Phase::Fuzzing(state), Update::Fuzzing(u)) => {
-                    state.update(u).and_then(|out| <Self as ParentView<fuzzing::FuzzingView>>::handle_child_out_message(self, out))
-                }
+                (Phase::Fuzzing(state), Update::Fuzzing(u)) => state
+                    .update(u)
+                    .and_then(|out| <Self as ParentView<fuzzing::FuzzingView>>::handle_child_out_message(self, out)),
                 (Phase::_Ended, _) => None,
                 _ => None,
             }
@@ -123,7 +127,7 @@ impl ViewState for State {
             Phase::PreInit(state) => state.draw(frame, theme, area),
             Phase::Error(state) => state.draw(frame, theme, area),
             Phase::Initialized(state) => state.draw(frame, theme, area),
-            Phase::Fuzzing(state) => { state.draw(frame, theme, area) }
+            Phase::Fuzzing(state) => state.draw(frame, theme, area),
             Phase::_Ended => {}
         }
     }
@@ -138,7 +142,7 @@ impl ParentView<preinit::PreInitView> for State {
         match message {
             Event::UserInput(u) => Some(u),
             Event::Subscription(_) => None,
-            Event::Tick => { None }
+            Event::Tick => None,
         }
     }
 
@@ -172,7 +176,7 @@ impl ParentView<error_view::ErrorView> for State {
         match message {
             Event::UserInput(u) => Some(u),
             Event::Subscription(_) => None,
-            Event::Tick => { None }
+            Event::Tick => None,
         }
     }
 
@@ -188,14 +192,20 @@ impl ParentView<initialized::InitializedView> for State {
         match message {
             Event::UserInput(u) => Some(u),
             Event::Subscription(_) => None,
-            Event::Tick => { None }
+            Event::Tick => None,
         }
     }
     fn convert_child_out_message(&self, message: initialized::OutMessage) -> Either<Update, OutMessage> {
         match message {
-            initialized::OutMessage::StartFuzzing { root, target_name, config } => {
-                Either::Right(OutMessage::StartFuzzing { root, target_name, config })
-            }
+            initialized::OutMessage::StartFuzzing {
+                root,
+                target_name,
+                config,
+            } => Either::Right(OutMessage::StartFuzzing {
+                root,
+                target_name,
+                config,
+            }),
         }
     }
 }
@@ -207,12 +217,13 @@ impl ParentView<fuzzing::FuzzingView> for State {
         match message {
             Event::UserInput(_) => None,
             Event::Subscription(m) => Some(m),
-            Event::Tick => { None }
+            Event::Tick => None,
         }
     }
-    fn convert_child_out_message(&self, message: <fuzzing::FuzzingView as ViewState>::OutMessage) -> Either<Update, OutMessage> {
-        match message {
-            
-        }
+    fn convert_child_out_message(
+        &self,
+        message: <fuzzing::FuzzingView as ViewState>::OutMessage,
+    ) -> Either<Update, OutMessage> {
+        match message {}
     }
 }

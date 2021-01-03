@@ -1,6 +1,5 @@
 use std::net::SocketAddr;
 use std::net::TcpListener;
-use std::net::TcpStream;
 use std::sync::mpsc::Sender;
 
 use fuzzcheck_common::ipc;
