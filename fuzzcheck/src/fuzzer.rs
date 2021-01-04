@@ -9,7 +9,7 @@ use crate::signals_handler::{set_signal_handlers, set_timer};
 use crate::world::World;
 use crate::{code_coverage_sensor::shared_sensor, world::WorldAction};
 use crate::{Feature, FuzzedInput, Mutator, Serializer};
-use fuzzcheck_common::ipc::{FuzzerEvent, FuzzerStats};
+use fuzzcheck_common::ipc::{FuzzerEvent, FuzzerStats, MessageUserToFuzzer};
 
 use fuzzcheck_common::arg::{FullCommandLineArguments, FuzzerCommand};
 
@@ -286,9 +286,13 @@ where
     }
 
     fn test_input_and_analyze(&mut self) -> Result<(), std::io::Error> {
+
+        self.state.world.handle_user_message();
+
         // we have verified in the caller function that there is an input
         let input = self.state.get_input().unwrap();
         let cplx = input.complexity(&self.state.mutator);
+        
         Self::test_input(
             &self.test,
             &self.state.mutator,

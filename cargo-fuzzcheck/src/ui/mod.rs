@@ -2,6 +2,7 @@ mod framework;
 mod hlist;
 mod horizontal_list_view;
 mod text_field_view;
+mod vertical_list_view;
 
 mod error_view;
 mod fuzzing;
@@ -13,13 +14,14 @@ mod app;
 mod events;
 mod fuzz_target_comm;
 
-use std::{error::Error, path::PathBuf};
+use std::{cell::RefCell, error::Error, net::TcpStream, path::PathBuf, rc::Rc, sync::{Arc, Mutex}};
 use std::{
     io::{self, Stdout},
     process::Stdio,
 };
 
 use events::EXIT_KEY;
+use fuzz_target_comm::send_fuzzer_message;
 use fuzzcheck_common::ipc::TuiMessage;
 use fuzzing::FuzzingView;
 
@@ -58,6 +60,7 @@ pub fn launch_app(root_path: PathBuf) -> Result<(), Box<dyn Error>> {
     let mut state = app::State::new(root_path, events.tx.clone());
 
     let mut child_process: Option<std::process::Child> = None;
+    let mut sending_stream = Option::<TcpStream>::None;
 
     'main_loop: loop {
         terminal.draw(|f| {
@@ -99,8 +102,6 @@ pub fn launch_app(root_path: PathBuf) -> Result<(), Box<dyn Error>> {
 
                             let (listener, socket_address) = fuzz_target_comm::create_listener();
 
-                            events.add_stream(move |tx| fuzz_target_comm::receive_fuzz_target_messages(listener, tx));
-
                             let out = state.update(app::Update::ChangePhase(app::Phase::Fuzzing(FuzzingView::new())));
                             assert!(out.is_none());
 
@@ -112,9 +113,25 @@ pub fn launch_app(root_path: PathBuf) -> Result<(), Box<dyn Error>> {
                                 .unwrap();
                             child_process = Some(child);
 
+
+                            let read_stream = fuzz_target_comm::accept(listener);
+                            sending_stream = Some(read_stream.try_clone().unwrap());
+                            
+                            events.add_stream(move |tx| fuzz_target_comm::receive_fuzz_target_messages(read_stream, tx));
+                            
                             terminal = set_ui_terminal(true)?;
                         } else {
                             panic!()
+                        }
+                    }
+                    app::OutMessage::PauseFuzzer => {
+                        if let Some(stream) = &mut sending_stream {
+                            send_fuzzer_message(stream, fuzzcheck_common::ipc::MessageUserToFuzzer::Pause)
+                        }
+                    }
+                    app::OutMessage::UnPauseFuzzer => {
+                        if let Some(stream) = &mut sending_stream {
+                            send_fuzzer_message(stream, fuzzcheck_common::ipc::MessageUserToFuzzer::UnPause)
                         }
                     }
                 }

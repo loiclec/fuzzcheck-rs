@@ -1,11 +1,11 @@
-use std::net::SocketAddr;
+use std::{cell::RefCell, net::{SocketAddr, TcpStream}, sync::{Arc, Mutex}};
 use std::net::TcpListener;
 use std::sync::mpsc::Sender;
-
+use decent_serde_json_alternative::ToJson;
 use fuzzcheck_common::ipc;
 
 use decent_serde_json_alternative::FromJson;
-use ipc::TuiMessage;
+use ipc::{MessageUserToFuzzer, TuiMessage};
 use json;
 
 use super::events::Event;
@@ -16,9 +16,11 @@ pub fn create_listener() -> (TcpListener, SocketAddr) {
     (server_listener, addr)
 }
 
-pub fn receive_fuzz_target_messages(listener: TcpListener, tx: Sender<Event<TuiMessage>>) {
-    let mut stream = listener.accept().unwrap().0;
+pub fn accept(listener: TcpListener) -> TcpStream {
+    listener.accept().unwrap().0
+}
 
+pub fn receive_fuzz_target_messages(mut stream: TcpStream, tx: Sender<Event<TuiMessage>>) {
     let mut all_bytes = Vec::<u8>::new();
 
     loop {
@@ -33,4 +35,8 @@ pub fn receive_fuzz_target_messages(listener: TcpListener, tx: Sender<Event<TuiM
         }
     }
     // TODO: end of subscription event?
+}
+
+pub fn send_fuzzer_message(stream: &mut TcpStream, message: MessageUserToFuzzer) {
+    ipc::write(stream, json::stringify(message.to_json()).as_str());
 }

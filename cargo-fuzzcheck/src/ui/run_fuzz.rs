@@ -153,7 +153,7 @@ impl ViewState for RunFuzzView {
                 _ => {}
             },
             Focus::MaxInputComplexity => {
-                if let Some(u) = Self::handle_child_in_message(&self.max_cplx_field, message) {
+                if let Some(u) = Self::handle_child_in_message(&self.max_cplx_field, &message) {
                     return Some(u);
                 }
             }
@@ -309,8 +309,8 @@ impl ParentView<TextFieldView> for RunFuzzView {
         self::Update::MaxInputComplexityView(update)
     }
 
-    fn convert_to_child_in_message(message: Self::InMessage) -> Option<<TextFieldView as ViewState>::InMessage> {
-        Some(message)
+    fn convert_to_child_in_message(message: &Self::InMessage) -> Option<<TextFieldView as ViewState>::InMessage> {
+        Some(message.clone())
     }
 
     fn convert_child_out_message(

@@ -77,6 +77,8 @@ pub enum OutMessage {
         target_name: String,
         config: FullConfig,
     },
+    PauseFuzzer,
+    UnPauseFuzzer
 }
 
 impl ViewState for State {
@@ -88,10 +90,10 @@ impl ViewState for State {
 
     fn convert_in_message(&self, message: Self::InMessage) -> Option<Self::Update> {
         match &self.phase {
-            Phase::PreInit(state) => Self::handle_child_in_message(state, message),
-            Phase::Error(state) => Self::handle_child_in_message(state, message),
-            Phase::Initialized(state) => Self::handle_child_in_message(state, message),
-            Phase::Fuzzing(state) => Self::handle_child_in_message(state, message),
+            Phase::PreInit(state) => Self::handle_child_in_message(state, &message),
+            Phase::Error(state) => Self::handle_child_in_message(state, &message),
+            Phase::Initialized(state) => Self::handle_child_in_message(state, &message),
+            Phase::Fuzzing(state) => Self::handle_child_in_message(state, &message),
             Phase::_Ended => None,
         }
     }
@@ -138,9 +140,9 @@ impl ParentView<preinit::PreInitView> for State {
         Self::Update::PreInit(update)
     }
 
-    fn convert_to_child_in_message(message: Self::InMessage) -> Option<<preinit::PreInitView as ViewState>::InMessage> {
+    fn convert_to_child_in_message(message: &Self::InMessage) -> Option<<preinit::PreInitView as ViewState>::InMessage> {
         match message {
-            Event::UserInput(u) => Some(u),
+            Event::UserInput(u) => Some(u.clone()),
             Event::Subscription(_) => None,
             Event::Tick => None,
         }
@@ -172,9 +174,9 @@ impl ParentView<error_view::ErrorView> for State {
     fn convert_child_update(update: <error_view::ErrorView as ViewState>::Update) -> Self::Update {
         Self::Update::Error(update)
     }
-    fn convert_to_child_in_message(message: Self::InMessage) -> Option<Key> {
+    fn convert_to_child_in_message(message: &Self::InMessage) -> Option<Key> {
         match message {
-            Event::UserInput(u) => Some(u),
+            Event::UserInput(u) => Some(u.clone()),
             Event::Subscription(_) => None,
             Event::Tick => None,
         }
@@ -188,9 +190,9 @@ impl ParentView<initialized::InitializedView> for State {
     fn convert_child_update(update: <initialized::InitializedView as ViewState>::Update) -> Self::Update {
         Self::Update::Initialized(update)
     }
-    fn convert_to_child_in_message(message: Self::InMessage) -> Option<Key> {
+    fn convert_to_child_in_message(message: &Self::InMessage) -> Option<Key> {
         match message {
-            Event::UserInput(u) => Some(u),
+            Event::UserInput(u) => Some(u.clone()),
             Event::Subscription(_) => None,
             Event::Tick => None,
         }
@@ -213,10 +215,10 @@ impl ParentView<fuzzing::FuzzingView> for State {
     fn convert_child_update(update: <fuzzing::FuzzingView as ViewState>::Update) -> Self::Update {
         Self::Update::Fuzzing(update)
     }
-    fn convert_to_child_in_message(message: Self::InMessage) -> Option<<fuzzing::FuzzingView as ViewState>::InMessage> {
+    fn convert_to_child_in_message(message: &Self::InMessage) -> Option<<fuzzing::FuzzingView as ViewState>::InMessage> {
         match message {
-            Event::UserInput(x) => Some(fuzzing::InMessage::Key(x)),
-            Event::Subscription(m) => Some(fuzzing::InMessage::TuiMessage(m)),
+            Event::UserInput(x) => Some(fuzzing::InMessage::Key(x.clone())),
+            Event::Subscription(m) => Some(fuzzing::InMessage::TuiMessage(m.clone())),
             Event::Tick => None,
         }
     }
@@ -224,6 +226,13 @@ impl ParentView<fuzzing::FuzzingView> for State {
         &self,
         message: <fuzzing::FuzzingView as ViewState>::OutMessage,
     ) -> Either<Update, OutMessage> {
-        match message {}
+        match message {
+            fuzzing::OutMessage::PauseFuzzer => {
+                Either::Right(OutMessage::PauseFuzzer)
+            }
+            fuzzing::OutMessage::UnPauseFuzzer => {
+                Either::Right(OutMessage::UnPauseFuzzer)
+            }
+        }
     }
 }

@@ -22,9 +22,9 @@ pub trait ViewState {
 pub trait ParentView<Child: ViewState>: ViewState {
     fn convert_child_update(update: Child::Update) -> Self::Update;
 
-    fn convert_to_child_in_message(message: Self::InMessage) -> Option<Child::InMessage>;
+    fn convert_to_child_in_message(message: &Self::InMessage) -> Option<Child::InMessage>;
 
-    fn handle_child_in_message(child: &Child, message: Self::InMessage) -> Option<Self::Update> {
+    fn handle_child_in_message(child: &Child, message: &Self::InMessage) -> Option<Self::Update> {
         Self::convert_to_child_in_message(message)
             .and_then(|message| child.convert_in_message(message))
             .map(|child_update| Self::convert_child_update(child_update))
@@ -81,6 +81,23 @@ pub enum HorizontalMove {
     Right,
 }
 
+pub enum SwitchFocus {
+    Up, Right, Down, Left, Next, Previous
+}
+impl SwitchFocus {
+    pub fn from_standard_key(key: &Key) -> Option<SwitchFocus> {
+        match key {
+            Key::Left => { Some(SwitchFocus::Left) }
+            Key::Right => {Some(SwitchFocus::Right)}
+            Key::Up => {Some(SwitchFocus::Up)}
+            Key::Down => {Some(SwitchFocus::Down)}
+            Key::BackTab => {Some(SwitchFocus::Previous)}
+            Key::Char('\t') => {Some(SwitchFocus::Next)}
+            _ => { None }
+        }
+    }
+}
+
 impl VerticalMove {
     pub fn from(input: &Key) -> Option<Self> {
         match input {
@@ -100,7 +117,7 @@ impl HorizontalMove {
     }
 }
 // impl Move {
-//     pub fn from(input: &UserInput) -> Option<Self> {
+//     pub fn from(input: &Key) -> Option<Self> {
 //         HorizontalMove::from(input).map(Move::Horizontal)
 //         .or(VerticalMove::from(input).map(Move::Vertical))
 //     }

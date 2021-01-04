@@ -1,6 +1,6 @@
 use decent_serde_json_alternative::{FromJson, ToJson};
 
-use std::io::prelude::*;
+use std::io::{IoSlice, prelude::*};
 use std::net::TcpStream;
 
 pub fn write(stream: &mut TcpStream, message: &str) {
@@ -8,8 +8,10 @@ pub fn write(stream: &mut TcpStream, message: &str) {
     let len = bytes.len() as u32;
     let be_len = len.to_be_bytes();
 
-    stream.write_all(&be_len).unwrap();
-    stream.write_all(&bytes).unwrap();
+    let mut message = be_len.to_vec();
+    message.extend(bytes);
+
+    stream.write_all(&message).unwrap();
 
     stream.flush().unwrap();
 }
@@ -25,10 +27,17 @@ pub fn read(stream: &mut TcpStream) -> Option<String> {
     Some(String::from_utf8_lossy(&buffer).to_string())
 }
 
+#[derive(Clone, Copy, FromJson, ToJson)]
+pub enum MessageUserToFuzzer {
+    Pause,
+    UnPause
+}
+
 #[derive(Clone, FromJson, ToJson)]
 pub enum TuiMessage {
     AddInput { hash: String, input: String },
     RemoveInput { hash: String, input: String },
+    SaveArtifact { hash: String, input: String },
     ReportEvent(TuiMessageEvent),
 }
 

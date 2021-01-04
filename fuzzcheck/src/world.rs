@@ -1,8 +1,10 @@
 use decent_serde_json_alternative::ToJson;
+use decent_serde_json_alternative::FromJson;
 use fuzzcheck_common::{
     arg::{FullCommandLineArguments, FuzzerCommand},
     ipc::{self, TuiMessageEvent},
 };
+use ipc::MessageUserToFuzzer;
 use std::fs;
 use std::hash::{Hash, Hasher};
 use std::io::{self, Result};
@@ -254,9 +256,70 @@ This should never happen, and is probably a bug in fuzzcheck. Sorry :("#
             format!("{:x}", hash)
         };
 
-        let path = artifacts_folder.join(name).with_extension(self.serializer.extension());
+        let path = artifacts_folder.join(&name).with_extension(self.serializer.extension());
         println!("Saving at {:?}", path);
-        fs::write(path, content)?;
+        fs::write(path, &content)?;
+
+        if let Some(stream) = &self.stream {
+            let message = TuiMessage::SaveArtifact {
+                hash: name,
+                input: String::from_utf8_lossy(&content).to_string(),
+            };
+            let mut stream = stream.borrow_mut();
+            ipc::write(&mut stream, &message.to_json().to_string());
+        }
+
         Result::Ok(())
     }
+
+    pub fn read_message_from_user(&self, blocking: bool) -> Option<MessageUserToFuzzer> {
+        if let Some(stream) = &self.stream {
+            let mut stream = stream.borrow_mut();
+            let _ = stream.set_nonblocking(blocking);
+            let received = ipc::read(&mut stream);
+            let _ = stream.set_nonblocking(false);
+            let received = received?;
+            let parsed_json = json::parse(&received).ok()?;
+            let message = MessageUserToFuzzer::from_json(&parsed_json)?;
+            Some(message)
+        } else {
+            None
+        }
+    }
+
+    pub fn pause_until_unpause_message(&mut self) {
+        'waiting_loop: loop {
+            match self.read_message_from_user(false) {
+                Some(MessageUserToFuzzer::UnPause) => {
+                    break 'waiting_loop
+                }
+                Some(MessageUserToFuzzer::Pause) => {
+                    continue 'waiting_loop
+                }
+                None => {
+                    todo!() //break 'waiting_loop
+                }
+            }
+        }
+    }
+
+    pub fn handle_user_message(&mut self) {
+        
+        let start_pause = Instant::now();
+        
+        match self.read_message_from_user(true) {
+            Some(MessageUserToFuzzer::Pause) => {
+                self.pause_until_unpause_message();
+            }
+            Some(MessageUserToFuzzer::UnPause) => {
+                
+            }
+            None => {}
+        }
+
+        let time_paused = start_pause.elapsed();
+        self.checkpoint_instant = self.checkpoint_instant.checked_add(time_paused).unwrap();
+        self.initial_instant = self.initial_instant.checked_add(time_paused).unwrap();
+    }
+    
 }

@@ -1,25 +1,30 @@
-use std::{cmp::Ordering, collections::{HashMap, HashSet}};
+use std::{cmp::Ordering, collections::{HashMap}, iter};
 
-use fuzzcheck_common::ipc::{FuzzerEvent, FuzzerStats, TuiMessage, TuiMessageEvent};
+use fuzzcheck_common::ipc::{FuzzerEvent, TuiMessage, TuiMessageEvent};
 use termion::event::Key;
 
-use super::framework::{Focusable, InnerFocusable, Theme, ViewState};
+use super::{framework::{Either, InnerFocusable, ParentView, SwitchFocus, Theme, ViewState}, vertical_list_view::{self, VerticalListView}};
 
 use tui::{
     backend::Backend,
-    layout::{Alignment, Constraint, Corner, Direction, Layout, Rect},
-    style::{Color, Style},
+    layout::{Constraint, Direction, Layout, Rect},
     symbols,
-    text::{Span, Spans, Text},
-    widgets::{Axis, Block, Borders, Chart, Dataset, GraphType, List, ListItem, ListState, Paragraph, Tabs, Wrap},
+    text::{Span},
+    widgets::{Axis, Block, Borders, Chart, Dataset, GraphType, Paragraph, Wrap},
     Frame,
 };
 
 pub struct FuzzingView {
     corpus: HashMap<String, String>,
     events: Vec<TuiMessageEvent>,
+    artifact: Option<(String, String)>,
+
     focus: Focus,
-    shown_chart: ShownChart
+
+    list_view: VerticalListView,
+
+    shown_chart: ShownChart,
+    detail_view: (String, String),
 }
 
 #[derive(Clone, Copy)]
@@ -31,28 +36,93 @@ pub enum ShownChart {
 impl ShownChart {
     fn next(self) -> ShownChart {
         match self {
-            ShownChart::Score => { ShownChart::AvgComplexity }
-            ShownChart::AvgComplexity => { ShownChart::ExecPerS }
-            ShownChart::ExecPerS => { ShownChart::Score }
+            ShownChart::Score => ShownChart::AvgComplexity,
+            ShownChart::AvgComplexity => ShownChart::ExecPerS,
+            ShownChart::ExecPerS => ShownChart::Score,
         }
     }
     fn label(self) -> &'static str {
         match self {
-            ShownChart::Score => { "score" }
-            ShownChart::AvgComplexity => { "avg input cplx" }
-            ShownChart::ExecPerS => { "exec/s" }
+            ShownChart::Score => "score",
+            ShownChart::AvgComplexity => "avg input cplx",
+            ShownChart::ExecPerS => "exec/s",
         }
     }
 }
 
 pub enum InMessage {
     Key(Key),
-    TuiMessage(TuiMessage)
+    TuiMessage(TuiMessage),
 }
 
 #[derive(Clone, Copy)]
-pub enum Focus {
+pub struct Focus {
+    x: u8,
+    y: u8,
+}
+impl Focus {
+    fn focused_part(self) -> FocusedPart {
+        match (self.x, self.y) {
+            (0 , _) => FocusedPart::Events,
+            (1, 0) => FocusedPart::Chart,
+            (1, _) => FocusedPart::Details,
+            _ => FocusedPart::Chart,
+        }
+    }
+    fn switch(self, sf: SwitchFocus) -> Self {
+        let mut copy = self;
+        match sf {
+            SwitchFocus::Up => {
+                copy.y = copy.y.saturating_sub(1);
+            }
+            SwitchFocus::Right => {
+                copy.x = std::cmp::min(copy.x + 1, 1);
+            }
+            SwitchFocus::Down => {
+                copy.y = std::cmp::min(copy.y + 1, 1);
+            }
+            SwitchFocus::Left => {
+                copy.x = copy.x.saturating_sub(1);
+            }
+            SwitchFocus::Next => {
+                copy = self.focused_part().next().canonical_position();
+            }
+            SwitchFocus::Previous => {
+                copy = self.focused_part().prev().canonical_position();
+            }
+        }
+        copy
+    }
+}
+
+#[derive(Clone, Copy)]
+pub enum FocusedPart {
+    Events,
     Chart,
+    Details,
+}
+impl FocusedPart {
+    fn canonical_position(self) -> Focus {
+        match self {
+            FocusedPart::Events => { Focus { x: 0, y: 0 } }
+            FocusedPart::Chart => { Focus { x: 1, y: 0 } }
+            FocusedPart::Details => { Focus { x: 1, y: 1 } }
+        }
+    }
+    fn next(self) -> Self {
+        match self {
+            FocusedPart::Events => { FocusedPart::Chart }
+            FocusedPart::Chart => { FocusedPart::Details }
+            FocusedPart::Details => { FocusedPart::Events }
+        }
+    }
+    fn prev(self) -> Self {
+        match self {
+            FocusedPart::Events => { FocusedPart::Details }
+            FocusedPart::Chart => { FocusedPart::Events  }
+            FocusedPart::Details => { FocusedPart::Chart }
+        }
+    }
 }
 
 impl FuzzingView {
@@ -60,34 +130,57 @@ impl FuzzingView {
         Self {
             corpus: HashMap::new(),
             events: vec![],
-            focus: Focus::Chart,
+            artifact: None,
+            focus: FocusedPart::Chart.canonical_position(),
+            list_view: VerticalListView::new("Events", iter::empty()),
             shown_chart: ShownChart::Score,
+            detail_view: ("".to_string(), "".to_string()),
         }
     }
 }
 
 fn event_to_string(event: &FuzzerEvent) -> String {
     match event {
-        FuzzerEvent::Start => "Start",
-        FuzzerEvent::End => "End",
-        FuzzerEvent::CrashNoInput => "Fuzzcheck crashed, but the crashing input could not be retrieved",
-        FuzzerEvent::Done => "Done",
-        FuzzerEvent::New => "NEW",
-        FuzzerEvent::Replace(x) => "RPLC",
-        FuzzerEvent::ReplaceLowestStack(_) => "STCK",
-        FuzzerEvent::Remove => "RMV ",
-        FuzzerEvent::DidReadCorpus => "did read corpus",
-        FuzzerEvent::CaughtSignal(_) => "Signal Caught",
-        FuzzerEvent::TestFailure => "Test Failure",
+        FuzzerEvent::Start => "Start".to_string(),
+        FuzzerEvent::End => "End".to_string(),
+        FuzzerEvent::CrashNoInput => "Fuzzcheck crashed, but the crashing input could not be retrieved".to_string(),
+        FuzzerEvent::Done => "Done".to_string(),
+        FuzzerEvent::New => "NEW".to_string(),
+        FuzzerEvent::Replace(x) => format!("RPLC {}", x),
+        FuzzerEvent::ReplaceLowestStack(_) => "STCK".to_string(),
+        FuzzerEvent::Remove => "RMV ".to_string(),
+        FuzzerEvent::DidReadCorpus => "did read corpus".to_string(),
+        FuzzerEvent::CaughtSignal(_) => "Signal Caught".to_string(),
+        FuzzerEvent::TestFailure => "Test Failure".to_string(),
     }
-    .to_string()
 }
 
 pub enum Update {
     SwitchChart,
     AddMessage(TuiMessage),
+    SwitchFocus(SwitchFocus),
+    ListView(vertical_list_view::Update),
+    SelectListItem(usize),
+    Pause,
+    UnPause,
 }
-pub enum OutMessage {}
+pub enum OutMessage {
+    PauseFuzzer,
+    UnPauseFuzzer,
+}
+
+impl FuzzingView {
+    fn update_detail_view_with_event(&mut self, event_idx: usize) {
+        let event = &self.events[event_idx];
+        self.detail_view = (
+            format!("Event #{}", event_idx),
+            format!(r#"{}
+            score: {:.2} average input cplx: {:.2}"#, 
+            event_to_string(&event.event),
+            event.stats.score, event.stats.avg_cplx)
+        );
+    }
+}
 
 impl ViewState for FuzzingView {
     type Update = self::Update;
@@ -95,16 +188,35 @@ impl ViewState for FuzzingView {
     type OutMessage = self::OutMessage;
 
     fn convert_in_message(&self, message: Self::InMessage) -> Option<Update> {
+        match self.focus.focused_part() {
+            FocusedPart::Events => {
+                if let Some(u) = Self::handle_child_in_message(&self.list_view, &message) {
+                    return Some(u);
+                }
+            }
+            _ => {}
+        }
         match message {
-            InMessage::Key(Key::Char('s')) => {
-                Some(Update::SwitchChart)
+            InMessage::Key(k) => {
+                if let Some(sf) = SwitchFocus::from_standard_key(&k) {
+                    return Some(Update::SwitchFocus(sf));
+                }
+                match k {
+                    Key::Char('s') => {
+                        Some(Update::SwitchChart)
+                    }
+                    Key::Char('p') => {
+                        Some(Update::Pause)
+                    }
+                    Key::Char('u') => {
+                        Some(Update::UnPause)
+                    }
+                    _ => {
+                        None
+                    }
+                }
             }
-            InMessage::TuiMessage(message) => {
-                Some(Update::AddMessage(message))
-            }
-            _ => {
-                None
-            }
+            InMessage::TuiMessage(message) => Some(Update::AddMessage(message)),
         }
     }
 
@@ -115,11 +227,21 @@ impl ViewState for FuzzingView {
                     TuiMessage::AddInput { hash, input } => {
                         self.corpus.insert(hash, input);
                     }
-                    TuiMessage::RemoveInput { hash, input } => {
+                    TuiMessage::RemoveInput { hash, input: _ } => {
                         self.corpus.remove(&hash);
                     }
                     TuiMessage::ReportEvent(e) => {
+                        self.list_view.items.insert(0, event_to_string(&e.event));
                         self.events.push(e);
+                        self.list_view.state.select(self.list_view.state.selected().map(|x| x + 1));
+                        if !self.list_view.focused {
+                            self.list_view.state.select(None);
+                            self.update_detail_view_with_event(self.events.len() - 1);
+                        }
+                    }
+                    TuiMessage::SaveArtifact { hash, input } => {
+                        self.artifact = Some((hash.clone(), input.clone()));
+                        self.detail_view = (format!("Artifact: {}", hash), input);
                     }
                 }
                 None
@@ -127,6 +249,24 @@ impl ViewState for FuzzingView {
             Update::SwitchChart => {
                 self.shown_chart = self.shown_chart.next();
                 None
+            }
+            Update::SwitchFocus(sf) => {
+                self.update_focus(self.focus.switch(sf));
+                None
+            }
+            Update::ListView(u) => {
+                self.list_view.update(u).and_then(|m| self.handle_child_out_message(m))
+            }
+            Update::SelectListItem(idx) => {
+                let event_idx = self.events.len() - idx - 1;
+                self.update_detail_view_with_event(event_idx);
+                None
+            }
+            Update::Pause => {
+                Some(OutMessage::PauseFuzzer)
+            }
+            Update::UnPause => {
+                Some(OutMessage::UnPauseFuzzer)
             }
         }
     }
@@ -143,29 +283,7 @@ impl ViewState for FuzzingView {
             .constraints([Constraint::Length(15), Constraint::Min(0)].as_ref())
             .split(area);
 
-        let mut list_state = ListState::default();
-        list_state.select(if self.events.is_empty() { None } else { Some(0) });
-
-        let event_list = List::new(
-            self.events
-                .iter()
-                .rev()
-                .map(|x| x.event)
-                .map(|x| event_to_string(&x))
-                .map(|s| ListItem::new(s).style(theme.default))
-                .collect::<Vec<_>>(),
-        )
-        .block(
-            Block::default()
-                .title("Events")
-                .borders(Borders::ALL)
-                .style(theme.default),
-        )
-        .style(theme.default)
-        .highlight_style(theme.emphasis)
-        .start_corner(Corner::TopLeft);
-
-        frame.render_stateful_widget(event_list, chunks[0], &mut list_state);
+        self.list_view.draw(frame, theme, chunks[0]);
 
         let right_chunks = Layout::default()
             .direction(Direction::Vertical)
@@ -175,13 +293,16 @@ impl ViewState for FuzzingView {
         let data = self
             .events
             .iter()
-            .map(|e| (e.time_ms as f64, 
-                match self.shown_chart {
-                    ShownChart::Score => { e.stats.score }
-                    ShownChart::AvgComplexity => { e.stats.avg_cplx }
-                    ShownChart::ExecPerS => { e.stats.exec_per_s as f64 }
-                } )
-            )
+            .map(|e| {
+                (
+                    e.time_ms as f64,
+                    match self.shown_chart {
+                        ShownChart::Score => e.stats.score,
+                        ShownChart::AvgComplexity => e.stats.avg_cplx,
+                        ShownChart::ExecPerS => e.stats.exec_per_s as f64,
+                    },
+                )
+            })
             .collect::<Box<[_]>>();
 
         let datasets = vec![Dataset::default()
@@ -190,14 +311,18 @@ impl ViewState for FuzzingView {
             .style(theme.emphasis)
             .data(&data)];
 
-        let max_data = data.iter().map(|x| x.1).max_by(|x, y| x.partial_cmp(y).unwrap_or(Ordering::Equal)).unwrap_or(0.0);
+        let max_data = data
+            .iter()
+            .map(|x| x.1)
+            .max_by(|x, y| x.partial_cmp(y).unwrap_or(Ordering::Equal))
+            .unwrap_or(0.0);
         let max_data_str = format!("{:.1}", max_data);
         let half_max_data_str = format!("{:.1}", max_data / 2.0);
 
         let last_time = self.events.last().map(|x| x.time_ms).unwrap_or(0);
         let last_time_str = format!("{:.2} seconds", last_time as f64 / 1000.0);
 
-        let focused_chart = matches!(self.focus, Focus::Chart);
+        let focused_chart = matches!(self.focus.focused_part(), FocusedPart::Chart);
 
         let chart_block_style = if focused_chart {
             theme.block_highlight
@@ -213,11 +338,7 @@ impl ViewState for FuzzingView {
                     .title(vec![
                         Span::styled(self.shown_chart.label(), chart_block_style),
                         Span::styled("... press ", chart_block_style),
-                        Span::styled("s", if focused_chart {
-                            theme.highlight
-                        } else {
-                            theme.emphasis
-                        }),
+                        Span::styled("s", if focused_chart { theme.highlight } else { theme.emphasis }),
                         Span::styled(" to show next chart", chart_block_style),
                     ]),
             )
@@ -232,7 +353,7 @@ impl ViewState for FuzzingView {
                             .cloned()
                             .map(|label| Span::styled(label, theme.emphasis))
                             .collect(),
-                    )
+                    ),
             )
             .y_axis(
                 Axis::default()
@@ -250,6 +371,22 @@ impl ViewState for FuzzingView {
             .style(theme.default);
 
         frame.render_widget(chart, right_chunks[0]);
+
+        let is_detail_view_focused = matches!(self.focus.focused_part(), FocusedPart::Details);
+
+        let detail_view = Paragraph::new(self.detail_view.1.clone())
+            .block(Block::default()
+                .style(if is_detail_view_focused {
+                        theme.block_highlight
+                    } else {
+                        theme.default
+                    }
+                ).title(self.detail_view.0.clone())
+                .borders(Borders::ALL)
+            ).style(theme.default)
+            .wrap(Wrap { trim: true });
+        frame.render_widget(detail_view, right_chunks[1]);
+    
     }
 }
 
@@ -261,8 +398,35 @@ impl InnerFocusable for FuzzingView {
     }
 
     fn view_in_focus(&mut self) -> Option<&mut dyn super::framework::Focusable> {
-        match self.focus {
-            Focus::Chart => None,
+        match self.focus.focused_part() {
+            FocusedPart::Events => { Some(&mut self.list_view) }
+            FocusedPart::Chart => { None }
+            FocusedPart::Details => { None }
+        }
+    }
+}
+
+impl ParentView<VerticalListView> for FuzzingView {
+    fn convert_child_update(update: vertical_list_view::Update) -> Self::Update {
+        Update::ListView(update)
+    }
+
+    fn convert_to_child_in_message(message: &Self::InMessage) -> Option<vertical_list_view::InMessage> {
+        match message {
+            InMessage::Key(k) => {
+                vertical_list_view::InMessage::from(k)
+            }
+            InMessage::TuiMessage(_) => {
+                None
+            }
+        }
+    }
+
+    fn convert_child_out_message(&self, message: vertical_list_view::OutMessage) -> Either<Self::Update, Self::OutMessage> {
+        match message {
+            vertical_list_view::OutMessage::Select(idx) => {
+                Either::Left(Update::SelectListItem(idx))
+            }
         }
     }
 }

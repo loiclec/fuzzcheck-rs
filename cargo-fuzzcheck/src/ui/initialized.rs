@@ -117,7 +117,7 @@ impl ViewState for InitializedView {
 
     fn convert_in_message(&self, message: Self::InMessage) -> Option<Self::Update> {
         match self.focus {
-            Focus::Sidebar => Self::handle_child_in_message(&self.fuzz_target_list, message).or_else(|| {
+            Focus::Sidebar => Self::handle_child_in_message(&self.fuzz_target_list, &message).or_else(|| {
                 if let Some(VerticalMove::Down) = VerticalMove::from(&message) {
                     Some(Update::SwitchFocus(Focus::Main))
                 } else if matches!(message, Key::Char('\n') | Key::Esc) {
@@ -128,7 +128,7 @@ impl ViewState for InitializedView {
             }),
             Focus::Main => {
                 if let Some(run_fuzz) = self.current_run_fuzz_view() {
-                    Self::handle_child_in_message(run_fuzz, message).or_else(|| {
+                    Self::handle_child_in_message(run_fuzz, &message).or_else(|| {
                         if matches!(message, Key::Esc) {
                             Some(Update::SwitchFocus(Focus::Sidebar))
                         } else if let Some(VerticalMove::Up) = VerticalMove::from(&message) {
@@ -187,8 +187,8 @@ impl ParentView<HorizontalListView> for InitializedView {
         Self::Update::Sidebar(update)
     }
 
-    fn convert_to_child_in_message(message: Self::InMessage) -> Option<HorizontalMove> {
-        HorizontalMove::from(&message)
+    fn convert_to_child_in_message(message: &Self::InMessage) -> Option<HorizontalMove> {
+        HorizontalMove::from(message)
     }
 
     fn convert_child_out_message(
@@ -206,8 +206,8 @@ impl ParentView<RunFuzzView> for InitializedView {
         Self::Update::RunFuzz(update)
     }
 
-    fn convert_to_child_in_message(message: Self::InMessage) -> Option<<RunFuzzView as ViewState>::InMessage> {
-        Some(message)
+    fn convert_to_child_in_message(message: &Self::InMessage) -> Option<<RunFuzzView as ViewState>::InMessage> {
+        Some(message.clone())
     }
 
     fn convert_child_out_message(&self, message: run_fuzz::OutMessage) -> super::framework::Either<Update, OutMessage> {

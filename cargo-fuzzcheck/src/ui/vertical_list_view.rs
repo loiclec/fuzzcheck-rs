@@ -1,26 +1,23 @@
-use framework::{HorizontalMove, ViewState};
-use hlist::HList;
+use framework::{VerticalMove, ViewState};
+
 use tui::{
     layout::Rect,
-    widgets::{Block, Borders},
+    widgets::{Block, Borders, List, ListItem, ListState},
 };
 
-use super::{
-    framework::{self, Focusable, Theme},
-    hlist::{self, HListItem, HListState},
-};
+use super::framework::{self, Focusable, Theme};
 
-pub struct HorizontalListView {
+pub struct VerticalListView {
     pub items: Vec<String>,
-    pub state: HListState,
+    pub state: ListState,
     pub title: String,
     pub focused: bool,
 }
 
-impl HorizontalListView {
+impl VerticalListView {
     pub fn new(title: &str, items: impl Iterator<Item = String>) -> Self {
         let items = items.collect::<Vec<_>>();
-        let mut state = HListState::default();
+        let mut state = ListState::default();
         if !items.is_empty() {
             state.select(Some(0));
         }
@@ -33,11 +30,14 @@ impl HorizontalListView {
     }
 }
 
+pub type Update = VerticalMove;
+pub type InMessage = VerticalMove;
+
 pub enum OutMessage {
     Select(usize),
 }
 
-impl Focusable for HorizontalListView {
+impl Focusable for VerticalListView {
     fn focus(&mut self) {
         self.focused = true;
     }
@@ -47,9 +47,9 @@ impl Focusable for HorizontalListView {
     }
 }
 
-impl ViewState for HorizontalListView {
-    type Update = HorizontalMove;
-    type InMessage = HorizontalMove;
+impl ViewState for VerticalListView {
+    type Update = VerticalMove;
+    type InMessage = VerticalMove;
 
     type OutMessage = self::OutMessage;
 
@@ -63,7 +63,7 @@ impl ViewState for HorizontalListView {
         }
         if let Some(selected) = self.state.selected() {
             match u {
-                HorizontalMove::Left => {
+                VerticalMove::Up => {
                     if selected > 0 {
                         self.state.select(Some(selected - 1));
                         Some(Self::OutMessage::Select(selected - 1))
@@ -71,7 +71,7 @@ impl ViewState for HorizontalListView {
                         None
                     }
                 }
-                HorizontalMove::Right => {
+                VerticalMove::Down => {
                     if selected < self.items.len() - 1 {
                         self.state.select(Some(selected + 1));
                         Some(Self::OutMessage::Select(selected + 1))
@@ -95,8 +95,8 @@ impl ViewState for HorizontalListView {
         } else {
             Theme::secondary()
         };
-        let list_items = self.items.iter().map(|s| HListItem::new(s.clone())).collect::<Vec<_>>();
-        let list = HList::new(list_items)
+        let list_items = self.items.iter().map(|s| ListItem::new(s.clone())).collect::<Vec<_>>();
+        let list = List::new(list_items)
             .block(
                 Block::default()
                     .borders(Borders::ALL)
