@@ -128,6 +128,14 @@ impl Root {
         Ok(())
     }
 
+    pub fn fuzz_target_is_built(&self, target_name: &str) -> bool {
+        let exec = self
+            .non_instrumented_folder()
+            .join(format!("target/{}/release/{}", default_target(), target_name));
+
+        exec.is_file()
+    }
+
     pub fn launch_executable(
         &self,
         target_name: &str,

@@ -1,8 +1,8 @@
-use std::{net::{SocketAddr, TcpStream}};
-use std::net::TcpListener;
-use std::sync::mpsc::Sender;
 use decent_serde_json_alternative::ToJson;
 use fuzzcheck_common::ipc;
+use std::net::TcpListener;
+use std::net::{SocketAddr, TcpStream};
+use std::sync::mpsc::Sender;
 
 use decent_serde_json_alternative::FromJson;
 use ipc::{MessageUserToFuzzer, TuiMessage};

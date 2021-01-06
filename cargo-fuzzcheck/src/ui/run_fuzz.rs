@@ -18,7 +18,10 @@ use tui::{
 
 use crate::project::{FullConfig, Root};
 
-use super::{framework::{AnyView, Either, InnerFocusable, ParentView, SwitchFocus, Theme, ViewState}, text_field_view::TextFieldView};
+use super::{
+    framework::{AnyView, Either, InnerFocusable, ParentView, SwitchFocus, Theme, ViewState},
+    text_field_view::TextFieldView,
+};
 
 #[derive(Debug)]
 struct FloatEqualZeroError;
@@ -71,7 +74,7 @@ impl RunFuzzView {
             final_config: config,
             error: None,
             max_cplx_field: TextFieldView::new(max_cplx),
-            focus: Focus::RunButton,
+            focus: Focus::BuildButton,
             focused: false,
         }
     }
@@ -80,6 +83,7 @@ impl RunFuzzView {
 #[derive(Clone, Copy)]
 pub enum Focus {
     MaxInputComplexity,
+    BuildButton,
     RunButton,
 }
 
@@ -96,10 +100,17 @@ impl AnyView for RunFuzzView {
         let mut map = Vec::new();
         match self.focus {
             Focus::MaxInputComplexity => {
-                map.push((Key::Char('\n'), "confirm setting".to_string()));
+                map.push((Key::Char('\n'), "go to next setting".to_string()));
+            }
+            Focus::BuildButton => {
+                if self.error.is_none() {
+                    map.push((Key::Char('\n'), "build fuzz target".to_string()));
+                }
             }
             Focus::RunButton => {
-                map.push((Key::Char('\n'), "start fuzzing".to_string()));
+                if self.error.is_none() && self.root.fuzz_target_is_built(&self.fuzz_target) {
+                    map.push((Key::Char('\n'), "start fuzzing".to_string()));
+                }
             }
         }
         map
@@ -116,67 +127,61 @@ impl InnerFocusable for RunFuzzView {
         match self.focus {
             Focus::MaxInputComplexity => Some(&self.max_cplx_field),
             Focus::RunButton => None,
+            Focus::BuildButton => None,
         }
     }
     fn view_in_focus_mut(&mut self) -> Option<&mut dyn AnyView> {
         match self.focus {
             Focus::MaxInputComplexity => Some(&mut self.max_cplx_field),
             Focus::RunButton => None,
+            Focus::BuildButton => None,
         }
     }
 
     fn focus_after_switch(&self, sf: SwitchFocus) -> Option<Self::Focus> {
         match sf {
-            SwitchFocus::In => {
-                match self.focus {
-                    Focus::MaxInputComplexity => {
-                        Some(Focus::RunButton)
-                    }
-                    Focus::RunButton => {
-                        None
-                    }
-                }
-            }
-            SwitchFocus::Out => {
-                None
-            }
-            SwitchFocus::Up => {
-                match self.focus {
-                    Focus::MaxInputComplexity => {
-                        None
-                    }
-                    Focus::RunButton => {
-                        Some(Focus::MaxInputComplexity)
-                    }
-                }
-            }
-            SwitchFocus::Right => {
-                None
-            }
-            SwitchFocus::Down => {
-                match self.focus {
-                    Focus::MaxInputComplexity => {
-                        Some(Focus::RunButton)
-                    }
-                    Focus::RunButton => {
-                        None
-                    }
-                }
-            }
-            SwitchFocus::Left => {
-                None
-            }
-            SwitchFocus::Next => {
-                self.focus_after_switch(SwitchFocus::Down)
-            }
-            SwitchFocus::Previous => {
-                self.focus_after_switch(SwitchFocus::Up)
-            }
+            SwitchFocus::In => match self.focus {
+                Focus::MaxInputComplexity => self.focus_after_switch(SwitchFocus::Next),
+                Focus::RunButton => None,
+                Focus::BuildButton => None,
+            },
+            SwitchFocus::Out => None,
+            SwitchFocus::Up => match self.focus {
+                Focus::MaxInputComplexity => None,
+                Focus::RunButton => Some(Focus::MaxInputComplexity),
+                Focus::BuildButton => Some(Focus::MaxInputComplexity),
+            },
+            SwitchFocus::Right => match self.focus {
+                Focus::MaxInputComplexity => None,
+                Focus::BuildButton => Some(Focus::RunButton),
+                Focus::RunButton => None,
+            },
+            SwitchFocus::Down => match self.focus {
+                Focus::MaxInputComplexity => Some(Focus::BuildButton),
+                Focus::RunButton => None,
+                Focus::BuildButton => None,
+            },
+            SwitchFocus::Left => match self.focus {
+                Focus::MaxInputComplexity => None,
+                Focus::BuildButton => None,
+                Focus::RunButton => Some(Focus::BuildButton),
+            },
+            SwitchFocus::Next => match self.focus {
+                Focus::MaxInputComplexity => Some(Focus::BuildButton),
+                Focus::BuildButton => Some(Focus::RunButton),
+                Focus::RunButton => None,
+            },
+            SwitchFocus::Previous => match self.focus {
+                Focus::MaxInputComplexity => None,
+                Focus::BuildButton => Some(Focus::MaxInputComplexity),
+                Focus::RunButton => Some(Focus::BuildButton),
+            },
         }
     }
 }
 
 pub enum Update {
+    BuildFuzzTarget,
     StartFuzzing,
     SwitchFocus(Focus),
     MaxInputComplexityView(<TextFieldView as ViewState>::Update),
@@ -184,6 +189,7 @@ pub enum Update {
 }
 
 pub enum OutMessage {
+    BuildFuzzTarget(FullConfig),
     StartFuzzing(FullConfig),
 }
 
@@ -196,7 +202,7 @@ impl ViewState for RunFuzzView {
         match self.focus {
             Focus::RunButton => match message {
                 Key::Char('\n') => {
-                    if self.error.is_none() {
+                    if self.error.is_none() && self.root.fuzz_target_is_built(&self.fuzz_target) {
                         return Some(Update::StartFuzzing);
                     } else {
                         return None;
@@ -209,10 +215,20 @@ impl ViewState for RunFuzzView {
                     return Some(u);
                 }
             }
+            Focus::BuildButton => match message {
+                Key::Char('\n') => {
+                    if self.error.is_none() {
+                        return Some(Update::BuildFuzzTarget);
+                    } else {
+                        return None;
+                    }
+                }
+                _ => {}
+            },
         }
         if let Some(sf) = SwitchFocus::from_standard_key(&message) {
             if let Some(f) = self.focus_after_switch(sf) {
-                return Some(Update::SwitchFocus(f))
+                return Some(Update::SwitchFocus(f));
             }
         }
         None
@@ -220,6 +236,7 @@ impl ViewState for RunFuzzView {
 
     fn update(&mut self, u: Self::Update) -> Option<Self::OutMessage> {
         match u {
+            Update::BuildFuzzTarget => Some(OutMessage::BuildFuzzTarget(self.final_config.clone())),
             Update::StartFuzzing => Some(OutMessage::StartFuzzing(self.final_config.clone())),
             Update::SwitchFocus(f) => {
                 self.update_focus(f);
@@ -308,19 +325,6 @@ impl ViewState for RunFuzzView {
                     .style(theme.error)
                     .wrap(Wrap { trim: true });
                 frame.render_widget(error_text, chunks[1]);
-
-                let run_text = Paragraph::new("Start Fuzzing (disabled)").block(
-                    Block::default()
-                        .borders(Borders::ALL)
-                        .style(inner_theme.disabled)
-                        .border_type(if matches!(self.focus, Focus::RunButton) {
-                            BorderType::Double
-                        } else {
-                            BorderType::Plain
-                        }),
-                );
-
-                frame.render_widget(run_text, chunks[2]);
             }
             None => {
                 let command_text = Paragraph::new(vec![
@@ -337,18 +341,59 @@ impl ViewState for RunFuzzView {
                 .wrap(Wrap { trim: true })
                 .alignment(Alignment::Center);
                 frame.render_widget(command_text, chunks[1]);
-
-                let run_text = Paragraph::new("Start Fuzzing").block(Block::default().borders(Borders::ALL).style(
-                    if matches!(self.focus, Focus::RunButton) {
-                        inner_theme.highlight
-                    } else {
-                        inner_theme.default
-                    },
-                ));
-
-                frame.render_widget(run_text, chunks[2]);
             }
         }
+        let is_build_button_enabled = self.error.is_none();
+        let is_launch_button_enabled = self.error.is_none() && self.root.fuzz_target_is_built(&self.fuzz_target);
+
+        let build_button = if is_build_button_enabled {
+            Paragraph::new("Build Fuzz Target").block(Block::default().borders(Borders::ALL).style(
+                if matches!(self.focus, Focus::BuildButton) {
+                    inner_theme.highlight
+                } else {
+                    inner_theme.default
+                },
+            ))
+        } else {
+            Paragraph::new("Build Fuzz Target (disabled)").block(
+                Block::default()
+                    .borders(Borders::ALL)
+                    .style(inner_theme.disabled)
+                    .border_type(if matches!(self.focus, Focus::BuildButton) {
+                        BorderType::Double
+                    } else {
+                        BorderType::Plain
+                    }),
+            )
+        };
+
+        let launch_button = if is_launch_button_enabled {
+            Paragraph::new("Start Fuzzing").block(Block::default().borders(Borders::ALL).style(
+                if matches!(self.focus, Focus::RunButton) {
+                    inner_theme.highlight
+                } else {
+                    inner_theme.default
+                },
+            ))
+        } else {
+            Paragraph::new("Start Fuzzing (disabled)").block(
+                Block::default()
+                    .borders(Borders::ALL)
+                    .style(inner_theme.disabled)
+                    .border_type(if matches!(self.focus, Focus::RunButton) {
+                        BorderType::Double
+                    } else {
+                        BorderType::Plain
+                    }),
+            )
+        };
+        let button_chunks = Layout::default()
+            .direction(Direction::Horizontal)
+            .constraints([Constraint::Percentage(50), Constraint::Percentage(50)].as_ref())
+            .split(chunks[2]);
+
+        frame.render_widget(build_button, button_chunks[0]);
+        frame.render_widget(launch_button, button_chunks[1]);
     }
 }
 

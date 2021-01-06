@@ -1,5 +1,5 @@
-use decent_serde_json_alternative::ToJson;
 use decent_serde_json_alternative::FromJson;
+use decent_serde_json_alternative::ToJson;
 use fuzzcheck_common::{
     arg::{FullCommandLineArguments, FuzzerCommand},
     ipc::{self, TuiMessageEvent},
@@ -13,7 +13,7 @@ use std::{collections::hash_map::DefaultHasher, net::TcpStream};
 
 use fuzzcheck_common::ipc::{FuzzerEvent, FuzzerStats, TuiMessage};
 
-use crate::{Serializer, fuzzer::TerminationStatus};
+use crate::{fuzzer::TerminationStatus, Serializer};
 
 pub(crate) enum WorldAction<T> {
     Remove(T),
@@ -301,18 +301,14 @@ This should never happen, and is probably a bug in fuzzcheck. Sorry :("#
                 Some(MessageUserToFuzzer::UnPause) => {
                     self.pause_at_next_event = false;
                     self.write_to_stream(&TuiMessage::UnPaused);
-                    break 'waiting_loop
+                    break 'waiting_loop;
                 }
-                Some(MessageUserToFuzzer::Pause) => {
-                    continue 'waiting_loop
-                }
-                Some(MessageUserToFuzzer::Stop) => {
-                    self.stop()
-                }
+                Some(MessageUserToFuzzer::Pause) => continue 'waiting_loop,
+                Some(MessageUserToFuzzer::Stop) => self.stop(),
                 Some(MessageUserToFuzzer::UnPauseUntilNextEvent) => {
                     self.pause_at_next_event = true;
                     self.write_to_stream(&TuiMessage::UnPaused);
-                    break 'waiting_loop
+                    break 'waiting_loop;
                 }
                 None => {
                     todo!() //break 'waiting_loop
@@ -325,25 +321,17 @@ This should never happen, and is probably a bug in fuzzcheck. Sorry :("#
     }
 
     pub fn handle_user_message(&mut self) {
-        
-        
         match self.read_message_from_user(true) {
             Some(MessageUserToFuzzer::Pause) => {
                 self.pause_until_unpause_message();
             }
-            Some(MessageUserToFuzzer::UnPause) => {
-                
-            }
-            Some(MessageUserToFuzzer::UnPauseUntilNextEvent) => {
-
-            }
-            Some(MessageUserToFuzzer::Stop) => {
-                self.stop()
-            }
+            Some(MessageUserToFuzzer::UnPause) => {}
+            Some(MessageUserToFuzzer::UnPauseUntilNextEvent) => {}
+            Some(MessageUserToFuzzer::Stop) => self.stop(),
             None => {}
         }
     }
-    
+
     pub fn stop(&mut self) -> ! {
         self.write_to_stream(&TuiMessage::Stopped);
         self.report_event(FuzzerEvent::End, None);

@@ -1,4 +1,4 @@
-use std::{path::{Path, PathBuf}};
+use std::path::{Path, PathBuf};
 
 use termion::event::Key;
 use tui::{
@@ -52,11 +52,9 @@ pub enum OutMessage {
 }
 
 impl AnyView for PreInitView {
-    fn focus(&mut self) {
-    }
+    fn focus(&mut self) {}
 
-    fn unfocus(&mut self) {
-    }
+    fn unfocus(&mut self) {}
 
     fn key_bindings(&self) -> Vec<(Key, String)> {
         let mut map = Vec::new();

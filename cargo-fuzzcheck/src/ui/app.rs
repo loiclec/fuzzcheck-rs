@@ -2,7 +2,11 @@ use std::{path::PathBuf, rc::Rc, sync::mpsc::Sender};
 
 use project::FullConfig;
 use termion::event::Key;
-use tui::{Frame, backend::Backend, layout::{Constraint, Direction, Layout, Rect}};
+use tui::{
+    backend::Backend,
+    layout::{Constraint, Direction, Layout, Rect},
+    Frame,
+};
 
 use crate::project::{self, Root};
 
@@ -11,7 +15,12 @@ use crate::ui::preinit;
 
 use fuzzcheck_common::ipc::TuiMessage;
 
-use super::{error_view, events::{EXIT_KEY, Event}, framework::{AnyView, Either, ExplainKeyBindingView, ParentView, Theme, override_map}, fuzzing, initialized};
+use super::{
+    error_view,
+    events::{Event, EXIT_KEY},
+    framework::{override_map, AnyView, Either, ExplainKeyBindingView, ParentView, Theme},
+    fuzzing, initialized,
+};
 
 pub struct State {
     pub root_path: PathBuf,
@@ -66,6 +75,11 @@ pub enum Update {
 
 pub enum OutMessage {
     Quit,
+    BuildFuzzTarget {
+        root: Rc<Root>,
+        target_name: String,
+        config: FullConfig,
+    },
     StartFuzzing {
         root: Rc<Root>,
         target_name: String,
@@ -78,20 +92,18 @@ pub enum OutMessage {
 }
 
 impl AnyView for State {
-    fn focus(&mut self) {
-    }
+    fn focus(&mut self) {}
 
-    fn unfocus(&mut self) {
-    }
+    fn unfocus(&mut self) {}
 
     fn key_bindings(&self) -> Vec<(Key, String)> {
         let mut map = Vec::new();
         map.push((EXIT_KEY, "quit".to_string()));
         let merging = match &self.phase {
-            Phase::Error(v) => { v.key_bindings() }
-            Phase::PreInit(v) => { v.key_bindings() }
-            Phase::Initialized(v) => { v.key_bindings() }
-            Phase::Fuzzing(v) => { v.key_bindings() }
+            Phase::Error(v) => v.key_bindings(),
+            Phase::PreInit(v) => v.key_bindings(),
+            Phase::Initialized(v) => v.key_bindings(),
+            Phase::Fuzzing(v) => v.key_bindings(),
         };
         override_map(&mut map, merging);
         map
@@ -140,7 +152,10 @@ impl ViewState for State {
     where
         B: Backend,
     {
-        let chunks = Layout::default().direction(Direction::Vertical).constraints([Constraint::Length(2), Constraint::Min(0)].as_ref()).split(area);
+        let chunks = Layout::default()
+            .direction(Direction::Vertical)
+            .constraints([Constraint::Length(2), Constraint::Min(0)].as_ref())
+            .split(area);
         let key_bindings = match &self.phase {
             Phase::PreInit(state) => state.key_bindings(),
             Phase::Error(state) => state.key_bindings(),
@@ -164,7 +179,9 @@ impl ParentView<preinit::PreInitView> for State {
         Self::Update::PreInit(update)
     }
 
-    fn convert_to_child_in_message(message: &Self::InMessage) -> Option<<preinit::PreInitView as ViewState>::InMessage> {
+    fn convert_to_child_in_message(
+        message: &Self::InMessage,
+    ) -> Option<<preinit::PreInitView as ViewState>::InMessage> {
         match message {
             Event::UserInput(u) => Some(u.clone()),
             Event::Subscription(_) => None,
@@ -232,6 +249,15 @@ impl ParentView<initialized::InitializedView> for State {
                 target_name,
                 config,
             }),
+            initialized::OutMessage::BuildFuzzTarget {
+                root,
+                target_name,
+                config,
+            } => Either::Right(OutMessage::BuildFuzzTarget {
+                root,
+                target_name,
+                config,
+            }),
         }
     }
 }
@@ -239,7 +265,9 @@ impl ParentView<fuzzing::FuzzingView> for State {
     fn convert_child_update(update: <fuzzing::FuzzingView as ViewState>::Update) -> Self::Update {
         Self::Update::Fuzzing(update)
     }
-    fn convert_to_child_in_message(message: &Self::InMessage) -> Option<<fuzzing::FuzzingView as ViewState>::InMessage> {
+    fn convert_to_child_in_message(
+        message: &Self::InMessage,
+    ) -> Option<<fuzzing::FuzzingView as ViewState>::InMessage> {
         match message {
             Event::UserInput(x) => Some(fuzzing::InMessage::Key(x.clone())),
             Event::Subscription(m) => Some(fuzzing::InMessage::TuiMessage(m.clone())),
@@ -251,18 +279,10 @@ impl ParentView<fuzzing::FuzzingView> for State {
         message: <fuzzing::FuzzingView as ViewState>::OutMessage,
     ) -> Either<Update, OutMessage> {
         match message {
-            fuzzing::OutMessage::PauseFuzzer => {
-                Either::Right(OutMessage::PauseFuzzer)
-            }
-            fuzzing::OutMessage::UnPauseFuzzer => {
-                Either::Right(OutMessage::UnPauseFuzzer)
-            }
-            fuzzing::OutMessage::StopFuzzer => {
-                Either::Right(OutMessage::StopFuzzer)
-            }
-            fuzzing::OutMessage::UnPauseFuzzerUntilNextEvent => {
-                Either::Right(OutMessage::UnPauseFuzzerUntilNextEvent)
-            }
+            fuzzing::OutMessage::PauseFuzzer => Either::Right(OutMessage::PauseFuzzer),
+            fuzzing::OutMessage::UnPauseFuzzer => Either::Right(OutMessage::UnPauseFuzzer),
+            fuzzing::OutMessage::StopFuzzer => Either::Right(OutMessage::StopFuzzer),
+            fuzzing::OutMessage::UnPauseFuzzerUntilNextEvent => Either::Right(OutMessage::UnPauseFuzzerUntilNextEvent),
         }
     }
 }

@@ -97,9 +97,6 @@ pub fn launch_app(root_path: PathBuf) -> Result<(), Box<dyn Error>> {
                             terminal.clear()?;
                             std::mem::drop(terminal);
 
-                            root.build_command(target_name.as_ref(), &config, &Stdio::inherit)
-                                .unwrap();
-
                             let (listener, socket_address) = fuzz_target_comm::create_listener();
 
                             let out = state.update(app::Update::ChangePhase(app::Phase::Fuzzing(FuzzingView::new())));
@@ -113,12 +110,30 @@ pub fn launch_app(root_path: PathBuf) -> Result<(), Box<dyn Error>> {
                                 .unwrap();
                             child_process = Some(child);
 
-
                             let read_stream = fuzz_target_comm::accept(listener);
                             sending_stream = Some(read_stream.try_clone().unwrap());
-                            
-                            events.add_stream(move |tx| fuzz_target_comm::receive_fuzz_target_messages(read_stream, tx));
-                            
+
+                            events
+                                .add_stream(move |tx| fuzz_target_comm::receive_fuzz_target_messages(read_stream, tx));
+
+                            terminal = set_ui_terminal(true)?;
+                        } else {
+                            panic!()
+                        }
+                    }
+                    app::OutMessage::BuildFuzzTarget {
+                        root,
+                        target_name,
+                        config,
+                    } => {
+                        if child_process.is_none() {
+                            // Terminal initialization
+                            terminal.clear()?;
+                            std::mem::drop(terminal);
+
+                            root.build_command(target_name.as_ref(), &config, &Stdio::inherit)
+                                .unwrap();
+
                             terminal = set_ui_terminal(true)?;
                         } else {
                             panic!()
@@ -141,7 +156,10 @@ pub fn launch_app(root_path: PathBuf) -> Result<(), Box<dyn Error>> {
                     }
                     app::OutMessage::UnPauseFuzzerUntilNextEvent => {
                         if let Some(stream) = &mut sending_stream {
-                            send_fuzzer_message(stream, fuzzcheck_common::ipc::MessageUserToFuzzer::UnPauseUntilNextEvent)
+                            send_fuzzer_message(
+                                stream,
+                                fuzzcheck_common::ipc::MessageUserToFuzzer::UnPauseUntilNextEvent,
+                            )
                         }
                     }
                 }

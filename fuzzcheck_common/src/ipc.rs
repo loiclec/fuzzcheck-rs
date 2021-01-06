@@ -1,6 +1,6 @@
 use decent_serde_json_alternative::{FromJson, ToJson};
 
-use std::io::{prelude::*};
+use std::io::prelude::*;
 use std::net::TcpStream;
 
 pub fn write(stream: &mut TcpStream, message: &str) {

@@ -286,13 +286,12 @@ where
     }
 
     fn test_input_and_analyze(&mut self) -> Result<(), std::io::Error> {
-
         self.state.world.handle_user_message();
 
         // we have verified in the caller function that there is an input
-        let input = FuzzerState::<M,S>::get_input(&self.state.input_idx, &self.state.pool).unwrap();
+        let input = FuzzerState::<M, S>::get_input(&self.state.input_idx, &self.state.pool).unwrap();
         let cplx = input.complexity(&self.state.mutator);
-        
+
         Self::test_input(
             &self.test,
             &self.state.mutator,
@@ -305,7 +304,9 @@ where
 
         if let Some(result) = self.analyze(cplx) {
             // call state.get_input again to satisfy borrow checker
-            let input_cloned = FuzzerState::<M,S>::get_input(&self.state.input_idx, &self.state.pool).unwrap().new_source(&self.state.mutator);
+            let input_cloned = FuzzerState::<M, S>::get_input(&self.state.input_idx, &self.state.pool)
+                .unwrap()
+                .new_source(&self.state.mutator);
             let actions = self
                 .state
                 .pool
@@ -514,7 +515,7 @@ where
             let mutation_step = fuzzer.state.mutator.initial_step_from_value(&value);
 
             fuzzer.state.input_idx = FuzzerInputIndex::Temporary(FuzzedInput::new(value, cache, mutation_step));
-            let input = FuzzerState::<M,S>::get_input(&fuzzer.state.input_idx, &fuzzer.state.pool).unwrap();
+            let input = FuzzerState::<M, S>::get_input(&fuzzer.state.input_idx, &fuzzer.state.pool).unwrap();
             Fuzzer::<T, F, M, S>::test_input(
                 &fuzzer.test,
                 &fuzzer.state.mutator,
