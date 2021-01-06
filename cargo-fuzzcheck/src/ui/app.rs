@@ -78,7 +78,9 @@ pub enum OutMessage {
         config: FullConfig,
     },
     PauseFuzzer,
-    UnPauseFuzzer
+    UnPauseFuzzer,
+    UnPauseFuzzerUntilNextEvent,
+    StopFuzzer,
 }
 
 impl ViewState for State {
@@ -232,6 +234,12 @@ impl ParentView<fuzzing::FuzzingView> for State {
             }
             fuzzing::OutMessage::UnPauseFuzzer => {
                 Either::Right(OutMessage::UnPauseFuzzer)
+            }
+            fuzzing::OutMessage::StopFuzzer => {
+                Either::Right(OutMessage::StopFuzzer)
+            }
+            fuzzing::OutMessage::UnPauseFuzzerUntilNextEvent => {
+                Either::Right(OutMessage::UnPauseFuzzerUntilNextEvent)
             }
         }
     }

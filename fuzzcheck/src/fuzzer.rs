@@ -9,7 +9,7 @@ use crate::signals_handler::{set_signal_handlers, set_timer};
 use crate::world::World;
 use crate::{code_coverage_sensor::shared_sensor, world::WorldAction};
 use crate::{Feature, FuzzedInput, Mutator, Serializer};
-use fuzzcheck_common::ipc::{FuzzerEvent, FuzzerStats, MessageUserToFuzzer};
+use fuzzcheck_common::ipc::{FuzzerEvent, FuzzerStats};
 
 use fuzzcheck_common::arg::{FullCommandLineArguments, FuzzerCommand};
 
@@ -64,11 +64,11 @@ struct FuzzerState<M: Mutator, S: Serializer<Value = M::Value>> {
 }
 
 impl<M: Mutator, S: Serializer<Value = M::Value>> FuzzerState<M, S> {
-    fn get_input(&self) -> Option<&FuzzedInput<M>> {
-        match &self.input_idx {
+    fn get_input<'a>(fuzzer_input_idx: &'a FuzzerInputIndex<M>, pool: &'a Pool<M>) -> Option<&'a FuzzedInput<M>> {
+        match fuzzer_input_idx {
             FuzzerInputIndex::None => None,
             FuzzerInputIndex::Temporary(input) => Some(input),
-            FuzzerInputIndex::Pool(idx) => Some(self.pool.get_ref(*idx)),
+            FuzzerInputIndex::Pool(idx) => Some(pool.get_ref(*idx)),
         }
     }
 }
@@ -93,7 +93,7 @@ where
         }
     }
 
-    fn receive_signal(&self, signal: i32) -> ! {
+    fn receive_signal(&mut self, signal: i32) -> ! {
         use signal::Signal::{self, *};
         if let Ok(signal) = Signal::try_from(signal) {
             self.world
@@ -105,7 +105,7 @@ where
 
             match signal {
                 SIGABRT | SIGBUS | SIGSEGV | SIGFPE | SIGALRM => {
-                    if let Some(input) = self.get_input() {
+                    if let Some(input) = Self::get_input(&self.input_idx, &self.pool) {
                         let cplx = input.complexity(&self.mutator);
                         let _ = self.world.save_artifact(&input.value, cplx);
 
@@ -119,7 +119,7 @@ where
                         exit(TerminationStatus::Crash as i32);
                     }
                 }
-                SIGINT | SIGTERM => exit(TerminationStatus::Success as i32),
+                SIGINT | SIGTERM => self.world.stop(),
                 _ => exit(TerminationStatus::Unknown as i32),
             }
         } else {
@@ -139,9 +139,9 @@ where
         }
     }
 
-    unsafe fn set_up_signal_handler(&self) {
-        let ptr = self as *const Self;
-        set_signal_handlers(move |sig| (&*ptr).receive_signal(sig));
+    unsafe fn set_up_signal_handler(&mut self) {
+        let ptr = self as *mut Self;
+        set_signal_handlers(move |sig| (&mut *ptr).receive_signal(sig));
     }
 }
 
@@ -197,7 +197,7 @@ where
         mutator: &M,
         input: &FuzzedInput<M>,
         timeout: usize,
-        world: &World<S>,
+        world: &mut World<S>,
         stats: FuzzerStats,
     ) -> Result<(), std::io::Error> {
         let sensor = shared_sensor();
@@ -290,7 +290,7 @@ where
         self.state.world.handle_user_message();
 
         // we have verified in the caller function that there is an input
-        let input = self.state.get_input().unwrap();
+        let input = FuzzerState::<M,S>::get_input(&self.state.input_idx, &self.state.pool).unwrap();
         let cplx = input.complexity(&self.state.mutator);
         
         Self::test_input(
@@ -298,14 +298,14 @@ where
             &self.state.mutator,
             &input,
             self.state.settings.timeout,
-            &self.state.world,
+            &mut self.state.world,
             self.state.stats,
         )?;
         self.state.stats.total_number_of_runs += 1;
 
         if let Some(result) = self.analyze(cplx) {
             // call state.get_input again to satisfy borrow checker
-            let input_cloned = self.state.get_input().unwrap().new_source(&self.state.mutator);
+            let input_cloned = FuzzerState::<M,S>::get_input(&self.state.input_idx, &self.state.pool).unwrap().new_source(&self.state.mutator);
             let actions = self
                 .state
                 .pool
@@ -514,13 +514,13 @@ where
             let mutation_step = fuzzer.state.mutator.initial_step_from_value(&value);
 
             fuzzer.state.input_idx = FuzzerInputIndex::Temporary(FuzzedInput::new(value, cache, mutation_step));
-            let input = fuzzer.state.get_input().unwrap();
+            let input = FuzzerState::<M,S>::get_input(&fuzzer.state.input_idx, &fuzzer.state.pool).unwrap();
             Fuzzer::<T, F, M, S>::test_input(
                 &fuzzer.test,
                 &fuzzer.state.mutator,
                 &input,
                 fuzzer.state.settings.timeout,
-                &fuzzer.state.world,
+                &mut fuzzer.state.world,
                 fuzzer.state.stats,
             )?;
         }

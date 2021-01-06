@@ -9,11 +9,11 @@ use std::fs;
 use std::hash::{Hash, Hasher};
 use std::io::{self, Result};
 use std::time::Instant;
-use std::{cell::RefCell, collections::hash_map::DefaultHasher, net::TcpStream};
+use std::{collections::hash_map::DefaultHasher, net::TcpStream};
 
 use fuzzcheck_common::ipc::{FuzzerEvent, FuzzerStats, TuiMessage};
 
-use crate::Serializer;
+use crate::{Serializer, fuzzer::TerminationStatus};
 
 pub(crate) enum WorldAction<T> {
     Remove(T),
@@ -22,25 +22,28 @@ pub(crate) enum WorldAction<T> {
 }
 
 pub struct World<S: Serializer> {
-    stream: Option<RefCell<TcpStream>>,
+    stream: Option<TcpStream>,
     settings: FullCommandLineArguments,
     initial_instant: Instant,
     checkpoint_instant: Instant,
+    pause_at_next_event: bool,
     serializer: S,
 }
 
 impl<S: Serializer> World<S> {
     pub fn new(serializer: S, settings: FullCommandLineArguments) -> Self {
         let stream = if let Some(socket_address) = settings.socket_address {
-            Some(RefCell::new(TcpStream::connect(socket_address).unwrap()))
+            Some(TcpStream::connect(socket_address).unwrap())
         } else {
             None
         };
+        let pause_at_next_event = stream.is_some();
         Self {
             stream,
             settings,
             initial_instant: std::time::Instant::now(),
             checkpoint_instant: std::time::Instant::now(),
+            pause_at_next_event,
             serializer,
         }
     }
@@ -59,7 +62,7 @@ impl<S: Serializer> World<S> {
         (hash, input)
     }
 
-    pub(crate) fn do_actions(&self, actions: Vec<WorldAction<S::Value>>, stats: &FuzzerStats) -> Result<()> {
+    pub(crate) fn do_actions(&mut self, actions: Vec<WorldAction<S::Value>>, stats: &FuzzerStats) -> Result<()> {
         for a in actions {
             let message = match a {
                 WorldAction::Add(x) => {
@@ -82,10 +85,10 @@ impl<S: Serializer> World<S> {
                 }
             };
 
-            if let Some(stream) = &self.stream {
-                let mut stream = stream.borrow_mut();
-                ipc::write(&mut stream, &message.to_json().to_string());
-            }
+            self.write_to_stream(&message);
+        }
+        if self.pause_at_next_event {
+            self.pause_until_unpause_message();
         }
         Ok(())
     }
@@ -234,7 +237,7 @@ This should never happen, and is probably a bug in fuzzcheck. Sorry :("#
         }
     }
 
-    pub fn save_artifact(&self, input: &S::Value, cplx: f64) -> Result<()> {
+    pub fn save_artifact(&mut self, input: &S::Value, cplx: f64) -> Result<()> {
         let artifacts_folder = self.settings.artifacts_folder.as_ref();
         if artifacts_folder.is_none() {
             return Ok(());
@@ -260,23 +263,19 @@ This should never happen, and is probably a bug in fuzzcheck. Sorry :("#
         println!("Saving at {:?}", path);
         fs::write(path, &content)?;
 
-        if let Some(stream) = &self.stream {
-            let message = TuiMessage::SaveArtifact {
-                hash: name,
-                input: String::from_utf8_lossy(&content).to_string(),
-            };
-            let mut stream = stream.borrow_mut();
-            ipc::write(&mut stream, &message.to_json().to_string());
-        }
+        let message = TuiMessage::SaveArtifact {
+            hash: name,
+            input: String::from_utf8_lossy(&content).to_string(),
+        };
+        self.write_to_stream(&message);
 
         Result::Ok(())
     }
 
-    pub fn read_message_from_user(&self, blocking: bool) -> Option<MessageUserToFuzzer> {
-        if let Some(stream) = &self.stream {
-            let mut stream = stream.borrow_mut();
+    pub fn read_message_from_user(&mut self, blocking: bool) -> Option<MessageUserToFuzzer> {
+        if let Some(stream) = &mut self.stream {
             let _ = stream.set_nonblocking(blocking);
-            let received = ipc::read(&mut stream);
+            let received = ipc::read(stream);
             let _ = stream.set_nonblocking(false);
             let received = received?;
             let parsed_json = json::parse(&received).ok()?;
@@ -287,25 +286,46 @@ This should never happen, and is probably a bug in fuzzcheck. Sorry :("#
         }
     }
 
+    fn write_to_stream(&mut self, message: &TuiMessage) {
+        if let Some(stream) = &mut self.stream {
+            ipc::write(stream, &message.to_json().to_string());
+        }
+    }
+
     pub fn pause_until_unpause_message(&mut self) {
+        let start_pause = Instant::now();
+
+        self.write_to_stream(&TuiMessage::Paused);
         'waiting_loop: loop {
             match self.read_message_from_user(false) {
                 Some(MessageUserToFuzzer::UnPause) => {
+                    self.pause_at_next_event = false;
+                    self.write_to_stream(&TuiMessage::UnPaused);
                     break 'waiting_loop
                 }
                 Some(MessageUserToFuzzer::Pause) => {
                     continue 'waiting_loop
+                }
+                Some(MessageUserToFuzzer::Stop) => {
+                    self.stop()
+                }
+                Some(MessageUserToFuzzer::UnPauseUntilNextEvent) => {
+                    self.pause_at_next_event = true;
+                    self.write_to_stream(&TuiMessage::UnPaused);
+                    break 'waiting_loop
                 }
                 None => {
                     todo!() //break 'waiting_loop
                 }
             }
         }
+        let time_paused = start_pause.elapsed();
+        self.checkpoint_instant = self.checkpoint_instant.checked_add(time_paused).unwrap();
+        self.initial_instant = self.initial_instant.checked_add(time_paused).unwrap();
     }
 
     pub fn handle_user_message(&mut self) {
         
-        let start_pause = Instant::now();
         
         match self.read_message_from_user(true) {
             Some(MessageUserToFuzzer::Pause) => {
@@ -314,12 +334,19 @@ This should never happen, and is probably a bug in fuzzcheck. Sorry :("#
             Some(MessageUserToFuzzer::UnPause) => {
                 
             }
+            Some(MessageUserToFuzzer::UnPauseUntilNextEvent) => {
+
+            }
+            Some(MessageUserToFuzzer::Stop) => {
+                self.stop()
+            }
             None => {}
         }
-
-        let time_paused = start_pause.elapsed();
-        self.checkpoint_instant = self.checkpoint_instant.checked_add(time_paused).unwrap();
-        self.initial_instant = self.initial_instant.checked_add(time_paused).unwrap();
     }
     
+    pub fn stop(&mut self) -> ! {
+        self.write_to_stream(&TuiMessage::Stopped);
+        self.report_event(FuzzerEvent::End, None);
+        std::process::exit(TerminationStatus::Success as i32);
+    }
 }

@@ -5,20 +5,29 @@ use termion::event::Key;
 
 use super::{framework::{Either, InnerFocusable, ParentView, SwitchFocus, Theme, ViewState}, vertical_list_view::{self, VerticalListView}};
 
-use tui::{
-    backend::Backend,
-    layout::{Constraint, Direction, Layout, Rect},
-    symbols,
-    text::{Span},
-    widgets::{Axis, Block, Borders, Chart, Dataset, GraphType, Paragraph, Wrap},
-    Frame,
-};
+use tui::{Frame, backend::Backend, layout::{Alignment, Constraint, Direction, Layout, Rect}, style::{Color, Style}, symbols, text::{Span}, widgets::{Axis, Block, Borders, Chart, Dataset, GraphType, Paragraph, Wrap}};
+
+enum Status {
+    Running,
+    Paused,
+    Stopped
+}
+impl std::fmt::Display for Status {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", match self {
+            Status::Running => { "Running" }
+            Status::Paused => { "Paused" }
+            Status::Stopped => { "Stopped" }
+        })
+    }
+}
 
 pub struct FuzzingView {
     corpus: HashMap<String, String>,
     events: Vec<TuiMessageEvent>,
     artifact: Option<(String, String)>,
 
+    status: Status,
     focus: Focus,
 
     list_view: VerticalListView,
@@ -131,6 +140,7 @@ impl FuzzingView {
             corpus: HashMap::new(),
             events: vec![],
             artifact: None,
+            status: Status::Running,
             focus: FocusedPart::Chart.canonical_position(),
             list_view: VerticalListView::new("Events", iter::empty()),
             shown_chart: ShownChart::Score,
@@ -163,10 +173,14 @@ pub enum Update {
     SelectListItem(usize),
     Pause,
     UnPause,
+    UnPauseUntilNextEvent,
+    Stop,
 }
 pub enum OutMessage {
     PauseFuzzer,
     UnPauseFuzzer,
+    UnPauseFuzzerUntilNextEvent,
+    StopFuzzer
 }
 
 impl FuzzingView {
@@ -211,6 +225,12 @@ impl ViewState for FuzzingView {
                     Key::Char('u') => {
                         Some(Update::UnPause)
                     }
+                    Key::Char('x') => {
+                        Some(Update::Stop)
+                    }
+                    Key::Char('v') => {
+                        Some(Update::UnPauseUntilNextEvent)
+                    }
                     _ => {
                         None
                     }
@@ -243,6 +263,15 @@ impl ViewState for FuzzingView {
                         self.artifact = Some((hash.clone(), input.clone()));
                         self.detail_view = (format!("Artifact: {}", hash), input);
                     }
+                    TuiMessage::Paused => {
+                        self.status = Status::Paused;
+                    }
+                    TuiMessage::UnPaused => {
+                        self.status = Status::Running;
+                    }
+                    TuiMessage::Stopped => {
+                        self.status = Status::Stopped;
+                    }
                 }
                 None
             }
@@ -268,6 +297,12 @@ impl ViewState for FuzzingView {
             Update::UnPause => {
                 Some(OutMessage::UnPauseFuzzer)
             }
+            Update::Stop => {
+                Some(OutMessage::StopFuzzer)
+            }
+            Update::UnPauseUntilNextEvent => {
+                Some(OutMessage::UnPauseFuzzerUntilNextEvent)
+            }
         }
     }
 
@@ -278,10 +313,15 @@ impl ViewState for FuzzingView {
         let block = Block::default().style(theme.default);
         frame.render_widget(block, area);
 
+        let vertical_chunks = Layout::default().direction(Direction::Vertical).constraints([Constraint::Length(1), Constraint::Min(0)].as_ref()).split(area);
+
+        let status_view = Paragraph::new(format!("{}", self.status)).style(Style::default().bg(Color::White).fg(Color::Black)).alignment(Alignment::Center);
+        frame.render_widget(status_view, vertical_chunks[0]);
+
         let chunks = Layout::default()
             .direction(Direction::Horizontal)
             .constraints([Constraint::Length(15), Constraint::Min(0)].as_ref())
-            .split(area);
+            .split(vertical_chunks[1]);
 
         self.list_view.draw(frame, theme, chunks[0]);
 

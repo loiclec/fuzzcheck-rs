@@ -14,7 +14,7 @@ mod app;
 mod events;
 mod fuzz_target_comm;
 
-use std::{cell::RefCell, error::Error, net::TcpStream, path::PathBuf, rc::Rc, sync::{Arc, Mutex}};
+use std::{error::Error, net::TcpStream, path::PathBuf};
 use std::{
     io::{self, Stdout},
     process::Stdio,
@@ -132,6 +132,16 @@ pub fn launch_app(root_path: PathBuf) -> Result<(), Box<dyn Error>> {
                     app::OutMessage::UnPauseFuzzer => {
                         if let Some(stream) = &mut sending_stream {
                             send_fuzzer_message(stream, fuzzcheck_common::ipc::MessageUserToFuzzer::UnPause)
+                        }
+                    }
+                    app::OutMessage::StopFuzzer => {
+                        if let Some(stream) = &mut sending_stream {
+                            send_fuzzer_message(stream, fuzzcheck_common::ipc::MessageUserToFuzzer::Stop)
+                        }
+                    }
+                    app::OutMessage::UnPauseFuzzerUntilNextEvent => {
+                        if let Some(stream) = &mut sending_stream {
+                            send_fuzzer_message(stream, fuzzcheck_common::ipc::MessageUserToFuzzer::UnPauseUntilNextEvent)
                         }
                     }
                 }
