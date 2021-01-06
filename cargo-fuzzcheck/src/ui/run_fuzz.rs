@@ -18,10 +18,7 @@ use tui::{
 
 use crate::project::{FullConfig, Root};
 
-use super::{
-    framework::{Either, Focusable, InnerFocusable, ParentView, Theme, ViewState},
-    text_field_view::TextFieldView,
-};
+use super::{framework::{AnyView, Either, InnerFocusable, ParentView, SwitchFocus, Theme, ViewState}, text_field_view::TextFieldView};
 
 #[derive(Debug)]
 struct FloatEqualZeroError;
@@ -85,28 +82,27 @@ pub enum Focus {
     MaxInputComplexity,
     RunButton,
 }
-impl Focus {
-    fn next(self) -> Option<Focus> {
-        match self {
-            Focus::MaxInputComplexity => Some(Focus::RunButton),
-            Focus::RunButton => None,
-        }
-    }
-    fn prev(self) -> Option<Focus> {
-        match self {
-            Focus::MaxInputComplexity => None,
-            Focus::RunButton => Some(Focus::MaxInputComplexity),
-        }
-    }
-}
 
-impl Focusable for RunFuzzView {
+impl AnyView for RunFuzzView {
     fn focus(&mut self) {
         self.focused = true;
     }
 
     fn unfocus(&mut self) {
         self.focused = false;
+    }
+
+    fn key_bindings(&self) -> Vec<(Key, String)> {
+        let mut map = Vec::new();
+        match self.focus {
+            Focus::MaxInputComplexity => {
+                map.push((Key::Char('\n'), "confirm setting".to_string()));
+            }
+            Focus::RunButton => {
+                map.push((Key::Char('\n'), "start fuzzing".to_string()));
+            }
+        }
+        map
     }
 }
 impl InnerFocusable for RunFuzzView {
@@ -116,10 +112,66 @@ impl InnerFocusable for RunFuzzView {
         &mut self.focus
     }
 
-    fn view_in_focus(&mut self) -> Option<&mut dyn Focusable> {
+    fn view_in_focus_ref(&self) -> Option<&dyn AnyView> {
+        match self.focus {
+            Focus::MaxInputComplexity => Some(&self.max_cplx_field),
+            Focus::RunButton => None,
+        }
+    }
+    fn view_in_focus_mut(&mut self) -> Option<&mut dyn AnyView> {
         match self.focus {
             Focus::MaxInputComplexity => Some(&mut self.max_cplx_field),
             Focus::RunButton => None,
+        }
+    }
+
+    fn focus_after_switch(&self, sf: SwitchFocus) -> Option<Self::Focus> {
+        match sf {
+            SwitchFocus::In => {
+                match self.focus {
+                    Focus::MaxInputComplexity => {
+                        Some(Focus::RunButton)
+                    }
+                    Focus::RunButton => {
+                        None
+                    }
+                }
+            }
+            SwitchFocus::Out => {
+                None
+            }
+            SwitchFocus::Up => {
+                match self.focus {
+                    Focus::MaxInputComplexity => {
+                        None
+                    }
+                    Focus::RunButton => {
+                        Some(Focus::MaxInputComplexity)
+                    }
+                }
+            }
+            SwitchFocus::Right => {
+                None
+            }
+            SwitchFocus::Down => {
+                match self.focus {
+                    Focus::MaxInputComplexity => {
+                        Some(Focus::RunButton)
+                    }
+                    Focus::RunButton => {
+                        None
+                    }
+                }
+            }
+            SwitchFocus::Left => {
+                None
+            }
+            SwitchFocus::Next => {
+                self.focus_after_switch(SwitchFocus::Down)
+            }
+            SwitchFocus::Previous => {
+                self.focus_after_switch(SwitchFocus::Up)
+            }
         }
     }
 }
@@ -158,16 +210,12 @@ impl ViewState for RunFuzzView {
                 }
             }
         }
-        match message {
-            Key::Up | Key::Left => self.focus.prev().map(Update::SwitchFocus),
-            Key::Down | Key::Right => self.focus.next().map(Update::SwitchFocus),
-            Key::BackTab => self.focus.prev().map(Update::SwitchFocus),
-            Key::Char('\t') => self.focus.next().map(Update::SwitchFocus),
-            Key::Esc => {
-                None //Some(Update::Unfocus)
+        if let Some(sf) = SwitchFocus::from_standard_key(&message) {
+            if let Some(f) = self.focus_after_switch(sf) {
+                return Some(Update::SwitchFocus(f))
             }
-            _ => None,
         }
+        None
     }
 
     fn update(&mut self, u: Self::Update) -> Option<Self::OutMessage> {

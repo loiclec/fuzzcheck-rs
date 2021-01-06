@@ -1,5 +1,5 @@
-use super::framework::{Theme, ViewState};
-use std::fmt::Debug;
+use super::framework::{AnyView, Theme, ViewState};
+use std::{fmt::Debug};
 use termion::event::Key;
 use tui::{
     backend::Backend,
@@ -22,6 +22,18 @@ impl ErrorView {
 
 pub struct Update;
 pub struct OutMessage;
+
+impl AnyView for ErrorView {
+    fn focus(&mut self) {
+    }
+
+    fn unfocus(&mut self) {
+    }
+
+    fn key_bindings(&self) -> Vec<(Key, String)> {
+        Vec::new()
+    }
+}
 
 impl ViewState for ErrorView {
     type Update = self::Update;

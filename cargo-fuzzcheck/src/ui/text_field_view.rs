@@ -1,6 +1,6 @@
-use std::cmp::min;
+use std::{cmp::min};
 
-use framework::HorizontalMove;
+use framework::{AnyView, HorizontalMove};
 
 use termion::event::Key;
 use tui::{layout::Rect, widgets::Paragraph};
@@ -34,13 +34,16 @@ pub enum OutMessage {
     Edited(String),
 }
 
-impl framework::Focusable for TextFieldView {
+impl AnyView for TextFieldView {
     fn focus(&mut self) {
         self.focused = true;
     }
 
     fn unfocus(&mut self) {
         self.focused = false;
+    }
+    fn key_bindings(&self) -> Vec<(Key, String)> {
+        Vec::new()
     }
 }
 

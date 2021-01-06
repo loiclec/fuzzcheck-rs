@@ -1,4 +1,4 @@
-use std::path::{Path, PathBuf};
+use std::{path::{Path, PathBuf}};
 
 use termion::event::Key;
 use tui::{
@@ -15,7 +15,7 @@ use crate::{
     CargoFuzzcheckError,
 };
 
-use super::framework::{HorizontalMove, Theme, ViewState};
+use super::framework::{AnyView, HorizontalMove, Theme, ViewState};
 
 pub struct PreInitView {
     pub root_path: PathBuf,
@@ -49,6 +49,20 @@ pub enum OutMessage {
     Initialized,
     Error(CargoFuzzcheckError),
     Quit,
+}
+
+impl AnyView for PreInitView {
+    fn focus(&mut self) {
+    }
+
+    fn unfocus(&mut self) {
+    }
+
+    fn key_bindings(&self) -> Vec<(Key, String)> {
+        let mut map = Vec::new();
+        map.push((Key::Char('\n'), "confirm choice".to_string()));
+        map
+    }
 }
 
 impl ViewState for PreInitView {

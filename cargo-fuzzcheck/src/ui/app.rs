@@ -2,7 +2,7 @@ use std::{path::PathBuf, rc::Rc, sync::mpsc::Sender};
 
 use project::FullConfig;
 use termion::event::Key;
-use tui::{backend::Backend, layout::Rect, Frame};
+use tui::{Frame, backend::Backend, layout::{Constraint, Direction, Layout, Rect}};
 
 use crate::project::{self, Root};
 
@@ -11,12 +11,7 @@ use crate::ui::preinit;
 
 use fuzzcheck_common::ipc::TuiMessage;
 
-use super::{
-    error_view,
-    events::Event,
-    framework::{Either, ParentView, Theme},
-    fuzzing, initialized,
-};
+use super::{error_view, events::{EXIT_KEY, Event}, framework::{AnyView, Either, ExplainKeyBindingView, ParentView, Theme, override_map}, fuzzing, initialized};
 
 pub struct State {
     pub root_path: PathBuf,
@@ -59,7 +54,6 @@ pub enum Phase {
     PreInit(preinit::PreInitView),
     Initialized(initialized::InitializedView),
     Fuzzing(fuzzing::FuzzingView),
-    _Ended,
 }
 
 pub enum Update {
@@ -83,6 +77,27 @@ pub enum OutMessage {
     StopFuzzer,
 }
 
+impl AnyView for State {
+    fn focus(&mut self) {
+    }
+
+    fn unfocus(&mut self) {
+    }
+
+    fn key_bindings(&self) -> Vec<(Key, String)> {
+        let mut map = Vec::new();
+        map.push((EXIT_KEY, "quit".to_string()));
+        let merging = match &self.phase {
+            Phase::Error(v) => { v.key_bindings() }
+            Phase::PreInit(v) => { v.key_bindings() }
+            Phase::Initialized(v) => { v.key_bindings() }
+            Phase::Fuzzing(v) => { v.key_bindings() }
+        };
+        override_map(&mut map, merging);
+        map
+    }
+}
+
 impl ViewState for State {
     type Update = self::Update;
 
@@ -96,7 +111,6 @@ impl ViewState for State {
             Phase::Error(state) => Self::handle_child_in_message(state, &message),
             Phase::Initialized(state) => Self::handle_child_in_message(state, &message),
             Phase::Fuzzing(state) => Self::handle_child_in_message(state, &message),
-            Phase::_Ended => None,
         }
     }
 
@@ -118,7 +132,6 @@ impl ViewState for State {
                 (Phase::Fuzzing(state), Update::Fuzzing(u)) => state
                     .update(u)
                     .and_then(|out| <Self as ParentView<fuzzing::FuzzingView>>::handle_child_out_message(self, out)),
-                (Phase::_Ended, _) => None,
                 _ => None,
             }
         }
@@ -127,12 +140,21 @@ impl ViewState for State {
     where
         B: Backend,
     {
+        let chunks = Layout::default().direction(Direction::Vertical).constraints([Constraint::Length(2), Constraint::Min(0)].as_ref()).split(area);
+        let key_bindings = match &self.phase {
+            Phase::PreInit(state) => state.key_bindings(),
+            Phase::Error(state) => state.key_bindings(),
+            Phase::Initialized(state) => state.key_bindings(),
+            Phase::Fuzzing(state) => state.key_bindings(),
+        };
+        let kbview = ExplainKeyBindingView::new(key_bindings);
+        kbview.draw(frame, theme, chunks[0]);
+
         match &self.phase {
-            Phase::PreInit(state) => state.draw(frame, theme, area),
-            Phase::Error(state) => state.draw(frame, theme, area),
-            Phase::Initialized(state) => state.draw(frame, theme, area),
-            Phase::Fuzzing(state) => state.draw(frame, theme, area),
-            Phase::_Ended => {}
+            Phase::PreInit(state) => state.draw(frame, theme, chunks[1]),
+            Phase::Error(state) => state.draw(frame, theme, chunks[1]),
+            Phase::Initialized(state) => state.draw(frame, theme, chunks[1]),
+            Phase::Fuzzing(state) => state.draw(frame, theme, chunks[1]),
         }
     }
 }

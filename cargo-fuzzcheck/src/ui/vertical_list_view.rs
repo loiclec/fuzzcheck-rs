@@ -1,11 +1,12 @@
 use framework::{VerticalMove, ViewState};
 
+use termion::event::Key;
 use tui::{
     layout::Rect,
     widgets::{Block, Borders, List, ListItem, ListState},
 };
 
-use super::framework::{self, Focusable, Theme};
+use super::framework::{self, AnyView, Theme};
 
 pub struct VerticalListView {
     pub items: Vec<String>,
@@ -37,13 +38,17 @@ pub enum OutMessage {
     Select(usize),
 }
 
-impl Focusable for VerticalListView {
+impl AnyView for VerticalListView {
     fn focus(&mut self) {
         self.focused = true;
     }
 
     fn unfocus(&mut self) {
         self.focused = false;
+    }
+
+    fn key_bindings(&self) -> Vec<(Key, String)> {
+        Vec::new()
     }
 }
 

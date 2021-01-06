@@ -1,12 +1,13 @@
 use framework::{HorizontalMove, ViewState};
 use hlist::HList;
+use termion::event::Key;
 use tui::{
     layout::Rect,
     widgets::{Block, Borders},
 };
 
 use super::{
-    framework::{self, Focusable, Theme},
+    framework::{self, AnyView, Theme},
     hlist::{self, HListItem, HListState},
 };
 
@@ -37,13 +38,16 @@ pub enum OutMessage {
     Select(usize),
 }
 
-impl Focusable for HorizontalListView {
+impl AnyView for HorizontalListView {
     fn focus(&mut self) {
         self.focused = true;
     }
 
     fn unfocus(&mut self) {
         self.focused = false;
+    }
+    fn key_bindings(&self) -> Vec<(Key, String)> {
+        Vec::new()
     }
 }
 

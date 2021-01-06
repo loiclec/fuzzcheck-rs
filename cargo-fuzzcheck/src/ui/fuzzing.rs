@@ -3,7 +3,7 @@ use std::{cmp::Ordering, collections::{HashMap}, iter};
 use fuzzcheck_common::ipc::{FuzzerEvent, TuiMessage, TuiMessageEvent};
 use termion::event::Key;
 
-use super::{framework::{Either, InnerFocusable, ParentView, SwitchFocus, Theme, ViewState}, vertical_list_view::{self, VerticalListView}};
+use super::{framework::{AnyView, Either, InnerFocusable, ParentView, SwitchFocus, Theme, ViewState}, vertical_list_view::{self, VerticalListView}};
 
 use tui::{Frame, backend::Backend, layout::{Alignment, Constraint, Direction, Layout, Rect}, style::{Color, Style}, symbols, text::{Span}, widgets::{Axis, Block, Borders, Chart, Dataset, GraphType, Paragraph, Wrap}};
 
@@ -52,9 +52,9 @@ impl ShownChart {
     }
     fn label(self) -> &'static str {
         match self {
-            ShownChart::Score => "score",
-            ShownChart::AvgComplexity => "avg input cplx",
-            ShownChart::ExecPerS => "exec/s",
+            ShownChart::Score => "Score",
+            ShownChart::AvgComplexity => "Average input complexity",
+            ShownChart::ExecPerS => "Iterations per second",
         }
     }
 }
@@ -77,30 +77,6 @@ impl Focus {
             (1, _) => FocusedPart::Details,
             _ => FocusedPart::Chart,
         }
-    }
-    fn switch(self, sf: SwitchFocus) -> Self {
-        let mut copy = self;
-        match sf {
-            SwitchFocus::Up => {
-                copy.y = copy.y.saturating_sub(1);
-            }
-            SwitchFocus::Right => {
-                copy.x = std::cmp::min(copy.x + 1, 1);
-            }
-            SwitchFocus::Down => {
-                copy.y = std::cmp::min(copy.y + 1, 1);
-            }
-            SwitchFocus::Left => {
-                copy.x = copy.x.saturating_sub(1);
-            }
-            SwitchFocus::Next => {
-                copy = self.focused_part().next().canonical_position();
-            }
-            SwitchFocus::Previous => {
-                copy = self.focused_part().prev().canonical_position();
-            }
-        }
-        copy
     }
 }
 
@@ -196,6 +172,39 @@ impl FuzzingView {
     }
 }
 
+impl AnyView for FuzzingView {
+    fn focus(&mut self) {
+    }
+
+    fn unfocus(&mut self) {
+    }
+
+    fn key_bindings(&self) -> Vec<(Key, String)> {
+        let mut map = Vec::new();
+        if !matches!(self.status, Status::Stopped) {
+            map.push((Key::Char('x'), "stop fuzzing".to_string()));
+        }
+        match self.status {
+            Status::Running => {
+                map.push((Key::Char('p'), "pause fuzzer".to_string()));
+            }
+            Status::Paused => {
+                map.push((Key::Char('u'), "unpause".to_string()));
+                map.push((Key::Char('v'), "unpause until next event".to_string()));
+            }
+            Status::Stopped => {}
+        }
+        match self.focus.focused_part() {
+            FocusedPart::Events => { }
+            FocusedPart::Chart => { 
+                map.push((Key::Char('s'), "show next chart".to_string()));
+            }
+            FocusedPart::Details => { }
+        }
+        map
+    }
+}
+
 impl ViewState for FuzzingView {
     type Update = self::Update;
     type InMessage = self::InMessage;
@@ -260,6 +269,7 @@ impl ViewState for FuzzingView {
                         }
                     }
                     TuiMessage::SaveArtifact { hash, input } => {
+                        self.status = Status::Stopped;
                         self.artifact = Some((hash.clone(), input.clone()));
                         self.detail_view = (format!("Artifact: {}", hash), input);
                     }
@@ -280,7 +290,9 @@ impl ViewState for FuzzingView {
                 None
             }
             Update::SwitchFocus(sf) => {
-                self.update_focus(self.focus.switch(sf));
+                if let Some(f) = self.focus_after_switch(sf) {
+                    self.update_focus(f);
+                }
                 None
             }
             Update::ListView(u) => {
@@ -377,9 +389,6 @@ impl ViewState for FuzzingView {
                     .style(chart_block_style)
                     .title(vec![
                         Span::styled(self.shown_chart.label(), chart_block_style),
-                        Span::styled("... press ", chart_block_style),
-                        Span::styled("s", if focused_chart { theme.highlight } else { theme.emphasis }),
-                        Span::styled(" to show next chart", chart_block_style),
                     ]),
             )
             .x_axis(
@@ -437,7 +446,46 @@ impl InnerFocusable for FuzzingView {
         &mut self.focus
     }
 
-    fn view_in_focus(&mut self) -> Option<&mut dyn super::framework::Focusable> {
+    fn focus_after_switch(&self, sf: SwitchFocus) -> Option<Self::Focus> {
+        let mut copy = self.focus;
+        match sf {
+            SwitchFocus::Up => {
+                copy.y = copy.y.saturating_sub(1);
+            }
+            SwitchFocus::Right => {
+                copy.x = std::cmp::min(copy.x + 1, 1);
+            }
+            SwitchFocus::Down => {
+                copy.y = std::cmp::min(copy.y + 1, 1);
+            }
+            SwitchFocus::Left => {
+                copy.x = copy.x.saturating_sub(1);
+            }
+            SwitchFocus::Next => {
+                copy = self.focus.focused_part().next().canonical_position();
+            }
+            SwitchFocus::Previous => {
+                copy = self.focus.focused_part().prev().canonical_position();
+            }
+            SwitchFocus::In => {
+                return None
+            }
+            SwitchFocus::Out => {
+                return None
+            }
+        }
+        Some(copy)
+    }
+
+    fn view_in_focus_ref(&self) -> Option<&dyn AnyView> {
+        match self.focus.focused_part() {
+            FocusedPart::Events => { Some(&self.list_view) }
+            FocusedPart::Chart => { None }
+            FocusedPart::Details => { None }
+        }
+    }
+
+    fn view_in_focus_mut(&mut self) -> Option<&mut dyn AnyView> {
         match self.focus.focused_part() {
             FocusedPart::Events => { Some(&mut self.list_view) }
             FocusedPart::Chart => { None }

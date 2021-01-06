@@ -9,11 +9,7 @@ use tui::{
 
 use crate::project::{FullConfig, Root};
 
-use super::{
-    framework::{Either, Focusable, HorizontalMove, InnerFocusable, ParentView, Theme, VerticalMove, ViewState},
-    horizontal_list_view::{self, HorizontalListView},
-    run_fuzz::{self, RunFuzzView},
-};
+use super::{framework::{Either, AnyView, HorizontalMove, InnerFocusable, ParentView, SwitchFocus, Theme, ViewState, override_map}, horizontal_list_view::{self, HorizontalListView}, run_fuzz::{self, RunFuzzView}};
 
 pub struct InitializedView {
     pub root: Rc<Root>,
@@ -95,8 +91,20 @@ impl InnerFocusable for InitializedView {
     fn focus(&mut self) -> &mut Self::Focus {
         &mut self.focus
     }
+    fn view_in_focus_ref(&self) -> Option<&dyn AnyView> {
+        match self.focus {
+            Focus::Sidebar => Some(&self.fuzz_target_list),
+            Focus::Main => {
+                if self.fuzz_target_list.state.selected().is_none() {
+                    Some(&self.fuzz_target_list)
+                } else {
+                    Some(self.current_run_fuzz_view().unwrap())
+                }
+            }
+        }
+    }
 
-    fn view_in_focus(&mut self) -> Option<&mut dyn Focusable> {
+    fn view_in_focus_mut(&mut self) -> Option<&mut dyn AnyView> {
         match self.focus {
             Focus::Sidebar => Some(&mut self.fuzz_target_list),
             Focus::Main => {
@@ -108,6 +116,68 @@ impl InnerFocusable for InitializedView {
             }
         }
     }
+
+    fn focus_after_switch(&self, sf: SwitchFocus) -> Option<Self::Focus> {
+        match sf {
+            SwitchFocus::Up => {
+                match self.focus {
+                    Focus::Sidebar => {
+                        None
+                    }
+                    Focus::Main => {
+                        Some(Focus::Sidebar)
+                    }
+                }
+            }
+            SwitchFocus::Right => {
+                None
+            }
+            SwitchFocus::Down => {
+                match self.focus {
+                    Focus::Sidebar => {
+                        Some(Focus::Main)
+                    }
+                    Focus::Main => {
+                        None
+                    }
+                }
+            }
+            SwitchFocus::Left => {
+                None
+            }
+            SwitchFocus::Next | SwitchFocus::Previous | SwitchFocus::In | SwitchFocus::Out => {
+                match self.focus {
+                    Focus::Sidebar => { Some(Focus::Main) }
+                    Focus::Main => { Some(Focus::Sidebar) }
+                }
+            }
+        }
+    }
+}
+
+impl AnyView for InitializedView {
+
+    fn focus(&mut self) {
+        
+    }
+    fn unfocus(&mut self) {
+        
+    }
+
+    fn key_bindings(&self) -> Vec<(Key, String)> {
+        let mut map = Vec::new();
+        match self.focus {
+            Focus::Sidebar => {
+                map.push((Key::Char('\n'), "configure fuzz target".to_string()));
+            }
+            Focus::Main => {}
+        }
+        if let Some(v) = self.view_in_focus_ref() {
+            override_map(&mut map, v.key_bindings())
+        }
+        map
+    }
+
 }
 
 impl ViewState for InitializedView {
@@ -116,26 +186,15 @@ impl ViewState for InitializedView {
     type OutMessage = self::OutMessage;
 
     fn convert_in_message(&self, message: Self::InMessage) -> Option<Self::Update> {
+        let new_focus = SwitchFocus::from_standard_key(&message).and_then(|sf| self.focus_after_switch(sf));
         match self.focus {
             Focus::Sidebar => Self::handle_child_in_message(&self.fuzz_target_list, &message).or_else(|| {
-                if let Some(VerticalMove::Down) = VerticalMove::from(&message) {
-                    Some(Update::SwitchFocus(Focus::Main))
-                } else if matches!(message, Key::Char('\n') | Key::Esc) {
-                    Some(Update::SwitchFocus(Focus::Main))
-                } else {
-                    None
-                }
+                new_focus.map(Update::SwitchFocus)
             }),
             Focus::Main => {
                 if let Some(run_fuzz) = self.current_run_fuzz_view() {
                     Self::handle_child_in_message(run_fuzz, &message).or_else(|| {
-                        if matches!(message, Key::Esc) {
-                            Some(Update::SwitchFocus(Focus::Sidebar))
-                        } else if let Some(VerticalMove::Up) = VerticalMove::from(&message) {
-                            Some(Update::SwitchFocus(Focus::Sidebar))
-                        } else {
-                            None
-                        }
+                        new_focus.map(Update::SwitchFocus)
                     })
                 } else {
                     Some(Update::SwitchFocus(Focus::Sidebar))
