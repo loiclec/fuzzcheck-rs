@@ -53,8 +53,15 @@ pub struct FuzzingView {
 
     list_view: VerticalListView,
 
+    shown_detail: ShownDetail,
     shown_chart: ShownChart,
     detail_view: (String, String),
+}
+
+#[derive(Clone, Copy)]
+pub enum ShownDetail {
+    Event,
+    Artifact
 }
 
 #[derive(Clone, Copy)]
@@ -140,6 +147,7 @@ impl FuzzingView {
             status: Status::Running,
             focus: FocusedPart::Chart.canonical_position(),
             list_view: VerticalListView::new("Events", iter::empty()),
+            shown_detail: ShownDetail::Event,
             shown_chart: ShownChart::Score,
             detail_view: ("".to_string(), "".to_string()),
         }
@@ -164,6 +172,8 @@ fn event_to_string(event: &FuzzerEvent) -> String {
 
 pub enum Update {
     SwitchChart,
+    ShowArtifact,
+    ShowEvent,
     AddMessage(TuiMessage),
     SwitchFocus(SwitchFocus),
     ListView(vertical_list_view::Update),
@@ -216,14 +226,26 @@ impl AnyView for FuzzingView {
             }
             Status::Stopped => {}
         }
-        match self.focus.focused_part() {
-            FocusedPart::Events => {}
-            FocusedPart::Chart => {
-                map.push((Key::Char('s'), "show next chart".to_string()));
+        map.push((Key::Char('s'), "show next chart".to_string()));
+        match self.shown_detail {
+            ShownDetail::Event => {
+                if self.artifact.is_some() {
+                    map.push((Key::Char('a'), "Show artifact".to_string()));
+                }
             }
-            FocusedPart::Details => {}
+            ShownDetail::Artifact => {
+                map.push((Key::Char('e'), "Show event".to_string()));
+            }
         }
         map
+    }
+}
+
+impl FuzzingView {
+    fn show_artifact(&mut self) {
+        if let Some((hash, input)) = &self.artifact {
+            self.detail_view = (format!("Artifact: {}", hash), input.clone());
+        }
     }
 }
 
@@ -246,13 +268,19 @@ impl ViewState for FuzzingView {
                 if let Some(sf) = SwitchFocus::from_standard_key(&k) {
                     return Some(Update::SwitchFocus(sf));
                 }
-                match k {
-                    Key::Char('s') => Some(Update::SwitchChart),
-                    Key::Char('p') => Some(Update::Pause),
-                    Key::Char('u') => Some(Update::UnPause),
-                    Key::Char('x') => Some(Update::Stop),
-                    Key::Char('v') => Some(Update::UnPauseUntilNextEvent),
-                    _ => None,
+                if self.key_bindings().iter().find(|(key, _)| key == &k).is_some() {
+                    match k {
+                        Key::Char('s') => Some(Update::SwitchChart),
+                        Key::Char('p') => Some(Update::Pause),
+                        Key::Char('u') => Some(Update::UnPause),
+                        Key::Char('x') => Some(Update::Stop),
+                        Key::Char('v') => Some(Update::UnPauseUntilNextEvent),
+                        Key::Char('a') => Some(Update::ShowArtifact),
+                        Key::Char('e') => Some(Update::ShowEvent),
+                        _ => None,
+                    }
+                } else {
+                    None
                 }
             }
             InMessage::TuiMessage(message) => Some(Update::AddMessage(message)),
@@ -283,7 +311,7 @@ impl ViewState for FuzzingView {
                     TuiMessage::SaveArtifact { hash, input } => {
                         self.status = Status::Stopped;
                         self.artifact = Some((hash.clone(), input.clone()));
-                        self.detail_view = (format!("Artifact: {}", hash), input);
+                        self.update(Update::ShowArtifact);
                     }
                     TuiMessage::Paused => {
                         self.status = Status::Paused;
@@ -311,12 +339,25 @@ impl ViewState for FuzzingView {
             Update::SelectListItem(idx) => {
                 let event_idx = self.events.len() - idx - 1;
                 self.update_detail_view_with_event(event_idx);
+                self.shown_detail = ShownDetail::Event;
                 None
             }
             Update::Pause => Some(OutMessage::PauseFuzzer),
             Update::UnPause => Some(OutMessage::UnPauseFuzzer),
             Update::Stop => Some(OutMessage::StopFuzzer),
             Update::UnPauseUntilNextEvent => Some(OutMessage::UnPauseFuzzerUntilNextEvent),
+            Update::ShowArtifact => {
+                self.shown_detail=ShownDetail::Artifact;
+                self.show_artifact();
+                None
+            }
+            Update::ShowEvent => {
+                if self.events.is_empty() { return None }
+                let selected = self.events.len() - 1 - self.list_view.state.selected().unwrap_or(0);
+                self.shown_detail=ShownDetail::Event;
+                self.update_detail_view_with_event(selected);
+                None
+            }
         }
     }
 

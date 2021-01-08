@@ -5,6 +5,8 @@ use termion::event::Key;
 use tui::{
     backend::Backend,
     layout::{Constraint, Direction, Layout, Rect},
+    style::{Color, Style},
+    widgets::Paragraph,
     Frame,
 };
 
@@ -17,7 +19,7 @@ use fuzzcheck_common::ipc::TuiMessage;
 
 use super::{
     error_view,
-    events::{Event, EXIT_KEY},
+    events::{Event},
     framework::{override_map, AnyView, Either, ExplainKeyBindingView, ParentView, Theme},
     fuzzing, initialized,
 };
@@ -98,7 +100,6 @@ impl AnyView for State {
 
     fn key_bindings(&self) -> Vec<(Key, String)> {
         let mut map = Vec::new();
-        map.push((EXIT_KEY, "quit".to_string()));
         let merging = match &self.phase {
             Phase::Error(v) => v.key_bindings(),
             Phase::PreInit(v) => v.key_bindings(),
@@ -154,14 +155,9 @@ impl ViewState for State {
     {
         let chunks = Layout::default()
             .direction(Direction::Vertical)
-            .constraints([Constraint::Length(2), Constraint::Min(0)].as_ref())
+            .constraints([Constraint::Length(2), Constraint::Min(0), Constraint::Length(1)].as_ref())
             .split(area);
-        let key_bindings = match &self.phase {
-            Phase::PreInit(state) => state.key_bindings(),
-            Phase::Error(state) => state.key_bindings(),
-            Phase::Initialized(state) => state.key_bindings(),
-            Phase::Fuzzing(state) => state.key_bindings(),
-        };
+        let key_bindings = self.key_bindings();
         let kbview = ExplainKeyBindingView::new(key_bindings);
         kbview.draw(frame, theme, chunks[0]);
 
@@ -171,6 +167,10 @@ impl ViewState for State {
             Phase::Initialized(state) => state.draw(frame, theme, chunks[1]),
             Phase::Fuzzing(state) => state.draw(frame, theme, chunks[1]),
         }
+
+        let explain_text = Paragraph::new("Press Ctrl+c to quit. Use tab, backtab, and arrow keys to navigate")
+            .style(Style::default().bg(Color::Gray).fg(Color::Black));
+        frame.render_widget(explain_text, chunks[2]);
     }
 }
 
