@@ -34,7 +34,6 @@ version = "0.12"
 optional = true
 
 [dependencies.decent-serde-json-alternative]
-path = "../../decent-serde-json-alternative"
 version = "0.2"
 features = ["derive"]
 optional = true
