@@ -13,7 +13,7 @@ getopts = "0.2"
 version = "0.12"
 
 [dependencies.decent-serde-json-alternative]
-path = "/Users/loiclecrenier/Documents/Programming/rust/decent-serde-json-alternative"
+path = "../../decent-serde-json-alternative"
 version = "0.1"
 features = ["derive"]
 
