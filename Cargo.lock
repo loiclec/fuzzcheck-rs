@@ -54,7 +54,7 @@ checksum = "baf1de4339761588bc0619e3cbc0120ee582ebb74b53b4efbf79117bd2da40fd"
 
 [[package]]
 name = "decent-serde-json-alternative"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "decent-serde-json-derive-alternative",
  "json",
@@ -151,7 +151,6 @@ name = "fuzzcheck_serializer"
 version = "0.4.0"
 dependencies = [
  "decent-serde-json-alternative",
- "decent-serde-json-derive-alternative",
  "fuzzcheck_traits",
  "json",
  "serde",

@@ -314,7 +314,7 @@ features = ["serde-json-alternative"]
 version = "0.12"
 
 [dependencies.decent-serde-json-alternative]
-version = "0.1"
+version = "0.2"
 features = ["derive"]
 
 # Prevent this from interfering with workspaces

@@ -15,7 +15,7 @@ categories = ["development-tools"]
 [features]
 default = []
 serde-json = ["serde", "serde_json"]
-serde-json-alternative = ["json", "decent-serde-json-alternative", "decent-serde-json-derive-alternative"]
+serde-json-alternative = ["json", "decent-serde-json-alternative"]
 
 [dependencies.fuzzcheck_traits]
 path = "../fuzzcheck_traits"
@@ -35,10 +35,6 @@ optional = true
 
 [dependencies.decent-serde-json-alternative]
 path = "../../decent-serde-json-alternative"
-# version = "0.1"
-optional = true
-
-[dependencies.decent-serde-json-derive-alternative]
-path = "../../decent-serde-json-derive-alternative"
-# version = "0.1"
+version = "0.2"
+features = ["derive"]
 optional = true
