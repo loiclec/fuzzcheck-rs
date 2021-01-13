@@ -10,6 +10,10 @@ license = "MIT"
 keywords = ["fuzzing", "test"]
 categories = ["development-tools"]
 
+[dependencies.packed_simd]
+version = "0.3.4"
+package = "packed_simd_2"
+
 [dependencies.base64]
 version = "0.13"
 

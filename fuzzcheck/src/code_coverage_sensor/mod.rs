@@ -10,8 +10,8 @@ use crate::InstrFeatureWithoutTag;
 #[cfg(trace_compares)]
 use crate::data_structures::HBitSet;
 
-use std::convert::TryFrom;
 use std::mem::MaybeUninit;
+use packed_simd::u8x16;
 
 #[cfg(trace_compares)]
 type PC = usize;
@@ -96,29 +96,31 @@ impl CodeCoverageSensor {
     where
         F: FnMut(Feature) -> (),
     {
-        const CHUNK_SIZE: usize = 32;
+        let zero = u8x16::default();
+        const CHUNK_SIZE: usize = 16;
         let length_chunks = self.eight_bit_counters.len() / CHUNK_SIZE;
-        let zero: [u8; CHUNK_SIZE] = [0; CHUNK_SIZE];
 
         for i in 0..length_chunks {
             let start = i * CHUNK_SIZE;
             let end = start + CHUNK_SIZE;
 
-            let slice = <&[u8; CHUNK_SIZE]>::try_from(&self.eight_bit_counters[start..end]).unwrap();
-            if slice == &zero {
+            let slice = unsafe { u8x16::from_slice_aligned_unchecked(&self.eight_bit_counters.get_unchecked(start .. end)) };
+            if slice == zero {
                 continue;
-            }
-            for (j, x) in slice.iter().enumerate() {
-                if *x == 0 {
-                    continue;
+            } else {
+                for j in 0 .. 16 {
+                    let x = unsafe { slice.extract_unchecked(j) };
+                    if x == 0 {
+                        continue;
+                    }
+                    let f = Feature::edge(start + j, u16::from(x));
+                    handle(f);
                 }
-                let f = Feature::edge(start + j, u16::from(*x));
-                handle(f);
             }
         }
 
         let start_remainder = length_chunks * CHUNK_SIZE;
-        let remainder = &self.eight_bit_counters[start_remainder..];
+        let remainder = unsafe { self.eight_bit_counters.get_unchecked(start_remainder..) };
         for (j, x) in remainder.iter().enumerate() {
             let i = start_remainder + j;
             if *x == 0 {
