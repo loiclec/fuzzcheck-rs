@@ -79,6 +79,7 @@ impl FuzzerStats {
 #[derive(Clone, Copy, FromJson, ToJson)]
 pub enum FuzzerEvent {
     Start,
+    Stop,
     End,
     CrashNoInput,
     Done,

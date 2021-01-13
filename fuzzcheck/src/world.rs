@@ -128,6 +128,13 @@ impl<S: Serializer> World<S> {
                 println!("START");
                 return;
             }
+            FuzzerEvent::Stop => {
+                println!("\n======================== STOPPED ========================");
+                println!(
+                    r#"The fuzzer was stopped."#
+                );
+                return;
+            }
             FuzzerEvent::End => {
                 //;
                 println!("\n======================== END ========================");
@@ -334,7 +341,7 @@ This should never happen, and is probably a bug in fuzzcheck. Sorry :("#
 
     pub fn stop(&mut self) -> ! {
         self.write_to_stream(&TuiMessage::Stopped);
-        self.report_event(FuzzerEvent::End, None);
+        self.report_event(FuzzerEvent::Stop, None);
         std::process::exit(TerminationStatus::Success as i32);
     }
 }
