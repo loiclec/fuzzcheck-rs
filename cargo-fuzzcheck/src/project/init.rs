@@ -278,10 +278,6 @@ codegen-units = 16
 [profile.release.package.getopts]
 opt-level = 0
 codegen-units = 16
-
-[profile.release.package.fuzzcheck_arg_parser]
-opt-level = 0
-codegen-units = 16
 "##,
             library = library,
             fuzzcheck_dep = fuzzcheck_dep,
