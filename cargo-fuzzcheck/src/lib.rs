@@ -15,6 +15,8 @@ use std::process::Command;
 
 use std::cmp::Ordering;
 
+const TARGET: &str = env!("TARGET");
+
 impl NonInitializedRoot {
     pub fn init_command(&self, fuzzcheck_path_or_version: &str) -> Result<(), CargoFuzzcheckError> {
         let fuzz_folder = &self.path.join("fuzz");
@@ -60,7 +62,7 @@ impl Root {
 
             let instrumented_target_folder_0 = instrumented_folder.join("target/release/deps");
             let instrumented_target_folder_1 =
-                instrumented_folder.join(format!("target/{}/release/deps", default_target()));
+                instrumented_folder.join(format!("target/{}/release/deps", TARGET));
 
             rustflags.push_str(&format!(
                 " -L all={} -L all={}",
@@ -84,7 +86,7 @@ impl Root {
             .arg(self.non_instrumented_folder().join("Cargo.toml"))
             .arg("--release")
             .arg("--target")
-            .arg(default_target())
+            .arg(TARGET)
             .args(config.extra_cargo_flags.clone());
 
         if !config.non_instrumented_default_features {
@@ -131,7 +133,7 @@ impl Root {
     pub fn fuzz_target_is_built(&self, target_name: &str) -> bool {
         let exec = self
             .non_instrumented_folder()
-            .join(format!("target/{}/release/{}", default_target(), target_name));
+            .join(format!("target/{}/release/{}", TARGET, target_name));
 
         exec.is_file()
     }
@@ -144,7 +146,7 @@ impl Root {
     ) -> Result<process::Child, CargoFuzzcheckError> {
         let exec = self
             .non_instrumented_folder()
-            .join(format!("target/{}/release/{}", default_target(), target_name));
+            .join(format!("target/{}/release/{}", TARGET, target_name));
 
         let args = strings_from_config(config);
 
@@ -196,7 +198,7 @@ impl Root {
             .arg(self.instrumented_folder().join("Cargo.toml"))
             .arg("--release")
             .arg("--target")
-            .arg(default_target())
+            .arg(TARGET)
             .args(config.extra_cargo_flags.clone());
 
         if !config.instrumented_default_features {
@@ -375,21 +377,6 @@ fn use_gold_linker() -> bool {
             _ => false,
         },
     }
-}
-
-#[cfg(all(target_os = "macos", target_arch = "x86_64"))]
-pub fn default_target() -> &'static str {
-    "x86_64-apple-darwin"
-}
-
-#[cfg(all(target_os = "linux", target_arch = "x86_64"))]
-pub fn default_target() -> &'static str {
-    "x86_64-unknown-linux-gnu"
-}
-
-#[cfg(all(target_os = "linux", target_arch = "aarch64"))]
-pub fn default_target() -> &'static str {
-    "aarch64-unknown-linux-gnu"
 }
 
 #[derive(Debug)]

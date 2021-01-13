@@ -1,7 +1,7 @@
 use decent_toml_rs_alternative as toml;
 extern crate fuzzcheck_common;
 
-use crate::default_target;
+use crate::TARGET;
 use crate::project::*;
 
 use std::path::Path;
@@ -84,7 +84,7 @@ impl NonInstrumented {
 
         let instrumented_target_folder_0 = instrumented_folder.join("target/release/deps");
         let instrumented_target_folder_1 =
-            instrumented_folder.join(format!("target/{}/release/deps", default_target()));
+            instrumented_folder.join(format!("target/{}/release/deps", TARGET));
 
         let build_rs = BuildRs::init(instrumented_target_folder_0, instrumented_target_folder_1);
 
