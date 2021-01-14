@@ -150,11 +150,15 @@ impl NonInstrumented {
         // TODO: do not throw error here
         let src = SrcLibRs::from_path(non_instrumented_folder)?;
 
+        let cargo_config_path = non_instrumented_folder.join(".cargo/config.toml");
+        let cargo_config = CargoConfig { path: cargo_config_path };
+
         Ok(Self {
             src,
             fuzz_targets,
             build_rs,
             cargo_toml,
+            cargo_config,
         })
     }
 }
@@ -218,11 +222,11 @@ impl Instrumented {
         let cargo_toml_file = fs::File::open(&cargo_toml_path)
             .map_err(|e| InstrumentedError::CannotReadCargoToml(cargo_toml_path.clone(), e))?;
         let cargo_toml = CargoToml::from_file(cargo_toml_file)?;
-
+        let cargo_config = CargoConfig { path: instrumented_folder.join(".cargo/config.toml" )};
         // TODO: do not throw error here
         let src = SrcLibRs::from_path(instrumented_folder)?;
 
-        Ok(Self { src, cargo_toml })
+        Ok(Self { src, cargo_toml, cargo_config })
     }
 }
 
@@ -400,6 +404,7 @@ pub enum NonInstrumentedError {
     BuildRs(BuildRsError),
     CannotReadCargoToml(PathBuf, io::Error),
     CargoToml(CargoTomlError),
+    CargoConfig(CargoConfigError),
     SrcLibRs(SrcLibRsError),
 }
 impl From<FuzzTargetsError> for NonInstrumentedError {
@@ -417,9 +422,30 @@ impl From<CargoTomlError> for NonInstrumentedError {
         Self::CargoToml(e)
     }
 }
+impl From<CargoConfigError> for NonInstrumentedError {
+    fn from(e: CargoConfigError) -> Self {
+        Self::CargoConfig(e)
+    }
+}
 impl From<SrcLibRsError> for NonInstrumentedError {
     fn from(e: SrcLibRsError) -> Self {
         Self::SrcLibRs(e)
+    }
+}
+
+#[derive(Debug)]
+pub enum CargoConfigError {
+    IoError(io::Error),
+    TomlError(toml::TomlError),
+}
+impl From<io::Error> for CargoConfigError {
+    fn from(e: io::Error) -> Self {
+        Self::IoError(e)
+    }
+}
+impl From<toml::TomlError> for CargoConfigError {
+    fn from(e: toml::TomlError) -> Self {
+        Self::TomlError(e)
     }
 }
 

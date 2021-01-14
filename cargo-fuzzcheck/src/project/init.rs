@@ -31,10 +31,12 @@ impl Fuzz {
             )
         };
 
-        let instrumented = Instrumented::init(library, &fuzzcheck_deps.1, &fuzzcheck_deps.2);
         let instrumented_folder = path.join("instrumented");
+        let instrumented = Instrumented::init(library, &instrumented_folder,  &fuzzcheck_deps.1, &fuzzcheck_deps.2);
+        
+        let non_instrumented_folder = path.join("non_instrumented");
 
-        let non_instrumented = NonInstrumented::init(library, &instrumented_folder, &fuzzcheck_deps.0);
+        let non_instrumented = NonInstrumented::init(library, &non_instrumented_folder, &instrumented_folder, &fuzzcheck_deps.0);
 
         let corpora_folder = path.join("corpora");
         let corpora = Ok(Corpora::init(&corpora_folder));
@@ -77,7 +79,7 @@ fuzzcheck-rs
 }
 
 impl NonInstrumented {
-    pub fn init(library: &str, instrumented_folder: &Path, fuzzcheck_dep: &str) -> Self {
+    pub fn init(library: &str, non_instrumented_folder: &Path, instrumented_folder: &Path, fuzzcheck_dep: &str) -> Self {
         let src = SrcLibRs::init_non_instrumented();
 
         let fuzz_targets = FuzzTargets::init(library);
@@ -87,23 +89,25 @@ impl NonInstrumented {
             instrumented_folder.join(format!("target/{}/release/deps", TARGET));
 
         let build_rs = BuildRs::init(instrumented_target_folder_0, instrumented_target_folder_1);
-
+        let cargo_config = CargoConfig { path: non_instrumented_folder.join(".cargo/config.toml") };
         let cargo_toml = CargoToml::init_non_instrumented(library, &fuzzcheck_dep);
 
         Self {
             src,
             fuzz_targets,
             build_rs,
+            cargo_config,
             cargo_toml,
         }
     }
 }
 
 impl Instrumented {
-    pub fn init(library: &str, fuzzcheck_mutators_dep: &str, fuzzcheck_serializer_dep: &str) -> Self {
+    pub fn init(library: &str, instrumented_folder: &Path, fuzzcheck_mutators_dep: &str, fuzzcheck_serializer_dep: &str) -> Self {
         Self {
             src: SrcLibRs::init_instrumented(library),
             cargo_toml: CargoToml::init_instrumented(library, fuzzcheck_mutators_dep, fuzzcheck_serializer_dep),
+            cargo_config: CargoConfig { path: instrumented_folder.join(".cargo/config.toml") }
         }
     }
 }

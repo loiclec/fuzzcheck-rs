@@ -51,34 +51,25 @@ impl Root {
         config: &FullConfig,
         stdio: &impl Fn() -> Stdio,
     ) -> Result<process::Child, CargoFuzzcheckError> {
-        let mut rustflags: String = "--cfg fuzzcheck -Ctarget-cpu=native".to_string();
-
+        let mut build_rustflags = vec!["--cfg", "fuzzcheck", "-Ctarget-cpu=native"];
         if config.trace_compares {
-            rustflags.push_str(" --cfg trace_compares");
+            build_rustflags.push("--cfg");
+            build_rustflags.push("trace_compares");
         }
-
-        {
-            let instrumented_folder = self.instrumented_folder();
-
-            let instrumented_target_folder_0 = instrumented_folder.join("target/release/deps");
-            let instrumented_target_folder_1 =
-                instrumented_folder.join(format!("target/{}/release/deps", TARGET));
-
-            rustflags.push_str(&format!(
-                " -L all={} -L all={}",
-                instrumented_target_folder_0.display(),
-                instrumented_target_folder_1.display()
-            ));
-        }
-
         if use_gold_linker() {
-            rustflags.push_str(" -Clink-arg=-fuse-ld=gold");
+            build_rustflags.push("-Clink-arg=-fuse-ld=gold");
         }
+        let build_rustflags = build_rustflags.iter().map(|x| x.to_string()).collect::<Vec<_>>();
+        self.fuzz.non_instrumented.cargo_config.write_build_rustflags(build_rustflags);
+        let fuzzcheck_traits_rlib_path = self.instrumented_folder().join("target/").join(TARGET).join("release/deps");
+
+        let fuzzcheck_traits_link_rustc_flags = format!("-L {}", fuzzcheck_traits_rlib_path.display());
+        self.fuzz.non_instrumented.cargo_config.write_rustc_flags_for_link("fuzzcheck_traits", fuzzcheck_traits_link_rustc_flags);
 
         let mut cargo_command = Command::new("cargo");
-
+        
         cargo_command
-            .env("RUSTFLAGS", rustflags)
+            .current_dir(self.non_instrumented_folder())
             .arg("build")
             .arg("--bin")
             .arg(target_name)
@@ -160,39 +151,39 @@ impl Root {
         config: &FullConfig,
         stdio: impl Fn() -> Stdio,
     ) -> Result<process::Child, CargoFuzzcheckError> {
-        let mut rustflags: String = "--cfg fuzzcheck \
-                                     -Ctarget-cpu=native \
-                                     -Cmetadata=fuzzing \
-                                     -Cpasses=sancov"
-            .into();
+        let mut rustflags: Vec<&str> = 
+            vec!["--cfg", "fuzzcheck", "-Ctarget-cpu=native", "-Cmetadata=fuzzing", "-Cpasses=sancov"];
 
         if config.lto {
-            rustflags.push_str(" -Clinker-plugin-lto=1");
+            rustflags.push("-Clinker-plugin-lto=1");
         }
-
-        rustflags.push_str(&format!(
-            " -Cllvm-args=-sanitizer-coverage-level={}",
+        let coverage_level = format!(
+            "-Cllvm-args=-sanitizer-coverage-level={}",
             config.coverage_level
-        ));
+        );
+        rustflags.push(&coverage_level);
 
         if config.trace_compares {
-            rustflags.push_str(" --cfg trace_compares");
-            rustflags.push_str(" -Cllvm-args=-sanitizer-coverage-trace-compares");
+            rustflags.push("--cfg");
+            rustflags.push("trace_compares");
+            rustflags.push("-Cllvm-args=-sanitizer-coverage-trace-compares");
         }
-        rustflags.push_str(" -Cllvm-args=-sanitizer-coverage-inline-8bit-counters");
+        rustflags.push("-Cllvm-args=-sanitizer-coverage-inline-8bit-counters");
 
         if config.stack_depth {
-            rustflags.push_str(" -Cllvm-args=-sanitizer-coverage-stack-depth");
+            rustflags.push("-Cllvm-args=-sanitizer-coverage-stack-depth");
         }
 
         if use_gold_linker() {
-            rustflags.push_str(" -Clink-arg=-fuse-ld=gold");
+            rustflags.push("-Clink-arg=-fuse-ld=gold");
         }
+
+        self.fuzz.instrumented.cargo_config.write_build_rustflags(rustflags.into_iter().map(|x| x.to_string()).collect());
 
         let mut cargo_command = Command::new("cargo");
 
         cargo_command
-            .env("RUSTFLAGS", rustflags)
+            .current_dir(self.instrumented_folder())
             .arg("build")
             .arg("--manifest-path")
             .arg(self.instrumented_folder().join("Cargo.toml"))
@@ -214,15 +205,6 @@ impl Root {
         let child = cargo_command.stdout(stdio()).stderr(stdio()).spawn()?;
 
         Ok(child)
-        //     .output()?;
-
-        // if output.status.success() {
-        //     Ok(())
-        // } else {
-        //     Err("Could not compile the instrumented part of the fuzz target"
-        //         .to_string()
-        //         .into())
-        // }
     }
 
     pub fn input_minify_command(

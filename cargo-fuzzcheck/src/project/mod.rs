@@ -3,6 +3,7 @@ pub mod read;
 pub mod write;
 
 use decent_toml_rs_alternative as toml;
+use read::CargoConfigError;
 use toml::TomlValue;
 use toml::{FromToml, ToToml};
 
@@ -13,8 +14,10 @@ use std::path::PathBuf;
 use std::{fmt::Display, result::Result};
 
 use std::collections::HashMap;
-
 use std::ffi::OsString;
+use std::fs;
+
+use crate::TARGET;
 
 #[derive(Debug)]
 pub struct NonInitializedRoot {
@@ -47,12 +50,14 @@ pub struct NonInstrumented {
     pub fuzz_targets: FuzzTargets,
     pub build_rs: BuildRs,
     pub cargo_toml: CargoToml,
+    pub cargo_config: CargoConfig,
 }
 
 #[derive(Debug)]
 pub struct Instrumented {
     pub src: SrcLibRs,
     pub cargo_toml: CargoToml,
+    pub cargo_config: CargoConfig,
 }
 
 #[derive(Debug)]
@@ -85,6 +90,81 @@ pub struct FuzzTargets {
     pub targets: HashMap<OsString, Vec<u8>>,
 }
 
+#[derive(Debug, Clone)]
+pub struct CargoConfig {
+    pub path: PathBuf,
+}
+
+impl CargoConfig {
+    pub fn get_toml(&self) -> Result<HashMap<String, TomlValue>, CargoConfigError> {
+        let bytes = fs::read(&self.path)?;
+        let string = String::from_utf8_lossy(&bytes);
+        let toml = toml::parse_toml(&string)?;
+       Ok(toml)
+    }
+    pub fn get_build_rustflags(&self) -> Vec<String> {
+       match self.get_toml() {
+           Ok(content) => {    
+                if let Some(rustflags) = content.get("build").and_then(|build| build.get("rustflags")) {
+                    if let TomlValue::Array(flags) = rustflags {
+                        flags.into_iter().map(|flag| 
+                            if let TomlValue::String(flag) = flag {
+                                flag.clone()
+                            } else {
+                                panic!("build.rustflags contains an element that is not a string")
+                            }  
+                        ).collect()  
+                    } else {
+                        panic!("build.rustflags should be an array of strings")
+                    }
+                } else {
+                    vec![]
+                }
+            }
+            Err(e) => panic!("Error while reading non_instrumented/.cargo/config.toml: {:?}", e)
+        }
+    }
+    pub fn write_build_rustflags(&self, new_rustflags: Vec<String>) {
+        let  mut toml_content = self.get_toml().unwrap_or(<_>::default());
+        let build = toml_content.entry("build".to_string())
+            .or_insert(TomlValue::Table(<_>::default()));
+        if let TomlValue::Table(build) = build {
+            let rustflags = build.entry("rustflags".to_string()).or_insert(TomlValue::Array(vec![]));
+            *rustflags = TomlValue::Array(new_rustflags.into_iter().map(TomlValue::String).collect());
+        } else {
+            panic!("build.rustflags should be an array of strings")
+        }
+        let new_string_content = toml::print(&toml_content);
+        fs::write(&self.path, new_string_content).expect("Could not write new build.rustflags to non_instrumented/.cargo/config.toml");
+    }
+
+    pub fn write_rustc_flags_for_link(&self, link: &str, new_rustc_flags: String) {
+        let mut toml_content = self.get_toml().unwrap_or(<_>::default());
+        let target = toml_content.entry("target".to_string())
+            .or_insert(TomlValue::Table(<_>::default()));        
+        if let TomlValue::Table(target) = target {
+            let target = target.entry(TARGET.to_string())
+                .or_insert(TomlValue::Table(<_>::default()));
+            if let TomlValue::Table(target) = target {
+                let link = target.entry(link.to_string())
+                .or_insert(TomlValue::Table(<_>::default()));
+                if let TomlValue::Table(link) = link {
+                    let rustc_flags = link.entry("rustc-flags".to_string()).or_insert(TomlValue::Array(vec![]));
+                    *rustc_flags = TomlValue::String(new_rustc_flags);
+                } else {
+                    panic!("target.<triple>.rustcflags should be a string")
+                }
+            } else {
+                panic!("target.<triple>.rustcflags should be a string")
+            }
+        } else {
+            panic!("target.<triple>.rustcflags should be a string")
+        }
+        let new_string_content = toml::print(&toml_content);
+        fs::write(&self.path, new_string_content).expect("Could not write new target.<triple>.rustc-flags to non_instrumented/.cargo/config.toml");
+    }
+}
+
 impl Root {
     pub fn fuzz_folder(&self) -> PathBuf {
         self.path.join("fuzz")
@@ -101,6 +181,7 @@ impl Root {
     pub fn artifacts_folder(&self) -> PathBuf {
         self.fuzz_folder().join("artifacts")
     }
+
     pub fn default_arguments(&self, target_name: &str) -> DefaultArguments {
         let mut defaults = DefaultArguments::default();
 
@@ -203,27 +284,6 @@ impl Config {
             no_artifacts: None,
         }
     }
-
-    // fn full(&self, args: &FullCommandLineArguments) -> FullConfig {
-    //     FullConfig {
-    //         coverage_level: self.coverage_level.unwrap_or(DEFAULT_COVERAGE_LEVEL),
-    //         trace_compares: self.trace_compares.unwrap_or(DEFAULT_TRACE_COMPARES),
-    //         stack_depth: self.stack_depth.unwrap_or(DEFAULT_STACK_DEPTH),
-    //         instrumented_default_features: self.instrumented_default_features.unwrap_or(true),
-    //         non_instrumented_default_features: self.non_instrumented_default_features.unwrap_or(true),
-    //         instrumented_features: self.instrumented_features.unwrap_or(vec![]),
-    //         non_instrumented_features: self.non_instrumented_features.unwrap_or(vec![]),
-    //         lto: self.lto.unwrap_or(DEFAULT_LTO),
-    //         extra_cargo_flags: self.extra_cargo_flags.unwrap_or(vec![]),
-    //         corpus_size: self.corpus_size.unwrap_or(args.corpus_size),
-    //         max_cplx: self.max_cplx.unwrap_or(args.max_input_cplx as usize),
-    //         max_nbr_of_runs: self.max_nbr_of_runs.unwrap_or(args.max_nbr_of_runs),
-    //         timeout: self.timeout.unwrap_or(args.timeout),
-    //         in_corpus: self.in_corpus.clone().or(args.corpus_in),
-    //         out_corpus: self.out_corpus.clone().or(args.corpus_out),
-    //         artifacts: self.artifacts.clone().or(args.artifacts_folder),
-    //     }
-    // }
 }
 
 #[derive(Clone)]

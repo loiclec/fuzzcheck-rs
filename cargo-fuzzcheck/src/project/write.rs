@@ -42,6 +42,14 @@ impl Fuzz {
     }
 }
 
+impl CargoConfig {
+    pub fn create_file(&self) -> Result<(), io::Error> {
+        fs::create_dir_all(self.path.parent().unwrap())?;
+        fs::write(&self.path, vec![])?;
+        Ok(())
+    }
+}
+
 impl NonInstrumented {
     pub fn write(&self, path: &Path) -> Result<(), io::Error> {
         let non_instrumented_path = path.join("non_instrumented");
@@ -51,6 +59,7 @@ impl NonInstrumented {
         self.fuzz_targets.write(&non_instrumented_path)?;
         self.build_rs.write(&non_instrumented_path)?;
         self.cargo_toml.write(&non_instrumented_path)?;
+        self.cargo_config.create_file()?;
 
         Ok(())
     }
@@ -63,6 +72,7 @@ impl Instrumented {
 
         self.src.write(&instrumented_path)?;
         self.cargo_toml.write(&instrumented_path)?;
+        self.cargo_config.create_file()?;
         Ok(())
     }
 }

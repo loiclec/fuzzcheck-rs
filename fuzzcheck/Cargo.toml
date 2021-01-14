@@ -9,6 +9,7 @@ readme = "README.md"
 license = "MIT"
 keywords = ["fuzzing", "test"]
 categories = ["development-tools"]
+links = "fuzzcheck_traits"
 
 [dependencies.packed_simd]
 version = "0.3.4"
