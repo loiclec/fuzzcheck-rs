@@ -69,10 +69,9 @@ impl<M: Mutator> Mutator for DictionaryMutator<M> {
                     *inner_step += 1;
                     Some(res)
                 } else {
-                    let mut inner_step = <_>::default();
-                    let res = self.m.ordered_arbitrary(&mut inner_step, max_cplx);
+                    let inner_step = <_>::default();
                     *step = self::ArbitraryStep::Wrapped(inner_step);
-                    res
+                    self.ordered_arbitrary(step, max_cplx)
                 }
             }
             ArbitraryStep::Wrapped(inner_step) => {
@@ -82,7 +81,12 @@ impl<M: Mutator> Mutator for DictionaryMutator<M> {
     }
 
     fn random_arbitrary(&mut self, max_cplx: f64) -> (Self::Value, Self::Cache) {
-        self.m.random_arbitrary(max_cplx)
+        if !self.dictionary.is_empty() && self.rng.usize(.. 20) == 0 {
+            let idx = self.rng.usize(..self.dictionary.len());
+            self.dictionary[idx].clone()
+        } else {
+            self.m.random_arbitrary(max_cplx)
+        }
     }
 
     fn max_complexity(&self) -> f64 {
@@ -108,7 +112,7 @@ impl<M: Mutator> Mutator for DictionaryMutator<M> {
             MutationStep::Dictionary(idx) => {
                 if *idx < self.dictionary.len() {
                     let (new_value, new_cache) = self.dictionary[*idx].clone();
-
+                    *idx = 1;
                     let old_value = std::mem::replace(value, new_value);
                     let old_cache = std::mem::replace(cache, new_cache);
 
