@@ -712,7 +712,11 @@ fn derive_enum_mutator_with_items(parsed_enum: &Enum, derive_default: bool, tb: 
             rhs: clone.clone(),
         });
 
-        let mut mutator_struct_fields = submutator_fields.clone();
+        let mut mutator_struct_fields = submutator_fields.iter().map(|field| {
+            let mut field = field.clone();
+            field.visibility = ts!("pub");
+            field
+        }).collect::<Vec<_>>();
         mutator_struct_fields.push(StructField {
             attributes: Vec::new(),
             visibility: ts!("pub"),
