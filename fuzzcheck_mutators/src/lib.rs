@@ -5,13 +5,20 @@ pub extern crate fuzzcheck_mutators_derive;
 pub extern crate fuzzcheck_traits;
 pub use fuzzcheck_mutators_derive::*;
 
-pub mod bool;
-pub mod chain;
-pub mod dictionary;
-pub mod integer;
-pub mod option;
-pub mod unit;
-pub mod vector;
+mod bool;
+mod chain;
+mod dictionary;
+mod integer;
+mod option;
+mod unit;
+mod vector;
+
+pub use crate::bool::BoolMutator;
+pub use crate::dictionary::DictionaryMutator;
+pub use crate::integer::*;
+pub use crate::option::OptionMutator;
+pub use crate::unit::*;
+pub use crate::vector::VecMutator;
 
 use fuzzcheck_traits::Mutator;
 use std::ops::Range;

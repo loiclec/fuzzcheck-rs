@@ -45,8 +45,7 @@ use fuzzcheck_traits::Mutator;
     You can find more details on how it is done in `uniform_permutation`
 */
 
-// TODO: use option for mutate and arbitrary
-pub fn binary_search_arbitrary(low: u8, high: u8, step: u64) -> u8 {
+fn binary_search_arbitrary(low: u8, high: u8, step: u64) -> u8 {
     let next = low.wrapping_add(high.wrapping_sub(low) / 2);
     if low.wrapping_add(1) == high {
         if step % 2 == 0 {
@@ -84,7 +83,7 @@ macro_rules! impl_unsigned_mutator {
         }
 
         impl $name_mutator {
-            pub fn uniform_permutation(&self, step: u64) -> $name {
+            fn uniform_permutation(&self, step: u64) -> $name {
                 let size = $size as u64;
 
                 // granularity is the number of bits provided by shuffled_integers
@@ -257,8 +256,7 @@ macro_rules! impl_signed_mutator {
         }
 
         impl $name_mutator {
-            // TODO: explanation
-            pub fn uniform_permutation(&self, step: u64) -> $name_unsigned {
+            fn uniform_permutation(&self, step: u64) -> $name_unsigned {
                 let size = $size as u64;
                 const GRANULARITY: u64 =
                     ((std::mem::size_of::<usize>() * 8) - (256_u64.leading_zeros() as usize) - 1) as u64;
