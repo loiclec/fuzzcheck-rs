@@ -25,35 +25,12 @@ pub trait DefaultMutator: Clone {
 /// The start and end of the range must be finite
 /// This is a very naive implementation
 #[inline(always)]
-pub fn gen_f64(rng: &fastrand::Rng, range: Range<f64>) -> f64 {
+fn gen_f64(rng: &fastrand::Rng, range: Range<f64>) -> f64 {
     range.start + rng.f64() * (range.end - range.start)
 }
 
 #[must_use]
-pub fn arbitrary_binary(low: usize, high: usize, step: usize) -> usize {
-    if high == low {
-        return low;
-    }
-    let step = step % (high - low);
-    let next = low.wrapping_add(high.wrapping_sub(low) / 2);
-    if low.wrapping_add(1) == high {
-        if step % 2 == 0 {
-            high
-        } else {
-            low
-        }
-    } else if step == 0 {
-        next
-    } else if step % 2 == 1 {
-        arbitrary_binary(next.wrapping_add(1), high, step / 2)
-    } else {
-        // step % 2 == 0
-        arbitrary_binary(low, next.wrapping_sub(1), (step - 1) / 2)
-    }
-}
-
-#[must_use]
-pub fn cplxity_to_size(cplx: f64) -> usize {
+fn cplxity_to_size(cplx: f64) -> usize {
     let size_f: f64 = 2.0_f64.powf(cplx).round();
     if std::usize::MAX as f64 > size_f {
         size_f as usize
@@ -62,6 +39,6 @@ pub fn cplxity_to_size(cplx: f64) -> usize {
     }
 }
 #[must_use]
-pub fn size_to_cplxity(size: usize) -> f64 {
+fn size_to_cplxity(size: usize) -> f64 {
     (size as f64).log2().round()
 }
