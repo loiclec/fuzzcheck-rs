@@ -51,16 +51,36 @@ pub fn fuzzcheck_derive_mutator(
             ") ;"
         )
     }
-    //tb.eprint();
-    tb.end().into()
+    
+    let ts = tb.end();
+    // eprintln!("{}", ts);
+    ts.into()
 }
 
 fn derive_struct_mutator(parsed_struct: Struct, derive_default: bool, tb: &mut TokenBuilder) {
+    
+    /* 
+        We put the whole implementation into a separate module and then re-export
+        only the mutator.
+    */
+    let main_mutator_name = ident!(parsed_struct.ident "Mutator");
+    let submodule = ident!("_" parsed_struct.ident);
+
+    extend_ts!(tb, 
+        "pub use" submodule "::" main_mutator_name ";"
+        "mod" submodule "{"
+            "use super :: * ;"
+    );
+    
     if !parsed_struct.struct_fields.is_empty() {
         derive_struct_mutator_with_fields(&parsed_struct, derive_default, tb)
     } else {
-        derive_unit_mutator(parsed_struct, derive_default, tb);
+        derive_unit_mutator(&parsed_struct, derive_default, tb);
     }
+   
+    extend_ts!(tb, 
+        "}"
+    );
 }
 
 struct DerivedStructFieldIdentifiers {
@@ -604,11 +624,29 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, derive_default: boo
 }
 
 fn derive_enum_mutator(parsed_enum: Enum, derive_default: bool, tb: &mut TokenBuilder) {
+        /* 
+        We put the whole implementation into a separate module and then re-export
+        only the mutator.
+    */
+    let main_mutator_name = ident!(parsed_enum.ident "Mutator");
+    let submodule = ident!("_" parsed_enum.ident);
+
+    extend_ts!(tb, 
+        "pub use" submodule "::" main_mutator_name ";"
+        "mod" submodule "{"
+            "use super :: * ;"
+    );
+    
+    
     if !parsed_enum.items.is_empty() {
         derive_enum_mutator_with_items(&parsed_enum, derive_default, tb)
     } else {
         todo!("Build mutator for empty enum");
     }
+
+    extend_ts!(tb, 
+        "}"
+    );
 }
 
 fn derive_enum_mutator_with_items(parsed_enum: &Enum, derive_default: bool, tb: &mut TokenBuilder) {
@@ -1742,7 +1780,7 @@ fn derive_enum_mutator_with_items(parsed_enum: &Enum, derive_default: bool, tb: 
     }
 }
 
-fn derive_unit_mutator(parsed_struct: Struct, derive_default: bool, tb: &mut TokenBuilder) {
+fn derive_unit_mutator(parsed_struct: &Struct, derive_default: bool, tb: &mut TokenBuilder) {
     let default_mutator = ts!(":: fuzzcheck_mutators :: DefaultMutator");
 
     if derive_default {
@@ -1750,7 +1788,7 @@ fn derive_unit_mutator(parsed_struct: Struct, derive_default: bool, tb: &mut Tok
         let mutator_ident = ident!(parsed_struct.ident "Mutator");
 
         extend_ts!(tb,
-            "type" mutator_ident generics_without_bounds
+            "pub type" mutator_ident generics_without_bounds
                 "= :: fuzzcheck_mutators :: unit :: UnitMutator < " parsed_struct.ident generics_without_bounds "> ;"
 
             "impl" parsed_struct.generics.removing_eq_type() default_mutator " for"

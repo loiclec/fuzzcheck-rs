@@ -146,13 +146,9 @@ impl Root {
         Ok(child)
     }
 
-    fn instrumented_compile(
-        &self,
-        config: &FullConfig,
-        stdio: impl Fn() -> Stdio,
-    ) -> Result<process::Child, CargoFuzzcheckError> {
+    fn instrumented_prepare_compile(&self, config: &FullConfig) -> Result<(), CargoFuzzcheckError> {
         let mut rustflags: Vec<&str> = 
-            vec!["--cfg", "fuzzcheck", "-Ctarget-cpu=native", "-Cmetadata=fuzzing", "-Cpasses=sancov"];
+        vec!["--cfg", "fuzzcheck", "-Ctarget-cpu=native", "-Cmetadata=fuzzing", "-Cpasses=sancov"];
 
         if config.lto {
             rustflags.push("-Clinker-plugin-lto=1");
@@ -180,8 +176,18 @@ impl Root {
 
         self.fuzz.instrumented.cargo_config.write_build_rustflags(rustflags.into_iter().map(|x| x.to_string()).collect());
 
-        let mut cargo_command = Command::new("cargo");
+        Ok(())
+    }
 
+    fn instrumented_compile(
+        &self,
+        config: &FullConfig,
+        stdio: impl Fn() -> Stdio,
+    ) -> Result<process::Child, CargoFuzzcheckError> {
+        
+        self.instrumented_prepare_compile(config)?;
+
+        let mut cargo_command = Command::new("cargo");
         cargo_command
             .current_dir(self.instrumented_folder())
             .arg("build")
@@ -194,7 +200,6 @@ impl Root {
 
         if !config.instrumented_default_features {
             cargo_command.arg("--no-default-features");
-            println!("no default features!");
         }
         if !config.instrumented_features.is_empty() {
             cargo_command
@@ -205,6 +210,31 @@ impl Root {
         let child = cargo_command.stdout(stdio()).stderr(stdio()).spawn()?;
 
         Ok(child)
+    }
+
+    pub fn instrumented_open_docs(&self, config: &FullConfig, stdio: impl Fn() -> Stdio) -> Result<(), CargoFuzzcheckError> {
+        self.instrumented_prepare_compile(config)?;
+        
+        let mut cargo_command = Command::new("cargo");
+        let output = cargo_command
+            .current_dir(self.instrumented_folder())
+            .arg("doc")
+            .arg("--open")
+            .arg("--manifest-path")
+            .arg(self.instrumented_folder().join("Cargo.toml"))
+            .arg("--release")
+            .arg("--target")
+            .arg(TARGET)
+            .args(config.extra_cargo_flags.clone())
+            .stdout(stdio())
+            .stderr(stdio())
+            .output()?;
+        
+        if output.status.success() {
+            Ok(())
+        } else {
+            Err(CargoFuzzcheckError::Str("Could not generate docs for the instrumented crate".to_string()))
+        }
     }
 
     pub fn input_minify_command(
