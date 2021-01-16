@@ -61,7 +61,7 @@ pub struct FuzzingView {
 #[derive(Clone, Copy)]
 pub enum ShownDetail {
     Event,
-    Artifact
+    Artifact,
 }
 
 #[derive(Clone, Copy)]
@@ -348,14 +348,16 @@ impl ViewState for FuzzingView {
             Update::Stop => Some(OutMessage::StopFuzzer),
             Update::UnPauseUntilNextEvent => Some(OutMessage::UnPauseFuzzerUntilNextEvent),
             Update::ShowArtifact => {
-                self.shown_detail=ShownDetail::Artifact;
+                self.shown_detail = ShownDetail::Artifact;
                 self.show_artifact();
                 None
             }
             Update::ShowEvent => {
-                if self.events.is_empty() { return None }
+                if self.events.is_empty() {
+                    return None;
+                }
                 let selected = self.events.len() - 1 - self.list_view.state.selected().unwrap_or(0);
-                self.shown_detail=ShownDetail::Event;
+                self.shown_detail = ShownDetail::Event;
                 self.update_detail_view_with_event(selected);
                 None
             }

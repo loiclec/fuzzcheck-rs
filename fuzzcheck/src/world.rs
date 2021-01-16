@@ -130,9 +130,7 @@ impl<S: Serializer> World<S> {
             }
             FuzzerEvent::Stop => {
                 println!("\n======================== STOPPED ========================");
-                println!(
-                    r#"The fuzzer was stopped."#
-                );
+                println!(r#"The fuzzer was stopped."#);
                 return;
             }
             FuzzerEvent::End => {

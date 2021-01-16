@@ -7,13 +7,13 @@ use fuzzcheck_traits::Mutator;
     * cover most of the search space as quickly as possible. For example, for 8-bit unsigned integers,
       it is good to produce a sequence such as: 0, 255, 128, 192, 64, 224, 32, etc.
     * also produce values close to the original integer first. So mutating 100 will first produce numbers
-      such as 101, 99, 102, 98, etc. 
+      such as 101, 99, 102, 98, etc.
     * be very fast
 
     One idea to create arbitrary integers that don't repeat themselves and span the whole search space was
-    to use a binary-search-like approach, as written in the function binary_search_arbitrary. However that 
+    to use a binary-search-like approach, as written in the function binary_search_arbitrary. However that
     turns out to be quite slow for an integer mutator. So what I do instead is create a sequence of 256 integers
-    using that approach, which I store in a variable called “shuffled integers”. So shuffled integers is a 
+    using that approach, which I store in a variable called “shuffled integers”. So shuffled integers is a
     vector that look something like this:
         [0, 256, 128, 192, 64, 224, 32, ...]
     Now, for an 8-bit integer type, it is enough to simply index that vector to get an arbitrary value that
@@ -31,14 +31,14 @@ use fuzzcheck_traits::Mutator;
     Let's stop to think about what that achieves. It means that for the first 256 steps, the
     8 highest bits of the generated integer will be [0, 256, 128, 192, ...]. So we are covering a huge part
     of the possible space in the first 256 steps alone. The goal is to use that strategy recursively for the
-    remaining bits, while adding a little but of arbitrariness to it. 
+    remaining bits, while adding a little but of arbitrariness to it.
 
     4. Then I shift the step right by 8 bits. If it was 259 originally, it is now equal to (259 >> 8) == 3.
     5. And then I XOR that index with the the previous pick (the purpose of that
     is to make the generation a little bit more arbitrary/less predictable)
         * so the new index is (3 ^ 192) == 195
     6. I then get the next pick by getting shuffled_integers[192], let's say it is == 43.
-    7. Then we update the generated integer, it is now (192 << 24) | (43 << 16) 
+    7. Then we update the generated integer, it is now (192 << 24) | (43 << 16)
     8. The next step is (259 >> 16) ^ 43 == 43
     9. etc.
 
@@ -94,22 +94,21 @@ macro_rules! impl_unsigned_mutator {
                 // 0000 ... 0000 0001 0000 0000     <- - 57 leading zeros for shuffled_integers.len()
                 //                                  <- - 1
                 //                                   =  8
-                const GRANULARITY: u64 = ((std::mem::size_of::<usize>() * 8)
-                    - (256u64.leading_zeros() as usize)
-                    - 1) as u64;
+                const GRANULARITY: u64 =
+                    ((std::mem::size_of::<usize>() * 8) - (256u64.leading_zeros() as usize) - 1) as u64;
 
                 const STEP_MASK: u64 = ((u8::MAX as usize) >> (8 - GRANULARITY)) as u64;
                 // if I have a number, such as 983487234238, I can `AND` it with the step_mask
                 // to get an index I can use on shuffled_integers.
-                // in this case, the step_mask is fixed to 
+                // in this case, the step_mask is fixed to
                 // 0000 ... 0000 1111 1111
                 // it gives a number between 0 and 256
 
                 // step_i is used to index into shuffled_integers. The first value is the step
                 // given as argument to this function.
                 let step_i = (step & STEP_MASK) as usize;
-                
-                // now we start building the integer by taking bits from shuffled_integers 
+
+                // now we start building the integer by taking bits from shuffled_integers
                 // repeatedly. First by indexing it with step_i
                 let mut prev = unsafe { *self.shuffled_integers.get_unchecked(step_i) as $name };
 
@@ -126,8 +125,8 @@ macro_rules! impl_unsigned_mutator {
                     // so, for a step of 167 and a granularity of 8, then the next step will be 0
                     // it's only after steps larger than 255 that the next step will be greater than 0
 
-                    // and then we XOR it with previous integer picked from shuffled_integers[step_i] 
-                    // to get the next index into shuffled_integers, which we insert into 
+                    // and then we XOR it with previous integer picked from shuffled_integers[step_i]
+                    // to get the next index into shuffled_integers, which we insert into
                     // the generated integer at the right place
                     let step_i = (((step >> (i * GRANULARITY)) ^ prev as u64) & STEP_MASK) as usize;
                     prev = unsafe { *self.shuffled_integers.get_unchecked(step_i) as $name };
@@ -261,9 +260,8 @@ macro_rules! impl_signed_mutator {
             // TODO: explanation
             pub fn uniform_permutation(&self, step: u64) -> $name_unsigned {
                 let size = $size as u64;
-                const GRANULARITY: u64 = ((std::mem::size_of::<usize>() * 8)
-                    - (256_u64.leading_zeros() as usize)
-                    - 1) as u64;
+                const GRANULARITY: u64 =
+                    ((std::mem::size_of::<usize>() * 8) - (256_u64.leading_zeros() as usize) - 1) as u64;
                 const STEP_MASK: u64 = ((u8::MAX as usize) >> (8 - GRANULARITY)) as u64;
 
                 let step_i = (step & STEP_MASK) as usize;

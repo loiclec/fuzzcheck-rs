@@ -10,8 +10,8 @@ use crate::InstrFeatureWithoutTag;
 #[cfg(trace_compares)]
 use crate::data_structures::HBitSet;
 
-use std::mem::MaybeUninit;
 use packed_simd::u8x16;
+use std::mem::MaybeUninit;
 
 #[cfg(trace_compares)]
 type PC = usize;
@@ -104,11 +104,12 @@ impl CodeCoverageSensor {
             let start = i * CHUNK_SIZE;
             let end = start + CHUNK_SIZE;
 
-            let slice = unsafe { u8x16::from_slice_aligned_unchecked(&self.eight_bit_counters.get_unchecked(start .. end)) };
+            let slice =
+                unsafe { u8x16::from_slice_aligned_unchecked(&self.eight_bit_counters.get_unchecked(start..end)) };
             if slice == zero {
                 continue;
             } else {
-                for j in 0 .. 16 {
+                for j in 0..16 {
                     let x = unsafe { slice.extract_unchecked(j) };
                     if x == 0 {
                         continue;

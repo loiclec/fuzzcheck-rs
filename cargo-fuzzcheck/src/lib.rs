@@ -60,14 +60,24 @@ impl Root {
             build_rustflags.push("-Clink-arg=-fuse-ld=gold");
         }
         let build_rustflags = build_rustflags.iter().map(|x| x.to_string()).collect::<Vec<_>>();
-        self.fuzz.non_instrumented.cargo_config.write_build_rustflags(build_rustflags);
-        let fuzzcheck_traits_rlib_path = self.instrumented_folder().join("target/").join(TARGET).join("release/deps");
+        self.fuzz
+            .non_instrumented
+            .cargo_config
+            .write_build_rustflags(build_rustflags);
+        let fuzzcheck_traits_rlib_path = self
+            .instrumented_folder()
+            .join("target/")
+            .join(TARGET)
+            .join("release/deps");
 
         let fuzzcheck_traits_link_rustc_flags = format!("-L {}", fuzzcheck_traits_rlib_path.display());
-        self.fuzz.non_instrumented.cargo_config.write_rustc_flags_for_link("fuzzcheck_traits", fuzzcheck_traits_link_rustc_flags);
+        self.fuzz
+            .non_instrumented
+            .cargo_config
+            .write_rustc_flags_for_link("fuzzcheck_traits", fuzzcheck_traits_link_rustc_flags);
 
         let mut cargo_command = Command::new("cargo");
-        
+
         cargo_command
             .current_dir(self.non_instrumented_folder())
             .arg("build")
@@ -147,16 +157,18 @@ impl Root {
     }
 
     fn instrumented_prepare_compile(&self, config: &FullConfig) -> Result<(), CargoFuzzcheckError> {
-        let mut rustflags: Vec<&str> = 
-        vec!["--cfg", "fuzzcheck", "-Ctarget-cpu=native", "-Cmetadata=fuzzing", "-Cpasses=sancov"];
+        let mut rustflags: Vec<&str> = vec![
+            "--cfg",
+            "fuzzcheck",
+            "-Ctarget-cpu=native",
+            "-Cmetadata=fuzzing",
+            "-Cpasses=sancov",
+        ];
 
         if config.lto {
             rustflags.push("-Clinker-plugin-lto=1");
         }
-        let coverage_level = format!(
-            "-Cllvm-args=-sanitizer-coverage-level={}",
-            config.coverage_level
-        );
+        let coverage_level = format!("-Cllvm-args=-sanitizer-coverage-level={}", config.coverage_level);
         rustflags.push(&coverage_level);
 
         if config.trace_compares {
@@ -174,7 +186,10 @@ impl Root {
             rustflags.push("-Clink-arg=-fuse-ld=gold");
         }
 
-        self.fuzz.instrumented.cargo_config.write_build_rustflags(rustflags.into_iter().map(|x| x.to_string()).collect());
+        self.fuzz
+            .instrumented
+            .cargo_config
+            .write_build_rustflags(rustflags.into_iter().map(|x| x.to_string()).collect());
 
         Ok(())
     }
@@ -184,7 +199,6 @@ impl Root {
         config: &FullConfig,
         stdio: impl Fn() -> Stdio,
     ) -> Result<process::Child, CargoFuzzcheckError> {
-        
         self.instrumented_prepare_compile(config)?;
 
         let mut cargo_command = Command::new("cargo");
@@ -212,9 +226,13 @@ impl Root {
         Ok(child)
     }
 
-    pub fn instrumented_open_docs(&self, config: &FullConfig, stdio: impl Fn() -> Stdio) -> Result<(), CargoFuzzcheckError> {
+    pub fn instrumented_open_docs(
+        &self,
+        config: &FullConfig,
+        stdio: impl Fn() -> Stdio,
+    ) -> Result<(), CargoFuzzcheckError> {
         self.instrumented_prepare_compile(config)?;
-        
+
         let mut cargo_command = Command::new("cargo");
         let output = cargo_command
             .current_dir(self.instrumented_folder())
@@ -229,11 +247,13 @@ impl Root {
             .stdout(stdio())
             .stderr(stdio())
             .output()?;
-        
+
         if output.status.success() {
             Ok(())
         } else {
-            Err(CargoFuzzcheckError::Str("Could not generate docs for the instrumented crate".to_string()))
+            Err(CargoFuzzcheckError::Str(
+                "Could not generate docs for the instrumented crate".to_string(),
+            ))
         }
     }
 

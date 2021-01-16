@@ -51,36 +51,33 @@ pub fn fuzzcheck_derive_mutator(
             ") ;"
         )
     }
-    
+
     let ts = tb.end();
     // eprintln!("{}", ts);
     ts.into()
 }
 
 fn derive_struct_mutator(parsed_struct: Struct, derive_default: bool, tb: &mut TokenBuilder) {
-    
-    /* 
+    /*
         We put the whole implementation into a separate module and then re-export
         only the mutator.
     */
     let main_mutator_name = ident!(parsed_struct.ident "Mutator");
     let submodule = ident!("_" parsed_struct.ident);
 
-    extend_ts!(tb, 
+    extend_ts!(tb,
         "pub use" submodule "::" main_mutator_name ";"
         "mod" submodule "{"
             "use super :: * ;"
     );
-    
+
     if !parsed_struct.struct_fields.is_empty() {
         derive_struct_mutator_with_fields(&parsed_struct, derive_default, tb)
     } else {
         derive_unit_mutator(&parsed_struct, derive_default, tb);
     }
-   
-    extend_ts!(tb, 
-        "}"
-    );
+
+    extend_ts!(tb, "}");
 }
 
 struct DerivedStructFieldIdentifiers {
@@ -624,29 +621,26 @@ fn derive_struct_mutator_with_fields(parsed_struct: &Struct, derive_default: boo
 }
 
 fn derive_enum_mutator(parsed_enum: Enum, derive_default: bool, tb: &mut TokenBuilder) {
-        /* 
+    /*
         We put the whole implementation into a separate module and then re-export
         only the mutator.
     */
     let main_mutator_name = ident!(parsed_enum.ident "Mutator");
     let submodule = ident!("_" parsed_enum.ident);
 
-    extend_ts!(tb, 
+    extend_ts!(tb,
         "pub use" submodule "::" main_mutator_name ";"
         "mod" submodule "{"
             "use super :: * ;"
     );
-    
-    
+
     if !parsed_enum.items.is_empty() {
         derive_enum_mutator_with_items(&parsed_enum, derive_default, tb)
     } else {
         todo!("Build mutator for empty enum");
     }
 
-    extend_ts!(tb, 
-        "}"
-    );
+    extend_ts!(tb, "}");
 }
 
 fn derive_enum_mutator_with_items(parsed_enum: &Enum, derive_default: bool, tb: &mut TokenBuilder) {
@@ -750,11 +744,14 @@ fn derive_enum_mutator_with_items(parsed_enum: &Enum, derive_default: bool, tb: 
             rhs: clone.clone(),
         });
 
-        let mut mutator_struct_fields = submutator_fields.iter().map(|field| {
-            let mut field = field.clone();
-            field.visibility = ts!("pub");
-            field
-        }).collect::<Vec<_>>();
+        let mut mutator_struct_fields = submutator_fields
+            .iter()
+            .map(|field| {
+                let mut field = field.clone();
+                field.visibility = ts!("pub");
+                field
+            })
+            .collect::<Vec<_>>();
         mutator_struct_fields.push(StructField {
             attributes: Vec::new(),
             visibility: ts!("pub"),

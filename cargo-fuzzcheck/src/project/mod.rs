@@ -100,20 +100,23 @@ impl CargoConfig {
         let bytes = fs::read(&self.path)?;
         let string = String::from_utf8_lossy(&bytes);
         let toml = toml::parse_toml(&string)?;
-       Ok(toml)
+        Ok(toml)
     }
     pub fn get_build_rustflags(&self) -> Vec<String> {
-       match self.get_toml() {
-           Ok(content) => {    
+        match self.get_toml() {
+            Ok(content) => {
                 if let Some(rustflags) = content.get("build").and_then(|build| build.get("rustflags")) {
                     if let TomlValue::Array(flags) = rustflags {
-                        flags.into_iter().map(|flag| 
-                            if let TomlValue::String(flag) = flag {
-                                flag.clone()
-                            } else {
-                                panic!("build.rustflags contains an element that is not a string")
-                            }  
-                        ).collect()  
+                        flags
+                            .into_iter()
+                            .map(|flag| {
+                                if let TomlValue::String(flag) = flag {
+                                    flag.clone()
+                                } else {
+                                    panic!("build.rustflags contains an element that is not a string")
+                                }
+                            })
+                            .collect()
                     } else {
                         panic!("build.rustflags should be an array of strings")
                     }
@@ -121,12 +124,13 @@ impl CargoConfig {
                     vec![]
                 }
             }
-            Err(e) => panic!("Error while reading non_instrumented/.cargo/config.toml: {:?}", e)
+            Err(e) => panic!("Error while reading non_instrumented/.cargo/config.toml: {:?}", e),
         }
     }
     pub fn write_build_rustflags(&self, new_rustflags: Vec<String>) {
-        let  mut toml_content = self.get_toml().unwrap_or(<_>::default());
-        let build = toml_content.entry("build".to_string())
+        let mut toml_content = self.get_toml().unwrap_or(<_>::default());
+        let build = toml_content
+            .entry("build".to_string())
             .or_insert(TomlValue::Table(<_>::default()));
         if let TomlValue::Table(build) = build {
             let rustflags = build.entry("rustflags".to_string()).or_insert(TomlValue::Array(vec![]));
@@ -135,21 +139,27 @@ impl CargoConfig {
             panic!("build.rustflags should be an array of strings")
         }
         let new_string_content = toml::print(&toml_content);
-        fs::write(&self.path, new_string_content).expect("Could not write new build.rustflags to non_instrumented/.cargo/config.toml");
+        fs::write(&self.path, new_string_content)
+            .expect("Could not write new build.rustflags to non_instrumented/.cargo/config.toml");
     }
 
     pub fn write_rustc_flags_for_link(&self, link: &str, new_rustc_flags: String) {
         let mut toml_content = self.get_toml().unwrap_or(<_>::default());
-        let target = toml_content.entry("target".to_string())
-            .or_insert(TomlValue::Table(<_>::default()));        
+        let target = toml_content
+            .entry("target".to_string())
+            .or_insert(TomlValue::Table(<_>::default()));
         if let TomlValue::Table(target) = target {
-            let target = target.entry(TARGET.to_string())
+            let target = target
+                .entry(TARGET.to_string())
                 .or_insert(TomlValue::Table(<_>::default()));
             if let TomlValue::Table(target) = target {
-                let link = target.entry(link.to_string())
-                .or_insert(TomlValue::Table(<_>::default()));
+                let link = target
+                    .entry(link.to_string())
+                    .or_insert(TomlValue::Table(<_>::default()));
                 if let TomlValue::Table(link) = link {
-                    let rustc_flags = link.entry("rustc-flags".to_string()).or_insert(TomlValue::Array(vec![]));
+                    let rustc_flags = link
+                        .entry("rustc-flags".to_string())
+                        .or_insert(TomlValue::Array(vec![]));
                     *rustc_flags = TomlValue::String(new_rustc_flags);
                 } else {
                     panic!("target.<triple>.rustcflags should be a string")
@@ -161,7 +171,8 @@ impl CargoConfig {
             panic!("target.<triple>.rustcflags should be a string")
         }
         let new_string_content = toml::print(&toml_content);
-        fs::write(&self.path, new_string_content).expect("Could not write new target.<triple>.rustc-flags to non_instrumented/.cargo/config.toml");
+        fs::write(&self.path, new_string_content)
+            .expect("Could not write new target.<triple>.rustc-flags to non_instrumented/.cargo/config.toml");
     }
 }
 
@@ -523,24 +534,24 @@ impl FullConfig {
         }
         if let Some(in_corpus) = corpus_in {
             self.in_corpus = Some(in_corpus.clone());
-        } else if matches!(self.command, FullFuzzerCommand::MinifyCorpus{..}) {
+        } else if matches!(self.command, FullFuzzerCommand::MinifyCorpus { .. }) {
             self.in_corpus = Some(defaults.in_corpus);
         }
         if let Some(out_corpus) = corpus_out {
             self.out_corpus = Some(out_corpus.clone());
-        } else if matches!(self.command, FullFuzzerCommand::MinifyCorpus{..}) {
+        } else if matches!(self.command, FullFuzzerCommand::MinifyCorpus { .. }) {
             self.out_corpus = Some(defaults.out_corpus);
         }
         if let Some(artifacts) = artifacts_folder {
             self.artifacts = Some(artifacts.clone());
         }
         if let Some(()) = no_in_corpus {
-            if !matches!(self.command, FullFuzzerCommand::MinifyCorpus{..}) {
+            if !matches!(self.command, FullFuzzerCommand::MinifyCorpus { .. }) {
                 self.in_corpus = None;
             }
         }
         if let Some(()) = no_out_corpus {
-            if !matches!(self.command, FullFuzzerCommand::MinifyCorpus{..}) {
+            if !matches!(self.command, FullFuzzerCommand::MinifyCorpus { .. }) {
                 self.out_corpus = None;
             }
         }

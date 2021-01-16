@@ -64,7 +64,7 @@ impl RunFuzzView {
     pub fn new(root: Rc<Root>, fuzz_target: String) -> Self {
         let config = root.full_config(&fuzz_target, &CommandLineArguments::default());
         let max_cplx = format!("{}", config.max_cplx);
-        if matches!(config.command, crate::project::FullFuzzerCommand::MinifyCorpus{..}) {
+        if matches!(config.command, crate::project::FullFuzzerCommand::MinifyCorpus { .. }) {
             panic!()
         }
         Self {

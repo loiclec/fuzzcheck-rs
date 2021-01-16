@@ -19,7 +19,7 @@ use fuzzcheck_common::ipc::TuiMessage;
 
 use super::{
     error_view,
-    events::{Event},
+    events::Event,
     framework::{override_map, AnyView, Either, ExplainKeyBindingView, ParentView, Theme},
     fuzzing, initialized,
 };

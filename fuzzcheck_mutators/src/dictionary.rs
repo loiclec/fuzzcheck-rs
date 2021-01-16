@@ -1,21 +1,22 @@
-
 use fuzzcheck_traits::Mutator;
 
 pub struct DictionaryMutator<M: Mutator> {
     m: M,
     dictionary: Vec<(<M as Mutator>::Value, <M as Mutator>::Cache)>,
-    rng: fastrand::Rng
+    rng: fastrand::Rng,
 }
 impl<M: Mutator> DictionaryMutator<M> {
     pub fn new(value_mutator: M, dictionary: impl Iterator<Item = <M as Mutator>::Value>) -> Self {
-        let dictionary = dictionary.map(|v| {
-            let cache = value_mutator.cache_from_value(&v);
-            (v, cache)
-        }).collect();
+        let dictionary = dictionary
+            .map(|v| {
+                let cache = value_mutator.cache_from_value(&v);
+                (v, cache)
+            })
+            .collect();
         Self {
             m: value_mutator,
             dictionary,
-            rng: fastrand::Rng::new()
+            rng: fastrand::Rng::new(),
         }
     }
 }
@@ -23,7 +24,7 @@ impl<M: Mutator> DictionaryMutator<M> {
 #[derive(Clone)]
 pub enum MutationStep<T> {
     Dictionary(usize),
-    Wrapped(T)
+    Wrapped(T),
 }
 
 pub enum UnmutateToken<M: Mutator> {
@@ -33,14 +34,13 @@ pub enum UnmutateToken<M: Mutator> {
 #[derive(Clone)]
 pub enum ArbitraryStep<T> {
     Dictionary(usize),
-    Wrapped(T)
+    Wrapped(T),
 }
 impl<T> Default for ArbitraryStep<T> {
     fn default() -> Self {
         Self::Dictionary(0)
     }
 }
-
 
 impl<M: Mutator> Mutator for DictionaryMutator<M> {
     type Value = M::Value;
@@ -61,7 +61,11 @@ impl<M: Mutator> Mutator for DictionaryMutator<M> {
         }
     }
 
-    fn ordered_arbitrary(&mut self, step: &mut Self::ArbitraryStep, max_cplx: f64) -> Option<(Self::Value, Self::Cache)> {
+    fn ordered_arbitrary(
+        &mut self,
+        step: &mut Self::ArbitraryStep,
+        max_cplx: f64,
+    ) -> Option<(Self::Value, Self::Cache)> {
         match step {
             ArbitraryStep::Dictionary(inner_step) => {
                 if *inner_step < self.dictionary.len() {
@@ -74,14 +78,12 @@ impl<M: Mutator> Mutator for DictionaryMutator<M> {
                     self.ordered_arbitrary(step, max_cplx)
                 }
             }
-            ArbitraryStep::Wrapped(inner_step) => {
-                self.m.ordered_arbitrary(inner_step, max_cplx)
-            }
+            ArbitraryStep::Wrapped(inner_step) => self.m.ordered_arbitrary(inner_step, max_cplx),
         }
     }
 
     fn random_arbitrary(&mut self, max_cplx: f64) -> (Self::Value, Self::Cache) {
-        if !self.dictionary.is_empty() && self.rng.usize(.. 20) == 0 {
+        if !self.dictionary.is_empty() && self.rng.usize(..20) == 0 {
             let idx = self.rng.usize(..self.dictionary.len());
             self.dictionary[idx].clone()
         } else {
@@ -122,13 +124,19 @@ impl<M: Mutator> Mutator for DictionaryMutator<M> {
                     self.ordered_mutate(value, cache, step, max_cplx)
                 }
             }
-            MutationStep::Wrapped(inner_step) => {
-                self.m.ordered_mutate(value, cache, inner_step, max_cplx).map(self::UnmutateToken::Unmutate)
-            }
+            MutationStep::Wrapped(inner_step) => self
+                .m
+                .ordered_mutate(value, cache, inner_step, max_cplx)
+                .map(self::UnmutateToken::Unmutate),
         }
     }
 
-    fn random_mutate(&mut self, value: &mut Self::Value, cache: &mut Self::Cache, max_cplx: f64) -> Self::UnmutateToken {
+    fn random_mutate(
+        &mut self,
+        value: &mut Self::Value,
+        cache: &mut Self::Cache,
+        max_cplx: f64,
+    ) -> Self::UnmutateToken {
         if !self.dictionary.is_empty() && self.rng.usize(..20) == 0 {
             let idx = self.rng.usize(..self.dictionary.len());
             let (new_value, new_cache) = self.dictionary[idx].clone();
@@ -148,9 +156,7 @@ impl<M: Mutator> Mutator for DictionaryMutator<M> {
                 let _ = std::mem::replace(value, new_value);
                 let _ = std::mem::replace(cache, new_cache);
             }
-            UnmutateToken::Unmutate(t) => {
-                self.m.unmutate(value, cache, t)
-            }
+            UnmutateToken::Unmutate(t) => self.m.unmutate(value, cache, t),
         }
     }
 }

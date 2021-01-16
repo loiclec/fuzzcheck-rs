@@ -151,7 +151,9 @@ impl NonInstrumented {
         let src = SrcLibRs::from_path(non_instrumented_folder)?;
 
         let cargo_config_path = non_instrumented_folder.join(".cargo/config.toml");
-        let cargo_config = CargoConfig { path: cargo_config_path };
+        let cargo_config = CargoConfig {
+            path: cargo_config_path,
+        };
 
         Ok(Self {
             src,
@@ -222,11 +224,17 @@ impl Instrumented {
         let cargo_toml_file = fs::File::open(&cargo_toml_path)
             .map_err(|e| InstrumentedError::CannotReadCargoToml(cargo_toml_path.clone(), e))?;
         let cargo_toml = CargoToml::from_file(cargo_toml_file)?;
-        let cargo_config = CargoConfig { path: instrumented_folder.join(".cargo/config.toml" )};
+        let cargo_config = CargoConfig {
+            path: instrumented_folder.join(".cargo/config.toml"),
+        };
         // TODO: do not throw error here
         let src = SrcLibRs::from_path(instrumented_folder)?;
 
-        Ok(Self { src, cargo_toml, cargo_config })
+        Ok(Self {
+            src,
+            cargo_toml,
+            cargo_config,
+        })
     }
 }
 
