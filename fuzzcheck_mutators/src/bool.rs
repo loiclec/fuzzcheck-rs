@@ -25,24 +25,33 @@ impl Default for ArbitraryStep {
     }
 }
 
-impl Mutator for BoolMutator {
-    type Value = bool;
+impl Mutator<bool> for BoolMutator {
     type Cache = ();
-    type MutationStep = bool; // true if it has been mutated, false otherwise
-    type ArbitraryStep = ArbitraryStep; // None if it has never been called, false if it has been called once, true othewise
+    type MutationStep = bool;
+    type ArbitraryStep = ArbitraryStep;
     type UnmutateToken = bool;
 
-    fn cache_from_value(&self, _value: &Self::Value) -> Self::Cache {}
+    fn max_complexity(&self) -> f64 {
+        1.0
+    }
 
-    fn initial_step_from_value(&self, _value: &Self::Value) -> Self::MutationStep {
+    fn min_complexity(&self) -> f64 {
+        1.0
+    }
+
+    fn cache_from_value(&self, _value: &bool) -> Self::Cache {
+        ()
+    }
+
+    fn initial_step_from_value(&self, _value: &bool) -> Self::MutationStep {
         false
     }
 
-    fn ordered_arbitrary(
-        &mut self,
-        step: &mut Self::ArbitraryStep,
-        _max_cplx: f64,
-    ) -> Option<(Self::Value, Self::Cache)> {
+    fn complexity(&self, _value: &bool, _cache: &Self::Cache) -> f64 {
+        1.0
+    }
+
+    fn ordered_arbitrary(&mut self, step: &mut Self::ArbitraryStep, _max_cplx: f64) -> Option<(bool, Self::Cache)> {
         match step {
             ArbitraryStep::Never => {
                 *step = ArbitraryStep::Once;
@@ -55,25 +64,14 @@ impl Mutator for BoolMutator {
             ArbitraryStep::Twice => None,
         }
     }
-    fn random_arbitrary(&mut self, _max_cplx: f64) -> (Self::Value, Self::Cache) {
+
+    fn random_arbitrary(&mut self, _max_cplx: f64) -> (bool, Self::Cache) {
         (self.rng.bool(), ())
-    }
-
-    fn max_complexity(&self) -> f64 {
-        1.0
-    }
-
-    fn min_complexity(&self) -> f64 {
-        1.0
-    }
-
-    fn complexity(&self, _value: &Self::Value, _cache: &Self::Cache) -> f64 {
-        1.0
     }
 
     fn ordered_mutate(
         &mut self,
-        value: &mut Self::Value,
+        value: &mut bool,
         _cache: &mut Self::Cache,
         step: &mut Self::MutationStep,
         _max_cplx: f64,
@@ -86,16 +84,11 @@ impl Mutator for BoolMutator {
         }
     }
 
-    fn random_mutate(
-        &mut self,
-        value: &mut Self::Value,
-        _cache: &mut Self::Cache,
-        _max_cplx: f64,
-    ) -> Self::UnmutateToken {
-        std::mem::replace(value, fastrand::bool())
+    fn random_mutate(&mut self, value: &mut bool, _cache: &mut Self::Cache, _max_cplx: f64) -> Self::UnmutateToken {
+        std::mem::replace(value, !*value)
     }
 
-    fn unmutate(&self, value: &mut Self::Value, _cache: &mut Self::Cache, _t: Self::UnmutateToken) {
-        *value = !*value;
+    fn unmutate(&self, value: &mut bool, _cache: &mut Self::Cache, t: Self::UnmutateToken) {
+        *value = t;
     }
 }

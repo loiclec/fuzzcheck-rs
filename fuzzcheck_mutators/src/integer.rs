@@ -136,24 +136,35 @@ macro_rules! impl_unsigned_mutator {
             }
         }
 
-        impl Mutator for $name_mutator {
-            type Value = $name;
+        impl Mutator<$name> for $name_mutator {
             type Cache = ();
             type MutationStep = u64; // mutation step
             type ArbitraryStep = u64;
             type UnmutateToken = $name; // old value
 
-            fn cache_from_value(&self, _value: &Self::Value) -> Self::Cache {}
-
-            fn initial_step_from_value(&self, _value: &Self::Value) -> Self::MutationStep {
+            /// Compute the cache for the given value
+            fn cache_from_value(&self, _value: &$name) -> Self::Cache {}
+            /// Compute the initial mutation step for the given value
+            fn initial_step_from_value(&self, _value: &$name) -> Self::MutationStep {
                 0
+            }
+            /// The maximum complexity of an input of this type
+            fn max_complexity(&self) -> f64 {
+                std::mem::size_of::<$name>() as f64 * 8.0
+            }
+            /// The minimum complexity of an input of this type
+            fn min_complexity(&self) -> f64 {
+                std::mem::size_of::<$name>() as f64 * 8.0
+            }
+            fn complexity(&self, _value: &$name, _cache: &Self::Cache) -> f64 {
+                std::mem::size_of::<$name>() as f64 * 8.0
             }
 
             fn ordered_arbitrary(
                 &mut self,
                 step: &mut Self::ArbitraryStep,
                 _max_cplx: f64,
-            ) -> Option<(Self::Value, Self::Cache)> {
+            ) -> Option<($name, Self::Cache)> {
                 if *step > <$name>::MAX as u64 {
                     None
                 } else {
@@ -162,26 +173,14 @@ macro_rules! impl_unsigned_mutator {
                     Some((value, ()))
                 }
             }
-            fn random_arbitrary(&mut self, _max_cplx: f64) -> (Self::Value, Self::Cache) {
+            fn random_arbitrary(&mut self, _max_cplx: f64) -> ($name, Self::Cache) {
                 let value = self.uniform_permutation(self.rng.u64(..));
                 (value, ())
             }
 
-            fn max_complexity(&self) -> f64 {
-                8.0
-            }
-
-            fn min_complexity(&self) -> f64 {
-                8.0
-            }
-
-            fn complexity(&self, _value: &Self::Value, _cache: &Self::Cache) -> f64 {
-                8.0
-            }
-
             fn ordered_mutate(
                 &mut self,
-                value: &mut Self::Value,
+                value: &mut $name,
                 _cache: &mut Self::Cache,
                 step: &mut Self::MutationStep,
                 _max_cplx: f64,
@@ -208,16 +207,17 @@ macro_rules! impl_unsigned_mutator {
 
                 Some(token)
             }
+
             fn random_mutate(
                 &mut self,
-                value: &mut Self::Value,
+                value: &mut $name,
                 _cache: &mut Self::Cache,
                 _max_cplx: f64,
             ) -> Self::UnmutateToken {
                 std::mem::replace(value, $rand(..))
             }
 
-            fn unmutate(&self, value: &mut Self::Value, _cache: &mut Self::Cache, t: Self::UnmutateToken) {
+            fn unmutate(&self, value: &mut $name, _cache: &mut Self::Cache, t: Self::UnmutateToken) {
                 *value = t;
             }
         }
@@ -277,23 +277,35 @@ macro_rules! impl_signed_mutator {
             }
         }
 
-        impl Mutator for $name_mutator {
-            type Value = $name;
+        impl Mutator<$name> for $name_mutator {
             type Cache = ();
             type MutationStep = u64; // mutation step
             type ArbitraryStep = u64;
             type UnmutateToken = $name; // old value
 
-            fn cache_from_value(&self, _value: &Self::Value) -> Self::Cache {}
-            fn initial_step_from_value(&self, _value: &Self::Value) -> Self::MutationStep {
+            /// Compute the cache for the given value
+            fn cache_from_value(&self, _value: &$name) -> Self::Cache {}
+            /// Compute the initial mutation step for the given value
+            fn initial_step_from_value(&self, _value: &$name) -> Self::MutationStep {
                 0
+            }
+            /// The maximum complexity of an input of this type
+            fn max_complexity(&self) -> f64 {
+                std::mem::size_of::<$name>() as f64 * 8.0
+            }
+            /// The minimum complexity of an input of this type
+            fn min_complexity(&self) -> f64 {
+                std::mem::size_of::<$name>() as f64 * 8.0
+            }
+            fn complexity(&self, _value: &$name, _cache: &Self::Cache) -> f64 {
+                std::mem::size_of::<$name>() as f64 * 8.0
             }
 
             fn ordered_arbitrary(
                 &mut self,
                 step: &mut Self::ArbitraryStep,
                 _max_cplx: f64,
-            ) -> Option<(Self::Value, Self::Cache)> {
+            ) -> Option<($name, Self::Cache)> {
                 if *step > <$name_unsigned>::MAX as u64 {
                     None
                 } else {
@@ -302,26 +314,14 @@ macro_rules! impl_signed_mutator {
                     Some((value, ()))
                 }
             }
-            fn random_arbitrary(&mut self, _max_cplx: f64) -> (Self::Value, Self::Cache) {
+            fn random_arbitrary(&mut self, _max_cplx: f64) -> ($name, Self::Cache) {
                 let value = self.uniform_permutation(self.rng.u64(..)) as $name;
                 (value, ())
             }
 
-            fn max_complexity(&self) -> f64 {
-                8.0
-            }
-
-            fn min_complexity(&self) -> f64 {
-                8.0
-            }
-
-            fn complexity(&self, _value: &Self::Value, _cache: &Self::Cache) -> f64 {
-                8.0
-            }
-
             fn ordered_mutate(
                 &mut self,
-                value: &mut Self::Value,
+                value: &mut $name,
                 _cache: &mut Self::Cache,
                 step: &mut Self::MutationStep,
                 _max_cplx: f64,
@@ -345,17 +345,18 @@ macro_rules! impl_signed_mutator {
 
                 Some(token)
             }
+
             fn random_mutate(
                 &mut self,
-                value: &mut Self::Value,
+                value: &mut $name,
                 _cache: &mut Self::Cache,
                 _max_cplx: f64,
             ) -> Self::UnmutateToken {
                 std::mem::replace(value, $rand(..))
             }
 
-            fn unmutate(&self, value: &mut Self::Value, _cache: &mut Self::Cache, t: Self::UnmutateToken) {
-                *value = t;
+            fn unmutate(&self, value: &mut $name, _cache: &mut Self::Cache, t: Self::UnmutateToken) {
+                *value = t
             }
         }
     };

@@ -72,13 +72,13 @@ use crate::{Feature, FuzzedInput, Mutator};
 use fuzzcheck_common::ipc::FuzzerEvent;
 
 /// Index of an input in the Pool
-pub enum PoolIndex<M: Mutator> {
-    Normal(SlabKey<Input<M>>),
+pub enum PoolIndex<T: Clone, M: Mutator<T>> {
+    Normal(SlabKey<Input<T, M>>),
     Favored,
     LowestStack,
 }
 
-impl<M: Mutator> Clone for PoolIndex<M> {
+impl<T: Clone, M: Mutator<T>> Clone for PoolIndex<T, M> {
     fn clone(&self) -> Self {
         match self {
             PoolIndex::Normal(idx) => PoolIndex::Normal(*idx),
@@ -87,22 +87,22 @@ impl<M: Mutator> Clone for PoolIndex<M> {
         }
     }
 }
-impl<M: Mutator> Copy for PoolIndex<M> {}
+impl<T: Clone, M: Mutator<T>> Copy for PoolIndex<T, M> {}
 
 /**
  * An element stored in the pool, containing its value, cache, mutation step,
  * as well as analysed code coverage and computed score.
 */
-pub struct Input<M: Mutator> {
+pub struct Input<T: Clone, M: Mutator<T>> {
     /// The keys of the features for which there are no simpler inputs in the
     /// pool reaching the feature.
-    least_complex_for_features: BTreeSet<SlabKey<AnalyzedFeature<M>>>,
+    least_complex_for_features: BTreeSet<SlabKey<AnalyzedFeature<T, M>>>,
     /// Holds the key of each [FeatureInPool] associated with this input.
-    all_features: Vec<SlabKey<AnalyzedFeature<M>>>,
+    all_features: Vec<SlabKey<AnalyzedFeature<T, M>>>,
     /// The computed score of the input
     score: f64,
     /// Data associated with the input: value, cache, and mutation step
-    data: FuzzedInput<M>,
+    data: FuzzedInput<T, M>,
     /// Cached complexity of the value.
     ///
     /// It should always be equal to [mutator.complexity(&self.data.value, &self.data.cache)](Mutator::complexity)
@@ -118,24 +118,24 @@ pub struct Input<M: Mutator> {
     the list of inputs hitting this feature, as well as a reference to the
     least complex of these inputs.
 */
-pub struct AnalyzedFeature<M: Mutator> {
-    pub key: SlabKey<AnalyzedFeature<M>>,
+pub struct AnalyzedFeature<T: Clone, M: Mutator<T>> {
+    pub key: SlabKey<AnalyzedFeature<T, M>>,
     pub(crate) feature: Feature,
     group_key: SlabKey<FeatureGroup>,
-    inputs: Vec<SlabKey<Input<M>>>,
-    least_complex_input: SlabKey<Input<M>>,
+    inputs: Vec<SlabKey<Input<T, M>>>,
+    least_complex_input: SlabKey<Input<T, M>>,
     pub least_complexity: f64,
     /// cache used when deleting inputs to know how to evolve the score of inputs
     old_multiplicity: usize,
 }
 
-impl<M: Mutator> AnalyzedFeature<M> {
+impl<T: Clone, M: Mutator<T>> AnalyzedFeature<T, M> {
     fn new(
         key: SlabKey<Self>,
         feature: Feature,
         group_key: SlabKey<FeatureGroup>,
-        inputs: Vec<SlabKey<Input<M>>>,
-        least_complex_input: SlabKey<Input<M>>,
+        inputs: Vec<SlabKey<Input<T, M>>>,
+        least_complex_input: SlabKey<Input<T, M>>,
         least_complexity: f64,
     ) -> Self {
         let old_multiplicity = inputs.len();
@@ -158,8 +158,8 @@ impl<M: Mutator> AnalyzedFeature<M> {
     a copy of the feature, we can avoid indexing the slab and accessing the feature
     which saves time.
 */
-pub struct AnalyzedFeatureRef<M: Mutator> {
-    pub key: SlabKey<AnalyzedFeature<M>>,
+pub struct AnalyzedFeatureRef<T: Clone, M: Mutator<T>> {
+    pub key: SlabKey<AnalyzedFeature<T, M>>,
     pub(crate) feature: Feature,
 }
 
@@ -207,31 +207,31 @@ impl FeatureGroup {
     }
 }
 
-pub struct LowestStackInput<M: Mutator> {
-    input: FuzzedInput<M>,
+pub struct LowestStackInput<T: Clone, M: Mutator<T>> {
+    input: FuzzedInput<T, M>,
     stack_depth: usize,
     generation: usize,
 }
 
-pub struct Pool<M: Mutator> {
-    pub features: Vec<AnalyzedFeatureRef<M>>,
-    pub slab_features: Slab<AnalyzedFeature<M>>,
+pub struct Pool<T: Clone, M: Mutator<T>> {
+    pub features: Vec<AnalyzedFeatureRef<T, M>>,
+    pub slab_features: Slab<AnalyzedFeature<T, M>>,
 
     feature_groups: Vec<SlabKey<FeatureGroup>>,
     pub slab_feature_groups: Slab<FeatureGroup>,
 
-    inputs: Vec<SlabKey<Input<M>>>,
-    slab_inputs: Slab<Input<M>>,
+    inputs: Vec<SlabKey<Input<T, M>>>,
+    slab_inputs: Slab<Input<T, M>>,
 
-    favored_input: Option<FuzzedInput<M>>,
-    lowest_stack_input: Option<LowestStackInput<M>>,
+    favored_input: Option<FuzzedInput<T, M>>,
+    lowest_stack_input: Option<LowestStackInput<T, M>>,
 
     pub average_complexity: f64,
     cumulative_weights: Vec<f64>,
     rng: Rng,
 }
 
-impl<M: Mutator> Pool<M> {
+impl<T: Clone, M: Mutator<T>> Pool<T, M> {
     pub fn default() -> Self {
         let rng = fastrand::Rng::new();
         rng.seed(0);
@@ -255,7 +255,7 @@ impl<M: Mutator> Pool<M> {
         }
     }
 
-    pub(crate) fn add_favored_input(&mut self, data: FuzzedInput<M>) {
+    pub(crate) fn add_favored_input(&mut self, data: FuzzedInput<T, M>) {
         self.favored_input = Some(data);
     }
 
@@ -270,18 +270,18 @@ impl<M: Mutator> Pool<M> {
     #[allow(clippy::too_many_lines)]
     pub(crate) fn add(
         &mut self,
-        data: FuzzedInput<M>,
+        data: FuzzedInput<T, M>,
         complexity: f64,
-        result: AnalysisResult<M>,
+        result: AnalysisResult<T, M>,
         generation: usize,
-    ) -> Vec<WorldAction<M::Value>> {
+    ) -> Vec<WorldAction<T>> {
         let AnalysisResult {
             existing_features,
             new_features,
             lowest_stack,
         } = result;
 
-        let mut actions: Vec<WorldAction<M::Value>> = Vec::new();
+        let mut actions: Vec<WorldAction<T>> = Vec::new();
 
         if lowest_stack < self.lowest_stack() {
             let new = LowestStackInput {
@@ -302,7 +302,7 @@ impl<M: Mutator> Pool<M> {
             return actions;
         }
 
-        let element_key: SlabKey<Input<M>> = {
+        let element_key: SlabKey<Input<T, M>> = {
             let element = Input {
                 least_complex_for_features: BTreeSet::default(),
                 all_features: vec![],
@@ -317,7 +317,7 @@ impl<M: Mutator> Pool<M> {
             i_key
         };
 
-        let mut to_delete: Vec<SlabKey<Input<M>>> = vec![];
+        let mut to_delete: Vec<SlabKey<Input<T, M>>> = vec![];
 
         // 1. Update the `element.least_complex_for_features` fields of the elements affected
         // by a change in the `least_complexity` of the features in `existing_features`.
@@ -493,7 +493,11 @@ impl<M: Mutator> Pool<M> {
         actions
     }
 
-    pub fn delete_elements(&mut self, to_delete: Vec<SlabKey<Input<M>>>, should_not_update_key: SlabKey<Input<M>>) {
+    pub fn delete_elements(
+        &mut self,
+        to_delete: Vec<SlabKey<Input<T, M>>>,
+        should_not_update_key: SlabKey<Input<T, M>>,
+    ) {
         for &to_delete_key in &to_delete {
             let to_swap_idx = self.inputs.len() - 1;
             let to_swap_key = *self.inputs.last().unwrap();
@@ -537,7 +541,7 @@ impl<M: Mutator> Pool<M> {
         }
     }
 
-    pub fn delete_element(&mut self, to_delete_key: SlabKey<Input<M>>) {
+    pub fn delete_element(&mut self, to_delete_key: SlabKey<Input<T, M>>) {
         //          TODO:
         // * remove element from the list of inputs
         // * iter through all features and remove the input from their list of inputs
@@ -656,7 +660,7 @@ impl<M: Mutator> Pool<M> {
         self.slab_inputs.remove(to_delete_key);
     }
 
-    pub(crate) fn remove_lowest_scoring_input(&mut self) -> Vec<WorldAction<M::Value>> {
+    pub(crate) fn remove_lowest_scoring_input(&mut self) -> Vec<WorldAction<T>> {
         let slab = &self.slab_inputs;
         let pick_key = self
             .inputs
@@ -669,7 +673,7 @@ impl<M: Mutator> Pool<M> {
 
         self.delete_element(pick_key);
 
-        let mut actions: Vec<WorldAction<M::Value>> = Vec::new();
+        let mut actions: Vec<WorldAction<T>> = Vec::new();
         actions.push(WorldAction::ReportEvent(FuzzerEvent::Remove));
         actions.push(WorldAction::Remove(deleted_value));
 
@@ -680,10 +684,10 @@ impl<M: Mutator> Pool<M> {
 
     /// Returns the index of the group of the feature
     fn insert_feature(
-        features: &mut Vec<AnalyzedFeatureRef<M>>,
+        features: &mut Vec<AnalyzedFeatureRef<T, M>>,
         feature_groups: &mut Vec<SlabKey<FeatureGroup>>,
         slab_feature_groups: &mut Slab<FeatureGroup>,
-        new_feature_for_iter: AnalyzedFeatureRef<M>,
+        new_feature_for_iter: AnalyzedFeatureRef<T, M>,
     ) -> SlabKey<FeatureGroup> {
         // TODO: CHANGE THIS, too slow
         let insertion_idx = sorted_insert(features, new_feature_for_iter, |other_f| {
@@ -728,7 +732,7 @@ impl<M: Mutator> Pool<M> {
     }
 
     /// Returns the index of an interesting input in the pool
-    pub fn random_index(&mut self) -> Option<PoolIndex<M>> {
+    pub fn random_index(&mut self) -> Option<PoolIndex<T, M>> {
         if self.favored_input.is_some() && (self.rng.u8(0..4) == 0 || self.inputs.is_empty()) {
             Some(PoolIndex::Favored)
         } else if self.lowest_stack_input.is_some() && self.rng.u8(0..10) == 0 {
@@ -771,7 +775,7 @@ impl<M: Mutator> Pool<M> {
     }
 
     /// Get the input at the given index along with its complexity and the number of mutations tried on this input
-    pub(crate) fn get_ref(&self, idx: PoolIndex<M>) -> &'_ FuzzedInput<M> {
+    pub(crate) fn get_ref(&self, idx: PoolIndex<T, M>) -> &'_ FuzzedInput<T, M> {
         match idx {
             PoolIndex::Normal(key) => &self.slab_inputs[key].data,
             PoolIndex::Favored => self.favored_input.as_ref().unwrap(),
@@ -779,7 +783,7 @@ impl<M: Mutator> Pool<M> {
         }
     }
     /// Get the input at the given index along with its complexity and the number of mutations tried on this input
-    pub(crate) fn get(&mut self, idx: PoolIndex<M>) -> &'_ mut FuzzedInput<M> {
+    pub(crate) fn get(&mut self, idx: PoolIndex<T, M>) -> &'_ mut FuzzedInput<T, M> {
         match idx {
             PoolIndex::Normal(key) => &mut self.slab_inputs[key].data,
             PoolIndex::Favored => self.favored_input.as_mut().unwrap(),
@@ -789,9 +793,9 @@ impl<M: Mutator> Pool<M> {
 
     pub(crate) fn retrieve_source_input_for_unmutate(
         &mut self,
-        idx: PoolIndex<M>,
+        idx: PoolIndex<T, M>,
         generation: usize,
-    ) -> Option<&'_ mut FuzzedInput<M>> {
+    ) -> Option<&'_ mut FuzzedInput<T, M>> {
         match idx {
             PoolIndex::Normal(key) => self.slab_inputs.get_mut(key).map(|input| &mut input.data),
             PoolIndex::Favored => Some(self.get(idx)),
@@ -809,7 +813,7 @@ impl<M: Mutator> Pool<M> {
         }
     }
 
-    pub(crate) fn mark_input_as_dead_end(&mut self, idx: PoolIndex<M>) {
+    pub(crate) fn mark_input_as_dead_end(&mut self, idx: PoolIndex<T, M>) {
         match idx {
             PoolIndex::Normal(key) => {
                 let input = &mut self.slab_inputs[key];
@@ -983,7 +987,7 @@ fn score_for_group_size(size: usize) -> f64 {
 // ==================== Trait implementations ====================
 // ===============================================================
 
-impl<M: Mutator> Clone for AnalyzedFeature<M> {
+impl<T: Clone, M: Mutator<T>> Clone for AnalyzedFeature<T, M> {
     fn clone(&self) -> Self {
         Self {
             key: self.key,
@@ -996,7 +1000,7 @@ impl<M: Mutator> Clone for AnalyzedFeature<M> {
         }
     }
 }
-impl<M: Mutator> PartialEq for AnalyzedFeature<M> {
+impl<T: Clone, M: Mutator<T>> PartialEq for AnalyzedFeature<T, M> {
     fn eq(&self, other: &Self) -> bool {
         self.key == other.key
             && self.feature == other.feature
@@ -1006,7 +1010,7 @@ impl<M: Mutator> PartialEq for AnalyzedFeature<M> {
             && self.old_multiplicity == other.old_multiplicity
     }
 }
-impl<M: Mutator> fmt::Debug for AnalyzedFeature<M> {
+impl<T: Clone, M: Mutator<T>> fmt::Debug for AnalyzedFeature<T, M> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
@@ -1015,24 +1019,24 @@ impl<M: Mutator> fmt::Debug for AnalyzedFeature<M> {
         )
     }
 }
-impl<M: Mutator> PartialEq for AnalyzedFeatureRef<M> {
+impl<T: Clone, M: Mutator<T>> PartialEq for AnalyzedFeatureRef<T, M> {
     fn eq(&self, other: &Self) -> bool {
         self.feature == other.feature
     }
 }
-impl<M: Mutator> Eq for AnalyzedFeatureRef<M> {}
-impl<M: Mutator> PartialOrd for AnalyzedFeatureRef<M> {
+impl<T: Clone, M: Mutator<T>> Eq for AnalyzedFeatureRef<T, M> {}
+impl<T: Clone, M: Mutator<T>> PartialOrd for AnalyzedFeatureRef<T, M> {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         self.feature.partial_cmp(&other.feature)
     }
 }
-impl<M: Mutator> Ord for AnalyzedFeatureRef<M> {
+impl<T: Clone, M: Mutator<T>> Ord for AnalyzedFeatureRef<T, M> {
     fn cmp(&self, other: &Self) -> Ordering {
         self.feature.cmp(&other.feature)
     }
 }
 
-impl<M: Mutator> Clone for AnalyzedFeatureRef<M> {
+impl<T: Clone, M: Mutator<T>> Clone for AnalyzedFeatureRef<T, M> {
     fn clone(&self) -> Self {
         Self {
             key: self.key,
@@ -1041,7 +1045,7 @@ impl<M: Mutator> Clone for AnalyzedFeatureRef<M> {
     }
 }
 
-impl<M: Mutator> Copy for AnalyzedFeatureRef<M> {}
+impl<T: Clone, M: Mutator<T>> Copy for AnalyzedFeatureRef<T, M> {}
 
 // TODO: include testing the returned WorldAction
 // TODO: write unit tests as data, read them from files
@@ -1050,7 +1054,7 @@ impl<M: Mutator> Copy for AnalyzedFeatureRef<M> {}
 mod tests {
     use super::*;
 
-    fn mock(cplx: f64) -> FuzzedInput<VoidMutator> {
+    fn mock(cplx: f64) -> FuzzedInput<f64, VoidMutator> {
         FuzzedInput::new(cplx, (), ())
     }
 
@@ -1058,7 +1062,7 @@ mod tests {
         Feature::edge(pc_guard, intensity)
     }
 
-    type FK = SlabKey<AnalyzedFeature<VoidMutator>>;
+    type FK = SlabKey<AnalyzedFeature<f64, VoidMutator>>;
 
     #[test]
     fn property_test() {
@@ -1075,7 +1079,7 @@ mod tests {
             let mut new_features = BTreeSet::from_iter(list_features.iter());
             let mut added_features: Vec<FK> = vec![];
 
-            let mut pool = Pool::<VoidMutator>::default();
+            let mut pool = Pool::<f64, VoidMutator>::default();
 
             for i in 0..fastrand::usize(0..100) {
                 let nbr_new_features = if new_features.is_empty() {
@@ -1194,57 +1198,49 @@ mod tests {
     #[derive(Clone, Copy, Debug)]
     pub struct VoidMutator {}
 
-    impl Mutator for VoidMutator {
-        type Value = f64;
+    impl Mutator<f64> for VoidMutator {
         type Cache = ();
         type MutationStep = ();
         type ArbitraryStep = ();
         type UnmutateToken = ();
 
-        fn cache_from_value(&self, _value: &Self::Value) -> Self::Cache {}
+        fn cache_from_value(&self, _value: &f64) -> Self::Cache {}
 
-        fn initial_step_from_value(&self, _value: &Self::Value) -> Self::MutationStep {}
-
-        fn ordered_arbitrary(
-            &mut self,
-            _step: &mut Self::ArbitraryStep,
-            _max_cplx: f64,
-        ) -> Option<(Self::Value, Self::Cache)> {
-            Some((0.0, ()))
-        }
-        fn random_arbitrary(&mut self, _max_cplx: f64) -> (Self::Value, Self::Cache) {
-            (0.0, ())
-        }
+        fn initial_step_from_value(&self, _value: &f64) -> Self::MutationStep {}
 
         fn max_complexity(&self) -> f64 {
-            std::f64::INFINITY
+            0.0
         }
 
         fn min_complexity(&self) -> f64 {
             0.0
         }
 
-        fn complexity(&self, value: &Self::Value, _state: &Self::Cache) -> f64 {
-            *value
+        fn complexity(&self, _value: &f64, _cache: &Self::Cache) -> f64 {
+            0.0
+        }
+
+        fn ordered_arbitrary(&mut self, _step: &mut Self::ArbitraryStep, _max_cplx: f64) -> Option<(f64, Self::Cache)> {
+            todo!()
+        }
+
+        fn random_arbitrary(&mut self, _max_cplx: f64) -> (f64, Self::Cache) {
+            (0.0, ())
         }
 
         fn ordered_mutate(
             &mut self,
-            _value: &mut Self::Value,
+            _value: &mut f64,
             _cache: &mut Self::Cache,
             _step: &mut Self::MutationStep,
             _max_cplx: f64,
         ) -> Option<Self::UnmutateToken> {
             Some(())
         }
-        fn random_mutate(
-            &mut self,
-            _value: &mut Self::Value,
-            _cache: &mut Self::Cache,
-            _max_cplx: f64,
-        ) -> Self::UnmutateToken {
+
+        fn random_mutate(&mut self, _value: &mut f64, _cache: &mut Self::Cache, _max_cplx: f64) -> Self::UnmutateToken {
         }
 
-        fn unmutate(&self, _value: &mut Self::Value, _cache: &mut Self::Cache, _t: Self::UnmutateToken) {}
+        fn unmutate(&self, _value: &mut f64, _cache: &mut Self::Cache, _t: Self::UnmutateToken) {}
     }
 }

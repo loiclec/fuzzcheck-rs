@@ -6,25 +6,28 @@ pub extern crate fuzzcheck_traits;
 pub use fuzzcheck_mutators_derive::*;
 
 mod bool;
-mod chain;
+// mod chain;
 mod dictionary;
 mod integer;
-mod option;
+// // mod option;
+// mod enums;
+mod tuples;
 mod unit;
-mod vector;
+// mod vector;
 
 pub use crate::bool::BoolMutator;
 pub use crate::dictionary::DictionaryMutator;
 pub use crate::integer::*;
-pub use crate::option::OptionMutator;
+// pub use crate::option::OptionMutator;
 pub use crate::unit::*;
-pub use crate::vector::VecMutator;
+// pub use crate::vector::VecMutator;
+// pub use crate::tuples::Tuple2Mutator;
 
 use fuzzcheck_traits::Mutator;
 use std::ops::Range;
 
 pub trait DefaultMutator: Clone {
-    type Mutator: Mutator<Value = Self> + Default;
+    type Mutator: Mutator<Self> + Default;
     fn default_mutator() -> Self::Mutator;
 }
 

@@ -12,7 +12,6 @@ use crate::{Feature, FuzzedInput, Mutator, Serializer};
 use fuzzcheck_common::ipc::{FuzzerEvent, FuzzerStats};
 
 use fuzzcheck_common::arg::{FullCommandLineArguments, FuzzerCommand};
-
 use nix::signal;
 
 use std::panic::{catch_unwind, RefUnwindSafe, UnwindSafe};
@@ -23,17 +22,17 @@ use std::borrow::Borrow;
 
 use std::convert::TryFrom;
 
-enum FuzzerInputIndex<M: Mutator> {
+enum FuzzerInputIndex<T: Clone, M: Mutator<T>> {
     None,
-    Temporary(FuzzedInput<M>),
-    Pool(PoolIndex<M>),
+    Temporary(FuzzedInput<T, M>),
+    Pool(PoolIndex<T, M>),
 }
 
-struct AnalysisCache<M: Mutator> {
-    existing_features: Vec<SlabKey<AnalyzedFeature<M>>>,
+struct AnalysisCache<T: Clone, M: Mutator<T>> {
+    existing_features: Vec<SlabKey<AnalyzedFeature<T, M>>>,
     new_features: Vec<Feature>,
 }
-impl<M: Mutator> Default for AnalysisCache<M> {
+impl<T: Clone, M: Mutator<T>> Default for AnalysisCache<T, M> {
     fn default() -> Self {
         Self {
             existing_features: Vec::new(),
@@ -42,9 +41,9 @@ impl<M: Mutator> Default for AnalysisCache<M> {
     }
 }
 
-pub(crate) struct AnalysisResult<M: Mutator> {
+pub(crate) struct AnalysisResult<T: Clone, M: Mutator<T>> {
     // will be left empty if the input is not interesting
-    pub existing_features: Vec<SlabKey<AnalyzedFeature<M>>>,
+    pub existing_features: Vec<SlabKey<AnalyzedFeature<T, M>>>,
     pub new_features: Vec<Feature>,
     // always contains the value of the lowest stack,
     // will need to check if it is lower than the other
@@ -52,19 +51,22 @@ pub(crate) struct AnalysisResult<M: Mutator> {
     pub lowest_stack: usize,
 }
 
-struct FuzzerState<M: Mutator, S: Serializer<Value = M::Value>> {
+struct FuzzerState<T: Clone, M: Mutator<T>, S: Serializer<Value = T>> {
     mutator: M,
-    pool: Pool<M>,
+    pool: Pool<T, M>,
     arbitrary_step: M::ArbitraryStep,
-    input_idx: FuzzerInputIndex<M>,
+    input_idx: FuzzerInputIndex<T, M>,
     stats: FuzzerStats,
     settings: FullCommandLineArguments,
     world: World<S>,
-    analysis_cache: AnalysisCache<M>,
+    analysis_cache: AnalysisCache<T, M>,
 }
 
-impl<M: Mutator, S: Serializer<Value = M::Value>> FuzzerState<M, S> {
-    fn get_input<'a>(fuzzer_input_idx: &'a FuzzerInputIndex<M>, pool: &'a Pool<M>) -> Option<&'a FuzzedInput<M>> {
+impl<T: Clone, M: Mutator<T>, S: Serializer<Value = T>> FuzzerState<T, M, S> {
+    fn get_input<'a>(
+        fuzzer_input_idx: &'a FuzzerInputIndex<T, M>,
+        pool: &'a Pool<T, M>,
+    ) -> Option<&'a FuzzedInput<T, M>> {
         match fuzzer_input_idx {
             FuzzerInputIndex::None => None,
             FuzzerInputIndex::Temporary(input) => Some(input),
@@ -73,7 +75,7 @@ impl<M: Mutator, S: Serializer<Value = M::Value>> FuzzerState<M, S> {
     }
 }
 
-impl<M: Mutator, S: Serializer<Value = M::Value>> FuzzerState<M, S>
+impl<T: Clone, M: Mutator<T>, S: Serializer<Value = T>> FuzzerState<T, M, S>
 where
     Self: 'static,
 {
@@ -127,7 +129,7 @@ where
         }
     }
 
-    fn arbitrary_input(&mut self) -> Option<FuzzedInput<M>> {
+    fn arbitrary_input(&mut self) -> Option<FuzzedInput<T, M>> {
         if let Some((v, cache)) = self
             .mutator
             .ordered_arbitrary(&mut self.arbitrary_step, self.settings.max_input_cplx)
@@ -145,27 +147,27 @@ where
     }
 }
 
-pub struct Fuzzer<T, F, M, S>
+pub struct Fuzzer<T, FT, F, M, S>
 where
-    T: ?Sized,
-    M::Value: Borrow<T>,
-    F: Fn(&T) -> bool,
-    M: Mutator,
-    S: Serializer<Value = M::Value>,
+    FT: ?Sized,
+    T: Clone + Borrow<FT>,
+    F: Fn(&FT) -> bool,
+    M: Mutator<T>,
+    S: Serializer<Value = T>,
     Self: 'static,
 {
-    state: FuzzerState<M, S>,
+    state: FuzzerState<T, M, S>,
     test: F,
-    phantom: std::marker::PhantomData<T>,
+    phantom: std::marker::PhantomData<(T, FT)>,
 }
 
-impl<T, F, M, S> Fuzzer<T, F, M, S>
+impl<T, FT, F, M, S> Fuzzer<T, FT, F, M, S>
 where
-    T: ?Sized,
-    M::Value: Borrow<T>,
-    F: Fn(&T) -> bool,
-    M: Mutator,
-    S: Serializer<Value = M::Value>,
+    FT: ?Sized,
+    T: Clone + Borrow<FT>,
+    F: Fn(&FT) -> bool,
+    M: Mutator<T>,
+    S: Serializer<Value = T>,
 {
     pub fn new(test: F, mutator: M, settings: FullCommandLineArguments, world: World<S>) -> Self {
         Fuzzer {
@@ -195,7 +197,7 @@ where
     fn test_input(
         test: &F,
         mutator: &M,
-        input: &FuzzedInput<M>,
+        input: &FuzzedInput<T, M>,
         timeout: usize,
         world: &mut World<S>,
         stats: FuzzerStats,
@@ -233,7 +235,7 @@ where
         Ok(())
     }
 
-    fn analyze(&mut self, cur_input_cplx: f64) -> Option<AnalysisResult<M>> {
+    fn analyze(&mut self, cur_input_cplx: f64) -> Option<AnalysisResult<T, M>> {
         let mut best_input_for_a_feature = false;
 
         let sensor = shared_sensor();
@@ -289,7 +291,7 @@ where
         self.state.world.handle_user_message();
 
         // we have verified in the caller function that there is an input
-        let input = FuzzerState::<M, S>::get_input(&self.state.input_idx, &self.state.pool).unwrap();
+        let input = FuzzerState::<T, M, S>::get_input(&self.state.input_idx, &self.state.pool).unwrap();
         let cplx = input.complexity(&self.state.mutator);
 
         Self::test_input(
@@ -304,7 +306,7 @@ where
 
         if let Some(result) = self.analyze(cplx) {
             // call state.get_input again to satisfy borrow checker
-            let input_cloned = FuzzerState::<M, S>::get_input(&self.state.input_idx, &self.state.pool)
+            let input_cloned = FuzzerState::<T, M, S>::get_input(&self.state.input_idx, &self.state.pool)
                 .unwrap()
                 .new_source(&self.state.mutator);
             let actions = self
@@ -367,7 +369,7 @@ where
     }
 
     fn process_initial_inputs(&mut self) -> Result<(), std::io::Error> {
-        let mut inputs: Vec<FuzzedInput<M>> = self
+        let mut inputs: Vec<FuzzedInput<T, M>> = self
             .state
             .world
             .read_input_corpus()
@@ -460,7 +462,7 @@ where
         let value = self.state.world.read_input_file()?;
         let cache = self.state.mutator.cache_from_value(&value);
         let mutation_step = self.state.mutator.initial_step_from_value(&value);
-        let input = FuzzedInput::<M>::new(value, cache, mutation_step);
+        let input = FuzzedInput::<T, M>::new(value, cache, mutation_step);
         let input_cplx = input.complexity(&self.state.mutator);
         self.state.settings.max_input_cplx = input_cplx - 0.01;
 
@@ -488,19 +490,19 @@ pub enum TerminationStatus {
     Unknown = 3,
 }
 
-pub fn launch<T, F, M, S>(
+pub fn launch<T, FT, F, M, S>(
     test: F,
     mutator: M,
     serializer: S,
     args: FullCommandLineArguments,
 ) -> Result<(), std::io::Error>
 where
-    T: ?Sized,
-    M::Value: Borrow<T>,
-    F: Fn(&T) -> bool,
-    M: Mutator,
-    S: Serializer<Value = M::Value>,
-    Fuzzer<T, F, M, S>: 'static,
+    FT: ?Sized,
+    T: Clone + Borrow<FT>,
+    F: Fn(&FT) -> bool,
+    M: Mutator<T>,
+    S: Serializer<Value = T>,
+    Fuzzer<T, FT, F, M, S>: 'static,
 {
     let command = args.command;
 
@@ -515,8 +517,8 @@ where
             let mutation_step = fuzzer.state.mutator.initial_step_from_value(&value);
 
             fuzzer.state.input_idx = FuzzerInputIndex::Temporary(FuzzedInput::new(value, cache, mutation_step));
-            let input = FuzzerState::<M, S>::get_input(&fuzzer.state.input_idx, &fuzzer.state.pool).unwrap();
-            Fuzzer::<T, F, M, S>::test_input(
+            let input = FuzzerState::<T, M, S>::get_input(&fuzzer.state.input_idx, &fuzzer.state.pool).unwrap();
+            Fuzzer::<T, FT, F, M, S>::test_input(
                 &fuzzer.test,
                 &fuzzer.state.mutator,
                 &input,

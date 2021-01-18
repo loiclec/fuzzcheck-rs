@@ -57,14 +57,14 @@ running
 * return an error if some necessary IO operation could not be performed. You
 do not need to catch or handle the error.
 */
-pub fn launch<T, F, M, S>(test: F, mutator: M, serializer: S) -> Result<(), std::io::Error>
+pub fn launch<T, FT, F, M, S>(test: F, mutator: M, serializer: S) -> Result<(), std::io::Error>
 where
-    T: ?Sized,
-    M::Value: Borrow<T>,
-    F: Fn(&T) -> bool,
-    M: Mutator,
-    S: Serializer<Value = M::Value>,
-    fuzzer::Fuzzer<T, F, M, S>: 'static,
+    FT: ?Sized,
+    T: Clone + Borrow<FT>,
+    F: Fn(&FT) -> bool,
+    M: Mutator<T>,
+    S: Serializer<Value = T>,
+    fuzzer::Fuzzer<T, FT, F, M, S>: 'static,
 {
     let env_args: Vec<_> = std::env::args().collect();
     let parser = options_parser();
@@ -235,14 +235,14 @@ impl Feature {
  * A struct that stores the value, cache, and mutation step of an input.
  * It is used for convenience.
  */
-struct FuzzedInput<Mut: Mutator> {
-    pub value: Mut::Value,
+struct FuzzedInput<T: Clone, Mut: Mutator<T>> {
+    pub value: T,
     pub cache: Mut::Cache,
     pub mutation_step: Mut::MutationStep,
 }
 
-impl<Mut: Mutator> FuzzedInput<Mut> {
-    pub fn new(value: Mut::Value, cache: Mut::Cache, mutation_step: Mut::MutationStep) -> Self {
+impl<T: Clone, Mut: Mutator<T>> FuzzedInput<T, Mut> {
+    pub fn new(value: T, cache: Mut::Cache, mutation_step: Mut::MutationStep) -> Self {
         Self {
             value,
             cache,
@@ -279,7 +279,7 @@ impl<Mut: Mutator> FuzzedInput<Mut> {
     }
 }
 
-impl<M: Mutator> Clone for FuzzedInput<M> {
+impl<T: Clone, M: Mutator<T>> Clone for FuzzedInput<T, M> {
     fn clone(&self) -> Self {
         Self {
             value: self.value.clone(),
