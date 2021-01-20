@@ -1,17 +1,25 @@
-use crate::fuzzcheck_traits::StructureConversion;
 use crate::DefaultMutator;
 use fastrand::Rng;
-use fuzzcheck_traits::{Mutator, SelfStructure};
+use fuzzcheck_traits::Mutator;
 
 use std::ops::Range;
 use std::{iter::repeat, marker::PhantomData};
 
-pub struct VecMutator<T: Clone + 'static, M: Mutator<T>> {
+pub struct VecMutator<T: Clone, M: Mutator<T>> {
     pub rng: Rng,
     pub m: M,
     _phantom: PhantomData<T>,
 }
-impl<T: Clone + 'static, M: Mutator<T>> Default for VecMutator<T, M>
+impl<T: Clone, M: Mutator<T>> VecMutator<T, M> {
+    pub fn new(mutator: M) -> Self {
+        Self {
+            rng: Rng::default(),
+            m: mutator,
+            _phantom: <_>::default(),
+        }
+    }
+}
+impl<T: Clone, M: Mutator<T>> Default for VecMutator<T, M>
 where
     M: Default,
 {
@@ -23,7 +31,7 @@ where
         }
     }
 }
-impl<T: Clone + 'static> DefaultMutator for Vec<T>
+impl<T: Clone> DefaultMutator for Vec<T>
 where
     T: DefaultMutator,
 {
@@ -106,7 +114,7 @@ impl<C> Default for VecMutatorCache<C> {
     }
 }
 
-pub enum UnmutateVecToken<T: Clone + 'static, M: Mutator<T>> {
+pub enum UnmutateVecToken<T: Clone, M: Mutator<T>> {
     Element(usize, M::UnmutateToken, f64),
     Remove(usize, f64),
     RemoveMany(Range<usize>, f64),
@@ -116,7 +124,7 @@ pub enum UnmutateVecToken<T: Clone + 'static, M: Mutator<T>> {
     Nothing,
 }
 
-impl<T: Clone + 'static, M: Mutator<T>> VecMutator<T, M> {
+impl<T: Clone, M: Mutator<T>> VecMutator<T, M> {
     fn mutate_element(
         &mut self,
         value: &mut Vec<T>,
@@ -129,15 +137,10 @@ impl<T: Clone + 'static, M: Mutator<T>> VecMutator<T, M> {
         let el_cache = &mut cache.inner[idx];
         let el_step = &mut step.inner[idx];
 
-        let old_cplx = self.m.complexity(M::ValueConversion::get_ref(&el), el_cache);
+        let old_cplx = self.m.complexity(&el, el_cache);
 
-        if let Some(token) = self.m.ordered_mutate(
-            M::ValueConversion::get_mut(el),
-            el_cache,
-            el_step,
-            spare_cplx + old_cplx,
-        ) {
-            let new_cplx = self.m.complexity(M::ValueConversion::get_ref(&el), el_cache);
+        if let Some(token) = self.m.ordered_mutate(el, el_cache, el_step, spare_cplx + old_cplx) {
+            let new_cplx = self.m.complexity(&el, el_cache);
             cache.sum_cplx += new_cplx - old_cplx;
             Some(UnmutateVecToken::Element(idx, token, old_cplx - new_cplx))
         } else {
@@ -158,7 +161,7 @@ impl<T: Clone + 'static, M: Mutator<T>> VecMutator<T, M> {
         };
 
         let (el, el_cache) = self.m.random_arbitrary(spare_cplx);
-        let el_cplx = self.m.complexity(M::ValueConversion::get_ref(&el), &el_cache);
+        let el_cplx = self.m.complexity(&el, &el_cache);
 
         value.insert(idx, el);
         cache.inner.insert(idx, el_cache);
@@ -182,7 +185,7 @@ impl<T: Clone + 'static, M: Mutator<T>> VecMutator<T, M> {
         let idx = self.rng.usize(0..value.len());
 
         let el = &value[idx];
-        let el_cplx = self.m.complexity(M::ValueConversion::get_ref(&el), &cache.inner[idx]);
+        let el_cplx = self.m.complexity(&el, &cache.inner[idx]);
 
         let removed_el = value.remove(idx);
         let removed_el_cache = cache.inner.remove(idx);
@@ -213,9 +216,7 @@ impl<T: Clone + 'static, M: Mutator<T>> VecMutator<T, M> {
         let removed_els_cplx = removed_elements
             .iter()
             .zip(removed_cache.iter())
-            .fold(0.0, |cplx, (v, c)| {
-                self.m.complexity(M::ValueConversion::get_ref(&v), &c) + cplx
-            });
+            .fold(0.0, |cplx, (v, c)| self.m.complexity(&v, &c) + cplx);
 
         let removed_cache = VecMutatorCache {
             inner: removed_cache,
@@ -261,7 +262,7 @@ impl<T: Clone + 'static, M: Mutator<T>> VecMutator<T, M> {
         // println!("len: {:.2}", len);
         // println!("max_cplx: {:.2}", target_cplx / (len as f64));
         let (el, el_cache) = self.m.random_arbitrary(target_cplx / (len as f64));
-        let el_cplx = self.m.complexity(M::ValueConversion::get_ref(&el), &el_cache);
+        let el_cplx = self.m.complexity(&el, &el_cache);
 
         insert_many(value, idx, repeat(el).take(len));
         insert_many(&mut cache.inner, idx, repeat(el_cache).take(len));
@@ -340,7 +341,7 @@ impl<T: Clone + 'static, M: Mutator<T>> VecMutator<T, M> {
             }
             let cplx_element = crate::gen_f64(&self.rng, min_cplx_el..max_cplx_element);
             let (x, x_cache) = self.m.random_arbitrary(cplx_element);
-            let x_cplx = self.m.complexity(M::ValueConversion::get_ref(&x), &x_cache);
+            let x_cplx = self.m.complexity(&x, &x_cache);
             v.push(x);
             cache.inner.push(x_cache);
             cache.sum_cplx += x_cplx;
@@ -350,32 +351,25 @@ impl<T: Clone + 'static, M: Mutator<T>> VecMutator<T, M> {
     }
 }
 
-impl<T: Clone + 'static, M: Mutator<T>> Mutator<Vec<T>> for VecMutator<T, M> {
+impl<T: Clone, M: Mutator<T>> Mutator<Vec<T>> for VecMutator<T, M> {
     type Cache = VecMutatorCache<M::Cache>;
     type MutationStep = MutationStep<M::MutationStep>;
     type ArbitraryStep = bool; // false: check empty vector, true: random
     type UnmutateToken = UnmutateVecToken<T, M>;
 
-    type ValueConversion = SelfStructure<Vec<T>>;
-
     fn cache_from_value(&self, value: &Vec<T>) -> Self::Cache {
-        let inner: Vec<_> = value
-            .iter()
-            .map(|x| self.m.cache_from_value(M::ValueConversion::get_ref(&x)))
-            .collect();
+        let inner: Vec<_> = value.iter().map(|x| self.m.cache_from_value(&x)).collect();
 
-        let sum_cplx = value.iter().zip(inner.iter()).fold(0.0, |cplx, (v, cache)| {
-            cplx + self.m.complexity(M::ValueConversion::get_ref(&v), cache)
-        });
+        let sum_cplx = value
+            .iter()
+            .zip(inner.iter())
+            .fold(0.0, |cplx, (v, cache)| cplx + self.m.complexity(&v, cache));
 
         VecMutatorCache { inner, sum_cplx }
     }
 
     fn initial_step_from_value(&self, value: &Vec<T>) -> Self::MutationStep {
-        let inner: Vec<_> = value
-            .iter()
-            .map(|x| self.m.initial_step_from_value(M::ValueConversion::get_ref(&x)))
-            .collect();
+        let inner: Vec<_> = value.iter().map(|x| self.m.initial_step_from_value(&x)).collect();
         MutationStep {
             inner,
             ..MutationStep::new(MutationCategory::Vector)
@@ -490,12 +484,10 @@ impl<T: Clone + 'static, M: Mutator<T>> Mutator<Vec<T>> for VecMutator<T, M> {
             let el = &mut value[idx];
             let el_cache = &mut cache.inner[idx];
 
-            let old_el_cplx = self.m.complexity(M::ValueConversion::get_ref(&el), el_cache);
-            let token = self
-                .m
-                .random_mutate(M::ValueConversion::get_mut(el), el_cache, spare_cplx + old_el_cplx);
+            let old_el_cplx = self.m.complexity(&el, el_cache);
+            let token = self.m.random_mutate(el, el_cache, spare_cplx + old_el_cplx);
 
-            let new_el_cplx = self.m.complexity(M::ValueConversion::get_ref(&el), el_cache);
+            let new_el_cplx = self.m.complexity(&el, el_cache);
             cache.sum_cplx += new_el_cplx - old_el_cplx;
             UnmutateVecToken::Element(idx, token, old_el_cplx - new_el_cplx)
         }
@@ -506,11 +498,11 @@ impl<T: Clone + 'static, M: Mutator<T>> Mutator<Vec<T>> for VecMutator<T, M> {
             UnmutateVecToken::Element(idx, inner_t, diff_cplx) => {
                 let el = &mut value[idx];
                 let el_cache = &mut cache.inner[idx];
-                self.m.unmutate(M::ValueConversion::get_mut(el), el_cache, inner_t);
+                self.m.unmutate(el, el_cache, inner_t);
                 cache.sum_cplx += diff_cplx;
             }
             UnmutateVecToken::Insert(idx, el, el_cache) => {
-                cache.sum_cplx += self.m.complexity(M::ValueConversion::get_ref(&el), &el_cache);
+                cache.sum_cplx += self.m.complexity(&el, &el_cache);
 
                 value.insert(idx, el);
                 cache.inner.insert(idx, el_cache);

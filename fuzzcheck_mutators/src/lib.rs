@@ -13,15 +13,22 @@ mod integer;
 // mod enums;
 mod tuples;
 mod unit;
-// mod vector;
+mod vector;
 
 pub use crate::bool::BoolMutator;
 pub use crate::dictionary::DictionaryMutator;
 pub use crate::integer::*;
 // pub use crate::option::OptionMutator;
+pub use crate::tuples::{
+    Tuple10Mutator, Tuple2Mutator, Tuple3Mutator, Tuple4Mutator, Tuple5Mutator, Tuple6Mutator, Tuple7Mutator,
+    Tuple8Mutator, Tuple9Mutator,
+};
+pub use crate::tuples::{
+    Tuple10Structure, Tuple2Structure, Tuple3Structure, Tuple4Structure, Tuple5Structure, Tuple6Structure,
+    Tuple7Structure, Tuple8Structure, Tuple9Structure,
+};
 pub use crate::unit::*;
-// pub use crate::vector::VecMutator;
-// pub use crate::tuples::Tuple2Mutator;
+pub use crate::vector::VecMutator;
 
 use fuzzcheck_traits::Mutator;
 use std::ops::Range;
