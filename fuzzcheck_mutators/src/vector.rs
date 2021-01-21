@@ -37,7 +37,7 @@ where
 {
     type Mutator = VecMutator<T, <T as DefaultMutator>::Mutator>;
     fn default_mutator() -> Self::Mutator {
-        Self::Mutator::default()
+        Self::Mutator::new(T::default_mutator())
     }
 }
 
