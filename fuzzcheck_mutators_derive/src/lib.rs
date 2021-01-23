@@ -33,25 +33,25 @@ pub fn make_tuple_type_structure(item: proc_macro::TokenStream) -> proc_macro::T
     let mut parser = TokenParser::new(item.into());
     if let Some(l) = parser.eat_literal() {
         if let Ok(nbr_elements) = l.to_string().parse::<usize>() {
-            tuples::make_tuple_type_structure(&mut tb, nbr_elements);
+            tuples::make_tuple_type_structure(&mut tb, nbr_elements, ts!("crate"));
             return tb.end().into();
         }
     }
     panic!()
 }
 
-#[proc_macro_derive(WrappedStructure)]
-pub fn derive_wrapped_structure(item: proc_macro::TokenStream) -> proc_macro::TokenStream {
-    let input = proc_macro2::TokenStream::from(item);
-    let mut tb = TokenBuilder::new();
-    let mut parser = TokenParser::new(input);
+// #[proc_macro_derive(WrappedStructure)]
+// pub fn derive_wrapped_structure(item: proc_macro::TokenStream) -> proc_macro::TokenStream {
+//     let input = proc_macro2::TokenStream::from(item);
+//     let mut tb = TokenBuilder::new();
+//     let mut parser = TokenParser::new(input);
 
-    if let Some(s) = parser.eat_struct() {
-        tuples::impl_wrapped_structure_trait(&mut tb, s, ts!("fuzzcheck_mutators"));
-        return tb.end().into();
-    }
-    panic!()
-}
+//     if let Some(s) = parser.eat_struct() {
+//         tuples::impl_wrapped_structure_trait(&mut tb, &s, ts!("fuzzcheck_mutators"));
+//         return tb.end().into();
+//     }
+//     panic!()
+// }
 
 #[proc_macro_derive(TupleNStructure)]
 pub fn derive_tuple_n_structure(item: proc_macro::TokenStream) -> proc_macro::TokenStream {
@@ -60,22 +60,21 @@ pub fn derive_tuple_n_structure(item: proc_macro::TokenStream) -> proc_macro::To
     let mut parser = TokenParser::new(input);
 
     if let Some(s) = parser.eat_struct() {
-        tuples::impl_tuple_structure_trait(&mut tb, s, ts!("fuzzcheck_mutators"));
+        tuples::impl_tuple_structure_trait(&mut tb, &s, ts!("fuzzcheck_mutators"));
         return tb.end().into();
     }
     panic!()
 }
+#[proc_macro_derive(DefaultMutator)]
+pub fn derive_default_mutator(item: proc_macro::TokenStream) -> proc_macro::TokenStream {
+    let input = proc_macro2::TokenStream::from(item);
+    let mut tb = TokenBuilder::new();
+    let mut parser = TokenParser::new(input);
 
-// #[proc_macro_derive(DefaultMutator)]
-// pub fn derive_default_mutator(item: proc_macro::TokenStream) -> proc_macro::TokenStream {
-//     let input = proc_macro2::TokenStream::from(item);
-//     let mut tb = TokenBuilder::new();
-//     let mut parser = TokenParser::new(input);
-
-//     if let Some(s) = parser.eat_struct() {
-//         tuples::impl_tuple_structure_trait(&mut tb, s, ts!("fuzzcheck_mutators"));
-
-//         return tb.end().into();
-//     }
-//     panic!()
-// }
+    if let Some(s) = parser.eat_struct() {
+        tuples::impl_tuple_structure_trait(&mut tb, &s, ts!("fuzzcheck_mutators"));
+        tuples::impl_default_mutator_for_struct(&mut tb, &s, ts!("fuzzcheck_mutators"));
+        return tb.end().into();
+    }
+    panic!()
+}

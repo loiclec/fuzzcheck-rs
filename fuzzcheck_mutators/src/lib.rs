@@ -1,4 +1,4 @@
-#![feature(never_type)]
+#![feature(generic_associated_types)]
 
 pub extern crate fastrand;
 pub extern crate fuzzcheck_mutators_derive;
@@ -10,31 +10,33 @@ mod bool;
 mod dictionary;
 mod integer;
 // // mod option;
-// mod enums;
+mod enums;
 mod tuples;
 mod unit;
 mod vector;
+mod wrapped;
 
 pub use crate::bool::BoolMutator;
 pub use crate::dictionary::DictionaryMutator;
 pub use crate::integer::*;
+
+pub use crate::tuples::{RefTypes, TupleMutator, TupleMutatorWrapper, TupleStructure};
+
 // pub use crate::option::OptionMutator;
+pub use crate::tuples::{Tuple10, Tuple2, Tuple3, Tuple4, Tuple5, Tuple6, Tuple7, Tuple8, Tuple9};
 pub use crate::tuples::{
     Tuple10Mutator, Tuple2Mutator, Tuple3Mutator, Tuple4Mutator, Tuple5Mutator, Tuple6Mutator, Tuple7Mutator,
     Tuple8Mutator, Tuple9Mutator,
 };
-pub use crate::tuples::{
-    Tuple10Structure, Tuple2Structure, Tuple3Structure, Tuple4Structure, Tuple5Structure, Tuple6Structure,
-    Tuple7Structure, Tuple8Structure, Tuple9Structure,
-};
 pub use crate::unit::*;
 pub use crate::vector::VecMutator;
+// pub use crate::wrapped::{WrappedMutator, WrappedStructure};
 
 use fuzzcheck_traits::Mutator;
 use std::ops::Range;
 
 pub trait DefaultMutator: Clone {
-    type Mutator: Mutator<Self> + Default;
+    type Mutator: Mutator<Self>;
     fn default_mutator() -> Self::Mutator;
 }
 
