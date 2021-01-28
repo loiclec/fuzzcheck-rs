@@ -178,15 +178,9 @@ extern crate decent_serde_json_alternative;
 pub extern crate fuzzcheck_serializer;
 
 use decent_serde_json_alternative::{{FromJson, ToJson}};
+use fuzzcheck_mutators::DefaultMutator;
 
-use fuzzcheck_mutators::fuzzcheck_derive_mutator;
-
-// use #[fuzzcheck_derive_mutator] to create a mutator called SampleEnumMutator
-// and use #[fuzzcheck_derive_mutator(DefaultMutator)] to make that mutator the
-// default mutator of SampleEnum
-
-#[fuzzcheck_derive_mutator(DefaultMutator)]
-#[derive(Clone, FromJson, ToJson)]
+#[derive(Clone, FromJson, ToJson, DefaultMutator)]
 pub enum SampleEnum<T> {{
     A(u8),
     B {{ x: bool , y: Option<T> }},
@@ -194,8 +188,7 @@ pub enum SampleEnum<T> {{
     D
 }}
 
-#[fuzzcheck_derive_mutator(DefaultMutator)]
-#[derive(Clone, FromJson, ToJson)]
+#[derive(Clone, FromJson, ToJson, DefaultMutator)]
 pub struct SampleStruct<A, B, C> {{
     a: A,
     b: Vec<B>,
@@ -336,8 +329,7 @@ features = ["serde-json-alternative"]
 version = "0.12"
 
 [dependencies.decent-serde-json-alternative]
-version = "0.2"
-features = ["derive"]
+version = "0.3.0"
 
 # Prevent this from interfering with workspaces
 [workspace]

@@ -1,6 +1,7 @@
 use std::{cmp::Ordering, collections::HashMap, iter};
 
-use fuzzcheck_common::ipc::{FuzzerEvent, TuiMessage, TuiMessageEvent};
+use fuzzcheck_common::{FuzzerEvent};
+use fuzzcheck_common::ipc::{TuiMessage, TuiMessageEvent};
 use termion::event::Key;
 
 use super::{

@@ -28,9 +28,6 @@ fn _main() -> Result<(), CargoFuzzcheckError> {
     let mut help = format!(
         r#"
 USAGE:
-    fuzzcheck {ui}
-    => Launch the terminal user interface (recommended)
-
     fuzzcheck {init} <optional path to fuzzcheck-rs git repo>
     => Initialize the fuzz folder
 
@@ -49,7 +46,6 @@ SUBCOMMANDS:
     {tmin}    Minify a crashing test input, requires --{input_file}
     {cmin}    Minify a corpus of test inputs, requires --{in_corpus}
 "#,
-        ui = COMMAND_UI,
         init = COMMAND_INIT,
         clean = COMMAND_CLEAN,
         run = COMMAND_RUN,
@@ -119,6 +115,7 @@ cargo-fuzzcheck {run} target1 {cmin} --{in_corpus} "fuzz-corpus" --{corpus_size}
     let root_path = &std::env::current_dir()?;
 
     match env_args[start_idx].as_str() {
+        #[cfg(feature="ui")]
         COMMAND_UI => {
             //let project = project::Root::from_path(root_path);
             let _ = ui::launch_app(root_path.clone());
