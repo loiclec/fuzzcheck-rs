@@ -1,22 +1,3 @@
-/*
-    let mut value = S { x: 0, y: 0 };
-    let reference = value.get_ref(); // (&value.x, &value.y)
-    let refmut = reference.to_mut(); // (&mut value.x, &mut value.y);
-
-    fn mutate(refmut: (&mut usize, &mut usize)) {
-
-    }
-
-    let mut value = S::A(0);
-    let reference = value.get_ref(); // SRef::A(& value.A )
-    let ref_mut = reference.to_mut(); // SMut::A(&mut value.A )
-
-    fn replace(refmut: SMut, value: S) {
-
-    }
-
-*/
-
 /**
  A [Mutator] is an object capable of mutating a value for the purpose of
  fuzz-testing.
