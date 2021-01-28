@@ -1,19 +1,23 @@
-use fuzzcheck_mutators::fuzzcheck_derive_mutator;
+use fuzzcheck_mutators::DefaultMutator;
 
-#[fuzzcheck_derive_mutator(DefaultMutator)]
+#[derive(DefaultMutator)]
 #[derive(Clone)]
 pub enum X {
     A
 }
 
-#[fuzzcheck_derive_mutator(DefaultMutator)]
+#[derive(DefaultMutator)]
 #[derive(Clone)]
 pub enum Y {
     A( )
 }
 
-#[fuzzcheck_derive_mutator(DefaultMutator)]
+#[derive(DefaultMutator)]
 #[derive(Clone)]
 pub enum Z {
     A { }
+}
+
+fn _x() {
+
 }

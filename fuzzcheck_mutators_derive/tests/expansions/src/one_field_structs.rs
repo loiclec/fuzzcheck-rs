@@ -1,11 +1,12 @@
-use fuzzcheck_mutators::fuzzcheck_derive_mutator;
+use fuzzcheck_mutators::DefaultMutator;
 
-#[fuzzcheck_derive_mutator(DefaultMutator)]
-#[derive(Clone)]
+#[derive(Clone, DefaultMutator)]
 pub struct X(bool);
 
-#[fuzzcheck_derive_mutator(DefaultMutator)]
-#[derive(Clone)]
+#[derive(Clone, DefaultMutator)]
 pub struct Y { _x: bool }
 
-
+fn _x() {
+    let _m = X::default_mutator();
+    let _m = Y::default_mutator();
+}

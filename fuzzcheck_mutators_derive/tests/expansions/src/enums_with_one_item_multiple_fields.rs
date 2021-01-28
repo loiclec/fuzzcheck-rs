@@ -1,13 +1,11 @@
-use fuzzcheck_mutators::fuzzcheck_derive_mutator;
+use fuzzcheck_mutators::DefaultMutator;
 
-#[fuzzcheck_derive_mutator(DefaultMutator)]
-#[derive(Clone)]
+#[derive(Clone, DefaultMutator)]
 pub enum X {
     A(u8, bool),
 }
 
-#[fuzzcheck_derive_mutator(DefaultMutator)]
-#[derive(Clone)]
+#[derive(Clone, DefaultMutator)]
 pub enum Y {
     Y { y: Option<u8>, z: () },
 }

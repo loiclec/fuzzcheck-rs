@@ -1,9 +1,15 @@
-use fuzzcheck_mutators::fuzzcheck_derive_mutator;
+use fuzzcheck_mutators::DefaultMutator;
 
-#[fuzzcheck_derive_mutator(DefaultMutator)]
-#[derive(Clone)]
-pub struct X(bool, u8);
+#[derive(Clone, DefaultMutator)]
+pub struct X<T, U: Default + Clone = Vec<T>>(bool, u8, T, U, u8, u8, u8, u8, u8, u8);
 
-#[fuzzcheck_derive_mutator(DefaultMutator)]
-#[derive(Clone)]
-pub struct Y { _x: bool, _y: Vec<u8> }
+#[derive(Clone, DefaultMutator)]
+pub struct Y {
+    _x: bool,
+    _y: Vec<X<u8>>,
+}
+
+fn _x() {
+    let _x = X::<u8, Vec<u64>>::default_mutator();
+    let _y = Y::default_mutator();
+}

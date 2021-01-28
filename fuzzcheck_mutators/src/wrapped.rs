@@ -34,6 +34,19 @@ where
         }
     }
 }
+impl<T: Clone, M> Default for WrappedMutator<T, M>
+where
+    M: Mutator<T> + Default,
+{
+    fn default() -> Self {
+        Self {
+            mutator: <_>::default(),
+            _phantom: PhantomData,
+        }
+    }
+}
+
+
 
 impl<T: 'static + Clone, U: Clone, M> Mutator<U> for WrappedMutator<T, M>
 where

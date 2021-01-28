@@ -1,4 +1,7 @@
 #![feature(generic_associated_types)]
+#![feature(variant_count)]
+#![feature(cmp_min_max_by)]
+#![feature(never_type)]
 
 pub extern crate fastrand;
 pub extern crate fuzzcheck_mutators_derive;
@@ -9,12 +12,13 @@ mod bool;
 // mod chain;
 mod dictionary;
 mod integer;
-// // mod option;
+mod option;
 mod enums;
 mod tuples;
 mod unit;
 mod vector;
 mod wrapped;
+
 
 pub use crate::bool::BoolMutator;
 pub use crate::dictionary::DictionaryMutator;
@@ -23,14 +27,19 @@ pub use crate::integer::*;
 pub use crate::tuples::{RefTypes, TupleMutator, TupleMutatorWrapper, TupleStructure};
 
 // pub use crate::option::OptionMutator;
-pub use crate::tuples::{Tuple10, Tuple2, Tuple3, Tuple4, Tuple5, Tuple6, Tuple7, Tuple8, Tuple9};
-pub use crate::tuples::{
+pub use crate::tuples::{Tuple1, Tuple10, Tuple2, Tuple3, Tuple4, Tuple5, Tuple6, Tuple7, Tuple8, Tuple9};
+pub use crate::tuples::{ Tuple1Mutator,
     Tuple10Mutator, Tuple2Mutator, Tuple3Mutator, Tuple4Mutator, Tuple5Mutator, Tuple6Mutator, Tuple7Mutator,
     Tuple8Mutator, Tuple9Mutator,
 };
+pub use crate::enums::{BasicEnumStructure, BasicEnumMutator};
+pub use crate::enums::{Either2, Either3, Either4, Either5, Either6, Either7, Either8, Either9, Either10, Either11};
+pub use crate::enums::{Enum1PayloadStructure, Enum2PayloadStructure, Enum3PayloadStructure, Enum4PayloadStructure, Enum5PayloadStructure, Enum6PayloadStructure, Enum7PayloadStructure, Enum8PayloadStructure, Enum9PayloadStructure, Enum10PayloadStructure};
+pub use crate::enums::{Enum1PayloadMutator, Enum2PayloadMutator, Enum3PayloadMutator, Enum4PayloadMutator, Enum5PayloadMutator, Enum6PayloadMutator, Enum7PayloadMutator, Enum8PayloadMutator, Enum9PayloadMutator, Enum10PayloadMutator};
+
 pub use crate::unit::*;
 pub use crate::vector::VecMutator;
-// pub use crate::wrapped::{WrappedMutator, WrappedStructure};
+pub use crate::wrapped::{WrappedMutator, WrappedTuple1};
 
 use fuzzcheck_traits::Mutator;
 use std::ops::Range;

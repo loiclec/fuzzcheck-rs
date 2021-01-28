@@ -1,44 +1,36 @@
-use crate::{self as fuzzcheck_mutators, DefaultMutator};
-use fuzzcheck_mutators_derive::fuzzcheck_make_mutator;
-use fuzzcheck_traits::Mutator;
 
-#[fuzzcheck_make_mutator(name=OptionMutator)]
-pub enum Option<T> {
-    Some(T),
-    None,
-}
+use crate::{DefaultMutator, Tuple1, Tuple1Mutator, Enum1PayloadMutator, Enum1PayloadStructure, Either2};
 
-impl<T: Clone, M: Mutator<Value = T>> OptionMutator<T, M> {
-    pub fn new(inner_mutator: M) -> Self {
-        Self {
-            Some_0: inner_mutator,
-            rng: <_>::default(),
+impl<T> Enum1PayloadStructure for Option<T> where T: 'static {
+    type T0 = T;
+    type TupleKind0 = Tuple1<T>;
+
+    fn get_ref<'a>(&'a self) -> Either2<&'a T, usize> {
+        match self {
+            Some(x) => { Either2::T0(x) }
+            None => { Either2::T1(0) }
+        }
+    }
+    fn get_mut<'a>(&'a mut self) -> Either2<&'a mut T, usize> {
+        match self {
+            Some(x) => { Either2::T0(x) }
+            None => { Either2::T1(0) }
+        }
+    }
+    fn new(t: Either2<Self::T0, usize>) -> Self {
+        match t {
+            Either2::T0(x) => Some(x),
+            Either2::T1(_) => None
         }
     }
 }
 
-impl<T: Clone, M: Mutator<Value = T>> Default for OptionMutator<T, M>
-where
-    M: Default,
-{
-    fn default() -> Self {
-        Self {
-            Some_0: M::default(),
-            rng: <_>::default(),
-        }
-    }
-}
-
-impl<T> DefaultMutator for Option<T>
-where
-    T: DefaultMutator,
-{
-    type Mutator = OptionMutator<T, T::Mutator>;
+impl<T> DefaultMutator for Option<T> where T: DefaultMutator + 'static {
+    type Mutator = Enum1PayloadMutator<T, Tuple1Mutator<T, <T as DefaultMutator>::Mutator>, crate::Tuple1<T>>;
 
     fn default_mutator() -> Self::Mutator {
-        Self::Mutator {
-            Some_0: T::default_mutator(),
-            rng: <_>::default(),
-        }
+        Self::Mutator::new(
+            Tuple1Mutator::new(T::default_mutator())
+        )
     }
 }
