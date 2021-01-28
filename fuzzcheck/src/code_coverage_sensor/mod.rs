@@ -3,6 +3,7 @@
 mod hooks;
 
 use crate::Feature;
+use std::convert::TryFrom;
 
 #[cfg(trace_compares)]
 use crate::InstrFeatureWithoutTag;
@@ -10,7 +11,6 @@ use crate::InstrFeatureWithoutTag;
 #[cfg(trace_compares)]
 use crate::data_structures::HBitSet;
 
-use packed_simd::u8x16;
 use std::mem::MaybeUninit;
 
 #[cfg(trace_compares)]
@@ -96,21 +96,22 @@ impl CodeCoverageSensor {
     where
         F: FnMut(Feature) -> (),
     {
-        let zero = u8x16::default();
+        
         const CHUNK_SIZE: usize = 16;
+        let zero: [u8; CHUNK_SIZE] = [0; CHUNK_SIZE];
         let length_chunks = self.eight_bit_counters.len() / CHUNK_SIZE;
 
         for i in 0..length_chunks {
             let start = i * CHUNK_SIZE;
             let end = start + CHUNK_SIZE;
 
-            let slice =
-                unsafe { u8x16::from_slice_aligned_unchecked(&self.eight_bit_counters.get_unchecked(start..end)) };
-            if slice == zero {
+            let slice = unsafe { <&[u8; CHUNK_SIZE]>::try_from(self.eight_bit_counters.get_unchecked(start..end)).unwrap() };
+
+            if slice == &zero {
                 continue;
             } else {
                 for j in 0..16 {
-                    let x = unsafe { slice.extract_unchecked(j) };
+                    let x = unsafe { *slice.get_unchecked(j) };
                     if x == 0 {
                         continue;
                     }
