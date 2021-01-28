@@ -19,14 +19,11 @@ json = "0.12"
 libc = "0.2"
 
 [dependencies.decent-toml-rs-alternative]
-path = "../../decent-toml-rs-alternative"
-version = "0.1"
+version = "0.2.0"
 features = ["derive"]
 
 [dependencies.decent-serde-json-alternative]
-path = "../../decent-serde-json-alternative"
-version = "0.2"
-features = ["derive"]
+version = "0.3.0"
 
 [dependencies.fuzzcheck_common]
 path = "../fuzzcheck_common"

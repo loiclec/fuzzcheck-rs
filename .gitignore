@@ -3,3 +3,4 @@
 /fuzz-corpus
 /artifacts
 /usage_tests/*/
+Cargo.lock

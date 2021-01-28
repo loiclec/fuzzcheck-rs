@@ -1,6 +1,6 @@
 #![allow(non_snake_case)]
 use decent_synquote_alternative::{self as synquote, parser::EnumItemData};
-use enums::impl_default_mutator_for_basic_enum;
+
 use synquote::token_builder::*;
 use synquote::{parser::TokenParser, token_builder::TokenBuilder};
 

@@ -1,4 +1,3 @@
-use std::unreachable;
 
 use decent_synquote_alternative as synquote;
 use proc_macro2::{Ident, Span, TokenStream};

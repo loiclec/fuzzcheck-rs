@@ -22,9 +22,7 @@ version = "0.13"
 version = "0.12"
 
 [dependencies.decent-serde-json-alternative]
-path = "../../decent-serde-json-alternative"
-version = "0.2"
-features = ["derive"]
+version = "0.3.0"
 
 [dependencies.getopts]
 version = "0.2"

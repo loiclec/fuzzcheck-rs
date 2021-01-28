@@ -3,8 +3,6 @@ use std::cmp::Ordering;
 
 use fuzzcheck_traits::Mutator;
 
-use crate::DefaultMutator;
-
 pub trait BasicEnumStructure {
     fn from_item_index(item_index: usize) -> Self;
     fn get_item_index(&self) -> usize;

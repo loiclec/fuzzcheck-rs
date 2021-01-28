@@ -13,9 +13,7 @@ getopts = "0.2"
 version = "0.12"
 
 [dependencies.decent-serde-json-alternative]
-path = "../../decent-serde-json-alternative"
-version = "0.2"
-features = ["derive"]
+version = "0.3.0"
 
 [lib]
 name = "fuzzcheck_common"
