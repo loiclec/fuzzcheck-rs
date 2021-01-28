@@ -597,7 +597,7 @@ fn impl_mutator_trait(tb: &mut TokenBuilder, nbr_elements: usize, fuzzcheck_muta
         "
         fn random_mutate<'a>(&'a mut self, value: " tuple_mut ", cache: &'a mut Self::Cache, max_cplx: f64, ) -> Self::UnmutateToken {
             let current_cplx = " SelfAsTupleMutator "::complexity(self, " TupleNAsRefTypes "::get_ref_from_mut(&value), cache);
-            match self.rng.usize(..) % " nbr_elements " {"
+            match self.rng.usize(.." nbr_elements ") {"
                 join_ts!(0..nbr_elements, i,
                     i "=> {
                         let current_field_cplx = self." mutator_i(i) ".complexity(value." i ", &cache." ti(i) ");
@@ -1063,7 +1063,7 @@ impl<T, T0, T1, M0, M1> crate::TupleMutator<T, Tuple2<T0, T1> > for Tuple2Mutato
     ) -> Self::UnmutateToken {
         let current_cplx =
             <Self as crate::TupleMutator<T,Tuple2<T0, T1> >> ::complexity(self, <Tuple2<T0, T1> as crate::RefTypes> ::get_ref_from_mut(&value), cache);
-        match self.rng.usize(..) % 2 {
+        match self.rng.usize(..2) {
             0 => {
                 let current_field_cplx = self.mutator_0.complexity(value.0, &cache.t0);
                 let max_field_cplx = max_cplx - current_cplx + current_field_cplx;
