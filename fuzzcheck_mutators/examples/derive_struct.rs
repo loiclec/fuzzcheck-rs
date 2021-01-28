@@ -2,12 +2,10 @@ extern crate fuzzcheck_mutators;
 
 extern crate fuzzcheck_mutators_derive;
 
-use fuzzcheck_mutators::fuzzcheck_derive_mutator;
 use fuzzcheck_mutators::fuzzcheck_traits::Mutator;
 use fuzzcheck_mutators::DefaultMutator;
 
-#[fuzzcheck_derive_mutator(DefaultMutator)]
-#[derive(PartialEq, Eq, Debug, Default)]
+#[derive(PartialEq, Eq, Debug, Default, DefaultMutator)]
 pub struct S<A, B, C> {
     pub a: A,
     pub b: Vec<B>,

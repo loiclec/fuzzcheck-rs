@@ -2,7 +2,6 @@ extern crate fuzzcheck_mutators;
 
 extern crate fuzzcheck_mutators_derive;
 
-use fuzzcheck_mutators::fuzzcheck_derive_mutator;
 use fuzzcheck_mutators::fuzzcheck_traits::Mutator;
 use fuzzcheck_mutators::DefaultMutator;
 
@@ -13,16 +12,14 @@ use fuzzcheck_mutators::DefaultMutator;
 //     B(u8),
 // }
 
-#[fuzzcheck_derive_mutator(DefaultMutator)]
-#[derive(Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq, DefaultMutator)]
 pub struct SampleData<A, B, C> {
     a: A,
     b: Vec<B>,
     c: C,
     d: X,
 }
-#[fuzzcheck_derive_mutator(DefaultMutator)]
-#[derive(Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq, DefaultMutator)]
 pub enum X {
     A(u8),
     B(u8),
@@ -36,7 +33,7 @@ fn main() {
     let mut results = vec![];
 
     let mut ar_step = <_>::default();
-    for i in 0..100 {
+    for i in 0..10000 {
         if let Some((x, x_cache)) = m.ordered_arbitrary(&mut ar_step, 100.0) {
             let x_step = m.initial_step_from_value(&x);
             results.push((x, x_cache, x_step));
