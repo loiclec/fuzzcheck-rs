@@ -249,7 +249,7 @@ fn impl_mutator(tb: &mut TokenBuilder, n: usize, fuzzcheck_mutators_crate: Token
             )
                 EitherT(n) "(x) => {
                     *x += 1;
-                    if *x <= " variant_count " - 2 {
+                    if *x <= " variant_count " - " n " {
                         Some((T::new(" EitherT(n) "(*x)), " EitherT(n) "(())))
                     } else {
                         None
@@ -260,13 +260,13 @@ fn impl_mutator(tb: &mut TokenBuilder, n: usize, fuzzcheck_mutators_crate: Token
                 step.idx += 1;
                 Some(result)
             } else {
-                step.steps.remove(step.idx);
+                step.steps.remove(step.idx % steps_len);
                 self.ordered_arbitrary(step, max_cplx)
             }
         }
         fn random_arbitrary(&mut self, max_cplx: f64) -> (T, Self::Cache) {
             let inner_max_cplx = max_cplx - " size_to_cplxity "(" variant_count ");
-            let nbr_variants = if " variant_count " > 2 { 3 } else { 2 };
+            let nbr_variants = if " variant_count " > " n " { " n+1 " } else { " n " };
             match self.rng.usize(..nbr_variants) {"
             join_ts!(0..n, i,
                 i "=> {
@@ -275,7 +275,7 @@ fn impl_mutator(tb: &mut TokenBuilder, n: usize, fuzzcheck_mutators_crate: Token
                 }"
             )
                 n "=> {
-                    let pick = self.rng.usize(.." variant_count " - 2);
+                    let pick = self.rng.usize(.." variant_count " - " n ");
                     (T::new(" EitherT(n) "(pick)), " EitherT(n) "(()))
                 }
                 _ => {
@@ -1151,7 +1151,7 @@ where
             step.idx += 1;
             Some(result)
         } else {
-            step.steps.remove(step.idx);
+            step.steps.remove(step.idx % steps_len);
             self.ordered_arbitrary(step, max_cplx)
         }
     }
