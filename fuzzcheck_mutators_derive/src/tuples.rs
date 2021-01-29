@@ -511,7 +511,8 @@ fn impl_mutator_trait(tb: &mut TokenBuilder, nbr_elements: usize, fuzzcheck_muta
             step: &mut Self::ArbitraryStep,
             max_cplx: f64,
         ) -> " option "<(T, Self::Cache)> {
-            " // TODO! actually write something that is ordered_arbitrary sense here
+            if max_cplx < <Self as" TupleMutator "<T , " TupleN "<" tuple_type_params "> > >::min_complexity(self) { return " none " }
+            " // TODO: actually write something that is ordered_arbitrary sense here
             some "  (self.random_arbitrary(max_cplx))
         }
         fn random_arbitrary(&mut self, max_cplx: f64) -> (T, Self::Cache) {"
@@ -559,6 +560,7 @@ fn impl_mutator_trait(tb: &mut TokenBuilder, nbr_elements: usize, fuzzcheck_muta
             step: &'a mut Self::MutationStep,
             max_cplx: f64,
         ) -> " option "<Self::UnmutateToken> {
+            if max_cplx < <Self as" TupleMutator "<T , " TupleN "<" tuple_type_params "> > >::min_complexity(self) { return " none " }
             if step.inner.is_empty() {
                 return " none ";
             }
@@ -960,6 +962,7 @@ impl<T, T0, T1, M0, M1> crate::TupleMutator<T, Tuple2<T0, T1> > for Tuple2Mutato
         step: &mut Self::ArbitraryStep,
         max_cplx: f64,
     ) -> ::std::option::Option<(T, Self::Cache)> {
+        if max_cplx < <Self as crate::TupleMutator<T, Tuple2<T0, T1> > >::min_complexity(self) { return ::std::option::Option::None }
         ::std::option::Option::Some(self.random_arbitrary(max_cplx))
     }
     fn random_arbitrary(&mut self, max_cplx: f64) -> (T, Self::Cache) {
@@ -1005,6 +1008,7 @@ impl<T, T0, T1, M0, M1> crate::TupleMutator<T, Tuple2<T0, T1> > for Tuple2Mutato
         step: &'a mut Self::MutationStep,
         max_cplx: f64,
     ) -> ::std::option::Option<Self::UnmutateToken> {
+        if max_cplx < <Self as crate::TupleMutator<T, Tuple2<T0, T1> > >::min_complexity(self) { return ::std::option::Option::None }        
         if step.inner.is_empty() {
             return ::std::option::Option::None;
         }

@@ -39,7 +39,8 @@ impl<T> Mutator<T> for BasicEnumMutator where T: Clone + BasicEnumStructure {
         crate::size_to_cplxity(std::mem::variant_count::<T>())
     }
 
-    fn ordered_arbitrary(&mut self, step: &mut Self::ArbitraryStep, _max_cplx: f64) -> Option<(T, Self::Cache)> {
+    fn ordered_arbitrary(&mut self, step: &mut Self::ArbitraryStep, max_cplx: f64) -> Option<(T, Self::Cache)> {
+        if max_cplx < <Self as Mutator<T>>::min_complexity(self) { return None }
         if *step < std::mem::variant_count::<T>() {
             let old_step = *step;
             *step += 1;
@@ -59,8 +60,9 @@ impl<T> Mutator<T> for BasicEnumMutator where T: Clone + BasicEnumStructure {
         value: &mut T,
         _cache: &mut Self::Cache,
         step: &mut Self::MutationStep,
-        _max_cplx: f64,
+        max_cplx: f64,
     ) -> Option<Self::UnmutateToken> {
+        if max_cplx < <Self as Mutator<T>>::min_complexity(self) { return None }
         // starts at step = 1
         // create new from (get_item_index + step) % nbr_of_items
         if *step < std::mem::variant_count::<T>() {

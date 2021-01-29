@@ -5,6 +5,10 @@ use proc_macro2::{Ident, Span, TokenStream};
 use synquote::parser::*;
 use synquote::token_builder::*;
 
+/*
+ TODO: Take maximum complexity into account! For now it is partly ignored. One shouldn't switch to
+ an item whose minimum complexity is greater than the maximum allowed complexity
+*/
 fn make_enum_n_payload_structure(tb: &mut TokenBuilder, n: usize, fuzzcheck_mutators_crate: TokenStream) {
     let clone = ts!("::std::clone::Clone");
     let T = |i: usize| ident!("T" i);
@@ -189,7 +193,11 @@ fn impl_mutator(tb: &mut TokenBuilder, n: usize, fuzzcheck_mutators_crate: Token
             join_ts!(0..n, i,
                 EitherT(i) "(x) => Self::MutationStep {
                     inner:" EitherT(i) "(self." mutator_(i) ".initial_step_from_value(x)),
-                    arbitrary: <_>::default(),
+                    arbitrary: { 
+                        let mut step: Self::ArbitraryStep = <_>::default() ;
+                        step.steps.remove(" i ");
+                        step
+                    },
                 }," 
             )
                 EitherT(n) "(_) => Self::MutationStep {
@@ -231,8 +239,9 @@ fn impl_mutator(tb: &mut TokenBuilder, n: usize, fuzzcheck_mutators_crate: Token
                 }
         }
         fn ordered_arbitrary(&mut self, step: &mut Self::ArbitraryStep, max_cplx: f64) -> Option<(T, Self::Cache)> {
+            if max_cplx < <Self as " Mutator "<T> >::min_complexity(self) { return " none " }
             if step.steps.is_empty() {
-                return None;
+                return " none ";
             }
             let steps_len = step.steps.len();
             let inner_max_cplx = max_cplx - " size_to_cplxity "(" variant_count ");
@@ -250,9 +259,9 @@ fn impl_mutator(tb: &mut TokenBuilder, n: usize, fuzzcheck_mutators_crate: Token
                 EitherT(n) "(x) => {
                     *x += 1;
                     if *x <= " variant_count " - " n " {
-                        Some((T::new(" EitherT(n) "(*x)), " EitherT(n) "(())))
+                        " some "((T::new(" EitherT(n) "(*x)), " EitherT(n) "(())))
                     } else {
-                        None
+                        " none "
                     }
                 }"
             "};
@@ -290,6 +299,7 @@ fn impl_mutator(tb: &mut TokenBuilder, n: usize, fuzzcheck_mutators_crate: Token
             step: &mut Self::MutationStep,
             max_cplx: f64,
         ) -> " Option "<Self::UnmutateToken> {
+            if max_cplx < <Self as " Mutator "<T> >::min_complexity(self) { return " none " }
             let inner_max_cplx = max_cplx - " size_to_cplxity "(" variant_count ");
             match (value.get_mut(), cache.borrow_mut(), &mut step.inner) {"
             join_ts!(0..n, i,
@@ -302,7 +312,9 @@ fn impl_mutator(tb: &mut TokenBuilder, n: usize, fuzzcheck_mutators_crate: Token
                     }
                 }"
             )
-            "   (" EitherT(n) "(_), " EitherT(n) "(_), " EitherT(n) "(_)) => {}
+            "   (" EitherT(n) "(_), " EitherT(n) "(_), " EitherT(n) "(_)) => {
+                    // TODO: this could be slightly better, avoiding a repetition by mutating instead of using arbitrary
+                }
                 _ => unreachable!(),
             }
             if let " some "((new_value, new_cache)) = self.ordered_arbitrary(&mut step.arbitrary, max_cplx) {
@@ -1086,11 +1098,19 @@ where
         match value.get_ref() {
             Either3::T0(x) => Self::MutationStep {
                 inner: Either3::T0(self.mutator_0.initial_step_from_value(x)),
-                arbitrary: <_>::default(),
+                arbitrary: { 
+                    let mut step: Self::ArbitraryStep = <_>::default() ;
+                    step.steps.remove(0);
+                    step
+                },
             },
             Either3::T1(x) => Self::MutationStep {
                 inner: Either3::T1(self.mutator_1.initial_step_from_value(x)),
-                arbitrary: <_>::default(),
+                arbitrary: { 
+                    let mut step: Self::ArbitraryStep = <_>::default() ;
+                    step.steps.remove(1);
+                    step
+                },
             },
             Either3::T2(_) => Self::MutationStep {
                 inner: Either3::T2(()),
@@ -1122,8 +1142,9 @@ where
             }
     }
     fn ordered_arbitrary(&mut self, step: &mut Self::ArbitraryStep, max_cplx: f64) -> Option<(T, Self::Cache)> {
+        if max_cplx < <Self as ::fuzzcheck_traits::Mutator<T> >::min_complexity(self) { return ::std::option::Option::None }
         if step.steps.is_empty() {
-            return None;
+            return ::std::option::Option::None;
         }
         let steps_len = step.steps.len();
         let inner_max_cplx = max_cplx - crate::size_to_cplxity(::std::mem::variant_count::<T>());
@@ -1141,9 +1162,9 @@ where
             Either3::T2(x) => {
                 *x += 1;
                 if *x <= ::std::mem::variant_count::<T>() - 2 {
-                    Some((T::new(Either3::T2(*x)), Either3::T2(())))
+                    ::std::option::Option::Some((T::new(Either3::T2(*x)), Either3::T2(())))
                 } else {
-                    None
+                    ::std::option::Option::None
                 }
             }
         };
@@ -1183,6 +1204,7 @@ where
         step: &mut Self::MutationStep,
         max_cplx: f64,
     ) -> ::std::option::Option<Self::UnmutateToken> {
+        if max_cplx < <Self as ::fuzzcheck_traits::Mutator<T> >::min_complexity(self) { return ::std::option::Option::None }
         let inner_max_cplx = max_cplx - crate::size_to_cplxity(::std::mem::variant_count::<T>());
         match (value.get_mut(), cache.borrow_mut(), &mut step.inner) {
             (Either3::T0(inner_value), Either3::T0(inner_cache), Either3::T0(inner_step)) => {

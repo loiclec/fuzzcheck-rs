@@ -51,7 +51,8 @@ impl Mutator<bool> for BoolMutator {
         1.0
     }
 
-    fn ordered_arbitrary(&mut self, step: &mut Self::ArbitraryStep, _max_cplx: f64) -> Option<(bool, Self::Cache)> {
+    fn ordered_arbitrary(&mut self, step: &mut Self::ArbitraryStep, max_cplx: f64) -> Option<(bool, Self::Cache)> {
+        if max_cplx < self.min_complexity() { return None }
         match step {
             ArbitraryStep::Never => {
                 *step = ArbitraryStep::Once;
@@ -74,8 +75,9 @@ impl Mutator<bool> for BoolMutator {
         value: &mut bool,
         _cache: &mut Self::Cache,
         step: &mut Self::MutationStep,
-        _max_cplx: f64,
+        max_cplx: f64,
     ) -> Option<Self::UnmutateToken> {
+        if max_cplx < self.min_complexity() { return None }
         if !*step {
             *step = !*step;
             Some(std::mem::replace(value, !*value))

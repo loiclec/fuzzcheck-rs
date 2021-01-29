@@ -33,7 +33,7 @@ fn main() {
     let mut results = vec![];
 
     let mut ar_step = <_>::default();
-    for i in 0..10000 {
+    for i in 0..100 {
         if let Some((x, x_cache)) = m.ordered_arbitrary(&mut ar_step, 100.0) {
             let x_step = m.initial_step_from_value(&x);
             results.push((x, x_cache, x_step));

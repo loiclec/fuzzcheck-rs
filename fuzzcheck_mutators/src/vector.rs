@@ -389,6 +389,7 @@ impl<T: Clone, M: Mutator<T>> Mutator<Vec<T>> for VecMutator<T, M> {
     }
 
     fn ordered_arbitrary(&mut self, step: &mut Self::ArbitraryStep, max_cplx: f64) -> Option<(Vec<T>, Self::Cache)> {
+        if max_cplx < self.min_complexity() { return None }
         if !*step || max_cplx <= 1.0 {
             *step = true;
             return Some((<_>::default(), Self::Cache::default()));
@@ -437,6 +438,7 @@ impl<T: Clone, M: Mutator<T>> Mutator<Vec<T>> for VecMutator<T, M> {
         step: &mut Self::MutationStep,
         max_cplx: f64,
     ) -> Option<Self::UnmutateToken> {
+        if max_cplx < self.min_complexity() { return None }
         let spare_cplx = max_cplx - self.complexity(value, cache);
 
         let token = match step.category {
