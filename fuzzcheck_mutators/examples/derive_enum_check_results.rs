@@ -10,12 +10,12 @@ pub enum Y {
     M,
     N,
     O,
-    P(bool),
     Q,
-    R(u8),
     S,
     T,
-    U
+    U,
+    V,
+    W,
 }
 
 #[derive(Clone, PartialEq, Eq, Debug, DefaultMutator)]
