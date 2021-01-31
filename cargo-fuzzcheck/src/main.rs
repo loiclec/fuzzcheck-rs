@@ -115,7 +115,7 @@ cargo-fuzzcheck {run} target1 {cmin} --{in_corpus} "fuzz-corpus" --{corpus_size}
     let root_path = &std::env::current_dir()?;
 
     match env_args[start_idx].as_str() {
-        #[cfg(feature="ui")]
+        #[cfg(feature = "ui")]
         COMMAND_UI => {
             //let project = project::Root::from_path(root_path);
             let _ = ui::launch_app(root_path.clone());

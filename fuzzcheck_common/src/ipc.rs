@@ -1,8 +1,8 @@
 use decent_serde_json_alternative::{FromJson, ToJson};
 
+use crate::{FuzzerEvent, FuzzerStats};
 use std::io::prelude::*;
 use std::net::TcpStream;
-use crate::{FuzzerEvent, FuzzerStats};
 
 pub fn write(stream: &mut TcpStream, message: &str) {
     let bytes = message.as_bytes();

@@ -3,14 +3,14 @@ use fuzzcheck_mutators::DefaultMutator;
 #[derive(Clone, DefaultMutator)]
 pub enum X {
     A,
-    B
+    B,
 }
 
 #[derive(Clone, DefaultMutator)]
 pub enum Y {
     A,
-    B (),
-    C {}
+    B(),
+    C {},
 }
 
 #[derive(Clone, DefaultMutator)]
@@ -26,5 +26,5 @@ pub enum Z {
     I,
     J,
     K,
-    L
+    L,
 }

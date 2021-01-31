@@ -1,10 +1,10 @@
-use fuzzcheck_mutators::DefaultMutator;
 use crate::fuzzcheck_mutators::fuzzcheck_traits::Mutator;
+use fuzzcheck_mutators::DefaultMutator;
 
 #[derive(Clone, DefaultMutator)]
 pub enum X {
     A(u8),
-    B(u8)
+    B(u8),
 }
 
 fn _x() {
@@ -17,4 +17,3 @@ fn _x() {
 // pub enum Y {
 //     Y { y: Option<u8> },
 // }
-

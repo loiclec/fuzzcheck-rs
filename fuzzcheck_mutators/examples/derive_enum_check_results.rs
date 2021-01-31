@@ -22,8 +22,8 @@ pub enum Y {
 pub enum X {
     A,
     B(bool),
-    C { },
-    D(Y)
+    C {},
+    D(Y),
 }
 
 type XMutator = <X as DefaultMutator>::Mutator;
@@ -34,9 +34,9 @@ fn main() {
     let mut m = X::default_mutator();
     let mut ar_step: _ = ArbitraryStep::default();
 
-    for _ in 0 .. 20 {
+    for _ in 0..20 {
         if let Some(x) = m.ordered_arbitrary(&mut ar_step, complexity) as Option<(X, _)> {
-            println!("{:?}", x.0);    
+            println!("{:?}", x.0);
         } else {
             println!("---");
         }
@@ -46,8 +46,8 @@ fn main() {
 
     let mut value = X::A;
     let mut cache = m.cache_from_value(&value);
-    let mut step  = m.initial_step_from_value(&value);
-    for _ in 0 .. 20 {
+    let mut step = m.initial_step_from_value(&value);
+    for _ in 0..20 {
         // print!("{:?} ", value);
         if let Some(t) = m.ordered_mutate(&mut value, &mut cache, &mut step, complexity) {
             println!("{:?} ", value);
@@ -63,9 +63,13 @@ fn main() {
     let mut value = X::B(true);
 
     let mut cache = m.cache_from_value(&value);
-    println!("complexity: {:?}, {:.2}", <XMutator as Mutator<X>>::max_complexity(&m),  m.complexity(&value, &cache));
-    let mut step  = m.initial_step_from_value(&value);
-    for _ in 0 .. 20 {
+    println!(
+        "complexity: {:?}, {:.2}",
+        <XMutator as Mutator<X>>::max_complexity(&m),
+        m.complexity(&value, &cache)
+    );
+    let mut step = m.initial_step_from_value(&value);
+    for _ in 0..20 {
         // print!("{:?} ", value);
         if let Some(t) = m.ordered_mutate(&mut value, &mut cache, &mut step, complexity) {
             println!("{:?} ", value);

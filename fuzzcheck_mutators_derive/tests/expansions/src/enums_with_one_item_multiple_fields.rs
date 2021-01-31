@@ -9,4 +9,3 @@ pub enum X {
 pub enum Y {
     Y { y: Option<u8>, z: () },
 }
-

@@ -46,8 +46,6 @@ where
     }
 }
 
-
-
 impl<T: 'static + Clone, U: Clone, M> Mutator<U> for WrappedMutator<T, M>
 where
     U: TupleStructure<WrappedTuple1<T>>,

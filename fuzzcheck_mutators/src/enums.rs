@@ -13,15 +13,16 @@ pub struct BasicEnumMutator {
     rng: fastrand::Rng,
 }
 
-
-impl<T> Mutator<T> for BasicEnumMutator where T: Clone + BasicEnumStructure {
+impl<T> Mutator<T> for BasicEnumMutator
+where
+    T: Clone + BasicEnumStructure,
+{
     type Cache = ();
     type MutationStep = usize;
     type ArbitraryStep = usize;
     type UnmutateToken = usize;
 
-    fn cache_from_value(&self, _value: &T) -> Self::Cache {
-    }
+    fn cache_from_value(&self, _value: &T) -> Self::Cache {}
 
     fn initial_step_from_value(&self, _value: &T) -> Self::MutationStep {
         1
@@ -40,7 +41,9 @@ impl<T> Mutator<T> for BasicEnumMutator where T: Clone + BasicEnumStructure {
     }
 
     fn ordered_arbitrary(&mut self, step: &mut Self::ArbitraryStep, max_cplx: f64) -> Option<(T, Self::Cache)> {
-        if max_cplx < <Self as Mutator<T>>::min_complexity(self) { return None }
+        if max_cplx < <Self as Mutator<T>>::min_complexity(self) {
+            return None;
+        }
         if *step < std::mem::variant_count::<T>() {
             let old_step = *step;
             *step += 1;
@@ -62,7 +65,9 @@ impl<T> Mutator<T> for BasicEnumMutator where T: Clone + BasicEnumStructure {
         step: &mut Self::MutationStep,
         max_cplx: f64,
     ) -> Option<Self::UnmutateToken> {
-        if max_cplx < <Self as Mutator<T>>::min_complexity(self) { return None }
+        if max_cplx < <Self as Mutator<T>>::min_complexity(self) {
+            return None;
+        }
         // starts at step = 1
         // create new from (get_item_index + step) % nbr_of_items
         if *step < std::mem::variant_count::<T>() {
@@ -98,4 +103,3 @@ fuzzcheck_mutators_derive::make_basic_enum_mutators!(7 crate);
 fuzzcheck_mutators_derive::make_basic_enum_mutators!(8 crate);
 fuzzcheck_mutators_derive::make_basic_enum_mutators!(9 crate);
 fuzzcheck_mutators_derive::make_basic_enum_mutators!(10 crate);
-

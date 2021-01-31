@@ -96,7 +96,6 @@ impl CodeCoverageSensor {
     where
         F: FnMut(Feature) -> (),
     {
-        
         const CHUNK_SIZE: usize = 16;
         let zero: [u8; CHUNK_SIZE] = [0; CHUNK_SIZE];
         let length_chunks = self.eight_bit_counters.len() / CHUNK_SIZE;
@@ -105,7 +104,8 @@ impl CodeCoverageSensor {
             let start = i * CHUNK_SIZE;
             let end = start + CHUNK_SIZE;
 
-            let slice = unsafe { <&[u8; CHUNK_SIZE]>::try_from(self.eight_bit_counters.get_unchecked(start..end)).unwrap() };
+            let slice =
+                unsafe { <&[u8; CHUNK_SIZE]>::try_from(self.eight_bit_counters.get_unchecked(start..end)).unwrap() };
 
             if slice == &zero {
                 continue;

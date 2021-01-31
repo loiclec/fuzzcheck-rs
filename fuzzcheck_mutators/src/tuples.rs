@@ -41,20 +41,20 @@ where
     pub mutator: M,
     _phantom: ::std::marker::PhantomData<(T, T)>,
 }
-impl<T, M> Tuple1Mutator<T, M> 
+impl<T, M> Tuple1Mutator<T, M>
 where
     T: ::std::clone::Clone,
     M: ::fuzzcheck_traits::Mutator<T>,
 {
     pub fn new(mutator: M) -> Self {
         Self {
-            mutator, 
-            _phantom: PhantomData
+            mutator,
+            _phantom: PhantomData,
         }
     }
 }
 
-impl<T, M> Default for Tuple1Mutator<T, M> 
+impl<T, M> Default for Tuple1Mutator<T, M>
 where
     T: ::std::clone::Clone,
     M: ::fuzzcheck_traits::Mutator<T>,
@@ -62,12 +62,11 @@ where
 {
     fn default() -> Self {
         Self {
-            mutator: <_>::default(), 
-            _phantom: PhantomData
+            mutator: <_>::default(),
+            _phantom: PhantomData,
         }
     }
 }
-
 
 impl<T, M> TupleMutator<T, Tuple1<T>> for Tuple1Mutator<T, M>
 where

@@ -6,7 +6,7 @@ use synquote::token_builder::*;
 
 pub fn make_basic_tuple_mutator(tb: &mut TokenBuilder, nbr_elements: usize, fuzzcheck_mutators_crate: TokenStream) {
     make_tuple_type_structure(tb, nbr_elements, fuzzcheck_mutators_crate.clone());
-    let mod_mutator = ident!("tuple" nbr_elements) ;
+    let mod_mutator = ident!("tuple" nbr_elements);
     extend_ts!(tb,
         "pub use" mod_mutator " :: " ident!("Tuple" nbr_elements "Mutator") ";"
         "mod" mod_mutator "{"
@@ -19,9 +19,7 @@ pub fn make_basic_tuple_mutator(tb: &mut TokenBuilder, nbr_elements: usize, fuzz
 
     impl_default_mutator_for_tuple(tb, nbr_elements, fuzzcheck_mutators_crate);
 
-    extend_ts!(tb,
-        "}"
-    );
+    extend_ts!(tb, "}");
 }
 
 pub fn make_tuple_type_structure(tb: &mut TokenBuilder, nbr_elements: usize, fuzzcheck_mutators_crate: TokenStream) {
@@ -72,21 +70,19 @@ pub fn impl_wrapped_tuple_1_structure(tb: &mut TokenBuilder, struc: &Struct, fuz
 
     let generics_no_eq = struc.generics.removing_eq_type();
     let generics_no_eq_nor_bounds = struc.generics.removing_bounds_and_eq_type();
-    
+
     let TupleStructure = ts!(fuzzcheck_mutators_crate "::TupleStructure");
     let WrappedTuple1 = ts!(fuzzcheck_mutators_crate "::WrappedTuple1");
 
     let mut where_clause = struc.where_clause.clone().unwrap_or(WhereClause::default());
-    where_clause.items.push(
-        WhereClauseItem {
-            for_lifetimes: None,
-            lhs: field_type.clone(),
-            rhs: ts!("'static"),
-        }
-    );
+    where_clause.items.push(WhereClauseItem {
+        for_lifetimes: None,
+        lhs: field_type.clone(),
+        rhs: ts!("'static"),
+    });
 
     extend_ts!(tb,
-        "impl " generics_no_eq TupleStructure "<" WrappedTuple1 "<" field_type "> > 
+        "impl " generics_no_eq TupleStructure "<" WrappedTuple1 "<" field_type "> >
             for " struc.ident generics_no_eq_nor_bounds where_clause " 
         {
             fn get_ref<'a>(&'a self) -> &'a " field_type " {
@@ -128,7 +124,7 @@ pub fn impl_tuple_structure_trait(tb: &mut TokenBuilder, struc: &Struct, fuzzche
     }
 
     extend_ts!(tb,
-        "impl" generics_no_eq TupleStructure "<" TupleN "<" field_types "> > 
+        "impl" generics_no_eq TupleStructure "<" TupleN "<" field_types "> >
             for" struc.ident generics_no_eq_nor_bounds where_clause "{
             fn get_ref<'a>(&'a self) -> " tuple_ref " {
                 (" join_ts!(&struc.struct_fields, field, "&self." field.access(), separator: ",") ")
@@ -141,7 +137,7 @@ pub fn impl_tuple_structure_trait(tb: &mut TokenBuilder, struc: &Struct, fuzzche
             fn new(t:" tuple_owned ") -> Self {
                 Self {"
                     join_ts!(struc.struct_fields.iter().enumerate(), (i, field),
-                        field.access() ": t." i 
+                        field.access() ": t." i
                     , separator: ",")
                 "}
             }
@@ -149,7 +145,11 @@ pub fn impl_tuple_structure_trait(tb: &mut TokenBuilder, struc: &Struct, fuzzche
     );
 }
 
-pub fn impl_default_mutator_for_struct_with_0_field(tb: &mut TokenBuilder, struc: &Struct, fuzzcheck_mutators_crate: TokenStream) {
+pub fn impl_default_mutator_for_struct_with_0_field(
+    tb: &mut TokenBuilder,
+    struc: &Struct,
+    fuzzcheck_mutators_crate: TokenStream,
+) {
     assert!(struc.struct_fields.len() == 0);
 
     let generics_no_eq = struc.generics.removing_eq_type();
@@ -179,10 +179,13 @@ pub fn impl_default_mutator_for_struct_with_0_field(tb: &mut TokenBuilder, struc
         }
     }
     ");
-
 }
 
-pub fn impl_default_mutator_for_struct_with_1_field(tb: &mut TokenBuilder, struc: &Struct, fuzzcheck_mutators_crate: TokenStream) {
+pub fn impl_default_mutator_for_struct_with_1_field(
+    tb: &mut TokenBuilder,
+    struc: &Struct,
+    fuzzcheck_mutators_crate: TokenStream,
+) {
     assert!(struc.struct_fields.len() == 1);
 
     let field = &struc.struct_fields[0];
@@ -214,8 +217,11 @@ pub fn impl_default_mutator_for_struct_with_1_field(tb: &mut TokenBuilder, struc
     ")
 }
 
-
-pub fn impl_default_mutator_for_struct_with_more_than_1_field(tb: &mut TokenBuilder, struc: &Struct, fuzzcheck_mutators_crate: TokenStream) {
+pub fn impl_default_mutator_for_struct_with_more_than_1_field(
+    tb: &mut TokenBuilder,
+    struc: &Struct,
+    fuzzcheck_mutators_crate: TokenStream,
+) {
     assert!(struc.struct_fields.len() > 1);
 
     let nbr_elements = struc.struct_fields.len();
@@ -228,19 +234,19 @@ pub fn impl_default_mutator_for_struct_with_more_than_1_field(tb: &mut TokenBuil
     let DefaultMutator = ts!(fuzzcheck_mutators_crate "::DefaultMutator");
 
     let field_types = join_ts!(&struc.struct_fields, field, field.ty, separator: ",");
-    
+
     let TupleN = ts!(fuzzcheck_mutators_crate "::" ident!("Tuple" nbr_elements) "<" field_types ">");
 
     let TupleMutatorWrapper = ts!(
         fuzzcheck_mutators_crate "::TupleMutatorWrapper<"
-            struc.ident generics_no_eq_nor_bounds "," 
-            TupleNMutator "<" 
+            struc.ident generics_no_eq_nor_bounds ","
+            TupleNMutator "<"
                 field_types ", "
                 join_ts!(&struc.struct_fields, field,
                     "<" field.ty "as" DefaultMutator "> :: Mutator"
                 , separator: ",")
-            ">," 
-            TupleN 
+            ">,"
+            TupleN
         ">"
     );
 
@@ -412,7 +418,6 @@ fn impl_mutator_trait(tb: &mut TokenBuilder, nbr_elements: usize, fuzzcheck_muta
 
     let TupleN = ident!("Tuple" nbr_elements);
     let TupleNMutator = ident!("Tuple" nbr_elements "Mutator");
-
 
     let mutator_type_params = join_ts!(0..nbr_elements, i, ident!("M" i), separator: ",");
     let type_params = ts!(tuple_type_params "," mutator_type_params);
@@ -637,7 +642,6 @@ fn impl_default_mutator_for_tuple(tb: &mut TokenBuilder, nbr_elements: usize, fu
     let mutator_type_params = join_ts!(0..nbr_elements, i, ident!("M" i), separator: ",");
     let type_params = ts!(tuple_type_params "," mutator_type_params);
 
-
     let Ti = |i: usize| ident!("T" i);
     let Mi = |i: usize| ident!("M" i);
     let DefaultMutator = ts!(fuzzcheck_mutators_crate "::DefaultMutator");
@@ -649,19 +653,18 @@ fn impl_default_mutator_for_tuple(tb: &mut TokenBuilder, nbr_elements: usize, fu
     let TupleNMutator = ident!("Tuple" nbr_elements "Mutator");
     let TupleMutatorWrapper = ts!(
         fuzzcheck_mutators_crate "::TupleMutatorWrapper<
-            (" tuple_type_params ")," 
-            TupleNMutator "<" 
+            (" tuple_type_params "),"
+            TupleNMutator "<"
                 tuple_type_params ", "
                 join_ts!(0..nbr_elements, i,
                     "<" Ti(i) "as" DefaultMutator "> :: Mutator"
                 , separator: ",")
-            ">," 
-            TupleN 
+            ">,"
+            TupleN
         ">"
     );
 
-
-    extend_ts!(tb,    
+    extend_ts!(tb,
     "
     impl<" type_params ">" Default "for" TupleNMutator "<" type_params ">
         where"
@@ -673,7 +676,7 @@ fn impl_default_mutator_for_tuple(tb: &mut TokenBuilder, nbr_elements: usize, fu
     "{
         fn default() -> Self {
             Self::new("
-                join_ts!(0..nbr_elements, i, 
+                join_ts!(0..nbr_elements, i,
                     "<" Mi(i) "as" Default "> :: default()"
                 , separator: ",")
             ")
@@ -686,7 +689,7 @@ fn impl_default_mutator_for_tuple(tb: &mut TokenBuilder, nbr_elements: usize, fu
         type Mutator = " TupleMutatorWrapper ";
         fn default_mutator() -> Self::Mutator {
             Self::Mutator::new(" TupleNMutator "::new("
-                join_ts!(0..nbr_elements, i, 
+                join_ts!(0..nbr_elements, i,
                     "<" Ti(i) "as" DefaultMutator "> :: default_mutator()"
                 , separator: ",")
             "))
@@ -697,19 +700,25 @@ fn impl_default_mutator_for_tuple(tb: &mut TokenBuilder, nbr_elements: usize, fu
 
 #[cfg(test)]
 mod test {
+    use decent_synquote_alternative::TokenBuilderExtend;
     use decent_synquote_alternative::{parser::TokenParser, token_builder};
     use proc_macro2::TokenStream;
     use token_builder::TokenBuilder;
-    use decent_synquote_alternative::TokenBuilderExtend;
 
-    use super::{declare_tuple_mutator, declare_tuple_mutator_helper_types, impl_default_mutator_for_struct_with_1_field, impl_default_mutator_for_struct_with_more_than_1_field, impl_default_mutator_for_tuple, impl_mutator_trait, impl_tuple_structure_trait, impl_wrapped_tuple_1_structure, make_tuple_type_structure};
+    use super::{
+        declare_tuple_mutator, declare_tuple_mutator_helper_types, impl_default_mutator_for_struct_with_1_field,
+        impl_default_mutator_for_struct_with_more_than_1_field, impl_default_mutator_for_tuple, impl_mutator_trait,
+        impl_tuple_structure_trait, impl_wrapped_tuple_1_structure, make_tuple_type_structure,
+    };
 
     #[test]
     fn test_default_mutator_for_struct_with_1_field() {
         let mut tb = TokenBuilder::new();
         let code = "
         pub struct X<T: Clone>(bool) where T: Default;
-        ".parse::<TokenStream>().unwrap();
+        "
+        .parse::<TokenStream>()
+        .unwrap();
         let mut parser = TokenParser::new(code);
         let struc = parser.eat_struct().unwrap();
         impl_default_mutator_for_struct_with_1_field(&mut tb, &struc, ts!("fuzzcheck_mutators"));
@@ -737,7 +746,9 @@ mod test {
         pub struct X<T> where T: Default {
             x: Vec<T> ,
         }
-        ".parse::<TokenStream>().unwrap();
+        "
+        .parse::<TokenStream>()
+        .unwrap();
         let mut parser = TokenParser::new(code);
         let struc = parser.eat_struct().unwrap();
         impl_wrapped_tuple_1_structure(&mut tb, &struc, ts!("fuzzcheck_mutators"));
@@ -772,7 +783,9 @@ mod test {
             x: u8,
             y: Vec<T> ,
         }
-        ".parse::<TokenStream>().unwrap();
+        "
+        .parse::<TokenStream>()
+        .unwrap();
         let mut parser = TokenParser::new(code);
         let struc = parser.eat_struct().unwrap();
         impl_default_mutator_for_struct_with_more_than_1_field(&mut tb, &struc, ts!("fuzzcheck_mutators"));
@@ -800,7 +813,8 @@ where
         ))
     }
 }
-        ".parse::<TokenStream>()
+        "
+        .parse::<TokenStream>()
         .unwrap()
         .to_string();
 
@@ -848,13 +862,14 @@ where
         ))
     }
 }
-        ".parse::<TokenStream>()
+        "
+        .parse::<TokenStream>()
         .unwrap()
         .to_string();
 
         assert_eq!(generated, expected, "\n\n{} \n\n{}", generated, expected);
     }
-    
+
     #[test]
     fn test_impl_tuple_structure_trait_generics() {
         let code = "
@@ -862,13 +877,15 @@ where
             x: u8,
             y: Vec<(T, U)> ,
         }
-        ".parse::<TokenStream>().unwrap();
+        "
+        .parse::<TokenStream>()
+        .unwrap();
         let mut parser = TokenParser::new(code);
         let struc = parser.eat_struct().unwrap();
 
         let mut tb = TokenBuilder::new();
-        
-        impl_tuple_structure_trait(&mut tb, &struc,ts!("crate"));
+
+        impl_tuple_structure_trait(&mut tb, &struc, ts!("crate"));
 
         let generated = tb.end().to_string();
 
@@ -894,13 +911,14 @@ impl<T, U: Clone> crate::TupleStructure<crate::Tuple2< u8, Vec<(T, U)> > >
         }
     }
 }
-        ".parse::<TokenStream>()
+        "
+        .parse::<TokenStream>()
         .unwrap()
         .to_string();
 
         assert_eq!(generated, expected, "\n\n{} \n\n{}", generated, expected);
     }
-    
+
     #[test]
     fn test_impl_mutator_trait() {
         let mut tb = TokenBuilder::new();
@@ -1112,7 +1130,7 @@ impl<T, T0, T1, M0, M1> crate::TupleMutator<T, Tuple2<T0, T1> > for Tuple2Mutato
 
         assert_eq!(generated, expected, "\n\n{} \n\n{}", generated, expected);
     }
-    
+
     #[test]
     fn test_declare_tuple_mutator_helper_types() {
         let mut tb = TokenBuilder::new();
@@ -1166,7 +1184,7 @@ impl<T0, T1> ::std::default::Default for UnmutateToken<T0, T1> {
 
         assert_eq!(generated, expected, "\n\n{} \n\n{}", generated, expected);
     }
-    
+
     #[test]
     fn test_declare_tuple_mutator() {
         let mut tb = TokenBuilder::new();
@@ -1232,7 +1250,7 @@ where
 
         assert_eq!(generated, expected, "\n\n{} \n\n{}", generated, expected);
     }
-    
+
     #[test]
     fn test_make_tuple_type_structure() {
         let mut tb = TokenBuilder::new();

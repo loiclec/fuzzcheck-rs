@@ -1,21 +1,18 @@
-
-use fuzzcheck_common::{
-    arg::{FullCommandLineArguments, FuzzerCommand},
-};
-#[cfg(feature="ui")]
-use fuzzcheck_common::ipc::{self, TuiMessage, TuiMessageEvent, MessageUserToFuzzer};
-#[cfg(feature="ui")]
+#[cfg(feature = "ui")]
 use decent_serde_json_alternative::FromJson;
-#[cfg(feature="ui")]
+#[cfg(feature = "ui")]
 use decent_serde_json_alternative::ToJson;
-#[cfg(feature="ui")]
+use fuzzcheck_common::arg::{FullCommandLineArguments, FuzzerCommand};
+#[cfg(feature = "ui")]
+use fuzzcheck_common::ipc::{self, MessageUserToFuzzer, TuiMessage, TuiMessageEvent};
+#[cfg(feature = "ui")]
 use std::net::TcpStream;
 
+use std::collections::hash_map::DefaultHasher;
 use std::fs;
 use std::hash::{Hash, Hasher};
 use std::io::{self, Result};
 use std::time::Instant;
-use std::{collections::hash_map::DefaultHasher};
 
 use fuzzcheck_common::{FuzzerEvent, FuzzerStats};
 
@@ -28,39 +25,39 @@ pub(crate) enum WorldAction<T> {
 }
 
 pub struct World<S: Serializer> {
-    #[cfg(feature="ui")]
+    #[cfg(feature = "ui")]
     stream: Option<TcpStream>,
     settings: FullCommandLineArguments,
     initial_instant: Instant,
     checkpoint_instant: Instant,
-    #[cfg(feature="ui")]
+    #[cfg(feature = "ui")]
     pause_at_next_event: bool,
     serializer: S,
 }
 
 impl<S: Serializer> World<S> {
     pub fn new(serializer: S, settings: FullCommandLineArguments) -> Self {
-        #[cfg(feature="ui")]
+        #[cfg(feature = "ui")]
         let stream = if let Some(socket_address) = settings.socket_address {
             Some(TcpStream::connect(socket_address).unwrap())
         } else {
             None
         };
-        #[cfg(feature="ui")]
+        #[cfg(feature = "ui")]
         let pause_at_next_event = stream.is_some();
         Self {
-            #[cfg(feature="ui")]
+            #[cfg(feature = "ui")]
             stream,
             settings,
             initial_instant: std::time::Instant::now(),
             checkpoint_instant: std::time::Instant::now(),
-            #[cfg(feature="ui")]
+            #[cfg(feature = "ui")]
             pause_at_next_event,
             serializer,
         }
     }
 
-    #[cfg(not(feature="ui"))]
+    #[cfg(not(feature = "ui"))]
     fn hash_and_string_of_input(&self, input: S::Value) -> (String, Vec<u8>) {
         let input = self.serializer.to_data(&input);
         let mut hasher = DefaultHasher::new();
@@ -70,7 +67,7 @@ impl<S: Serializer> World<S> {
         (hash, input)
     }
 
-    #[cfg(feature="ui")]
+    #[cfg(feature = "ui")]
     fn hash_and_string_of_input(&self, input: S::Value) -> (String, Vec<u8>) {
         let input = self.serializer.to_data(&input);
         let mut hasher = DefaultHasher::new();
@@ -81,7 +78,8 @@ impl<S: Serializer> World<S> {
             String::from_utf8_lossy(&input).to_string()
         } else {
             base64::encode(&input)
-        }.into_bytes();
+        }
+        .into_bytes();
         (hash, input)
     }
 
@@ -91,18 +89,24 @@ impl<S: Serializer> World<S> {
                 WorldAction::Add(x) => {
                     let (hash, input) = self.hash_and_string_of_input(x);
                     self.add_to_output_corpus(hash.clone(), input.clone())?;
-                    #[cfg(feature="ui")]
-                    TuiMessage::AddInput { hash, input: String::from_utf8_lossy(&input).to_string() }
+                    #[cfg(feature = "ui")]
+                    TuiMessage::AddInput {
+                        hash,
+                        input: String::from_utf8_lossy(&input).to_string(),
+                    }
                 }
                 WorldAction::Remove(x) => {
                     let (hash, _input) = self.hash_and_string_of_input(x);
                     self.remove_from_output_corpus(hash.clone())?;
-                    #[cfg(feature="ui")]
-                    TuiMessage::RemoveInput { hash, input: String::from_utf8_lossy(&input).to_string() }
+                    #[cfg(feature = "ui")]
+                    TuiMessage::RemoveInput {
+                        hash,
+                        input: String::from_utf8_lossy(&input).to_string(),
+                    }
                 }
                 WorldAction::ReportEvent(event) => {
                     self.report_event(event.clone(), Some(*stats));
-                    #[cfg(feature="ui")]
+                    #[cfg(feature = "ui")]
                     TuiMessage::ReportEvent(TuiMessageEvent {
                         event,
                         stats: *stats,
@@ -111,10 +115,10 @@ impl<S: Serializer> World<S> {
                 }
             };
 
-            #[cfg(feature="ui")]
+            #[cfg(feature = "ui")]
             self.write_to_stream(&message);
         }
-        #[cfg(feature="ui")]
+        #[cfg(feature = "ui")]
         if self.pause_at_next_event {
             self.pause_until_unpause_message();
         }
@@ -296,7 +300,7 @@ This should never happen, and is probably a bug in fuzzcheck. Sorry :("#
         println!("Saving at {:?}", path);
         fs::write(path, &content)?;
 
-        #[cfg(feature="ui")]
+        #[cfg(feature = "ui")]
         {
             let message = TuiMessage::SaveArtifact {
                 hash: name,
@@ -307,7 +311,7 @@ This should never happen, and is probably a bug in fuzzcheck. Sorry :("#
         Result::Ok(())
     }
 
-    #[cfg(feature="ui")]
+    #[cfg(feature = "ui")]
     pub fn read_message_from_user(&mut self, blocking: bool) -> Option<MessageUserToFuzzer> {
         if let Some(stream) = &mut self.stream {
             let _ = stream.set_nonblocking(blocking);
@@ -321,8 +325,8 @@ This should never happen, and is probably a bug in fuzzcheck. Sorry :("#
             None
         }
     }
-    
-    #[cfg(feature="ui")]
+
+    #[cfg(feature = "ui")]
     fn write_to_stream(&mut self, message: &TuiMessage) {
         if let Some(stream) = &mut self.stream {
             ipc::write(stream, &message.to_json().to_string());
@@ -330,7 +334,8 @@ This should never happen, and is probably a bug in fuzzcheck. Sorry :("#
     }
 
     pub fn pause_until_unpause_message(&mut self) {
-        #[cfg(feature="ui")] {
+        #[cfg(feature = "ui")]
+        {
             let start_pause = Instant::now();
 
             self.write_to_stream(&TuiMessage::Paused);
@@ -360,20 +365,22 @@ This should never happen, and is probably a bug in fuzzcheck. Sorry :("#
     }
 
     pub fn handle_user_message(&mut self) {
-        #[cfg(feature="ui")] {
-        match self.read_message_from_user(true) {
-            Some(MessageUserToFuzzer::Pause) => {
-                self.pause_until_unpause_message();
+        #[cfg(feature = "ui")]
+        {
+            match self.read_message_from_user(true) {
+                Some(MessageUserToFuzzer::Pause) => {
+                    self.pause_until_unpause_message();
+                }
+                Some(MessageUserToFuzzer::UnPause) => {}
+                Some(MessageUserToFuzzer::UnPauseUntilNextEvent) => {}
+                Some(MessageUserToFuzzer::Stop) => self.stop(),
+                None => {}
             }
-            Some(MessageUserToFuzzer::UnPause) => {}
-            Some(MessageUserToFuzzer::UnPauseUntilNextEvent) => {}
-            Some(MessageUserToFuzzer::Stop) => self.stop(),
-            None => {}
-        }}
+        }
     }
 
     pub fn stop(&mut self) -> ! {
-        #[cfg(feature="ui")]
+        #[cfg(feature = "ui")]
         self.write_to_stream(&TuiMessage::Stopped);
         self.report_event(FuzzerEvent::Stop, None);
         std::process::exit(TerminationStatus::Success as i32);

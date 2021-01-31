@@ -66,12 +66,14 @@ pub fn derive_tuple_structure(item: proc_macro::TokenStream) -> proc_macro::Toke
         } else if nbr_fields > 1 {
             tuples::impl_tuple_structure_trait(&mut tb, &s, ts!("fuzzcheck_mutators"));
         } else {
-            extend_ts!(&mut tb,
+            extend_ts!(
+                &mut tb,
                 "compile_error!(\"The TupleStructure macro only works for structs with one or more fields.\");"
             )
         }
     } else if let Some(_) = parser.eat_enumeration() {
-        extend_ts!(&mut tb,
+        extend_ts!(
+            &mut tb,
             "compile_error!(\"The TupleStructure macro cannot be used on enums.\");"
         )
     } else {
@@ -94,27 +96,36 @@ pub fn derive_default_mutator(item: proc_macro::TokenStream) -> proc_macro::Toke
         let nbr_fields = s.struct_fields.len();
         if nbr_fields == 0 {
             tuples::impl_default_mutator_for_struct_with_0_field(&mut tb, &s, fuzzcheck_mutators_crate.clone());
-        }
-        else if nbr_fields == 1 {
+        } else if nbr_fields == 1 {
             tuples::impl_wrapped_tuple_1_structure(&mut tb, &s, fuzzcheck_mutators_crate.clone());
             tuples::impl_default_mutator_for_struct_with_1_field(&mut tb, &s, fuzzcheck_mutators_crate.clone());
-        }
-        else {
+        } else {
             tuples::impl_tuple_structure_trait(&mut tb, &s, fuzzcheck_mutators_crate.clone());
-            tuples::impl_default_mutator_for_struct_with_more_than_1_field(&mut tb, &s, fuzzcheck_mutators_crate.clone());
+            tuples::impl_default_mutator_for_struct_with_more_than_1_field(
+                &mut tb,
+                &s,
+                fuzzcheck_mutators_crate.clone(),
+            );
         }
     } else if let Some(e) = parser.eat_enumeration() {
-        if e.items.len() == 1 && matches!(&e.items[0].data, Some(EnumItemData::Struct(_, fields)) if fields.len() == 1) {
+        if e.items.len() == 1 && matches!(&e.items[0].data, Some(EnumItemData::Struct(_, fields)) if fields.len() == 1)
+        {
             enums::impl_wrapped_tuple_1_structure(&mut tb, &e, fuzzcheck_mutators_crate.clone());
             enums::impl_default_mutator_for_enum_wrapped_tuple(&mut tb, &e, fuzzcheck_mutators_crate);
-        } else if e.items.iter().any(|item| matches!(&item.data, Some(EnumItemData::Struct(_, fields)) if fields.len() > 0)) {
+        } else if e
+            .items
+            .iter()
+            .any(|item| matches!(&item.data, Some(EnumItemData::Struct(_, fields)) if fields.len() > 0))
+        {
             enums::impl_enum_structure_trait(&mut tb, &e, fuzzcheck_mutators_crate.clone());
             enums::impl_default_mutator_for_enum(&mut tb, &e, fuzzcheck_mutators_crate.clone());
-        } else if e.items.len() > 0 { // no associated data anywhere
+        } else if e.items.len() > 0 {
+            // no associated data anywhere
             enums::impl_basic_enum_structure(&mut tb, &e, fuzzcheck_mutators_crate.clone());
             enums::impl_default_mutator_for_basic_enum(&mut tb, &e, fuzzcheck_mutators_crate);
         } else {
-            extend_ts!(&mut tb,
+            extend_ts!(
+                &mut tb,
                 "compile_error!(\"The DefaultMutator derive proc_macro does not work on empty enums.\");"
             );
         }
@@ -133,7 +144,10 @@ pub fn derive_enum_n_payload_structure(item: proc_macro::TokenStream) -> proc_ma
     let mut parser = TokenParser::new(input);
 
     if let Some(e) = parser.eat_enumeration() {
-        if e.items.iter().any(|item| matches!(&item.data, Some(EnumItemData::Struct(_, fields)) if fields.len() > 0)) {
+        if e.items
+            .iter()
+            .any(|item| matches!(&item.data, Some(EnumItemData::Struct(_, fields)) if fields.len() > 0))
+        {
             enums::impl_enum_structure_trait(&mut tb, &e, ts!("fuzzcheck_mutators"));
         } else {
             extend_ts!(&mut tb,

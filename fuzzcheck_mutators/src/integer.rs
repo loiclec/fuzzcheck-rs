@@ -165,7 +165,9 @@ macro_rules! impl_unsigned_mutator {
                 step: &mut Self::ArbitraryStep,
                 max_cplx: f64,
             ) -> Option<($name, Self::Cache)> {
-                if max_cplx < self.min_complexity() { return None }
+                if max_cplx < self.min_complexity() {
+                    return None;
+                }
                 if *step > <$name>::MAX as u64 {
                     None
                 } else {
@@ -186,7 +188,9 @@ macro_rules! impl_unsigned_mutator {
                 step: &mut Self::MutationStep,
                 max_cplx: f64,
             ) -> Option<Self::UnmutateToken> {
-                if max_cplx < self.min_complexity() { return None }
+                if max_cplx < self.min_complexity() {
+                    return None;
+                }
                 if *step > 10u64.saturating_add(<$name>::MAX as u64) {
                     return None;
                 }

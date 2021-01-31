@@ -1,4 +1,3 @@
-
 use decent_synquote_alternative as synquote;
 use proc_macro2::{Ident, Span, TokenStream};
 
@@ -59,7 +58,7 @@ fn make_enum_n_payload_mutator(tb: &mut TokenBuilder, n: usize, fuzzcheck_mutato
 
     let type_params = join_ts!(0..n, i,
         T(i) "," M(i) "," TupleKind(i)
-    , separator: ",") ;
+    , separator: ",");
     let where_clause = join_ts!(0..n, i, 
         T(i) ":" clone " +" TupleStructure(i) ","
         TupleKind(i) ":" RefTypes ","
@@ -367,23 +366,24 @@ pub fn make_basic_enum_mutator(tb: &mut TokenBuilder, n: usize, fuzzcheck_mutato
 }
 
 pub fn impl_enum_structure_trait(tb: &mut TokenBuilder, enu: &Enum, fuzzcheck_mutators_crate: TokenStream) {
-    
-    let items_with_fields = enu.items.iter().enumerate().filter_map(|(i, item)| {
-        match &item.data {
-            Some(EnumItemData::Struct(_, fields)) if fields.len() > 0 => {
-                Some((i, fields))
-            }
-            _ => None
-        }
-    }).collect::<Box<_>>();
-    let items_without_fields = enu.items.iter().enumerate().filter_map(|(_, item)| {
-        match &item.data {
-            Some(EnumItemData::Struct(_, fields)) if fields.len() > 0 => {
-                None
-            }
-            _ => Some(item)
-        }
-    }).collect::<Box<_>>();
+    let items_with_fields = enu
+        .items
+        .iter()
+        .enumerate()
+        .filter_map(|(i, item)| match &item.data {
+            Some(EnumItemData::Struct(_, fields)) if fields.len() > 0 => Some((i, fields)),
+            _ => None,
+        })
+        .collect::<Box<_>>();
+    let items_without_fields = enu
+        .items
+        .iter()
+        .enumerate()
+        .filter_map(|(_, item)| match &item.data {
+            Some(EnumItemData::Struct(_, fields)) if fields.len() > 0 => None,
+            _ => Some(item),
+        })
+        .collect::<Box<_>>();
     let n = items_with_fields.len();
 
     let EnumNPayloadStructure = ts!(fuzzcheck_mutators_crate "::" ident!("Enum" n "PayloadStructure"));
@@ -403,37 +403,40 @@ pub fn impl_enum_structure_trait(tb: &mut TokenBuilder, enu: &Enum, fuzzcheck_mu
     let Tuple = |i: usize| ts!(fuzzcheck_mutators_crate "::" ident!("Tuple" i));
     let T = |i: usize| ident!("T" i);
 
-    let field_types = items_with_fields.iter().map(|(_, fields)| {
-        join_ts!(fields.iter(), field, field.ty, separator: ",")
-    }).collect::<Box<_>>();
-    let field_types_ref = items_with_fields.iter().map(|(_, fields)| {
-        join_ts!(fields.iter(), field, "&'a" field.ty, separator: ",")
-    }).collect::<Box<_>>();
-    let field_types_mut = items_with_fields.iter().map(|(_, fields)| {
-        join_ts!(fields.iter(), field, "&'a mut" field.ty, separator: ",")
-    }).collect::<Box<_>>();
+    let field_types = items_with_fields
+        .iter()
+        .map(|(_, fields)| join_ts!(fields.iter(), field, field.ty, separator: ","))
+        .collect::<Box<_>>();
+    let field_types_ref = items_with_fields
+        .iter()
+        .map(|(_, fields)| join_ts!(fields.iter(), field, "&'a" field.ty, separator: ","))
+        .collect::<Box<_>>();
+    let field_types_mut = items_with_fields
+        .iter()
+        .map(|(_, fields)| join_ts!(fields.iter(), field, "&'a mut" field.ty, separator: ","))
+        .collect::<Box<_>>();
 
     let EitherN = ts!(fuzzcheck_mutators_crate "::" ident!("Either" n+1));
 
     let either_owned = ts!(
-        EitherN "<" 
-            join_ts!(0..items_with_fields.len(), i, 
+        EitherN "<"
+            join_ts!(0..items_with_fields.len(), i,
                 "Self::" T(i) ","
             )
             "usize"
         ">"
     );
     let either_ref = ts!(
-        EitherN "<" 
-            join_ts!(0..n, i, 
+        EitherN "<"
+            join_ts!(0..n, i,
                 "(" field_types_ref[i] ") ,"
             )
             "usize"
         ">"
     );
     let either_mut = ts!(
-        EitherN "<" 
-            join_ts!(0..n, i, 
+        EitherN "<"
+            join_ts!(0..n, i,
                 "(" field_types_mut[i] ") ,"
             )
             "usize"
@@ -444,14 +447,14 @@ pub fn impl_enum_structure_trait(tb: &mut TokenBuilder, enu: &Enum, fuzzcheck_mu
         {
             let mut count_no_data: isize = -1;
             let mut count_data: isize = -1;
-            join_ts!(&enu.items, item, 
+            join_ts!(&enu.items, item,
                 item.pattern_match(&enu.ident, None) "=> {"
                 EitherN "::" match &item.data {
                     Some(EnumItemData::Struct(_, fields)) if fields.len() > 0 => {
                         count_data += 1;
                         ts!(
-                            T(count_data as usize) "((" 
-                                join_ts!(fields.iter(), f, 
+                            T(count_data as usize) "(("
+                                join_ts!(fields.iter(), f,
                                     f.safe_ident()
                                 , separator: ",")
                             "))"
@@ -471,7 +474,7 @@ pub fn impl_enum_structure_trait(tb: &mut TokenBuilder, enu: &Enum, fuzzcheck_mu
         "
         #[allow(non_shorthand_field_patterns)]
         impl" generics_no_eq EnumNPayloadStructure 
-            "for" enu.ident generics_no_eq_nor_bounds where_clause 
+            "for" enu.ident generics_no_eq_nor_bounds where_clause
         "{"
         join_ts!(0..n, i,
             "type" TupleKind(i) "=" Tuple(items_with_fields[i].1.len()) "<" field_types[i] "> ;"
@@ -490,21 +493,21 @@ pub fn impl_enum_structure_trait(tb: &mut TokenBuilder, enu: &Enum, fuzzcheck_mu
         }
         fn new(t: " either_owned ") -> Self {
             match t {"
-            join_ts!(0..n, i, 
+            join_ts!(0..n, i,
                 EitherN "::" T(i) "(x) => {"
                     enu.ident "::" enu.items[items_with_fields[i].0].ident "{"
                         if items_with_fields[i].1.len() == 1 {
                             ts!(items_with_fields[i].1[0].access() ": x")
                         } else {
-                            join_ts!(items_with_fields[i].1.iter().enumerate(), (i, field), 
-                                field.access() ": x." i 
+                            join_ts!(items_with_fields[i].1.iter().enumerate(), (i, field),
+                                field.access() ": x." i
                             , separator: ",")
                         }
                     "}"
                 "}"
             )
                 EitherN "::" T(n) "(x) => match x %" enu.items.len() - n "{"
-                    join_ts!(0..enu.items.len() - n, i, 
+                    join_ts!(0..enu.items.len() - n, i,
                         i "=> Self::" items_without_fields[i].ident match items_without_fields[i].data {
                             Some(EnumItemData::Struct(_, _)) => {
                                 ts!("{}")
@@ -523,14 +526,15 @@ pub fn impl_enum_structure_trait(tb: &mut TokenBuilder, enu: &Enum, fuzzcheck_mu
 }
 
 pub fn impl_default_mutator_for_enum(tb: &mut TokenBuilder, enu: &Enum, fuzzcheck_mutators_crate: TokenStream) {
-    let items_with_fields = enu.items.iter().enumerate().filter_map(|(i, item)| {
-        match &item.data {
-            Some(EnumItemData::Struct(_, fields)) if fields.len() > 0 => {
-                Some((i, fields))
-            }
-            _ => None
-        }
-    }).collect::<Box<_>>();
+    let items_with_fields = enu
+        .items
+        .iter()
+        .enumerate()
+        .filter_map(|(i, item)| match &item.data {
+            Some(EnumItemData::Struct(_, fields)) if fields.len() > 0 => Some((i, fields)),
+            _ => None,
+        })
+        .collect::<Box<_>>();
 
     let n = items_with_fields.len();
 
@@ -538,7 +542,6 @@ pub fn impl_default_mutator_for_enum(tb: &mut TokenBuilder, enu: &Enum, fuzzchec
 
     let TupleNMutator = |n: usize| ts!(fuzzcheck_mutators_crate "::" ident!("Tuple" n "Mutator"));
     let TupleN = |n: usize| ts!(fuzzcheck_mutators_crate "::" ident!("Tuple" n));
-
 
     let generics_no_eq = enu.generics.removing_eq_type();
     let generics_no_eq_nor_bounds = enu.generics.removing_bounds_and_eq_type();
@@ -558,15 +561,15 @@ pub fn impl_default_mutator_for_enum(tb: &mut TokenBuilder, enu: &Enum, fuzzchec
         join_ts!(items_with_fields.iter(), (_, fields),
             "(" join_ts!(fields.iter(), field, field.ty, separator: "," ) "),
             " TupleNMutator(fields.len()) "<"
-                join_ts!(fields.iter(), field, 
+                join_ts!(fields.iter(), field,
                     field.ty ","
                 )
-                join_ts!(fields.iter(), field, 
+                join_ts!(fields.iter(), field,
                     "<" field.ty " as " DefaultMutator ">::Mutator"
                 , separator: ",")
             ">,"
-            TupleN(fields.len()) "<" 
-                join_ts!(fields.iter(), field, 
+            TupleN(fields.len()) "<"
+                join_ts!(fields.iter(), field,
                     field.ty
                 , separator: ",")
             ">"
@@ -576,8 +579,8 @@ pub fn impl_default_mutator_for_enum(tb: &mut TokenBuilder, enu: &Enum, fuzzchec
         fn default_mutator() -> Self::Mutator {
             Self::Mutator::new("
             join_ts!(items_with_fields.iter(), (_, fields),
-                TupleNMutator(fields.len()) "::new(" 
-                    join_ts!(fields.iter(), field, 
+                TupleNMutator(fields.len()) "::new("
+                    join_ts!(fields.iter(), field,
                         "<" field.ty ">::default_mutator()"
                     , separator: ",")
                 ")"
@@ -589,7 +592,10 @@ pub fn impl_default_mutator_for_enum(tb: &mut TokenBuilder, enu: &Enum, fuzzchec
 }
 
 pub fn impl_wrapped_tuple_1_structure(tb: &mut TokenBuilder, enu: &Enum, fuzzcheck_mutators_crate: TokenStream) {
-    assert!(enu.items.len() == 1 && matches!(&enu.items[0].data, Some(EnumItemData::Struct(_, fields)) if fields.len() == 1));
+    assert!(
+        enu.items.len() == 1
+            && matches!(&enu.items[0].data, Some(EnumItemData::Struct(_, fields)) if fields.len() == 1)
+    );
     if let Some(EnumItemData::Struct(_, fields)) = &enu.items[0].data {
         let item = &enu.items[0];
         let field = fields[0].clone();
@@ -597,23 +603,21 @@ pub fn impl_wrapped_tuple_1_structure(tb: &mut TokenBuilder, enu: &Enum, fuzzche
 
         let generics_no_eq = enu.generics.removing_eq_type();
         let generics_no_eq_nor_bounds = enu.generics.removing_bounds_and_eq_type();
-        
+
         let TupleStructure = ts!(fuzzcheck_mutators_crate "::TupleStructure");
         let WrappedTuple1 = ts!(fuzzcheck_mutators_crate "::WrappedTuple1");
-    
+
         let mut where_clause = enu.where_clause.clone().unwrap_or(WhereClause::default());
         for tp in enu.generics.type_params.iter() {
-            where_clause.items.push(
-                WhereClauseItem {
-                    for_lifetimes: None,
-                    lhs: tp.type_ident.clone(),
-                    rhs: ts!("'static"),
-                }
-            );    
+            where_clause.items.push(WhereClauseItem {
+                for_lifetimes: None,
+                lhs: tp.type_ident.clone(),
+                rhs: ts!("'static"),
+            });
         }
-    
+
         extend_ts!(tb,
-            "impl " generics_no_eq TupleStructure "<" WrappedTuple1 "<" field_type "> > 
+            "impl " generics_no_eq TupleStructure "<" WrappedTuple1 "<" field_type "> >
                 for " enu.ident generics_no_eq_nor_bounds where_clause " 
             {
                 fn get_ref<'a>(&'a self) -> &'a " field_type " {
@@ -638,28 +642,33 @@ pub fn impl_wrapped_tuple_1_structure(tb: &mut TokenBuilder, enu: &Enum, fuzzche
     }
 }
 
-pub fn impl_default_mutator_for_enum_wrapped_tuple(tb: &mut TokenBuilder, enu: &Enum, fuzzcheck_mutators_crate: TokenStream) {
-    assert!(enu.items.len() == 1 && matches!(&enu.items[0].data, Some(EnumItemData::Struct(_, fields)) if fields.len() == 1));
+pub fn impl_default_mutator_for_enum_wrapped_tuple(
+    tb: &mut TokenBuilder,
+    enu: &Enum,
+    fuzzcheck_mutators_crate: TokenStream,
+) {
+    assert!(
+        enu.items.len() == 1
+            && matches!(&enu.items[0].data, Some(EnumItemData::Struct(_, fields)) if fields.len() == 1)
+    );
     if let Some(EnumItemData::Struct(_, fields)) = &enu.items[0].data {
         let field = fields[0].clone();
 
         let generics_no_eq = enu.generics.removing_eq_type();
         let generics_no_eq_nor_bounds = enu.generics.removing_bounds_and_eq_type();
-     
+
         let mut where_clause = enu.where_clause.clone().unwrap_or(WhereClause::default());
         for tp in enu.generics.type_params.iter() {
-            where_clause.items.push(
-                WhereClauseItem {
-                    for_lifetimes: None,
-                    lhs: tp.type_ident.clone(),
-                    rhs: ts!("'static"),
-                }
-            );    
+            where_clause.items.push(WhereClauseItem {
+                for_lifetimes: None,
+                lhs: tp.type_ident.clone(),
+                rhs: ts!("'static"),
+            });
         }
-    
+
         let DefaultMutator = ts!(fuzzcheck_mutators_crate "::DefaultMutator");
         let WrappedMutator = ts!(fuzzcheck_mutators_crate "::WrappedMutator");
-    
+
         extend_ts!(tb, 
         "impl " generics_no_eq DefaultMutator "for" enu.ident generics_no_eq_nor_bounds where_clause "{
             type Mutator = " WrappedMutator "<" field.ty ", <" field.ty "as" DefaultMutator ">::Mutator>;
@@ -668,7 +677,7 @@ pub fn impl_default_mutator_for_enum_wrapped_tuple(tb: &mut TokenBuilder, enu: &
                 Self::Mutator::new(<" field.ty ">::default_mutator())
             }
         }
-        ")   
+        ")
     } else {
         unreachable!()
     }
@@ -676,20 +685,23 @@ pub fn impl_default_mutator_for_enum_wrapped_tuple(tb: &mut TokenBuilder, enu: &
 
 pub fn impl_basic_enum_structure(tb: &mut TokenBuilder, enu: &Enum, fuzzcheck_mutators_crate: TokenStream) {
     assert!(
-        enu.items.len() > 0 
-        && enu.items.iter().all(|item| 
-            !matches!(&item.data, Some(EnumItemData::Struct(_, fields)) if fields.len() > 0)
-        )
+        enu.items.len() > 0
+            && enu
+                .items
+                .iter()
+                .all(|item| !matches!(&item.data, Some(EnumItemData::Struct(_, fields)) if fields.len() > 0))
     );
 
     let BasicEnumStructure = ts!(fuzzcheck_mutators_crate "::BasicEnumStructure");
 
-    let items_init = enu.items.iter().map(|item| {
-        match &item.data {
+    let items_init = enu
+        .items
+        .iter()
+        .map(|item| match &item.data {
             Some(EnumItemData::Struct(kind, _)) => ts!(kind.open() kind.close()),
-            _ => ts!()
-        }
-    }).collect::<Box<_>>();
+            _ => ts!(),
+        })
+        .collect::<Box<_>>();
 
     extend_ts!(tb,
         "impl" BasicEnumStructure "for" enu.ident "{
@@ -714,18 +726,18 @@ pub fn impl_basic_enum_structure(tb: &mut TokenBuilder, enu: &Enum, fuzzcheck_mu
     )
 }
 
-
 pub fn impl_default_mutator_for_basic_enum(tb: &mut TokenBuilder, enu: &Enum, fuzzcheck_mutators_crate: TokenStream) {
     assert!(
-        enu.items.len() > 0 
-        && enu.items.iter().all(|item| 
-            !matches!(&item.data, Some(EnumItemData::Struct(_, fields)) if fields.len() > 0)
-        )
+        enu.items.len() > 0
+            && enu
+                .items
+                .iter()
+                .all(|item| !matches!(&item.data, Some(EnumItemData::Struct(_, fields)) if fields.len() > 0))
     );
 
-    let DefaultMutator  = ts!(fuzzcheck_mutators_crate "::DefaultMutator");
+    let DefaultMutator = ts!(fuzzcheck_mutators_crate "::DefaultMutator");
     let BasicEnumMutator = ts!(fuzzcheck_mutators_crate "::BasicEnumMutator");
-    
+
     extend_ts!(tb,
         "impl" DefaultMutator "for " enu.ident " {
             type Mutator = " BasicEnumMutator ";
@@ -737,14 +749,17 @@ pub fn impl_default_mutator_for_basic_enum(tb: &mut TokenBuilder, enu: &Enum, fu
     )
 }
 
-
 #[cfg(test)]
 mod test {
-    use crate::{decent_synquote_alternative::TokenBuilderExtend};
+    use crate::decent_synquote_alternative::TokenBuilderExtend;
     use decent_synquote_alternative::{parser::TokenParser, token_builder::TokenBuilder};
     use proc_macro2::TokenStream;
 
-    use super::{impl_basic_enum_structure, impl_default_mutator_for_basic_enum, impl_default_mutator_for_enum, impl_enum_structure_trait, impl_mutator, impl_wrapped_tuple_1_structure, make_enum_mutator_helper_types, make_enum_n_payload_mutator, make_enum_n_payload_structure};
+    use super::{
+        impl_basic_enum_structure, impl_default_mutator_for_basic_enum, impl_default_mutator_for_enum,
+        impl_enum_structure_trait, impl_mutator, impl_wrapped_tuple_1_structure, make_enum_mutator_helper_types,
+        make_enum_n_payload_mutator, make_enum_n_payload_structure,
+    };
 
     #[test]
     fn test_impl_default_mutator_for_basic_enum() {
@@ -754,10 +769,12 @@ mod test {
             B,
             C,
         }
-        ".parse::<TokenStream>().unwrap();
+        "
+        .parse::<TokenStream>()
+        .unwrap();
         let mut parser = TokenParser::new(code);
         let enu = parser.eat_enumeration().unwrap();
-        
+
         let mut tb = TokenBuilder::new();
         impl_default_mutator_for_basic_enum(&mut tb, &enu, ts!("fuzzcheck_mutators"));
         let generated = tb.end().to_string();
@@ -770,7 +787,8 @@ mod test {
                 Self::Mutator::default()
             }
         }
-        ".parse::<TokenStream>()
+        "
+        .parse::<TokenStream>()
         .unwrap()
         .to_string();
         assert_eq!(generated, expected, "\n\n{}\n\n{}\n\n", generated, expected);
@@ -784,10 +802,12 @@ mod test {
             B { },
             C ( ),
         }
-        ".parse::<TokenStream>().unwrap();
+        "
+        .parse::<TokenStream>()
+        .unwrap();
         let mut parser = TokenParser::new(code);
         let enu = parser.eat_enumeration().unwrap();
-        
+
         let mut tb = TokenBuilder::new();
         impl_basic_enum_structure(&mut tb, &enu, ts!("fuzzcheck_mutators"));
         let generated = tb.end().to_string();
@@ -811,7 +831,8 @@ mod test {
                 }
             }
         }
-        ".parse::<TokenStream>()
+        "
+        .parse::<TokenStream>()
         .unwrap()
         .to_string();
         assert_eq!(generated, expected, "\n\n{}\n\n{}\n\n", generated, expected);
@@ -823,10 +844,12 @@ mod test {
         pub enum A<T: Clone> {
             X(Option<T>),
         }
-        ".parse::<TokenStream>().unwrap();
+        "
+        .parse::<TokenStream>()
+        .unwrap();
         let mut parser = TokenParser::new(code);
         let enu = parser.eat_enumeration().unwrap();
-        
+
         let mut tb = TokenBuilder::new();
         impl_wrapped_tuple_1_structure(&mut tb, &enu, ts!("fuzzcheck_mutators"));
         let generated = tb.end().to_string();
@@ -864,10 +887,12 @@ mod test {
             Left((T, u8), u8),
             Right(u16),
         }
-        ".parse::<TokenStream>().unwrap();
+        "
+        .parse::<TokenStream>()
+        .unwrap();
         let mut parser = TokenParser::new(code);
         let enu = parser.eat_enumeration().unwrap();
-        
+
         let mut tb = TokenBuilder::new();
         impl_default_mutator_for_enum(&mut tb, &enu, ts!("crate"));
         let generated = tb.end().to_string();
@@ -905,10 +930,12 @@ impl<T> crate::DefaultMutator for E<T> where T: crate::DefaultMutator + 'static 
             Left(T, u8, U),
             Baz,
         }
-        ".parse::<TokenStream>().unwrap();
+        "
+        .parse::<TokenStream>()
+        .unwrap();
         let mut parser = TokenParser::new(code);
         let enu = parser.eat_enumeration().unwrap();
-        
+
         let mut tb = TokenBuilder::new();
         impl_enum_structure_trait(&mut tb, &enu, ts!("crate"));
         let generated = tb.end().to_string();
@@ -947,7 +974,8 @@ impl<T> crate::DefaultMutator for E<T> where T: crate::DefaultMutator + 'static 
                 }
             }
         }
-        ".parse::<TokenStream>()
+        "
+        .parse::<TokenStream>()
         .unwrap()
         .to_string();
         assert_eq!(generated, expected, "\n\n{}\n\n{}\n\n", generated, expected);
@@ -960,10 +988,12 @@ impl<T> crate::DefaultMutator for E<T> where T: crate::DefaultMutator + 'static 
             Left { x: T, _y: u8 },
             Right(u16),
         }
-        ".parse::<TokenStream>().unwrap();
+        "
+        .parse::<TokenStream>()
+        .unwrap();
         let mut parser = TokenParser::new(code);
         let enu = parser.eat_enumeration().unwrap();
-        
+
         let mut tb = TokenBuilder::new();
         impl_enum_structure_trait(&mut tb, &enu, ts!("crate"));
         let generated = tb.end().to_string();
@@ -998,7 +1028,8 @@ impl<T> crate::DefaultMutator for E<T> where T: crate::DefaultMutator + 'static 
                 }
             }
         }
-        ".parse::<TokenStream>()
+        "
+        .parse::<TokenStream>()
         .unwrap()
         .to_string();
         assert_eq!(generated, expected, "\n\n{}\n\n{}\n\n", generated, expected);
@@ -1013,10 +1044,12 @@ impl<T> crate::DefaultMutator for E<T> where T: crate::DefaultMutator + 'static 
             Left(T, u8),
             Right(u16),
         }
-        ".parse::<TokenStream>().unwrap();
+        "
+        .parse::<TokenStream>()
+        .unwrap();
         let mut parser = TokenParser::new(code);
         let enu = parser.eat_enumeration().unwrap();
-        
+
         let mut tb = TokenBuilder::new();
         impl_enum_structure_trait(&mut tb, &enu, ts!("crate"));
         let generated = tb.end().to_string();
@@ -1057,7 +1090,8 @@ impl<T> crate::DefaultMutator for E<T> where T: crate::DefaultMutator + 'static 
                 }
             }
         }
-        ".parse::<TokenStream>()
+        "
+        .parse::<TokenStream>()
         .unwrap()
         .to_string();
         assert_eq!(generated, expected, "\n\n{}\n\n{}\n\n", generated, expected);

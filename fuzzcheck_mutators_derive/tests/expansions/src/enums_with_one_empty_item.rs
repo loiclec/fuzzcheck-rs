@@ -1,23 +1,18 @@
 use fuzzcheck_mutators::DefaultMutator;
 
-#[derive(DefaultMutator)]
-#[derive(Clone)]
+#[derive(DefaultMutator, Clone)]
 pub enum X {
-    A
+    A,
 }
 
-#[derive(DefaultMutator)]
-#[derive(Clone)]
+#[derive(DefaultMutator, Clone)]
 pub enum Y {
-    A( )
+    A(),
 }
 
-#[derive(DefaultMutator)]
-#[derive(Clone)]
+#[derive(DefaultMutator, Clone)]
 pub enum Z {
-    A { }
+    A {},
 }
 
-fn _x() {
-
-}
+fn _x() {}
