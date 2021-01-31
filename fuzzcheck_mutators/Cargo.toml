@@ -18,7 +18,7 @@ version = "0.5.0"
 
 [dependencies.fuzzcheck_mutators_derive]
 path = "../fuzzcheck_mutators_derive"
-version = "0.4.0"
+version = "0.5.0"
 
 [dependencies.fastrand]
 version = "1.0"
