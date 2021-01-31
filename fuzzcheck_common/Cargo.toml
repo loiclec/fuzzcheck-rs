@@ -3,6 +3,9 @@ name = "fuzzcheck_common"
 version = "0.5.0"
 authors = ["Loïc Lecrenier <loic.lecrenier@me.com>"]
 edition = "2018"
+description = "Common components for both cargo-fuzzcheck and fuzzcheck"
+repository = "https://git.sr.ht/~loic/fuzzcheck-rs"
+license = "MIT"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
