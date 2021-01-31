@@ -1,6 +1,6 @@
 [package]
 name = "cargo-fuzzcheck"
-version = "0.4.0"
+version = "0.5.0"
 authors = ["Loïc Lecrenier <loic.lecrenier@me.com>"]
 edition = "2018"
 description = "Command line tool to use fuzzcheck-rs"
