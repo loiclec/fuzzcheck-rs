@@ -2,12 +2,12 @@
 //!to the [Pool] and uses an evolutionary algorithm using [Mutator] to find new interesting
 //! test inputs.
 
-use crate::data_structures::{LargeStepFindIter, SlabKey};
+use crate::{code_coverage_sensor, data_structures::{LargeStepFindIter, SlabKey}};
 use crate::nix_subset as nix;
 use crate::pool::{AnalyzedFeature, Pool, PoolIndex};
 use crate::signals_handler::{set_signal_handlers, set_timer};
 use crate::world::World;
-use crate::{code_coverage_sensor::shared_sensor, world::WorldAction};
+use crate::{world::WorldAction};
 use crate::{Feature, FuzzedInput, Mutator, Serializer};
 
 use fuzzcheck_common::{FuzzerEvent, FuzzerStats};
@@ -203,14 +203,14 @@ where
         world: &mut World<S>,
         stats: FuzzerStats,
     ) -> Result<(), std::io::Error> {
-        let sensor = shared_sensor();
-        sensor.clear();
+
+        code_coverage_sensor::clear();
 
         if timeout != 0 {
             set_timer(timeout);
         }
 
-        sensor.start_recording();
+        code_coverage_sensor::start_recording();
 
         let cell = NotUnwindSafe { value: test };
         let input_cell = NotUnwindSafe {
@@ -218,7 +218,7 @@ where
         };
         let result = catch_unwind(|| (cell.value)(input_cell.value));
 
-        sensor.stop_recording();
+        code_coverage_sensor::stop_recording();
 
         if timeout != 0 {
             set_timer(0);
@@ -228,7 +228,7 @@ where
             world.do_actions(vec![WorldAction::ReportEvent(FuzzerEvent::TestFailure)], &stats)?;
             //world.report_event(FuzzerEvent::TestFailure, Some(stats));
             let mut features: Vec<Feature> = Vec::new();
-            sensor.iterate_over_collected_features(|f| features.push(f));
+            code_coverage_sensor::iterate_over_collected_features(|f| features.push(f));
             world.save_artifact(&input.value, input.complexity(mutator))?;
             exit(TerminationStatus::TestFailure as i32);
         }
@@ -239,8 +239,6 @@ where
     fn analyze(&mut self, cur_input_cplx: f64) -> Option<AnalysisResult<T, M>> {
         let mut best_input_for_a_feature = false;
 
-        let sensor = shared_sensor();
-
         let slab_features = &self.state.pool.slab_features;
 
         let mut step_iter = LargeStepFindIter::new(&self.state.pool.features);
@@ -248,7 +246,7 @@ where
         let existing_features = &mut self.state.analysis_cache.existing_features;
         let new_features = &mut self.state.analysis_cache.new_features;
 
-        sensor.iterate_over_collected_features(|feature| {
+        code_coverage_sensor::iterate_over_collected_features(|feature| {
             if let Some(f_for_iter) = step_iter.find(|feature_for_iter| feature_for_iter.feature.cmp(&feature)) {
                 if f_for_iter.feature == feature {
                     existing_features.push(f_for_iter.key);
@@ -265,18 +263,18 @@ where
                 new_features.push(feature);
             }
         });
-
+        let lowest_stack = code_coverage_sensor::lowest_stack();
         let result = if best_input_for_a_feature {
             Some(AnalysisResult {
                 existing_features: existing_features.clone(),
                 new_features: new_features.clone(),
-                lowest_stack: sensor.lowest_stack,
+                lowest_stack: lowest_stack,
             })
-        } else if sensor.lowest_stack < self.state.pool.lowest_stack() {
+        } else if lowest_stack < self.state.pool.lowest_stack() {
             Some(AnalysisResult {
                 existing_features: vec![],
                 new_features: vec![],
-                lowest_stack: sensor.lowest_stack,
+                lowest_stack: lowest_stack,
             })
         } else {
             None

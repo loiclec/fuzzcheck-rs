@@ -18,35 +18,91 @@ type PC = usize;
 
 static mut SHARED_SENSOR: MaybeUninit<CodeCoverageSensor> = MaybeUninit::<CodeCoverageSensor>::uninit();
 
-/// Returns a reference to the only `CodeCoverageSensor`
-pub fn shared_sensor() -> &'static mut CodeCoverageSensor {
-    unsafe { &mut *SHARED_SENSOR.as_mut_ptr() }
-}
-
 /// Records the code coverage of the program and converts it into `Feature`s
 /// that the `pool` can understand.
-pub struct CodeCoverageSensor {
-    pub is_recording: bool,
+struct CodeCoverageSensor {
+    is_recording: bool,
     eight_bit_counters: &'static mut [u8],
     /// pointer to the __sancov_lowest_stack variable
     _lowest_stack: &'static mut libc::uintptr_t,
     /// value of __sancov_lowest_stack after running an input
-    pub lowest_stack: usize,
-    #[cfg(trace_compares)]
+    lowest_stack: usize,
+    #[cfg(trace_compares)] 
     instr_features: HBitSet,
 }
 
-impl CodeCoverageSensor {
-    pub fn start_recording(&mut self) {
-        self.is_recording = true;
-        self.lowest_stack = usize::MAX;
-        *self._lowest_stack = usize::MAX;
-    }
-    pub fn stop_recording(&mut self) {
-        self.is_recording = false;
-        self.lowest_stack = *self._lowest_stack;
+pub fn lowest_stack() -> usize {
+    unsafe { (*SHARED_SENSOR.as_ptr()).lowest_stack }
+}
+
+pub fn start_recording() {
+    unsafe { 
+        let sensor = SHARED_SENSOR.as_mut_ptr();
+        (*sensor).is_recording = true;
+        (*sensor).lowest_stack = usize::MAX;
+        *(*sensor)._lowest_stack = usize::MAX;
     }
 }
+
+pub fn stop_recording() {
+    unsafe {
+        let sensor = SHARED_SENSOR.as_mut_ptr();
+        (*sensor).is_recording = false;
+        (*sensor).lowest_stack = *(*sensor)._lowest_stack;
+    }
+}
+
+ /// Runs the closure on all recorded features.
+ pub(crate) fn iterate_over_collected_features<F>(mut handle: F)
+ where
+     F: FnMut(Feature) -> (),
+ {
+     let sensor = unsafe { SHARED_SENSOR.as_mut_ptr() };
+     const CHUNK_SIZE: usize = 16;
+     let zero: [u8; CHUNK_SIZE] = [0; CHUNK_SIZE];
+     let length_chunks = unsafe { (*sensor).eight_bit_counters.len() / CHUNK_SIZE };
+
+     for i in 0..length_chunks {
+         let start = i * CHUNK_SIZE;
+         let end = start + CHUNK_SIZE;
+
+         let slice =
+             unsafe { <&[u8; CHUNK_SIZE]>::try_from((*sensor).eight_bit_counters.get_unchecked(start..end)).unwrap() };
+
+         if slice == &zero {
+             continue;
+         } else {
+             for j in 0..16 {
+                 let x = unsafe { *slice.get_unchecked(j) };
+                 if x == 0 {
+                     continue;
+                 }
+                 let f = Feature::edge(start + j, u16::from(x));
+                 handle(f);
+             }
+         }
+     }
+
+     let start_remainder = length_chunks * CHUNK_SIZE;
+     let remainder = unsafe { (*sensor).eight_bit_counters.get_unchecked(start_remainder..) };
+     for (j, x) in remainder.iter().enumerate() {
+         let i = start_remainder + j;
+         if *x == 0 {
+             continue;
+         }
+         let f = Feature::edge(i, u16::from(*x));
+         handle(f);
+     }
+
+     // self.indir_features. ...
+
+     #[cfg(trace_compares)]
+     {
+         unsafe { (*sensor).instr_features.drain(|f| {
+             handle(Feature::from_instr(InstrFeatureWithoutTag(f)));
+         });}
+     }
+ }
 
 #[cfg(trace_compares)]
 macro_rules! make_instr_feature_without_tag {
@@ -65,90 +121,44 @@ macro_rules! make_instr_feature_without_tag {
 // }
 
 #[cfg(trace_compares)]
-impl CodeCoverageSensor {
-    /// Handles a `trace_cmp` hook from Sanitizer Coverage, by recording it
-    /// as a `Feature` of kind `instruction`.
-    #[inline]
-    fn handle_trace_cmp_u8(&mut self, pc: PC, arg1: u8, arg2: u8) {
-        let f = make_instr_feature_without_tag!(pc, arg1, arg2);
-        self.instr_features.set(f);
-    }
-    #[inline]
-    fn handle_trace_cmp_u16(&mut self, pc: PC, arg1: u16, arg2: u16) {
-        let f = make_instr_feature_without_tag!(pc, arg1, arg2);
-        self.instr_features.set(f);
-    }
-    #[inline]
-    fn handle_trace_cmp_u32(&mut self, pc: PC, arg1: u32, arg2: u32) {
-        let f = make_instr_feature_without_tag!(pc, arg1, arg2);
-        self.instr_features.set(f);
-    }
-    #[inline]
-    fn handle_trace_cmp_u64(&mut self, pc: PC, arg1: u64, arg2: u64) {
-        let f = make_instr_feature_without_tag!(pc, arg1, arg2);
-        self.instr_features.set(f);
-    }
+#[inline]
+fn handle_trace_cmp_u8(pc: PC, arg1: u8, arg2: u8) {
+    let f = make_instr_feature_without_tag!(pc, arg1, arg2);
+    let sensor = unsafe { SHARED_SENSOR.as_mut_ptr() };
+    unsafe { (*sensor).instr_features.set(f) };
+}
+#[cfg(trace_compares)]
+#[inline]
+fn handle_trace_cmp_u16(pc: PC, arg1: u16, arg2: u16) {
+    let f = make_instr_feature_without_tag!(pc, arg1, arg2);
+    let sensor = unsafe { SHARED_SENSOR.as_mut_ptr() };
+    unsafe { (*sensor).instr_features.set(f) };
+}
+#[cfg(trace_compares)]
+#[inline]
+fn handle_trace_cmp_u32(pc: PC, arg1: u32, arg2: u32) {
+    let f = make_instr_feature_without_tag!(pc, arg1, arg2);
+    let sensor = unsafe { SHARED_SENSOR.as_mut_ptr() };
+    unsafe { (*sensor).instr_features.set(f) };
+}
+#[cfg(trace_compares)]
+#[inline]
+fn handle_trace_cmp_u64(pc: PC, arg1: u64, arg2: u64) {
+    let f = make_instr_feature_without_tag!(pc, arg1, arg2);
+    let sensor = unsafe { SHARED_SENSOR.as_mut_ptr() };
+    unsafe { (*sensor).instr_features.set(f) };
 }
 
-impl CodeCoverageSensor {
-    /// Runs the closure on all recorded features.
-    pub(crate) fn iterate_over_collected_features<F>(&mut self, mut handle: F)
-    where
-        F: FnMut(Feature) -> (),
-    {
-        const CHUNK_SIZE: usize = 16;
-        let zero: [u8; CHUNK_SIZE] = [0; CHUNK_SIZE];
-        let length_chunks = self.eight_bit_counters.len() / CHUNK_SIZE;
+pub fn clear() {
+    unsafe { 
+        let sensor = SHARED_SENSOR.as_mut_ptr();
 
-        for i in 0..length_chunks {
-            let start = i * CHUNK_SIZE;
-            let end = start + CHUNK_SIZE;
-
-            let slice =
-                unsafe { <&[u8; CHUNK_SIZE]>::try_from(self.eight_bit_counters.get_unchecked(start..end)).unwrap() };
-
-            if slice == &zero {
-                continue;
-            } else {
-                for j in 0..16 {
-                    let x = unsafe { *slice.get_unchecked(j) };
-                    if x == 0 {
-                        continue;
-                    }
-                    let f = Feature::edge(start + j, u16::from(x));
-                    handle(f);
-                }
-            }
-        }
-
-        let start_remainder = length_chunks * CHUNK_SIZE;
-        let remainder = unsafe { self.eight_bit_counters.get_unchecked(start_remainder..) };
-        for (j, x) in remainder.iter().enumerate() {
-            let i = start_remainder + j;
-            if *x == 0 {
-                continue;
-            }
-            let f = Feature::edge(i, u16::from(*x));
-            handle(f);
-        }
-
-        // self.indir_features. ...
-
-        #[cfg(trace_compares)]
-        {
-            self.instr_features.drain(|f| {
-                handle(Feature::from_instr(InstrFeatureWithoutTag(f)));
-            });
-        }
-    }
-
-    pub fn clear(&mut self) {
-        for x in self.eight_bit_counters.iter_mut() {
+        for x in (*sensor).eight_bit_counters.iter_mut() {
             *x = 0;
         }
         #[cfg(trace_compares)]
         {
-            self.instr_features.drain(|_| {});
+            (*sensor).instr_features.drain(|_| {});
         }
         // self.indir_features.clean();
     }
