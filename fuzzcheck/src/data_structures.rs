@@ -247,19 +247,12 @@ impl<T> IndexMut<SlabKey<T>> for Slab<T> {
 }
 
 // ========== WeightedIndex ===========
-
 /// Generate a random f64 within the given range
 /// The start and end of the range must be finite
 /// This is a very naive implementation
-pub fn gen_f64(rng: &fastrand::Rng, range: Range<f64>) -> f64 {
-    assert!(range.start.is_finite() && range.end.is_finite());
-
-    let granularity = u32::MAX;
-    let granularity_f = granularity as f64;
-
-    let x = rng.u32(0..granularity);
-
-    range.start + ((range.end - range.start) / granularity_f) * (x as f64)
+#[inline(always)]
+fn gen_f64(rng: &fastrand::Rng, range: Range<f64>) -> f64 {
+    range.start + rng.f64() * (range.end - range.start)
 }
 
 /**
