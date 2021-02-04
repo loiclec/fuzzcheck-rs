@@ -83,9 +83,10 @@ impl<S: Serializer> World<S> {
         (hash, input)
     }
 
+    #[allow(unused_variables)]
     pub(crate) fn do_actions(&mut self, actions: Vec<WorldAction<S::Value>>, stats: &FuzzerStats) -> Result<()> {
         for a in actions {
-            let _message = match a {
+            let message = match a {
                 WorldAction::Add(x) => {
                     let (hash, input) = self.hash_and_string_of_input(x);
                     self.add_to_output_corpus(hash.clone(), input.clone())?;
@@ -96,7 +97,7 @@ impl<S: Serializer> World<S> {
                     }
                 }
                 WorldAction::Remove(x) => {
-                    let (hash, _input) = self.hash_and_string_of_input(x);
+                    let (hash, input) = self.hash_and_string_of_input(x);
                     self.remove_from_output_corpus(hash.clone())?;
                     #[cfg(feature = "ui")]
                     TuiMessage::RemoveInput {
