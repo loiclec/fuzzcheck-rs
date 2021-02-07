@@ -1220,16 +1220,16 @@ mod tests {
             0.0
         }
 
-        fn ordered_arbitrary(&mut self, _step: &mut Self::ArbitraryStep, _max_cplx: f64) -> Option<(f64, Self::Cache)> {
+        fn ordered_arbitrary(&self, _step: &mut Self::ArbitraryStep, _max_cplx: f64) -> Option<(f64, Self::Cache)> {
             todo!()
         }
 
-        fn random_arbitrary(&mut self, _max_cplx: f64) -> (f64, Self::Cache) {
+        fn random_arbitrary(&self, _max_cplx: f64) -> (f64, Self::Cache) {
             (0.0, ())
         }
 
         fn ordered_mutate(
-            &mut self,
+            &self,
             _value: &mut f64,
             _cache: &mut Self::Cache,
             _step: &mut Self::MutationStep,
@@ -1238,8 +1238,7 @@ mod tests {
             Some(())
         }
 
-        fn random_mutate(&mut self, _value: &mut f64, _cache: &mut Self::Cache, _max_cplx: f64) -> Self::UnmutateToken {
-        }
+        fn random_mutate(&self, _value: &mut f64, _cache: &mut Self::Cache, _max_cplx: f64) -> Self::UnmutateToken {}
 
         fn unmutate(&self, _value: &mut f64, _cache: &mut Self::Cache, _t: Self::UnmutateToken) {}
     }

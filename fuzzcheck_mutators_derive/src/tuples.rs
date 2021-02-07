@@ -358,16 +358,16 @@ pub fn impl_default_mutator_for_struct_with_more_than_1_field(
             self.mutator.complexity(value, cache)
         }
 
-        fn ordered_arbitrary(&mut self, step: &mut Self::ArbitraryStep, max_cplx: f64) -> Option<(" struc.ident generics_no_eq_nor_bounds ", Self::Cache)> {
+        fn ordered_arbitrary(&self, step: &mut Self::ArbitraryStep, max_cplx: f64) -> Option<(" struc.ident generics_no_eq_nor_bounds ", Self::Cache)> {
             self.mutator.ordered_arbitrary(step, max_cplx)
         }
 
-        fn random_arbitrary(&mut self, max_cplx: f64) -> (" struc.ident generics_no_eq_nor_bounds ", Self::Cache) {
+        fn random_arbitrary(&self, max_cplx: f64) -> (" struc.ident generics_no_eq_nor_bounds ", Self::Cache) {
             self.mutator.random_arbitrary(max_cplx)
         }
 
         fn ordered_mutate(
-            &mut self,
+            &self,
             value: &mut " struc.ident generics_no_eq_nor_bounds ",
             cache: &mut Self::Cache,
             step: &mut Self::MutationStep,
@@ -376,7 +376,7 @@ pub fn impl_default_mutator_for_struct_with_more_than_1_field(
             self.mutator.ordered_mutate(value, cache, step, max_cplx)
         }
 
-        fn random_mutate(&mut self, value: &mut " struc.ident generics_no_eq_nor_bounds ", cache: &mut Self::Cache, max_cplx: f64) -> Self::UnmutateToken {
+        fn random_mutate(&self, value: &mut " struc.ident generics_no_eq_nor_bounds ", cache: &mut Self::Cache, max_cplx: f64) -> Self::UnmutateToken {
             self.mutator.random_mutate(value, cache, max_cplx)
         }
 
@@ -636,7 +636,7 @@ fn impl_mutator_trait(tb: &mut TokenBuilder, nbr_elements: usize, fuzzcheck_muta
             }
         }
         fn ordered_arbitrary(
-            &mut self,
+            &self,
             step: &mut Self::ArbitraryStep,
             max_cplx: f64,
         ) -> " option "<(T, Self::Cache)> {
@@ -644,7 +644,7 @@ fn impl_mutator_trait(tb: &mut TokenBuilder, nbr_elements: usize, fuzzcheck_muta
             " // TODO: actually write something that is ordered_arbitrary sense here
             some "  (self.random_arbitrary(max_cplx))
         }
-        fn random_arbitrary(&mut self, max_cplx: f64) -> (T, Self::Cache) {"
+        fn random_arbitrary(&self, max_cplx: f64) -> (T, Self::Cache) {"
             join_ts!(0..nbr_elements, i,
                 "let mut" ti_value(i) ":" option "<_> =" none ";"
                 "let mut" ti_cache(i) ":" option "<_> =" none ";"
@@ -683,7 +683,7 @@ fn impl_mutator_trait(tb: &mut TokenBuilder, nbr_elements: usize, fuzzcheck_muta
         }
 
         fn ordered_mutate<'a>(
-            &'a mut self,
+            &'a self,
             value: " tuple_mut ",
             cache: &'a mut Self::Cache,
             step: &'a mut Self::MutationStep,
@@ -726,7 +726,7 @@ fn impl_mutator_trait(tb: &mut TokenBuilder, nbr_elements: usize, fuzzcheck_muta
         "
         // TODO!
         "
-        fn random_mutate<'a>(&'a mut self, value: " tuple_mut ", cache: &'a mut Self::Cache, max_cplx: f64, ) -> Self::UnmutateToken {
+        fn random_mutate<'a>(&'a self, value: " tuple_mut ", cache: &'a mut Self::Cache, max_cplx: f64, ) -> Self::UnmutateToken {
             let current_cplx = " SelfAsTupleMutator "::complexity(self, " TupleNAsRefTypes "::get_ref_from_mut(&value), cache);
             match self.rng.usize(.." nbr_elements ") {"
                 join_ts!(0..nbr_elements, i,
@@ -1004,14 +1004,14 @@ mod test {
             fn complexity(&self, value: &S<T> , cache: &Self::Cache) -> f64 {
                 self.mutator.complexity(value, cache)
             }
-            fn ordered_arbitrary(&mut self, step: &mut Self::ArbitraryStep, max_cplx: f64) -> Option<(S<T> , Self::Cache)> {
+            fn ordered_arbitrary(&self, step: &mut Self::ArbitraryStep, max_cplx: f64) -> Option<(S<T> , Self::Cache)> {
                 self.mutator.ordered_arbitrary(step, max_cplx)
             }
-            fn random_arbitrary(&mut self, max_cplx: f64) -> (S<T> , Self::Cache) {
+            fn random_arbitrary(&self, max_cplx: f64) -> (S<T> , Self::Cache) {
                 self.mutator.random_arbitrary(max_cplx)
             }
             fn ordered_mutate(
-                &mut self,
+                &self,
                 value: &mut S<T> ,
                 cache: &mut Self::Cache,
                 step: &mut Self::MutationStep,
@@ -1019,7 +1019,7 @@ mod test {
             ) -> Option<Self::UnmutateToken> {
                 self.mutator.ordered_mutate(value, cache, step, max_cplx)
             }
-            fn random_mutate(&mut self, value: &mut S<T> , cache: &mut Self::Cache, max_cplx: f64) -> Self::UnmutateToken {
+            fn random_mutate(&self, value: &mut S<T> , cache: &mut Self::Cache, max_cplx: f64) -> Self::UnmutateToken {
                 self.mutator.random_mutate(value, cache, max_cplx)
             }
             fn unmutate(&self, value: &mut S<T> , cache: &mut Self::Cache, t: Self::UnmutateToken) {
@@ -1203,14 +1203,14 @@ impl<T, T0, T1, M0, M1> crate::TupleMutator<T, Tuple2<T0, T1> > for Tuple2Mutato
         }
     }
     fn ordered_arbitrary(
-        &mut self,
+        &self,
         step: &mut Self::ArbitraryStep,
         max_cplx: f64,
     ) -> ::std::option::Option<(T, Self::Cache)> {
         if max_cplx < <Self as crate::TupleMutator<T, Tuple2<T0, T1> > >::min_complexity(self) { return ::std::option::Option::None }
         ::std::option::Option::Some(self.random_arbitrary(max_cplx))
     }
-    fn random_arbitrary(&mut self, max_cplx: f64) -> (T, Self::Cache) {
+    fn random_arbitrary(&self, max_cplx: f64) -> (T, Self::Cache) {
         let mut t0_value: ::std::option::Option<_> = ::std::option::Option::None;
         let mut t0_cache: ::std::option::Option<_> = ::std::option::Option::None;
         let mut t1_value: ::std::option::Option<_> = ::std::option::Option::None;
@@ -1247,7 +1247,7 @@ impl<T, T0, T1, M0, M1> crate::TupleMutator<T, Tuple2<T0, T1> > for Tuple2Mutato
     }
 
     fn ordered_mutate<'a>(
-        &'a mut self,
+        &'a self,
         value: (&'a mut T0, &'a mut T1),
         cache: &'a mut Self::Cache,
         step: &'a mut Self::MutationStep,
@@ -1305,7 +1305,7 @@ impl<T, T0, T1, M0, M1> crate::TupleMutator<T, Tuple2<T0, T1> > for Tuple2Mutato
         <Self as crate::TupleMutator<T,Tuple2<T0, T1> >> ::ordered_mutate(self, value, cache, step, max_cplx)
     }
     fn random_mutate<'a>(
-        &'a mut self,
+        &'a self,
         value: (&'a mut T0, &'a mut T1),
         cache: &'a mut Self::Cache,
         max_cplx: f64,

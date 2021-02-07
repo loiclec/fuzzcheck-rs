@@ -160,11 +160,7 @@ macro_rules! impl_unsigned_mutator {
                 std::mem::size_of::<$name>() as f64 * 8.0
             }
 
-            fn ordered_arbitrary(
-                &mut self,
-                step: &mut Self::ArbitraryStep,
-                max_cplx: f64,
-            ) -> Option<($name, Self::Cache)> {
+            fn ordered_arbitrary(&self, step: &mut Self::ArbitraryStep, max_cplx: f64) -> Option<($name, Self::Cache)> {
                 if max_cplx < self.min_complexity() {
                     return None;
                 }
@@ -176,13 +172,13 @@ macro_rules! impl_unsigned_mutator {
                     Some((value, ()))
                 }
             }
-            fn random_arbitrary(&mut self, _max_cplx: f64) -> ($name, Self::Cache) {
+            fn random_arbitrary(&self, _max_cplx: f64) -> ($name, Self::Cache) {
                 let value = self.uniform_permutation(self.rng.u64(..));
                 (value, ())
             }
 
             fn ordered_mutate(
-                &mut self,
+                &self,
                 value: &mut $name,
                 _cache: &mut Self::Cache,
                 step: &mut Self::MutationStep,
@@ -215,7 +211,7 @@ macro_rules! impl_unsigned_mutator {
             }
 
             fn random_mutate(
-                &mut self,
+                &self,
                 value: &mut $name,
                 _cache: &mut Self::Cache,
                 _max_cplx: f64,
@@ -308,7 +304,7 @@ macro_rules! impl_signed_mutator {
             }
 
             fn ordered_arbitrary(
-                &mut self,
+                &self,
                 step: &mut Self::ArbitraryStep,
                 _max_cplx: f64,
             ) -> Option<($name, Self::Cache)> {
@@ -320,13 +316,13 @@ macro_rules! impl_signed_mutator {
                     Some((value, ()))
                 }
             }
-            fn random_arbitrary(&mut self, _max_cplx: f64) -> ($name, Self::Cache) {
+            fn random_arbitrary(&self, _max_cplx: f64) -> ($name, Self::Cache) {
                 let value = self.uniform_permutation(self.rng.u64(..)) as $name;
                 (value, ())
             }
 
             fn ordered_mutate(
-                &mut self,
+                &self,
                 value: &mut $name,
                 _cache: &mut Self::Cache,
                 step: &mut Self::MutationStep,
@@ -353,7 +349,7 @@ macro_rules! impl_signed_mutator {
             }
 
             fn random_mutate(
-                &mut self,
+                &self,
                 value: &mut $name,
                 _cache: &mut Self::Cache,
                 _max_cplx: f64,

@@ -40,10 +40,10 @@
 //         }
 //     }
 
-//     fn ordered_arbitrary(&mut self, seed: usize, max_cplx: f64) -> Option<(Self::Value, Self::Cache)> {
+//     fn ordered_arbitrary(&self, seed: usize, max_cplx: f64) -> Option<(Self::Value, Self::Cache)> {
 //         self.m.ordered_arbitrary(seed, max_cplx)
 //     }
-//     fn random_arbitrary(&mut self, max_cplx: f64) -> (Self::Value, Self::Cache) {
+//     fn random_arbitrary(&self, max_cplx: f64) -> (Self::Value, Self::Cache) {
 //         self.m.random_arbitrary(max_cplx)
 //     }
 

@@ -237,7 +237,7 @@ fn impl_mutator(tb: &mut TokenBuilder, n: usize, fuzzcheck_mutators_crate: Token
                     _ => unreachable!(),
                 }
         }
-        fn ordered_arbitrary(&mut self, step: &mut Self::ArbitraryStep, max_cplx: f64) -> Option<(T, Self::Cache)> {
+        fn ordered_arbitrary(&self, step: &mut Self::ArbitraryStep, max_cplx: f64) -> Option<(T, Self::Cache)> {
             if max_cplx < <Self as " Mutator "<T> >::min_complexity(self) { return " none " }
             if step.steps.is_empty() {
                 return " none ";
@@ -272,7 +272,7 @@ fn impl_mutator(tb: &mut TokenBuilder, n: usize, fuzzcheck_mutators_crate: Token
                 self.ordered_arbitrary(step, max_cplx)
             }
         }
-        fn random_arbitrary(&mut self, max_cplx: f64) -> (T, Self::Cache) {
+        fn random_arbitrary(&self, max_cplx: f64) -> (T, Self::Cache) {
             let inner_max_cplx = max_cplx - " size_to_cplxity "(" variant_count ");
             let nbr_variants = if " variant_count " > " n " { " n+1 " } else { " n " };
             match self.rng.usize(..nbr_variants) {"
@@ -292,7 +292,7 @@ fn impl_mutator(tb: &mut TokenBuilder, n: usize, fuzzcheck_mutators_crate: Token
             }
         }
         fn ordered_mutate(
-            &mut self,
+            &self,
             value: &mut T,
             cache: &mut Self::Cache,
             step: &mut Self::MutationStep,
@@ -324,7 +324,7 @@ fn impl_mutator(tb: &mut TokenBuilder, n: usize, fuzzcheck_mutators_crate: Token
                 " none "
             }
         }
-        fn random_mutate(&mut self, value: &mut T, cache: &mut Self::Cache, max_cplx: f64) -> Self::UnmutateToken {
+        fn random_mutate(&self, value: &mut T, cache: &mut Self::Cache, max_cplx: f64) -> Self::UnmutateToken {
             let inner_max_cplx = max_cplx - " size_to_cplxity "(" variant_count ");
             match (value.get_mut(), cache.borrow_mut()) {"
             join_ts!(0..n, i,
@@ -681,23 +681,23 @@ pub fn impl_default_mutator_for_enum(tb: &mut TokenBuilder, enu: &Enum, fuzzchec
             " InnerMutator_as_Mutator "::complexity(&self.mutator, value, cache)
         }
 
-        fn ordered_arbitrary(&mut self, step: &mut Self::ArbitraryStep, max_cplx: f64) -> Option<(" enu.ident generics_no_eq_nor_bounds ", Self::Cache)> {
-            " InnerMutator_as_Mutator "::ordered_arbitrary(&mut self.mutator, step, max_cplx)
+        fn ordered_arbitrary(&self, step: &mut Self::ArbitraryStep, max_cplx: f64) -> Option<(" enu.ident generics_no_eq_nor_bounds ", Self::Cache)> {
+            " InnerMutator_as_Mutator "::ordered_arbitrary(&self.mutator, step, max_cplx)
         }
 
-        fn random_arbitrary(&mut self, max_cplx: f64) -> (" enu.ident generics_no_eq_nor_bounds ", Self::Cache) {
-            " InnerMutator_as_Mutator "::random_arbitrary(&mut self.mutator, max_cplx)
+        fn random_arbitrary(&self, max_cplx: f64) -> (" enu.ident generics_no_eq_nor_bounds ", Self::Cache) {
+            " InnerMutator_as_Mutator "::random_arbitrary(&self.mutator, max_cplx)
         }
 
         fn ordered_mutate(
-            &mut self,
+            &self,
             value: &mut " enu.ident generics_no_eq_nor_bounds ",
             cache: &mut Self::Cache,
             step: &mut Self::MutationStep,
             max_cplx: f64,
         ) -> Option<Self::UnmutateToken> {
             " InnerMutator_as_Mutator "::ordered_mutate(
-                &mut self.mutator,
+                &self.mutator,
                 value,
                 cache,
                 step,
@@ -705,8 +705,8 @@ pub fn impl_default_mutator_for_enum(tb: &mut TokenBuilder, enu: &Enum, fuzzchec
             )
         }
 
-        fn random_mutate(&mut self, value: &mut " enu.ident generics_no_eq_nor_bounds ", cache: &mut Self::Cache, max_cplx: f64) -> Self::UnmutateToken {
-            " InnerMutator_as_Mutator "::random_mutate(&mut self.mutator, value, cache, max_cplx)
+        fn random_mutate(&self, value: &mut " enu.ident generics_no_eq_nor_bounds ", cache: &mut Self::Cache, max_cplx: f64) -> Self::UnmutateToken {
+            " InnerMutator_as_Mutator "::random_mutate(&self.mutator, value, cache, max_cplx)
         }
 
         fn unmutate(&self, value: &mut " enu.ident generics_no_eq_nor_bounds ", cache: &mut Self::Cache, t: Self::UnmutateToken) {
@@ -1179,7 +1179,7 @@ mod test {
                     crate::Tuple1<u16>
                 > as crate::fuzzcheck_traits::Mutator<E<T> > > ::complexity(&self.mutator, value, cache)
             }
-            fn ordered_arbitrary(&mut self, step: &mut Self::ArbitraryStep, max_cplx: f64) -> Option<(E<T> , Self::Cache)> {
+            fn ordered_arbitrary(&self, step: &mut Self::ArbitraryStep, max_cplx: f64) -> Option<(E<T> , Self::Cache)> {
                 <crate::Enum2PayloadMutator<
                     ((T, u8), u8),
                     crate::Tuple2Mutator<(T, u8), u8, M2_0, M2_1>,
@@ -1187,9 +1187,9 @@ mod test {
                     (u16),
                     crate::Tuple1Mutator<u16, M3_0>,
                     crate::Tuple1<u16>
-                > as crate::fuzzcheck_traits::Mutator<E<T> > > ::ordered_arbitrary(&mut self.mutator, step, max_cplx)
+                > as crate::fuzzcheck_traits::Mutator<E<T> > > ::ordered_arbitrary(&self.mutator, step, max_cplx)
             }
-            fn random_arbitrary(&mut self, max_cplx: f64) -> (E<T> , Self::Cache) {
+            fn random_arbitrary(&self, max_cplx: f64) -> (E<T> , Self::Cache) {
                 <crate::Enum2PayloadMutator<
                     ((T, u8), u8),
                     crate::Tuple2Mutator<(T, u8), u8, M2_0, M2_1>,
@@ -1197,10 +1197,10 @@ mod test {
                     (u16),
                     crate::Tuple1Mutator<u16, M3_0>,
                     crate::Tuple1<u16>
-                > as crate::fuzzcheck_traits::Mutator<E<T> > > ::random_arbitrary(&mut self.mutator, max_cplx)
+                > as crate::fuzzcheck_traits::Mutator<E<T> > > ::random_arbitrary(&self.mutator, max_cplx)
             }
             fn ordered_mutate(
-                &mut self,
+                &self,
                 value: &mut E<T> ,
                 cache: &mut Self::Cache,
                 step: &mut Self::MutationStep,
@@ -1214,10 +1214,10 @@ mod test {
                     crate::Tuple1Mutator<u16, M3_0>,
                     crate::Tuple1<u16>
                 > as crate::fuzzcheck_traits::Mutator<E<T> > > ::ordered_mutate(
-                    &mut self.mutator, value, cache, step, max_cplx ,
+                    &self.mutator, value, cache, step, max_cplx ,
                 )
             }
-            fn random_mutate(&mut self, value: &mut E<T> , cache: &mut Self::Cache, max_cplx: f64) -> Self::UnmutateToken {
+            fn random_mutate(&self, value: &mut E<T> , cache: &mut Self::Cache, max_cplx: f64) -> Self::UnmutateToken {
                 <crate::Enum2PayloadMutator<
                     ((T, u8), u8),
                     crate::Tuple2Mutator<(T, u8), u8, M2_0, M2_1>,
@@ -1225,7 +1225,7 @@ mod test {
                     (u16),
                     crate::Tuple1Mutator<u16, M3_0>,
                     crate::Tuple1<u16>
-                > as crate::fuzzcheck_traits::Mutator<E<T> > > ::random_mutate(&mut self.mutator, value, cache, max_cplx)
+                > as crate::fuzzcheck_traits::Mutator<E<T> > > ::random_mutate(&self.mutator, value, cache, max_cplx)
             }
             fn unmutate(&self, value: &mut E<T> , cache: &mut Self::Cache, t: Self::UnmutateToken) {
                 <crate::Enum2PayloadMutator<
@@ -1256,7 +1256,8 @@ mod test {
                 )
             }
         }
-        ".parse::<TokenStream>()
+        "
+        .parse::<TokenStream>()
         .unwrap()
         .to_string();
         assert_eq!(generated, expected, "\n\n{}\n\n{}\n\n", generated, expected);
@@ -1516,7 +1517,7 @@ where
                 _ => unreachable!(),
             }
     }
-    fn ordered_arbitrary(&mut self, step: &mut Self::ArbitraryStep, max_cplx: f64) -> Option<(T, Self::Cache)> {
+    fn ordered_arbitrary(&self, step: &mut Self::ArbitraryStep, max_cplx: f64) -> Option<(T, Self::Cache)> {
         if max_cplx < <Self as ::fuzzcheck_traits::Mutator<T> >::min_complexity(self) { return ::std::option::Option::None }
         if step.steps.is_empty() {
             return ::std::option::Option::None;
@@ -1551,7 +1552,7 @@ where
             self.ordered_arbitrary(step, max_cplx)
         }
     }
-    fn random_arbitrary(&mut self, max_cplx: f64) -> (T, Self::Cache) {
+    fn random_arbitrary(&self, max_cplx: f64) -> (T, Self::Cache) {
         let inner_max_cplx = max_cplx - crate::size_to_cplxity(::std::mem::variant_count::<T>());
         let nbr_variants = if ::std::mem::variant_count::<T>() > 2 { 3 } else { 2 };
         match self.rng.usize(..nbr_variants) {
@@ -1573,7 +1574,7 @@ where
         }
     }
     fn ordered_mutate(
-        &mut self,
+        &self,
         value: &mut T,
         cache: &mut Self::Cache,
         step: &mut Self::MutationStep,
@@ -1609,7 +1610,7 @@ where
             ::std::option::Option::None
         }
     }
-    fn random_mutate(&mut self, value: &mut T, cache: &mut Self::Cache, max_cplx: f64) -> Self::UnmutateToken {
+    fn random_mutate(&self, value: &mut T, cache: &mut Self::Cache, max_cplx: f64) -> Self::UnmutateToken {
         let inner_max_cplx = max_cplx - crate::size_to_cplxity(::std::mem::variant_count::<T>());
         match (value.get_mut(), cache.borrow_mut()) {
             (Either3::T0(inner_value), Either3::T0(inner_cache)) => {

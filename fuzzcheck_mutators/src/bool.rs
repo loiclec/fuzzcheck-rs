@@ -51,7 +51,7 @@ impl Mutator<bool> for BoolMutator {
         1.0
     }
 
-    fn ordered_arbitrary(&mut self, step: &mut Self::ArbitraryStep, max_cplx: f64) -> Option<(bool, Self::Cache)> {
+    fn ordered_arbitrary(&self, step: &mut Self::ArbitraryStep, max_cplx: f64) -> Option<(bool, Self::Cache)> {
         if max_cplx < self.min_complexity() {
             return None;
         }
@@ -68,12 +68,12 @@ impl Mutator<bool> for BoolMutator {
         }
     }
 
-    fn random_arbitrary(&mut self, _max_cplx: f64) -> (bool, Self::Cache) {
+    fn random_arbitrary(&self, _max_cplx: f64) -> (bool, Self::Cache) {
         (self.rng.bool(), ())
     }
 
     fn ordered_mutate(
-        &mut self,
+        &self,
         value: &mut bool,
         _cache: &mut Self::Cache,
         step: &mut Self::MutationStep,
@@ -90,7 +90,7 @@ impl Mutator<bool> for BoolMutator {
         }
     }
 
-    fn random_mutate(&mut self, value: &mut bool, _cache: &mut Self::Cache, _max_cplx: f64) -> Self::UnmutateToken {
+    fn random_mutate(&self, value: &mut bool, _cache: &mut Self::Cache, _max_cplx: f64) -> Self::UnmutateToken {
         std::mem::replace(value, !*value)
     }
 

@@ -126,7 +126,7 @@ pub enum UnmutateVecToken<T: Clone, M: Mutator<T>> {
 
 impl<T: Clone, M: Mutator<T>> VecMutator<T, M> {
     fn mutate_element(
-        &mut self,
+        &self,
         value: &mut Vec<T>,
         cache: &mut VecMutatorCache<M::Cache>,
         step: &mut MutationStep<M::MutationStep>,
@@ -149,7 +149,7 @@ impl<T: Clone, M: Mutator<T>> VecMutator<T, M> {
     }
 
     fn insert_element(
-        &mut self,
+        &self,
         value: &mut Vec<T>,
         cache: &mut VecMutatorCache<M::Cache>,
         spare_cplx: f64,
@@ -174,7 +174,7 @@ impl<T: Clone, M: Mutator<T>> VecMutator<T, M> {
     }
 
     fn remove_element(
-        &mut self,
+        &self,
         value: &mut Vec<T>,
         cache: &mut VecMutatorCache<M::Cache>,
     ) -> Option<UnmutateVecToken<T, M>> {
@@ -198,7 +198,7 @@ impl<T: Clone, M: Mutator<T>> VecMutator<T, M> {
     }
 
     fn remove_many_elements(
-        &mut self,
+        &self,
         value: &mut Vec<T>,
         cache: &mut VecMutatorCache<M::Cache>,
     ) -> Option<UnmutateVecToken<T, M>> {
@@ -231,7 +231,7 @@ impl<T: Clone, M: Mutator<T>> VecMutator<T, M> {
     }
 
     fn insert_repeated_elements(
-        &mut self,
+        &self,
         value: &mut Vec<T>,
         cache: &mut VecMutatorCache<M::Cache>,
         spare_cplx: f64,
@@ -321,7 +321,7 @@ impl<T: Clone, M: Mutator<T>> VecMutator<T, M> {
     }
 
     fn new_input_with_length_and_complexity(
-        &mut self,
+        &self,
         target_len: usize,
         target_cplx: f64,
     ) -> (Vec<T>, <Self as Mutator<Vec<T>>>::Cache) {
@@ -388,7 +388,7 @@ impl<T: Clone, M: Mutator<T>> Mutator<Vec<T>> for VecMutator<T, M> {
         1.0 + cache.sum_cplx + crate::size_to_cplxity(value.len() + 1)
     }
 
-    fn ordered_arbitrary(&mut self, step: &mut Self::ArbitraryStep, max_cplx: f64) -> Option<(Vec<T>, Self::Cache)> {
+    fn ordered_arbitrary(&self, step: &mut Self::ArbitraryStep, max_cplx: f64) -> Option<(Vec<T>, Self::Cache)> {
         if max_cplx < self.min_complexity() {
             return None;
         }
@@ -400,7 +400,7 @@ impl<T: Clone, M: Mutator<T>> Mutator<Vec<T>> for VecMutator<T, M> {
         }
     }
 
-    fn random_arbitrary(&mut self, max_cplx: f64) -> (Vec<T>, Self::Cache) {
+    fn random_arbitrary(&self, max_cplx: f64) -> (Vec<T>, Self::Cache) {
         let target_cplx = fastrand::f64() * crate::gen_f64(&self.rng, 0.0..max_cplx);
         let lengths = self.choose_slice_length(target_cplx);
 
@@ -434,7 +434,7 @@ impl<T: Clone, M: Mutator<T>> Mutator<Vec<T>> for VecMutator<T, M> {
     }
 
     fn ordered_mutate(
-        &mut self,
+        &self,
         value: &mut Vec<T>,
         cache: &mut Self::Cache,
         step: &mut Self::MutationStep,
@@ -471,7 +471,7 @@ impl<T: Clone, M: Mutator<T>> Mutator<Vec<T>> for VecMutator<T, M> {
         }
     }
 
-    fn random_mutate(&mut self, value: &mut Vec<T>, cache: &mut Self::Cache, max_cplx: f64) -> Self::UnmutateToken {
+    fn random_mutate(&self, value: &mut Vec<T>, cache: &mut Self::Cache, max_cplx: f64) -> Self::UnmutateToken {
         let spare_cplx = max_cplx - self.complexity(value, cache);
 
         if value.is_empty() || self.rng.usize(0..10) == 0 {

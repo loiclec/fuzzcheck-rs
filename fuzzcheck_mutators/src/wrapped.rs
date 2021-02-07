@@ -76,19 +76,19 @@ where
         self.mutator.complexity(value.get_ref(), cache)
     }
 
-    fn ordered_arbitrary(&mut self, step: &mut Self::ArbitraryStep, max_cplx: f64) -> Option<(U, Self::Cache)> {
+    fn ordered_arbitrary(&self, step: &mut Self::ArbitraryStep, max_cplx: f64) -> Option<(U, Self::Cache)> {
         self.mutator
             .ordered_arbitrary(step, max_cplx)
             .map(|(v, c)| (U::new(v), c))
     }
 
-    fn random_arbitrary(&mut self, max_cplx: f64) -> (U, Self::Cache) {
+    fn random_arbitrary(&self, max_cplx: f64) -> (U, Self::Cache) {
         let (v, c) = self.mutator.random_arbitrary(max_cplx);
         (U::new(v), c)
     }
 
     fn ordered_mutate(
-        &mut self,
+        &self,
         value: &mut U,
         cache: &mut Self::Cache,
         step: &mut Self::MutationStep,
@@ -97,7 +97,7 @@ where
         self.mutator.ordered_mutate(value.get_mut(), cache, step, max_cplx)
     }
 
-    fn random_mutate(&mut self, value: &mut U, cache: &mut Self::Cache, max_cplx: f64) -> Self::UnmutateToken {
+    fn random_mutate(&self, value: &mut U, cache: &mut Self::Cache, max_cplx: f64) -> Self::UnmutateToken {
         self.mutator.random_mutate(value.get_mut(), cache, max_cplx)
     }
 

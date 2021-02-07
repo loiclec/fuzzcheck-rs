@@ -98,18 +98,18 @@ pub trait Mutator<Value: Clone>: Sized {
     fn min_complexity(&self) -> f64;
     fn complexity(&self, value: &Value, cache: &Self::Cache) -> f64;
 
-    fn ordered_arbitrary(&mut self, step: &mut Self::ArbitraryStep, max_cplx: f64) -> Option<(Value, Self::Cache)>;
-    fn random_arbitrary(&mut self, max_cplx: f64) -> (Value, Self::Cache);
+    fn ordered_arbitrary(&self, step: &mut Self::ArbitraryStep, max_cplx: f64) -> Option<(Value, Self::Cache)>;
+    fn random_arbitrary(&self, max_cplx: f64) -> (Value, Self::Cache);
 
     fn ordered_mutate(
-        &mut self,
+        &self,
         value: &mut Value,
         cache: &mut Self::Cache,
         step: &mut Self::MutationStep,
         max_cplx: f64,
     ) -> Option<Self::UnmutateToken>;
 
-    fn random_mutate(&mut self, value: &mut Value, cache: &mut Self::Cache, max_cplx: f64) -> Self::UnmutateToken;
+    fn random_mutate(&self, value: &mut Value, cache: &mut Self::Cache, max_cplx: f64) -> Self::UnmutateToken;
 
     fn unmutate(&self, value: &mut Value, cache: &mut Self::Cache, t: Self::UnmutateToken);
 }

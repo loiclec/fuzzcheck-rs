@@ -40,7 +40,7 @@ where
         crate::size_to_cplxity(std::mem::variant_count::<T>())
     }
 
-    fn ordered_arbitrary(&mut self, step: &mut Self::ArbitraryStep, max_cplx: f64) -> Option<(T, Self::Cache)> {
+    fn ordered_arbitrary(&self, step: &mut Self::ArbitraryStep, max_cplx: f64) -> Option<(T, Self::Cache)> {
         if max_cplx < <Self as Mutator<T>>::min_complexity(self) {
             return None;
         }
@@ -53,13 +53,13 @@ where
         }
     }
 
-    fn random_arbitrary(&mut self, _max_cplx: f64) -> (T, Self::Cache) {
+    fn random_arbitrary(&self, _max_cplx: f64) -> (T, Self::Cache) {
         let item_idx = self.rng.usize(..std::mem::variant_count::<T>());
         (T::from_item_index(item_idx), ())
     }
 
     fn ordered_mutate(
-        &mut self,
+        &self,
         value: &mut T,
         _cache: &mut Self::Cache,
         step: &mut Self::MutationStep,
@@ -81,7 +81,7 @@ where
         }
     }
 
-    fn random_mutate(&mut self, value: &mut T, _cache: &mut Self::Cache, _max_cplx: f64) -> Self::UnmutateToken {
+    fn random_mutate(&self, value: &mut T, _cache: &mut Self::Cache, _max_cplx: f64) -> Self::UnmutateToken {
         let old_index = value.get_item_index();
         let item_idx = self.rng.usize(..std::mem::variant_count::<T>());
         *value = T::from_item_index(item_idx);

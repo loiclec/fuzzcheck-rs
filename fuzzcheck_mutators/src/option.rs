@@ -108,30 +108,30 @@ where
         )
     }
 
-    fn ordered_arbitrary(&mut self, step: &mut Self::ArbitraryStep, max_cplx: f64) -> Option<(Option<T>, Self::Cache)> {
+    fn ordered_arbitrary(&self, step: &mut Self::ArbitraryStep, max_cplx: f64) -> Option<(Option<T>, Self::Cache)> {
         <Enum1PayloadMutator<T, Tuple1Mutator<T, M>, crate::Tuple1<T>> as Mutator<Option<T>>>::ordered_arbitrary(
-            &mut self.mutator,
+            &self.mutator,
             step,
             max_cplx,
         )
     }
 
-    fn random_arbitrary(&mut self, max_cplx: f64) -> (Option<T>, Self::Cache) {
+    fn random_arbitrary(&self, max_cplx: f64) -> (Option<T>, Self::Cache) {
         <Enum1PayloadMutator<T, Tuple1Mutator<T, M>, crate::Tuple1<T>> as Mutator<Option<T>>>::random_arbitrary(
-            &mut self.mutator,
+            &self.mutator,
             max_cplx,
         )
     }
 
     fn ordered_mutate(
-        &mut self,
+        &self,
         value: &mut Option<T>,
         cache: &mut Self::Cache,
         step: &mut Self::MutationStep,
         max_cplx: f64,
     ) -> Option<Self::UnmutateToken> {
         <Enum1PayloadMutator<T, Tuple1Mutator<T, M>, crate::Tuple1<T>> as Mutator<Option<T>>>::ordered_mutate(
-            &mut self.mutator,
+            &self.mutator,
             value,
             cache,
             step,
@@ -139,9 +139,9 @@ where
         )
     }
 
-    fn random_mutate(&mut self, value: &mut Option<T>, cache: &mut Self::Cache, max_cplx: f64) -> Self::UnmutateToken {
+    fn random_mutate(&self, value: &mut Option<T>, cache: &mut Self::Cache, max_cplx: f64) -> Self::UnmutateToken {
         <Enum1PayloadMutator<T, Tuple1Mutator<T, M>, crate::Tuple1<T>> as Mutator<Option<T>>>::random_mutate(
-            &mut self.mutator,
+            &self.mutator,
             value,
             cache,
             max_cplx,
