@@ -27,7 +27,7 @@ struct CodeCoverageSensor {
     _lowest_stack: &'static mut libc::uintptr_t,
     /// value of __sancov_lowest_stack after running an input
     lowest_stack: usize,
-    #[cfg(trace_compares)] 
+    #[cfg(trace_compares)]
     instr_features: HBitSet,
 }
 
@@ -36,7 +36,7 @@ pub fn lowest_stack() -> usize {
 }
 
 pub fn start_recording() {
-    unsafe { 
+    unsafe {
         let sensor = SHARED_SENSOR.as_mut_ptr();
         (*sensor).is_recording = true;
         (*sensor).lowest_stack = usize::MAX;
@@ -52,57 +52,59 @@ pub fn stop_recording() {
     }
 }
 
- /// Runs the closure on all recorded features.
- pub(crate) fn iterate_over_collected_features<F>(mut handle: F)
- where
-     F: FnMut(Feature) -> (),
- {
-     let sensor = unsafe { SHARED_SENSOR.as_mut_ptr() };
-     const CHUNK_SIZE: usize = 16;
-     let zero: [u8; CHUNK_SIZE] = [0; CHUNK_SIZE];
-     let length_chunks = unsafe { (*sensor).eight_bit_counters.len() / CHUNK_SIZE };
+/// Runs the closure on all recorded features.
+pub(crate) fn iterate_over_collected_features<F>(mut handle: F)
+where
+    F: FnMut(Feature) -> (),
+{
+    let sensor = unsafe { SHARED_SENSOR.as_mut_ptr() };
+    const CHUNK_SIZE: usize = 16;
+    let zero: [u8; CHUNK_SIZE] = [0; CHUNK_SIZE];
+    let length_chunks = unsafe { (*sensor).eight_bit_counters.len() / CHUNK_SIZE };
 
-     for i in 0..length_chunks {
-         let start = i * CHUNK_SIZE;
-         let end = start + CHUNK_SIZE;
+    for i in 0..length_chunks {
+        let start = i * CHUNK_SIZE;
+        let end = start + CHUNK_SIZE;
 
-         let slice =
-             unsafe { <&[u8; CHUNK_SIZE]>::try_from((*sensor).eight_bit_counters.get_unchecked(start..end)).unwrap() };
+        let slice =
+            unsafe { <&[u8; CHUNK_SIZE]>::try_from((*sensor).eight_bit_counters.get_unchecked(start..end)).unwrap() };
 
-         if slice == &zero {
-             continue;
-         } else {
-             for j in 0..16 {
-                 let x = unsafe { *slice.get_unchecked(j) };
-                 if x == 0 {
-                     continue;
-                 }
-                 let f = Feature::edge(start + j, u16::from(x));
-                 handle(f);
-             }
-         }
-     }
+        if slice == &zero {
+            continue;
+        } else {
+            for j in 0..16 {
+                let x = unsafe { *slice.get_unchecked(j) };
+                if x == 0 {
+                    continue;
+                }
+                let f = Feature::edge(start + j, u16::from(x));
+                handle(f);
+            }
+        }
+    }
 
-     let start_remainder = length_chunks * CHUNK_SIZE;
-     let remainder = unsafe { (*sensor).eight_bit_counters.get_unchecked(start_remainder..) };
-     for (j, x) in remainder.iter().enumerate() {
-         let i = start_remainder + j;
-         if *x == 0 {
-             continue;
-         }
-         let f = Feature::edge(i, u16::from(*x));
-         handle(f);
-     }
+    let start_remainder = length_chunks * CHUNK_SIZE;
+    let remainder = unsafe { (*sensor).eight_bit_counters.get_unchecked(start_remainder..) };
+    for (j, x) in remainder.iter().enumerate() {
+        let i = start_remainder + j;
+        if *x == 0 {
+            continue;
+        }
+        let f = Feature::edge(i, u16::from(*x));
+        handle(f);
+    }
 
-     // self.indir_features. ...
+    // self.indir_features. ...
 
-     #[cfg(trace_compares)]
-     {
-         unsafe { (*sensor).instr_features.drain(|f| {
-             handle(Feature::from_instr(InstrFeatureWithoutTag(f)));
-         });}
-     }
- }
+    #[cfg(trace_compares)]
+    {
+        unsafe {
+            (*sensor).instr_features.drain(|f| {
+                handle(Feature::from_instr(InstrFeatureWithoutTag(f)));
+            });
+        }
+    }
+}
 
 #[cfg(trace_compares)]
 macro_rules! make_instr_feature_without_tag {
@@ -150,7 +152,7 @@ fn handle_trace_cmp_u64(pc: PC, arg1: u64, arg2: u64) {
 }
 
 pub fn clear() {
-    unsafe { 
+    unsafe {
         let sensor = SHARED_SENSOR.as_mut_ptr();
 
         for x in (*sensor).eight_bit_counters.iter_mut() {

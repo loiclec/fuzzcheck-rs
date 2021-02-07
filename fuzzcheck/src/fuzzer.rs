@@ -2,12 +2,15 @@
 //!to the [Pool] and uses an evolutionary algorithm using [Mutator] to find new interesting
 //! test inputs.
 
-use crate::{code_coverage_sensor, data_structures::{LargeStepFindIter, SlabKey}};
 use crate::nix_subset as nix;
 use crate::pool::{AnalyzedFeature, Pool, PoolIndex};
 use crate::signals_handler::{set_signal_handlers, set_timer};
 use crate::world::World;
-use crate::{world::WorldAction};
+use crate::world::WorldAction;
+use crate::{
+    code_coverage_sensor,
+    data_structures::{LargeStepFindIter, SlabKey},
+};
 use crate::{Feature, FuzzedInput, Mutator, Serializer};
 
 use fuzzcheck_common::{FuzzerEvent, FuzzerStats};
@@ -203,7 +206,6 @@ where
         world: &mut World<S>,
         stats: FuzzerStats,
     ) -> Result<(), std::io::Error> {
-
         code_coverage_sensor::clear();
 
         if timeout != 0 {
