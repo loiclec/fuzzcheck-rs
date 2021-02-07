@@ -537,7 +537,9 @@ pub fn impl_default_mutator_for_enum(tb: &mut TokenBuilder, enu: &Enum, fuzzchec
         .collect::<Box<_>>();
 
     let n = items_with_fields.len();
-
+    let clone = ts!("::std::clone::Clone");
+    let Default = ts!("::std::default::Default");
+    let Mutator = ts!(fuzzcheck_mutators_crate "::fuzzcheck_traits::Mutator");
     let EnumNPayloadMutator = ts!(fuzzcheck_mutators_crate "::" ident!("Enum" n "PayloadMutator"));
 
     let TupleNMutator = |n: usize| ts!(fuzzcheck_mutators_crate "::" ident!("Tuple" n "Mutator"));
@@ -555,17 +557,46 @@ pub fn impl_default_mutator_for_enum(tb: &mut TokenBuilder, enu: &Enum, fuzzchec
         });
     }
 
-    extend_ts!(tb,
-    "impl" generics_no_eq DefaultMutator "for" enu.ident generics_no_eq_nor_bounds where_clause "{
-        type Mutator = " EnumNPayloadMutator "<"
-        join_ts!(items_with_fields.iter(), (_, fields),
+    let Mi_j = |i: usize, j: usize| ident!("M" i "_" j);
+
+    let EnumMutator = ident!(enu.ident "Mutator");
+    let mut EnumMutator_generics = enu.generics.removing_eq_type();
+    for (i, fields) in items_with_fields.iter() {
+        for j in 0..fields.len() {
+            EnumMutator_generics.type_params.push(TypeParam {
+                type_ident: ts!(Mi_j(*i, j)),
+                ..<_>::default()
+            })
+        }
+    }
+    let mut EnumMutator_where_clause = enu.where_clause.clone().unwrap_or(WhereClause::default());
+    for ty_param in enu.generics.type_params.iter() {
+        EnumMutator_where_clause.items.push(WhereClauseItem {
+            for_lifetimes: None,
+            lhs: ty_param.type_ident.clone(),
+            rhs: ts!(clone "+ 'static"),
+        });
+    }
+    for (i, fields) in items_with_fields.iter() {
+        for (j, field) in fields.iter().enumerate() {
+            EnumMutator_where_clause.items.push(WhereClauseItem {
+                for_lifetimes: None,
+                lhs: ts!(Mi_j(*i, j)),
+                rhs: ts!(Mutator "<" field.ty ">"),
+            })
+        }
+    }
+
+    let InnerMutator = ts!(
+        EnumNPayloadMutator "<"
+        join_ts!(items_with_fields.iter(), (i, fields),
             "(" join_ts!(fields.iter(), field, field.ty, separator: "," ) "),
             " TupleNMutator(fields.len()) "<"
                 join_ts!(fields.iter(), field,
                     field.ty ","
                 )
-                join_ts!(fields.iter(), field,
-                    "<" field.ty " as " DefaultMutator ">::Mutator"
+                join_ts!(0..fields.len(), j,
+                    Mi_j(*i, j)
                 , separator: ",")
             ">,"
             TupleN(fields.len()) "<"
@@ -574,21 +605,129 @@ pub fn impl_default_mutator_for_enum(tb: &mut TokenBuilder, enu: &Enum, fuzzchec
                 , separator: ",")
             ">"
         , separator: ",")
-        ">;
+        ">"
+    );
+    let InnerMutator_as_Mutator = ts!("<" InnerMutator "as" Mutator "<" enu.ident generics_no_eq_nor_bounds "> >" );
+
+    let mut DefaultMutator_Mutator_generics = enu.generics.removing_bounds_and_eq_type();
+    for (_, fields) in items_with_fields.iter() {
+        for field in fields.iter() {
+            DefaultMutator_Mutator_generics.type_params.push(TypeParam {
+                type_ident: ts!("<" field.ty "as" DefaultMutator ">::Mutator"),
+                ..<_>::default()
+            })
+        }
+    }
+
+    extend_ts!(tb,
+    enu.visibility "struct" EnumMutator EnumMutator_generics EnumMutator_where_clause
+    "{
+        pub mutator:" InnerMutator "
+    }
+
+    impl " EnumMutator_generics EnumMutator EnumMutator_generics.removing_bounds_and_eq_type() EnumMutator_where_clause "
+    {
+        pub fn new(" 
+        join_ts!(items_with_fields.iter(), (i, fields),
+            join_ts!(fields.iter().enumerate(), (j, field),
+                ident!("mutator_" enu.items[*i].ident "_" field.access()) ":" Mi_j(*i, j)
+            , separator: ",")
+        , separator: ",") ") -> Self {
+            Self {
+                mutator: " EnumNPayloadMutator "::new("
+                    join_ts!(items_with_fields.iter(), (i, fields),
+                        TupleNMutator(fields.len()) "::new("
+                            join_ts!(fields.iter(), field,
+                                ident!("mutator_" enu.items[*i].ident "_" field.access())
+                            , separator: ",")
+                        ")"
+                    , separator: ",")
+                ")
+            }
+        }
+    }
+    impl " EnumMutator_generics Default "for" EnumMutator EnumMutator_generics.removing_bounds_and_eq_type() 
+        EnumMutator_where_clause "," InnerMutator ":" Default "
+    {
+        fn default() -> Self {
+            Self { mutator : <_>::default() }
+        }
+    }
+    impl " EnumMutator_generics Mutator "<" enu.ident generics_no_eq_nor_bounds "> 
+        for " EnumMutator EnumMutator_generics.removing_bounds_and_eq_type() EnumMutator_where_clause "
+    {
+        type Cache = <" InnerMutator " as " Mutator "<" enu.ident generics_no_eq_nor_bounds ">" ">::Cache;
+        type MutationStep = <" InnerMutator " as " Mutator "<" enu.ident generics_no_eq_nor_bounds ">" ">::MutationStep;
+        type ArbitraryStep = <" InnerMutator " as " Mutator "<" enu.ident generics_no_eq_nor_bounds ">" ">::ArbitraryStep;
+        type UnmutateToken = <" InnerMutator " as " Mutator "<" enu.ident generics_no_eq_nor_bounds ">" ">::UnmutateToken;
+    
+        fn cache_from_value(&self, value: &" enu.ident generics_no_eq_nor_bounds ") -> Self::Cache {
+            " InnerMutator_as_Mutator "::cache_from_value(&self.mutator, value)
+        }
+
+        fn initial_step_from_value(&self, value: &" enu.ident generics_no_eq_nor_bounds ") -> Self::MutationStep {
+            " InnerMutator_as_Mutator "::initial_step_from_value(&self.mutator, value)
+        }
+
+        fn max_complexity(&self) -> f64 {
+            " InnerMutator_as_Mutator "::max_complexity(&self.mutator)
+        }
+
+        fn min_complexity(&self) -> f64 {
+            " InnerMutator_as_Mutator "::min_complexity(&self.mutator)
+        }
+
+        fn complexity(&self, value: &" enu.ident generics_no_eq_nor_bounds ", cache: &Self::Cache) -> f64 {
+            " InnerMutator_as_Mutator "::complexity(&self.mutator, value, cache)
+        }
+
+        fn ordered_arbitrary(&mut self, step: &mut Self::ArbitraryStep, max_cplx: f64) -> Option<(" enu.ident generics_no_eq_nor_bounds ", Self::Cache)> {
+            " InnerMutator_as_Mutator "::ordered_arbitrary(&mut self.mutator, step, max_cplx)
+        }
+
+        fn random_arbitrary(&mut self, max_cplx: f64) -> (" enu.ident generics_no_eq_nor_bounds ", Self::Cache) {
+            " InnerMutator_as_Mutator "::random_arbitrary(&mut self.mutator, max_cplx)
+        }
+
+        fn ordered_mutate(
+            &mut self,
+            value: &mut " enu.ident generics_no_eq_nor_bounds ",
+            cache: &mut Self::Cache,
+            step: &mut Self::MutationStep,
+            max_cplx: f64,
+        ) -> Option<Self::UnmutateToken> {
+            " InnerMutator_as_Mutator "::ordered_mutate(
+                &mut self.mutator,
+                value,
+                cache,
+                step,
+                max_cplx,
+            )
+        }
+
+        fn random_mutate(&mut self, value: &mut " enu.ident generics_no_eq_nor_bounds ", cache: &mut Self::Cache, max_cplx: f64) -> Self::UnmutateToken {
+            " InnerMutator_as_Mutator "::random_mutate(&mut self.mutator, value, cache, max_cplx)
+        }
+
+        fn unmutate(&self, value: &mut " enu.ident generics_no_eq_nor_bounds ", cache: &mut Self::Cache, t: Self::UnmutateToken) {
+            " InnerMutator_as_Mutator "::unmutate(&self.mutator, value, cache, t)
+        }
+    }"
+
+    "impl" generics_no_eq DefaultMutator "for" enu.ident generics_no_eq_nor_bounds where_clause "{
+        type Mutator = " EnumMutator DefaultMutator_Mutator_generics ";
     
         fn default_mutator() -> Self::Mutator {
             Self::Mutator::new("
-            join_ts!(items_with_fields.iter(), (_, fields),
-                TupleNMutator(fields.len()) "::new("
+                join_ts!(items_with_fields.iter(), (_, fields),
                     join_ts!(fields.iter(), field,
-                        "<" field.ty ">::default_mutator()"
+                        "<" field.ty "as" DefaultMutator ">::default_mutator()"
                     , separator: ",")
-                ")"
-            , separator: ",")
+                , separator: ",")
             ")
         }
     }"
-    )
+        )
 }
 
 pub fn impl_wrapped_tuple_1_structure(tb: &mut TokenBuilder, enu: &Enum, fuzzcheck_mutators_crate: TokenStream) {
@@ -898,23 +1037,225 @@ mod test {
         let generated = tb.end().to_string();
 
         let expected = "
-impl<T> crate::DefaultMutator for E<T> where T: crate::DefaultMutator + 'static {
-    type Mutator = crate::Enum2PayloadMutator<
-        ((T, u8), u8),
-        crate::Tuple2Mutator<(T, u8), u8, <(T, u8) as crate::DefaultMutator>::Mutator, <u8 as crate::DefaultMutator>::Mutator>,
-        crate::Tuple2<(T, u8), u8> ,
-        (u16),
-        crate::Tuple1Mutator<u16, <u16 as crate::DefaultMutator>::Mutator>,
-        crate::Tuple1<u16>
-    >;
-
-    fn default_mutator() -> Self::Mutator {
-        Self::Mutator::new(
-            crate::Tuple2Mutator::new(<(T, u8)>::default_mutator(), <u8>::default_mutator()),
-            crate::Tuple1Mutator::new(<u16>::default_mutator())
-        )
-    }
-}
+        struct EMutator<T, M2_0, M2_1, M3_0>
+        where
+            T: ::std::clone::Clone + 'static,
+            M2_0: crate::fuzzcheck_traits::Mutator<(T, u8)> ,
+            M2_1: crate::fuzzcheck_traits::Mutator<u8> ,
+            M3_0: crate::fuzzcheck_traits::Mutator<u16>
+        {
+            pub mutator: crate::Enum2PayloadMutator<
+                ((T, u8), u8),
+                crate::Tuple2Mutator<(T, u8), u8, M2_0, M2_1>,
+                crate::Tuple2<(T, u8), u8> ,
+                (u16),
+                crate::Tuple1Mutator<u16, M3_0>,
+                crate::Tuple1<u16>
+            >
+        }
+        impl<T, M2_0, M2_1, M3_0> EMutator<T, M2_0, M2_1, M3_0>
+        where
+            T: ::std::clone::Clone + 'static,
+            M2_0: crate::fuzzcheck_traits::Mutator<(T, u8)> ,
+            M2_1: crate::fuzzcheck_traits::Mutator<u8> ,
+            M3_0: crate::fuzzcheck_traits::Mutator<u16>
+        {
+            pub fn new(mutator_Left_0: M2_0, mutator_Left_1: M2_1, mutator_Right_0: M3_0) -> Self {
+                Self {
+                    mutator: crate::Enum2PayloadMutator::new(
+                        crate::Tuple2Mutator::new(mutator_Left_0, mutator_Left_1),
+                        crate::Tuple1Mutator::new(mutator_Right_0)
+                    )
+                }
+            }
+        }
+        impl<T, M2_0, M2_1, M3_0> ::std::default::Default for EMutator<T, M2_0, M2_1, M3_0>
+        where
+            T: ::std::clone::Clone + 'static,
+            M2_0: crate::fuzzcheck_traits::Mutator<(T, u8)> ,
+            M2_1: crate::fuzzcheck_traits::Mutator<u8> ,
+            M3_0: crate::fuzzcheck_traits::Mutator<u16> ,
+            crate::Enum2PayloadMutator<
+                ((T, u8), u8),
+                crate::Tuple2Mutator<(T, u8), u8, M2_0, M2_1>,
+                crate::Tuple2<(T, u8), u8> ,
+                (u16),
+                crate::Tuple1Mutator<u16, M3_0>,
+                crate::Tuple1<u16>
+            > : ::std::default::Default
+        {
+            fn default() -> Self {
+                Self {
+                    mutator: <_>::default()
+                }
+            }
+        }
+        impl<T, M2_0, M2_1, M3_0> crate::fuzzcheck_traits::Mutator<E<T> > for EMutator<T, M2_0, M2_1, M3_0>
+        where
+            T: ::std::clone::Clone + 'static,
+            M2_0: crate::fuzzcheck_traits::Mutator<(T, u8)> ,
+            M2_1: crate::fuzzcheck_traits::Mutator<u8> ,
+            M3_0: crate::fuzzcheck_traits::Mutator<u16>
+        {
+            type Cache = <crate::Enum2PayloadMutator<
+                ((T, u8), u8),
+                crate::Tuple2Mutator<(T, u8), u8, M2_0, M2_1>,
+                crate::Tuple2<(T, u8), u8> ,
+                (u16),
+                crate::Tuple1Mutator<u16, M3_0>,
+                crate::Tuple1<u16>
+            > as crate::fuzzcheck_traits::Mutator<E<T> > >::Cache;
+            type MutationStep = <crate::Enum2PayloadMutator<
+                ((T, u8), u8),
+                crate::Tuple2Mutator<(T, u8), u8, M2_0, M2_1>,
+                crate::Tuple2<(T, u8), u8> ,
+                (u16),
+                crate::Tuple1Mutator<u16, M3_0>,
+                crate::Tuple1<u16>
+            > as crate::fuzzcheck_traits::Mutator<E<T> > >::MutationStep;
+            type ArbitraryStep = <crate::Enum2PayloadMutator<
+                ((T, u8), u8),
+                crate::Tuple2Mutator<(T, u8), u8, M2_0, M2_1>,
+                crate::Tuple2<(T, u8), u8> ,
+                (u16),
+                crate::Tuple1Mutator<u16, M3_0>,
+                crate::Tuple1<u16>
+            > as crate::fuzzcheck_traits::Mutator<E<T> > >::ArbitraryStep;
+            type UnmutateToken = <crate::Enum2PayloadMutator<
+                ((T, u8), u8),
+                crate::Tuple2Mutator<(T, u8), u8, M2_0, M2_1>,
+                crate::Tuple2<(T, u8), u8> ,
+                (u16),
+                crate::Tuple1Mutator<u16, M3_0>,
+                crate::Tuple1<u16>
+            > as crate::fuzzcheck_traits::Mutator<E<T> > >::UnmutateToken;
+            fn cache_from_value(&self, value: &E<T>) -> Self::Cache {
+                <crate::Enum2PayloadMutator<
+                    ((T, u8), u8),
+                    crate::Tuple2Mutator<(T, u8), u8, M2_0, M2_1>,
+                    crate::Tuple2<(T, u8), u8> ,
+                    (u16),
+                    crate::Tuple1Mutator<u16, M3_0>,
+                    crate::Tuple1<u16>
+                > as crate::fuzzcheck_traits::Mutator<E<T> > > ::cache_from_value(&self.mutator, value)
+            }
+            fn initial_step_from_value(&self, value: &E<T>) -> Self::MutationStep {
+                <crate::Enum2PayloadMutator<
+                    ((T, u8), u8),
+                    crate::Tuple2Mutator<(T, u8), u8, M2_0, M2_1>,
+                    crate::Tuple2<(T, u8), u8> ,
+                    (u16),
+                    crate::Tuple1Mutator<u16, M3_0>,
+                    crate::Tuple1<u16>
+                > as crate::fuzzcheck_traits::Mutator<E<T> > > ::initial_step_from_value(&self.mutator, value)
+            }
+            fn max_complexity(&self) -> f64 {
+                <crate::Enum2PayloadMutator<
+                    ((T, u8), u8),
+                    crate::Tuple2Mutator<(T, u8), u8, M2_0, M2_1>,
+                    crate::Tuple2<(T, u8), u8> ,
+                    (u16),
+                    crate::Tuple1Mutator<u16, M3_0>,
+                    crate::Tuple1<u16>
+                > as crate::fuzzcheck_traits::Mutator<E<T> > > ::max_complexity(&self.mutator)
+            }
+            fn min_complexity(&self) -> f64 {
+                <crate::Enum2PayloadMutator<
+                    ((T, u8), u8),
+                    crate::Tuple2Mutator<(T, u8), u8, M2_0, M2_1>,
+                    crate::Tuple2<(T, u8), u8> ,
+                    (u16),
+                    crate::Tuple1Mutator<u16, M3_0>,
+                    crate::Tuple1<u16>
+                > as crate::fuzzcheck_traits::Mutator<E<T> > > ::min_complexity(&self.mutator)
+            }
+            fn complexity(&self, value: &E<T> , cache: &Self::Cache) -> f64 {
+                <crate::Enum2PayloadMutator<
+                    ((T, u8), u8),
+                    crate::Tuple2Mutator<(T, u8), u8, M2_0, M2_1>,
+                    crate::Tuple2<(T, u8), u8> ,
+                    (u16),
+                    crate::Tuple1Mutator<u16, M3_0>,
+                    crate::Tuple1<u16>
+                > as crate::fuzzcheck_traits::Mutator<E<T> > > ::complexity(&self.mutator, value, cache)
+            }
+            fn ordered_arbitrary(&mut self, step: &mut Self::ArbitraryStep, max_cplx: f64) -> Option<(E<T> , Self::Cache)> {
+                <crate::Enum2PayloadMutator<
+                    ((T, u8), u8),
+                    crate::Tuple2Mutator<(T, u8), u8, M2_0, M2_1>,
+                    crate::Tuple2<(T, u8), u8> ,
+                    (u16),
+                    crate::Tuple1Mutator<u16, M3_0>,
+                    crate::Tuple1<u16>
+                > as crate::fuzzcheck_traits::Mutator<E<T> > > ::ordered_arbitrary(&mut self.mutator, step, max_cplx)
+            }
+            fn random_arbitrary(&mut self, max_cplx: f64) -> (E<T> , Self::Cache) {
+                <crate::Enum2PayloadMutator<
+                    ((T, u8), u8),
+                    crate::Tuple2Mutator<(T, u8), u8, M2_0, M2_1>,
+                    crate::Tuple2<(T, u8), u8> ,
+                    (u16),
+                    crate::Tuple1Mutator<u16, M3_0>,
+                    crate::Tuple1<u16>
+                > as crate::fuzzcheck_traits::Mutator<E<T> > > ::random_arbitrary(&mut self.mutator, max_cplx)
+            }
+            fn ordered_mutate(
+                &mut self,
+                value: &mut E<T> ,
+                cache: &mut Self::Cache,
+                step: &mut Self::MutationStep,
+                max_cplx: f64 ,
+            ) -> Option<Self::UnmutateToken> {
+                <crate::Enum2PayloadMutator<
+                    ((T, u8), u8),
+                    crate::Tuple2Mutator<(T, u8), u8, M2_0, M2_1>,
+                    crate::Tuple2<(T, u8), u8> ,
+                    (u16),
+                    crate::Tuple1Mutator<u16, M3_0>,
+                    crate::Tuple1<u16>
+                > as crate::fuzzcheck_traits::Mutator<E<T> > > ::ordered_mutate(
+                    &mut self.mutator, value, cache, step, max_cplx ,
+                )
+            }
+            fn random_mutate(&mut self, value: &mut E<T> , cache: &mut Self::Cache, max_cplx: f64) -> Self::UnmutateToken {
+                <crate::Enum2PayloadMutator<
+                    ((T, u8), u8),
+                    crate::Tuple2Mutator<(T, u8), u8, M2_0, M2_1>,
+                    crate::Tuple2<(T, u8), u8> ,
+                    (u16),
+                    crate::Tuple1Mutator<u16, M3_0>,
+                    crate::Tuple1<u16>
+                > as crate::fuzzcheck_traits::Mutator<E<T> > > ::random_mutate(&mut self.mutator, value, cache, max_cplx)
+            }
+            fn unmutate(&self, value: &mut E<T> , cache: &mut Self::Cache, t: Self::UnmutateToken) {
+                <crate::Enum2PayloadMutator<
+                    ((T, u8), u8),
+                    crate::Tuple2Mutator<(T, u8), u8, M2_0, M2_1>,
+                    crate::Tuple2<(T, u8), u8> ,
+                    (u16),
+                    crate::Tuple1Mutator<u16, M3_0>,
+                    crate::Tuple1<u16>
+                > as crate::fuzzcheck_traits::Mutator<E<T> > > ::unmutate(&self.mutator, value, cache, t)
+            }
+        }
+        impl<T> crate::DefaultMutator for E<T>
+        where
+            T: crate::DefaultMutator + 'static
+        {
+            type Mutator = EMutator<
+                T,
+                <(T, u8) as crate::DefaultMutator>::Mutator,
+                <u8 as crate::DefaultMutator>::Mutator,
+                <u16 as crate::DefaultMutator>::Mutator
+            > ;
+            fn default_mutator() -> Self::Mutator {
+                Self::Mutator::new(
+                    <(T, u8) as crate::DefaultMutator>::default_mutator(),
+                    <u8 as crate::DefaultMutator>::default_mutator(),
+                    <u16 as crate::DefaultMutator>::default_mutator()
+                )
+            }
+        }
         ".parse::<TokenStream>()
         .unwrap()
         .to_string();
