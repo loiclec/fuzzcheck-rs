@@ -112,59 +112,6 @@ pub trait Mutator<Value: Clone>: Sized {
     fn random_mutate(&mut self, value: &mut Value, cache: &mut Self::Cache, max_cplx: f64) -> Self::UnmutateToken;
 
     fn unmutate(&self, value: &mut Value, cache: &mut Self::Cache, t: Self::UnmutateToken);
-
-    // /// Compute the cache for the given value
-    // fn cache_from_value(&self, value: &Value) -> Self::Cache {
-    //     let mut lifetime = MaybeUninit::uninit();
-    //     let proxy_value = Self::BorrowValue<'_>::get_value(value, &mut lifetime);
-    //     self.cache_from_value(proxy_value)
-    // }
-    // /// Compute the initial mutation step for the given value
-    // fn initial_step_from_value(&self, value: &Value) -> Self::MutationStep {
-    //     let mut lifetime = MaybeUninit::uninit();
-    //     let proxy_value = Self::BorrowValue<'_>::get_value(value, &mut lifetime);
-    //     self.initial_step_from_value(proxy_value)
-    // }
-
-    // /// The complexity of the current input
-    // fn complexity(&self, value: &Value, cache: &Self::Cache) -> f64 {
-    //     let mut lifetime = MaybeUninit::uninit();
-    //     let proxy_value = Self::BorrowValue<'_>::get_value(value, &mut lifetime);
-    //     self.complexity(proxy_value, cache)
-    // }
-
-    // fn ordered_arbitrary(&mut self, step: &mut Self::ArbitraryStep, max_cplx: f64) -> Option<(Value, Self::Cache)> {
-    //     self.ordered_arbitrary(step, max_cplx)
-    //         .map(|(value, cache)| (Self::ProxyValue::to_value(value), cache))
-    // }
-    // fn random_arbitrary(&mut self, max_cplx: f64) -> (Value, Self::Cache) {
-    //     let (v, c) = self.random_arbitrary(max_cplx);
-    //     (Self::ProxyValue::to_value(v), c)
-    // }
-
-    // fn ordered_mutate(
-    //     &mut self,
-    //     value: &mut Value,
-    //     cache: &mut Self::Cache,
-    //     step: &mut Self::MutationStep,
-    //     max_cplx: f64,
-    // ) -> Option<Self::UnmutateToken> {
-    //     let mut lifetime = MaybeUninit::uninit();
-    //     let proxy_value = Self::BorrowMutValue<'_>::get_mut_value(value, &mut lifetime);
-    //     self.ordered_mutate(proxy_value, cache, step, max_cplx)
-    // }
-
-    // fn random_mutate(&mut self, value: &mut Value, cache: &mut Self::Cache, max_cplx: f64) -> Self::UnmutateToken {
-    //     let mut lifetime = MaybeUninit::uninit();
-    //     let proxy_value = Self::BorrowMutValue<'_>::get_mut_value(value, &mut lifetime);
-    //     self.random_mutate(proxy_value, cache, max_cplx)
-    // }
-
-    // fn unmutate(&self, value: &mut Value, cache: &mut Self::Cache, t: Self::UnmutateToken) {
-    //     let mut lifetime = MaybeUninit::uninit();
-    //     let proxy_value = Self::BorrowMutValue<'_>::get_mut_value(value, &mut lifetime);
-    //     self.unmutate(proxy_value, cache, t)
-    // }
 }
 
 /**
