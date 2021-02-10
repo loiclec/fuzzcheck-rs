@@ -9,7 +9,7 @@ pub extern crate fuzzcheck_traits;
 pub use fuzzcheck_mutators_derive::*;
 
 mod bool;
-// mod chain;
+mod r#box;
 mod dictionary;
 mod enums;
 mod integer;
@@ -22,6 +22,7 @@ mod wrapped;
 pub use crate::bool::BoolMutator;
 pub use crate::dictionary::DictionaryMutator;
 pub use crate::integer::*;
+pub use crate::r#box::BoxMutator;
 
 pub use crate::tuples::{RefTypes, TupleMutator, TupleMutatorWrapper, TupleStructure};
 

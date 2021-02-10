@@ -1,80 +1,74 @@
+
 use decent_synquote_alternative as synquote;
 use proc_macro2::{Ident, Span, TokenStream};
 
 use synquote::parser::*;
 use synquote::token_builder::*;
 
+use crate::MakeMutatorSettings;
+use crate::Common;
+
 /*
  TODO: Take maximum complexity into account! For now it is partly ignored. One shouldn't switch to
  an item whose minimum complexity is greater than the maximum allowed complexity
 */
-fn make_enum_n_payload_structure(tb: &mut TokenBuilder, n: usize, fuzzcheck_mutators_crate: TokenStream) {
-    let clone = ts!("::std::clone::Clone");
-    let T = |i: usize| ident!("T" i);
-    let n_plus_1_type_params = join_ts!(0..n + 1, i, T(i), separator: ",");
-    let EitherNP1 = ident!("Either" n+1);
-    let EnumNPayloadStructure = ident!("Enum" n "PayloadStructure");
-
-    let TupleKind = |i: usize| ident!("TupleKind" i);
-
-    let RefTypes = ts!(fuzzcheck_mutators_crate "::RefTypes");
-    let TupleStructure = ts!(fuzzcheck_mutators_crate "::TupleStructure");
-
-    let SelfTupleKindAsRefTypes = |i: usize| ts!("<Self::" TupleKind(i) "as" RefTypes ">" );
+#[allow(non_snake_case)]
+fn make_enum_n_payload_structure(tb: &mut TokenBuilder, n: usize, fuzzcheck_mutators_crate: &TokenStream) {
+    let cm = Common::new(fuzzcheck_mutators_crate, n);
+    let Ti = cm.Ti.as_ref();
+    let n_plus_1_type_params = join_ts!(0..n + 1, i, Ti(i), separator: ",");
+    let TupleKindi = cm.TupleKindi.as_ref();
+    let SelfTupleKindAsRefTypes = |i: usize| ts!("<Self::" TupleKindi(i) "as" cm.RefTypes ">" );
 
     extend_ts!(tb,
-        "#[derive(" clone ")]
-        pub enum" EitherNP1 "<" n_plus_1_type_params "> {"
+        "#[derive(" cm.Clone ")]
+        pub enum" cm.EitherNP1_ident "<" n_plus_1_type_params "> {"
             join_ts!(0 .. n+1, i,
-                T(i)"(" T(i) "),"
+                Ti(i)"(" Ti(i) "),"
             )
         "}
         
-        pub trait" EnumNPayloadStructure "{"
+        pub trait" cm.EnumNPayloadStructure_ident "{"
             join_ts!(0..n, i,
-                "type " TupleKind(i) ":" RefTypes ";"
-                "type" T(i) ":" TupleStructure "<Self::" TupleKind(i) ">;"
+                "type " TupleKindi(i) ":" cm.RefTypes ";"
+                "type" Ti(i) ":" cm.TupleStructure "<Self::" TupleKindi(i) ">;"
             )
-            "fn get_ref<'a>(&'a self) ->" EitherNP1 "<" join_ts!(0..n, i, SelfTupleKindAsRefTypes(i)"::Ref<'a> ,") " usize>;"
-            "fn get_mut<'a>(&'a mut self) ->" EitherNP1 "<" join_ts!(0..n, i, SelfTupleKindAsRefTypes(i)"::Mut<'a>,") " usize>;"
-            "fn new(t:" EitherNP1 "<" join_ts!(0..n, i, "Self::" T(i) ",") " usize>) -> Self;"
+            "fn get_ref<'a>(&'a self) ->" cm.EitherNP1_ident "<" join_ts!(0..n, i, SelfTupleKindAsRefTypes(i)"::Ref<'a> ,") " usize>;"
+            "fn get_mut<'a>(&'a mut self) ->" cm.EitherNP1_ident "<" join_ts!(0..n, i, SelfTupleKindAsRefTypes(i)"::Mut<'a>,") " usize>;"
+            "fn new(t:" cm.EitherNP1_ident "<" join_ts!(0..n, i, "Self::" Ti(i) ",") " usize>) -> Self;"
         "}"
     )
 }
 
-fn make_enum_n_payload_mutator(tb: &mut TokenBuilder, n: usize, fuzzcheck_mutators_crate: TokenStream) {
-    let clone = ts!("::std::clone::Clone");
-    let EnumNPayloadMutator = ident!("Enum" n "PayloadMutator");
-    let T = |i: usize| ident!("T" i);
-    let M = |i: usize| ident!("M" i);
-    let TupleKind = |i: usize| ident!("TupleKind" i);
-    let TupleStructure = |i: usize| ts!(fuzzcheck_mutators_crate "::TupleStructure<" TupleKind(i) ">");
-    let RefTypes = ts!(fuzzcheck_mutators_crate "::RefTypes");
-    let TupleMutator = |i: usize| ts!(fuzzcheck_mutators_crate "::TupleMutator<" T(i) "," TupleKind(i) ">");
-    let mutator_ = |i: usize| ident!("mutator_" i);
-    let fastrand = ts!(fuzzcheck_mutators_crate "::fastrand");
-    let PhantomData = ts!("::std::marker::PhantomData");
-    let Default = ts!("::std::default::Default");
+#[allow(non_snake_case)]
+fn make_enum_n_payload_mutator(tb: &mut TokenBuilder, n: usize, fuzzcheck_mutators_crate: &TokenStream) {
+    let cm = Common::new(fuzzcheck_mutators_crate, n);
+    let T = cm.Ti.as_ref();
+    let M = cm.Mi.as_ref();
+    let TupleKind = cm.TupleKindi.as_ref();
+    let TupleStructure = cm.TupleStructureTupleKindi.as_ref();
+    let TupleMutator = cm.TupleMutatorTiTupleKindi.as_ref();
+    let mutator_ = cm.mutator_i.as_ref();
 
     let type_params = join_ts!(0..n, i,
         T(i) "," M(i) "," TupleKind(i)
     , separator: ",");
     let where_clause = join_ts!(0..n, i, 
-        T(i) ":" clone " +" TupleStructure(i) ","
-        TupleKind(i) ":" RefTypes ","
+        T(i) ":" cm.Clone " +" TupleStructure(i) ","
+        TupleKind(i) ":" cm.RefTypes ","
         M(i) ":" TupleMutator(i)
     , separator: ",");
 
     extend_ts!(tb, "
-    pub struct" EnumNPayloadMutator "<" type_params "> where" where_clause "{"
+    pub struct" cm.EnumNPayloadMutator_ident "<" type_params "> where" where_clause "{"
     join_ts!(0..n, i, 
         "pub" mutator_(i) ":" M(i) ","
     )
-        "rng: " fastrand "::Rng ,
-        _phantom: " PhantomData "<(" join_ts!(0..n, i, T(i) "," TupleKind(i), separator: "," ) ")>"
+        "rng: " cm.fastrand "::Rng ,
+        _phantom: " cm.PhantomData "<(" join_ts!(0..n, i, T(i) "," TupleKind(i), separator: "," ) ")>"
     "}
 
-    impl<" type_params "> " EnumNPayloadMutator "<" type_params "> where" where_clause "{
+    impl<" type_params "> " cm.EnumNPayloadMutator_ident "<" type_params "> where" where_clause "{
         pub fn new(" join_ts!(0..n, i, mutator_(i) ":" M(i), separator: "," ) ") -> Self {
             Self {"
                 join_ts!(0..n, i, 
@@ -87,9 +81,9 @@ fn make_enum_n_payload_mutator(tb: &mut TokenBuilder, n: usize, fuzzcheck_mutato
     }
 
 
-    impl<" type_params "> " Default "for" EnumNPayloadMutator "<" type_params "> where" where_clause  ","
+    impl<" type_params "> " cm.Default "for" cm.EnumNPayloadMutator_ident "<" type_params "> where" where_clause  ","
         join_ts!(0..n, i,
-            M(i) ":" Default
+            M(i) ":" cm.Default
         , separator: ",") 
     "{
         fn default() -> Self {
@@ -105,78 +99,61 @@ fn make_enum_n_payload_mutator(tb: &mut TokenBuilder, n: usize, fuzzcheck_mutato
     ")
 }
 
+#[allow(non_snake_case)]
 fn make_enum_mutator_helper_types(tb: &mut TokenBuilder, n: usize) {
-    let clone = ts!("::std::clone::Clone");
-    let vec = ts!("::std::vec::Vec");
-    let Default = ts!("::std::default::Default");
-    let EitherNP1 = ident!("Either" n+1);
-    let EnumNPayloadArbitraryStep = ident!("Enum" n "PayloadArbitraryStep");
-    let EnumNPayloadMutationStep = ident!("Enum" n "PayloadMutationStep");
-    let T = |i: usize| ident!("T" i);
+    let cm = Common::new(&ts!("crate"), n);
+    let T = cm.Ti.as_ref();
     let type_params = join_ts!(0..n, i, T(i), separator: ",");
 
     extend_ts!(tb,
-        "#[derive(" clone ")]
-        pub struct" EnumNPayloadArbitraryStep "<" join_ts!(0..n, i, T(i) ":" Default, separator: ",") "> {
-            steps: " vec "<" EitherNP1 "<" type_params ", usize > >,
+        "#[derive(" cm.Clone ")]
+        pub struct" cm.EnumNPayloadArbitraryStep_ident "<" join_ts!(0..n, i, T(i) ":" cm.Default, separator: ",") "> {
+            steps: " cm.Vec "<" cm.EitherNP1_ident "<" type_params ", usize > >,
             idx: usize,
         }
-        impl<" join_ts!(0..n, i, T(i) ":" Default, separator: ",") ">" Default "for" EnumNPayloadArbitraryStep "<" type_params "> {
+        impl<" join_ts!(0..n, i, T(i) ":" cm.Default, separator: ",") ">" cm.Default "for" cm.EnumNPayloadArbitraryStep_ident "<" type_params "> {
             fn default() -> Self {
                 Self {
-                    steps: vec![" join_ts!(0..n, i, EitherNP1 "::" T(i) "(" T(i) "::default()) ," ) EitherNP1 "::" T(n) "(0)],
+                    steps: vec![" join_ts!(0..n, i, cm.EitherNP1_ident "::" T(i) "(" T(i) "::default()) ," ) cm.EitherNP1_ident "::" T(n) "(0)],
                     idx: 0,
                 }
             }
         }
-        #[derive(" clone ")]
-        pub struct " EnumNPayloadMutationStep "<" type_params ", AS> {
-            inner: " EitherNP1 "<" type_params ", ()>,
+        #[derive(" cm.Clone ")]
+        pub struct " cm.EnumNPayloadMutationStep_ident "<" type_params ", AS> {
+            inner: " cm.EitherNP1_ident "<" type_params ", ()>,
             arbitrary: AS,
         }
         "
     )
 }
 
-fn impl_mutator(tb: &mut TokenBuilder, n: usize, fuzzcheck_mutators_crate: TokenStream) {
-    let clone = ts!("::std::clone::Clone");
-    let Option = ts!("::std::option::Option");
-    let some = ts!(Option "::Some");
-    let none = ts!(Option "::None");
-
-    let EnumNPayloadStructure = ident!("Enum" n "PayloadStructure");
-    let EnumNPayloadMutator = ident!("Enum" n "PayloadMutator");
-    let EnumNPayloadArbitraryStep = ident!("Enum" n "PayloadArbitraryStep");
-    let EnumNPayloadMutationStep = ident!("Enum" n "PayloadMutationStep");
-
-    let Either = ident!("Either" n+1);
-    let T = |i: usize| ident!("T" i);
-    let EitherT = |i: usize| ts!(Either "::" T(i));
-    let M = |i: usize| ident!("M" i);
-    let TupleKind = |i: usize| ident!("TupleKind" i);
-    let TupleStructure = |i: usize| ts!(fuzzcheck_mutators_crate "::TupleStructure<" TupleKind(i) ">");
-    let RefTypes = ts!(fuzzcheck_mutators_crate "::RefTypes");
-    let TupleMutator = |i: usize| ts!(fuzzcheck_mutators_crate "::TupleMutator<" T(i) "," TupleKind(i) ">");
-    let mutator_ = |i: usize| ident!("mutator_" i);
-    let Mutator = ts!("::fuzzcheck_traits::Mutator");
-    let variant_count = ts!("::std::mem::variant_count::<T>()");
-    let size_to_cplxity = ts!(fuzzcheck_mutators_crate "::size_to_cplxity");
+#[allow(non_snake_case)]
+fn impl_mutator(tb: &mut TokenBuilder, n: usize, fuzzcheck_mutators_crate: &TokenStream) {
+    let cm = Common::new(fuzzcheck_mutators_crate, n);
+    let T = cm.Ti.as_ref();
+    let EitherT = cm.EitherNP1_identTi.as_ref();
+    let M = cm.Mi.as_ref();
+    let TupleKind = cm.TupleKindi.as_ref();
+    let TupleStructure = cm.TupleStructureTupleKindi.as_ref();
+    let TupleMutator = cm.TupleMutatorTiTupleKindi.as_ref();
+    let mutator_ = cm.mutator_i.as_ref();
 
     extend_ts!(tb, "
-    impl<T," join_ts!(0..n, i, T(i) "," M(i) "," TupleKind(i), separator: "," ) "> " Mutator "<T>
-        for " EnumNPayloadMutator "<" join_ts!(0..n, i, T(i) "," M(i) "," TupleKind(i), separator: "," ) "> 
+    impl<T," join_ts!(0..n, i, T(i) "," M(i) "," TupleKind(i), separator: "," ) "> " cm.fuzzcheck_traits_Mutator "<T>
+        for " cm.EnumNPayloadMutator_ident "<" join_ts!(0..n, i, T(i) "," M(i) "," TupleKind(i), separator: "," ) "> 
     where
-        T: " clone "+ " EnumNPayloadStructure "<" join_ts!(0..n, i, TupleKind(i) "=" TupleKind(i) "," T(i) "=" T(i) "," ) ">" ","
+        T: " cm.Clone "+ " cm.EnumNPayloadStructure_ident "<" join_ts!(0..n, i, TupleKind(i) "=" TupleKind(i) "," T(i) "=" T(i) "," ) ">" ","
     join_ts!(0..n, i,
-        T(i) ":" clone " + " TupleStructure(i) ","
+        T(i) ":" cm.Clone " + " TupleStructure(i) ","
         M(i) ":" TupleMutator(i) ","
-        TupleKind(i) ":" RefTypes
+        TupleKind(i) ":" cm.RefTypes
     , separator: ",")
     "{
-        type Cache = " Either "<" join_ts!(0..n, i, M(i) "::Cache ,") "()>;
-        type MutationStep = " EnumNPayloadMutationStep "<" join_ts!(0..n, i, M(i) "::MutationStep ,") "Self::ArbitraryStep>;
-        type ArbitraryStep = " EnumNPayloadArbitraryStep "<" join_ts!(0..n, i, M(i) "::ArbitraryStep", separator: ",") ">;
-        type UnmutateToken = " Either "<" join_ts!(0..n, i, M(i) "::UnmutateToken ,") "(T, Self::Cache)>;
+        type Cache = " cm.EitherNP1_ident "<" join_ts!(0..n, i, M(i) "::Cache ,") "()>;
+        type MutationStep = " cm.EnumNPayloadMutationStep_ident "<" join_ts!(0..n, i, M(i) "::MutationStep ,") "Self::ArbitraryStep>;
+        type ArbitraryStep = " cm.EnumNPayloadArbitraryStep_ident "<" join_ts!(0..n, i, M(i) "::ArbitraryStep", separator: ",") ">;
+        type UnmutateToken = " cm.EitherNP1_ident "<" join_ts!(0..n, i, M(i) "::UnmutateToken ,") "(T, Self::Cache)>;
     
         fn cache_from_value(&self, value: &T) -> Self::Cache {
             let x = value.get_ref();
@@ -206,7 +183,7 @@ fn impl_mutator(tb: &mut TokenBuilder, n: usize, fuzzcheck_mutators_crate: Token
             }
         }
         fn max_complexity(&self) -> f64 {
-            " size_to_cplxity "(" variant_count ")
+            " cm.size_to_cplxity "(" cm.variant_count_T ")
                 + ["
                 join_ts!(0..n, i,
                     "self." mutator_(i) ".max_complexity()"
@@ -217,7 +194,7 @@ fn impl_mutator(tb: &mut TokenBuilder, n: usize, fuzzcheck_mutators_crate: Token
                     .unwrap()
         }
         fn min_complexity(&self) -> f64 {
-            " size_to_cplxity "(" variant_count ")
+            " cm.size_to_cplxity "(" cm.variant_count_T ")
                 + ["
                 join_ts!(0..n, i,
                     "self." mutator_(i) ".min_complexity()"
@@ -228,7 +205,7 @@ fn impl_mutator(tb: &mut TokenBuilder, n: usize, fuzzcheck_mutators_crate: Token
                     .unwrap()
         }
         fn complexity(&self, value: &T, cache: &Self::Cache) -> f64 {
-            " size_to_cplxity "(" variant_count ")
+            " cm.size_to_cplxity "(" cm.variant_count_T ")
                 + match (value.get_ref(), cache) {"
                 join_ts!(0..n, i,
                     "(" EitherT(i) "(value), " EitherT(i) "(cache)) => self." mutator_(i) ".complexity(value, cache),"
@@ -238,12 +215,12 @@ fn impl_mutator(tb: &mut TokenBuilder, n: usize, fuzzcheck_mutators_crate: Token
                 }
         }
         fn ordered_arbitrary(&self, step: &mut Self::ArbitraryStep, max_cplx: f64) -> Option<(T, Self::Cache)> {
-            if max_cplx < <Self as " Mutator "<T> >::min_complexity(self) { return " none " }
+            if max_cplx < <Self as " cm.fuzzcheck_traits_Mutator "<T> >::min_complexity(self) { return " cm.None " }
             if step.steps.is_empty() {
-                return " none ";
+                return " cm.None ";
             }
             let steps_len = step.steps.len();
-            let inner_max_cplx = max_cplx - " size_to_cplxity "(" variant_count ");
+            let inner_max_cplx = max_cplx - " cm.size_to_cplxity "(" cm.variant_count_T ");
             let substep = &mut step.steps[step.idx % steps_len];
     
             let result = match substep {"
@@ -257,10 +234,10 @@ fn impl_mutator(tb: &mut TokenBuilder, n: usize, fuzzcheck_mutators_crate: Token
             )
                 EitherT(n) "(x) => {
                     *x += 1;
-                    if *x <= " variant_count " - " n " {
-                        " some "((T::new(" EitherT(n) "(*x)), " EitherT(n) "(())))
+                    if *x <= " cm.variant_count_T " - " n " {
+                        " cm.Some "((T::new(" EitherT(n) "(*x)), " EitherT(n) "(())))
                     } else {
-                        " none "
+                        " cm.None "
                     }
                 }"
             "};
@@ -273,8 +250,8 @@ fn impl_mutator(tb: &mut TokenBuilder, n: usize, fuzzcheck_mutators_crate: Token
             }
         }
         fn random_arbitrary(&self, max_cplx: f64) -> (T, Self::Cache) {
-            let inner_max_cplx = max_cplx - " size_to_cplxity "(" variant_count ");
-            let nbr_variants = if " variant_count " > " n " { " n+1 " } else { " n " };
+            let inner_max_cplx = max_cplx - " cm.size_to_cplxity "(" cm.variant_count_T ");
+            let nbr_variants = if " cm.variant_count_T " > " n " { " n+1 " } else { " n " };
             match self.rng.usize(..nbr_variants) {"
             join_ts!(0..n, i,
                 i "=> {
@@ -283,7 +260,7 @@ fn impl_mutator(tb: &mut TokenBuilder, n: usize, fuzzcheck_mutators_crate: Token
                 }"
             )
                 n "=> {
-                    let pick = self.rng.usize(.." variant_count " - " n ");
+                    let pick = self.rng.usize(.." cm.variant_count_T " - " n ");
                     (T::new(" EitherT(n) "(pick)), " EitherT(n) "(()))
                 }
                 _ => {
@@ -297,17 +274,17 @@ fn impl_mutator(tb: &mut TokenBuilder, n: usize, fuzzcheck_mutators_crate: Token
             cache: &mut Self::Cache,
             step: &mut Self::MutationStep,
             max_cplx: f64,
-        ) -> " Option "<Self::UnmutateToken> {
-            if max_cplx < <Self as " Mutator "<T> >::min_complexity(self) { return " none " }
-            let inner_max_cplx = max_cplx - " size_to_cplxity "(" variant_count ");
+        ) -> " cm.Option "<Self::UnmutateToken> {
+            if max_cplx < <Self as " cm.fuzzcheck_traits_Mutator "<T> >::min_complexity(self) { return " cm.None " }
+            let inner_max_cplx = max_cplx - " cm.size_to_cplxity "(" cm.variant_count_T ");
             match (value.get_mut(), cache.borrow_mut(), &mut step.inner) {"
             join_ts!(0..n, i,
                 "(" EitherT(i) "(inner_value)," EitherT(i) "(inner_cache)," EitherT(i) "(inner_step)) => {
-                    if let " some "(token) = self
+                    if let " cm.Some "(token) = self
                         ." mutator_(i) "
                         .ordered_mutate(inner_value, inner_cache, inner_step, inner_max_cplx)
                     {
-                        return " some "(" EitherT(i) "(token));
+                        return " cm.Some "(" EitherT(i) "(token));
                     }
                 }"
             )
@@ -316,16 +293,16 @@ fn impl_mutator(tb: &mut TokenBuilder, n: usize, fuzzcheck_mutators_crate: Token
                 }
                 _ => unreachable!(),
             }
-            if let " some "((new_value, new_cache)) = self.ordered_arbitrary(&mut step.arbitrary, max_cplx) {
+            if let " cm.Some "((new_value, new_cache)) = self.ordered_arbitrary(&mut step.arbitrary, max_cplx) {
                 let old_value = ::std::mem::replace(value, new_value);
                 let old_cache = ::std::mem::replace(cache, new_cache);
-                " some "(" EitherT(n) "((old_value, old_cache)))
+                " cm.Some "(" EitherT(n) "((old_value, old_cache)))
             } else {
-                " none "
+                " cm.None "
             }
         }
         fn random_mutate(&self, value: &mut T, cache: &mut Self::Cache, max_cplx: f64) -> Self::UnmutateToken {
-            let inner_max_cplx = max_cplx - " size_to_cplxity "(" variant_count ");
+            let inner_max_cplx = max_cplx - " cm.size_to_cplxity "(" cm.variant_count_T ");
             match (value.get_mut(), cache.borrow_mut()) {"
             join_ts!(0..n, i,
                 "(" EitherT(i) "(inner_value), " EitherT(i) "(inner_cache)) => {
@@ -358,14 +335,15 @@ fn impl_mutator(tb: &mut TokenBuilder, n: usize, fuzzcheck_mutators_crate: Token
     )
 }
 
-pub fn make_basic_enum_mutator(tb: &mut TokenBuilder, n: usize, fuzzcheck_mutators_crate: TokenStream) {
-    make_enum_n_payload_structure(tb, n, fuzzcheck_mutators_crate.clone());
-    make_enum_n_payload_mutator(tb, n, fuzzcheck_mutators_crate.clone());
+pub fn make_basic_enum_mutator(tb: &mut TokenBuilder, n: usize, fuzzcheck_mutators_crate: &TokenStream) {
+    make_enum_n_payload_structure(tb, n, fuzzcheck_mutators_crate);
+    make_enum_n_payload_mutator(tb, n, fuzzcheck_mutators_crate);
     make_enum_mutator_helper_types(tb, n);
     impl_mutator(tb, n, fuzzcheck_mutators_crate);
 }
 
-pub fn impl_enum_structure_trait(tb: &mut TokenBuilder, enu: &Enum, fuzzcheck_mutators_crate: TokenStream) {
+#[allow(non_snake_case)]
+pub fn impl_enum_structure_trait(tb: &mut TokenBuilder, enu: &Enum, fuzzcheck_mutators_crate: &TokenStream) {
     let items_with_fields = enu
         .items
         .iter()
@@ -385,8 +363,10 @@ pub fn impl_enum_structure_trait(tb: &mut TokenBuilder, enu: &Enum, fuzzcheck_mu
         })
         .collect::<Box<_>>();
     let n = items_with_fields.len();
-
-    let EnumNPayloadStructure = ts!(fuzzcheck_mutators_crate "::" ident!("Enum" n "PayloadStructure"));
+    let cm = Common::new(fuzzcheck_mutators_crate, n);
+    let TupleKind = cm.TupleKindi.as_ref();
+    let Tuple = cm.Tuplei.as_ref();
+    let T = cm.Ti.as_ref();
 
     let generics_no_eq = enu.generics.removing_eq_type();
     let generics_no_eq_nor_bounds = enu.generics.removing_bounds_and_eq_type();
@@ -399,9 +379,6 @@ pub fn impl_enum_structure_trait(tb: &mut TokenBuilder, enu: &Enum, fuzzcheck_mu
             rhs: ts!("'static"),
         });
     }
-    let TupleKind = |i: usize| ident!("TupleKind" i);
-    let Tuple = |i: usize| ts!(fuzzcheck_mutators_crate "::" ident!("Tuple" i));
-    let T = |i: usize| ident!("T" i);
 
     let field_types = items_with_fields
         .iter()
@@ -416,10 +393,8 @@ pub fn impl_enum_structure_trait(tb: &mut TokenBuilder, enu: &Enum, fuzzcheck_mu
         .map(|(_, fields)| join_ts!(fields.iter(), field, "&'a mut" field.ty, separator: ","))
         .collect::<Box<_>>();
 
-    let EitherN = ts!(fuzzcheck_mutators_crate "::" ident!("Either" n+1));
-
     let either_owned = ts!(
-        EitherN "<"
+        cm.EitherNP1_path "<"
             join_ts!(0..items_with_fields.len(), i,
                 "Self::" T(i) ","
             )
@@ -427,7 +402,7 @@ pub fn impl_enum_structure_trait(tb: &mut TokenBuilder, enu: &Enum, fuzzcheck_mu
         ">"
     );
     let either_ref = ts!(
-        EitherN "<"
+        cm.EitherNP1_path "<"
             join_ts!(0..n, i,
                 "(" field_types_ref[i] ") ,"
             )
@@ -435,7 +410,7 @@ pub fn impl_enum_structure_trait(tb: &mut TokenBuilder, enu: &Enum, fuzzcheck_mu
         ">"
     );
     let either_mut = ts!(
-        EitherN "<"
+        cm.EitherNP1_path "<"
             join_ts!(0..n, i,
                 "(" field_types_mut[i] ") ,"
             )
@@ -449,7 +424,7 @@ pub fn impl_enum_structure_trait(tb: &mut TokenBuilder, enu: &Enum, fuzzcheck_mu
             let mut count_data: isize = -1;
             join_ts!(&enu.items, item,
                 item.pattern_match(&enu.ident, None) "=> {"
-                EitherN "::" match &item.data {
+                cm.EitherNP1_path "::" match &item.data {
                     Some(EnumItemData::Struct(_, fields)) if fields.len() > 0 => {
                         count_data += 1;
                         ts!(
@@ -473,7 +448,7 @@ pub fn impl_enum_structure_trait(tb: &mut TokenBuilder, enu: &Enum, fuzzcheck_mu
     extend_ts!(tb,
         "
         #[allow(non_shorthand_field_patterns)]
-        impl" generics_no_eq EnumNPayloadStructure 
+        impl" generics_no_eq cm.EnumNPayloadStructure_path 
             "for" enu.ident generics_no_eq_nor_bounds where_clause
         "{"
         join_ts!(0..n, i,
@@ -494,7 +469,7 @@ pub fn impl_enum_structure_trait(tb: &mut TokenBuilder, enu: &Enum, fuzzcheck_mu
         fn new(t: " either_owned ") -> Self {
             match t {"
             join_ts!(0..n, i,
-                EitherN "::" T(i) "(x) => {"
+                cm.EitherNP1_path "::" T(i) "(x) => {"
                     enu.ident "::" enu.items[items_with_fields[i].0].ident "{"
                         if items_with_fields[i].1.len() == 1 {
                             ts!(items_with_fields[i].1[0].access() ": x")
@@ -506,7 +481,7 @@ pub fn impl_enum_structure_trait(tb: &mut TokenBuilder, enu: &Enum, fuzzcheck_mu
                     "}"
                 "}"
             )
-                EitherN "::" T(n) "(x) => match x %" enu.items.len() - n "{"
+                cm.EitherNP1_path "::" T(n) "(x) => match x %" enu.items.len() - n "{"
                     join_ts!(0..enu.items.len() - n, i,
                         i "=> Self::" items_without_fields[i].ident match items_without_fields[i].data {
                             Some(EnumItemData::Struct(_, _)) => {
@@ -525,7 +500,8 @@ pub fn impl_enum_structure_trait(tb: &mut TokenBuilder, enu: &Enum, fuzzcheck_mu
     )
 }
 
-pub fn impl_default_mutator_for_enum(tb: &mut TokenBuilder, enu: &Enum, fuzzcheck_mutators_crate: TokenStream) {
+#[allow(non_snake_case)]
+pub(crate) fn impl_default_mutator_for_enum(tb: &mut TokenBuilder, enu: &Enum, settings: &MakeMutatorSettings) {
     let items_with_fields = enu
         .items
         .iter()
@@ -537,27 +513,22 @@ pub fn impl_default_mutator_for_enum(tb: &mut TokenBuilder, enu: &Enum, fuzzchec
         .collect::<Box<_>>();
 
     let n = items_with_fields.len();
-    let clone = ts!("::std::clone::Clone");
-    let Default = ts!("::std::default::Default");
-    let Mutator = ts!(fuzzcheck_mutators_crate "::fuzzcheck_traits::Mutator");
-    let EnumNPayloadMutator = ts!(fuzzcheck_mutators_crate "::" ident!("Enum" n "PayloadMutator"));
-
-    let TupleNMutator = |n: usize| ts!(fuzzcheck_mutators_crate "::" ident!("Tuple" n "Mutator"));
-    let TupleN = |n: usize| ts!(fuzzcheck_mutators_crate "::" ident!("Tuple" n));
+    let cm = Common::new(&settings.fuzzcheck_mutators_crate, n);
 
     let generics_no_eq = enu.generics.removing_eq_type();
     let generics_no_eq_nor_bounds = enu.generics.removing_bounds_and_eq_type();
-    let DefaultMutator = ts!(fuzzcheck_mutators_crate "::DefaultMutator");
     let mut where_clause = enu.where_clause.clone().unwrap_or(WhereClause::default());
     for ty_param in enu.generics.type_params.iter() {
         where_clause.items.push(WhereClauseItem {
             for_lifetimes: None,
             lhs: ty_param.type_ident.clone(),
-            rhs: ts!(DefaultMutator "+ 'static"),
+            rhs: ts!(cm.DefaultMutator "+ 'static"),
         });
     }
+    let TupleNMutator = cm.TupleNMutator.as_ref();
+    let TupleN = cm.Tuplei.as_ref();
 
-    let Mi_j = |i: usize, j: usize| ident!("M" i "_" j);
+    let Mi_j = cm.Mi_j.as_ref();
 
     let EnumMutator = ident!(enu.ident "Mutator");
     let mut EnumMutator_generics = enu.generics.removing_eq_type();
@@ -574,7 +545,7 @@ pub fn impl_default_mutator_for_enum(tb: &mut TokenBuilder, enu: &Enum, fuzzchec
         EnumMutator_where_clause.items.push(WhereClauseItem {
             for_lifetimes: None,
             lhs: ty_param.type_ident.clone(),
-            rhs: ts!(clone "+ 'static"),
+            rhs: ts!(cm.Clone "+ 'static"),
         });
     }
     for (i, fields) in items_with_fields.iter() {
@@ -582,13 +553,13 @@ pub fn impl_default_mutator_for_enum(tb: &mut TokenBuilder, enu: &Enum, fuzzchec
             EnumMutator_where_clause.items.push(WhereClauseItem {
                 for_lifetimes: None,
                 lhs: ts!(Mi_j(*i, j)),
-                rhs: ts!(Mutator "<" field.ty ">"),
+                rhs: ts!(cm.fuzzcheck_mutator_traits_Mutator "<" field.ty ">"),
             })
         }
     }
 
     let InnerMutator = ts!(
-        EnumNPayloadMutator "<"
+        cm.EnumNPayloadMutator_path "<"
         join_ts!(items_with_fields.iter(), (i, fields),
             "(" join_ts!(fields.iter(), field, field.ty, separator: "," ) "),
             " TupleNMutator(fields.len()) "<"
@@ -607,13 +578,14 @@ pub fn impl_default_mutator_for_enum(tb: &mut TokenBuilder, enu: &Enum, fuzzchec
         , separator: ",")
         ">"
     );
-    let InnerMutator_as_Mutator = ts!("<" InnerMutator "as" Mutator "<" enu.ident generics_no_eq_nor_bounds "> >" );
+    let InnerMutator_as_Mutator =
+        ts!("<" InnerMutator "as" cm.fuzzcheck_mutator_traits_Mutator "<" enu.ident generics_no_eq_nor_bounds "> >" );
 
     let mut DefaultMutator_Mutator_generics = enu.generics.removing_bounds_and_eq_type();
     for (_, fields) in items_with_fields.iter() {
         for field in fields.iter() {
             DefaultMutator_Mutator_generics.type_params.push(TypeParam {
-                type_ident: ts!("<" field.ty "as" DefaultMutator ">::Mutator"),
+                type_ident: ts!("<" field.ty "as" cm.DefaultMutator ">::Mutator"),
                 ..<_>::default()
             })
         }
@@ -634,7 +606,7 @@ pub fn impl_default_mutator_for_enum(tb: &mut TokenBuilder, enu: &Enum, fuzzchec
             , separator: ",")
         , separator: ",") ") -> Self {
             Self {
-                mutator: " EnumNPayloadMutator "::new("
+                mutator: " cm.EnumNPayloadMutator_path "::new("
                     join_ts!(items_with_fields.iter(), (i, fields),
                         TupleNMutator(fields.len()) "::new("
                             join_ts!(fields.iter(), field,
@@ -646,20 +618,20 @@ pub fn impl_default_mutator_for_enum(tb: &mut TokenBuilder, enu: &Enum, fuzzchec
             }
         }
     }
-    impl " EnumMutator_generics Default "for" EnumMutator EnumMutator_generics.removing_bounds_and_eq_type() 
-        EnumMutator_where_clause "," InnerMutator ":" Default "
+    impl " EnumMutator_generics cm.Default "for" EnumMutator EnumMutator_generics.removing_bounds_and_eq_type() 
+        EnumMutator_where_clause "," InnerMutator ":" cm.Default "
     {
         fn default() -> Self {
             Self { mutator : <_>::default() }
         }
     }
-    impl " EnumMutator_generics Mutator "<" enu.ident generics_no_eq_nor_bounds "> 
+    impl " EnumMutator_generics cm.fuzzcheck_mutator_traits_Mutator "<" enu.ident generics_no_eq_nor_bounds "> 
         for " EnumMutator EnumMutator_generics.removing_bounds_and_eq_type() EnumMutator_where_clause "
     {
-        type Cache = <" InnerMutator " as " Mutator "<" enu.ident generics_no_eq_nor_bounds ">" ">::Cache;
-        type MutationStep = <" InnerMutator " as " Mutator "<" enu.ident generics_no_eq_nor_bounds ">" ">::MutationStep;
-        type ArbitraryStep = <" InnerMutator " as " Mutator "<" enu.ident generics_no_eq_nor_bounds ">" ">::ArbitraryStep;
-        type UnmutateToken = <" InnerMutator " as " Mutator "<" enu.ident generics_no_eq_nor_bounds ">" ">::UnmutateToken;
+        type Cache = <" InnerMutator " as " cm.fuzzcheck_mutator_traits_Mutator "<" enu.ident generics_no_eq_nor_bounds ">" ">::Cache;
+        type MutationStep = <" InnerMutator " as " cm.fuzzcheck_mutator_traits_Mutator "<" enu.ident generics_no_eq_nor_bounds ">" ">::MutationStep;
+        type ArbitraryStep = <" InnerMutator " as " cm.fuzzcheck_mutator_traits_Mutator "<" enu.ident generics_no_eq_nor_bounds ">" ">::ArbitraryStep;
+        type UnmutateToken = <" InnerMutator " as " cm.fuzzcheck_mutator_traits_Mutator "<" enu.ident generics_no_eq_nor_bounds ">" ">::UnmutateToken;
     
         fn cache_from_value(&self, value: &" enu.ident generics_no_eq_nor_bounds ") -> Self::Cache {
             " InnerMutator_as_Mutator "::cache_from_value(&self.mutator, value)
@@ -713,24 +685,28 @@ pub fn impl_default_mutator_for_enum(tb: &mut TokenBuilder, enu: &Enum, fuzzchec
             " InnerMutator_as_Mutator "::unmutate(&self.mutator, value, cache, t)
         }
     }"
-
-    "impl" generics_no_eq DefaultMutator "for" enu.ident generics_no_eq_nor_bounds where_clause "{
-        type Mutator = " EnumMutator DefaultMutator_Mutator_generics ";
-    
-        fn default_mutator() -> Self::Mutator {
-            Self::Mutator::new("
-                join_ts!(items_with_fields.iter(), (_, fields),
-                    join_ts!(fields.iter(), field,
-                        "<" field.ty "as" DefaultMutator ">::default_mutator()"
+    if settings.default {
+        ts!("impl" generics_no_eq cm.DefaultMutator "for" enu.ident generics_no_eq_nor_bounds where_clause "{
+            type Mutator = " EnumMutator DefaultMutator_Mutator_generics ";
+        
+            fn default_mutator() -> Self::Mutator {
+                Self::Mutator::new("
+                    join_ts!(items_with_fields.iter(), (_, fields),
+                        join_ts!(fields.iter(), field,
+                            "<" field.ty "as" cm.DefaultMutator ">::default_mutator()"
+                        , separator: ",")
                     , separator: ",")
-                , separator: ",")
-            ")
-        }
-    }"
+                ")
+            }
+        }")
+    } else {
+        ts!()
+    }
         )
 }
 
-pub fn impl_wrapped_tuple_1_structure(tb: &mut TokenBuilder, enu: &Enum, fuzzcheck_mutators_crate: TokenStream) {
+#[allow(non_snake_case)]
+pub(crate) fn impl_wrapped_tuple_1_structure(tb: &mut TokenBuilder, enu: &Enum, settings: &MakeMutatorSettings) {
     assert!(
         enu.items.len() == 1
             && matches!(&enu.items[0].data, Some(EnumItemData::Struct(_, fields)) if fields.len() == 1)
@@ -743,8 +719,8 @@ pub fn impl_wrapped_tuple_1_structure(tb: &mut TokenBuilder, enu: &Enum, fuzzche
         let generics_no_eq = enu.generics.removing_eq_type();
         let generics_no_eq_nor_bounds = enu.generics.removing_bounds_and_eq_type();
 
-        let TupleStructure = ts!(fuzzcheck_mutators_crate "::TupleStructure");
-        let WrappedTuple1 = ts!(fuzzcheck_mutators_crate "::WrappedTuple1");
+        let cm = Common::new(&settings.fuzzcheck_mutators_crate, 1);
+        let WrappedTuple1 = ts!(settings.fuzzcheck_mutators_crate "::WrappedTuple1");
 
         let mut where_clause = enu.where_clause.clone().unwrap_or(WhereClause::default());
         for tp in enu.generics.type_params.iter() {
@@ -756,7 +732,7 @@ pub fn impl_wrapped_tuple_1_structure(tb: &mut TokenBuilder, enu: &Enum, fuzzche
         }
 
         extend_ts!(tb,
-            "impl " generics_no_eq TupleStructure "<" WrappedTuple1 "<" field_type "> >
+            "impl " generics_no_eq cm.TupleStructure "<" WrappedTuple1 "<" field_type "> >
                 for " enu.ident generics_no_eq_nor_bounds where_clause " 
             {
                 fn get_ref<'a>(&'a self) -> &'a " field_type " {
@@ -781,10 +757,11 @@ pub fn impl_wrapped_tuple_1_structure(tb: &mut TokenBuilder, enu: &Enum, fuzzche
     }
 }
 
-pub fn impl_default_mutator_for_enum_wrapped_tuple(
+#[allow(non_snake_case)]
+pub(crate) fn impl_default_mutator_for_enum_wrapped_tuple(
     tb: &mut TokenBuilder,
     enu: &Enum,
-    fuzzcheck_mutators_crate: TokenStream,
+    settings: &MakeMutatorSettings,
 ) {
     assert!(
         enu.items.len() == 1
@@ -805,12 +782,12 @@ pub fn impl_default_mutator_for_enum_wrapped_tuple(
             });
         }
 
-        let DefaultMutator = ts!(fuzzcheck_mutators_crate "::DefaultMutator");
-        let WrappedMutator = ts!(fuzzcheck_mutators_crate "::WrappedMutator");
+        let cm = Common::new(&settings.fuzzcheck_mutators_crate, 1);
+        let WrappedMutator = ts!(settings.fuzzcheck_mutators_crate "::WrappedMutator");
 
         extend_ts!(tb, 
-        "impl " generics_no_eq DefaultMutator "for" enu.ident generics_no_eq_nor_bounds where_clause "{
-            type Mutator = " WrappedMutator "<" field.ty ", <" field.ty "as" DefaultMutator ">::Mutator>;
+        "impl " generics_no_eq cm.DefaultMutator "for" enu.ident generics_no_eq_nor_bounds where_clause "{
+            type Mutator = " WrappedMutator "<" field.ty ", <" field.ty "as" cm.DefaultMutator ">::Mutator>;
         
             fn default_mutator() -> Self::Mutator {
                 Self::Mutator::new(<" field.ty ">::default_mutator())
@@ -822,7 +799,8 @@ pub fn impl_default_mutator_for_enum_wrapped_tuple(
     }
 }
 
-pub fn impl_basic_enum_structure(tb: &mut TokenBuilder, enu: &Enum, fuzzcheck_mutators_crate: TokenStream) {
+#[allow(non_snake_case)]
+pub(crate) fn impl_basic_enum_structure(tb: &mut TokenBuilder, enu: &Enum, settings: &MakeMutatorSettings) {
     assert!(
         enu.items.len() > 0
             && enu
@@ -831,7 +809,7 @@ pub fn impl_basic_enum_structure(tb: &mut TokenBuilder, enu: &Enum, fuzzcheck_mu
                 .all(|item| !matches!(&item.data, Some(EnumItemData::Struct(_, fields)) if fields.len() > 0))
     );
 
-    let BasicEnumStructure = ts!(fuzzcheck_mutators_crate "::BasicEnumStructure");
+    let BasicEnumStructure = ts!(settings.fuzzcheck_mutators_crate "::BasicEnumStructure");
 
     let items_init = enu
         .items
@@ -865,7 +843,8 @@ pub fn impl_basic_enum_structure(tb: &mut TokenBuilder, enu: &Enum, fuzzcheck_mu
     )
 }
 
-pub fn impl_default_mutator_for_basic_enum(tb: &mut TokenBuilder, enu: &Enum, fuzzcheck_mutators_crate: TokenStream) {
+#[allow(non_snake_case)]
+pub(crate) fn impl_default_mutator_for_basic_enum(tb: &mut TokenBuilder, enu: &Enum, settings: &MakeMutatorSettings) {
     assert!(
         enu.items.len() > 0
             && enu
@@ -874,11 +853,12 @@ pub fn impl_default_mutator_for_basic_enum(tb: &mut TokenBuilder, enu: &Enum, fu
                 .all(|item| !matches!(&item.data, Some(EnumItemData::Struct(_, fields)) if fields.len() > 0))
     );
 
-    let DefaultMutator = ts!(fuzzcheck_mutators_crate "::DefaultMutator");
-    let BasicEnumMutator = ts!(fuzzcheck_mutators_crate "::BasicEnumMutator");
+    let cm = Common::new(&settings.fuzzcheck_mutators_crate, 0);
+
+    let BasicEnumMutator = ts!(settings.fuzzcheck_mutators_crate "::BasicEnumMutator");
 
     extend_ts!(tb,
-        "impl" DefaultMutator "for " enu.ident " {
+        "impl" cm.DefaultMutator "for " enu.ident " {
             type Mutator = " BasicEnumMutator ";
         
             fn default_mutator() -> Self::Mutator {
@@ -890,7 +870,7 @@ pub fn impl_default_mutator_for_basic_enum(tb: &mut TokenBuilder, enu: &Enum, fu
 
 #[cfg(test)]
 mod test {
-    use crate::decent_synquote_alternative::TokenBuilderExtend;
+    use crate::{decent_synquote_alternative::TokenBuilderExtend, MakeMutatorSettings};
     use decent_synquote_alternative::{parser::TokenParser, token_builder::TokenBuilder};
     use proc_macro2::TokenStream;
 
@@ -915,12 +895,12 @@ mod test {
         let enu = parser.eat_enumeration().unwrap();
 
         let mut tb = TokenBuilder::new();
-        impl_default_mutator_for_basic_enum(&mut tb, &enu, ts!("fuzzcheck_mutators"));
+        impl_default_mutator_for_basic_enum(&mut tb, &enu, &<_>::default());
         let generated = tb.end().to_string();
 
         let expected = "
-        impl fuzzcheck_mutators::DefaultMutator for X {
-            type Mutator = fuzzcheck_mutators::BasicEnumMutator;
+        impl ::fuzzcheck_mutators::DefaultMutator for X {
+            type Mutator = ::fuzzcheck_mutators::BasicEnumMutator;
         
             fn default_mutator() -> Self::Mutator {
                 Self::Mutator::default()
@@ -948,11 +928,11 @@ mod test {
         let enu = parser.eat_enumeration().unwrap();
 
         let mut tb = TokenBuilder::new();
-        impl_basic_enum_structure(&mut tb, &enu, ts!("fuzzcheck_mutators"));
+        impl_basic_enum_structure(&mut tb, &enu, &<_>::default());
         let generated = tb.end().to_string();
 
         let expected = "
-        impl fuzzcheck_mutators::BasicEnumStructure for X {
+        impl ::fuzzcheck_mutators::BasicEnumStructure for X {
             fn from_item_index(item_index: usize) -> Self {
                 match item_index {
                     0 => X::A,
@@ -990,11 +970,11 @@ mod test {
         let enu = parser.eat_enumeration().unwrap();
 
         let mut tb = TokenBuilder::new();
-        impl_wrapped_tuple_1_structure(&mut tb, &enu, ts!("fuzzcheck_mutators"));
+        impl_wrapped_tuple_1_structure(&mut tb, &enu, &<_>::default());
         let generated = tb.end().to_string();
 
         let expected = "
-        impl<T: Clone> fuzzcheck_mutators::TupleStructure<fuzzcheck_mutators::WrappedTuple1<Option<T> > > for A<T> where T: 'static {
+        impl<T: Clone> ::fuzzcheck_mutators::TupleStructure< ::fuzzcheck_mutators::WrappedTuple1<Option<T> > > for A<T> where T: 'static {
             fn get_ref<'a>(&'a self) -> &'a Option<T> {
                 match self {
                     Self::X {0: x} => { x }
@@ -1033,7 +1013,9 @@ mod test {
         let enu = parser.eat_enumeration().unwrap();
 
         let mut tb = TokenBuilder::new();
-        impl_default_mutator_for_enum(&mut tb, &enu, ts!("crate"));
+        let mut settings = MakeMutatorSettings::default();
+        settings.fuzzcheck_mutators_crate = ts!("crate");
+        impl_default_mutator_for_enum(&mut tb, &enu, &settings);
         let generated = tb.end().to_string();
 
         let expected = "
@@ -1279,7 +1261,7 @@ mod test {
         let enu = parser.eat_enumeration().unwrap();
 
         let mut tb = TokenBuilder::new();
-        impl_enum_structure_trait(&mut tb, &enu, ts!("crate"));
+        impl_enum_structure_trait(&mut tb, &enu, &ts!("crate"));
         let generated = tb.end().to_string();
 
         let expected = "
@@ -1337,7 +1319,7 @@ mod test {
         let enu = parser.eat_enumeration().unwrap();
 
         let mut tb = TokenBuilder::new();
-        impl_enum_structure_trait(&mut tb, &enu, ts!("crate"));
+        impl_enum_structure_trait(&mut tb, &enu, &ts!("crate"));
         let generated = tb.end().to_string();
 
         let expected = "
@@ -1393,7 +1375,7 @@ mod test {
         let enu = parser.eat_enumeration().unwrap();
 
         let mut tb = TokenBuilder::new();
-        impl_enum_structure_trait(&mut tb, &enu, ts!("crate"));
+        impl_enum_structure_trait(&mut tb, &enu, &ts!("crate"));
         let generated = tb.end().to_string();
 
         let expected = "
@@ -1442,7 +1424,7 @@ mod test {
     #[test]
     fn test_impl_mutator() {
         let mut tb = TokenBuilder::new();
-        impl_mutator(&mut tb, 2, ts!("crate"));
+        impl_mutator(&mut tb, 2, &ts!("crate"));
         let generated = tb.end().to_string();
         let expected = "
 impl<T, T0, M0, TupleKind0, T1, M1, TupleKind1> ::fuzzcheck_traits::Mutator<T>
@@ -1686,7 +1668,7 @@ where
     #[test]
     fn test_make_enum_n_payload_mutator() {
         let mut tb = TokenBuilder::new();
-        make_enum_n_payload_mutator(&mut tb, 2, ts!("crate"));
+        make_enum_n_payload_mutator(&mut tb, 2, &ts!("crate"));
         let generated = tb.end().to_string();
         let expected = "
 pub struct Enum2PayloadMutator<T0, M0, TupleKind0, T1, M1, TupleKind1>
@@ -1753,7 +1735,7 @@ where
     #[test]
     fn test_make_enum_n_payload_structure() {
         let mut tb = TokenBuilder::new();
-        make_enum_n_payload_structure(&mut tb, 2, ts!("crate"));
+        make_enum_n_payload_structure(&mut tb, 2, &ts!("crate"));
         let generated = tb.end().to_string();
         let expected = "
         #[derive(::std::clone::Clone)]

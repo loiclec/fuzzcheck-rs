@@ -1,11 +1,10 @@
-
 use decent_synquote_alternative as synquote;
 use proc_macro2::{Ident, Span, TokenStream};
 
 use synquote::parser::*;
 use synquote::token_builder::*;
 
-use crate::{MakeMutatorSettings, Common};
+use crate::{Common, MakeMutatorSettings};
 
 pub fn make_basic_tuple_mutator(tb: &mut TokenBuilder, nbr_elements: usize, fuzzcheck_mutators_crate: &TokenStream) {
     make_tuple_type_structure(tb, nbr_elements, fuzzcheck_mutators_crate);
@@ -29,7 +28,7 @@ pub fn make_basic_tuple_mutator(tb: &mut TokenBuilder, nbr_elements: usize, fuzz
 pub fn make_tuple_type_structure(tb: &mut TokenBuilder, nbr_elements: usize, fuzzcheck_mutators_crate: &TokenStream) {
     let cm = Common::new(fuzzcheck_mutators_crate, nbr_elements);
     let Ti = cm.Ti.as_ref();
-    
+
     // T0, T1, ...
     let type_params = join_ts!(0..nbr_elements, i, Ti(i), separator: ",");
     let type_params_static_bound = join_ts!(0..nbr_elements, i, Ti(i) ": 'static", separator: ",");
@@ -108,7 +107,7 @@ pub(crate) fn impl_tuple_structure_trait(tb: &mut TokenBuilder, struc: &Struct, 
     let cm = Common::new(&settings.fuzzcheck_mutators_crate, nbr_elements);
     let field_types = join_ts!(&struc.struct_fields, field, field.ty, separator: ",");
     // let Ti = |i: usize| ident!("T" i);
-    
+
     let generics_no_eq = struc.generics.removing_eq_type();
     let generics_no_eq_nor_bounds = struc.generics.removing_bounds_and_eq_type();
 
@@ -227,7 +226,7 @@ pub(crate) fn impl_default_mutator_for_struct_with_more_than_1_field(
     let cm = Common::new(&settings.fuzzcheck_mutators_crate, nbr_elements);
     let Mi = cm.Mi.as_ref();
     let TupleNMutator = cm.TupleNMutator.as_ref()(nbr_elements);
-    
+
     let generics_no_eq = struc.generics.removing_eq_type();
     let generics_no_eq_nor_bounds = struc.generics.removing_bounds_and_eq_type();
 
@@ -377,7 +376,8 @@ pub(crate) fn impl_default_mutator_for_struct_with_more_than_1_field(
         }
     }
     "
-        "impl" generics_no_eq cm.DefaultMutator "for" struc.ident generics_no_eq_nor_bounds DefaultMutator_where_clause "{"
+    if settings.default {
+        ts!("impl" generics_no_eq cm.DefaultMutator "for" struc.ident generics_no_eq_nor_bounds DefaultMutator_where_clause "{"
             "type Mutator = "  StrucMutator DefaultMutator_Mutator_generics " ;
 
         fn default_mutator() -> Self::Mutator {
@@ -387,9 +387,11 @@ pub(crate) fn impl_default_mutator_for_struct_with_more_than_1_field(
                 )
                 ")
         }
-        "
-        "}"
-        )
+        }")
+    } else {
+        ts!()
+    }
+    )
 }
 
 fn declare_tuple_mutator(tb: &mut TokenBuilder, fuzzcheck_mutators_crate: &TokenStream, nbr_elements: usize) {
@@ -459,8 +461,11 @@ fn declare_tuple_mutator(tb: &mut TokenBuilder, fuzzcheck_mutators_crate: &Token
 }
 
 #[allow(non_snake_case)]
-fn declare_tuple_mutator_helper_types(tb: &mut TokenBuilder, fuzzcheck_mutators_crate: &TokenStream, nbr_elements: usize) {
-
+fn declare_tuple_mutator_helper_types(
+    tb: &mut TokenBuilder,
+    fuzzcheck_mutators_crate: &TokenStream,
+    nbr_elements: usize,
+) {
     let cm = Common::new(fuzzcheck_mutators_crate, nbr_elements);
     let Ti = cm.Ti.as_ref();
     let ti = cm.ti.as_ref();
@@ -738,16 +743,14 @@ fn impl_mutator_trait(tb: &mut TokenBuilder, nbr_elements: usize, fuzzcheck_muta
 
 #[allow(non_snake_case)]
 fn impl_default_mutator_for_tuple(tb: &mut TokenBuilder, nbr_elements: usize, fuzzcheck_mutators_crate: &TokenStream) {
-    
     let cm = Common::new(fuzzcheck_mutators_crate, nbr_elements);
-    
+
     let Ti = cm.Ti.as_ref();
     let Mi = cm.Mi.as_ref();
-    
+
     let tuple_type_params = join_ts!(0..nbr_elements, i, Ti(i), separator: ",");
     let mutator_type_params = join_ts!(0..nbr_elements, i, Mi(i), separator: ",");
     let type_params = ts!(tuple_type_params "," mutator_type_params);
-
 
     let TupleN = ts!(ident!("Tuple" nbr_elements) "<" tuple_type_params ">");
     let TupleMutatorWrapper = ts!(
@@ -1394,7 +1397,7 @@ impl<T0, T1> ::std::default::Default for UnmutateToken<T0, T1> {
     #[test]
     fn test_declare_tuple_mutator() {
         let mut tb = TokenBuilder::new();
-        declare_tuple_mutator(&mut tb,&ts!("crate"), 2);
+        declare_tuple_mutator(&mut tb, &ts!("crate"), 2);
         let generated = tb.end().to_string();
 
         let expected = r#"  
