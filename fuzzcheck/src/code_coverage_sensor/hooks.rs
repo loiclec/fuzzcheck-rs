@@ -85,7 +85,6 @@ fn counters_init(start: *mut u8, stop: *mut u8) {
         START.call_once(|| {
             println!("Number of counters: {}", dist);
             SHARED_SENSOR.as_mut_ptr().write(CodeCoverageSensor {
-                is_recording: false,
                 eight_bit_counters: slice::from_raw_parts_mut(start, dist),
                 _lowest_stack: &mut LOWEST_STACK,
                 lowest_stack: usize::MAX,

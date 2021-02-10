@@ -21,7 +21,6 @@ static mut SHARED_SENSOR: MaybeUninit<CodeCoverageSensor> = MaybeUninit::<CodeCo
 /// Records the code coverage of the program and converts it into `Feature`s
 /// that the `pool` can understand.
 struct CodeCoverageSensor {
-    is_recording: bool,
     eight_bit_counters: &'static mut [u8],
     /// pointer to the __sancov_lowest_stack variable
     _lowest_stack: &'static mut libc::uintptr_t,
@@ -38,7 +37,6 @@ pub fn lowest_stack() -> usize {
 pub fn start_recording() {
     unsafe {
         let sensor = SHARED_SENSOR.as_mut_ptr();
-        (*sensor).is_recording = true;
         (*sensor).lowest_stack = usize::MAX;
         *(*sensor)._lowest_stack = usize::MAX;
     }
@@ -47,7 +45,6 @@ pub fn start_recording() {
 pub fn stop_recording() {
     unsafe {
         let sensor = SHARED_SENSOR.as_mut_ptr();
-        (*sensor).is_recording = false;
         (*sensor).lowest_stack = *(*sensor)._lowest_stack;
     }
 }
