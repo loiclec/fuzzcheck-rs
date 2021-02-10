@@ -1,3 +1,6 @@
+use std::rc::{Rc, Weak};
+
+
 /**
  A [Mutator] is an object capable of mutating a value for the purpose of
  fuzz-testing.
@@ -128,4 +131,146 @@ pub trait Serializer {
     fn extension(&self) -> &str;
     fn from_data(&self, data: &[u8]) -> Option<Self::Value>;
     fn to_data(&self, value: &Self::Value) -> Vec<u8>;
+}
+
+// pub trait RecursingMutator<T> : Mutator<T> where T: Clone {
+//     type Cache : Clone;
+//     type MutationStep : Clone;
+//     type ArbitraryStep : Default + Clone;
+//     type UnmutateToken;
+// }
+
+#[derive(Clone)]
+pub enum WeakArbitraryStep<AS> {
+    Default,
+    Initialized(AS),
+}
+impl<AS> Default for WeakArbitraryStep<AS> {
+    fn default() -> Self {
+        Self::Default
+    }
+}
+
+impl<T, M> Mutator<T> for Weak<M>
+where
+    M: Mutator<T>,
+    T: Clone,
+{
+    type Cache = <M as Mutator<T>>::Cache;
+    type MutationStep = <M as Mutator<T>>::MutationStep;
+    type ArbitraryStep = WeakArbitraryStep<<M as Mutator<T>>::ArbitraryStep>;
+    type UnmutateToken = <M as Mutator<T>>::UnmutateToken;
+
+    fn cache_from_value(&self, value: &T) -> Self::Cache {
+        self.upgrade().unwrap().cache_from_value(value)
+    }
+
+    fn initial_step_from_value(&self, value: &T) -> Self::MutationStep {
+        self.upgrade().unwrap().initial_step_from_value(value)
+    }
+
+    fn max_complexity(&self) -> f64 {
+        std::f64::INFINITY
+    }
+
+    fn min_complexity(&self) -> f64 {
+        0.0 // not right, but easy hack for now
+    }
+
+    fn complexity(&self, value: &T, cache: &Self::Cache) -> f64 {
+        self.upgrade().unwrap().complexity(value, cache)
+    }
+
+    fn ordered_arbitrary(&self, step: &mut Self::ArbitraryStep, max_cplx: f64) -> Option<(T, Self::Cache)> {
+        match step {
+            WeakArbitraryStep::Default => {
+                let mut inner_step = <_>::default();
+                let result = self.upgrade().unwrap().ordered_arbitrary(&mut inner_step, max_cplx);
+                *step = WeakArbitraryStep::Initialized(inner_step);
+                result
+            }
+            WeakArbitraryStep::Initialized(inner_step) => {
+                self.upgrade().unwrap().ordered_arbitrary(inner_step, max_cplx)
+            }
+        }
+    }
+
+    fn random_arbitrary(&self, max_cplx: f64) -> (T, Self::Cache) {
+        self.upgrade().unwrap().random_arbitrary(max_cplx)
+    }
+
+    fn ordered_mutate(
+        &self,
+        value: &mut T,
+        cache: &mut Self::Cache,
+        step: &mut Self::MutationStep,
+        max_cplx: f64,
+    ) -> Option<Self::UnmutateToken> {
+        self.upgrade().unwrap().ordered_mutate(value, cache, step, max_cplx)
+    }
+
+    fn random_mutate(&self, value: &mut T, cache: &mut Self::Cache, max_cplx: f64) -> Self::UnmutateToken {
+        self.upgrade().unwrap().random_mutate(value, cache, max_cplx)
+    }
+
+    fn unmutate(&self, value: &mut T, cache: &mut Self::Cache, t: Self::UnmutateToken) {
+        self.upgrade().unwrap().unmutate(value, cache, t)
+    }
+}
+
+impl<T, M> Mutator<T> for Rc<M>
+where
+    M: Mutator<T>,
+    T: Clone,
+{
+    type Cache = <M as Mutator<T>>::Cache;
+    type MutationStep = <M as Mutator<T>>::MutationStep;
+    type ArbitraryStep = <M as Mutator<T>>::ArbitraryStep;
+    type UnmutateToken = <M as Mutator<T>>::UnmutateToken;
+
+    fn cache_from_value(&self, value: &T) -> Self::Cache {
+        Rc::as_ref(&self).cache_from_value(value)
+    }
+
+    fn initial_step_from_value(&self, value: &T) -> Self::MutationStep {
+        Rc::as_ref(&self).initial_step_from_value(value)
+    }
+
+    fn max_complexity(&self) -> f64 {
+        std::f64::INFINITY
+    }
+
+    fn min_complexity(&self) -> f64 {
+        Rc::as_ref(&self).min_complexity()
+    }
+
+    fn complexity(&self, value: &T, cache: &Self::Cache) -> f64 {
+        Rc::as_ref(&self).complexity(value, cache)
+    }
+
+    fn ordered_arbitrary(&self, step: &mut Self::ArbitraryStep, max_cplx: f64) -> Option<(T, Self::Cache)> {
+        Rc::as_ref(&self).ordered_arbitrary(step, max_cplx)
+    }
+
+    fn random_arbitrary(&self, max_cplx: f64) -> (T, Self::Cache) {
+        Rc::as_ref(&self).random_arbitrary(max_cplx)
+    }
+
+    fn ordered_mutate(
+        &self,
+        value: &mut T,
+        cache: &mut Self::Cache,
+        step: &mut Self::MutationStep,
+        max_cplx: f64,
+    ) -> Option<Self::UnmutateToken> {
+        Rc::as_ref(&self).ordered_mutate(value, cache, step, max_cplx)
+    }
+
+    fn random_mutate(&self, value: &mut T, cache: &mut Self::Cache, max_cplx: f64) -> Self::UnmutateToken {
+        Rc::as_ref(&self).random_mutate(value, cache, max_cplx)
+    }
+
+    fn unmutate(&self, value: &mut T, cache: &mut Self::Cache, t: Self::UnmutateToken) {
+        Rc::as_ref(&self).unmutate(value, cache, t)
+    }
 }
