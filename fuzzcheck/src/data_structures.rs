@@ -287,6 +287,7 @@ impl<'a> WeightedIndex<'a> {
     }
 }
 
+#[cfg(trace_compares)]
 const SIZE: usize = 0b1 << 30;
 #[cfg(trace_compares)]
 const L0_SIZE: usize = 0b1 << 24;
@@ -428,7 +429,7 @@ impl HBitSet {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, trace_compares))]
 mod bench_hbitset {
     extern crate test;
     use std::collections::HashSet;
