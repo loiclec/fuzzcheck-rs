@@ -41,63 +41,10 @@ where
     }
 }
 
-#[derive(Clone, Copy, PartialEq, Eq)]
-enum MutationCategory {
-    Element,
-    Vector,
-}
-
 #[derive(Clone)]
 pub struct MutationStep<S> {
     inner: Vec<S>,
     element_step: usize,
-    vector_step: usize,
-    category: MutationCategory,
-}
-impl<S> MutationStep<S> {
-    fn new(category: MutationCategory) -> Self {
-        Self {
-            inner: Vec::new(),
-            element_step: 0,
-            vector_step: 0,
-            category,
-        }
-    }
-}
-
-impl<S> MutationStep<S> {
-    fn increment_element(&mut self) {
-        self.element_step += 1;
-        if self.element_step % 50 == 0 {
-            self.category = MutationCategory::Vector;
-        }
-    }
-    fn increment_vector(&mut self) {
-        self.vector_step += 1;
-        if self.vector_step % 5 == 0 && !self.inner.is_empty() {
-            self.category = MutationCategory::Element;
-        }
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum VecOperation {
-    Remove,
-    Insert,
-    RemoveMany,
-    InsertRepeated,
-    // Arbitrary,
-}
-impl VecOperation {
-    fn from_step(step: usize) -> Self {
-        match step % 4 {
-            0 => Self::Remove,
-            1 => Self::Insert,
-            2 => Self::RemoveMany,
-            3 => Self::InsertRepeated,
-            _ => unreachable!(),
-        }
-    }
 }
 
 #[derive(Clone)]
@@ -205,9 +152,12 @@ impl<T: Clone, M: Mutator<T>> VecMutator<T, M> {
         if value.is_empty() {
             return None;
         }
-        let start_idx = self.rng.usize(0..value.len());
-
-        let end_idx = 1 + self.rng.usize(start_idx..value.len());
+        let start_idx = if value.len() == 1 {
+            0
+        } else {
+            self.rng.usize(0..value.len() - 1)
+        };
+        let end_idx = std::cmp::min(value.len(), start_idx + self.rng.usize(1..10));
         let (removed_elements, removed_cache) = {
             let removed_elements: Vec<_> = value.drain(start_idx..end_idx).collect();
             let removed_cache: Vec<_> = cache.inner.drain(start_idx..end_idx).collect();
@@ -246,7 +196,13 @@ impl<T: Clone, M: Mutator<T>> VecMutator<T, M> {
             self.rng.usize(0..value.len())
         };
 
-        let target_cplx = crate::gen_f64(&self.rng, 0.0..spare_cplx);
+        let target_cplx = crate::gen_f64(
+            &self.rng,
+            0.0..crate::gen_f64(
+                &self.rng,
+                0.0..crate::gen_f64(&self.rng, 0.0..crate::gen_f64(&self.rng, 0.0..spare_cplx)),
+            ),
+        );
         let (min_length, max_length) = self.choose_slice_length(target_cplx);
         let min_length = min_length.unwrap_or(0);
 
@@ -370,10 +326,7 @@ impl<T: Clone, M: Mutator<T>> Mutator<Vec<T>> for VecMutator<T, M> {
 
     fn initial_step_from_value(&self, value: &Vec<T>) -> Self::MutationStep {
         let inner: Vec<_> = value.iter().map(|x| self.m.initial_step_from_value(&x)).collect();
-        MutationStep {
-            inner,
-            ..MutationStep::new(MutationCategory::Vector)
-        }
+        MutationStep { inner, element_step: 0 }
     }
 
     fn max_complexity(&self) -> f64 {
@@ -440,34 +393,31 @@ impl<T: Clone, M: Mutator<T>> Mutator<Vec<T>> for VecMutator<T, M> {
         step: &mut Self::MutationStep,
         max_cplx: f64,
     ) -> Option<Self::UnmutateToken> {
+        // Some(self.random_mutate(value, cache, max_cplx))
         if max_cplx < self.min_complexity() {
             return None;
         }
         let spare_cplx = max_cplx - self.complexity(value, cache);
 
-        let token = match step.category {
-            MutationCategory::Element => {
-                let token = self.mutate_element(value, cache, step, step.element_step % value.len(), spare_cplx);
-                step.increment_element();
-                token
+        let token = if value.is_empty() || self.rng.usize(0..20) == 0 {
+            // vector mutation
+            match self.rng.usize(0..10) {
+                0..=3 => self.insert_element(value, cache, spare_cplx),
+                4..=7 => self.remove_element(value, cache),
+                8 => self.insert_repeated_elements(value, cache, spare_cplx),
+                9 => self.remove_many_elements(value, cache),
+                _ => unreachable!(),
             }
-            MutationCategory::Vector => {
-                let operation = VecOperation::from_step(step.vector_step);
-                let token = match operation {
-                    VecOperation::Insert => self.insert_element(value, cache, spare_cplx),
-                    VecOperation::InsertRepeated => self.insert_repeated_elements(value, cache, spare_cplx),
-                    VecOperation::Remove => self.remove_element(value, cache),
-                    VecOperation::RemoveMany => self.remove_many_elements(value, cache),
-                    // VecOperation::Arbitrary => self.mutate_arbitrary(value, cache, step, max_cplx),
-                };
-                step.increment_vector();
-                token
-            }
-        };
-        if matches!(token, Some(UnmutateVecToken::Nothing) | None) {
-            self.ordered_mutate(value, cache, step, max_cplx)
         } else {
-            token
+            // element mutation
+            let idx = step.element_step % value.len();
+            step.element_step += 1;
+            self.mutate_element(value, cache, step, idx, spare_cplx)
+        };
+        if let Some(token) = token {
+            Some(token)
+        } else {
+            Some(self.random_mutate(value, cache, max_cplx))
         }
     }
 
@@ -476,11 +426,11 @@ impl<T: Clone, M: Mutator<T>> Mutator<Vec<T>> for VecMutator<T, M> {
 
         if value.is_empty() || self.rng.usize(0..10) == 0 {
             // vector mutation
-            match self.rng.usize(0..4) {
-                0 => self.insert_element(value, cache, spare_cplx),
-                1 => self.remove_element(value, cache),
-                2 => self.insert_repeated_elements(value, cache, spare_cplx),
-                3 => self.remove_many_elements(value, cache),
+            match self.rng.usize(0..10) {
+                0..=3 => self.insert_element(value, cache, spare_cplx),
+                4..=7 => self.remove_element(value, cache),
+                8 => self.insert_repeated_elements(value, cache, spare_cplx),
+                9 => self.remove_many_elements(value, cache),
                 _ => unreachable!(),
             }
             .unwrap_or_else(|| self.random_mutate(value, cache, max_cplx))
