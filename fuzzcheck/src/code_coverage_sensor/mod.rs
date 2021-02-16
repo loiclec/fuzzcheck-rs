@@ -105,7 +105,7 @@ where
 #[cfg(trace_compares)]
 macro_rules! make_instr_feature_without_tag {
     ($pc:ident, $arg1:ident, $arg2:ident) => {{
-        (($pc & 0x2F_FFFF) << Feature::id_offset()) | (($arg1 ^ $arg2).count_ones() as usize)
+        (($pc & 0x3F_FFFF) << Feature::id_offset()) | (($arg1 ^ $arg2).count_ones() as usize)
     }};
 }
 
