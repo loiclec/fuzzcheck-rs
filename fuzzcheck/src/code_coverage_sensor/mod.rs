@@ -69,8 +69,7 @@ where
         if slice == &zero {
             continue;
         } else {
-            for j in 0..16 {
-                let x = unsafe { *slice.get_unchecked(j) };
+            for (j, &x) in slice.iter().enumerate() {
                 if x == 0 {
                     continue;
                 }
@@ -82,12 +81,12 @@ where
 
     let start_remainder = length_chunks * CHUNK_SIZE;
     let remainder = unsafe { (*sensor).eight_bit_counters.get_unchecked(start_remainder..) };
-    for (j, x) in remainder.iter().enumerate() {
-        let i = start_remainder + j;
-        if *x == 0 {
+    for (j, &x) in remainder.iter().enumerate() {
+        if x == 0 {
             continue;
         }
-        let f = Feature::edge(i, u16::from(*x));
+        let i = start_remainder + j;
+        let f = Feature::edge(i, u16::from(x));
         handle(f);
     }
 
