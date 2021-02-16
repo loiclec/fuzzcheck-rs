@@ -2,6 +2,7 @@
 #![feature(variant_count)]
 #![feature(cmp_min_max_by)]
 #![feature(never_type)]
+#![feature(int_bits_const)]
 
 pub extern crate fastrand;
 pub extern crate fuzzcheck_mutators_derive;
@@ -73,5 +74,22 @@ fn cplxity_to_size(cplx: f64) -> usize {
 }
 #[must_use]
 fn size_to_cplxity(size: usize) -> f64 {
-    (size as f64).log2().ceil()
+    (usize::BITS - (size.saturating_sub(1)).leading_zeros()) as f64
+}
+
+#[cfg(test)]
+mod test {
+    use crate::size_to_cplxity;
+
+    #[test]
+    fn test_size_to_cplxity() {
+        assert_eq!(0.0, size_to_cplxity(0));
+        assert_eq!(0.0, size_to_cplxity(1));
+        assert_eq!(1.0, size_to_cplxity(2));
+        assert_eq!(2.0, size_to_cplxity(3));
+        assert_eq!(2.0, size_to_cplxity(4));
+        assert_eq!(3.0, size_to_cplxity(5));
+        assert_eq!(3.0, size_to_cplxity(8));
+        assert_eq!(5.0, size_to_cplxity(31));
+    }
 }
