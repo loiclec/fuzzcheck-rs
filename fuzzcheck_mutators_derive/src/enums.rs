@@ -277,6 +277,12 @@ fn impl_mutator(tb: &mut TokenBuilder, n: usize, fuzzcheck_mutators_crate: &Toke
         ) -> " cm.Option "<Self::UnmutateToken> {
             if max_cplx < <Self as " cm.fuzzcheck_traits_Mutator "<T> >::min_complexity(self) { return " cm.None " }
             let inner_max_cplx = max_cplx - " cm.size_to_cplxity "(" cm.variant_count_T ");
+            if self.rng.usize(..100) == 0 {
+                let (new_value, new_cache) = self.random_arbitrary(max_cplx);
+                let old_value = ::std::mem::replace(value, new_value);
+                let old_cache = ::std::mem::replace(cache, new_cache);
+                return" cm.Some "(" EitherT(n) "((old_value, old_cache)))
+            }
             match (value.get_mut(), cache.borrow_mut(), &mut step.inner) {"
             join_ts!(0..n, i,
                 "(" EitherT(i) "(inner_value)," EitherT(i) "(inner_cache)," EitherT(i) "(inner_step)) => {
@@ -303,6 +309,12 @@ fn impl_mutator(tb: &mut TokenBuilder, n: usize, fuzzcheck_mutators_crate: &Toke
         }
         fn random_mutate(&self, value: &mut T, cache: &mut Self::Cache, max_cplx: f64) -> Self::UnmutateToken {
             let inner_max_cplx = max_cplx - " cm.size_to_cplxity "(" cm.variant_count_T ");
+            if self.rng.usize(..100) == 0 {
+                let (new_value, new_cache) = self.random_arbitrary(max_cplx);
+                let old_value = ::std::mem::replace(value, new_value);
+                let old_cache = ::std::mem::replace(cache, new_cache);
+                return " EitherT(n) "((old_value, old_cache))
+            }
             match (value.get_mut(), cache.borrow_mut()) {"
             join_ts!(0..n, i,
                 "(" EitherT(i) "(inner_value), " EitherT(i) "(inner_cache)) => {
@@ -1564,6 +1576,14 @@ where
     ) -> ::std::option::Option<Self::UnmutateToken> {
         if max_cplx < <Self as ::fuzzcheck_traits::Mutator<T> >::min_complexity(self) { return ::std::option::Option::None }
         let inner_max_cplx = max_cplx - crate::size_to_cplxity(::std::mem::variant_count::<T>());
+
+        if self.rng.usize(..100) == 0 {
+            let (new_value, new_cache) = self.random_arbitrary(max_cplx);
+            let old_value = ::std::mem::replace(value, new_value);
+            let old_cache = ::std::mem::replace(cache, new_cache);
+            return ::std::option::Option::Some(Either3::T2((old_value, old_cache)))
+        }
+
         match (value.get_mut(), cache.borrow_mut(), &mut step.inner) {
             (Either3::T0(inner_value), Either3::T0(inner_cache), Either3::T0(inner_step)) => {
                 if let ::std::option::Option::Some(token) = self
@@ -1594,6 +1614,13 @@ where
     }
     fn random_mutate(&self, value: &mut T, cache: &mut Self::Cache, max_cplx: f64) -> Self::UnmutateToken {
         let inner_max_cplx = max_cplx - crate::size_to_cplxity(::std::mem::variant_count::<T>());
+        if self.rng.usize(..100) == 0 {
+            let (new_value, new_cache) = self.random_arbitrary(max_cplx);
+            let old_value = ::std::mem::replace(value, new_value);
+            let old_cache = ::std::mem::replace(cache, new_cache);
+            return Either3::T2((old_value, old_cache))
+        }
+
         match (value.get_mut(), cache.borrow_mut()) {
             (Either3::T0(inner_value), Either3::T0(inner_cache)) => {
                 return Either3::T0(self.mutator_0.random_mutate(inner_value, inner_cache, inner_max_cplx))
