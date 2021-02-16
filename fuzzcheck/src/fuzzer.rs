@@ -417,8 +417,16 @@ where
             &self.state.stats,
         )?;
 
+        let mut next_milestone = (self.state.stats.total_number_of_runs + 100_000) * 2;
         while self.state.stats.total_number_of_runs < self.max_iter() {
             self.process_next_inputs()?;
+            if self.state.stats.total_number_of_runs >= next_milestone {
+                self.state.update_stats();
+                self.state
+                    .world
+                    .do_actions(vec![WorldAction::ReportEvent(FuzzerEvent::Pulse)], &self.state.stats)?;
+                next_milestone = self.state.stats.total_number_of_runs * 2;
+            }
         }
         self.state
             .world

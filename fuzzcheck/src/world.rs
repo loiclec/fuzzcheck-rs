@@ -161,6 +161,9 @@ impl<S: Serializer> World<S> {
                 println!("START");
                 return;
             }
+            FuzzerEvent::Pulse => {
+                println!("PULSE");
+            }
             FuzzerEvent::Stop => {
                 println!("\n======================== STOPPED ========================");
                 println!(r#"The fuzzer was stopped."#);

@@ -36,6 +36,7 @@ pub enum FuzzerEvent {
     Stop,
     End,
     CrashNoInput,
+    Pulse,
     Done,
     New,
     Replace(usize),
