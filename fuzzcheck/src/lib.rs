@@ -6,6 +6,7 @@
 #![feature(is_sorted)]
 #![feature(link_llvm_intrinsics)]
 #![feature(thread_local)]
+#![feature(test)]
 
 mod nix_subset;
 

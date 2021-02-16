@@ -287,7 +287,7 @@ impl<'a> WeightedIndex<'a> {
     }
 }
 
-//const SIZE: usize = 0b1 << 30;
+const SIZE: usize = 0b1 << 30;
 #[cfg(trace_compares)]
 const L0_SIZE: usize = 0b1 << 24;
 #[cfg(trace_compares)]
@@ -363,7 +363,12 @@ impl HBitSet {
 
                 let inner_idx = idx * 64 + bit;
 
-                for (idx, map) in self.l2[inner_idx..inner_idx + (64 - bit)].iter_mut().enumerate() {
+                for (idx, map) in unsafe {
+                    self.l2
+                        .get_unchecked_mut(inner_idx..inner_idx + (64 - bit))
+                        .iter_mut()
+                        .enumerate()
+                } {
                     if *map == 0 {
                         continue;
                     }
@@ -374,7 +379,12 @@ impl HBitSet {
 
                         let inner_idx = (inner_idx + idx) * 64 + bit;
 
-                        for (idx, map) in self.l1[inner_idx..inner_idx + (64 - bit)].iter_mut().enumerate() {
+                        for (idx, map) in unsafe {
+                            self.l1
+                                .get_unchecked_mut(inner_idx..inner_idx + (64 - bit))
+                                .iter_mut()
+                                .enumerate()
+                        } {
                             if *map == 0 {
                                 continue;
                             }
@@ -385,7 +395,12 @@ impl HBitSet {
 
                                 let inner_idx = (inner_idx + idx) * 64 + bit;
 
-                                for (idx, map) in self.l0[inner_idx..inner_idx + (64 - bit)].iter_mut().enumerate() {
+                                for (idx, map) in unsafe {
+                                    self.l0
+                                        .get_unchecked_mut(inner_idx..inner_idx + (64 - bit))
+                                        .iter_mut()
+                                        .enumerate()
+                                } {
                                     if *map == 0 {
                                         continue;
                                     }
@@ -410,5 +425,70 @@ impl HBitSet {
 
             *map = 0;
         }
+    }
+}
+
+#[cfg(test)]
+mod bench_hbitset {
+    extern crate test;
+    use std::collections::HashSet;
+
+    use super::*;
+    use test::Bencher;
+
+    #[test]
+    fn test_set_correct() {
+        let mut hbitset = HBitSet::new();
+        let mut set = HashSet::new();
+        for _ in 0..1000_000 {
+            let j = fastrand::usize(0..SIZE);
+            set.insert(j);
+            hbitset.set(j);
+            // hbitset.set(i);
+            assert!(hbitset.test(j), "{}", j);
+            // hbitset.set(SIZE - 1 - i);
+            // assert!(hbitset.test(SIZE - 1 - i), "{}", i);
+            // assert!(hbitset.test(i - 2000) == false, "{}", i);
+        }
+
+        let mut count = 0;
+        hbitset.drain(|j| {
+            assert!(set.contains(&(j as usize)));
+            count += 1;
+        });
+        assert_eq!(count, set.len());
+        // for i in 10_000_001..20_000_000 {
+        //     assert!(hbitset.test(i) == false, "{}", i);
+        // }
+    }
+
+    #[bench]
+    fn test_set(b: &mut Bencher) {
+        let mut hbitset = HBitSet::new();
+        b.iter(|| {
+            for _ in 0..10 {
+                for i in 0..100_000 {
+                    let j = fastrand::usize(0..SIZE);
+                    hbitset.set(j);
+                }
+            }
+            std::hint::black_box(&hbitset);
+        });
+    }
+    #[bench]
+    fn test_drain(b: &mut Bencher) {
+        let mut hbitset = HBitSet::new();
+        b.iter(|| {
+            for _ in 0..10 {
+                for i in 0..10_000 {
+                    let j = fastrand::usize(0..SIZE);
+                    hbitset.set(j);
+                }
+                let mut sum = 0;
+                hbitset.drain(|_| sum += 1);
+                std::hint::black_box(sum);
+                assert!(sum > 0);
+            }
+        });
     }
 }
