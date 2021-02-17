@@ -384,13 +384,11 @@ pub fn impl_enum_structure_trait(tb: &mut TokenBuilder, enu: &Enum, fuzzcheck_mu
     let generics_no_eq_nor_bounds = enu.generics.removing_bounds_and_eq_type();
 
     let mut where_clause = enu.where_clause.clone().unwrap_or_default();
-    for tp in &enu.generics.type_params {
-        where_clause.items.push(WhereClauseItem {
-            for_lifetimes: None,
-            lhs: tp.type_ident.clone(),
-            rhs: ts!("'static"),
-        });
-    }
+    where_clause.add_clause_items(
+        join_ts!(&enu.generics.type_params, tp,
+            tp.type_ident ": 'static ,"
+        )
+    );
 
     let field_types = items_with_fields
         .iter()
@@ -530,13 +528,12 @@ pub(crate) fn impl_default_mutator_for_enum(tb: &mut TokenBuilder, enu: &Enum, s
     let generics_no_eq = enu.generics.removing_eq_type();
     let generics_no_eq_nor_bounds = enu.generics.removing_bounds_and_eq_type();
     let mut where_clause = enu.where_clause.clone().unwrap_or(WhereClause::default());
-    for ty_param in enu.generics.type_params.iter() {
-        where_clause.items.push(WhereClauseItem {
-            for_lifetimes: None,
-            lhs: ty_param.type_ident.clone(),
-            rhs: ts!(cm.DefaultMutator "+ 'static"),
-        });
-    }
+    where_clause.add_clause_items(
+        join_ts!(&enu.generics.type_params, ty_param,
+            ty_param.type_ident ":" cm.DefaultMutator "+ 'static ,"
+        )
+    );
+   
     let TupleNMutator = cm.TupleNMutator.as_ref();
     let TupleN = cm.Tuplei.as_ref();
 
@@ -553,22 +550,16 @@ pub(crate) fn impl_default_mutator_for_enum(tb: &mut TokenBuilder, enu: &Enum, s
         }
     }
     let mut EnumMutator_where_clause = enu.where_clause.clone().unwrap_or(WhereClause::default());
-    for ty_param in enu.generics.type_params.iter() {
-        EnumMutator_where_clause.items.push(WhereClauseItem {
-            for_lifetimes: None,
-            lhs: ty_param.type_ident.clone(),
-            rhs: ts!(cm.Clone "+ 'static"),
-        });
-    }
-    for (i, fields) in items_with_fields.iter() {
-        for (j, field) in fields.iter().enumerate() {
-            EnumMutator_where_clause.items.push(WhereClauseItem {
-                for_lifetimes: None,
-                lhs: ts!(Mi_j(*i, j)),
-                rhs: ts!(cm.fuzzcheck_mutator_traits_Mutator "<" field.ty ">"),
-            })
-        }
-    }
+    EnumMutator_where_clause.add_clause_items(ts!(
+        join_ts!(&enu.generics.type_params, ty_param,
+            ty_param.type_ident ":" cm.Clone "+ 'static ,"
+        )
+        join_ts!(items_with_fields.iter(), (i, fields),
+            join_ts!(fields.iter().enumerate(), (j, field),
+                Mi_j(*i, j) ":" cm.fuzzcheck_mutator_traits_Mutator "<" field.ty "> ,"
+            )    
+        )
+    ));
 
     let InnerMutator = ts!(
         cm.EnumNPayloadMutator_path "<"
@@ -735,13 +726,11 @@ pub(crate) fn impl_wrapped_tuple_1_structure(tb: &mut TokenBuilder, enu: &Enum, 
         let WrappedTuple1 = ts!(settings.fuzzcheck_mutators_crate "::WrappedTuple1");
 
         let mut where_clause = enu.where_clause.clone().unwrap_or(WhereClause::default());
-        for tp in enu.generics.type_params.iter() {
-            where_clause.items.push(WhereClauseItem {
-                for_lifetimes: None,
-                lhs: tp.type_ident.clone(),
-                rhs: ts!("'static"),
-            });
-        }
+        where_clause.add_clause_items(
+            join_ts!(enu.generics.type_params.iter(), tp,
+                tp.type_ident ": 'static ,"
+            )
+        );
 
         extend_ts!(tb,
             "impl " generics_no_eq cm.TupleStructure "<" WrappedTuple1 "<" field_type "> >
@@ -786,13 +775,11 @@ pub(crate) fn impl_default_mutator_for_enum_wrapped_tuple(
         let generics_no_eq_nor_bounds = enu.generics.removing_bounds_and_eq_type();
 
         let mut where_clause = enu.where_clause.clone().unwrap_or(WhereClause::default());
-        for tp in enu.generics.type_params.iter() {
-            where_clause.items.push(WhereClauseItem {
-                for_lifetimes: None,
-                lhs: tp.type_ident.clone(),
-                rhs: ts!("'static"),
-            });
-        }
+        where_clause.add_clause_items(
+            join_ts!(enu.generics.type_params.iter(), tp,
+                tp.type_ident ": 'static ,"
+            )
+        );
 
         let cm = Common::new(&settings.fuzzcheck_mutators_crate, 1);
         let WrappedMutator = ts!(settings.fuzzcheck_mutators_crate "::WrappedMutator");
@@ -911,8 +898,8 @@ mod test {
         let generated = tb.end().to_string();
 
         let expected = "
-        impl ::fuzzcheck_mutators::DefaultMutator for X {
-            type Mutator = ::fuzzcheck_mutators::BasicEnumMutator;
+        impl fuzzcheck_mutators::DefaultMutator for X {
+            type Mutator = fuzzcheck_mutators::BasicEnumMutator;
         
             fn default_mutator() -> Self::Mutator {
                 Self::Mutator::default()
@@ -944,7 +931,7 @@ mod test {
         let generated = tb.end().to_string();
 
         let expected = "
-        impl ::fuzzcheck_mutators::BasicEnumStructure for X {
+        impl fuzzcheck_mutators::BasicEnumStructure for X {
             fn from_item_index(item_index: usize) -> Self {
                 match item_index {
                     0 => X::A,
@@ -986,7 +973,7 @@ mod test {
         let generated = tb.end().to_string();
 
         let expected = "
-        impl<T: Clone> ::fuzzcheck_mutators::TupleStructure< ::fuzzcheck_mutators::WrappedTuple1<Option<T> > > for A<T> where T: 'static {
+        impl<T: Clone> fuzzcheck_mutators::TupleStructure< fuzzcheck_mutators::WrappedTuple1<Option<T> > > for A<T> where T: 'static {
             fn get_ref<'a>(&'a self) -> &'a Option<T> {
                 match self {
                     Self::X {0: x} => { x }

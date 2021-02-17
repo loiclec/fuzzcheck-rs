@@ -1,7 +1,10 @@
 #![allow(non_snake_case)]
-use decent_synquote_alternative::{self as synquote, parser::EnumItemData};
+use decent_synquote_alternative::{
+    self as synquote,
+    parser::{EnumItemData, Ty},
+};
 
-use proc_macro2::{Ident, Span, TokenStream};
+use proc_macro2::{Delimiter, Ident, Span, TokenStream};
 use synquote::token_builder::*;
 use synquote::{parser::TokenParser, token_builder::TokenBuilder};
 
@@ -192,6 +195,7 @@ struct MakeMutatorSettings {
     fuzzcheck_mutators_crate: proc_macro2::TokenStream,
 }
 impl MakeMutatorSettings {
+    // TODO: don't panic like that, add a nice compile error
     fn from(attribute: proc_macro2::TokenStream) -> Self {
         let mut parser = TokenParser::new(attribute);
         let mut name = None;
@@ -269,7 +273,7 @@ impl Default for MakeMutatorSettings {
             name: None,
             recursive: false,
             default: true,
-            fuzzcheck_mutators_crate: ts!("::fuzzcheck_mutators"),
+            fuzzcheck_mutators_crate: ts!("fuzzcheck_mutators"),
         }
     }
 }
@@ -440,4 +444,25 @@ impl Common {
             WrappedMutator_path,
         }
     }
+}
+
+fn read_field_default_mutator_attribute(attribute: TokenStream) -> Option<Ty> {
+    let mut parser = TokenParser::new(attribute);
+    let _ = parser.eat_punct('#');
+    let content = match parser.eat_group(Delimiter::Bracket) {
+        Some(proc_macro2::TokenTree::Group(group)) => group,
+        Some(_) => panic!(),
+        None => return None,
+    };
+    let mut parser = TokenParser::new(content.stream());
+    let _ = parser.eat_ident("field_mutator")?;
+    let content = match parser.eat_any_group() {
+        Some(proc_macro2::TokenTree::Group(group)) => group,
+        Some(_) => panic!(),
+        None => return None,
+    };
+    let mut parser = TokenParser::new(content.stream());
+    let ty = parser.eat_type();
+    // eprintln!("{:?}", ts!(ty));
+    ty
 }
