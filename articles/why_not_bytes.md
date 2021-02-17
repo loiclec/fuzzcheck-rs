@@ -20,14 +20,11 @@ structure-aware fuzzing. Some of them relate to performance (#iter/s) and
 efficiency (#iter to find crash), but some are also about ease-of-use and 
 versatility. 
 
-So, here are a few reasons why the fuzzcheck approach to structure-aware 
-fuzzing is better than the `cargo-fuzz` + `arbitrary` approach.
-
 ## 1. Quality of mutations: problems with variable-sized types
 
 While it may seem easy to write an implementation of `Arbitrary`, writing it
 in a way that is easy for a fuzzer to meaningfully mutate the value is 
-difficult. And writing it in a way such that they *compose* is even more 
+difficult. And writing it in a way such it is composable is even more 
 difficult.
 
 For example, consider how one can decode bytes into a value of type `Option<u16>`.
@@ -194,7 +191,7 @@ dropped to 170,000 iter/s. Because fuzzcheck’s mutator is able to mutate the
 generated inputs in place, it doesn't suffer from this problem. In all cases,
 the iteration speed stayed above 2,400,000 iter/s.
 
-Whether that is problem will depend on your use case. I expect that for many 
+Whether that is a problem will depend on your use case. I expect that for many
 tasks, the input generation time will not matter much. However, it is good to 
 know that fuzzcheck’s mutator can, at least in theory, handle much more complex
 inputs than `arbitrary`. Imagine you are writing property tests for a graph
@@ -216,7 +213,7 @@ bitstring as a String, or as an integer. But it doesn't actually know whether
 these parts are indeed strings or integers. In most cases, they won't be, and
 the mutation will be meaningless. In fuzzcheck, all mutations are specific to 
 the type of the input or sub-input. In general, very few of the mutations that
-fuzzcheck will perform are actually meaningful. For example, swapping two bytes
+libFuzzer will perform are actually meaningful. For example, swapping two bytes
 in the bitstring is useless if one byte is used for control flow and the other
 is used to generate an integer.
 
@@ -237,8 +234,9 @@ If one chooses `None` half of the time, then a lot of the same values will be
 produced over and over again. If one reduces its frequency to, say, 1 out of 
 100 times, then it deprioritizes a value that is very important to test! For
 example, for the type `(Option<T>, Option<T>, Option<T>)`, the value 
-`(None, None, None)` would only be generated one time over a million.
-Fuzzcheck’s mutations can be *ordered*. The first time that an `Option<T>` is
-generated, one will get a `None`, and then never again after that.
+`(None, None, None)` would only be generated one time over a million given a 
+random bitstring. Fuzzcheck’s mutations can be *ordered*. The first time that 
+an `Option<T>` is generated, one will get a `None`, and then never again after
+that.
 
 ## To be continued!
