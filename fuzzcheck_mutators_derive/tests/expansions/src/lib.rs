@@ -14,4 +14,5 @@ mod enums_with_one_empty_item;
 mod enums_with_one_item_multiple_fields;
 mod enums_with_one_item_one_field;
 
+mod recursive_enum;
 mod recursive_struct;

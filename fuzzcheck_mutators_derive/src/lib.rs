@@ -10,6 +10,7 @@ use synquote::token_builder::*;
 use synquote::{parser::TokenParser, token_builder::TokenBuilder};
 
 mod enums;
+mod structs_and_enums;
 mod tuples;
 
 #[macro_use]
@@ -147,7 +148,7 @@ fn derive_default_mutator_(item: proc_macro2::TokenStream, settings: MakeMutator
             tuples::impl_default_mutator_for_struct_with_0_field(&mut tb, &s);
         } else {
             tuples::impl_tuple_structure_trait(&mut tb, &s);
-            tuples::impl_default_mutator_for_struct_with_more_than_1_field(&mut tb, &s, &settings);
+            tuples::impl_default_mutator_for_struct(&mut tb, &s, &settings);
         }
     } else if let Some(e) = parser.eat_enumeration() {
         if e.items

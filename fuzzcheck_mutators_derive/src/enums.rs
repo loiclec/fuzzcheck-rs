@@ -1,9 +1,10 @@
 use decent_synquote_alternative as synquote;
-use proc_macro2::{Ident, Span, TokenStream};
+use proc_macro2::{Ident, Span};
 
 use synquote::parser::*;
 use synquote::token_builder::*;
 
+use crate::structs_and_enums::{FieldMutator, FieldMutatorKind};
 use crate::Common;
 use crate::MakeMutatorSettings;
 
@@ -507,27 +508,6 @@ pub fn impl_enum_structure_trait(tb: &mut TokenBuilder, enu: &Enum) {
     )
 }
 
-#[derive(Clone)]
-struct FieldMutator {
-    i: usize,
-    j: usize,
-    field: StructField,
-    kind: FieldMutatorKind,
-}
-#[derive(Clone)]
-enum FieldMutatorKind {
-    Generic,
-    Prescribed(Ty, Option<TokenStream>),
-}
-impl FieldMutator {
-    fn mutator_stream(&self, cm: &Common) -> TokenStream {
-        match &self.kind {
-            FieldMutatorKind::Generic => ts!(cm.Mi_j.as_ref()(self.i, self.j)),
-            FieldMutatorKind::Prescribed(m, _) => ts!(m),
-        }
-    }
-}
-
 #[allow(non_snake_case)]
 pub(crate) fn impl_default_mutator_for_enum(tb: &mut TokenBuilder, enu: &Enum, settings: &MakeMutatorSettings) {
     let items_with_fields = enu
@@ -542,9 +522,6 @@ pub(crate) fn impl_default_mutator_for_enum(tb: &mut TokenBuilder, enu: &Enum, s
 
     let n = items_with_fields.len();
     let cm = Common::new(n);
-
-    let generics_no_eq = enu.generics.removing_eq_type();
-    let generics_no_eq_nor_bounds = enu.generics.removing_bounds_and_eq_type();
 
     let field_mutators = items_with_fields
         .iter()
@@ -563,14 +540,14 @@ pub(crate) fn impl_default_mutator_for_enum(tb: &mut TokenBuilder, enu: &Enum, s
                     if let Some(m) = mutator {
                         FieldMutator {
                             i,
-                            j,
+                            j: Some(j),
                             field: field.clone(),
                             kind: FieldMutatorKind::Prescribed(m.0, m.1),
                         }
                     } else {
                         FieldMutator {
                             i,
-                            j,
+                            j: Some(j),
                             field: field.clone(),
                             kind: FieldMutatorKind::Generic,
                         }
@@ -580,44 +557,22 @@ pub(crate) fn impl_default_mutator_for_enum(tb: &mut TokenBuilder, enu: &Enum, s
         })
         .collect::<Vec<_>>();
 
-    let field_generic_mutators = field_mutators
-        .iter()
-        .flatten()
-        .filter(|m| match m.kind {
-            FieldMutatorKind::Generic => true,
-            FieldMutatorKind::Prescribed(_, _) => false,
-        })
-        .collect::<Vec<_>>();
-    let field_prescribed_mutators = field_mutators
-        .iter()
-        .flatten()
-        .filter_map(|m| match &m.kind {
-            FieldMutatorKind::Generic => None,
-            FieldMutatorKind::Prescribed(mutator, init) => Some((m.clone(), mutator.clone(), init.clone())),
-        })
-        .collect::<Vec<_>>();
-
     let TupleNMutator = cm.TupleNMutator.as_ref();
     let TupleN = cm.Tuplei.as_ref();
 
-    let EnumMutator = ident!(enu.ident "Mutator");
-    let mut EnumMutator_generics = enu.generics.removing_eq_type();
-    for field_mutator in field_generic_mutators.iter() {
-        EnumMutator_generics.type_params.push(TypeParam {
-            type_ident: field_mutator.mutator_stream(&cm),
-            ..<_>::default()
-        })
-    }
-    let mut EnumMutator_where_clause = enu.where_clause.clone().unwrap_or(WhereClause::default());
-    EnumMutator_where_clause.add_clause_items(ts!(
-        join_ts!(&enu.generics.type_params, ty_param,
-            ty_param.type_ident ":" cm.Clone "+ 'static ,"
-        )
-        join_ts!(&field_generic_mutators, field_mutator,
-            field_mutator.mutator_stream(&cm) ":" cm.fuzzcheck_mutator_traits_Mutator "<" field_mutator.field.ty "> ,"
-        )
-    ));
     /*
+    enum X {
+        A(
+            u8,
+            u16,
+            #[field_mutator(CustomU32Mutator)]
+            u32
+        ),
+        B(
+            #[field_mutator(CustomU32Mutator)]
+            String
+        )
+    }
         Enum2PayloadMutator <
             (u8, u16, u32),
             Tuple2Mutator<
@@ -651,151 +606,38 @@ pub(crate) fn impl_default_mutator_for_enum(tb: &mut TokenBuilder, enu: &Enum, s
         , separator: ",")
         ">"
     );
-    let InnerMutator_as_Mutator =
-        ts!("<" InnerMutator "as" cm.fuzzcheck_mutator_traits_Mutator "<" enu.ident generics_no_eq_nor_bounds "> >" );
 
-    let mut Default_where_clause = EnumMutator_where_clause.clone();
-    Default_where_clause.add_clause_items(ts!(InnerMutator ":" cm.Default));
+    use crate::structs_and_enums::CreateWrapperMutatorParams;
+    let params = CreateWrapperMutatorParams {
+        cm: &cm,
+        visibility: &enu.visibility,
+        type_ident: &enu.ident,
+        type_generics: &enu.generics,
+        type_where_clause: &enu.where_clause,
+        field_mutators: &field_mutators,
+        InnerMutator: &InnerMutator,
+        new_impl: &ts!("
+            pub fn new("
+            join_ts!(field_mutators.iter().flatten(), field_mutator,
+                ident!("mutator_" enu.items[field_mutator.i].ident "_" field_mutator.field.access()) ":" field_mutator.mutator_stream(&cm)
+            , separator: ",") ") -> Self {
+                Self {
+                    mutator: " cm.EnumNPayloadMutator_path "::new("
+                        join_ts!(items_with_fields.iter(), (i, fields),
+                            TupleNMutator(fields.len()) "::new("
+                                join_ts!(fields.iter(), field,
+                                    ident!("mutator_" enu.items[*i].ident "_" field.access())
+                                , separator: ",")
+                            ")"
+                        , separator: ",")
+                    ")
+                }
+            }"
+        ),
+        settings,
+    };
 
-    let mut DefaultMutator_Mutator_generics = enu.generics.removing_bounds_and_eq_type();
-    for field_mutator in field_mutators.iter().flatten() {
-        match &field_mutator.kind {
-            FieldMutatorKind::Generic => DefaultMutator_Mutator_generics.type_params.push(TypeParam {
-                type_ident: ts!("<" field_mutator.field.ty "as" cm.DefaultMutator ">::Mutator"),
-                ..<_>::default()
-            }),
-            FieldMutatorKind::Prescribed(_, _) => {}
-        }
-    }
-
-    let mut DefaultMutator_where_clause = enu.where_clause.clone().unwrap_or(WhereClause::default());
-    DefaultMutator_where_clause.add_clause_items(ts!(
-        join_ts!(&enu.generics.type_params, ty_param,
-            ty_param.type_ident ":" cm.DefaultMutator "+ 'static ,"
-        )
-        join_ts!(field_prescribed_mutators.iter().filter(|(_, _, init)| init.is_none()), (_, mutator, _),
-            mutator ":" cm.Default ","
-        )
-    ));
-
-    extend_ts!(tb,
-    enu.visibility "struct" EnumMutator EnumMutator_generics EnumMutator_where_clause
-    "{
-        pub mutator:" InnerMutator "
-    }
-
-    impl " EnumMutator_generics EnumMutator EnumMutator_generics.removing_bounds_and_eq_type() EnumMutator_where_clause "
-    {
-        pub fn new(" 
-        join_ts!(field_mutators.iter().flatten(), field_mutator,
-            ident!("mutator_" enu.items[field_mutator.i].ident "_" field_mutator.field.access()) ":" field_mutator.mutator_stream(&cm)
-        , separator: ",") ") -> Self {
-            Self {
-                mutator: " cm.EnumNPayloadMutator_path "::new("
-                    join_ts!(items_with_fields.iter(), (i, fields),
-                        TupleNMutator(fields.len()) "::new("
-                            join_ts!(fields.iter(), field,
-                                ident!("mutator_" enu.items[*i].ident "_" field.access())
-                            , separator: ",")
-                        ")"
-                    , separator: ",")
-                ")
-            }
-        }
-    }
-    impl " EnumMutator_generics cm.Default "for" EnumMutator EnumMutator_generics.removing_bounds_and_eq_type() 
-        Default_where_clause "
-    {
-        fn default() -> Self {
-            Self { mutator : <_>::default() }
-        }
-    }
-    impl " EnumMutator_generics cm.fuzzcheck_mutator_traits_Mutator "<" enu.ident generics_no_eq_nor_bounds "> 
-        for " EnumMutator EnumMutator_generics.removing_bounds_and_eq_type() EnumMutator_where_clause "
-    {
-        type Cache = <" InnerMutator " as " cm.fuzzcheck_mutator_traits_Mutator "<" enu.ident generics_no_eq_nor_bounds ">" ">::Cache;
-        type MutationStep = <" InnerMutator " as " cm.fuzzcheck_mutator_traits_Mutator "<" enu.ident generics_no_eq_nor_bounds ">" ">::MutationStep;
-        type ArbitraryStep = <" InnerMutator " as " cm.fuzzcheck_mutator_traits_Mutator "<" enu.ident generics_no_eq_nor_bounds ">" ">::ArbitraryStep;
-        type UnmutateToken = <" InnerMutator " as " cm.fuzzcheck_mutator_traits_Mutator "<" enu.ident generics_no_eq_nor_bounds ">" ">::UnmutateToken;
-    
-        fn cache_from_value(&self, value: &" enu.ident generics_no_eq_nor_bounds ") -> Self::Cache {
-            " InnerMutator_as_Mutator "::cache_from_value(&self.mutator, value)
-        }
-
-        fn initial_step_from_value(&self, value: &" enu.ident generics_no_eq_nor_bounds ") -> Self::MutationStep {
-            " InnerMutator_as_Mutator "::initial_step_from_value(&self.mutator, value)
-        }
-
-        fn max_complexity(&self) -> f64 {
-            " InnerMutator_as_Mutator "::max_complexity(&self.mutator)
-        }
-
-        fn min_complexity(&self) -> f64 {
-            " InnerMutator_as_Mutator "::min_complexity(&self.mutator)
-        }
-
-        fn complexity(&self, value: &" enu.ident generics_no_eq_nor_bounds ", cache: &Self::Cache) -> f64 {
-            " InnerMutator_as_Mutator "::complexity(&self.mutator, value, cache)
-        }
-
-        fn ordered_arbitrary(&self, step: &mut Self::ArbitraryStep, max_cplx: f64) -> Option<(" enu.ident generics_no_eq_nor_bounds ", Self::Cache)> {
-            " InnerMutator_as_Mutator "::ordered_arbitrary(&self.mutator, step, max_cplx)
-        }
-
-        fn random_arbitrary(&self, max_cplx: f64) -> (" enu.ident generics_no_eq_nor_bounds ", Self::Cache) {
-            " InnerMutator_as_Mutator "::random_arbitrary(&self.mutator, max_cplx)
-        }
-
-        fn ordered_mutate(
-            &self,
-            value: &mut " enu.ident generics_no_eq_nor_bounds ",
-            cache: &mut Self::Cache,
-            step: &mut Self::MutationStep,
-            max_cplx: f64,
-        ) -> Option<Self::UnmutateToken> {
-            " InnerMutator_as_Mutator "::ordered_mutate(
-                &self.mutator,
-                value,
-                cache,
-                step,
-                max_cplx,
-            )
-        }
-
-        fn random_mutate(&self, value: &mut " enu.ident generics_no_eq_nor_bounds ", cache: &mut Self::Cache, max_cplx: f64) -> Self::UnmutateToken {
-            " InnerMutator_as_Mutator "::random_mutate(&self.mutator, value, cache, max_cplx)
-        }
-
-        fn unmutate(&self, value: &mut " enu.ident generics_no_eq_nor_bounds ", cache: &mut Self::Cache, t: Self::UnmutateToken) {
-            " InnerMutator_as_Mutator "::unmutate(&self.mutator, value, cache, t)
-        }
-    }"
-    if settings.default {
-        ts!("impl" generics_no_eq cm.DefaultMutator "for" enu.ident generics_no_eq_nor_bounds DefaultMutator_where_clause "{
-            type Mutator = " EnumMutator DefaultMutator_Mutator_generics ";
-        
-            fn default_mutator() -> Self::Mutator {
-                Self::Mutator::new("
-                    join_ts!(field_mutators.iter().flatten(), field_mutator,
-                        match &field_mutator.kind {
-                            FieldMutatorKind::Generic => {
-                                ts!("<" field_mutator.field.ty "as" cm.DefaultMutator ">::default_mutator()")
-                            }
-                            FieldMutatorKind::Prescribed(_, Some(init)) => {
-                                ts!(init)
-                            }
-                            FieldMutatorKind::Prescribed(mutator, None) => {
-                                ts!("<" mutator "as" cm.Default ">::default()")
-                            }
-                        }
-                    , separator: ",")
-                ")
-            }
-        }")
-    } else {
-        ts!()
-    }
-        )
+    extend_ts!(tb, crate::structs_and_enums::make_mutator_type_and_impl(params))
 }
 
 #[allow(non_snake_case)]
@@ -957,28 +799,6 @@ mod test {
     }
 
     #[test]
-    fn test_impl_default_mutator_for_enum_refactor() {
-        let code = "
-        pub enum Option<T> {
-            Some(T),
-            None,
-        }        
-        "
-        .parse::<TokenStream>()
-        .unwrap();
-        let mut parser = TokenParser::new(code);
-        let enu = parser.eat_enumeration().unwrap();
-
-        let mut tb = TokenBuilder::new();
-        let mut settings = MakeMutatorSettings::default();
-        settings.fuzzcheck_mutators_crate = ts!("crate");
-        impl_default_mutator_for_enum(&mut tb, &enu, &settings);
-        let generated = tb.end().to_string();
-
-        assert!(false, "\n\n{}\n\n", generated);
-    }
-
-    #[test]
     fn test_impl_default_mutator_for_enum() {
         let code = "
         enum E<T> {
@@ -1000,225 +820,7 @@ mod test {
         let generated = tb.end().to_string();
 
         let expected = "
-        struct EMutator<T, M2_0, M2_1, M3_0>
-        where
-            T: ::std::clone::Clone + 'static,
-            M2_0: fuzzcheck_mutators::fuzzcheck_traits::Mutator<(T, u8)> ,
-            M2_1: fuzzcheck_mutators::fuzzcheck_traits::Mutator<u8> ,
-            M3_0: fuzzcheck_mutators::fuzzcheck_traits::Mutator<u16>
-        {
-            pub mutator: fuzzcheck_mutators::Enum2PayloadMutator<
-                ((T, u8), u8),
-                fuzzcheck_mutators::Tuple2Mutator<(T, u8), u8, M2_0, M2_1>,
-                fuzzcheck_mutators::Tuple2<(T, u8), u8> ,
-                (u16),
-                fuzzcheck_mutators::Tuple1Mutator<u16, M3_0>,
-                fuzzcheck_mutators::Tuple1<u16>
-            >
-        }
-        impl<T, M2_0, M2_1, M3_0> EMutator<T, M2_0, M2_1, M3_0>
-        where
-            T: ::std::clone::Clone + 'static,
-            M2_0: fuzzcheck_mutators::fuzzcheck_traits::Mutator<(T, u8)> ,
-            M2_1: fuzzcheck_mutators::fuzzcheck_traits::Mutator<u8> ,
-            M3_0: fuzzcheck_mutators::fuzzcheck_traits::Mutator<u16>
-        {
-            pub fn new(mutator_Left_0: M2_0, mutator_Left_1: M2_1, mutator_Right_0: M3_0) -> Self {
-                Self {
-                    mutator: fuzzcheck_mutators::Enum2PayloadMutator::new(
-                        fuzzcheck_mutators::Tuple2Mutator::new(mutator_Left_0, mutator_Left_1),
-                        fuzzcheck_mutators::Tuple1Mutator::new(mutator_Right_0)
-                    )
-                }
-            }
-        }
-        impl<T, M2_0, M2_1, M3_0> ::std::default::Default for EMutator<T, M2_0, M2_1, M3_0>
-        where
-            T: ::std::clone::Clone + 'static,
-            M2_0: fuzzcheck_mutators::fuzzcheck_traits::Mutator<(T, u8)> ,
-            M2_1: fuzzcheck_mutators::fuzzcheck_traits::Mutator<u8> ,
-            M3_0: fuzzcheck_mutators::fuzzcheck_traits::Mutator<u16> ,
-            fuzzcheck_mutators::Enum2PayloadMutator<
-                ((T, u8), u8),
-                fuzzcheck_mutators::Tuple2Mutator<(T, u8), u8, M2_0, M2_1>,
-                fuzzcheck_mutators::Tuple2<(T, u8), u8> ,
-                (u16),
-                fuzzcheck_mutators::Tuple1Mutator<u16, M3_0>,
-                fuzzcheck_mutators::Tuple1<u16>
-            > : ::std::default::Default
-        {
-            fn default() -> Self {
-                Self {
-                    mutator: <_>::default()
-                }
-            }
-        }
-        impl<T, M2_0, M2_1, M3_0> fuzzcheck_mutators::fuzzcheck_traits::Mutator<E<T> > for EMutator<T, M2_0, M2_1, M3_0>
-        where
-            T: ::std::clone::Clone + 'static,
-            M2_0: fuzzcheck_mutators::fuzzcheck_traits::Mutator<(T, u8)> ,
-            M2_1: fuzzcheck_mutators::fuzzcheck_traits::Mutator<u8> ,
-            M3_0: fuzzcheck_mutators::fuzzcheck_traits::Mutator<u16>
-        {
-            type Cache = <fuzzcheck_mutators::Enum2PayloadMutator<
-                ((T, u8), u8),
-                fuzzcheck_mutators::Tuple2Mutator<(T, u8), u8, M2_0, M2_1>,
-                fuzzcheck_mutators::Tuple2<(T, u8), u8> ,
-                (u16),
-                fuzzcheck_mutators::Tuple1Mutator<u16, M3_0>,
-                fuzzcheck_mutators::Tuple1<u16>
-            > as fuzzcheck_mutators::fuzzcheck_traits::Mutator<E<T> > >::Cache;
-            type MutationStep = <fuzzcheck_mutators::Enum2PayloadMutator<
-                ((T, u8), u8),
-                fuzzcheck_mutators::Tuple2Mutator<(T, u8), u8, M2_0, M2_1>,
-                fuzzcheck_mutators::Tuple2<(T, u8), u8> ,
-                (u16),
-                fuzzcheck_mutators::Tuple1Mutator<u16, M3_0>,
-                fuzzcheck_mutators::Tuple1<u16>
-            > as fuzzcheck_mutators::fuzzcheck_traits::Mutator<E<T> > >::MutationStep;
-            type ArbitraryStep = <fuzzcheck_mutators::Enum2PayloadMutator<
-                ((T, u8), u8),
-                fuzzcheck_mutators::Tuple2Mutator<(T, u8), u8, M2_0, M2_1>,
-                fuzzcheck_mutators::Tuple2<(T, u8), u8> ,
-                (u16),
-                fuzzcheck_mutators::Tuple1Mutator<u16, M3_0>,
-                fuzzcheck_mutators::Tuple1<u16>
-            > as fuzzcheck_mutators::fuzzcheck_traits::Mutator<E<T> > >::ArbitraryStep;
-            type UnmutateToken = <fuzzcheck_mutators::Enum2PayloadMutator<
-                ((T, u8), u8),
-                fuzzcheck_mutators::Tuple2Mutator<(T, u8), u8, M2_0, M2_1>,
-                fuzzcheck_mutators::Tuple2<(T, u8), u8> ,
-                (u16),
-                fuzzcheck_mutators::Tuple1Mutator<u16, M3_0>,
-                fuzzcheck_mutators::Tuple1<u16>
-            > as fuzzcheck_mutators::fuzzcheck_traits::Mutator<E<T> > >::UnmutateToken;
-            fn cache_from_value(&self, value: &E<T>) -> Self::Cache {
-                <fuzzcheck_mutators::Enum2PayloadMutator<
-                    ((T, u8), u8),
-                    fuzzcheck_mutators::Tuple2Mutator<(T, u8), u8, M2_0, M2_1>,
-                    fuzzcheck_mutators::Tuple2<(T, u8), u8> ,
-                    (u16),
-                    fuzzcheck_mutators::Tuple1Mutator<u16, M3_0>,
-                    fuzzcheck_mutators::Tuple1<u16>
-                > as fuzzcheck_mutators::fuzzcheck_traits::Mutator<E<T> > > ::cache_from_value(&self.mutator, value)
-            }
-            fn initial_step_from_value(&self, value: &E<T>) -> Self::MutationStep {
-                <fuzzcheck_mutators::Enum2PayloadMutator<
-                    ((T, u8), u8),
-                    fuzzcheck_mutators::Tuple2Mutator<(T, u8), u8, M2_0, M2_1>,
-                    fuzzcheck_mutators::Tuple2<(T, u8), u8> ,
-                    (u16),
-                    fuzzcheck_mutators::Tuple1Mutator<u16, M3_0>,
-                    fuzzcheck_mutators::Tuple1<u16>
-                > as fuzzcheck_mutators::fuzzcheck_traits::Mutator<E<T> > > ::initial_step_from_value(&self.mutator, value)
-            }
-            fn max_complexity(&self) -> f64 {
-                <fuzzcheck_mutators::Enum2PayloadMutator<
-                    ((T, u8), u8),
-                    fuzzcheck_mutators::Tuple2Mutator<(T, u8), u8, M2_0, M2_1>,
-                    fuzzcheck_mutators::Tuple2<(T, u8), u8> ,
-                    (u16),
-                    fuzzcheck_mutators::Tuple1Mutator<u16, M3_0>,
-                    fuzzcheck_mutators::Tuple1<u16>
-                > as fuzzcheck_mutators::fuzzcheck_traits::Mutator<E<T> > > ::max_complexity(&self.mutator)
-            }
-            fn min_complexity(&self) -> f64 {
-                <fuzzcheck_mutators::Enum2PayloadMutator<
-                    ((T, u8), u8),
-                    fuzzcheck_mutators::Tuple2Mutator<(T, u8), u8, M2_0, M2_1>,
-                    fuzzcheck_mutators::Tuple2<(T, u8), u8> ,
-                    (u16),
-                    fuzzcheck_mutators::Tuple1Mutator<u16, M3_0>,
-                    fuzzcheck_mutators::Tuple1<u16>
-                > as fuzzcheck_mutators::fuzzcheck_traits::Mutator<E<T> > > ::min_complexity(&self.mutator)
-            }
-            fn complexity(&self, value: &E<T> , cache: &Self::Cache) -> f64 {
-                <fuzzcheck_mutators::Enum2PayloadMutator<
-                    ((T, u8), u8),
-                    fuzzcheck_mutators::Tuple2Mutator<(T, u8), u8, M2_0, M2_1>,
-                    fuzzcheck_mutators::Tuple2<(T, u8), u8> ,
-                    (u16),
-                    fuzzcheck_mutators::Tuple1Mutator<u16, M3_0>,
-                    fuzzcheck_mutators::Tuple1<u16>
-                > as fuzzcheck_mutators::fuzzcheck_traits::Mutator<E<T> > > ::complexity(&self.mutator, value, cache)
-            }
-            fn ordered_arbitrary(&self, step: &mut Self::ArbitraryStep, max_cplx: f64) -> Option<(E<T> , Self::Cache)> {
-                <fuzzcheck_mutators::Enum2PayloadMutator<
-                    ((T, u8), u8),
-                    fuzzcheck_mutators::Tuple2Mutator<(T, u8), u8, M2_0, M2_1>,
-                    fuzzcheck_mutators::Tuple2<(T, u8), u8> ,
-                    (u16),
-                    fuzzcheck_mutators::Tuple1Mutator<u16, M3_0>,
-                    fuzzcheck_mutators::Tuple1<u16>
-                > as fuzzcheck_mutators::fuzzcheck_traits::Mutator<E<T> > > ::ordered_arbitrary(&self.mutator, step, max_cplx)
-            }
-            fn random_arbitrary(&self, max_cplx: f64) -> (E<T> , Self::Cache) {
-                <fuzzcheck_mutators::Enum2PayloadMutator<
-                    ((T, u8), u8),
-                    fuzzcheck_mutators::Tuple2Mutator<(T, u8), u8, M2_0, M2_1>,
-                    fuzzcheck_mutators::Tuple2<(T, u8), u8> ,
-                    (u16),
-                    fuzzcheck_mutators::Tuple1Mutator<u16, M3_0>,
-                    fuzzcheck_mutators::Tuple1<u16>
-                > as fuzzcheck_mutators::fuzzcheck_traits::Mutator<E<T> > > ::random_arbitrary(&self.mutator, max_cplx)
-            }
-            fn ordered_mutate(
-                &self,
-                value: &mut E<T> ,
-                cache: &mut Self::Cache,
-                step: &mut Self::MutationStep,
-                max_cplx: f64 ,
-            ) -> Option<Self::UnmutateToken> {
-                <fuzzcheck_mutators::Enum2PayloadMutator<
-                    ((T, u8), u8),
-                    fuzzcheck_mutators::Tuple2Mutator<(T, u8), u8, M2_0, M2_1>,
-                    fuzzcheck_mutators::Tuple2<(T, u8), u8> ,
-                    (u16),
-                    fuzzcheck_mutators::Tuple1Mutator<u16, M3_0>,
-                    fuzzcheck_mutators::Tuple1<u16>
-                > as fuzzcheck_mutators::fuzzcheck_traits::Mutator<E<T> > > ::ordered_mutate(
-                    &self.mutator, value, cache, step, max_cplx ,
-                )
-            }
-            fn random_mutate(&self, value: &mut E<T> , cache: &mut Self::Cache, max_cplx: f64) -> Self::UnmutateToken {
-                <fuzzcheck_mutators::Enum2PayloadMutator<
-                    ((T, u8), u8),
-                    fuzzcheck_mutators::Tuple2Mutator<(T, u8), u8, M2_0, M2_1>,
-                    fuzzcheck_mutators::Tuple2<(T, u8), u8> ,
-                    (u16),
-                    fuzzcheck_mutators::Tuple1Mutator<u16, M3_0>,
-                    fuzzcheck_mutators::Tuple1<u16>
-                > as fuzzcheck_mutators::fuzzcheck_traits::Mutator<E<T> > > ::random_mutate(&self.mutator, value, cache, max_cplx)
-            }
-            fn unmutate(&self, value: &mut E<T> , cache: &mut Self::Cache, t: Self::UnmutateToken) {
-                <fuzzcheck_mutators::Enum2PayloadMutator<
-                    ((T, u8), u8),
-                    fuzzcheck_mutators::Tuple2Mutator<(T, u8), u8, M2_0, M2_1>,
-                    fuzzcheck_mutators::Tuple2<(T, u8), u8> ,
-                    (u16),
-                    fuzzcheck_mutators::Tuple1Mutator<u16, M3_0>,
-                    fuzzcheck_mutators::Tuple1<u16>
-                > as fuzzcheck_mutators::fuzzcheck_traits::Mutator<E<T> > > ::unmutate(&self.mutator, value, cache, t)
-            }
-        }
-        impl<T> fuzzcheck_mutators::DefaultMutator for E<T>
-        where
-            T: fuzzcheck_mutators::DefaultMutator + 'static
-        {
-            type Mutator = EMutator<
-                T,
-                <(T, u8) as fuzzcheck_mutators::DefaultMutator>::Mutator,
-                <u8 as fuzzcheck_mutators::DefaultMutator>::Mutator,
-                <u16 as fuzzcheck_mutators::DefaultMutator>::Mutator
-            > ;
-            fn default_mutator() -> Self::Mutator {
-                Self::Mutator::new(
-                    <(T, u8) as fuzzcheck_mutators::DefaultMutator>::default_mutator(),
-                    <u8 as fuzzcheck_mutators::DefaultMutator>::default_mutator(),
-                    <u16 as fuzzcheck_mutators::DefaultMutator>::default_mutator()
-                )
-            }
-        }
+struct EMutator < T , M2_0 , M2_1 , M3_0 > where T : :: std :: clone :: Clone + 'static , M2_0 : fuzzcheck_mutators :: fuzzcheck_traits :: Mutator < (T , u8) > , M2_1 : fuzzcheck_mutators :: fuzzcheck_traits :: Mutator < u8 > , M3_0 : fuzzcheck_mutators :: fuzzcheck_traits :: Mutator < u16 > { pub mutator : fuzzcheck_mutators :: Enum2PayloadMutator < ((T , u8) , u8) , fuzzcheck_mutators :: Tuple2Mutator < (T , u8) , u8 , M2_0 , M2_1 >, fuzzcheck_mutators :: Tuple2 < (T , u8) , u8 > , (u16) , fuzzcheck_mutators :: Tuple1Mutator < u16 , M3_0 >, fuzzcheck_mutators :: Tuple1 < u16 > > } struct EMutatorCache < T , M2_0 , M2_1 , M3_0 > where T : :: std :: clone :: Clone + 'static , M2_0 : fuzzcheck_mutators :: fuzzcheck_traits :: Mutator < (T , u8) > , M2_1 : fuzzcheck_mutators :: fuzzcheck_traits :: Mutator < u8 > , M3_0 : fuzzcheck_mutators :: fuzzcheck_traits :: Mutator < u16 > { inner : < fuzzcheck_mutators :: Enum2PayloadMutator < ((T , u8) , u8) , fuzzcheck_mutators :: Tuple2Mutator < (T , u8) , u8 , M2_0 , M2_1 >, fuzzcheck_mutators :: Tuple2 < (T , u8) , u8 > , (u16) , fuzzcheck_mutators :: Tuple1Mutator < u16 , M3_0 >, fuzzcheck_mutators :: Tuple1 < u16 > > as fuzzcheck_mutators :: fuzzcheck_traits :: Mutator < E < T > > >:: Cache , } impl < T , M2_0 , M2_1 , M3_0 > EMutatorCache < T , M2_0 , M2_1 , M3_0 > where T : :: std :: clone :: Clone + 'static , M2_0 : fuzzcheck_mutators :: fuzzcheck_traits :: Mutator < (T , u8) > , M2_1 : fuzzcheck_mutators :: fuzzcheck_traits :: Mutator < u8 > , M3_0 : fuzzcheck_mutators :: fuzzcheck_traits :: Mutator < u16 > { fn new (inner : < fuzzcheck_mutators :: Enum2PayloadMutator < ((T , u8) , u8) , fuzzcheck_mutators :: Tuple2Mutator < (T , u8) , u8 , M2_0 , M2_1 >, fuzzcheck_mutators :: Tuple2 < (T , u8) , u8 > , (u16) , fuzzcheck_mutators :: Tuple1Mutator < u16 , M3_0 >, fuzzcheck_mutators :: Tuple1 < u16 > > as fuzzcheck_mutators :: fuzzcheck_traits :: Mutator < E < T > > >:: Cache) -> Self { Self { inner : (inner) } } } impl < T , M2_0 , M2_1 , M3_0 > :: std :: clone :: Clone for EMutatorCache < T , M2_0 , M2_1 , M3_0 > where T : :: std :: clone :: Clone + 'static , M2_0 : fuzzcheck_mutators :: fuzzcheck_traits :: Mutator < (T , u8) > , M2_1 : fuzzcheck_mutators :: fuzzcheck_traits :: Mutator < u8 > , M3_0 : fuzzcheck_mutators :: fuzzcheck_traits :: Mutator < u16 > { fn clone (& self) -> Self { Self { inner : self . inner . clone () } } } struct EMutatorMutationStep < T , M2_0 , M2_1 , M3_0 > where T : :: std :: clone :: Clone + 'static , M2_0 : fuzzcheck_mutators :: fuzzcheck_traits :: Mutator < (T , u8) > , M2_1 : fuzzcheck_mutators :: fuzzcheck_traits :: Mutator < u8 > , M3_0 : fuzzcheck_mutators :: fuzzcheck_traits :: Mutator < u16 > { inner : < fuzzcheck_mutators :: Enum2PayloadMutator < ((T , u8) , u8) , fuzzcheck_mutators :: Tuple2Mutator < (T , u8) , u8 , M2_0 , M2_1 >, fuzzcheck_mutators :: Tuple2 < (T , u8) , u8 > , (u16) , fuzzcheck_mutators :: Tuple1Mutator < u16 , M3_0 >, fuzzcheck_mutators :: Tuple1 < u16 > > as fuzzcheck_mutators :: fuzzcheck_traits :: Mutator < E < T > > >:: MutationStep , } impl < T , M2_0 , M2_1 , M3_0 > EMutatorMutationStep < T , M2_0 , M2_1 , M3_0 > where T : :: std :: clone :: Clone + 'static , M2_0 : fuzzcheck_mutators :: fuzzcheck_traits :: Mutator < (T , u8) > , M2_1 : fuzzcheck_mutators :: fuzzcheck_traits :: Mutator < u8 > , M3_0 : fuzzcheck_mutators :: fuzzcheck_traits :: Mutator < u16 > { fn new (inner : < fuzzcheck_mutators :: Enum2PayloadMutator < ((T , u8) , u8) , fuzzcheck_mutators :: Tuple2Mutator < (T , u8) , u8 , M2_0 , M2_1 >, fuzzcheck_mutators :: Tuple2 < (T , u8) , u8 > , (u16) , fuzzcheck_mutators :: Tuple1Mutator < u16 , M3_0 >, fuzzcheck_mutators :: Tuple1 < u16 > > as fuzzcheck_mutators :: fuzzcheck_traits :: Mutator < E < T > > >:: MutationStep) -> Self { Self { inner : (inner) } } } impl < T , M2_0 , M2_1 , M3_0 > :: std :: clone :: Clone for EMutatorMutationStep < T , M2_0 , M2_1 , M3_0 > where T : :: std :: clone :: Clone + 'static , M2_0 : fuzzcheck_mutators :: fuzzcheck_traits :: Mutator < (T , u8) > , M2_1 : fuzzcheck_mutators :: fuzzcheck_traits :: Mutator < u8 > , M3_0 : fuzzcheck_mutators :: fuzzcheck_traits :: Mutator < u16 > { fn clone (& self) -> Self { Self { inner : self . inner . clone () } } } struct EMutatorArbitraryStep < T , M2_0 , M2_1 , M3_0 > where T : :: std :: clone :: Clone + 'static , M2_0 : fuzzcheck_mutators :: fuzzcheck_traits :: Mutator < (T , u8) > , M2_1 : fuzzcheck_mutators :: fuzzcheck_traits :: Mutator < u8 > , M3_0 : fuzzcheck_mutators :: fuzzcheck_traits :: Mutator < u16 > { inner : < fuzzcheck_mutators :: Enum2PayloadMutator < ((T , u8) , u8) , fuzzcheck_mutators :: Tuple2Mutator < (T , u8) , u8 , M2_0 , M2_1 >, fuzzcheck_mutators :: Tuple2 < (T , u8) , u8 > , (u16) , fuzzcheck_mutators :: Tuple1Mutator < u16 , M3_0 >, fuzzcheck_mutators :: Tuple1 < u16 > > as fuzzcheck_mutators :: fuzzcheck_traits :: Mutator < E < T > > >:: ArbitraryStep , } impl < T , M2_0 , M2_1 , M3_0 > EMutatorArbitraryStep < T , M2_0 , M2_1 , M3_0 > where T : :: std :: clone :: Clone + 'static , M2_0 : fuzzcheck_mutators :: fuzzcheck_traits :: Mutator < (T , u8) > , M2_1 : fuzzcheck_mutators :: fuzzcheck_traits :: Mutator < u8 > , M3_0 : fuzzcheck_mutators :: fuzzcheck_traits :: Mutator < u16 > { fn new (inner : < fuzzcheck_mutators :: Enum2PayloadMutator < ((T , u8) , u8) , fuzzcheck_mutators :: Tuple2Mutator < (T , u8) , u8 , M2_0 , M2_1 >, fuzzcheck_mutators :: Tuple2 < (T , u8) , u8 > , (u16) , fuzzcheck_mutators :: Tuple1Mutator < u16 , M3_0 >, fuzzcheck_mutators :: Tuple1 < u16 > > as fuzzcheck_mutators :: fuzzcheck_traits :: Mutator < E < T > > >:: ArbitraryStep) -> Self { Self { inner : (inner) } } } impl < T , M2_0 , M2_1 , M3_0 > :: std :: clone :: Clone for EMutatorArbitraryStep < T , M2_0 , M2_1 , M3_0 > where T : :: std :: clone :: Clone + 'static , M2_0 : fuzzcheck_mutators :: fuzzcheck_traits :: Mutator < (T , u8) > , M2_1 : fuzzcheck_mutators :: fuzzcheck_traits :: Mutator < u8 > , M3_0 : fuzzcheck_mutators :: fuzzcheck_traits :: Mutator < u16 > { fn clone (& self) -> Self { Self { inner : self . inner . clone () } } } impl < T , M2_0 , M2_1 , M3_0 > :: std :: default :: Default for EMutatorArbitraryStep < T , M2_0 , M2_1 , M3_0 > where T : :: std :: clone :: Clone + 'static , M2_0 : fuzzcheck_mutators :: fuzzcheck_traits :: Mutator < (T , u8) > , M2_1 : fuzzcheck_mutators :: fuzzcheck_traits :: Mutator < u8 > , M3_0 : fuzzcheck_mutators :: fuzzcheck_traits :: Mutator < u16 > { fn default () -> Self { Self { inner : < _ >:: default () } } } struct EMutatorUnmutateToken < T , M2_0 , M2_1 , M3_0 > where T : :: std :: clone :: Clone + 'static , M2_0 : fuzzcheck_mutators :: fuzzcheck_traits :: Mutator < (T , u8) > , M2_1 : fuzzcheck_mutators :: fuzzcheck_traits :: Mutator < u8 > , M3_0 : fuzzcheck_mutators :: fuzzcheck_traits :: Mutator < u16 > { inner : < fuzzcheck_mutators :: Enum2PayloadMutator < ((T , u8) , u8) , fuzzcheck_mutators :: Tuple2Mutator < (T , u8) , u8 , M2_0 , M2_1 >, fuzzcheck_mutators :: Tuple2 < (T , u8) , u8 > , (u16) , fuzzcheck_mutators :: Tuple1Mutator < u16 , M3_0 >, fuzzcheck_mutators :: Tuple1 < u16 > > as fuzzcheck_mutators :: fuzzcheck_traits :: Mutator < E < T > > >:: UnmutateToken , } impl < T , M2_0 , M2_1 , M3_0 > EMutatorUnmutateToken < T , M2_0 , M2_1 , M3_0 > where T : :: std :: clone :: Clone + 'static , M2_0 : fuzzcheck_mutators :: fuzzcheck_traits :: Mutator < (T , u8) > , M2_1 : fuzzcheck_mutators :: fuzzcheck_traits :: Mutator < u8 > , M3_0 : fuzzcheck_mutators :: fuzzcheck_traits :: Mutator < u16 > { fn new (inner : < fuzzcheck_mutators :: Enum2PayloadMutator < ((T , u8) , u8) , fuzzcheck_mutators :: Tuple2Mutator < (T , u8) , u8 , M2_0 , M2_1 >, fuzzcheck_mutators :: Tuple2 < (T , u8) , u8 > , (u16) , fuzzcheck_mutators :: Tuple1Mutator < u16 , M3_0 >, fuzzcheck_mutators :: Tuple1 < u16 > > as fuzzcheck_mutators :: fuzzcheck_traits :: Mutator < E < T > > >:: UnmutateToken) -> Self { Self { inner : (inner) } } } impl < T , M2_0 , M2_1 , M3_0 > EMutator < T , M2_0 , M2_1 , M3_0 > where T : :: std :: clone :: Clone + 'static , M2_0 : fuzzcheck_mutators :: fuzzcheck_traits :: Mutator < (T , u8) > , M2_1 : fuzzcheck_mutators :: fuzzcheck_traits :: Mutator < u8 > , M3_0 : fuzzcheck_mutators :: fuzzcheck_traits :: Mutator < u16 > { pub fn new (mutator_Left_0 : M2_0 , mutator_Left_1 : M2_1 , mutator_Right_0 : M3_0) -> Self { Self { mutator : fuzzcheck_mutators :: Enum2PayloadMutator :: new (fuzzcheck_mutators :: Tuple2Mutator :: new (mutator_Left_0 , mutator_Left_1) , fuzzcheck_mutators :: Tuple1Mutator :: new (mutator_Right_0)) } } } impl < T , M2_0 , M2_1 , M3_0 > :: std :: default :: Default for EMutator < T , M2_0 , M2_1 , M3_0 > where T : :: std :: clone :: Clone + 'static , M2_0 : fuzzcheck_mutators :: fuzzcheck_traits :: Mutator < (T , u8) > , M2_1 : fuzzcheck_mutators :: fuzzcheck_traits :: Mutator < u8 > , M3_0 : fuzzcheck_mutators :: fuzzcheck_traits :: Mutator < u16 > , fuzzcheck_mutators :: Enum2PayloadMutator < ((T , u8) , u8) , fuzzcheck_mutators :: Tuple2Mutator < (T , u8) , u8 , M2_0 , M2_1 >, fuzzcheck_mutators :: Tuple2 < (T , u8) , u8 > , (u16) , fuzzcheck_mutators :: Tuple1Mutator < u16 , M3_0 >, fuzzcheck_mutators :: Tuple1 < u16 > > : :: std :: default :: Default { fn default () -> Self { Self { mutator : < _ >:: default () } } } impl < T , M2_0 , M2_1 , M3_0 > fuzzcheck_mutators :: fuzzcheck_traits :: Mutator < E < T > > for EMutator < T , M2_0 , M2_1 , M3_0 > where T : :: std :: clone :: Clone + 'static , M2_0 : fuzzcheck_mutators :: fuzzcheck_traits :: Mutator < (T , u8) > , M2_1 : fuzzcheck_mutators :: fuzzcheck_traits :: Mutator < u8 > , M3_0 : fuzzcheck_mutators :: fuzzcheck_traits :: Mutator < u16 > { type Cache = EMutatorCache < T , M2_0 , M2_1 , M3_0 > ; type MutationStep = EMutatorMutationStep < T , M2_0 , M2_1 , M3_0 > ; type ArbitraryStep = EMutatorArbitraryStep < T , M2_0 , M2_1 , M3_0 > ; type UnmutateToken = EMutatorUnmutateToken < T , M2_0 , M2_1 , M3_0 > ; fn cache_from_value (& self , value : & E < T >) -> Self :: Cache { Self :: Cache :: new (< fuzzcheck_mutators :: Enum2PayloadMutator < ((T , u8) , u8) , fuzzcheck_mutators :: Tuple2Mutator < (T , u8) , u8 , M2_0 , M2_1 >, fuzzcheck_mutators :: Tuple2 < (T , u8) , u8 > , (u16) , fuzzcheck_mutators :: Tuple1Mutator < u16 , M3_0 >, fuzzcheck_mutators :: Tuple1 < u16 > > as fuzzcheck_mutators :: fuzzcheck_traits :: Mutator < E < T > > > :: cache_from_value (& self . mutator , value)) } fn initial_step_from_value (& self , value : & E < T >) -> Self :: MutationStep { Self :: MutationStep :: new (< fuzzcheck_mutators :: Enum2PayloadMutator < ((T , u8) , u8) , fuzzcheck_mutators :: Tuple2Mutator < (T , u8) , u8 , M2_0 , M2_1 >, fuzzcheck_mutators :: Tuple2 < (T , u8) , u8 > , (u16) , fuzzcheck_mutators :: Tuple1Mutator < u16 , M3_0 >, fuzzcheck_mutators :: Tuple1 < u16 > > as fuzzcheck_mutators :: fuzzcheck_traits :: Mutator < E < T > > > :: initial_step_from_value (& self . mutator , value)) } fn max_complexity (& self) -> f64 { < fuzzcheck_mutators :: Enum2PayloadMutator < ((T , u8) , u8) , fuzzcheck_mutators :: Tuple2Mutator < (T , u8) , u8 , M2_0 , M2_1 >, fuzzcheck_mutators :: Tuple2 < (T , u8) , u8 > , (u16) , fuzzcheck_mutators :: Tuple1Mutator < u16 , M3_0 >, fuzzcheck_mutators :: Tuple1 < u16 > > as fuzzcheck_mutators :: fuzzcheck_traits :: Mutator < E < T > > > :: max_complexity (& self . mutator) } fn min_complexity (& self) -> f64 { < fuzzcheck_mutators :: Enum2PayloadMutator < ((T , u8) , u8) , fuzzcheck_mutators :: Tuple2Mutator < (T , u8) , u8 , M2_0 , M2_1 >, fuzzcheck_mutators :: Tuple2 < (T , u8) , u8 > , (u16) , fuzzcheck_mutators :: Tuple1Mutator < u16 , M3_0 >, fuzzcheck_mutators :: Tuple1 < u16 > > as fuzzcheck_mutators :: fuzzcheck_traits :: Mutator < E < T > > > :: min_complexity (& self . mutator) } fn complexity (& self , value : & E < T > , cache : & Self :: Cache) -> f64 { < fuzzcheck_mutators :: Enum2PayloadMutator < ((T , u8) , u8) , fuzzcheck_mutators :: Tuple2Mutator < (T , u8) , u8 , M2_0 , M2_1 >, fuzzcheck_mutators :: Tuple2 < (T , u8) , u8 > , (u16) , fuzzcheck_mutators :: Tuple1Mutator < u16 , M3_0 >, fuzzcheck_mutators :: Tuple1 < u16 > > as fuzzcheck_mutators :: fuzzcheck_traits :: Mutator < E < T > > > :: complexity (& self . mutator , value , & cache . inner) } fn ordered_arbitrary (& self , step : & mut Self :: ArbitraryStep , max_cplx : f64) -> Option < (E < T > , Self :: Cache) > { if let :: std :: option :: Option :: Some ((value , cache)) = < fuzzcheck_mutators :: Enum2PayloadMutator < ((T , u8) , u8) , fuzzcheck_mutators :: Tuple2Mutator < (T , u8) , u8 , M2_0 , M2_1 >, fuzzcheck_mutators :: Tuple2 < (T , u8) , u8 > , (u16) , fuzzcheck_mutators :: Tuple1Mutator < u16 , M3_0 >, fuzzcheck_mutators :: Tuple1 < u16 > > as fuzzcheck_mutators :: fuzzcheck_traits :: Mutator < E < T > > > :: ordered_arbitrary (& self . mutator , & mut step . inner , max_cplx) { :: std :: option :: Option :: Some ((value , Self :: Cache :: new (cache))) } else { :: std :: option :: Option :: None } } fn random_arbitrary (& self , max_cplx : f64) -> (E < T > , Self :: Cache) { let (value , cache) = < fuzzcheck_mutators :: Enum2PayloadMutator < ((T , u8) , u8) , fuzzcheck_mutators :: Tuple2Mutator < (T , u8) , u8 , M2_0 , M2_1 >, fuzzcheck_mutators :: Tuple2 < (T , u8) , u8 > , (u16) , fuzzcheck_mutators :: Tuple1Mutator < u16 , M3_0 >, fuzzcheck_mutators :: Tuple1 < u16 > > as fuzzcheck_mutators :: fuzzcheck_traits :: Mutator < E < T > > > :: random_arbitrary (& self . mutator , max_cplx) ; (value , Self :: Cache :: new (cache)) } fn ordered_mutate (& self , value : & mut E < T > , cache : & mut Self :: Cache , step : & mut Self :: MutationStep , max_cplx : f64 ,) -> Option < Self :: UnmutateToken > { if let :: std :: option :: Option :: Some (t) = < fuzzcheck_mutators :: Enum2PayloadMutator < ((T , u8) , u8) , fuzzcheck_mutators :: Tuple2Mutator < (T , u8) , u8 , M2_0 , M2_1 >, fuzzcheck_mutators :: Tuple2 < (T , u8) , u8 > , (u16) , fuzzcheck_mutators :: Tuple1Mutator < u16 , M3_0 >, fuzzcheck_mutators :: Tuple1 < u16 > > as fuzzcheck_mutators :: fuzzcheck_traits :: Mutator < E < T > > > :: ordered_mutate (& self . mutator , value , & mut cache . inner , & mut step . inner , max_cplx ,) { :: std :: option :: Option :: Some (Self :: UnmutateToken :: new (t)) } else { :: std :: option :: Option :: None } } fn random_mutate (& self , value : & mut E < T > , cache : & mut Self :: Cache , max_cplx : f64) -> Self :: UnmutateToken { Self :: UnmutateToken :: new (< fuzzcheck_mutators :: Enum2PayloadMutator < ((T , u8) , u8) , fuzzcheck_mutators :: Tuple2Mutator < (T , u8) , u8 , M2_0 , M2_1 >, fuzzcheck_mutators :: Tuple2 < (T , u8) , u8 > , (u16) , fuzzcheck_mutators :: Tuple1Mutator < u16 , M3_0 >, fuzzcheck_mutators :: Tuple1 < u16 > > as fuzzcheck_mutators :: fuzzcheck_traits :: Mutator < E < T > > > :: random_mutate (& self . mutator , value , & mut cache . inner , max_cplx)) } fn unmutate (& self , value : & mut E < T > , cache : & mut Self :: Cache , t : Self :: UnmutateToken) { < fuzzcheck_mutators :: Enum2PayloadMutator < ((T , u8) , u8) , fuzzcheck_mutators :: Tuple2Mutator < (T , u8) , u8 , M2_0 , M2_1 >, fuzzcheck_mutators :: Tuple2 < (T , u8) , u8 > , (u16) , fuzzcheck_mutators :: Tuple1Mutator < u16 , M3_0 >, fuzzcheck_mutators :: Tuple1 < u16 > > as fuzzcheck_mutators :: fuzzcheck_traits :: Mutator < E < T > > > :: unmutate (& self . mutator , value , & mut cache . inner , t . inner) } } impl < T > fuzzcheck_mutators :: DefaultMutator for E < T > where T : fuzzcheck_mutators :: DefaultMutator + 'static { type Mutator = EMutator < T , < (T , u8) as fuzzcheck_mutators :: DefaultMutator >:: Mutator , < u8 as fuzzcheck_mutators :: DefaultMutator >:: Mutator , < u16 as fuzzcheck_mutators :: DefaultMutator >:: Mutator > ; fn default_mutator () -> Self :: Mutator { EMutator :: new (< (T , u8) as fuzzcheck_mutators :: DefaultMutator >:: default_mutator () , < u8 as fuzzcheck_mutators :: DefaultMutator >:: default_mutator () , < u16 as fuzzcheck_mutators :: DefaultMutator >:: default_mutator ()) } }
         "
         .parse::<TokenStream>()
         .unwrap()
