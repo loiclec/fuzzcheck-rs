@@ -1,4 +1,5 @@
 #![allow(non_snake_case)]
+
 use decent_synquote_alternative::{
     self as synquote,
     parser::{EnumItemData, Ty},
@@ -21,8 +22,7 @@ pub fn make_basic_tuple_mutator(item: proc_macro::TokenStream) -> proc_macro::To
     let mut parser = TokenParser::new(item.into());
     if let Some(l) = parser.eat_literal() {
         if let Ok(nbr_elements) = l.to_string().parse::<usize>() {
-            let fuzzcheck_mutators_crate = parser.eat_type_path().unwrap_or(ts!("fuzzcheck_mutators"));
-            tuples::make_basic_tuple_mutator(&mut tb, nbr_elements, &fuzzcheck_mutators_crate);
+            tuples::make_basic_tuple_mutator(&mut tb, nbr_elements);
             return tb.end().into();
         }
     }
@@ -35,7 +35,7 @@ pub fn make_tuple_type_structure(item: proc_macro::TokenStream) -> proc_macro::T
     let mut parser = TokenParser::new(item.into());
     if let Some(l) = parser.eat_literal() {
         if let Ok(nbr_elements) = l.to_string().parse::<usize>() {
-            tuples::make_tuple_type_structure(&mut tb, nbr_elements, &ts!("crate"));
+            tuples::make_tuple_type_structure(&mut tb, nbr_elements);
             return tb.end().into();
         }
     }
@@ -48,8 +48,7 @@ pub fn make_basic_enum_mutators(item: proc_macro::TokenStream) -> proc_macro::To
     let mut parser = TokenParser::new(item.into());
     if let Some(l) = parser.eat_literal() {
         if let Ok(nbr_elements) = l.to_string().parse::<usize>() {
-            let fuzzcheck_mutators_crate = parser.eat_type_path().unwrap_or(ts!("fuzzcheck_mutators"));
-            enums::make_basic_enum_mutator(&mut tb, nbr_elements, &fuzzcheck_mutators_crate);
+            enums::make_basic_enum_mutator(&mut tb, nbr_elements);
             return tb.end().into();
         }
     }
@@ -93,10 +92,8 @@ fn derive_tuple_structure_(item: proc_macro2::TokenStream) -> proc_macro2::Token
 
     if let Some(s) = parser.eat_struct() {
         let nbr_fields = s.struct_fields.len();
-        if nbr_fields == 1 {
-            tuples::impl_wrapped_tuple_1_structure(&mut tb, &s, &<_>::default());
-        } else if nbr_fields > 1 {
-            tuples::impl_tuple_structure_trait(&mut tb, &s, &<_>::default());
+        if nbr_fields > 0 {
+            tuples::impl_tuple_structure_trait(&mut tb, &s);
         } else {
             extend_ts!(
                 &mut tb,
@@ -126,7 +123,7 @@ fn derive_enum_n_payload_structure_(item: proc_macro2::TokenStream) -> proc_macr
             .iter()
             .any(|item| matches!(&item.data, Some(EnumItemData::Struct(_, fields)) if fields.len() > 0))
         {
-            enums::impl_enum_structure_trait(&mut tb, &e, &ts!("fuzzcheck_mutators"));
+            enums::impl_enum_structure_trait(&mut tb, &e);
         } else {
             extend_ts!(&mut tb,
                 "compile_error!(\"The EnumNPayloadStructure macro only works on enums with at least one item with associated data.\");"
@@ -147,25 +144,17 @@ fn derive_default_mutator_(item: proc_macro2::TokenStream, settings: MakeMutator
     if let Some(s) = parser.eat_struct() {
         let nbr_fields = s.struct_fields.len();
         if nbr_fields == 0 {
-            tuples::impl_default_mutator_for_struct_with_0_field(&mut tb, &s, &settings);
-        } else if nbr_fields == 1 {
-            tuples::impl_wrapped_tuple_1_structure(&mut tb, &s, &settings);
-            tuples::impl_default_mutator_for_struct_with_1_field(&mut tb, &s, &settings);
+            tuples::impl_default_mutator_for_struct_with_0_field(&mut tb, &s);
         } else {
-            tuples::impl_tuple_structure_trait(&mut tb, &s, &settings);
+            tuples::impl_tuple_structure_trait(&mut tb, &s);
             tuples::impl_default_mutator_for_struct_with_more_than_1_field(&mut tb, &s, &settings);
         }
     } else if let Some(e) = parser.eat_enumeration() {
-        if e.items.len() == 1 && matches!(&e.items[0].data, Some(EnumItemData::Struct(_, fields)) if fields.len() == 1)
-        {
-            enums::impl_wrapped_tuple_1_structure(&mut tb, &e, &settings);
-            enums::impl_default_mutator_for_enum_wrapped_tuple(&mut tb, &e, &settings);
-        } else if e
-            .items
+        if e.items
             .iter()
             .any(|item| matches!(&item.data, Some(EnumItemData::Struct(_, fields)) if fields.len() > 0))
         {
-            enums::impl_enum_structure_trait(&mut tb, &e, &settings.fuzzcheck_mutators_crate);
+            enums::impl_enum_structure_trait(&mut tb, &e);
             enums::impl_default_mutator_for_enum(&mut tb, &e, &settings);
         } else if e.items.len() > 0 {
             // no associated data anywhere
@@ -280,7 +269,7 @@ impl Default for MakeMutatorSettings {
 
 #[allow(non_snake_case)]
 pub(crate) struct Common {
-    //fuzzcheck_mutators_crate: TokenStream,
+    fuzzcheck_mutators: TokenStream,
     // EitherNP1_pathTi: Box<dyn (Fn(usize) -> TokenStream)>,
     // EnumNPayloadArbitraryStep_path: TokenStream,
     // EnumNPayloadMutationStep_path: TokenStream,
@@ -317,6 +306,7 @@ pub(crate) struct Common {
     Tuplei: Box<dyn (Fn(usize) -> TokenStream)>,
     TupleKindi: Box<dyn (Fn(usize) -> Ident)>,
     TupleMutator: TokenStream,
+    TupleMutatorWrapper: TokenStream,
     TupleMutatorTiTupleKindi: Box<dyn (Fn(usize) -> TokenStream)>,
     TupleN_ident: Ident,
     TupleN_path: TokenStream,
@@ -327,12 +317,14 @@ pub(crate) struct Common {
     variant_count_T: TokenStream,
     UnitMutator: TokenStream,
     Vec: TokenStream,
-    WrappedTupleN_path: TokenStream,
-    WrappedMutator_path: TokenStream,
+    Wrapped_path: TokenStream,
+    Rc: TokenStream,
+    Box: TokenStream,
 }
 impl Common {
     #[allow(non_snake_case)]
-    fn new(fuzzcheck_mutators_crate: &TokenStream, n: usize) -> Self {
+    fn new(n: usize) -> Self {
+        let fuzzcheck_mutators_crate = ts!("fuzzcheck_mutators");
         let ti = Box::new(|i: usize| ident!("t" i));
         let ti_value = Box::new(|i: usize| ident!("t" i "_value"));
         let ti_cache = Box::new(|i: usize| ident!("t" i "_cache"));
@@ -385,14 +377,11 @@ impl Common {
 
         let fuzzcheck_traits_Mutator = ts!("::fuzzcheck_traits::Mutator");
 
-        let WrappedTupleN_ident = ident!("WrappedTuple" n);
-        let WrappedTupleN_path = ts!(fuzzcheck_mutators_crate "::" WrappedTupleN_ident);
-        let WrappedMutator_path = ts!(fuzzcheck_mutators_crate "::WrappedMutator");
-
         let fastrand = ts!(fuzzcheck_mutators_crate "::fastrand");
         let fastrand_Rng = ts!(fastrand "::Rng");
 
         Self {
+            fuzzcheck_mutators: ts!("fuzzcheck_mutators"),
             // EitherNP1_pathTi,
             // EnumNPayloadArbitraryStep_path,
             // EnumNPayloadMutationStep_path,
@@ -430,6 +419,7 @@ impl Common {
             Tuplei,
             TupleKindi,
             TupleMutator,
+            TupleMutatorWrapper: ts!(fuzzcheck_mutators_crate "::TupleMutatorWrapper"),
             TupleMutatorTiTupleKindi,
             TupleN_ident: ident!("Tuple" n),
             TupleN_path: ts!(fuzzcheck_mutators_crate "::" ident!("Tuple" n)),
@@ -440,13 +430,14 @@ impl Common {
             UnitMutator: ts!(fuzzcheck_mutators_crate "::UnitMutator"),
             variant_count_T: ts!("::std::mem::variant_count::<T>()"),
             Vec: ts!("::std::vec::Vec"),
-            WrappedTupleN_path,
-            WrappedMutator_path,
+            Wrapped_path: ts!(fuzzcheck_mutators_crate "::Wrapped"),
+            Rc: ts!("::std::rc::Rc"),
+            Box: ts!("::std::boxed::Box"),
         }
     }
 }
 
-fn read_field_default_mutator_attribute(attribute: TokenStream) -> Option<Ty> {
+fn read_field_default_mutator_attribute(attribute: TokenStream) -> Option<(Ty, Option<TokenStream>)> {
     let mut parser = TokenParser::new(attribute);
     let _ = parser.eat_punct('#');
     let content = match parser.eat_group(Delimiter::Bracket) {
@@ -463,6 +454,21 @@ fn read_field_default_mutator_attribute(attribute: TokenStream) -> Option<Ty> {
     };
     let mut parser = TokenParser::new(content.stream());
     let ty = parser.eat_type();
+    if let Some(ty) = ty {
+        if parser.eat_punct('=').is_some() {
+            if let Some(init) = parser.eat_group(Delimiter::Brace) {
+                match init {
+                    proc_macro2::TokenTree::Group(g) => Some((ty, Some(g.stream()))),
+                    _ => unreachable!(),
+                }
+            } else {
+                panic!()
+            }
+        } else {
+            Some((ty, None))
+        }
+    } else {
+        None
+    }
     // eprintln!("{:?}", ts!(ty));
-    ty
 }

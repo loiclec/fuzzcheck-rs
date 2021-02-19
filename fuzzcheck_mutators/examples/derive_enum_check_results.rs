@@ -26,8 +26,8 @@ pub enum X {
     D(Y),
 }
 
-type XMutator = <X as DefaultMutator>::Mutator;
-type ArbitraryStep = <XMutator as Mutator<X>>::ArbitraryStep;
+type XDefaultMutator = <X as DefaultMutator>::Mutator;
+type ArbitraryStep = <XDefaultMutator as Mutator<X>>::ArbitraryStep;
 
 fn main() {
     let complexity = 5.0;
@@ -65,7 +65,7 @@ fn main() {
     let mut cache = m.cache_from_value(&value);
     println!(
         "complexity: {:?}, {:.2}",
-        <XMutator as Mutator<X>>::max_complexity(&m),
+        <XDefaultMutator as Mutator<X>>::max_complexity(&m),
         m.complexity(&value, &cache)
     );
     let mut step = m.initial_step_from_value(&value);

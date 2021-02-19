@@ -93,13 +93,15 @@ where
     }
 }
 
-fuzzcheck_mutators_derive::make_basic_enum_mutators!(1 crate);
-fuzzcheck_mutators_derive::make_basic_enum_mutators!(2 crate);
-fuzzcheck_mutators_derive::make_basic_enum_mutators!(3 crate);
-fuzzcheck_mutators_derive::make_basic_enum_mutators!(4 crate);
-fuzzcheck_mutators_derive::make_basic_enum_mutators!(5 crate);
-fuzzcheck_mutators_derive::make_basic_enum_mutators!(6 crate);
-fuzzcheck_mutators_derive::make_basic_enum_mutators!(7 crate);
-fuzzcheck_mutators_derive::make_basic_enum_mutators!(8 crate);
-fuzzcheck_mutators_derive::make_basic_enum_mutators!(9 crate);
-fuzzcheck_mutators_derive::make_basic_enum_mutators!(10 crate);
+extern crate self as fuzzcheck_mutators;
+
+fuzzcheck_mutators_derive::make_basic_enum_mutators!(1);
+fuzzcheck_mutators_derive::make_basic_enum_mutators!(2);
+fuzzcheck_mutators_derive::make_basic_enum_mutators!(3);
+fuzzcheck_mutators_derive::make_basic_enum_mutators!(4);
+fuzzcheck_mutators_derive::make_basic_enum_mutators!(5);
+fuzzcheck_mutators_derive::make_basic_enum_mutators!(6);
+fuzzcheck_mutators_derive::make_basic_enum_mutators!(7);
+fuzzcheck_mutators_derive::make_basic_enum_mutators!(8);
+fuzzcheck_mutators_derive::make_basic_enum_mutators!(9);
+fuzzcheck_mutators_derive::make_basic_enum_mutators!(10);

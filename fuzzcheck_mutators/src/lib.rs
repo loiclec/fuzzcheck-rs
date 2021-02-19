@@ -3,6 +3,7 @@
 #![feature(cmp_min_max_by)]
 #![feature(never_type)]
 #![feature(int_bits_const)]
+#![feature(arc_new_cyclic)]
 
 pub extern crate fastrand;
 pub extern crate fuzzcheck_mutators_derive;
@@ -18,11 +19,11 @@ mod option;
 mod tuples;
 mod unit;
 mod vector;
-mod wrapped;
 
 pub use crate::bool::BoolMutator;
 pub use crate::dictionary::DictionaryMutator;
 pub use crate::integer::*;
+pub use crate::option::OptionMutator;
 pub use crate::r#box::BoxMutator;
 
 pub use crate::tuples::{RefTypes, TupleMutator, TupleMutatorWrapper, TupleStructure};
@@ -37,7 +38,7 @@ pub use crate::enums::{
     Enum10PayloadStructure, Enum1PayloadStructure, Enum2PayloadStructure, Enum3PayloadStructure, Enum4PayloadStructure,
     Enum5PayloadStructure, Enum6PayloadStructure, Enum7PayloadStructure, Enum8PayloadStructure, Enum9PayloadStructure,
 };
-pub use crate::tuples::{Tuple1, Tuple10, Tuple2, Tuple3, Tuple4, Tuple5, Tuple6, Tuple7, Tuple8, Tuple9};
+pub use crate::tuples::{Tuple1, Tuple10, Tuple2, Tuple3, Tuple4, Tuple5, Tuple6, Tuple7, Tuple8, Tuple9, Wrapped};
 pub use crate::tuples::{
     Tuple10Mutator, Tuple1Mutator, Tuple2Mutator, Tuple3Mutator, Tuple4Mutator, Tuple5Mutator, Tuple6Mutator,
     Tuple7Mutator, Tuple8Mutator, Tuple9Mutator,
@@ -45,7 +46,6 @@ pub use crate::tuples::{
 
 pub use crate::unit::*;
 pub use crate::vector::VecMutator;
-pub use crate::wrapped::{WrappedMutator, WrappedTuple1};
 
 use fuzzcheck_traits::Mutator;
 use std::ops::Range;

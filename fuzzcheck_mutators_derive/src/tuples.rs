@@ -6,27 +6,19 @@ use synquote::token_builder::*;
 
 use crate::{Common, MakeMutatorSettings};
 
-pub fn make_basic_tuple_mutator(tb: &mut TokenBuilder, nbr_elements: usize, fuzzcheck_mutators_crate: &TokenStream) {
-    make_tuple_type_structure(tb, nbr_elements, fuzzcheck_mutators_crate);
-    let mod_mutator = ident!("tuple" nbr_elements);
-    extend_ts!(tb,
-        "pub use" mod_mutator " :: " ident!("Tuple" nbr_elements "Mutator") ";"
-        "mod" mod_mutator "{"
-            "use super:: " ident!("Tuple" nbr_elements) " ;"
-    );
+pub fn make_basic_tuple_mutator(tb: &mut TokenBuilder, nbr_elements: usize) {
+    make_tuple_type_structure(tb, nbr_elements);
 
-    declare_tuple_mutator(tb, fuzzcheck_mutators_crate, nbr_elements);
-    declare_tuple_mutator_helper_types(tb, fuzzcheck_mutators_crate, nbr_elements);
-    impl_mutator_trait(tb, nbr_elements, fuzzcheck_mutators_crate);
+    declare_tuple_mutator(tb, nbr_elements);
+    declare_tuple_mutator_helper_types(tb, nbr_elements);
+    impl_mutator_trait(tb, nbr_elements);
 
-    impl_default_mutator_for_tuple(tb, nbr_elements, fuzzcheck_mutators_crate);
-
-    extend_ts!(tb, "}");
+    impl_default_mutator_for_tuple(tb, nbr_elements);
 }
 
 #[allow(non_snake_case)]
-pub fn make_tuple_type_structure(tb: &mut TokenBuilder, nbr_elements: usize, fuzzcheck_mutators_crate: &TokenStream) {
-    let cm = Common::new(fuzzcheck_mutators_crate, nbr_elements);
+pub fn make_tuple_type_structure(tb: &mut TokenBuilder, nbr_elements: usize) {
+    let cm = Common::new(nbr_elements);
     let Ti = cm.Ti.as_ref();
 
     // T0, T1, ...
@@ -51,7 +43,7 @@ pub fn make_tuple_type_structure(tb: &mut TokenBuilder, nbr_elements: usize, fuz
             }
         }
         "
-        "impl<" type_params_static_bound "> TupleStructure<" cm.TupleN_ident "<" type_params "> > for" tuple_owned "{
+        "impl<" type_params_static_bound "> " cm.TupleStructure "<" cm.TupleN_ident "<" type_params "> > for" tuple_owned "{
             fn get_ref<'a>(&'a self) -> " tuple_ref " {
                 (" join_ts!(0..nbr_elements, i, "&self." i, separator: ",") ")
             }
@@ -66,44 +58,18 @@ pub fn make_tuple_type_structure(tb: &mut TokenBuilder, nbr_elements: usize, fuz
     );
 }
 
-pub(crate) fn impl_wrapped_tuple_1_structure(tb: &mut TokenBuilder, struc: &Struct, settings: &MakeMutatorSettings) {
-    assert!(struc.struct_fields.len() == 1);
-    let cm = Common::new(&settings.fuzzcheck_mutators_crate, 1);
-
-    let field = &struc.struct_fields[0];
-    let field_type = field.ty.clone();
-
-    let generics_no_eq = struc.generics.removing_eq_type();
-    let generics_no_eq_nor_bounds = struc.generics.removing_bounds_and_eq_type();
-
-    let mut where_clause = struc.where_clause.clone().unwrap_or(WhereClause::default());
-    where_clause.add_clause_items(ts!(field_type ": 'static"));
-    
-
-    extend_ts!(tb,
-        "impl " generics_no_eq cm.TupleStructure "<" cm.WrappedTupleN_path "<" field_type "> >
-            for " struc.ident generics_no_eq_nor_bounds where_clause " 
-        {
-            fn get_ref<'a>(&'a self) -> &'a " field_type " {
-                &self." field.access() "
-            }
-        
-            fn get_mut<'a>(&'a mut self) -> &'a mut " field_type " {
-                &mut self." field.access() "
-            }
-        
-            fn new(t: " field_type ") -> Self {
-                Self { " field.access() ": t }
-            }
-        }"
-    )
-}
-
-pub(crate) fn impl_tuple_structure_trait(tb: &mut TokenBuilder, struc: &Struct, settings: &MakeMutatorSettings) {
+#[allow(non_snake_case)]
+pub(crate) fn impl_tuple_structure_trait(tb: &mut TokenBuilder, struc: &Struct) {
     let nbr_elements = struc.struct_fields.len();
-    let cm = Common::new(&settings.fuzzcheck_mutators_crate, nbr_elements);
+    let cm = Common::new(nbr_elements);
     let field_types = join_ts!(&struc.struct_fields, field, field.ty, separator: ",");
     // let Ti = |i: usize| ident!("T" i);
+
+    let TupleKind = if nbr_elements == 1 {
+        cm.Wrapped_path.clone()
+    } else {
+        cm.TupleN_path.clone()
+    };
 
     let generics_no_eq = struc.generics.removing_eq_type();
     let generics_no_eq_nor_bounds = struc.generics.removing_bounds_and_eq_type();
@@ -120,7 +86,7 @@ pub(crate) fn impl_tuple_structure_trait(tb: &mut TokenBuilder, struc: &Struct, 
     );
 
     extend_ts!(tb,
-        "impl" generics_no_eq cm.TupleStructure "<" cm.TupleN_path "<" field_types "> >
+        "impl" generics_no_eq cm.TupleStructure "<" TupleKind "<" field_types "> >
             for" struc.ident generics_no_eq_nor_bounds where_clause "{
             fn get_ref<'a>(&'a self) -> " tuple_ref " {
                 (" join_ts!(&struc.struct_fields, field, "&self." field.access(), separator: ",") ")
@@ -132,9 +98,13 @@ pub(crate) fn impl_tuple_structure_trait(tb: &mut TokenBuilder, struc: &Struct, 
 
             fn new(t:" tuple_owned ") -> Self {
                 Self {"
-                    join_ts!(struc.struct_fields.iter().enumerate(), (i, field),
-                        field.access() ": t." i
-                    , separator: ",")
+                    if nbr_elements > 1 {
+                        join_ts!(struc.struct_fields.iter().enumerate(), (i, field),
+                            field.access() ": t." i
+                        , separator: ",")
+                    } else {
+                        ts!(struc.struct_fields[0].access() ": t")
+                    }
                 "}
             }
         }"
@@ -143,11 +113,10 @@ pub(crate) fn impl_tuple_structure_trait(tb: &mut TokenBuilder, struc: &Struct, 
 
 pub(crate) fn impl_default_mutator_for_struct_with_0_field(
     tb: &mut TokenBuilder,
-    struc: &Struct,
-    settings: &MakeMutatorSettings,
+    struc: &Struct
 ) {
     assert!(struc.struct_fields.len() == 0);
-    let cm = Common::new(&settings.fuzzcheck_mutators_crate, 0);
+    let cm = Common::new(0);
     let generics_no_eq = struc.generics.removing_eq_type();
     let generics_no_eq_nor_bounds = struc.generics.removing_bounds_and_eq_type();
 
@@ -172,35 +141,9 @@ pub(crate) fn impl_default_mutator_for_struct_with_0_field(
     ");
 }
 
-pub(crate) fn impl_default_mutator_for_struct_with_1_field(
-    tb: &mut TokenBuilder,
-    struc: &Struct,
-    settings: &MakeMutatorSettings,
-) {
-    assert!(struc.struct_fields.len() == 1);
-    let cm = Common::new(&settings.fuzzcheck_mutators_crate, 1);
-    let field = &struc.struct_fields[0];
-
-    let generics_no_eq = struc.generics.removing_eq_type();
-    let generics_no_eq_nor_bounds = struc.generics.removing_bounds_and_eq_type();
-
-    // add T: DefaultMutator for each generic type parameter to the existing where clause
-    let mut where_clause = struc.where_clause.clone().unwrap_or(WhereClause::default());
-    where_clause.add_clause_items(
-        join_ts!(&struc.generics.type_params, ty_param,
-            ty_param.type_ident ":" cm.DefaultMutator ","
-        )
-    );
-    
-    extend_ts!(tb, 
-    "impl " generics_no_eq cm.DefaultMutator "for" struc.ident generics_no_eq_nor_bounds where_clause "{
-        type Mutator = " cm.WrappedMutator_path "<" field.ty ", <" field.ty "as" cm.DefaultMutator ">::Mutator>;
-    
-        fn default_mutator() -> Self::Mutator {
-            Self::Mutator::new(<" field.ty ">::default_mutator())
-        }
-    }
-    ")
+enum FieldMutator {
+    Generic(usize, StructField),
+    Prescribed(Ty, Option<TokenStream>),
 }
 
 #[allow(non_snake_case)]
@@ -209,12 +152,9 @@ pub(crate) fn impl_default_mutator_for_struct_with_more_than_1_field(
     struc: &Struct,
     settings: &MakeMutatorSettings,
 ) {
-    assert!(struc.struct_fields.len() > 1);
-
     let nbr_elements = struc.struct_fields.len();
-    assert!(nbr_elements > 1);
 
-    let cm = Common::new(&settings.fuzzcheck_mutators_crate, nbr_elements);
+    let cm = Common::new(nbr_elements);
     let Mi = cm.Mi.as_ref();
     let TupleNMutator = cm.TupleNMutator.as_ref()(nbr_elements);
 
@@ -222,17 +162,62 @@ pub(crate) fn impl_default_mutator_for_struct_with_more_than_1_field(
     let generics_no_eq_nor_bounds = struc.generics.removing_bounds_and_eq_type();
 
     let field_types = join_ts!(&struc.struct_fields, field, field.ty, separator: ",");
-    let TupleN_and_generics = ts!(cm.TupleN_path "<" field_types ">");
+
+    let field_mutators = struc.struct_fields.iter().enumerate().map(|(i, field)| {
+        let mut mutator = None;
+        for attribute in field.attributes.iter() {
+            if let Some((m, init)) = super::read_field_default_mutator_attribute(attribute.clone()) {
+                mutator = Some((m, init));
+            }
+        }
+        if let Some(m) = mutator {
+            FieldMutator::Prescribed(m.0.clone(), m.1.clone())
+        } else {
+            FieldMutator::Generic(i, field.clone())
+        }
+    }).collect::<Vec<_>>();
+
+    let field_generic_mutators = field_mutators.iter().filter_map(|m| {
+        match m {
+            FieldMutator::Generic(i, field) => { Some((*i, field.clone())) }
+            FieldMutator::Prescribed(_, _) => { None }
+        }
+    }).collect::<Vec<_>>();
+    let field_prescribed_mutators = field_mutators.iter().filter_map(|m| {
+        match m {
+            FieldMutator::Generic(_, _) => { None }
+            FieldMutator::Prescribed(m, init) => { Some((m.clone(), init.clone())) }
+        }
+    }).collect::<Vec<_>>();
+
+    let field_mutators_streams = field_mutators.iter().map(|m| {
+        match m {
+            FieldMutator::Prescribed(m, _) => {
+                ts!(m)
+            }
+            FieldMutator::Generic(i, _) => {
+                ts!(Mi(*i))
+            }
+        }
+    }).collect::<Vec<_>>();
+
+    let TupleKind = if nbr_elements == 1 {
+        cm.Wrapped_path.clone()
+    } else {
+        cm.TupleN_path.clone()
+    };
+
+    let TupleN_and_generics = ts!(TupleKind "<" field_types ">");
 
     let StrucMutator = ident!(struc.ident "Mutator");
 
     let TupleMutatorWrapper = ts!(
-        settings.fuzzcheck_mutators_crate "::TupleMutatorWrapper<"
+        cm.TupleMutatorWrapper "<"
             struc.ident generics_no_eq_nor_bounds ","
             TupleNMutator "<"
                 field_types ", "
-                join_ts!(0..nbr_elements, i,
-                    Mi(i)
+                join_ts!(&field_mutators_streams, m, 
+                    m
                 , separator: ",")
             ">,"
             TupleN_and_generics
@@ -245,56 +230,124 @@ pub(crate) fn impl_default_mutator_for_struct_with_more_than_1_field(
         join_ts!(&struc.generics.type_params, ty_param,
             ty_param.type_ident ":" cm.Clone "+ 'static,"
         )
-        // and then add Mi : Mutator<field> for each field
-        join_ts!(struc.struct_fields.iter().enumerate(), (i, field),
-            Mi(i) ":" cm.fuzzcheck_mutator_traits_Mutator "<" field.ty "> ,"
+        // and then add Mi : Mutator<field> for each generic field mutator
+        join_ts!(field_generic_mutators.iter(), (i, field),
+            Mi(*i) ":" cm.fuzzcheck_mutator_traits_Mutator "<" field.ty "> ,"
         )
     ));
 
     let mut StrucMutator_generics = struc.generics.clone();
-    for i in 0..nbr_elements {
+    for (i, _) in field_generic_mutators.iter() {
         StrucMutator_generics.type_params.push(TypeParam {
-            type_ident: ts!(Mi(i)),
+            type_ident: ts!(Mi(*i)),
             ..<_>::default()
         });
     }
 
     // // add T: DefaultMutator + 'static for each generic type parameter to the existing where clause
     let mut DefaultMutator_where_clause = struc.where_clause.clone().unwrap_or(WhereClause::default());
-    DefaultMutator_where_clause.add_clause_items(
+    DefaultMutator_where_clause.add_clause_items(ts!(
         join_ts!(&struc.generics.type_params, ty_param,
             ty_param.type_ident ":" cm.DefaultMutator "+ 'static ,"
         )
-    );
+        join_ts!(field_prescribed_mutators.iter().filter(|(_, init)| init.is_none()), (mutator, _),
+            mutator ":" cm.Default ","
+        )
+    ));
 
     let mut DefaultMutator_Mutator_generics = struc.generics.removing_bounds_and_eq_type();
-    for field in &struc.struct_fields {
+    for (_, field) in field_generic_mutators.iter() {
         DefaultMutator_Mutator_generics.type_params.push(TypeParam {
             type_ident: ts!("<" field.ty " as " cm.DefaultMutator ">::Mutator"),
             ..<_>::default()
         })
     }
 
+    let StrucMutatorCache = ident!(StrucMutator "Cache");
+    let StrucMutatorMutationStep = ident!(StrucMutator "MutationStep");
+    let StrucMutatorArbitraryStep = ident!(StrucMutator "ArbitraryStep");
+    let StrucMutatorUnmutateToken = ident!(StrucMutator "UnmutateToken");
+
+    let helper_type = |helper_type: &str| {
+        ts!(
+            struc.visibility "struct" ident!(StrucMutator helper_type) StrucMutator_generics.removing_eq_type() StrucMutator_where_clause "{
+            inner : "
+                if settings.recursive {
+                    ts!(cm.Box "<")
+                } else {
+                    ts!("")
+                }
+                "<" TupleMutatorWrapper " as " cm.fuzzcheck_mutator_traits_Mutator "<" struc.ident generics_no_eq_nor_bounds "> >::" helper_type
+                if settings.recursive {
+                    ">"
+                } else {
+                    ""
+                }
+                ",
+            }
+            impl " StrucMutator_generics.removing_eq_type() ident!(StrucMutator helper_type) StrucMutator_generics.removing_bounds_and_eq_type() StrucMutator_where_clause "{
+                fn new(inner: <" TupleMutatorWrapper " as " cm.fuzzcheck_mutator_traits_Mutator "<" struc.ident generics_no_eq_nor_bounds "> >::" helper_type") -> Self {"
+                    "Self {
+                        inner: "  if settings.recursive { ts!(cm.Box "::new") } else { ts!("") }
+                            "(inner)"
+                        "
+                    }"
+                "}
+            } 
+            ")
+    };
+    let impl_clone_helper_type = |helper_type: &str| {
+        ts!(
+            "impl" StrucMutator_generics.removing_eq_type()  cm.Clone "for" ident!(StrucMutator helper_type) StrucMutator_generics.removing_bounds_and_eq_type() StrucMutator_where_clause "{
+                fn clone(&self) -> Self {
+                    Self {
+                        inner: self.inner.clone()
+                    }
+                }
+            }" 
+        )
+    };
+    let impl_default_helper_type = |helper_type: &str| {
+        ts!(
+            "impl" StrucMutator_generics.removing_eq_type()  cm.Default "for" ident!(StrucMutator helper_type) StrucMutator_generics.removing_bounds_and_eq_type() StrucMutator_where_clause "{
+                fn default() -> Self {
+                    Self {
+                        inner: <_>::default()
+                    }
+                }
+            }" 
+        )
+    };
+
     extend_ts!(tb,
-        struc.visibility "struct" StrucMutator StrucMutator_generics.removing_eq_type() StrucMutator_where_clause "{
+    struc.visibility "struct" StrucMutator StrucMutator_generics.removing_eq_type() StrucMutator_where_clause "{
         pub mutator: " TupleMutatorWrapper "
-    }
-    impl " StrucMutator_generics.removing_eq_type() StrucMutator StrucMutator_generics.removing_bounds_and_eq_type() StrucMutator_where_clause "{
+    }"
+    helper_type("Cache")
+    impl_clone_helper_type("Cache")
+    helper_type("MutationStep")
+    impl_clone_helper_type("MutationStep")
+    helper_type("ArbitraryStep")
+    impl_clone_helper_type("ArbitraryStep")
+    impl_default_helper_type("ArbitraryStep")
+    helper_type("UnmutateToken")
+    "impl " StrucMutator_generics.removing_eq_type() StrucMutator StrucMutator_generics.removing_bounds_and_eq_type() StrucMutator_where_clause "{
         pub fn new(" 
-            join_ts!(struc.struct_fields.iter().enumerate(), (i, field),
-                ident!("mutator_" field.access()) ":" Mi(i)
+            join_ts!(struc.struct_fields.iter().zip(field_mutators_streams.iter()), (field, mutator),
+                ident!("mutator_" field.access()) ":" mutator
             , separator: ",")
             ") -> Self {
             Self {
-                mutator : " settings.fuzzcheck_mutators_crate "::TupleMutatorWrapper::new(" TupleNMutator "::new("
+                mutator : " cm.TupleMutatorWrapper "::new(" TupleNMutator "::new("
                     join_ts!(struc.struct_fields.iter(), field,
                         ident!("mutator_" field.access())
                     , separator: ",")
                     "))
             }
         }
-    } 
-    impl " StrucMutator_generics.removing_eq_type() cm.Default "for" StrucMutator StrucMutator_generics.removing_bounds_and_eq_type() 
+    } "
+    // TODO: should use the `init` of prescribed mutators
+    "impl " StrucMutator_generics.removing_eq_type() cm.Default "for" StrucMutator StrucMutator_generics.removing_bounds_and_eq_type() 
         StrucMutator_where_clause ", " TupleMutatorWrapper ":" cm.Default "
     {
         fn default() -> Self {
@@ -307,17 +360,17 @@ pub(crate) fn impl_default_mutator_for_struct_with_more_than_1_field(
         "for" StrucMutator StrucMutator_generics.removing_bounds_and_eq_type()
         StrucMutator_where_clause
     "{
-        type Cache = <" TupleMutatorWrapper " as " cm.fuzzcheck_mutator_traits_Mutator "<" struc.ident generics_no_eq_nor_bounds "> >::Cache ;
-        type MutationStep = <" TupleMutatorWrapper " as " cm.fuzzcheck_mutator_traits_Mutator "<" struc.ident generics_no_eq_nor_bounds "> >::MutationStep ;
-        type ArbitraryStep = <" TupleMutatorWrapper " as " cm.fuzzcheck_mutator_traits_Mutator "<" struc.ident generics_no_eq_nor_bounds "> >::ArbitraryStep ;
-        type UnmutateToken = <" TupleMutatorWrapper " as " cm.fuzzcheck_mutator_traits_Mutator "<" struc.ident generics_no_eq_nor_bounds "> >::UnmutateToken ;
-
+        type Cache = " StrucMutatorCache StrucMutator_generics.removing_bounds_and_eq_type() ";
+        type ArbitraryStep = " StrucMutatorArbitraryStep StrucMutator_generics.removing_bounds_and_eq_type() ";
+        type MutationStep = " StrucMutatorMutationStep StrucMutator_generics.removing_bounds_and_eq_type() ";
+        type UnmutateToken = " StrucMutatorUnmutateToken StrucMutator_generics.removing_bounds_and_eq_type() ";
+        
         fn cache_from_value(&self, value: &" struc.ident generics_no_eq_nor_bounds ") -> Self::Cache {
-            self.mutator.cache_from_value(value)
+            Self::Cache::new(self.mutator.cache_from_value(value))
         }
 
         fn initial_step_from_value(&self, value: &" struc.ident generics_no_eq_nor_bounds ") -> Self::MutationStep {
-            self.mutator.initial_step_from_value(value)
+            Self::MutationStep::new(self.mutator.initial_step_from_value(value))
         }
 
         fn max_complexity(&self) -> f64 {
@@ -329,15 +382,20 @@ pub(crate) fn impl_default_mutator_for_struct_with_more_than_1_field(
         }
 
         fn complexity(&self, value: &" struc.ident generics_no_eq_nor_bounds ", cache: &Self::Cache) -> f64 {
-            self.mutator.complexity(value, cache)
+            self.mutator.complexity(value, &cache.inner)
         }
 
         fn ordered_arbitrary(&self, step: &mut Self::ArbitraryStep, max_cplx: f64) -> Option<(" struc.ident generics_no_eq_nor_bounds ", Self::Cache)> {
-            self.mutator.ordered_arbitrary(step, max_cplx)
+            if let " cm.Some "((value, cache)) = self.mutator.ordered_arbitrary(&mut step.inner, max_cplx) {"
+                cm.Some "((value, Self::Cache::new(cache)))"
+            "} else {"
+                cm.None
+            "}
         }
 
         fn random_arbitrary(&self, max_cplx: f64) -> (" struc.ident generics_no_eq_nor_bounds ", Self::Cache) {
-            self.mutator.random_arbitrary(max_cplx)
+            let (value, cache) = self.mutator.random_arbitrary(max_cplx);
+            (value, Self::Cache::new(cache))
         }
 
         fn ordered_mutate(
@@ -347,29 +405,65 @@ pub(crate) fn impl_default_mutator_for_struct_with_more_than_1_field(
             step: &mut Self::MutationStep,
             max_cplx: f64,
         ) -> Option<Self::UnmutateToken> {
-            self.mutator.ordered_mutate(value, cache, step, max_cplx)
+            if let " cm.Some "(t) = self.mutator.ordered_mutate(value, &mut cache.inner, &mut step.inner, max_cplx) {
+                " cm.Some "(Self::UnmutateToken::new(t))
+            } else {"
+                cm.None   
+            "}
         }
 
         fn random_mutate(&self, value: &mut " struc.ident generics_no_eq_nor_bounds ", cache: &mut Self::Cache, max_cplx: f64) -> Self::UnmutateToken {
-            self.mutator.random_mutate(value, cache, max_cplx)
+            Self::UnmutateToken::new(self.mutator.random_mutate(value, &mut cache.inner, max_cplx))
         }
 
         fn unmutate(&self, value: &mut " struc.ident generics_no_eq_nor_bounds ", cache: &mut Self::Cache, t: Self::UnmutateToken) {
-            self.mutator.unmutate(value, cache, t)
+            self.mutator.unmutate(
+                value, 
+                &mut cache.inner, "
+                if settings.recursive {
+                    "*t.inner"
+                } else {
+                    "t.inner"
+                }
+                "
+            )
         }
     }
     "
     if settings.default {
         ts!("impl" generics_no_eq cm.DefaultMutator "for" struc.ident generics_no_eq_nor_bounds DefaultMutator_where_clause "{"
-            "type Mutator = "  StrucMutator DefaultMutator_Mutator_generics " ;
-
-        fn default_mutator() -> Self::Mutator {
-            Self::Mutator::new("
-                join_ts!(&struc.struct_fields, field,
-                    "< " field.ty " >::default_mutator() ,"
-                )
-                ")
+        if settings.recursive {
+            ts!("type Mutator = " cm.Rc "<" StrucMutator DefaultMutator_Mutator_generics ">;")
+        } else {
+            ts!("type Mutator = "  StrucMutator DefaultMutator_Mutator_generics ";")
         }
+        "fn default_mutator() -> Self::Mutator {"
+            if settings.recursive { 
+                format!("{}::new_cyclic(|self_| {{", cm.Rc)
+            } else { 
+                "".to_string()
+            }
+            StrucMutator "::new("
+                join_ts!(&field_mutators, mutator,
+                    match mutator {
+                     FieldMutator::Generic(_, field) => {
+                        ts!("< " field.ty " >::default_mutator() ,")
+                     }
+                     FieldMutator::Prescribed(_, Some(init)) => {
+                        ts!(init ",")
+                     }
+                     FieldMutator::Prescribed(mutator, None) => {
+                        ts!("<" mutator ">::default() ,")
+                     }
+                    }
+                )
+            ")"
+            if settings.recursive { 
+                "})" 
+            } else { 
+                "" 
+            }    
+            "}
         }")
     } else {
         ts!()
@@ -378,8 +472,8 @@ pub(crate) fn impl_default_mutator_for_struct_with_more_than_1_field(
 }
 
 #[allow(non_snake_case)]
-fn declare_tuple_mutator(tb: &mut TokenBuilder, fuzzcheck_mutators_crate: &TokenStream, nbr_elements: usize) {
-    let cm = Common::new(fuzzcheck_mutators_crate, nbr_elements);
+fn declare_tuple_mutator(tb: &mut TokenBuilder, nbr_elements: usize) {
+    let cm = Common::new(nbr_elements);
     let Ti = cm.Ti.as_ref();
     let Mi = cm.Mi.as_ref();
 
@@ -447,10 +541,9 @@ fn declare_tuple_mutator(tb: &mut TokenBuilder, fuzzcheck_mutators_crate: &Token
 #[allow(non_snake_case)]
 fn declare_tuple_mutator_helper_types(
     tb: &mut TokenBuilder,
-    fuzzcheck_mutators_crate: &TokenStream,
     nbr_elements: usize,
 ) {
-    let cm = Common::new(fuzzcheck_mutators_crate, nbr_elements);
+    let cm = Common::new(nbr_elements);
     let Ti = cm.Ti.as_ref();
     let ti = cm.ti.as_ref();
     let tuple_type_params = join_ts!(0..nbr_elements, i, ident!("T" i), separator: ",");
@@ -505,8 +598,8 @@ fn declare_tuple_mutator_helper_types(
 }
 
 #[allow(non_snake_case)]
-fn impl_mutator_trait(tb: &mut TokenBuilder, nbr_elements: usize, fuzzcheck_mutators_crate: &TokenStream) {
-    let cm = Common::new(fuzzcheck_mutators_crate, nbr_elements);
+fn impl_mutator_trait(tb: &mut TokenBuilder, nbr_elements: usize) {
+    let cm = Common::new(nbr_elements);
 
     let tuple_type_params = join_ts!(0..nbr_elements, i, ident!("T" i), separator: ",");
 
@@ -525,7 +618,7 @@ fn impl_mutator_trait(tb: &mut TokenBuilder, nbr_elements: usize, fuzzcheck_muta
     let tuple_mut = ts!("(" join_ts!(0..nbr_elements, i, "&'a mut" Ti(i), separator: ",") ")");
 
     let SelfAsTupleMutator = ts!("<Self as " cm.TupleMutator "<T, " cm.TupleN_ident "<" tuple_type_params "> >>");
-    let RefTypes = ts!(fuzzcheck_mutators_crate "::RefTypes");
+    let RefTypes = ts!(cm.fuzzcheck_mutators "::RefTypes");
     let TupleNAsRefTypes = ts!("<" cm.TupleN_ident "<" tuple_type_params "> as " RefTypes ">");
 
     extend_ts!(tb,"
@@ -726,8 +819,8 @@ fn impl_mutator_trait(tb: &mut TokenBuilder, nbr_elements: usize, fuzzcheck_muta
 }
 
 #[allow(non_snake_case)]
-fn impl_default_mutator_for_tuple(tb: &mut TokenBuilder, nbr_elements: usize, fuzzcheck_mutators_crate: &TokenStream) {
-    let cm = Common::new(fuzzcheck_mutators_crate, nbr_elements);
+fn impl_default_mutator_for_tuple(tb: &mut TokenBuilder, nbr_elements: usize) {
+    let cm = Common::new(nbr_elements);
 
     let Ti = cm.Ti.as_ref();
     let Mi = cm.Mi.as_ref();
@@ -738,7 +831,7 @@ fn impl_default_mutator_for_tuple(tb: &mut TokenBuilder, nbr_elements: usize, fu
 
     let TupleN = ts!(ident!("Tuple" nbr_elements) "<" tuple_type_params ">");
     let TupleMutatorWrapper = ts!(
-        fuzzcheck_mutators_crate "::TupleMutatorWrapper<
+        cm.TupleMutatorWrapper "<
             (" tuple_type_params "),"
             cm.TupleNMutator_ident "<"
                 tuple_type_params ", "
@@ -794,95 +887,44 @@ mod test {
     use crate::MakeMutatorSettings;
 
     use super::{
-        declare_tuple_mutator, declare_tuple_mutator_helper_types, impl_default_mutator_for_struct_with_1_field,
+        declare_tuple_mutator, declare_tuple_mutator_helper_types, /*impl_default_mutator_for_struct_with_1_field,*/
         impl_default_mutator_for_struct_with_more_than_1_field, impl_default_mutator_for_tuple, impl_mutator_trait,
-        impl_tuple_structure_trait, impl_wrapped_tuple_1_structure, make_tuple_type_structure,
+        impl_tuple_structure_trait, /*impl_wrapped_tuple_1_structure,*/ make_tuple_type_structure,
     };
 
     // #[test]
     // fn test_make_mutator_with_forced_field_mutator() {
     //     let mut tb = TokenBuilder::new();
     //     let code = "
-    //     pub struct XY {
+    //     struct S {
     //         x: u8,
-    //         #[field_mutator(VecMutator<XY, Weak<Self>>)]
-    //         y: Vec<XY>,
+    //         #[field_mutator(OptionMutator<Box<S>, BoxMutator<S, Weak<SMutator<M0>>>> = { OptionMutator::new(BoxMutator::new(self_.clone())) })]
+    //         y: Option<Box<S>>,
     //     }"
     //     .parse::<TokenStream>()
     //     .unwrap();
     //     let mut parser = TokenParser::new(code);
     //     let struc = parser.eat_struct().unwrap();
-    //     impl_default_mutator_for_struct_with_more_than_1_field(&mut tb, &struc, &<_>::default());
+    //     let settings = MakeMutatorSettings {
+    //         recursive: true,  
+    //         ..<_>::default()
+    //     };
+    //     impl_default_mutator_for_struct_with_more_than_1_field(&mut tb, &struc, &settings);
     //     let generated = tb.end().to_string();
-
-    //     let expected = "";
-
+    //
+    //     // let expected = "
+    //     // impl<T> DefaultMutator for XY<T> where 
+    //     //     VecMutator<XY<T>, Weak<Self>> : Default // if there's no equal
+    //     // {
+    //     //     fn default_mutator() -> Self::Mutator {
+    //     //         Self::Mutator(T::default_mutator(), { VecMutator::new(10) })
+    //     //         Self::Mutator(T::default_mutator(), <VecMutator<XY<T>, Weak<Self>>>::default() })
+    //     //         Rc::new_cyclic(|self_| Self::Mutator(T::default_mutator(), { VecMutator::new(self_) }) )
+    //     //     }
+    //     // }";
+    //
     //     assert!(false, "\n\n{}\n\n", generated);
     // }
-
-    #[test]
-    fn test_default_mutator_for_struct_with_1_field() {
-        let mut tb = TokenBuilder::new();
-        let code = "
-        pub struct X<T: Clone>(bool) where T: Default;
-        "
-        .parse::<TokenStream>()
-        .unwrap();
-        let mut parser = TokenParser::new(code);
-        let struc = parser.eat_struct().unwrap();
-        impl_default_mutator_for_struct_with_1_field(&mut tb, &struc, &<_>::default());
-        let generated = tb.end().to_string();
-
-        let expected = "
-        impl<T: Clone> fuzzcheck_mutators::DefaultMutator for X <T> where T: Default, T: fuzzcheck_mutators::DefaultMutator {
-            type Mutator = fuzzcheck_mutators::WrappedMutator<bool, <bool as fuzzcheck_mutators::DefaultMutator >::Mutator >;
-        
-            fn default_mutator() -> Self::Mutator {
-                Self::Mutator::new(<bool>::default_mutator())
-            }
-        }
-        ".parse::<TokenStream>()
-        .unwrap()
-        .to_string();
-
-        assert_eq!(generated, expected, "\n\n{} \n\n{}\n\n", generated, expected);
-    }
-
-    #[test]
-    fn test_impl_wrapped_tuple_1_structure() {
-        let mut tb = TokenBuilder::new();
-        let code = "
-        pub struct X<T> where T: Default {
-            x: Vec<T> ,
-        }
-        "
-        .parse::<TokenStream>()
-        .unwrap();
-        let mut parser = TokenParser::new(code);
-        let struc = parser.eat_struct().unwrap();
-        impl_wrapped_tuple_1_structure(&mut tb, &struc, &<_>::default());
-        let generated = tb.end().to_string();
-
-        let expected = "
-        impl<T> fuzzcheck_mutators::TupleStructure< fuzzcheck_mutators::WrappedTuple1<Vec<T> > > for X<T> where T: Default, Vec<T> : 'static {
-            fn get_ref<'a>(&'a self) -> &'a Vec<T> {
-                &self.x
-            }
-        
-            fn get_mut<'a>(&'a mut self) -> &'a mut Vec<T> {
-                &mut self.x
-            }
-        
-            fn new(t: Vec<T>) -> Self {
-                Self { x: t }
-            }
-        }
-        ".parse::<TokenStream>()
-        .unwrap()
-        .to_string();
-
-        assert_eq!(generated, expected, "\n\n{} \n\n{}\n\n", generated, expected);
-    }
 
     #[test]
     fn test_impl_default_mutator_two_fields() {
@@ -901,130 +943,173 @@ mod test {
         let generated = tb.end().to_string();
 
         let expected = "
-        pub struct SMutator<T: Into<u8>, M0, M1>
-        where
-            T: Default,
-            T: ::std::clone::Clone + 'static,
-            M0: fuzzcheck_mutators::fuzzcheck_traits::Mutator<u8> ,
-            M1: fuzzcheck_mutators::fuzzcheck_traits::Mutator<Vec<T> >
-        {
-            pub mutator: fuzzcheck_mutators::TupleMutatorWrapper<
-                S<T> ,
-                fuzzcheck_mutators::Tuple2Mutator<u8, Vec<T> , M0, M1>,
-                fuzzcheck_mutators::Tuple2<u8, Vec<T> >
-            >
-        }
-        impl<T: Into<u8>, M0, M1> SMutator<T, M0, M1>
-        where
-            T: Default,
-            T: ::std::clone::Clone + 'static,
-            M0: fuzzcheck_mutators::fuzzcheck_traits::Mutator<u8> ,
-            M1: fuzzcheck_mutators::fuzzcheck_traits::Mutator<Vec<T> >
-        {
-            pub fn new(mutator_x: M0, mutator_y: M1) -> Self {
-                Self {
-                    mutator: fuzzcheck_mutators::TupleMutatorWrapper::new(fuzzcheck_mutators::Tuple2Mutator::new(
-                        mutator_x, mutator_y
-                    ))
-                }
-            }
-        }
-        impl<T: Into<u8>, M0, M1> ::std::default::Default for SMutator<T, M0, M1>
-        where
-            T: Default,
-            T: ::std::clone::Clone + 'static,
-            M0: fuzzcheck_mutators::fuzzcheck_traits::Mutator<u8> ,
-            M1: fuzzcheck_mutators::fuzzcheck_traits::Mutator<Vec<T> > ,
-            fuzzcheck_mutators::TupleMutatorWrapper<
-                S<T> ,
-                fuzzcheck_mutators::Tuple2Mutator<u8, Vec<T> , M0, M1>,
-                fuzzcheck_mutators::Tuple2<u8, Vec<T> >
-            > : ::std::default::Default
-        {
-            fn default() -> Self {
-                Self {
-                    mutator: <_>::default()
-                }
-            }
-        }
-        impl<T: Into<u8>, M0, M1> fuzzcheck_mutators::fuzzcheck_traits::Mutator<S<T> > for SMutator<T, M0, M1>
-        where
-            T: Default,
-            T: ::std::clone::Clone + 'static,
-            M0: fuzzcheck_mutators::fuzzcheck_traits::Mutator<u8> ,
-            M1: fuzzcheck_mutators::fuzzcheck_traits::Mutator<Vec<T> >
-        {
-            type Cache = < fuzzcheck_mutators::TupleMutatorWrapper<
-                S<T> ,
-                fuzzcheck_mutators::Tuple2Mutator<u8, Vec<T> , M0, M1>,
-                fuzzcheck_mutators::Tuple2<u8, Vec<T> >
-            > as fuzzcheck_mutators::fuzzcheck_traits::Mutator<S<T> > >::Cache;
-            type MutationStep = < fuzzcheck_mutators::TupleMutatorWrapper<
-                S<T> ,
-                fuzzcheck_mutators::Tuple2Mutator<u8, Vec<T> , M0, M1>,
-                fuzzcheck_mutators::Tuple2<u8, Vec<T> >
-            > as fuzzcheck_mutators::fuzzcheck_traits::Mutator<S<T> > >::MutationStep;
-            type ArbitraryStep = < fuzzcheck_mutators::TupleMutatorWrapper<
-                S<T> ,
-                fuzzcheck_mutators::Tuple2Mutator<u8, Vec<T> , M0, M1>,
-                fuzzcheck_mutators::Tuple2<u8, Vec<T> >
-            > as fuzzcheck_mutators::fuzzcheck_traits::Mutator<S<T> > >::ArbitraryStep;
-            type UnmutateToken = < fuzzcheck_mutators::TupleMutatorWrapper<
-                S<T> ,
-                fuzzcheck_mutators::Tuple2Mutator<u8, Vec<T> , M0, M1>,
-                fuzzcheck_mutators::Tuple2<u8, Vec<T> >
-            > as fuzzcheck_mutators::fuzzcheck_traits::Mutator<S<T> > >::UnmutateToken;
-            fn cache_from_value(&self, value: &S<T>) -> Self::Cache {
-                self.mutator.cache_from_value(value)
-            }
-            fn initial_step_from_value(&self, value: &S<T>) -> Self::MutationStep {
-                self.mutator.initial_step_from_value(value)
-            }
-            fn max_complexity(&self) -> f64 {
-                self.mutator.max_complexity()
-            }
-            fn min_complexity(&self) -> f64 {
-                self.mutator.min_complexity()
-            }
-            fn complexity(&self, value: &S<T> , cache: &Self::Cache) -> f64 {
-                self.mutator.complexity(value, cache)
-            }
-            fn ordered_arbitrary(&self, step: &mut Self::ArbitraryStep, max_cplx: f64) -> Option<(S<T> , Self::Cache)> {
-                self.mutator.ordered_arbitrary(step, max_cplx)
-            }
-            fn random_arbitrary(&self, max_cplx: f64) -> (S<T> , Self::Cache) {
-                self.mutator.random_arbitrary(max_cplx)
-            }
-            fn ordered_mutate(
-                &self,
-                value: &mut S<T> ,
-                cache: &mut Self::Cache,
-                step: &mut Self::MutationStep,
-                max_cplx: f64,
-            ) -> Option<Self::UnmutateToken> {
-                self.mutator.ordered_mutate(value, cache, step, max_cplx)
-            }
-            fn random_mutate(&self, value: &mut S<T> , cache: &mut Self::Cache, max_cplx: f64) -> Self::UnmutateToken {
-                self.mutator.random_mutate(value, cache, max_cplx)
-            }
-            fn unmutate(&self, value: &mut S<T> , cache: &mut Self::Cache, t: Self::UnmutateToken) {
-                self.mutator.unmutate(value, cache, t)
-            }
-        }
-        impl<T: Into<u8>> fuzzcheck_mutators::DefaultMutator for S<T>
-        where
-            T: Default,
-            T: fuzzcheck_mutators::DefaultMutator + 'static
-        {
-            type Mutator = SMutator<
-                T,
-                <u8 as fuzzcheck_mutators::DefaultMutator>::Mutator,
-                <Vec<T> as fuzzcheck_mutators::DefaultMutator>::Mutator
-            > ;
-            fn default_mutator() -> Self::Mutator {
-                Self::Mutator::new(<u8>::default_mutator(), <Vec<T> >::default_mutator(), )
-            }
-        }
+        pub struct SMutator < T : Into < u8 >, M0 , M1 > where 
+            T : Default , 
+            T : :: std :: clone :: Clone + 'static , 
+            M0 : fuzzcheck_mutators :: fuzzcheck_traits :: Mutator < u8 > , 
+            M1 : fuzzcheck_mutators :: fuzzcheck_traits :: Mutator < Vec < T > > 
+        { 
+            pub mutator : fuzzcheck_mutators :: TupleMutatorWrapper < 
+                S < T > , 
+                fuzzcheck_mutators :: Tuple2Mutator < 
+                    u8 , Vec < T > , M0 , M1 
+                >, 
+                fuzzcheck_mutators :: Tuple2 < u8 , Vec < T > > 
+            > 
+        } 
+        pub struct SMutatorCache < T : Into < u8 >, M0 , M1 > where 
+            T : Default , 
+            T : :: std :: clone :: Clone + 'static , 
+            M0 : fuzzcheck_mutators :: fuzzcheck_traits :: Mutator < u8 > , 
+            M1 : fuzzcheck_mutators :: fuzzcheck_traits :: Mutator < Vec < T > > 
+        { 
+            inner : < 
+                fuzzcheck_mutators :: TupleMutatorWrapper < 
+                    S < T > , 
+                    fuzzcheck_mutators :: Tuple2Mutator < u8 , Vec < T > , M0 , M1 >, 
+                    fuzzcheck_mutators :: Tuple2 < u8 , Vec < T > > 
+            > as fuzzcheck_mutators :: fuzzcheck_traits :: Mutator < S < T > > >:: Cache , 
+        } 
+        impl < T : Into < u8 >, M0 , M1 > SMutatorCache < T , M0 , M1 > where 
+            T : Default , 
+            T : :: std :: clone :: Clone + 'static , 
+            M0 : fuzzcheck_mutators :: fuzzcheck_traits :: Mutator < u8 > , 
+            M1 : fuzzcheck_mutators :: fuzzcheck_traits :: Mutator < Vec < T > > 
+        { 
+            fn new (inner : < fuzzcheck_mutators :: TupleMutatorWrapper < S < T > , fuzzcheck_mutators :: Tuple2Mutator < u8 , Vec < T > , M0 , M1 >, fuzzcheck_mutators :: Tuple2 < u8 , Vec < T > > > as fuzzcheck_mutators :: fuzzcheck_traits :: Mutator < S < T > > >:: Cache) -> Self 
+            {
+                 Self { inner : (inner) } 
+            } 
+        } 
+        impl < T : Into < u8 >, M0 , M1 > :: std :: clone :: Clone for SMutatorCache < T , M0 , M1 > where T : Default , T : :: std :: clone :: Clone + 'static , M0 : fuzzcheck_mutators :: fuzzcheck_traits :: Mutator < u8 > , M1 : fuzzcheck_mutators :: fuzzcheck_traits :: Mutator < Vec < T > > 
+        { 
+            fn clone (& self) -> Self { Self { inner : self . inner . clone () } } 
+        } 
+        pub struct SMutatorMutationStep < T : Into < u8 >, M0 , M1 > where T : Default , T : :: std :: clone :: Clone + 'static , M0 : fuzzcheck_mutators :: fuzzcheck_traits :: Mutator < u8 > , M1 : fuzzcheck_mutators :: fuzzcheck_traits :: Mutator < Vec < T > > 
+        { 
+            inner : < fuzzcheck_mutators :: TupleMutatorWrapper < 
+                S < T > , 
+                fuzzcheck_mutators :: Tuple2Mutator < u8 , Vec < T > , M0 , M1 >, 
+                fuzzcheck_mutators :: Tuple2 < u8 , Vec < T > > 
+            > as fuzzcheck_mutators :: fuzzcheck_traits :: Mutator < S < T > > >:: MutationStep , 
+        } 
+        impl < T : Into < u8 >, M0 , M1 > SMutatorMutationStep < T , M0 , M1 > where T : Default , T : :: std :: clone :: Clone + 'static , M0 : fuzzcheck_mutators :: fuzzcheck_traits :: Mutator < u8 > , M1 : fuzzcheck_mutators :: fuzzcheck_traits :: Mutator < Vec < T > > 
+        { 
+            fn new (inner : < fuzzcheck_mutators :: TupleMutatorWrapper < S < T > , fuzzcheck_mutators :: Tuple2Mutator < u8 , Vec < T > , M0 , M1 >, fuzzcheck_mutators :: Tuple2 < u8 , Vec < T > > > as fuzzcheck_mutators :: fuzzcheck_traits :: Mutator < S < T > > >:: MutationStep) -> Self { 
+                Self { inner : (inner) } 
+            } 
+        } 
+        impl < T : Into < u8 >, M0 , M1 > :: std :: clone :: Clone for SMutatorMutationStep < T , M0 , M1 > where T : Default , T : :: std :: clone :: Clone + 'static , M0 : fuzzcheck_mutators :: fuzzcheck_traits :: Mutator < u8 > , M1 : fuzzcheck_mutators :: fuzzcheck_traits :: Mutator < Vec < T > > 
+        { 
+            fn clone (& self) -> Self { 
+                Self { inner : self . inner . clone () } 
+            } 
+        } 
+        pub struct SMutatorArbitraryStep < T : Into < u8 >, M0 , M1 > where T : Default , T : :: std :: clone :: Clone + 'static , M0 : fuzzcheck_mutators :: fuzzcheck_traits :: Mutator < u8 > , M1 : fuzzcheck_mutators :: fuzzcheck_traits :: Mutator < Vec < T > > 
+        { 
+            inner : < fuzzcheck_mutators :: TupleMutatorWrapper < S < T > , fuzzcheck_mutators :: Tuple2Mutator < u8 , Vec < T > , M0 , M1 >, fuzzcheck_mutators :: Tuple2 < u8 , Vec < T > > > as fuzzcheck_mutators :: fuzzcheck_traits :: Mutator < S < T > > >:: ArbitraryStep , 
+        } 
+        impl < T : Into < u8 >, M0 , M1 > SMutatorArbitraryStep < T , M0 , M1 > where T : Default , T : :: std :: clone :: Clone + 'static , M0 : fuzzcheck_mutators :: fuzzcheck_traits :: Mutator < u8 > , M1 : fuzzcheck_mutators :: fuzzcheck_traits :: Mutator < Vec < T > > 
+        { 
+            fn new (inner : < fuzzcheck_mutators :: TupleMutatorWrapper < S < T > , fuzzcheck_mutators :: Tuple2Mutator < u8 , Vec < T > , M0 , M1 >, fuzzcheck_mutators :: Tuple2 < u8 , Vec < T > > > as fuzzcheck_mutators :: fuzzcheck_traits :: Mutator < S < T > > >:: ArbitraryStep) -> Self 
+            { 
+                Self { inner : (inner) } 
+            } 
+        } 
+        impl < T : Into < u8 >, M0 , M1 > :: std :: clone :: Clone for SMutatorArbitraryStep < T , M0 , M1 > where T : Default , T : :: std :: clone :: Clone + 'static , M0 : fuzzcheck_mutators :: fuzzcheck_traits :: Mutator < u8 > , M1 : fuzzcheck_mutators :: fuzzcheck_traits :: Mutator < Vec < T > > 
+        { 
+            fn clone (& self) -> Self { Self { inner : self . inner . clone () } } 
+        } 
+        impl < T : Into < u8 >, M0 , M1 > :: std :: default :: Default for SMutatorArbitraryStep < T , M0 , M1 > where T : Default , T : :: std :: clone :: Clone + 'static , M0 : fuzzcheck_mutators :: fuzzcheck_traits :: Mutator < u8 > , M1 : fuzzcheck_mutators :: fuzzcheck_traits :: Mutator < Vec < T > > 
+        { 
+            fn default () -> Self { Self { inner : < _ >:: default () } } 
+        } 
+        pub struct SMutatorUnmutateToken < T : Into < u8 >, M0 , M1 > where T : Default , T : :: std :: clone :: Clone + 'static , M0 : fuzzcheck_mutators :: fuzzcheck_traits :: Mutator < u8 > , M1 : fuzzcheck_mutators :: fuzzcheck_traits :: Mutator < Vec < T > > 
+        { 
+            inner : < fuzzcheck_mutators :: TupleMutatorWrapper < S < T > , fuzzcheck_mutators :: Tuple2Mutator < u8 , Vec < T > , M0 , M1 >, fuzzcheck_mutators :: Tuple2 < u8 , Vec < T > > > as fuzzcheck_mutators :: fuzzcheck_traits :: Mutator < S < T > > >:: UnmutateToken , 
+        } 
+        impl < T : Into < u8 >, M0 , M1 > SMutatorUnmutateToken < T , M0 , M1 > where T : Default , T : :: std :: clone :: Clone + 'static , M0 : fuzzcheck_mutators :: fuzzcheck_traits :: Mutator < u8 > , M1 : fuzzcheck_mutators :: fuzzcheck_traits :: Mutator < Vec < T > > 
+        { 
+            fn new (inner : < fuzzcheck_mutators :: TupleMutatorWrapper < S < T > , fuzzcheck_mutators :: Tuple2Mutator < u8 , Vec < T > , M0 , M1 >, fuzzcheck_mutators :: Tuple2 < u8 , Vec < T > > > as fuzzcheck_mutators :: fuzzcheck_traits :: Mutator < S < T > > >:: UnmutateToken) -> Self 
+            { 
+                Self { inner : (inner) } 
+            } 
+        } 
+        impl < T : Into < u8 >, M0 , M1 > SMutator < T , M0 , M1 > where T : Default , T : :: std :: clone :: Clone + 'static , M0 : fuzzcheck_mutators :: fuzzcheck_traits :: Mutator < u8 > , M1 : fuzzcheck_mutators :: fuzzcheck_traits :: Mutator < Vec < T > > 
+        { 
+            pub fn new (mutator_x : M0 , mutator_y : M1) -> Self { 
+                Self { 
+                    mutator : fuzzcheck_mutators :: TupleMutatorWrapper :: new (fuzzcheck_mutators :: Tuple2Mutator :: new (mutator_x , mutator_y)) 
+                } 
+            } 
+        } 
+        impl < T : Into < u8 >, M0 , M1 > :: std :: default :: Default for SMutator < T , M0 , M1 > where 
+            T : Default , 
+            T : :: std :: clone :: Clone + 'static , 
+            M0 : fuzzcheck_mutators :: fuzzcheck_traits :: Mutator < u8 > , 
+            M1 : fuzzcheck_mutators :: fuzzcheck_traits :: Mutator < Vec < T > > , 
+            fuzzcheck_mutators :: TupleMutatorWrapper < S < T > , fuzzcheck_mutators :: Tuple2Mutator < u8 , Vec < T > , M0 , M1 >, fuzzcheck_mutators :: Tuple2 < u8 , Vec < T > > > : :: std :: default :: Default 
+        { 
+            fn default () -> Self { Self { mutator : < _ >:: default () } } 
+        } 
+        impl < T : Into < u8 >, M0 , M1 > fuzzcheck_mutators :: fuzzcheck_traits :: Mutator < S < T > > for SMutator < T , M0 , M1 > where 
+            T : Default , 
+            T : :: std :: clone :: Clone + 'static , 
+            M0 : fuzzcheck_mutators :: fuzzcheck_traits :: Mutator < u8 > , 
+            M1 : fuzzcheck_mutators :: fuzzcheck_traits :: Mutator < Vec < T > > 
+        { 
+            type Cache = SMutatorCache < T , M0 , M1 > ; 
+            type ArbitraryStep = SMutatorArbitraryStep < T , M0 , M1 > ; 
+            type MutationStep = SMutatorMutationStep < T , M0 , M1 > ; 
+            type UnmutateToken = SMutatorUnmutateToken < T , M0 , M1 > ; 
+            fn cache_from_value (& self , value : & S < T >) -> Self :: Cache { 
+                Self :: Cache :: new (self . mutator . cache_from_value (value)) 
+            } 
+            fn initial_step_from_value (& self , value : & S < T >) -> Self :: MutationStep { 
+                Self :: MutationStep :: new (self . mutator . initial_step_from_value (value)) 
+            } 
+            fn max_complexity (& self) -> f64 { 
+                self . mutator . max_complexity () 
+            } 
+            fn min_complexity (& self) -> f64 { 
+                self . mutator . min_complexity () 
+            } 
+            fn complexity (& self , value : & S < T > , cache : & Self :: Cache) -> f64 { 
+                self . mutator . complexity (value , & cache . inner) 
+            } 
+            fn ordered_arbitrary (& self , step : & mut Self :: ArbitraryStep , max_cplx : f64) -> Option < (S < T > , Self :: Cache) > { 
+                if let :: std :: option :: Option :: Some ((value , cache)) = self . mutator . ordered_arbitrary (& mut step . inner , max_cplx) { 
+                    :: std :: option :: Option :: Some ((value , Self :: Cache :: new (cache))) 
+                } else { 
+                    :: std :: option :: Option :: None 
+                } 
+            } 
+            fn random_arbitrary (& self , max_cplx : f64) -> (S < T > , Self :: Cache) {
+                let (value , cache) = self . mutator . random_arbitrary (max_cplx) ; 
+                (value , Self :: Cache :: new (cache)) 
+            } 
+            fn ordered_mutate (& self , value : & mut S < T > , cache : & mut Self :: Cache , step : & mut Self :: MutationStep , max_cplx : f64 ,) -> Option < Self :: UnmutateToken > { 
+                if let :: std :: option :: Option :: Some (t) = self . mutator . ordered_mutate (value , & mut cache . inner , & mut step . inner , max_cplx) { 
+                    :: std :: option :: Option :: Some (Self :: UnmutateToken :: new (t)) 
+                } else { 
+                    :: std :: option :: Option :: None 
+                } 
+            } 
+            fn random_mutate (& self , value : & mut S < T > , cache : & mut Self :: Cache , max_cplx : f64) -> Self :: UnmutateToken { 
+                Self :: UnmutateToken :: new (self . mutator . random_mutate (value , & mut cache . inner , max_cplx)) 
+            } 
+            fn unmutate (& self , value : & mut S < T > , cache : & mut Self :: Cache , t : Self :: UnmutateToken) { 
+                self . mutator . unmutate (value , & mut cache . inner , t . inner) } 
+            } 
+            impl < T : Into < u8 >> fuzzcheck_mutators :: DefaultMutator for S < T > where 
+                T : Default , 
+                T : fuzzcheck_mutators :: DefaultMutator + 'static 
+            { 
+                type Mutator = SMutator < T , < u8 as fuzzcheck_mutators :: DefaultMutator >:: Mutator , < Vec < T > as fuzzcheck_mutators :: DefaultMutator >:: Mutator > ; 
+                fn default_mutator () -> Self :: Mutator { 
+                    SMutator :: new (< u8 >:: default_mutator () , < Vec < T > >:: default_mutator () ,) 
+                } 
+            } 
         "
         .parse::<TokenStream>()
         .unwrap()
@@ -1036,7 +1121,7 @@ mod test {
     #[test]
     fn test_impl_default_mutator_for_tuple() {
         let mut tb = TokenBuilder::new();
-        impl_default_mutator_for_tuple(&mut tb, 2, &ts!("crate"));
+        impl_default_mutator_for_tuple(&mut tb, 2);
         let generated = tb.end().to_string();
 
         let expected = "
@@ -1056,25 +1141,66 @@ where
         )
     }
 }
-impl<T0, T1> crate::DefaultMutator for (T0, T1)
+impl<T0, T1> fuzzcheck_mutators::DefaultMutator for (T0, T1)
 where
-    T0: crate::DefaultMutator + 'static,
-    T1: crate::DefaultMutator + 'static
+    T0: fuzzcheck_mutators::DefaultMutator + 'static,
+    T1: fuzzcheck_mutators::DefaultMutator + 'static
 {
-    type Mutator = crate::TupleMutatorWrapper<
+    type Mutator = fuzzcheck_mutators::TupleMutatorWrapper<
         (T0, T1),
-        Tuple2Mutator<T0, T1, <T0 as crate::DefaultMutator> ::Mutator, <T1 as crate::DefaultMutator> ::Mutator>,
+        Tuple2Mutator<T0, T1, <T0 as fuzzcheck_mutators::DefaultMutator> ::Mutator, <T1 as fuzzcheck_mutators::DefaultMutator> ::Mutator>,
         Tuple2<T0, T1>
     > ;
 
     fn default_mutator() -> Self::Mutator {
         Self::Mutator::new(Tuple2Mutator::new(
-            <T0 as crate::DefaultMutator> ::default_mutator(),
-            <T1 as crate::DefaultMutator> ::default_mutator()
+            <T0 as fuzzcheck_mutators::DefaultMutator> ::default_mutator(),
+            <T1 as fuzzcheck_mutators::DefaultMutator> ::default_mutator()
         ))
     }
 }
         "
+        .parse::<TokenStream>()
+        .unwrap()
+        .to_string();
+
+        assert_eq!(generated, expected, "\n\n{} \n\n{}", generated, expected);
+    }
+
+
+    #[test]
+    fn test_impl_tuple_structure_trait_one_field_generics() {
+        let code = "
+        pub struct Y {
+            x: bool,
+        }
+        "
+        .parse::<TokenStream>()
+        .unwrap();
+        let mut parser = TokenParser::new(code);
+        let struc = parser.eat_struct().unwrap();
+
+        let mut tb = TokenBuilder::new();
+
+        let mut settings = MakeMutatorSettings::default();
+        settings.fuzzcheck_mutators_crate = ts!("fuzzcheck_mutators");
+        impl_tuple_structure_trait(&mut tb, &struc);
+
+        let generated = tb.end().to_string();
+
+        let expected = "
+        impl fuzzcheck_mutators :: TupleStructure < fuzzcheck_mutators :: Wrapped < bool > > for Y where 
+        { 
+            fn get_ref <'a > (&'a self) -> (&'a bool) { 
+                (& self . x) 
+            } 
+            fn get_mut <'a > (&'a mut self) -> (&'a mut bool) { 
+                (& mut self . x) 
+            } 
+            fn new (t : (bool)) -> Self { 
+                Self { x : t } 
+            } 
+        }"
         .parse::<TokenStream>()
         .unwrap()
         .to_string();
@@ -1099,12 +1225,12 @@ where
 
         let mut settings = MakeMutatorSettings::default();
         settings.fuzzcheck_mutators_crate = ts!("crate");
-        impl_tuple_structure_trait(&mut tb, &struc, &settings);
+        impl_tuple_structure_trait(&mut tb, &struc);
 
         let generated = tb.end().to_string();
 
         let expected = "  
-impl<T, U: Clone> crate::TupleStructure<crate::Tuple2< u8, Vec<(T, U)> > > 
+impl<T, U: Clone> fuzzcheck_mutators::TupleStructure<fuzzcheck_mutators::Tuple2< u8, Vec<(T, U)> > > 
     for A <T, U> 
     where 
         T: Default, 
@@ -1136,18 +1262,18 @@ impl<T, U: Clone> crate::TupleStructure<crate::Tuple2< u8, Vec<(T, U)> > >
     #[test]
     fn test_impl_mutator_trait() {
         let mut tb = TokenBuilder::new();
-        impl_mutator_trait(&mut tb, 2, &ts!("crate"));
+        impl_mutator_trait(&mut tb, 2);
         let generated = tb.end().to_string();
 
         let expected = "
-impl<T, T0, T1, M0, M1> crate::TupleMutator<T, Tuple2<T0, T1> > for Tuple2Mutator<T0, T1, M0, M1>
+impl<T, T0, T1, M0, M1> fuzzcheck_mutators::TupleMutator<T, Tuple2<T0, T1> > for Tuple2Mutator<T0, T1, M0, M1>
     where
     T: ::std::clone::Clone,
     T0: ::std::clone::Clone + 'static,
     M0: ::fuzzcheck_traits::Mutator<T0>,
     T1: ::std::clone::Clone + 'static,
     M1: ::fuzzcheck_traits::Mutator<T1>,
-    T: crate::TupleStructure<Tuple2<T0, T1> >,
+    T: fuzzcheck_mutators::TupleStructure<Tuple2<T0, T1> >,
 {
     type Cache = Cache< <M0 as ::fuzzcheck_traits::Mutator<T0> >::Cache, <M1 as ::fuzzcheck_traits::Mutator<T1> >::Cache>;
     type MutationStep = MutationStep<
@@ -1194,7 +1320,7 @@ impl<T, T0, T1, M0, M1> crate::TupleMutator<T, Tuple2<T0, T1> > for Tuple2Mutato
         step: &mut Self::ArbitraryStep,
         max_cplx: f64,
     ) -> ::std::option::Option<(T, Self::Cache)> {
-        if max_cplx < <Self as crate::TupleMutator<T, Tuple2<T0, T1> > >::min_complexity(self) { return ::std::option::Option::None }
+        if max_cplx < <Self as fuzzcheck_mutators::TupleMutator<T, Tuple2<T0, T1> > >::min_complexity(self) { return ::std::option::Option::None }
         ::std::option::Option::Some(self.random_arbitrary(max_cplx))
     }
     fn random_arbitrary(&self, max_cplx: f64) -> (T, Self::Cache) {
@@ -1203,7 +1329,7 @@ impl<T, T0, T1, M0, M1> crate::TupleMutator<T, Tuple2<T0, T1> > for Tuple2Mutato
         let mut t1_value: ::std::option::Option<_> = ::std::option::Option::None;
         let mut t1_cache: ::std::option::Option<_> = ::std::option::Option::None;
         let mut indices = (0..2).collect::< ::std::vec::Vec<_>>();
-        crate::fastrand::shuffle(&mut indices);
+        fuzzcheck_mutators::fastrand::shuffle(&mut indices);
 
         let mut cplx = 0.0;
         for idx in indices.iter() {
@@ -1240,14 +1366,14 @@ impl<T, T0, T1, M0, M1> crate::TupleMutator<T, Tuple2<T0, T1> > for Tuple2Mutato
         step: &'a mut Self::MutationStep,
         max_cplx: f64,
     ) -> ::std::option::Option<Self::UnmutateToken> {
-        if max_cplx < <Self as crate::TupleMutator<T, Tuple2<T0, T1> > >::min_complexity(self) { return ::std::option::Option::None }        
+        if max_cplx < <Self as fuzzcheck_mutators::TupleMutator<T, Tuple2<T0, T1> > >::min_complexity(self) { return ::std::option::Option::None }        
         if step.inner.is_empty() {
             return ::std::option::Option::None;
         }
         let orig_step = step.step;
         step.step += 1;
         let current_cplx =
-            <Self as crate::TupleMutator<T,Tuple2<T0, T1> >> ::complexity(self, <Tuple2<T0, T1> as crate::RefTypes> ::get_ref_from_mut(&value), cache);
+            <Self as fuzzcheck_mutators::TupleMutator<T,Tuple2<T0, T1> >> ::complexity(self, <Tuple2<T0, T1> as fuzzcheck_mutators::RefTypes> ::get_ref_from_mut(&value), cache);
         let inner_step_to_remove: usize;
         // TODO: add complexity to steps array to spend more resources on complex elements
         match step.inner[orig_step % step.inner.len()] {
@@ -1289,7 +1415,7 @@ impl<T, T0, T1, M0, M1> crate::TupleMutator<T, Tuple2<T0, T1> > for Tuple2Mutato
             }
         }
         step.inner.remove(inner_step_to_remove);
-        <Self as crate::TupleMutator<T,Tuple2<T0, T1> >> ::ordered_mutate(self, value, cache, step, max_cplx)
+        <Self as fuzzcheck_mutators::TupleMutator<T,Tuple2<T0, T1> >> ::ordered_mutate(self, value, cache, step, max_cplx)
     }
     fn random_mutate<'a>(
         &'a self,
@@ -1298,7 +1424,7 @@ impl<T, T0, T1, M0, M1> crate::TupleMutator<T, Tuple2<T0, T1> > for Tuple2Mutato
         max_cplx: f64,
     ) -> Self::UnmutateToken {
         let current_cplx =
-            <Self as crate::TupleMutator<T,Tuple2<T0, T1> >> ::complexity(self, <Tuple2<T0, T1> as crate::RefTypes> ::get_ref_from_mut(&value), cache);
+            <Self as fuzzcheck_mutators::TupleMutator<T,Tuple2<T0, T1> >> ::complexity(self, <Tuple2<T0, T1> as fuzzcheck_mutators::RefTypes> ::get_ref_from_mut(&value), cache);
         match self.rng.usize(..2) {
             0 => {
                 let current_field_cplx = self.mutator_0.complexity(value.0, &cache.t0);
@@ -1348,7 +1474,7 @@ impl<T, T0, T1, M0, M1> crate::TupleMutator<T, Tuple2<T0, T1> > for Tuple2Mutato
     #[test]
     fn test_declare_tuple_mutator_helper_types() {
         let mut tb = TokenBuilder::new();
-        declare_tuple_mutator_helper_types(&mut tb, &ts!("crate"), 2);
+        declare_tuple_mutator_helper_types(&mut tb, 2);
         let generated = tb.end().to_string();
 
         let expected = r#"
@@ -1402,7 +1528,7 @@ impl<T0, T1> ::std::default::Default for UnmutateToken<T0, T1> {
     #[test]
     fn test_declare_tuple_mutator() {
         let mut tb = TokenBuilder::new();
-        declare_tuple_mutator(&mut tb, &ts!("crate"), 2);
+        declare_tuple_mutator(&mut tb, 2);
         let generated = tb.end().to_string();
 
         let expected = r#"  
@@ -1415,7 +1541,7 @@ where
 {
     pub mutator_0: M0,
     pub mutator_1: M1,
-    rng: crate::fastrand::Rng,
+    rng: fuzzcheck_mutators::fastrand::Rng,
     _phantom: ::std::marker::PhantomData<(T0, T1)>
 }
 impl<T0, T1, M0, M1> Tuple2Mutator<T0, T1, M0, M1>
@@ -1468,13 +1594,13 @@ where
     #[test]
     fn test_make_tuple_type_structure() {
         let mut tb = TokenBuilder::new();
-        make_tuple_type_structure(&mut tb, 2, &ts!("crate"));
+        make_tuple_type_structure(&mut tb, 2);
         let generated = tb.end().to_string();
         let expected = r#"
         pub struct Tuple2<T0: 'static, T1: 'static> {
             _phantom: ::std::marker::PhantomData<(T0, T1)> ,
         }
-        impl<T0: 'static, T1: 'static> crate::RefTypes for Tuple2<T0, T1> {
+        impl<T0: 'static, T1: 'static> fuzzcheck_mutators::RefTypes for Tuple2<T0, T1> {
             type Owned = (T0, T1);
             type Ref<'a> = (&'a T0, &'a T1);
             type Mut<'a> = (&'a mut T0, &'a mut T1);
@@ -1482,7 +1608,7 @@ where
                 (v.0, v.1)
             }
         }
-        impl<T0: 'static, T1: 'static> TupleStructure<Tuple2<T0, T1> > for (T0, T1) {
+        impl<T0: 'static, T1: 'static> fuzzcheck_mutators::TupleStructure<Tuple2<T0, T1> > for (T0, T1) {
             fn get_ref<'a>(&'a self) -> (&'a T0, &'a T1) {
                 (&self.0, &self.1)
             }
