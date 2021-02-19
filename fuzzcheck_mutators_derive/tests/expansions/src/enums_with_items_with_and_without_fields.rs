@@ -1,4 +1,3 @@
-use crate::fuzzcheck_mutators::fuzzcheck_traits::Mutator;
 use fuzzcheck_mutators::{DefaultMutator, EnumNPayloadStructure};
 
 #[derive(Clone, DefaultMutator)]
@@ -37,22 +36,28 @@ pub enum Z {
     D(bool),
 }
 
-fn _x() {
-    let mut m = A::default_mutator();
-    let (_alue, _cache): (A, _) = m.random_arbitrary(10.0);
+#[cfg(test)]
+mod test {
+    use super::*;
+    use fuzzcheck_mutators::fuzzcheck_traits::Mutator;
+    #[test]
+    fn test_compile() {
+        let m = A::default_mutator();
+        let (_alue, _cache): (A, _) = m.random_arbitrary(10.0);
 
-    let mut m = X::default_mutator();
-    let (value, _cache): (X, _) = m.random_arbitrary(10.0);
+        let m = X::default_mutator();
+        let (value, _cache): (X, _) = m.random_arbitrary(10.0);
 
-    match value {
-        X::A(_x) => {}
-        X::B => {}
-    }
+        match value {
+            X::A(_x) => {}
+            X::B => {}
+        }
 
-    let mut m = Z::default_mutator();
-    let (value, _cache): (Z, _) = m.random_arbitrary(10.0);
+        let m = Z::default_mutator();
+        let (value, _cache): (Z, _) = m.random_arbitrary(10.0);
 
-    match value {
-        _ => {}
+        match value {
+            _ => {}
+        }
     }
 }

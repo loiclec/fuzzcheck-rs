@@ -318,7 +318,7 @@ pub(crate) struct Common {
     UnitMutator: TokenStream,
     Vec: TokenStream,
     Wrapped_path: TokenStream,
-    Rc: TokenStream,
+    RecursiveMutator: TokenStream,
     Box: TokenStream,
 }
 impl Common {
@@ -431,7 +431,7 @@ impl Common {
             variant_count_T: ts!("::std::mem::variant_count::<T>()"),
             Vec: ts!("::std::vec::Vec"),
             Wrapped_path: ts!(fuzzcheck_mutators_crate "::Wrapped"),
-            Rc: ts!("::std::rc::Rc"),
+            RecursiveMutator: ts!(fuzzcheck_mutators_crate "::fuzzcheck_traits::RecursiveMutator"),
             Box: ts!("::std::boxed::Box"),
         }
     }

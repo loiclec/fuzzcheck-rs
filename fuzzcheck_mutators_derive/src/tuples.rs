@@ -209,7 +209,11 @@ pub(crate) fn impl_default_mutator_for_struct_with_more_than_1_field(
 
     let TupleN_and_generics = ts!(TupleKind "<" field_types ">");
 
-    let StrucMutator = ident!(struc.ident "Mutator");
+    let StrucMutator = if let Some(name) = &settings.name {
+        name.clone()
+    } else {
+        ident!(struc.ident "Mutator")
+    };
 
     let TupleMutatorWrapper = ts!(
         cm.TupleMutatorWrapper "<"
@@ -433,13 +437,13 @@ pub(crate) fn impl_default_mutator_for_struct_with_more_than_1_field(
     if settings.default {
         ts!("impl" generics_no_eq cm.DefaultMutator "for" struc.ident generics_no_eq_nor_bounds DefaultMutator_where_clause "{"
         if settings.recursive {
-            ts!("type Mutator = " cm.Rc "<" StrucMutator DefaultMutator_Mutator_generics ">;")
+            ts!("type Mutator = " cm.RecursiveMutator "<" StrucMutator DefaultMutator_Mutator_generics ">;")
         } else {
             ts!("type Mutator = "  StrucMutator DefaultMutator_Mutator_generics ";")
         }
         "fn default_mutator() -> Self::Mutator {"
             if settings.recursive { 
-                format!("{}::new_cyclic(|self_| {{", cm.Rc)
+                format!("{}::new(|self_| {{", cm.RecursiveMutator)
             } else { 
                 "".to_string()
             }

@@ -1,3 +1,5 @@
+#![feature(arc_new_cyclic)]
+#![feature(test)]
 extern crate fuzzcheck_mutators;
 
 mod empty_structs;
@@ -11,3 +13,5 @@ mod enums_with_multiple_empty_items;
 mod enums_with_one_empty_item;
 mod enums_with_one_item_multiple_fields;
 mod enums_with_one_item_one_field;
+
+mod recursive_struct;

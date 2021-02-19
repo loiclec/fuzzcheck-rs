@@ -14,5 +14,3 @@ pub enum Y {
 pub enum Z {
     A {},
 }
-
-fn _x() {}
