@@ -158,6 +158,7 @@ impl FuzzingView {
 fn event_to_string(event: &FuzzerEvent) -> String {
     match event {
         FuzzerEvent::Start => "Start".to_string(),
+        FuzzerEvent::Pulse => "Pulse".to_string(),
         FuzzerEvent::Stop => "Stop".to_string(),
         FuzzerEvent::End => "End".to_string(),
         FuzzerEvent::CrashNoInput => "Fuzzcheck crashed, but the crashing input could not be retrieved".to_string(),
