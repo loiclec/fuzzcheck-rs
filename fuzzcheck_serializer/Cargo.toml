@@ -19,7 +19,7 @@ serde-json-alternative = ["json", "decent-serde-json-alternative"]
 
 [dependencies.fuzzcheck_traits]
 path = "../fuzzcheck_traits"
-version = "0.5.0"
+version = "0.6.0"
 
 [dependencies.serde]
 version = "1.0"

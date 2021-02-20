@@ -14,7 +14,7 @@ categories = ["development-tools"]
 
 [dependencies.fuzzcheck_traits]
 path = "../fuzzcheck_traits"
-version = "0.5.0"
+version = "0.6.0"
 
 [dependencies.fuzzcheck_mutators_derive]
 path = "../fuzzcheck_mutators_derive"
