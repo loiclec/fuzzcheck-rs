@@ -287,7 +287,7 @@ impl<'a> WeightedIndex<'a> {
     }
 }
 
-#[cfg(trace_compares)]
+#[cfg(all(trace_compares, test))]
 const SIZE: usize = 0b1 << 30;
 #[cfg(trace_compares)]
 const L0_SIZE: usize = 0b1 << 24;

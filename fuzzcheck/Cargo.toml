@@ -12,7 +12,7 @@ categories = ["development-tools"]
 links = "fuzzcheck_traits"
 
 [features]
-ui = ["base64", "json", "decent-serde-json-alternative"]
+ui = ["base64", "json", "decent-serde-json-alternative", "fuzzcheck_common/ui"]
 
 [dependencies.base64]
 version = "0.13"
