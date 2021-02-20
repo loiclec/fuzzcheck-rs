@@ -34,5 +34,5 @@ version = "0.12"
 optional = true
 
 [dependencies.decent-serde-json-alternative]
-version = "0.3"
+version = "0.4"
 optional = true

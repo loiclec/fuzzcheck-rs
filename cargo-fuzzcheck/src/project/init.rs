@@ -329,7 +329,7 @@ features = ["serde-json-alternative"]
 version = "0.12"
 
 [dependencies.decent-serde-json-alternative]
-version = "0.3.0"
+version = "0.4.0"
 
 # Prevent this from interfering with workspaces
 [workspace]

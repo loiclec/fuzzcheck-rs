@@ -20,7 +20,7 @@ version = "0.12"
 optional = true
 
 [dependencies.decent-serde-json-alternative]
-version = "0.3.0"
+version = "0.4.0"
 optional = true
 
 [lib]
