@@ -1,5 +1,7 @@
 use crate::DefaultMutator;
 use fuzzcheck_traits::Mutator;
+use std::ops::Bound;
+use std::ops::RangeBounds;
 
 /*
     These mutators try to achieve multiple things:
@@ -45,26 +47,34 @@ use fuzzcheck_traits::Mutator;
     You can find more details on how it is done in `uniform_permutation`
 */
 
-fn binary_search_arbitrary(low: u8, high: u8, step: u64) -> u8 {
-    let next = low.wrapping_add(high.wrapping_sub(low) / 2);
-    if low.wrapping_add(1) == high {
-        if step % 2 == 0 {
-            high
-        } else {
-            low
+macro_rules! binary_search_arbitrary {
+    ($name_function: ident, $uxx:ty) => {
+        fn $name_function(low: $uxx, high: $uxx, step: u64) -> $uxx {
+            let next = low.wrapping_add(high.wrapping_sub(low) / 2);
+            if low.wrapping_add(1) >= high {
+                if step % 2 == 0 {
+                    high
+                } else {
+                    low
+                }
+            } else if step == 0 {
+                next
+            } else if step % 2 == 1 {
+                $name_function(next.wrapping_add(1), high, step / 2)
+            } else {
+                // step % 2 == 0
+                $name_function(low, next.wrapping_sub(1), (step - 1) / 2)
+            }
         }
-    } else if step == 0 {
-        next
-    } else if step % 2 == 1 {
-        binary_search_arbitrary(next.wrapping_add(1), high, step / 2)
-    } else {
-        // step % 2 == 0
-        binary_search_arbitrary(low, next.wrapping_sub(1), (step - 1) / 2)
-    }
+    };
 }
+binary_search_arbitrary!(binary_search_arbitrary_u8, u8);
+binary_search_arbitrary!(binary_search_arbitrary_u16, u16);
+binary_search_arbitrary!(binary_search_arbitrary_u32, u32);
+binary_search_arbitrary!(binary_search_arbitrary_u64, u64);
 
-macro_rules! impl_unsigned_mutator {
-    ($name:ty,$name_mutator:ident,$rand:path,$size:expr) => {
+macro_rules! impl_int_mutator {
+    ($name:ident, $name_unsigned: ident, $name_mutator:ident) => {
         pub struct $name_mutator {
             shuffled_integers: [u8; 256],
             rng: fastrand::Rng,
@@ -72,29 +82,30 @@ macro_rules! impl_unsigned_mutator {
         impl Default for $name_mutator {
             fn default() -> Self {
                 let mut shuffled_integers = [0; 256];
+                let rng = fastrand::Rng::default();
+                let xor = rng.u8(..);
                 for (i, x) in shuffled_integers.iter_mut().enumerate() {
-                    *x = binary_search_arbitrary(0, u8::MAX, i as u64);
+                    *x = binary_search_arbitrary_u8(0, u8::MAX, i as u64) ^ xor;
                 }
                 $name_mutator {
                     shuffled_integers,
-                    rng: fastrand::Rng::default(),
+                    rng,
                 }
             }
         }
 
         impl $name_mutator {
-            fn uniform_permutation(&self, step: u64) -> $name {
-                let size = $size as u64;
+            fn uniform_permutation(&self, step: u64) -> $name_unsigned {
+                let size = <$name>::BITS as u64;
 
                 // granularity is the number of bits provided by shuffled_integers
                 // in this case, it is fixed to 8 but I could use something different
 
-                //                                  <- 64 bits for usize
+                // xxxx ... xxxx xxxx xxxx xxxx     <- 64 bits for usize
                 // 0000 ... 0000 0001 0000 0000     <- - 57 leading zeros for shuffled_integers.len()
-                //                                  <- - 1
+                // ____ ... ____ ____ xxxx xxxx     <- - 1
                 //                                   =  8
-                const GRANULARITY: u64 =
-                    ((std::mem::size_of::<usize>() * 8) - (256u64.leading_zeros() as usize) - 1) as u64;
+                const GRANULARITY: u64 = ((usize::BITS as usize) - (256u64.leading_zeros() as usize) - 1) as u64;
 
                 const STEP_MASK: u64 = ((u8::MAX as usize) >> (8 - GRANULARITY)) as u64;
                 // if I have a number, such as 983487234238, I can `AND` it with the step_mask
@@ -109,12 +120,12 @@ macro_rules! impl_unsigned_mutator {
 
                 // now we start building the integer by taking bits from shuffled_integers
                 // repeatedly. First by indexing it with step_i
-                let mut prev = unsafe { *self.shuffled_integers.get_unchecked(step_i) as $name };
+                let mut prev = unsafe { *self.shuffled_integers.get_unchecked(step_i) as $name_unsigned };
 
                 // I put those bits at the highest  position, then I will fill in the lower bits
-                let mut result = (prev << (size - GRANULARITY)) as $name;
+                let mut result = (prev << (size - GRANULARITY)) as $name_unsigned;
 
-                // remember, granulariy is the number of bits we fill in at a time
+                // remember, granularity is the number of bits we fill in at a time
                 // and size is the total size of the generated integer, in bits
                 // For u64 and a granularity of 8, we get
                 // for i in [1, 2, 3, 4, 5, 6, 7] { ... }
@@ -128,7 +139,7 @@ macro_rules! impl_unsigned_mutator {
                     // to get the next index into shuffled_integers, which we insert into
                     // the generated integer at the right place
                     let step_i = (((step >> (i * GRANULARITY)) ^ prev as u64) & STEP_MASK) as usize;
-                    prev = unsafe { *self.shuffled_integers.get_unchecked(step_i) as $name };
+                    prev = unsafe { *self.shuffled_integers.get_unchecked(step_i) as $name_unsigned };
                     result |= prev << (size - (i + 1) * GRANULARITY);
                 }
 
@@ -150,30 +161,30 @@ macro_rules! impl_unsigned_mutator {
             }
             /// The maximum complexity of an input of this type
             fn max_complexity(&self) -> f64 {
-                std::mem::size_of::<$name>() as f64 * 8.0
+                <$name>::BITS as f64
             }
             /// The minimum complexity of an input of this type
             fn min_complexity(&self) -> f64 {
-                std::mem::size_of::<$name>() as f64 * 8.0
+                <$name>::BITS as f64
             }
             fn complexity(&self, _value: &$name, _cache: &Self::Cache) -> f64 {
-                std::mem::size_of::<$name>() as f64 * 8.0
+                <$name>::BITS as f64
             }
 
             fn ordered_arbitrary(&self, step: &mut Self::ArbitraryStep, max_cplx: f64) -> Option<($name, Self::Cache)> {
                 if max_cplx < self.min_complexity() {
                     return None;
                 }
-                if *step > <$name>::MAX as u64 {
+                if *step > <$name_unsigned>::MAX as u64 {
                     None
                 } else {
-                    let value = self.uniform_permutation(*step);
+                    let value = self.uniform_permutation(*step) as $name;
                     *step += 1;
                     Some((value, ()))
                 }
             }
             fn random_arbitrary(&self, _max_cplx: f64) -> ($name, Self::Cache) {
-                let value = self.uniform_permutation(self.rng.u64(..));
+                let value = self.rng.$name(..);
                 (value, ())
             }
 
@@ -202,7 +213,7 @@ macro_rules! impl_unsigned_mutator {
                         }
                     } else {
                         tmp_step -= 7;
-                        self.uniform_permutation(tmp_step)
+                        self.uniform_permutation(tmp_step) as $name
                     }
                 };
                 *step = step.wrapping_add(1);
@@ -216,7 +227,7 @@ macro_rules! impl_unsigned_mutator {
                 _cache: &mut Self::Cache,
                 _max_cplx: f64,
             ) -> Self::UnmutateToken {
-                std::mem::replace(value, $rand(..))
+                std::mem::replace(value, self.rng.$name(..))
             }
 
             fn unmutate(&self, value: &mut $name, _cache: &mut Self::Cache, t: Self::UnmutateToken) {
@@ -233,49 +244,51 @@ macro_rules! impl_unsigned_mutator {
     };
 }
 
-impl_unsigned_mutator!(u8, U8Mutator, fastrand::u8, 8);
-impl_unsigned_mutator!(u16, U16Mutator, fastrand::u16, 16);
-impl_unsigned_mutator!(u32, U32Mutator, fastrand::u32, 32);
-impl_unsigned_mutator!(u64, U64Mutator, fastrand::u64, 64);
+impl_int_mutator!(u8, u8, U8Mutator);
+impl_int_mutator!(u16, u16, U16Mutator);
+impl_int_mutator!(u32, u32, U32Mutator);
+impl_int_mutator!(u64, u64, U64Mutator);
+impl_int_mutator!(i8, u8, I8Mutator);
+impl_int_mutator!(i16, u16, I16Mutator);
+impl_int_mutator!(i32, u32, I32Mutator);
+impl_int_mutator!(i64, u64, I64Mutator);
 
-macro_rules! impl_signed_mutator {
-    ($name:ty,$name_unsigned:ty,$name_mutator:ident,$rand:path,$size:expr) => {
+// ============================================================
+
+// The second type of integer mutator produces values constrained by a range
+// here, I don't try to be as smart and simply use the binary search approach directly
+
+macro_rules! impl_int_mutator_constrained {
+    ($name:ident,$name_unsigned:ident, $name_mutator:ident, $name_binary_arbitrary_function: ident) => {
         pub struct $name_mutator {
-            shuffled_integers: [u8; 256],
+            start_range: $name,
+            len_range: $name_unsigned,
             rng: fastrand::Rng,
         }
-        impl Default for $name_mutator {
-            fn default() -> Self {
-                let mut shuffled_integers = [0; 256];
-                for (i, x) in shuffled_integers.iter_mut().enumerate() {
-                    *x = binary_search_arbitrary(0, u8::MAX, i as u64);
-                }
-                $name_mutator {
-                    shuffled_integers,
+        impl $name_mutator {
+            pub fn new<RB: RangeBounds<$name>>(range: RB) -> Self {
+                let start = match range.start_bound() {
+                    Bound::Included(b) => *b,
+                    Bound::Excluded(b) => {
+                        assert_ne!(*b, <$name>::MAX);
+                        *b + 1
+                    }
+                    Bound::Unbounded => <$name>::MIN,
+                };
+                let end = match range.end_bound() {
+                    Bound::Included(b) => *b,
+                    Bound::Excluded(b) => {
+                        assert_ne!(*b, <$name>::MIN);
+                        *b - 1
+                    }
+                    Bound::Unbounded => <$name>::MAX,
+                };
+                assert!(start <= end);
+                Self {
+                    start_range: start,
+                    len_range: end.wrapping_sub(start) as $name_unsigned,
                     rng: fastrand::Rng::default(),
                 }
-            }
-        }
-
-        impl $name_mutator {
-            fn uniform_permutation(&self, step: u64) -> $name_unsigned {
-                let size = $size as u64;
-                const GRANULARITY: u64 =
-                    ((std::mem::size_of::<usize>() * 8) - (256_u64.leading_zeros() as usize) - 1) as u64;
-                const STEP_MASK: u64 = ((u8::MAX as usize) >> (8 - GRANULARITY)) as u64;
-
-                let step_i = (step & STEP_MASK) as usize;
-                let mut prev = unsafe { *self.shuffled_integers.get_unchecked(step_i) as $name_unsigned };
-
-                let mut result = (prev << (size - GRANULARITY)) as $name_unsigned;
-
-                for i in 1..(size / GRANULARITY) {
-                    let step_i = (((step >> (i * GRANULARITY)) ^ prev as u64) & STEP_MASK) as usize;
-                    prev = unsafe { *self.shuffled_integers.get_unchecked(step_i) as $name_unsigned };
-                    result |= prev << (size - (i + 1) * GRANULARITY);
-                }
-
-                result as $name_unsigned
             }
         }
 
@@ -284,40 +297,36 @@ macro_rules! impl_signed_mutator {
             type MutationStep = u64; // mutation step
             type ArbitraryStep = u64;
             type UnmutateToken = $name; // old value
-
-            /// Compute the cache for the given value
             fn cache_from_value(&self, _value: &$name) -> Self::Cache {}
-            /// Compute the initial mutation step for the given value
             fn initial_step_from_value(&self, _value: &$name) -> Self::MutationStep {
                 0
             }
-            /// The maximum complexity of an input of this type
             fn max_complexity(&self) -> f64 {
-                std::mem::size_of::<$name>() as f64 * 8.0
+                <$name>::BITS as f64
             }
-            /// The minimum complexity of an input of this type
             fn min_complexity(&self) -> f64 {
-                std::mem::size_of::<$name>() as f64 * 8.0
+                <$name>::BITS as f64
             }
             fn complexity(&self, _value: &$name, _cache: &Self::Cache) -> f64 {
-                std::mem::size_of::<$name>() as f64 * 8.0
+                <$name>::BITS as f64
             }
 
-            fn ordered_arbitrary(
-                &self,
-                step: &mut Self::ArbitraryStep,
-                _max_cplx: f64,
-            ) -> Option<($name, Self::Cache)> {
-                if *step > <$name_unsigned>::MAX as u64 {
+            fn ordered_arbitrary(&self, step: &mut Self::ArbitraryStep, max_cplx: f64) -> Option<($name, Self::Cache)> {
+                if max_cplx < self.min_complexity() {
+                    return None;
+                }
+                if *step > self.len_range as u64 {
                     None
                 } else {
-                    let value = self.uniform_permutation(*step) as $name;
-                    *step += 1;
-                    Some((value, ()))
+                    let result = $name_binary_arbitrary_function(0, self.len_range, *step);
+                    *step = step.wrapping_add(1);
+                    Some((self.start_range.wrapping_add(result as $name), ()))
                 }
             }
             fn random_arbitrary(&self, _max_cplx: f64) -> ($name, Self::Cache) {
-                let value = self.uniform_permutation(self.rng.u64(..)) as $name;
+                let value = self
+                    .rng
+                    .$name(self.start_range..=self.start_range.wrapping_add(self.len_range as $name));
                 (value, ())
             }
 
@@ -326,23 +335,18 @@ macro_rules! impl_signed_mutator {
                 value: &mut $name,
                 _cache: &mut Self::Cache,
                 step: &mut Self::MutationStep,
-                _max_cplx: f64,
+                max_cplx: f64,
             ) -> Option<Self::UnmutateToken> {
+                if max_cplx < self.min_complexity() {
+                    return None;
+                }
+                if *step > self.len_range as u64 {
+                    return None;
+                }
                 let token = *value;
-                *value = {
-                    let mut tmp_step = *step;
-                    if tmp_step < 8 {
-                        let nudge = (tmp_step + 2) as $name;
-                        if nudge % 2 == 0 {
-                            value.wrapping_add(nudge / 2)
-                        } else {
-                            value.wrapping_sub(nudge / 2)
-                        }
-                    } else {
-                        tmp_step -= 7;
-                        self.uniform_permutation(tmp_step) as $name
-                    }
-                };
+
+                let result = $name_binary_arbitrary_function(0, self.len_range, *step);
+                *value = self.start_range.wrapping_add(result as $name);
                 *step = step.wrapping_add(1);
 
                 Some(token)
@@ -354,17 +358,55 @@ macro_rules! impl_signed_mutator {
                 _cache: &mut Self::Cache,
                 _max_cplx: f64,
             ) -> Self::UnmutateToken {
-                std::mem::replace(value, $rand(..))
+                std::mem::replace(
+                    value,
+                    self.rng
+                        .$name(self.start_range..=self.start_range.wrapping_add(self.len_range as $name)),
+                )
             }
 
             fn unmutate(&self, value: &mut $name, _cache: &mut Self::Cache, t: Self::UnmutateToken) {
-                *value = t
+                *value = t;
             }
         }
     };
 }
 
-impl_signed_mutator!(i8, u8, I8Mutator, fastrand::i8, 8);
-impl_signed_mutator!(i16, u16, I16Mutator, fastrand::i16, 16);
-impl_signed_mutator!(i32, u32, I32Mutator, fastrand::i32, 32);
-impl_signed_mutator!(i64, u64, I64Mutator, fastrand::i64, 64);
+impl_int_mutator_constrained!(u8, u8, U8WithinRangeMutator, binary_search_arbitrary_u8);
+impl_int_mutator_constrained!(u16, u16, U16WithinRangeMutator, binary_search_arbitrary_u16);
+impl_int_mutator_constrained!(u32, u32, U32WithinRangeMutator, binary_search_arbitrary_u32);
+impl_int_mutator_constrained!(u64, u64, U64WithinRangeMutator, binary_search_arbitrary_u64);
+impl_int_mutator_constrained!(i8, u8, I8WithinRangeMutator, binary_search_arbitrary_u8);
+impl_int_mutator_constrained!(i16, u16, I16WithinRangeMutator, binary_search_arbitrary_u16);
+impl_int_mutator_constrained!(i32, u32, I32WithinRangeMutator, binary_search_arbitrary_u32);
+impl_int_mutator_constrained!(i64, u64, I64WithinRangeMutator, binary_search_arbitrary_u64);
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use std::collections::HashSet;
+    fn test_arbitrary_for_range_mutator(range: impl RangeBounds<i8> + IntoIterator<Item = i8> + Clone) {
+        let m = I8WithinRangeMutator::new(range.clone());
+        for _ in 0..1000 {
+            let x = m.random_arbitrary(100.0).0;
+            assert!(range.contains(&x), "{}", x);
+        }
+        let mut step = 0;
+        let mut all_generated = HashSet::new();
+        while let Some((x, _)) = m.ordered_arbitrary(&mut step, 100.0) {
+            let is_new = all_generated.insert(x);
+            assert!(is_new);
+        }
+        for x in range {
+            assert!(all_generated.contains(&x));
+        }
+    }
+    #[test]
+    fn arbitrary_constrained() {
+        test_arbitrary_for_range_mutator(-128..12);
+        test_arbitrary_for_range_mutator(5..10);
+        test_arbitrary_for_range_mutator(0..=0);
+        test_arbitrary_for_range_mutator(-128..=127);
+        test_arbitrary_for_range_mutator(-100..50);
+    }
+}
