@@ -28,7 +28,7 @@ where
 }
 
 fn main() {
-    let mut m = S::<u8, u8, u8>::default_mutator();
+    let m = S::<u8, u8, u8>::default_mutator();
 
     let x = S::<u8, u8, u8>::default();
     let x_cache = m.cache_from_value(&x);

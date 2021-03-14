@@ -31,7 +31,7 @@ type ArbitraryStep = <XDefaultMutator as Mutator<X>>::ArbitraryStep;
 
 fn main() {
     let complexity = 5.0;
-    let mut m = X::default_mutator();
+    let m = X::default_mutator();
     let mut ar_step: _ = ArbitraryStep::default();
 
     for _ in 0..20 {

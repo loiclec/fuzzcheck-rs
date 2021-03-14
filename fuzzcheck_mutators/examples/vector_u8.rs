@@ -13,7 +13,7 @@ use fuzzcheck_mutators::DefaultMutator;
 // }
 
 fn main() {
-    let mut m = Vec::<u8>::default_mutator();
+    let m = Vec::<u8>::default_mutator();
 
     let mut results = vec![];
 
