@@ -4,6 +4,8 @@
 #![feature(never_type)]
 #![feature(int_bits_const)]
 #![feature(arc_new_cyclic)]
+#![feature(assoc_char_consts)]
+#![feature(assoc_char_funcs)]
 
 pub extern crate fastrand;
 pub extern crate fuzzcheck_mutators_derive;

@@ -381,6 +381,116 @@ impl_int_mutator_constrained!(i16, u16, I16WithinRangeMutator, binary_search_arb
 impl_int_mutator_constrained!(i32, u32, I32WithinRangeMutator, binary_search_arbitrary_u32);
 impl_int_mutator_constrained!(i64, u64, I64WithinRangeMutator, binary_search_arbitrary_u64);
 
+pub struct CharWithinRangeMutator {
+    start_range: u32,
+    len_range: u32,
+    rng: fastrand::Rng,
+}
+impl CharWithinRangeMutator {
+    pub fn new<RB: RangeBounds<char>>(range: RB) -> Self {
+        let start = match range.start_bound() {
+            Bound::Included(b) => *b as u32,
+            Bound::Excluded(b) => {
+                assert_ne!(*b as u32, <u32>::MAX);
+                *b as u32 + 1
+            }
+            Bound::Unbounded => <u32>::MIN,
+        };
+        let end = match range.end_bound() {
+            Bound::Included(b) => *b as u32,
+            Bound::Excluded(b) => {
+                assert_ne!(*b as u32, <u32>::MIN);
+                (*b as u32) - 1
+            }
+            Bound::Unbounded => <u32>::MAX,
+        };
+        assert!(start <= end);
+        Self {
+            start_range: start,
+            len_range: end.wrapping_sub(start) as u32,
+            rng: fastrand::Rng::default(),
+        }
+    }
+}
+
+impl Mutator<char> for CharWithinRangeMutator {
+    type Cache = ();
+    type MutationStep = u64; // mutation step
+    type ArbitraryStep = u64;
+    type UnmutateToken = char; // old value
+    fn cache_from_value(&self, _value: &char) -> Self::Cache {}
+    fn initial_step_from_value(&self, _value: &char) -> Self::MutationStep {
+        0
+    }
+    fn max_complexity(&self) -> f64 {
+        <u32>::BITS as f64
+    }
+    fn min_complexity(&self) -> f64 {
+        <u32>::BITS as f64
+    }
+    fn complexity(&self, _value: &char, _cache: &Self::Cache) -> f64 {
+        <u32>::BITS as f64
+    }
+
+    fn ordered_arbitrary(&self, step: &mut Self::ArbitraryStep, max_cplx: f64) -> Option<(char, Self::Cache)> {
+        if max_cplx < self.min_complexity() {
+            return None;
+        }
+        if *step > self.len_range as u64 {
+            None
+        } else {
+            let result = binary_search_arbitrary_u32(0, self.len_range, *step);
+            *step = step.wrapping_add(1);
+            let c = char::from_u32(self.start_range.wrapping_add(result)).unwrap();
+            Some((c, ()))
+        }
+    }
+    fn random_arbitrary(&self, _max_cplx: f64) -> (char, Self::Cache) {
+        let value = self
+            .rng
+            .u32(self.start_range..=self.start_range.wrapping_add(self.len_range));
+        let value = char::from_u32(value).unwrap();
+        (value, ())
+    }
+
+    fn ordered_mutate(
+        &self,
+        value: &mut char,
+        _cache: &mut Self::Cache,
+        step: &mut Self::MutationStep,
+        max_cplx: f64,
+    ) -> Option<Self::UnmutateToken> {
+        if max_cplx < self.min_complexity() {
+            return None;
+        }
+        if *step > self.len_range as u64 {
+            return None;
+        }
+        let token = *value;
+
+        let result = binary_search_arbitrary_u32(0, self.len_range, *step);
+        *value = char::from_u32(self.start_range.wrapping_add(result)).unwrap();
+        *step = step.wrapping_add(1);
+
+        Some(token)
+    }
+
+    fn random_mutate(&self, value: &mut char, _cache: &mut Self::Cache, _max_cplx: f64) -> Self::UnmutateToken {
+        std::mem::replace(
+            value,
+            char::from_u32(
+                self.rng
+                    .u32(self.start_range..=self.start_range.wrapping_add(self.len_range)),
+            )
+            .unwrap(),
+        )
+    }
+
+    fn unmutate(&self, value: &mut char, _cache: &mut Self::Cache, t: Self::UnmutateToken) {
+        *value = t;
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
