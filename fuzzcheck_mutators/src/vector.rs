@@ -2,19 +2,24 @@ use crate::DefaultMutator;
 use fastrand::Rng;
 use fuzzcheck_traits::Mutator;
 
-use std::ops::Range;
+use std::{
+    cmp,
+    ops::{Range, RangeInclusive},
+};
 use std::{iter::repeat, marker::PhantomData};
 
 pub struct VecMutator<T: Clone, M: Mutator<T>> {
     pub rng: Rng,
     pub m: M,
+    pub len_range: RangeInclusive<usize>,
     _phantom: PhantomData<T>,
 }
 impl<T: Clone, M: Mutator<T>> VecMutator<T, M> {
-    pub fn new(mutator: M) -> Self {
+    pub fn new(mutator: M, len_range: RangeInclusive<usize>) -> Self {
         Self {
             rng: Rng::default(),
             m: mutator,
+            len_range,
             _phantom: <_>::default(),
         }
     }
@@ -27,6 +32,7 @@ where
         Self {
             rng: Rng::default(),
             m: M::default(),
+            len_range: 0..=10_000,
             _phantom: <_>::default(),
         }
     }
@@ -37,7 +43,7 @@ where
 {
     type Mutator = VecMutator<T, <T as DefaultMutator>::Mutator>;
     fn default_mutator() -> Self::Mutator {
-        Self::Mutator::new(T::default_mutator())
+        Self::Mutator::new(T::default_mutator(), 0..=usize::MAX)
     }
 }
 
@@ -101,6 +107,9 @@ impl<T: Clone, M: Mutator<T>> VecMutator<T, M> {
         cache: &mut VecMutatorCache<M::Cache>,
         spare_cplx: f64,
     ) -> Option<UnmutateVecToken<T, M>> {
+        if value.len() >= *self.len_range.end() {
+            return None;
+        }
         let idx = if value.is_empty() {
             0
         } else {
@@ -125,7 +134,7 @@ impl<T: Clone, M: Mutator<T>> VecMutator<T, M> {
         value: &mut Vec<T>,
         cache: &mut VecMutatorCache<M::Cache>,
     ) -> Option<UnmutateVecToken<T, M>> {
-        if value.is_empty() {
+        if value.len() <= *self.len_range.start() {
             return None;
         }
 
@@ -149,15 +158,17 @@ impl<T: Clone, M: Mutator<T>> VecMutator<T, M> {
         value: &mut Vec<T>,
         cache: &mut VecMutatorCache<M::Cache>,
     ) -> Option<UnmutateVecToken<T, M>> {
-        if value.is_empty() {
+        if value.len() <= *self.len_range.start() {
             return None;
         }
+        let max_elements_to_remove = cmp::max(value.len() - *self.len_range.start(), 10);
+
         let start_idx = if value.len() == 1 {
             0
         } else {
             self.rng.usize(0..value.len() - 1)
         };
-        let end_idx = std::cmp::min(value.len(), start_idx + self.rng.usize(1..10));
+        let end_idx = cmp::min(value.len(), start_idx + self.rng.usize(1..max_elements_to_remove));
         let (removed_elements, removed_cache) = {
             let removed_elements: Vec<_> = value.drain(start_idx..end_idx).collect();
             let removed_cache: Vec<_> = cache.inner.drain(start_idx..end_idx).collect();
@@ -186,7 +197,7 @@ impl<T: Clone, M: Mutator<T>> VecMutator<T, M> {
         cache: &mut VecMutatorCache<M::Cache>,
         spare_cplx: f64,
     ) -> Option<UnmutateVecToken<T, M>> {
-        if spare_cplx < 0.01 {
+        if value.len() >= *self.len_range.end() || spare_cplx < 0.01 {
             return None;
         }
 
@@ -203,20 +214,14 @@ impl<T: Clone, M: Mutator<T>> VecMutator<T, M> {
                 0.0..crate::gen_f64(&self.rng, 0.0..crate::gen_f64(&self.rng, 0.0..spare_cplx)),
             ),
         );
-        let (min_length, max_length) = self.choose_slice_length(target_cplx);
-        let min_length = min_length.unwrap_or(0);
+        let len_range = self.choose_slice_length(target_cplx);
 
-        let len = if min_length >= max_length {
-            min_length
-        } else {
-            self.rng.usize(min_length..max_length)
-        };
+        let len = self.rng.usize(len_range);
         if len == 0 {
             // TODO: maybe that shouldn't happen under normal circumstances?
             return None;
         }
-        // println!("len: {:.2}", len);
-        // println!("max_cplx: {:.2}", target_cplx / (len as f64));
+
         let (el, el_cache) = self.m.random_arbitrary(target_cplx / (len as f64));
         let el_cplx = self.m.complexity(&el, &el_cache);
 
@@ -231,49 +236,32 @@ impl<T: Clone, M: Mutator<T>> VecMutator<T, M> {
         Some(token)
     }
 
-    fn choose_slice_length(&self, target_cplx: f64) -> (Option<usize>, usize) {
-        let min_cplx_el = self.m.min_complexity();
-
-        // slight underestimate of the maximum number of elements required to produce an input of max_cplx
-        let max_len_most_complex = {
-            let overestimated_max_len: f64 = target_cplx / min_cplx_el;
-            let max_len = if overestimated_max_len.is_infinite() {
-                // min_cplx_el is 0, so the max length is the maximum complexity of the length component of the vector
-                crate::cplxity_to_size(target_cplx)
+    /**
+    Give an approximation for the range of lengths within which the target complexity can be reached.
+    result.0 is the minimum length, result.1 is the maximum length
+    */
+    fn choose_slice_length(&self, target_cplx: f64) -> RangeInclusive<usize> {
+        // The maximum length is the target complexity divided by the minimum complexity of each element
+        // But that does not take into account the part of the complexity of the vector that comes from its length.
+        // That complexity is given by 1.0 + crate::size_to_compelxity(len)
+        fn length_for_elements_of_cplx(target_cplx: f64, cplx: f64) -> usize {
+            if cplx == 0.0 {
+                // cplx is 0, so the length is the maximum complexity of the length component of the vector
+                crate::cplxity_to_size(target_cplx - 1.0)
+            } else if !cplx.is_finite() {
+                0
             } else {
-                // an underestimate of the true max_length, but not by much
-                (overestimated_max_len - overestimated_max_len.log2()) as usize
-            };
-            if max_len > 10_000 {
-                /* TODO */
-                // 10_000?
-                target_cplx.trunc() as usize
-            } else {
-                max_len
+                (target_cplx / cplx).trunc() as usize
             }
-        };
-        let max_cplx_el = self.m.max_complexity();
-        // slight underestimate of the minimum number of elements required to produce an input of max_cplx
-        // will be inf. if elements can be of infinite complexity
-        // or if elements are of max_cplx 0.0
-        let min_len_most_complex = target_cplx / max_cplx_el - (target_cplx / max_cplx_el).log2();
-
-        // arbitrary restriction on the length of the generated number, to avoid creating absurdly large vectors
-        // of very simple elements, that take up too much memory
-        let max_len_most_complex = if max_len_most_complex > 10_000 {
-            /* TODO */
-            // 10_000?
-            target_cplx.trunc() as usize
-        } else {
-            max_len_most_complex
-        };
-
-        if !min_len_most_complex.is_finite() {
-            (None, max_len_most_complex)
-        } else {
-            let min_len_most_complex = min_len_most_complex.trunc() as usize;
-            (Some(min_len_most_complex), max_len_most_complex)
         }
+
+        let min_len = length_for_elements_of_cplx(target_cplx, self.m.max_complexity());
+        let max_len = length_for_elements_of_cplx(target_cplx, self.m.min_complexity());
+
+        let min_len = clamp(&self.len_range, min_len);
+        let max_len = clamp(&(min_len..=*self.len_range.end()), max_len);
+
+        min_len..=max_len
     }
 
     fn new_input_with_length_and_complexity(
@@ -303,6 +291,19 @@ impl<T: Clone, M: Mutator<T>> VecMutator<T, M> {
             cache.sum_cplx += x_cplx;
             remaining_cplx -= x_cplx;
         }
+
+        if self.len_range.contains(&v.len()) {
+        } else {
+            // at this point it should be smaller, not larger than it must be, so we add new elements
+            let remaining = target_len - v.len();
+            for _ in 0..remaining {
+                let (x, x_cache) = self.m.random_arbitrary(0.0);
+                let x_cplx = self.m.complexity(&x, &x_cache);
+                v.push(x);
+                cache.inner.push(x_cache);
+                cache.sum_cplx += x_cplx;
+            }
+        }
         (v, cache)
     }
 }
@@ -330,7 +331,8 @@ impl<T: Clone, M: Mutator<T>> Mutator<Vec<T>> for VecMutator<T, M> {
     }
 
     fn max_complexity(&self) -> f64 {
-        std::f64::INFINITY
+        let max_len = *self.len_range.end();
+        1.0 + (max_len as f64) * self.m.max_complexity() + crate::size_to_cplxity(max_len + 1)
     }
 
     fn min_complexity(&self) -> f64 {
@@ -341,47 +343,35 @@ impl<T: Clone, M: Mutator<T>> Mutator<Vec<T>> for VecMutator<T, M> {
         1.0 + cache.sum_cplx + crate::size_to_cplxity(value.len() + 1)
     }
 
-    fn ordered_arbitrary(&self, step: &mut Self::ArbitraryStep, max_cplx: f64) -> Option<(Vec<T>, Self::Cache)> {
+    fn ordered_arbitrary(&self, step: &mut Self::ArbitraryStep, mut max_cplx: f64) -> Option<(Vec<T>, Self::Cache)> {
         if max_cplx < self.min_complexity() {
             return None;
         }
+        let mutator_max_cplx = self.max_complexity();
+        if max_cplx > mutator_max_cplx {
+            max_cplx = mutator_max_cplx;
+        }
         if !*step || max_cplx <= 1.0 {
             *step = true;
-            return Some((<_>::default(), Self::Cache::default()));
+            if self.len_range.contains(&0) {
+                return Some((<_>::default(), Self::Cache::default()));
+            } else {
+                return Some(self.random_arbitrary(max_cplx));
+            }
         } else {
             return Some(self.random_arbitrary(max_cplx));
         }
     }
 
-    fn random_arbitrary(&self, max_cplx: f64) -> (Vec<T>, Self::Cache) {
-        let target_cplx = fastrand::f64() * crate::gen_f64(&self.rng, 0.0..max_cplx);
-        let lengths = self.choose_slice_length(target_cplx);
-
-        if lengths.0.is_none() && self.m.max_complexity() < 0.001 {
-            // distinguish between the case where elements are of max_cplx 0 and the case where they are of max_cplx inf.
-            // in this case, the elements are always of cplx 0, so we can only vary the length of the vector
-            // that's not true!!!
-            if lengths.1 <= 0 {
-                return (<_>::default(), Self::Cache::default());
-            }
-            assert!(lengths.1 > 0);
-            let len = self.rng.usize(0..lengths.1);
-            let (el, el_cache) = self.m.random_arbitrary(0.0);
-            let v = repeat(el).take(len).collect();
-            let cache = Self::Cache {
-                inner: repeat(el_cache).take(len).collect(),
-                sum_cplx: 0.0,
-            };
-            return (v, cache);
+    fn random_arbitrary(&self, mut max_cplx: f64) -> (Vec<T>, Self::Cache) {
+        let mutator_max_cplx = self.max_complexity();
+        if max_cplx > mutator_max_cplx {
+            max_cplx = mutator_max_cplx;
         }
-        let (min_length, max_length) = (lengths.0.unwrap_or(0), lengths.1);
 
-        // choose a length between min_len_most_complex and max_len_most_complex
-        let target_len = if min_length >= max_length {
-            min_length
-        } else {
-            self.rng.usize(min_length..max_length)
-        };
+        let target_cplx = crate::gen_f64(&self.rng, 1.0..max_cplx);
+        let len_range = self.choose_slice_length(target_cplx);
+        let target_len = self.rng.usize(len_range);
 
         self.new_input_with_length_and_complexity(target_len, target_cplx)
     }
@@ -391,12 +381,17 @@ impl<T: Clone, M: Mutator<T>> Mutator<Vec<T>> for VecMutator<T, M> {
         value: &mut Vec<T>,
         cache: &mut Self::Cache,
         step: &mut Self::MutationStep,
-        max_cplx: f64,
+        mut max_cplx: f64,
     ) -> Option<Self::UnmutateToken> {
         // Some(self.random_mutate(value, cache, max_cplx))
         if max_cplx < self.min_complexity() {
             return None;
         }
+        let mutator_max_cplx = self.max_complexity();
+        if max_cplx > mutator_max_cplx {
+            max_cplx = mutator_max_cplx;
+        }
+
         let spare_cplx = max_cplx - self.complexity(value, cache);
 
         let token = if value.is_empty() || self.rng.usize(0..20) == 0 {
@@ -421,7 +416,12 @@ impl<T: Clone, M: Mutator<T>> Mutator<Vec<T>> for VecMutator<T, M> {
         }
     }
 
-    fn random_mutate(&self, value: &mut Vec<T>, cache: &mut Self::Cache, max_cplx: f64) -> Self::UnmutateToken {
+    fn random_mutate(&self, value: &mut Vec<T>, cache: &mut Self::Cache, mut max_cplx: f64) -> Self::UnmutateToken {
+        let mutator_max_cplx = self.max_complexity();
+        if max_cplx > mutator_max_cplx {
+            max_cplx = mutator_max_cplx;
+        }
+
         let spare_cplx = max_cplx - self.complexity(value, cache);
 
         if value.is_empty() || self.rng.usize(0..10) == 0 {
@@ -431,7 +431,7 @@ impl<T: Clone, M: Mutator<T>> Mutator<Vec<T>> for VecMutator<T, M> {
                 4..=7 => self.remove_element(value, cache),
                 8 => self.insert_repeated_elements(value, cache, spare_cplx),
                 9 => self.remove_many_elements(value, cache),
-                _ => unreachable!(),
+                _ => None,
             }
             .unwrap_or_else(|| self.random_mutate(value, cache, max_cplx))
         } else {
@@ -493,4 +493,27 @@ fn insert_many<T>(v: &mut Vec<T>, idx: usize, iter: impl Iterator<Item = T>) {
     let moved_slice = v.drain(idx..).collect::<Vec<T>>().into_iter();
     v.extend(iter);
     v.extend(moved_slice);
+}
+
+fn clamp(range: &RangeInclusive<usize>, x: usize) -> usize {
+    cmp::min(cmp::max(*range.start(), x), *range.end())
+}
+
+#[cfg(test)]
+mod tests {
+    use fuzzcheck_traits::Mutator;
+
+    use crate::U8Mutator;
+    use crate::VecMutator;
+    #[test]
+    fn test_constrained_length_mutator() {
+        let range = 0..=10;
+        let m = VecMutator::<u8, U8Mutator>::new(U8Mutator::default(), range.clone());
+        let mut step = false;
+        for _ in 0..100 {
+            let (x, _) = m.ordered_arbitrary(&mut step, 800.0).unwrap();
+            eprintln!("{}", x.len());
+            assert!(range.contains(&x.len()), "{}", x.len());
+        }
+    }
 }
