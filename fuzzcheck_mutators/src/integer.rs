@@ -75,6 +75,7 @@ binary_search_arbitrary!(binary_search_arbitrary_u64, u64);
 
 macro_rules! impl_int_mutator {
     ($name:ident, $name_unsigned: ident, $name_mutator:ident) => {
+        #[derive(Clone)]
         pub struct $name_mutator {
             shuffled_integers: [u8; 256],
             rng: fastrand::Rng,

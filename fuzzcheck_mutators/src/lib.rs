@@ -16,11 +16,24 @@ mod bool;
 mod r#box;
 mod dictionary;
 mod enums;
+mod fixed_len_vector;
 mod integer;
 mod option;
 mod tuples;
 mod unit;
 mod vector;
+
+/*
+List of features required to make string-from-regex mutators:
+- [x] add range constraint on generated integer/char
+- [x] add unsafe char mutator, but always make it constrained, the constraints are taken from UnicodeClass
+- [x] add range constraint on length of generated vectors (at run-time)
+- [x] add fixed len vector mutator where each index has a different mutator
+- [ ] add constraints on allowed cases of enums (at run-time)
+- [ ] have a mutator that wraps multiple mutators of the same type
+- [ ] add a MapMutator
+- [ ] improve recursive mutators in general, as string-from-regex will depend on it
+*/
 
 pub use crate::bool::BoolMutator;
 pub use crate::dictionary::DictionaryMutator;
@@ -46,6 +59,7 @@ pub use crate::tuples::{
     Tuple7Mutator, Tuple8Mutator, Tuple9Mutator,
 };
 
+pub use crate::fixed_len_vector::FixedLenVecMutator;
 pub use crate::unit::*;
 pub use crate::vector::VecMutator;
 
