@@ -88,8 +88,10 @@ use std::rc::{Rc, Weak};
 pub trait Mutator<Value: Clone>: Sized {
     type Cache: Clone;
     type MutationStep: Clone;
-    type ArbitraryStep: Clone + Default;
+    type ArbitraryStep: Clone;
     type UnmutateToken;
+
+    fn default_arbitrary_step(&self) -> Self::ArbitraryStep;
 
     /// Compute the cache for the given value
     fn cache_from_value(&self, value: &Value) -> Self::Cache;
@@ -176,6 +178,10 @@ where
     type ArbitraryStep = RecursingArbitraryStep<<M as Mutator<T>>::ArbitraryStep>;
     type UnmutateToken = <M as Mutator<T>>::UnmutateToken;
 
+    fn default_arbitrary_step(&self) -> Self::ArbitraryStep {
+        RecursingArbitraryStep::Default
+    }
+
     fn cache_from_value(&self, value: &T) -> Self::Cache {
         self.reference.upgrade().unwrap().cache_from_value(value)
     }
@@ -199,12 +205,9 @@ where
     fn ordered_arbitrary(&self, step: &mut Self::ArbitraryStep, max_cplx: f64) -> Option<(T, Self::Cache)> {
         match step {
             RecursingArbitraryStep::Default => {
-                let mut inner_step = <_>::default();
-                let result = self
-                    .reference
-                    .upgrade()
-                    .unwrap()
-                    .ordered_arbitrary(&mut inner_step, max_cplx);
+                let mutator = self.reference.upgrade().unwrap();
+                let mut inner_step = mutator.default_arbitrary_step();
+                let result = mutator.ordered_arbitrary(&mut inner_step, max_cplx);
                 *step = RecursingArbitraryStep::Initialized(inner_step);
                 result
             }
@@ -251,6 +254,10 @@ where
     type MutationStep = <M as Mutator<T>>::MutationStep;
     type ArbitraryStep = <M as Mutator<T>>::ArbitraryStep;
     type UnmutateToken = <M as Mutator<T>>::UnmutateToken;
+
+    fn default_arbitrary_step(&self) -> Self::ArbitraryStep {
+        Rc::as_ref(&self.mutator).default_arbitrary_step()
+    }
 
     fn cache_from_value(&self, value: &T) -> Self::Cache {
         Rc::as_ref(&self.mutator).cache_from_value(value)

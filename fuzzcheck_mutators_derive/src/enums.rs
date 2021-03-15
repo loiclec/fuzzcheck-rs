@@ -107,17 +107,9 @@ fn make_enum_mutator_helper_types(tb: &mut TokenBuilder, n: usize) {
 
     extend_ts!(tb,
         "#[derive(" cm.Clone ")]
-        pub struct" cm.EnumNPayloadArbitraryStep_ident "<" join_ts!(0..n, i, T(i) ":" cm.Default, separator: ",") "> {
+        pub struct" cm.EnumNPayloadArbitraryStep_ident "<" join_ts!(0..n, i, T(i), separator: ",") "> {
             steps: " cm.Vec "<" cm.EitherNP1_ident "<" type_params ", usize > >,
             idx: usize,
-        }
-        impl<" join_ts!(0..n, i, T(i) ":" cm.Default, separator: ",") ">" cm.Default "for" cm.EnumNPayloadArbitraryStep_ident "<" type_params "> {
-            fn default() -> Self {
-                Self {
-                    steps: vec![" join_ts!(0..n, i, cm.EitherNP1_ident "::" T(i) "(" T(i) "::default()) ," ) cm.EitherNP1_ident "::" T(n) "(0)],
-                    idx: 0,
-                }
-            }
         }
         #[derive(" cm.Clone ")]
         pub struct " cm.EnumNPayloadMutationStep_ident "<" type_params ", AS> {
@@ -155,6 +147,19 @@ fn impl_mutator(tb: &mut TokenBuilder, n: usize) {
         type ArbitraryStep = " cm.EnumNPayloadArbitraryStep_ident "<" join_ts!(0..n, i, M(i) "::ArbitraryStep", separator: ",") ">;
         type UnmutateToken = " cm.EitherNP1_ident "<" join_ts!(0..n, i, M(i) "::UnmutateToken ,") "(T, Self::Cache)>;
     
+        fn default_arbitrary_step(&self) -> Self::ArbitraryStep {
+            Self::ArbitraryStep {
+                steps: vec![" 
+                join_ts!(0..n, i,  
+                    cm.EitherNP1_ident "::" T(i) "(
+                        <" M(i) " as " TupleMutator(i) ">::default_arbitrary_step(&self." mutator_(i) ")
+                    )," 
+                ) 
+                    cm.EitherNP1_ident "::" T(n) "(0)],
+                idx: 0,
+            }
+        }
+
         fn cache_from_value(&self, value: &T) -> Self::Cache {
             let x = value.get_ref();
             match x {"
@@ -170,7 +175,7 @@ fn impl_mutator(tb: &mut TokenBuilder, n: usize) {
                 EitherT(i) "(x) => Self::MutationStep {
                     inner:" EitherT(i) "(self." mutator_(i) ".initial_step_from_value(x)),
                     arbitrary: { 
-                        let mut step: Self::ArbitraryStep = <_>::default() ;
+                        let mut step: Self::ArbitraryStep = <Self as " cm.fuzzcheck_traits_Mutator "<T>>::default_arbitrary_step(self) ;
                         step.steps.remove(" i ");
                         step
                     },
@@ -178,7 +183,7 @@ fn impl_mutator(tb: &mut TokenBuilder, n: usize) {
             )
                 EitherT(n) "(_) => Self::MutationStep {
                     inner:" EitherT(n) "(()),
-                    arbitrary: <_>::default(),
+                    arbitrary: <Self as " cm.fuzzcheck_traits_Mutator "<T>>::default_arbitrary_step(self),
                 },
             }
         }
@@ -295,7 +300,7 @@ fn impl_mutator(tb: &mut TokenBuilder, n: usize) {
                 }"
             )
             "   (" EitherT(n) "(_), " EitherT(n) "(_), " EitherT(n) "(_)) => {
-                    // TODO: this could be slightly better, avoiding a repetition by mutating instead of using arbitrary
+                    
                 }
                 _ => unreachable!(),
             }

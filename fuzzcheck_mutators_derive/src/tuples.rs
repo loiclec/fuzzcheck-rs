@@ -5,6 +5,7 @@ use synquote::parser::*;
 use synquote::token_builder::*;
 
 use crate::{Common, MakeMutatorSettings};
+use crate::structs_and_enums::{FieldMutator, FieldMutatorKind};
 
 pub fn make_basic_tuple_mutator(tb: &mut TokenBuilder, nbr_elements: usize) {
     make_tuple_type_structure(tb, nbr_elements);
@@ -141,12 +142,6 @@ pub(crate) fn impl_default_mutator_for_struct_with_0_field(
     ");
 }
 
-use crate::structs_and_enums::{FieldMutator, FieldMutatorKind};
-
-// enum FieldMutator {
-//     Generic(usize, StructField),
-//     Prescribed(Ty, Option<TokenStream>),
-// }
 
 #[allow(non_snake_case)]
 pub(crate) fn impl_default_mutator_for_struct(
@@ -336,7 +331,7 @@ fn declare_tuple_mutator_helper_types(
             "step : usize ,
             inner : " cm.Vec " < InnerMutationStep > 
         }
-        #[derive(" cm.Default "," cm.Clone ")]
+        #[derive(" cm.Clone ")]
         pub struct ArbitraryStep < " tuple_type_params " > {"
             join_ts!(0..nbr_elements, i,
                 ti(i) ":" Ti(i)
@@ -418,6 +413,14 @@ fn impl_mutator_trait(tb: &mut TokenBuilder, nbr_elements: usize) {
                 "<" Mi(i) "as" cm.fuzzcheck_traits_Mutator "<" Ti(i) "> >::UnmutateToken "
             , separator: ",")
         ">;
+
+        fn default_arbitrary_step(&self) -> Self::ArbitraryStep {
+            Self::ArbitraryStep {"
+                join_ts!(0..nbr_elements, i,
+                    ti(i) ": self." mutator_i(i) ".default_arbitrary_step()"
+                , separator: ",")
+            "}
+        }
 
         fn max_complexity(&self) -> f64 {"
             join_ts!(0..nbr_elements, i,

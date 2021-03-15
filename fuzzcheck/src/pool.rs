@@ -1204,6 +1204,10 @@ mod tests {
         type ArbitraryStep = ();
         type UnmutateToken = ();
 
+        fn default_arbitrary_step(&self) -> Self::ArbitraryStep {
+            ()
+        }
+
         fn cache_from_value(&self, _value: &f64) -> Self::Cache {}
 
         fn initial_step_from_value(&self, _value: &f64) -> Self::MutationStep {}

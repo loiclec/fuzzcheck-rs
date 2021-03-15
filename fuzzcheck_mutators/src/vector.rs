@@ -314,6 +314,10 @@ impl<T: Clone, M: Mutator<T>> Mutator<Vec<T>> for VecMutator<T, M> {
     type ArbitraryStep = bool; // false: check empty vector, true: random
     type UnmutateToken = UnmutateVecToken<T, M>;
 
+    fn default_arbitrary_step(&self) -> Self::ArbitraryStep {
+        <_>::default()
+    }
+
     fn cache_from_value(&self, value: &Vec<T>) -> Self::Cache {
         let inner: Vec<_> = value.iter().map(|x| self.m.cache_from_value(&x)).collect();
 

@@ -154,6 +154,10 @@ macro_rules! impl_int_mutator {
             type ArbitraryStep = u64;
             type UnmutateToken = $name; // old value
 
+            fn default_arbitrary_step(&self) -> Self::ArbitraryStep {
+                <_>::default()
+            }
+
             /// Compute the cache for the given value
             fn cache_from_value(&self, _value: &$name) -> Self::Cache {}
             /// Compute the initial mutation step for the given value
@@ -298,6 +302,11 @@ macro_rules! impl_int_mutator_constrained {
             type MutationStep = u64; // mutation step
             type ArbitraryStep = u64;
             type UnmutateToken = $name; // old value
+            
+            fn default_arbitrary_step(&self) -> Self::ArbitraryStep {
+                0
+            }
+
             fn cache_from_value(&self, _value: &$name) -> Self::Cache {}
             fn initial_step_from_value(&self, _value: &$name) -> Self::MutationStep {
                 0
@@ -419,6 +428,9 @@ impl Mutator<char> for CharWithinRangeMutator {
     type MutationStep = u64; // mutation step
     type ArbitraryStep = u64;
     type UnmutateToken = char; // old value
+    fn default_arbitrary_step(&self) -> Self::ArbitraryStep {
+        0
+    }
     fn cache_from_value(&self, _value: &char) -> Self::Cache {}
     fn initial_step_from_value(&self, _value: &char) -> Self::MutationStep {
         0

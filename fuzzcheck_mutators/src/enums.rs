@@ -22,6 +22,10 @@ where
     type ArbitraryStep = usize;
     type UnmutateToken = usize;
 
+    fn default_arbitrary_step(&self) -> Self::ArbitraryStep {
+        0
+    }
+
     fn cache_from_value(&self, _value: &T) -> Self::Cache {}
 
     fn initial_step_from_value(&self, _value: &T) -> Self::MutationStep {

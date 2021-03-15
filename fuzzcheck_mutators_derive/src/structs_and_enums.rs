@@ -172,17 +172,7 @@ pub(crate) fn make_mutator_type_and_impl(params: CreateWrapperMutatorParams) -> 
             }" 
         )
     };
-    let impl_default_helper_type = |helper_type: &str| {
-        ts!(
-            "impl" NameMutator_generics.removing_eq_type()  cm.Default "for" ident!(NameMutator helper_type) NameMutator_generics.removing_bounds_and_eq_type() NameMutator_where_clause "{
-                fn default() -> Self {
-                    Self {
-                        inner: <_>::default()
-                    }
-                }
-            }" 
-        )
-    };
+
     let InnerMutator_as_Mutator = ts!("<" InnerMutator "as" cm.fuzzcheck_mutator_traits_Mutator "<" type_ident type_generics.removing_bounds_and_eq_type() "> >" );
 
     ts!(
@@ -196,7 +186,6 @@ pub(crate) fn make_mutator_type_and_impl(params: CreateWrapperMutatorParams) -> 
     impl_clone_helper_type("MutationStep")
     helper_type("ArbitraryStep")
     impl_clone_helper_type("ArbitraryStep")
-    impl_default_helper_type("ArbitraryStep")
     helper_type("UnmutateToken")
 
     "impl " NameMutator_generics NameMutator NameMutator_generics.removing_bounds_and_eq_type() NameMutator_where_clause "
@@ -219,6 +208,10 @@ pub(crate) fn make_mutator_type_and_impl(params: CreateWrapperMutatorParams) -> 
             type ArbitraryStep =" NameMutatorArbitraryStep NameMutator_generics.removing_bounds_and_eq_type() ";
             type UnmutateToken =" NameMutatorUnmutateToken NameMutator_generics.removing_bounds_and_eq_type() ";
         
+            fn default_arbitrary_step(&self) -> Self::ArbitraryStep {
+                Self::ArbitraryStep::new(" InnerMutator_as_Mutator "::default_arbitrary_step(&self.mutator))
+            }
+
             fn cache_from_value(&self, value: &" type_ident type_generics.removing_bounds_and_eq_type() ") -> Self::Cache {
                 Self::Cache::new(" InnerMutator_as_Mutator "::cache_from_value(&self.mutator, value) )
             }

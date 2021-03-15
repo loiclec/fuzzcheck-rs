@@ -59,6 +59,10 @@ where
     type ArbitraryStep = bool;
     type UnmutateToken = ();
 
+    fn default_arbitrary_step(&self) -> Self::ArbitraryStep {
+        false
+    }
+
     fn cache_from_value(&self, _value: &T) -> Self::Cache {}
 
     fn initial_step_from_value(&self, _value: &T) -> Self::MutationStep {}

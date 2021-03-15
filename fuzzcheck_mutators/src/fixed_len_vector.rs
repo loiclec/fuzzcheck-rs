@@ -115,6 +115,10 @@ impl<T: Clone, M: Mutator<T>> Mutator<Vec<T>> for FixedLenVecMutator<T, M> {
     type ArbitraryStep = ();
     type UnmutateToken = UnmutateVecToken<T, M>;
 
+    fn default_arbitrary_step(&self) -> Self::ArbitraryStep {
+        ()
+    }
+
     fn cache_from_value(&self, value: &Vec<T>) -> Self::Cache {
         let inner: Vec<_> = value
             .iter()

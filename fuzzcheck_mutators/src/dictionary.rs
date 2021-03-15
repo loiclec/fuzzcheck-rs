@@ -48,6 +48,10 @@ impl<T: Clone, M: Mutator<T>> Mutator<T> for DictionaryMutator<T, M> {
     type ArbitraryStep = self::ArbitraryStep<M::ArbitraryStep>;
     type UnmutateToken = UnmutateToken<T, M>;
 
+    fn default_arbitrary_step(&self) -> Self::ArbitraryStep {
+        <_>::default()
+    }
+
     fn cache_from_value(&self, value: &T) -> Self::Cache {
         self.m.cache_from_value(value)
     }
@@ -68,7 +72,7 @@ impl<T: Clone, M: Mutator<T>> Mutator<T> for DictionaryMutator<T, M> {
                     *inner_step += 1;
                     Some((v, c))
                 } else {
-                    let inner_step = <_>::default();
+                    let inner_step = self.m.default_arbitrary_step();
                     *step = self::ArbitraryStep::Wrapped(inner_step);
                     self.ordered_arbitrary(step, max_cplx)
                 }

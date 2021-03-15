@@ -31,6 +31,10 @@ impl<T: Clone, M: Mutator<T>> Mutator<Box<T>> for BoxMutator<T, M> {
     type ArbitraryStep = M::ArbitraryStep;
     type UnmutateToken = M::UnmutateToken;
 
+    fn default_arbitrary_step(&self) -> Self::ArbitraryStep {
+        self.mutator.default_arbitrary_step()
+    }
+
     fn cache_from_value(&self, value: &Box<T>) -> Self::Cache {
         self.mutator.cache_from_value(value)
     }

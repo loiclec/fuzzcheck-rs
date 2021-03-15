@@ -31,6 +31,10 @@ impl Mutator<bool> for BoolMutator {
     type ArbitraryStep = ArbitraryStep;
     type UnmutateToken = bool;
 
+    fn default_arbitrary_step(&self) -> Self::ArbitraryStep {
+        <_>::default()
+    }
+
     fn max_complexity(&self) -> f64 {
         1.0
     }

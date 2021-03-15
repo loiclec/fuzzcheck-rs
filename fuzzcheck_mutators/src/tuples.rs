@@ -78,6 +78,10 @@ where
     type ArbitraryStep = M::ArbitraryStep;
     type UnmutateToken = M::UnmutateToken;
 
+    fn default_arbitrary_step(&self) -> Self::ArbitraryStep {
+        self.mutator.default_arbitrary_step()
+    }
+
     fn complexity<'a>(&'a self, value: &'a T, cache: &'a Self::Cache) -> f64 {
         self.mutator.complexity(value, cache)
     }
@@ -149,6 +153,10 @@ where
     type ArbitraryStep = M::ArbitraryStep;
     type UnmutateToken = M::UnmutateToken;
 
+    fn default_arbitrary_step(&self) -> Self::ArbitraryStep {
+        self.mutator.default_arbitrary_step()
+    }
+
     fn complexity<'a>(&'a self, value: &'a T, cache: &'a Self::Cache) -> f64 {
         self.mutator.complexity(value, cache)
     }
@@ -214,8 +222,10 @@ where
 {
     type Cache: Clone;
     type MutationStep: Clone;
-    type ArbitraryStep: Clone + Default;
+    type ArbitraryStep: Clone;
     type UnmutateToken;
+
+    fn default_arbitrary_step(&self) -> Self::ArbitraryStep;
 
     fn complexity<'a>(&'a self, value: TupleKind::Ref<'a>, cache: &'a Self::Cache) -> f64;
 
@@ -300,6 +310,10 @@ where
     type MutationStep = M::MutationStep;
     type ArbitraryStep = M::ArbitraryStep;
     type UnmutateToken = M::UnmutateToken;
+
+    fn default_arbitrary_step(&self) -> Self::ArbitraryStep {
+        self.mutator.default_arbitrary_step()
+    }
 
     fn complexity(&self, value: &T, cache: &Self::Cache) -> f64 {
         self.mutator.complexity(value.get_ref(), cache)

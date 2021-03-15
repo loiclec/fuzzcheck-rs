@@ -12,6 +12,7 @@ pub extern crate fuzzcheck_mutators_derive;
 pub extern crate fuzzcheck_traits;
 pub use fuzzcheck_mutators_derive::*;
 
+// mod alternative_mutators;
 mod bool;
 mod r#box;
 mod dictionary;
@@ -29,10 +30,12 @@ List of features required to make string-from-regex mutators:
 - [x] add unsafe char mutator, but always make it constrained, the constraints are taken from UnicodeClass
 - [x] add range constraint on length of generated vectors (at run-time)
 - [x] add fixed len vector mutator where each index has a different mutator
-- [ ] add constraints on allowed cases of enums (at run-time)
+- [ ] have a mutator that wraps multiple mutators of different types
 - [ ] have a mutator that wraps multiple mutators of the same type
 - [ ] add a MapMutator
-- [ ] improve recursive mutators in general, as string-from-regex will depend on it
+
+- probably not: [ ] improve recursive mutators in general, as string-from-regex will depend on it
+- probably not: [ ] add constraints on allowed cases of enums (at run-time)
 */
 
 pub use crate::bool::BoolMutator;

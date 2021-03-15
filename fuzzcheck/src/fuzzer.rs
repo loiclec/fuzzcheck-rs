@@ -174,11 +174,12 @@ where
     S: Serializer<Value = T>,
 {
     pub fn new(test: F, mutator: M, settings: FullCommandLineArguments, world: World<S>) -> Self {
+        let arbitrary_step = mutator.default_arbitrary_step();
         Fuzzer {
             state: FuzzerState {
                 mutator,
                 pool: Pool::default(),
-                arbitrary_step: <_>::default(),
+                arbitrary_step,
                 input_idx: FuzzerInputIndex::None,
                 stats: FuzzerStats::new(),
                 settings,
