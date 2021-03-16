@@ -10,6 +10,7 @@ use synquote::token_builder::*;
 use synquote::{parser::TokenParser, token_builder::TokenBuilder};
 
 mod enums;
+mod single_variant;
 mod structs_and_enums;
 mod tuples;
 
@@ -80,6 +81,12 @@ pub fn derive_default_mutator(item: proc_macro::TokenStream) -> proc_macro::Toke
 pub fn derive_enum_n_payload_structure(item: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let input = proc_macro2::TokenStream::from(item);
     derive_enum_n_payload_structure_(input).into()
+}
+
+#[proc_macro]
+pub fn make_single_variant_mutator(item: proc_macro::TokenStream) -> proc_macro::TokenStream {
+    let input = proc_macro2::TokenStream::from(item);
+    make_single_variant_mutator_(input).into()
 }
 
 /*
@@ -170,6 +177,21 @@ fn derive_default_mutator_(item: proc_macro2::TokenStream, settings: MakeMutator
     } else {
         extend_ts!(&mut tb,
             "compile_error!(\"The item could not be parsed by the DefaultMutator macro. Note: only enums and structs are supported.\");"
+        );
+    }
+    tb.end()
+}
+
+fn make_single_variant_mutator_(item: proc_macro2::TokenStream) -> proc_macro2::TokenStream {
+    let input = item;
+    let mut tb = TokenBuilder::new();
+    let mut parser = TokenParser::new(input);
+
+    if let Some(e) = parser.eat_enumeration() {
+        single_variant::make_single_variant_mutator(&mut tb, &e);
+    } else {
+        extend_ts!(&mut tb,
+            "compile_error!(\"The item could not be parsed by the make_single_variant_mutator macro. Note: only enums are supported.\");"
         );
     }
     tb.end()
@@ -275,6 +297,7 @@ pub(crate) struct Common {
     // EnumNPayloadArbitraryStep_path: TokenStream,
     // EnumNPayloadMutationStep_path: TokenStream,
     // WrappedTupleN_ident: Ident,
+    BottomMutator: TokenStream,
     Clone: TokenStream,
     Default: TokenStream,
     DefaultMutator: TokenStream,
@@ -388,6 +411,7 @@ impl Common {
             // EnumNPayloadMutationStep_path,
             // fuzzcheck_mutators_crate: fuzzcheck_mutators_crate.clone(),
             // WrappedTupleN_ident,
+            BottomMutator: ts!(fuzzcheck_mutators_crate "::BottomMutator"),
             Clone: ts!("::std::clone::Clone"),
             Default: ts!("::std::default::Default"),
             DefaultMutator: ts!(fuzzcheck_mutators_crate "::DefaultMutator"),

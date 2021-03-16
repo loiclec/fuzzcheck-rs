@@ -28,7 +28,7 @@ pub enum X {
 }
 
 fn main() {
-    let mut m = Vec::<SampleData<u8, Option<u8>, bool>>::default_mutator();
+    let m = Vec::<SampleData<u8, Option<u8>, bool>>::default_mutator();
 
     let mut results = vec![];
 
