@@ -373,6 +373,7 @@ fn impl_mutator_trait(tb: &mut TokenBuilder, nbr_elements: usize) {
     let mutator_i = cm.mutator_i.as_ref();
     let ti_value = cm.ti_value.as_ref();
     let ti_cache = cm.ti_cache.as_ref();
+    let ti_step = |i: usize| ident!("t" i "_step");
 
     // let tuple_owned = ts!("(" join_ts!(0..nbr_elements, i, Ti(i), separator: ",") ")");
     let tuple_ref = ts!("(" join_ts!(0..nbr_elements, i, "&'a" Ti(i), separator: ",") ")");
@@ -435,45 +436,44 @@ fn impl_mutator_trait(tb: &mut TokenBuilder, nbr_elements: usize) {
         fn complexity<'a>(&'a self, _value: " tuple_ref ", cache: &'a Self::Cache) -> f64 {
             cache.cplx
         }
-        fn cache_from_value<'a>(&'a self, value: " tuple_ref ") -> Self::Cache {"
+        fn validate_value<'a>(&'a self, value: " tuple_ref ") -> " cm.Option "<(Self::Cache, Self::MutationStep)> {"
             join_ts!(0..nbr_elements, i,
-                "let" ti(i) "= self." mutator_i(i) ".cache_from_value(value." i ");"
+                "let (" ident!("c" i) ", " ident!("s" i) ") = self." mutator_i(i) ".validate_value(value." i ")?;"
             )
             "let cplx = "
                 join_ts!(0..nbr_elements, i,
-                    "self." mutator_i(i) ".complexity(value." i ", &" ti(i) ")"
-                , separator: "+") ";"
-            "Self::Cache {"
-                join_ts!(0..nbr_elements, i, ti(i) ",")
-                "cplx
-            }
-        }
-        fn initial_step_from_value<'a>(&'a self, value: " tuple_ref ") -> Self::MutationStep {"
-            join_ts!(0..nbr_elements, i,
-                "let" ti(i) "= self." mutator_i(i) ".initial_step_from_value(value." i ");"
-            )
-            "let step = 0;"
-            "Self::MutationStep {"
-                join_ts!(0..nbr_elements, i, ti(i) ",")
+                    "self." mutator_i(i) ".complexity(value." i ", &" ident!("c" i) ")"
+                , separator: "+") ";
+            let step = 0;
+            let step = Self::MutationStep {"
+                join_ts!(0..nbr_elements, i, ti(i) ":" ident!("s" i) ",")
                 "inner: vec![" join_ts!(0..nbr_elements, i, "InnerMutationStep::" Ti(i), separator: ",") "] ,
                 step ,
-            }
+            };
+
+            let cache = Self::Cache {"
+                join_ts!(0..nbr_elements, i, ti(i) ":" ident!("c" i) ",")
+                "cplx
+            };
+
+            " cm.Some "((cache, step))
         }
         fn ordered_arbitrary(
             &self,
             step: &mut Self::ArbitraryStep,
             max_cplx: f64,
-        ) -> " cm.Option "<(T, Self::Cache)> {
+        ) -> " cm.Option "<(T, Self::Cache, Self::MutationStep)> {
             if max_cplx < <Self as" cm.TupleMutator "<T , " cm.TupleN_ident "<" tuple_type_params "> > >::min_complexity(self) { 
                 return " cm.None " 
             }
             " // TODO: actually write something that is ordered_arbitrary sense here
             cm.Some "  (self.random_arbitrary(max_cplx))
         }
-        fn random_arbitrary(&self, max_cplx: f64) -> (T, Self::Cache) {"
+        fn random_arbitrary(&self, max_cplx: f64) -> (T, Self::Cache, Self::MutationStep) {"
             join_ts!(0..nbr_elements, i,
                 "let mut" ti_value(i) ":" cm.Option "<_> =" cm.None ";"
                 "let mut" ti_cache(i) ":" cm.Option "<_> =" cm.None ";"
+                "let mut" ti_step(i) ":" cm.Option "<_> =" cm.None ";"
             )
             "let mut indices = ( 0 .." nbr_elements ").collect::<" cm.Vec "<_>>();"
             cm.fastrand "::shuffle(&mut indices);"
@@ -482,10 +482,11 @@ fn impl_mutator_trait(tb: &mut TokenBuilder, nbr_elements: usize) {
                 match idx {"
                 join_ts!(0..nbr_elements, i,
                     i "=> {
-                        let (value, cache) = self." mutator_i(i) ".random_arbitrary(max_cplx - cplx);
+                        let (value, cache, step) = self." mutator_i(i) ".random_arbitrary(max_cplx - cplx);
                         cplx += self." mutator_i(i) ".complexity(&value, &cache);
                         " ti_value(i) "= " cm.Some "(value);
                         " ti_cache(i) "= " cm.Some "(cache);
+                        " ti_step(i) "= " cm.Some "(step);
                     }"
                 )
                     "_ => unreachable!() ,
@@ -504,7 +505,12 @@ fn impl_mutator_trait(tb: &mut TokenBuilder, nbr_elements: usize) {
                         ti(i) ":" ti_cache(i) ".unwrap() ,"
                     )
                     "cplx,
-                },
+                } ,
+                Self::MutationStep {"
+                    join_ts!(0..nbr_elements, i, ti(i) ":" ti_step(i) ".unwrap() ,")
+                    "inner: vec![" join_ts!(0..nbr_elements, i, "InnerMutationStep::" Ti(i), separator: ",") "] ,
+                    step : 0 ,
+                }
             )
         }
 
@@ -770,15 +776,6 @@ impl < T : Into < u8 >, M0 , M1 > :: std :: clone :: Clone for SMutatorArbitrary
         Self {{ inner : self . inner . clone () }} 
     }} 
 }} 
-impl < T : Into < u8 >, M0 , M1 > :: std :: default :: Default for SMutatorArbitraryStep < T , M0 , M1 > 
-    where T : Default , T : :: std :: clone :: Clone + 'static , 
-    M0 : fuzzcheck_mutators :: fuzzcheck_traits :: Mutator < u8 > , 
-    M1 : fuzzcheck_mutators :: fuzzcheck_traits :: Mutator < Vec < T > > 
-{{ 
-    fn default () -> Self {{ 
-        Self {{ inner : < _ >:: default () }} 
-    }} 
-}} 
 pub struct SMutatorUnmutateToken < T : Into < u8 >, M0 , M1 > 
     where T : Default , T : :: std :: clone :: Clone + 'static , 
     M0 : fuzzcheck_mutators :: fuzzcheck_traits :: Mutator < u8 > , 
@@ -835,18 +832,21 @@ impl < T : Into < u8 >, M0 , M1 > fuzzcheck_mutators :: fuzzcheck_traits :: Muta
     type ArbitraryStep = SMutatorArbitraryStep < T , M0 , M1 > ; 
     type UnmutateToken = SMutatorUnmutateToken < T , M0 , M1 > ; 
     
-    fn cache_from_value (& self , value : & S < T >) -> Self :: Cache 
-    {{ 
-        Self :: Cache :: new (
-            < {inner_mutator} as fuzzcheck_mutators :: fuzzcheck_traits :: Mutator < S < T > > > :: cache_from_value (
-                & self . mutator , 
-                value
-            )
-        ) 
-    }} 
-    fn initial_step_from_value (& self , value : & S < T >) -> Self :: MutationStep {{ 
-        Self :: MutationStep :: new (< {inner_mutator} as fuzzcheck_mutators :: fuzzcheck_traits :: Mutator < S < T > > > :: initial_step_from_value (& self . mutator , value)) 
-    }} 
+    fn default_arbitrary_step(&self) -> Self::ArbitraryStep {{
+        Self::ArbitraryStep::new(< {inner_mutator} as fuzzcheck_mutators :: fuzzcheck_traits :: Mutator < S < T > > > ::default_arbitrary_step(&self.mutator))
+    }}
+
+    fn validate_value(&self, value: &S<T>) -> ::std::option::Option<(Self::Cache, Self::MutationStep)> {{
+        if let ::std::option::Option::Some((c, s)) = < {inner_mutator} as fuzzcheck_mutators :: fuzzcheck_traits :: Mutator < S < T > > > :: validate_value (
+            & self . mutator , 
+            value
+        ) {{
+            ::std::option::Option::Some( (Self::Cache::new(c) , Self::MutationStep::new(s) ) )
+        }} else {{
+            ::std::option::Option::None
+        }}
+    }}
+
     fn max_complexity (& self) -> f64 {{ 
         < {inner_mutator} as fuzzcheck_mutators :: fuzzcheck_traits :: Mutator < S < T > > > :: max_complexity (& self . mutator) 
     }} 
@@ -856,16 +856,16 @@ impl < T : Into < u8 >, M0 , M1 > fuzzcheck_mutators :: fuzzcheck_traits :: Muta
     fn complexity (& self , value : & S < T > , cache : & Self :: Cache) -> f64 {{ 
         < {inner_mutator} as fuzzcheck_mutators :: fuzzcheck_traits :: Mutator < S < T > > > :: complexity (& self . mutator , value , & cache . inner) 
     }} 
-    fn ordered_arbitrary (& self , step : & mut Self :: ArbitraryStep , max_cplx : f64) -> Option < (S < T > , Self :: Cache) > {{ 
-        if let :: std :: option :: Option :: Some ((value , cache)) = < {inner_mutator} as fuzzcheck_mutators :: fuzzcheck_traits :: Mutator < S < T > > > :: ordered_arbitrary (& self . mutator , & mut step . inner , max_cplx) {{ 
-            :: std :: option :: Option :: Some ((value , Self :: Cache :: new (cache))) 
+    fn ordered_arbitrary (& self , step : & mut Self :: ArbitraryStep , max_cplx : f64) -> Option < (S < T > , Self :: Cache, Self::MutationStep) > {{ 
+        if let :: std :: option :: Option :: Some ((value , cache, step)) = < {inner_mutator} as fuzzcheck_mutators :: fuzzcheck_traits :: Mutator < S < T > > > :: ordered_arbitrary (& self . mutator , & mut step . inner , max_cplx) {{ 
+            :: std :: option :: Option :: Some ((value , Self :: Cache :: new (cache), Self::MutationStep::new(step))) 
         }} else {{ 
             :: std :: option :: Option :: None 
         }} 
     }} 
-    fn random_arbitrary (& self , max_cplx : f64) -> (S < T > , Self :: Cache) {{ 
-        let (value , cache) = < {inner_mutator} as fuzzcheck_mutators :: fuzzcheck_traits :: Mutator < S < T > > > :: random_arbitrary (& self . mutator , max_cplx) ; 
-        (value , Self :: Cache :: new (cache)) 
+    fn random_arbitrary (& self , max_cplx : f64) -> (S < T > , Self :: Cache, Self::MutationStep) {{ 
+        let (value , cache, step) = < {inner_mutator} as fuzzcheck_mutators :: fuzzcheck_traits :: Mutator < S < T > > > :: random_arbitrary (& self . mutator , max_cplx) ; 
+        (value , Self :: Cache :: new (cache), Self::MutationStep::new(step)) 
     }} 
     fn ordered_mutate (& self , value : & mut S < T > , cache : & mut Self :: Cache , step : & mut Self :: MutationStep , max_cplx : f64 ,) -> Option < Self :: UnmutateToken > {{ 
         if let :: std :: option :: Option :: Some (t) = < {inner_mutator} as fuzzcheck_mutators :: fuzzcheck_traits :: Mutator < S < T > > > :: ordered_mutate (& self . mutator , value , & mut cache . inner , & mut step . inner , max_cplx ,) {{ 
@@ -1071,6 +1071,13 @@ impl<T, T0, T1, M0, M1> fuzzcheck_mutators::TupleMutator<T, Tuple2<T0, T1> > for
         <M0 as ::fuzzcheck_traits::Mutator<T0> >::UnmutateToken,
         <M1 as ::fuzzcheck_traits::Mutator<T1> >::UnmutateToken
     >;
+    
+    fn default_arbitrary_step (& self) -> Self :: ArbitraryStep { 
+        Self :: ArbitraryStep { 
+            t0 : self . mutator_0 . default_arbitrary_step () , 
+            t1 : self . mutator_1 . default_arbitrary_step () 
+        } 
+    }
 
     fn max_complexity(&self) -> f64 {
         self.mutator_0.max_complexity() + self.mutator_1.max_complexity()
@@ -1081,36 +1088,39 @@ impl<T, T0, T1, M0, M1> fuzzcheck_mutators::TupleMutator<T, Tuple2<T0, T1> > for
     fn complexity<'a>(&'a self, _value: (&'a T0, &'a T1), cache: &'a Self::Cache) -> f64 {
         cache.cplx
     }
-    fn cache_from_value<'a>(&'a self, value: (&'a T0, &'a T1)) -> Self::Cache {
-        let t0 = self.mutator_0.cache_from_value(value.0);
-        let t1 = self.mutator_1.cache_from_value(value.1);
-        let cplx = self.mutator_0.complexity(value.0, &t0) + self.mutator_1.complexity(value.1, &t1);
-        Self::Cache { t0, t1, cplx }
-    }
-    fn initial_step_from_value<'a>(&'a self, value: (&'a T0, &'a T1)) -> Self::MutationStep {
-        let t0 = self.mutator_0.initial_step_from_value(value.0);
-        let t1 = self.mutator_1.initial_step_from_value(value.1);
+
+    fn validate_value<'a>(&'a self, value: (&'a T0, &'a T1)) -> ::std::option::Option<(Self::Cache, Self::MutationStep)> {
+        let (c0, s0) = self.mutator_0.validate_value(value.0)?;
+        let (c1, s1) = self.mutator_1.validate_value(value.1)?;
+        let cplx = self.mutator_0.complexity(value.0, &c0) + self.mutator_1.complexity(value.1, &c1);
+
         let step = 0;
-        Self::MutationStep {
-            t0,
-            t1,
+        let step = Self::MutationStep {
+            t0: s0,
+            t1: s1,
             inner: vec![InnerMutationStep::T0, InnerMutationStep::T1],
             step,
-        }
+        };
+        let cache = Self::Cache { t0: c0, t1: c1, cplx };
+
+        ::std::option::Option::Some((cache, step))
     }
+
     fn ordered_arbitrary(
         &self,
         step: &mut Self::ArbitraryStep,
         max_cplx: f64,
-    ) -> ::std::option::Option<(T, Self::Cache)> {
+    ) -> ::std::option::Option<(T, Self::Cache, Self::MutationStep)> {
         if max_cplx < <Self as fuzzcheck_mutators::TupleMutator<T, Tuple2<T0, T1> > >::min_complexity(self) { return ::std::option::Option::None }
         ::std::option::Option::Some(self.random_arbitrary(max_cplx))
     }
-    fn random_arbitrary(&self, max_cplx: f64) -> (T, Self::Cache) {
+    fn random_arbitrary(&self, max_cplx: f64) -> (T, Self::Cache, Self::MutationStep) {
         let mut t0_value: ::std::option::Option<_> = ::std::option::Option::None;
         let mut t0_cache: ::std::option::Option<_> = ::std::option::Option::None;
+        let mut t0_step: ::std::option::Option<_> = ::std::option::Option::None;
         let mut t1_value: ::std::option::Option<_> = ::std::option::Option::None;
         let mut t1_cache: ::std::option::Option<_> = ::std::option::Option::None;
+        let mut t1_step: ::std::option::Option<_> = ::std::option::Option::None;
         let mut indices = (0..2).collect::< ::std::vec::Vec<_>>();
         fuzzcheck_mutators::fastrand::shuffle(&mut indices);
 
@@ -1118,16 +1128,18 @@ impl<T, T0, T1, M0, M1> fuzzcheck_mutators::TupleMutator<T, Tuple2<T0, T1> > for
         for idx in indices.iter() {
             match idx {
                 0 => {
-                    let (value, cache) = self.mutator_0.random_arbitrary(max_cplx - cplx);
+                    let (value, cache, step) = self.mutator_0.random_arbitrary(max_cplx - cplx);
                     cplx += self.mutator_0.complexity(&value, &cache);
                     t0_value = ::std::option::Option::Some(value);
                     t0_cache = ::std::option::Option::Some(cache);
+                    t0_step = ::std::option::Option::Some(step);
                 }
                 1 => {
-                    let (value, cache) = self.mutator_1.random_arbitrary(max_cplx - cplx);
+                    let (value, cache, step) = self.mutator_1.random_arbitrary(max_cplx - cplx);
                     cplx += self.mutator_1.complexity(&value, &cache);
                     t1_value = ::std::option::Option::Some(value);
                     t1_cache = ::std::option::Option::Some(cache);
+                    t1_step = ::std::option::Option::Some(step);
                 }
                 _ => unreachable!(),
             }
@@ -1139,6 +1151,12 @@ impl<T, T0, T1, M0, M1> fuzzcheck_mutators::TupleMutator<T, Tuple2<T0, T1> > for
                 t1: t1_cache.unwrap(),
                 cplx,
             },
+            Self::MutationStep {
+                t0: t0_step.unwrap(),
+                t1: t1_step.unwrap(),
+                inner: vec![InnerMutationStep::T0, InnerMutationStep::T1],
+                step: 0,
+            }
         )
     }
 

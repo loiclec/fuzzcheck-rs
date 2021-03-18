@@ -73,6 +73,8 @@ binary_search_arbitrary!(binary_search_arbitrary_u16, u16);
 binary_search_arbitrary!(binary_search_arbitrary_u32, u32);
 binary_search_arbitrary!(binary_search_arbitrary_u64, u64);
 
+const INITIAL_MUTATION_STEP: u64 = 0;
+
 macro_rules! impl_int_mutator {
     ($name:ident, $name_unsigned: ident, $name_mutator:ident) => {
         #[derive(Clone)]
@@ -158,12 +160,10 @@ macro_rules! impl_int_mutator {
                 <_>::default()
             }
 
-            /// Compute the cache for the given value
-            fn cache_from_value(&self, _value: &$name) -> Self::Cache {}
-            /// Compute the initial mutation step for the given value
-            fn initial_step_from_value(&self, _value: &$name) -> Self::MutationStep {
-                0
+            fn validate_value(&self, _value: &$name) -> Option<(Self::Cache, Self::MutationStep)> {
+                Some(((), INITIAL_MUTATION_STEP))
             }
+
             /// The maximum complexity of an input of this type
             fn max_complexity(&self) -> f64 {
                 <$name>::BITS as f64
@@ -176,7 +176,11 @@ macro_rules! impl_int_mutator {
                 <$name>::BITS as f64
             }
 
-            fn ordered_arbitrary(&self, step: &mut Self::ArbitraryStep, max_cplx: f64) -> Option<($name, Self::Cache)> {
+            fn ordered_arbitrary(
+                &self,
+                step: &mut Self::ArbitraryStep,
+                max_cplx: f64,
+            ) -> Option<($name, Self::Cache, Self::MutationStep)> {
                 if max_cplx < self.min_complexity() {
                     return None;
                 }
@@ -185,12 +189,12 @@ macro_rules! impl_int_mutator {
                 } else {
                     let value = self.uniform_permutation(*step) as $name;
                     *step += 1;
-                    Some((value, ()))
+                    Some((value, (), INITIAL_MUTATION_STEP))
                 }
             }
-            fn random_arbitrary(&self, _max_cplx: f64) -> ($name, Self::Cache) {
+            fn random_arbitrary(&self, _max_cplx: f64) -> ($name, Self::Cache, Self::MutationStep) {
                 let value = self.rng.$name(..);
-                (value, ())
+                (value, (), INITIAL_MUTATION_STEP)
             }
 
             fn ordered_mutate(
@@ -302,15 +306,15 @@ macro_rules! impl_int_mutator_constrained {
             type MutationStep = u64; // mutation step
             type ArbitraryStep = u64;
             type UnmutateToken = $name; // old value
-            
+
             fn default_arbitrary_step(&self) -> Self::ArbitraryStep {
                 0
             }
 
-            fn cache_from_value(&self, _value: &$name) -> Self::Cache {}
-            fn initial_step_from_value(&self, _value: &$name) -> Self::MutationStep {
-                0
+            fn validate_value(&self, _value: &$name) -> Option<(Self::Cache, Self::MutationStep)> {
+                Some(((), INITIAL_MUTATION_STEP))
             }
+
             fn max_complexity(&self) -> f64 {
                 <$name>::BITS as f64
             }
@@ -321,7 +325,11 @@ macro_rules! impl_int_mutator_constrained {
                 <$name>::BITS as f64
             }
 
-            fn ordered_arbitrary(&self, step: &mut Self::ArbitraryStep, max_cplx: f64) -> Option<($name, Self::Cache)> {
+            fn ordered_arbitrary(
+                &self,
+                step: &mut Self::ArbitraryStep,
+                max_cplx: f64,
+            ) -> Option<($name, Self::Cache, Self::MutationStep)> {
                 if max_cplx < self.min_complexity() {
                     return None;
                 }
@@ -330,14 +338,18 @@ macro_rules! impl_int_mutator_constrained {
                 } else {
                     let result = $name_binary_arbitrary_function(0, self.len_range, *step);
                     *step = step.wrapping_add(1);
-                    Some((self.start_range.wrapping_add(result as $name), ()))
+                    Some((
+                        self.start_range.wrapping_add(result as $name),
+                        (),
+                        INITIAL_MUTATION_STEP,
+                    ))
                 }
             }
-            fn random_arbitrary(&self, _max_cplx: f64) -> ($name, Self::Cache) {
+            fn random_arbitrary(&self, _max_cplx: f64) -> ($name, Self::Cache, Self::MutationStep) {
                 let value = self
                     .rng
                     .$name(self.start_range..=self.start_range.wrapping_add(self.len_range as $name));
-                (value, ())
+                (value, (), INITIAL_MUTATION_STEP)
             }
 
             fn ordered_mutate(
@@ -431,10 +443,10 @@ impl Mutator<char> for CharWithinRangeMutator {
     fn default_arbitrary_step(&self) -> Self::ArbitraryStep {
         0
     }
-    fn cache_from_value(&self, _value: &char) -> Self::Cache {}
-    fn initial_step_from_value(&self, _value: &char) -> Self::MutationStep {
-        0
+    fn validate_value(&self, _value: &char) -> Option<(Self::Cache, Self::MutationStep)> {
+        Some(((), INITIAL_MUTATION_STEP))
     }
+
     fn max_complexity(&self) -> f64 {
         <u32>::BITS as f64
     }
@@ -445,7 +457,11 @@ impl Mutator<char> for CharWithinRangeMutator {
         <u32>::BITS as f64
     }
 
-    fn ordered_arbitrary(&self, step: &mut Self::ArbitraryStep, max_cplx: f64) -> Option<(char, Self::Cache)> {
+    fn ordered_arbitrary(
+        &self,
+        step: &mut Self::ArbitraryStep,
+        max_cplx: f64,
+    ) -> Option<(char, Self::Cache, Self::MutationStep)> {
         if max_cplx < self.min_complexity() {
             return None;
         }
@@ -455,15 +471,15 @@ impl Mutator<char> for CharWithinRangeMutator {
             let result = binary_search_arbitrary_u32(0, self.len_range, *step);
             *step = step.wrapping_add(1);
             let c = char::from_u32(self.start_range.wrapping_add(result)).unwrap();
-            Some((c, ()))
+            Some((c, (), INITIAL_MUTATION_STEP))
         }
     }
-    fn random_arbitrary(&self, _max_cplx: f64) -> (char, Self::Cache) {
+    fn random_arbitrary(&self, _max_cplx: f64) -> (char, Self::Cache, Self::MutationStep) {
         let value = self
             .rng
             .u32(self.start_range..=self.start_range.wrapping_add(self.len_range));
         let value = char::from_u32(value).unwrap();
-        (value, ())
+        (value, (), INITIAL_MUTATION_STEP)
     }
 
     fn ordered_mutate(
@@ -516,7 +532,7 @@ mod test {
         }
         let mut step = 0;
         let mut all_generated = HashSet::new();
-        while let Some((x, _)) = m.ordered_arbitrary(&mut step, 100.0) {
+        while let Some((x, _, _)) = m.ordered_arbitrary(&mut step, 100.0) {
             let is_new = all_generated.insert(x);
             assert!(is_new);
         }

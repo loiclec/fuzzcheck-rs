@@ -63,9 +63,9 @@ where
         false
     }
 
-    fn cache_from_value(&self, _value: &T) -> Self::Cache {}
-
-    fn initial_step_from_value(&self, _value: &T) -> Self::MutationStep {}
+    fn validate_value(&self, value: &T) -> Option<(Self::Cache, Self::MutationStep)> {
+        Some(((), ()))
+    }
 
     fn max_complexity(&self) -> f64 {
         0.0
@@ -79,17 +79,21 @@ where
         0.0
     }
 
-    fn ordered_arbitrary(&self, step: &mut Self::ArbitraryStep, _max_cplx: f64) -> Option<(T, Self::Cache)> {
+    fn ordered_arbitrary(
+        &self,
+        step: &mut Self::ArbitraryStep,
+        _max_cplx: f64,
+    ) -> Option<(T, Self::Cache, Self::MutationStep)> {
         if !*step {
             *step = true;
-            Some((self.value.clone(), ()))
+            Some((self.value.clone(), (), ()))
         } else {
             None
         }
     }
 
-    fn random_arbitrary(&self, _max_cplx: f64) -> (T, Self::Cache) {
-        (self.value.clone(), ())
+    fn random_arbitrary(&self, _max_cplx: f64) -> (T, Self::Cache, Self::MutationStep) {
+        (self.value.clone(), (), ())
     }
 
     fn ordered_mutate(

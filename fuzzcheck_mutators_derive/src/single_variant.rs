@@ -1,4 +1,4 @@
-use std::{any::Any, collections::HashMap};
+use std::collections::HashMap;
 
 use decent_synquote_alternative as synquote;
 use proc_macro2::{Ident, Span, TokenStream};
@@ -184,28 +184,18 @@ pub fn make_single_variant_mutator(tb: &mut TokenBuilder, enu: &Enum) {
             "}
         }
 
-        fn cache_from_value(&self, value: &" enu.ident enum_generics_no_bounds ") -> Self::Cache {
+        fn validate_value(&self, value: &" enu.ident enum_generics_no_bounds ") -> " cm.Option "<(Self::Cache, Self::MutationStep)> {
             match (self, value) {"
             join_ts!(&enu.items, item,
                 "(" EnumSingleVariant "::" item.ident "(m)," item.pattern_match(&enu.ident, None) ") => {
-                    "
-                    EnumSingleVariant "::" item.ident "(m.cache_from_value(" item_pattern_match_bindings_to_tuple(&item.ident, None, false) "))"
-                    "
+                    m.validate_value(" item_pattern_match_bindings_to_tuple(&item.ident, None, false) ").map(|(x, y)| {
+                        (" EnumSingleVariant "::" item.ident "(x), " EnumSingleVariant "::" item.ident "(y))
+                    })
                 }"
-            )" _ => unreachable!(),
+            )" _ => " cm.None ",
             }
         }
-        fn initial_step_from_value(&self, value: &" enu.ident enum_generics_no_bounds ") -> Self::MutationStep {
-            match (self, value) {"
-            join_ts!(&enu.items, item,
-                "(" EnumSingleVariant "::" item.ident "(m)," item.pattern_match(&enu.ident, None) ") => {
-                    "
-                    EnumSingleVariant "::" item.ident "(m.initial_step_from_value(" item_pattern_match_bindings_to_tuple(&item.ident, None, false) "))"
-                    "
-                }"
-            )" _ => unreachable!(),
-            }
-        }
+
         fn max_complexity(&self) -> f64 {
             match self {"
             join_ts!(&enu.items, item,
@@ -233,14 +223,15 @@ pub fn make_single_variant_mutator(tb: &mut TokenBuilder, enu: &Enum) {
             )   "_ => unreachable!()
             }
         }
-        fn ordered_arbitrary(&self, step: &mut Self::ArbitraryStep, max_cplx: f64) -> Option<(" enu.ident enum_generics_no_bounds ", Self::Cache)> {
+        fn ordered_arbitrary(&self, step: &mut Self::ArbitraryStep, max_cplx: f64) -> Option<(" enu.ident enum_generics_no_bounds ", Self::Cache , Self::MutationStep)> {
             match (self, step) {"
             join_ts!(&enu.items, item,
                 "(" EnumSingleVariant "::" item.ident "(m)," EnumSingleVariant "::" item.ident "(s)) => {"
-                    "if let" cm.Some "((v, c)) = m.ordered_arbitrary(s, max_cplx) {
+                    "if let" cm.Some "((v, c, s)) = m.ordered_arbitrary(s, max_cplx) {
                         " cm.Some "(("
                             item_pattern_match_bindings_to_enum_item(&item) ","
-                            EnumSingleVariant "::" item.ident "(c)
+                            EnumSingleVariant "::" item.ident "(c) ,"
+                            EnumSingleVariant "::" item.ident "(s)
                         ))
                     } else {
                         None
@@ -250,14 +241,15 @@ pub fn make_single_variant_mutator(tb: &mut TokenBuilder, enu: &Enum) {
             }
         }
 
-        fn random_arbitrary(&self, max_cplx: f64) -> (" enu.ident enum_generics_no_bounds ", Self::Cache) {
+        fn random_arbitrary(&self, max_cplx: f64) -> (" enu.ident enum_generics_no_bounds ", Self::Cache, Self::MutationStep) {
             match self {"
             join_ts!(&enu.items, item,
                 EnumSingleVariant "::" item.ident "(m) => {
-                    let (v, c) = m.random_arbitrary(max_cplx);
+                    let (v, c, s) = m.random_arbitrary(max_cplx);
                     (" 
                         item_pattern_match_bindings_to_enum_item(&item) ",
-                        " EnumSingleVariant "::" item.ident "(c)
+                        " EnumSingleVariant "::" item.ident "(c) ,
+                        " EnumSingleVariant "::" item.ident "(s)
                     )
                 }"
             )"}
@@ -511,41 +503,32 @@ mod tests {
                 }
             }
 
-            fn cache_from_value(&self, value: &AST<T>) -> Self::Cache {
+            fn validate_value(&self, value: &AST<T>) -> ::std::option::Option<(Self::Cache, Self::MutationStep)> {
                 match (self, value) {
                     (ASTSingleVariant::Text(m), AST::Text(_0)) => {
-                        ASTSingleVariant::Text(m.cache_from_value((_0)))
+                        m.validate_value((_0)).map(|(x, y)| {
+                            (ASTSingleVariant::Text(x), ASTSingleVariant::Text(y))
+                        })
                     }
                     (ASTSingleVariant::Child(m), AST::Child { x: x, y: y }) => {
-                        ASTSingleVariant::Child(m.cache_from_value((x, y)))
+                        m.validate_value((x, y)).map(|(x, y)| {
+                            (ASTSingleVariant::Child(x), ASTSingleVariant::Child(y))
+                        })
                     }
                     (ASTSingleVariant::Leaf1(m), AST::Leaf1) => {
-                        ASTSingleVariant::Leaf1(m.cache_from_value(&()))
+                        m.validate_value(&()).map(|(x, y)| {
+                            (ASTSingleVariant::Leaf1(x), ASTSingleVariant::Leaf1(y))
+                        })
                     }
                     (ASTSingleVariant::Leaf2(m), AST::Leaf2 { }) => {
-                        ASTSingleVariant::Leaf2(m.cache_from_value(&()))
+                        m.validate_value(&()).map(|(x, y)| {
+                            (ASTSingleVariant::Leaf2(x), ASTSingleVariant::Leaf2(y))
+                        })
                     }
-                    _ => unreachable!() ,
+                    _ => ::std::option::Option::None ,
                 }
             }
 
-            fn initial_step_from_value(&self, value: &AST<T>) -> Self::MutationStep {
-                match (self, value) {
-                    (ASTSingleVariant::Text(m), AST::Text(_0)) => {
-                        ASTSingleVariant::Text(m.initial_step_from_value((_0)))
-                    }
-                    (ASTSingleVariant::Child(m), AST::Child {x: x, y: y}) => {
-                        ASTSingleVariant::Child(m.initial_step_from_value((x, y)))
-                    }
-                    (ASTSingleVariant::Leaf1(m), AST::Leaf1) => {
-                        ASTSingleVariant::Leaf1(m.initial_step_from_value(&()))
-                    }
-                    (ASTSingleVariant::Leaf2(m), AST::Leaf2 { }) => {
-                        ASTSingleVariant::Leaf2(m.initial_step_from_value(&()))
-                    }
-                    _ => unreachable!() ,
-                }
-            }
             fn max_complexity(&self) -> f64 {
                 match self {
                     ASTSingleVariant::Text(m) => m.max_complexity() ,
@@ -580,32 +563,32 @@ mod tests {
                 }
             }
 
-            fn ordered_arbitrary(&self, step: &mut Self::ArbitraryStep, max_cplx: f64) -> Option<(AST<T> , Self::Cache)> {
+            fn ordered_arbitrary(&self, step: &mut Self::ArbitraryStep, max_cplx: f64) -> Option<(AST<T> , Self::Cache, Self::MutationStep)> {
                 match (self, step) {
                     (ASTSingleVariant::Text(m), ASTSingleVariant::Text(s)) => {
-                        if let ::std::option::Option::Some((v, c)) = m.ordered_arbitrary(s, max_cplx) {
-                            ::std::option::Option::Some((AST::Text { 0: v }, ASTSingleVariant::Text(c)))
+                        if let ::std::option::Option::Some((v, c, s)) = m.ordered_arbitrary(s, max_cplx) {
+                            ::std::option::Option::Some((AST::Text { 0: v }, ASTSingleVariant::Text(c), ASTSingleVariant::Text(s)))
                         } else {
                             None
                         }
                     }
                     (ASTSingleVariant::Child(m), ASTSingleVariant::Child(s)) => {
-                        if let ::std::option::Option::Some((v, c)) = m.ordered_arbitrary(s, max_cplx) {
-                            ::std::option::Option::Some((AST::Child { x: v.0, y: v.1 }, ASTSingleVariant::Child(c)))
+                        if let ::std::option::Option::Some((v, c, s)) = m.ordered_arbitrary(s, max_cplx) {
+                            ::std::option::Option::Some((AST::Child { x: v.0, y: v.1 }, ASTSingleVariant::Child(c), ASTSingleVariant::Child(s)))
                         } else {
                             None
                         }
                     }
                     (ASTSingleVariant::Leaf1(m), ASTSingleVariant::Leaf1(s)) => {
-                        if let ::std::option::Option::Some((v, c)) = m.ordered_arbitrary(s, max_cplx) {
-                            ::std::option::Option::Some((AST::Leaf1 {}, ASTSingleVariant::Leaf1(c)))
+                        if let ::std::option::Option::Some((v, c, s)) = m.ordered_arbitrary(s, max_cplx) {
+                            ::std::option::Option::Some((AST::Leaf1 {}, ASTSingleVariant::Leaf1(c), ASTSingleVariant::Leaf1(s)))
                         } else {
                             None
                         }
                     }
                     (ASTSingleVariant::Leaf2(m), ASTSingleVariant::Leaf2(s)) => {
-                        if let ::std::option::Option::Some((v, c)) = m.ordered_arbitrary(s, max_cplx) {
-                            ::std::option::Option::Some((AST::Leaf2 {}, ASTSingleVariant::Leaf2(c)))
+                        if let ::std::option::Option::Some((v, c, s)) = m.ordered_arbitrary(s, max_cplx) {
+                            ::std::option::Option::Some((AST::Leaf2 {}, ASTSingleVariant::Leaf2(c), ASTSingleVariant::Leaf2(s)))
                         } else {
                             None
                         }
@@ -613,23 +596,23 @@ mod tests {
                     _ => unreachable!()
                 }
             }
-            fn random_arbitrary(&self, max_cplx: f64) -> (AST<T> , Self::Cache) {
+            fn random_arbitrary(&self, max_cplx: f64) -> (AST<T> , Self::Cache, Self::MutationStep) {
                 match self {
                     ASTSingleVariant::Text(m) => {
-                        let (v, c) = m.random_arbitrary(max_cplx);
-                        (AST::Text { 0: v }, ASTSingleVariant::Text(c))
+                        let (v, c, s) = m.random_arbitrary(max_cplx);
+                        (AST::Text { 0: v }, ASTSingleVariant::Text(c), ASTSingleVariant::Text(s))
                     }
                     ASTSingleVariant::Child(m) => {
-                        let (v, c) = m.random_arbitrary(max_cplx);
-                        (AST::Child { x: v.0, y: v.1 }, ASTSingleVariant::Child(c))
+                        let (v, c, s) = m.random_arbitrary(max_cplx);
+                        (AST::Child { x: v.0, y: v.1 }, ASTSingleVariant::Child(c), ASTSingleVariant::Child(s))
                     }
                     ASTSingleVariant::Leaf1(m) => {
-                        let (v, c) = m.random_arbitrary(max_cplx);
-                        (AST::Leaf1 { }, ASTSingleVariant::Leaf1(c))
+                        let (v, c, s) = m.random_arbitrary(max_cplx);
+                        (AST::Leaf1 { }, ASTSingleVariant::Leaf1(c), ASTSingleVariant::Leaf1(s))
                     }
                     ASTSingleVariant::Leaf2(m) => {
-                        let (v, c) = m.random_arbitrary(max_cplx);
-                        (AST::Leaf2 { }, ASTSingleVariant::Leaf2(c))
+                        let (v, c, s) = m.random_arbitrary(max_cplx);
+                        (AST::Leaf2 { }, ASTSingleVariant::Leaf2(c), ASTSingleVariant::Leaf2(s))
                     }
                 }
             }
@@ -735,6 +718,58 @@ mod tests {
                 }
             }
         }
+        impl < T : SomeTrait , MText , MChild , MLeaf1 , MLeaf2 , NText , NChild , NLeaf1 , NLeaf2 >
+            fuzzcheck_mutators :: algebra :: CommonMutatorSuperType < AST < T > , ASTSingleVariant < NText , NChild , NLeaf1 , NLeaf2 > > 
+            for 
+            ASTSingleVariant < MText , MChild , MLeaf1 , MLeaf2 > 
+        where 
+            T : Default , 
+            T : :: std :: clone :: Clone + 'static , 
+            MText : fuzzcheck_mutators :: TupleMutator < (Vec < char >) , fuzzcheck_mutators :: Tuple1 < Vec < char > > > , 
+            MChild : fuzzcheck_mutators :: TupleMutator < (Box < AST >, T) , fuzzcheck_mutators :: Tuple2 < Box < AST >, T > > , 
+            MLeaf1 : fuzzcheck_mutators :: fuzzcheck_traits :: Mutator < () > , 
+            MLeaf2 : fuzzcheck_mutators :: fuzzcheck_traits :: Mutator < () > , 
+            NText : fuzzcheck_mutators :: TupleMutator < (Vec < char >) , fuzzcheck_mutators :: Tuple1 < Vec < char > > > , 
+            NChild : fuzzcheck_mutators :: TupleMutator < (Box < AST >, T) , fuzzcheck_mutators :: Tuple2 < Box < AST >, T > > , 
+            NLeaf1 : fuzzcheck_mutators :: fuzzcheck_traits :: Mutator < () > , 
+            NLeaf2 : fuzzcheck_mutators :: fuzzcheck_traits :: Mutator < () > , 
+            fuzzcheck_mutators :: algebra :: EqualProof < ASTSingleVariant < MText , MChild , MLeaf1 , MLeaf2 > , ASTSingleVariant < NText , NChild , NLeaf1 , NLeaf2 > > : fuzzcheck_mutators :: algebra :: NotEqual ,
+            MText : fuzzcheck_mutators :: algebra :: CommonTupleMutatorSuperType < (Vec < char >) , fuzzcheck_mutators :: Tuple1 < Vec < char > > , NText > , 
+            MChild : fuzzcheck_mutators :: algebra :: CommonTupleMutatorSuperType < (Box < AST >, T) , fuzzcheck_mutators :: Tuple2 < Box < AST >, T > , NChild > , 
+            MLeaf1 : fuzzcheck_mutators :: algebra :: CommonMutatorSuperType < () , NLeaf1 > , 
+            MLeaf2 : fuzzcheck_mutators :: algebra :: CommonMutatorSuperType < () , NLeaf2 > 
+        { 
+            type Output = ASTSingleVariant < MText :: Output , MChild :: Output , MLeaf1 :: Output , MLeaf2 :: Output > ; 
+        }
+        impl < T : SomeTrait , MText , MChild , MLeaf1 , MLeaf2 , NText , NChild , NLeaf1 , NLeaf2 > 
+            fuzzcheck_mutators :: algebra :: MutatorSuperType < AST < T > , ASTSingleVariant < NText , NChild , NLeaf1 , NLeaf2 > > 
+            for 
+            ASTSingleVariant < MText , MChild , MLeaf1 , MLeaf2 > 
+        where 
+            T : Default , 
+            T : :: std :: clone :: Clone + 'static , 
+            MText : fuzzcheck_mutators :: TupleMutator < (Vec < char >) , fuzzcheck_mutators :: Tuple1 < Vec < char > > > , 
+            MChild : fuzzcheck_mutators :: TupleMutator < (Box < AST >, T) , fuzzcheck_mutators :: Tuple2 < Box < AST >, T > > , 
+            MLeaf1 : fuzzcheck_mutators :: fuzzcheck_traits :: Mutator < () > , 
+            MLeaf2 : fuzzcheck_mutators :: fuzzcheck_traits :: Mutator < () > , 
+            NText : fuzzcheck_mutators :: TupleMutator < (Vec < char >) , fuzzcheck_mutators :: Tuple1 < Vec < char > > > , 
+            NChild : fuzzcheck_mutators :: TupleMutator < (Box < AST >, T) , fuzzcheck_mutators :: Tuple2 < Box < AST >, T > > , 
+            NLeaf1 : fuzzcheck_mutators :: fuzzcheck_traits :: Mutator < () > , 
+            NLeaf2 : fuzzcheck_mutators :: fuzzcheck_traits :: Mutator < () > , 
+            fuzzcheck_mutators :: algebra :: EqualProof < ASTSingleVariant < MText , MChild , MLeaf1 , MLeaf2 > , ASTSingleVariant < NText , NChild , NLeaf1 , NLeaf2 > > : fuzzcheck_mutators :: algebra :: NotEqual , 
+            MText : fuzzcheck_mutators :: algebra :: TupleMutatorSuperType < (Vec < char >) , fuzzcheck_mutators :: Tuple1 < Vec < char > > , NText > , 
+            MChild : fuzzcheck_mutators :: algebra :: TupleMutatorSuperType < (Box < AST >, T) , fuzzcheck_mutators :: Tuple2 < Box < AST >, T > , NChild > , 
+            MLeaf1 : fuzzcheck_mutators :: algebra :: MutatorSuperType < () , NLeaf1 > , MLeaf2 : fuzzcheck_mutators :: algebra :: MutatorSuperType < () , NLeaf2 > 
+        { 
+            fn upcast (m : ASTSingleVariant < NText , NChild , NLeaf1 , NLeaf2 >) -> Self { 
+                match m { 
+                    ASTSingleVariant :: Text (m) => ASTSingleVariant :: Text (MText :: upcast (m)) , 
+                    ASTSingleVariant :: Child (m) => ASTSingleVariant :: Child (MChild :: upcast (m)) , 
+                    ASTSingleVariant :: Leaf1 (m) => ASTSingleVariant :: Leaf1 (MLeaf1 :: upcast (m)) , 
+                    ASTSingleVariant :: Leaf2 (m) => ASTSingleVariant :: Leaf2 (MLeaf2 :: upcast (m)) , 
+                } 
+            }
+        } 
         "
         .parse::<TokenStream>()
         .unwrap()

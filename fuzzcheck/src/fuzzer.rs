@@ -134,11 +134,10 @@ where
     }
 
     fn arbitrary_input(&mut self) -> Option<FuzzedInput<T, M>> {
-        if let Some((v, cache)) = self
+        if let Some((v, cache, mutation_step)) = self
             .mutator
             .ordered_arbitrary(&mut self.arbitrary_step, self.settings.max_input_cplx)
         {
-            let mutation_step = self.mutator.initial_step_from_value(&v);
             Some(FuzzedInput::new(v, cache, mutation_step))
         } else {
             None
@@ -377,10 +376,12 @@ where
             .read_input_corpus()
             .unwrap_or_default()
             .into_iter()
-            .map(|value| {
-                let cache = self.state.mutator.cache_from_value(&value);
-                let mutation_step = self.state.mutator.initial_step_from_value(&value);
-                FuzzedInput::new(value, cache, mutation_step)
+            .filter_map(|value| {
+                if let Some((cache, mutation_step)) = self.state.mutator.validate_value(&value) {
+                    Some(FuzzedInput::new(value, cache, mutation_step))
+                } else {
+                    None
+                }
             })
             .collect();
 
@@ -470,18 +471,21 @@ where
             .world
             .do_actions(vec![WorldAction::ReportEvent(FuzzerEvent::Start)], &self.state.stats)?;
         let value = self.state.world.read_input_file()?;
-        let cache = self.state.mutator.cache_from_value(&value);
-        let mutation_step = self.state.mutator.initial_step_from_value(&value);
-        let input = FuzzedInput::<T, M>::new(value, cache, mutation_step);
-        let input_cplx = input.complexity(&self.state.mutator);
-        self.state.settings.max_input_cplx = input_cplx - 0.01;
+        
+        if let Some((cache, mutation_step)) = self.state.mutator.validate_value(&value) {
+            let input = FuzzedInput::<T, M>::new(value, cache, mutation_step);
+            let input_cplx = input.complexity(&self.state.mutator);
+            self.state.settings.max_input_cplx = input_cplx - 0.01;
 
-        self.state.pool.add_favored_input(input);
+            self.state.pool.add_favored_input(input);
 
-        self.state.world.set_start_instant();
-        self.state.world.set_checkpoint_instant();
-        loop {
-            self.process_next_inputs()?;
+            self.state.world.set_start_instant();
+            self.state.world.set_checkpoint_instant();
+            loop {
+                self.process_next_inputs()?;
+            }
+        } else {
+            todo!()
         }
     }
 }
@@ -523,19 +527,20 @@ where
         FuzzerCommand::MinifyInput => fuzzer.input_minifying_loop()?,
         FuzzerCommand::Read => {
             let value = fuzzer.state.world.read_input_file()?;
-            let cache = fuzzer.state.mutator.cache_from_value(&value);
-            let mutation_step = fuzzer.state.mutator.initial_step_from_value(&value);
-
-            fuzzer.state.input_idx = FuzzerInputIndex::Temporary(FuzzedInput::new(value, cache, mutation_step));
-            let input = FuzzerState::<T, M, S>::get_input(&fuzzer.state.input_idx, &fuzzer.state.pool).unwrap();
-            Fuzzer::<T, FT, F, M, S>::test_input(
-                &fuzzer.test,
-                &fuzzer.state.mutator,
-                &input,
-                fuzzer.state.settings.timeout,
-                &mut fuzzer.state.world,
-                fuzzer.state.stats,
-            )?;
+            if let Some((cache, mutation_step)) = fuzzer.state.mutator.validate_value(&value) {
+                fuzzer.state.input_idx = FuzzerInputIndex::Temporary(FuzzedInput::new(value, cache, mutation_step));
+                let input = FuzzerState::<T, M, S>::get_input(&fuzzer.state.input_idx, &fuzzer.state.pool).unwrap();
+                Fuzzer::<T, FT, F, M, S>::test_input(
+                    &fuzzer.test,
+                    &fuzzer.state.mutator,
+                    &input,
+                    fuzzer.state.settings.timeout,
+                    &mut fuzzer.state.world,
+                    fuzzer.state.stats,
+                )?;
+            } else {
+                todo!()
+            }
         }
         FuzzerCommand::MinifyCorpus => fuzzer.corpus_minifying_loop()?,
     };

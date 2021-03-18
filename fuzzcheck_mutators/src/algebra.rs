@@ -1,9 +1,14 @@
-use std::marker::PhantomData;
 
 use fuzzcheck_traits::Mutator;
 
 use crate::U32WithinRangeMutator;
-use crate::{NeverMutator, RefTypes, Tuple1, Tuple1Mutator, TupleMutator, TupleStructure};
+use crate::{NeverMutator, RefTypes, Tuple1Mutator, TupleMutator, TupleStructure};
+
+/* TODO
+ * add a way to get a single-variant mutator with no restriction on the generated variant
+ * write an AlternationMutator that uses the same logic as the current generated enum mutator
+ *
+*/
 
 pub trait MutatorSuperType<T, SubM>: Mutator<T>
 where
@@ -103,14 +108,14 @@ where
 pub auto trait NotEqual {}
 
 pub struct EqualProof<A, B> {
-    // functions unconditionally implement auto-traits,
+    // function pointers unconditionally implement auto-traits,
     // this ensures that EqualProof<A, B> always implements NotEqual by default,
     // because all of its fields implement NotEqual
     _phantom: fn(A, B),
 }
 impl<A> !NotEqual for EqualProof<A, A> {}
 // now, it seems like I can use EqualProof<A, B> : NotEqual in impl bounds to prove that A != B
-// but does it really work?
+// but does it really work reliably?
 
 impl<T, A> CommonMutatorSuperType<T, A> for A
 where

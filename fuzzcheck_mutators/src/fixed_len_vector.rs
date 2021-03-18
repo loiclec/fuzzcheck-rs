@@ -83,11 +83,22 @@ impl<T: Clone, M: Mutator<T>> FixedLenVecMutator<T, M> {
         }
     }
 
-    fn new_input_with_complexity(&self, target_cplx: f64) -> (Vec<T>, <Self as Mutator<Vec<T>>>::Cache) {
+    fn new_input_with_complexity(
+        &self,
+        target_cplx: f64,
+    ) -> (
+        Vec<T>,
+        <Self as Mutator<Vec<T>>>::Cache,
+        <Self as Mutator<Vec<T>>>::MutationStep,
+    ) {
         let mut v = Vec::with_capacity(self.len());
         let mut cache = VecMutatorCache {
             inner: Vec::with_capacity(self.len()),
             sum_cplx: 0.0,
+        };
+        let mut step = MutationStep {
+            inner: vec![],
+            element_step: 0,
         };
 
         let mut remaining_cplx = target_cplx;
@@ -98,14 +109,15 @@ impl<T: Clone, M: Mutator<T>> FixedLenVecMutator<T, M> {
                 max_cplx_element = min_cplx_el;
             }
             let cplx_element = crate::gen_f64(&self.rng, min_cplx_el..max_cplx_element);
-            let (x, x_cache) = mutator.random_arbitrary(cplx_element);
+            let (x, x_cache, x_step) = mutator.random_arbitrary(cplx_element);
             let x_cplx = mutator.complexity(&x, &x_cache);
             v.push(x);
             cache.inner.push(x_cache);
+            step.inner.push(x_step);
             cache.sum_cplx += x_cplx;
             remaining_cplx -= x_cplx;
         }
-        (v, cache)
+        (v, cache, step)
     }
 }
 
@@ -119,29 +131,33 @@ impl<T: Clone, M: Mutator<T>> Mutator<Vec<T>> for FixedLenVecMutator<T, M> {
         ()
     }
 
-    fn cache_from_value(&self, value: &Vec<T>) -> Self::Cache {
+    fn validate_value(&self, value: &Vec<T>) -> Option<(Self::Cache, Self::MutationStep)> {
         let inner: Vec<_> = value
             .iter()
             .zip(self.mutators.iter())
-            .map(|(x, mutator)| mutator.cache_from_value(&x))
+            .filter_map(|(x, mutator)| mutator.validate_value(x))
             .collect();
+
+        if inner.len() < value.len() {
+            return None;
+        }
 
         let sum_cplx = value
             .iter()
             .zip(self.mutators.iter())
-            .zip(inner.iter())
-            .fold(0.0, |cplx, ((v, mutator), cache)| cplx + mutator.complexity(&v, cache));
+            .zip(inner.iter().map(|x| x.0))
+            .fold(0.0, |cplx, ((v, mutator), cache)| cplx + mutator.complexity(&v, &cache));
 
-        VecMutatorCache { inner, sum_cplx }
-    }
+        let cache = VecMutatorCache {
+            inner: inner.iter().map(|x| x.0).collect(),
+            sum_cplx,
+        };
+        let step = MutationStep {
+            inner: inner.iter().map(|x| x.1).collect(),
+            element_step: 0,
+        };
 
-    fn initial_step_from_value(&self, value: &Vec<T>) -> Self::MutationStep {
-        let inner: Vec<_> = value
-            .iter()
-            .zip(self.mutators.iter())
-            .map(|(x, m)| m.initial_step_from_value(&x))
-            .collect();
-        MutationStep { inner, element_step: 0 }
+        Some((cache, step))
     }
 
     fn max_complexity(&self) -> f64 {
@@ -156,7 +172,11 @@ impl<T: Clone, M: Mutator<T>> Mutator<Vec<T>> for FixedLenVecMutator<T, M> {
         self.min_complexity + cache.sum_cplx
     }
 
-    fn ordered_arbitrary(&self, _step: &mut Self::ArbitraryStep, mut max_cplx: f64) -> Option<(Vec<T>, Self::Cache)> {
+    fn ordered_arbitrary(
+        &self,
+        _step: &mut Self::ArbitraryStep,
+        mut max_cplx: f64,
+    ) -> Option<(Vec<T>, Self::Cache, Self::MutationStep)> {
         if max_cplx < self.min_complexity() {
             return None;
         }
@@ -167,7 +187,7 @@ impl<T: Clone, M: Mutator<T>> Mutator<Vec<T>> for FixedLenVecMutator<T, M> {
         return Some(self.random_arbitrary(max_cplx));
     }
 
-    fn random_arbitrary(&self, mut max_cplx: f64) -> (Vec<T>, Self::Cache) {
+    fn random_arbitrary(&self, mut max_cplx: f64) -> (Vec<T>, Self::Cache, Self::MutationStep) {
         let mutator_max_cplx = self.max_complexity();
         if max_cplx > mutator_max_cplx {
             max_cplx = mutator_max_cplx;
@@ -242,7 +262,7 @@ mod tests {
     fn test_constrained_length_mutator() {
         let m = FixedLenVecMutator::<u8, U8Mutator>::new_with_repeated_mutator(U8Mutator::default(), 3);
         for _ in 0..100 {
-            let (x, _) = m.ordered_arbitrary(&mut (), 800.0).unwrap();
+            let (x, _, _) = m.ordered_arbitrary(&mut (), 800.0).unwrap();
             eprintln!("{:?}", x);
         }
     }

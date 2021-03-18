@@ -25,6 +25,8 @@ impl Default for ArbitraryStep {
     }
 }
 
+const INITIAL_MUTATION_STEP: bool = false;
+
 impl Mutator<bool> for BoolMutator {
     type Cache = ();
     type MutationStep = bool;
@@ -43,37 +45,37 @@ impl Mutator<bool> for BoolMutator {
         1.0
     }
 
-    fn cache_from_value(&self, _value: &bool) -> Self::Cache {
-        ()
-    }
-
-    fn initial_step_from_value(&self, _value: &bool) -> Self::MutationStep {
-        false
+    fn validate_value(&self, value: &bool) -> Option<(Self::Cache, Self::MutationStep)> {
+        Some(((), INITIAL_MUTATION_STEP))
     }
 
     fn complexity(&self, _value: &bool, _cache: &Self::Cache) -> f64 {
         1.0
     }
 
-    fn ordered_arbitrary(&self, step: &mut Self::ArbitraryStep, max_cplx: f64) -> Option<(bool, Self::Cache)> {
+    fn ordered_arbitrary(
+        &self,
+        step: &mut Self::ArbitraryStep,
+        max_cplx: f64,
+    ) -> Option<(bool, Self::Cache, Self::MutationStep)> {
         if max_cplx < self.min_complexity() {
             return None;
         }
         match step {
             ArbitraryStep::Never => {
                 *step = ArbitraryStep::Once;
-                Some((false, ()))
+                Some((false, (), INITIAL_MUTATION_STEP))
             }
             ArbitraryStep::Once => {
                 *step = ArbitraryStep::Twice;
-                Some((true, ()))
+                Some((true, (), INITIAL_MUTATION_STEP))
             }
             ArbitraryStep::Twice => None,
         }
     }
 
-    fn random_arbitrary(&self, _max_cplx: f64) -> (bool, Self::Cache) {
-        (self.rng.bool(), ())
+    fn random_arbitrary(&self, _max_cplx: f64) -> (bool, Self::Cache, Self::MutationStep) {
+        (self.rng.bool(), (), INITIAL_MUTATION_STEP)
     }
 
     fn ordered_mutate(

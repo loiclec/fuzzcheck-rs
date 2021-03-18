@@ -13,11 +13,7 @@ impl<T: Clone> Mutator<T> for NeverMutator {
         unreachable!()
     }
 
-    fn cache_from_value(&self, _value: &T) -> Self::Cache {
-        unreachable!()
-    }
-
-    fn initial_step_from_value(&self, _value: &T) -> Self::MutationStep {
+    fn validate_value(&self, value: &T) -> Option<(Self::Cache, Self::MutationStep)> {
         unreachable!()
     }
 
@@ -33,11 +29,15 @@ impl<T: Clone> Mutator<T> for NeverMutator {
         unreachable!()
     }
 
-    fn ordered_arbitrary(&self, _step: &mut Self::ArbitraryStep, _max_cplx: f64) -> Option<(T, Self::Cache)> {
+    fn ordered_arbitrary(
+        &self,
+        _step: &mut Self::ArbitraryStep,
+        _max_cplx: f64,
+    ) -> Option<(T, Self::Cache, Self::MutationStep)> {
         unreachable!()
     }
 
-    fn random_arbitrary(&self, _max_cplx: f64) -> (T, Self::Cache) {
+    fn random_arbitrary(&self, _max_cplx: f64) -> (T, Self::Cache, Self::MutationStep) {
         unreachable!()
     }
 
@@ -77,11 +77,7 @@ where
         unreachable!()
     }
 
-    fn cache_from_value<'a>(&'a self, _value: TupleKind::Ref<'a>) -> Self::Cache {
-        unreachable!()
-    }
-
-    fn initial_step_from_value<'a>(&'a self, _value: TupleKind::Ref<'a>) -> Self::MutationStep {
+    fn validate_value<'a>(&'a self, value: TupleKind::Ref<'a>) -> Option<(Self::Cache, Self::MutationStep)> {
         unreachable!()
     }
 
@@ -93,11 +89,15 @@ where
         unreachable!()
     }
 
-    fn ordered_arbitrary(&self, _step: &mut Self::ArbitraryStep, _max_cplx: f64) -> Option<(T, Self::Cache)> {
+    fn ordered_arbitrary(
+        &self,
+        _step: &mut Self::ArbitraryStep,
+        _max_cplx: f64,
+    ) -> Option<(T, Self::Cache, Self::MutationStep)> {
         unreachable!()
     }
 
-    fn random_arbitrary(&self, _max_cplx: f64) -> (T, Self::Cache) {
+    fn random_arbitrary(&self, _max_cplx: f64) -> (T, Self::Cache, Self::MutationStep) {
         unreachable!()
     }
 

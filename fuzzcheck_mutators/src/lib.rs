@@ -6,6 +6,7 @@
 #![feature(int_bits_const)]
 #![feature(arc_new_cyclic)]
 #![feature(assoc_char_funcs)]
+#![feature(array_map)]
 
 pub extern crate fastrand;
 pub extern crate fuzzcheck_mutators_derive;
@@ -13,13 +14,14 @@ pub extern crate fuzzcheck_traits;
 pub use fuzzcheck_mutators_derive::*;
 
 pub mod algebra;
-mod alternatives;
+mod alternation;
 mod bool;
 mod r#box;
 mod dictionary;
 mod enums;
 mod fixed_len_vector;
 mod integer;
+pub mod map;
 mod never;
 mod option;
 mod tuples;
@@ -58,19 +60,19 @@ pub use crate::integer::*;
 pub use crate::never::*;
 pub use crate::option::OptionMutator;
 pub use crate::r#box::BoxMutator;
-
+pub use crate::alternation::{AlternationMutator};
 pub use crate::tuples::{RefTypes, TupleMutator, TupleMutatorWrapper, TupleStructure};
 
 pub use crate::enums::{BasicEnumMutator, BasicEnumStructure};
-pub use crate::enums::{Either10, Either11, Either2, Either3, Either4, Either5, Either6, Either7, Either8, Either9};
-pub use crate::enums::{
-    Enum10PayloadMutator, Enum1PayloadMutator, Enum2PayloadMutator, Enum3PayloadMutator, Enum4PayloadMutator,
-    Enum5PayloadMutator, Enum6PayloadMutator, Enum7PayloadMutator, Enum8PayloadMutator, Enum9PayloadMutator,
-};
-pub use crate::enums::{
-    Enum10PayloadStructure, Enum1PayloadStructure, Enum2PayloadStructure, Enum3PayloadStructure, Enum4PayloadStructure,
-    Enum5PayloadStructure, Enum6PayloadStructure, Enum7PayloadStructure, Enum8PayloadStructure, Enum9PayloadStructure,
-};
+// pub use crate::enums::{Either10, Either11, Either2, Either3, Either4, Either5, Either6, Either7, Either8, Either9};
+// pub use crate::enums::{
+//     Enum10PayloadMutator, Enum1PayloadMutator, Enum2PayloadMutator, Enum3PayloadMutator, Enum4PayloadMutator,
+//     Enum5PayloadMutator, Enum6PayloadMutator, Enum7PayloadMutator, Enum8PayloadMutator, Enum9PayloadMutator,
+// };
+// pub use crate::enums::{
+//     Enum10PayloadStructure, Enum1PayloadStructure, Enum2PayloadStructure, Enum3PayloadStructure, Enum4PayloadStructure,
+//     Enum5PayloadStructure, Enum6PayloadStructure, Enum7PayloadStructure, Enum8PayloadStructure, Enum9PayloadStructure,
+// };
 pub use crate::tuples::{Tuple1, Tuple10, Tuple2, Tuple3, Tuple4, Tuple5, Tuple6, Tuple7, Tuple8, Tuple9, Wrapped};
 pub use crate::tuples::{
     Tuple10Mutator, Tuple1Mutator, Tuple2Mutator, Tuple3Mutator, Tuple4Mutator, Tuple5Mutator, Tuple6Mutator,

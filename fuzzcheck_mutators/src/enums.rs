@@ -1,6 +1,3 @@
-use std::borrow::BorrowMut;
-use std::cmp::Ordering;
-
 use fuzzcheck_traits::Mutator;
 
 pub trait BasicEnumStructure {
@@ -12,6 +9,8 @@ pub trait BasicEnumStructure {
 pub struct BasicEnumMutator {
     rng: fastrand::Rng,
 }
+
+const INITIAL_MUTATION_STEP: usize = 1;
 
 impl<T> Mutator<T> for BasicEnumMutator
 where
@@ -26,10 +25,8 @@ where
         0
     }
 
-    fn cache_from_value(&self, _value: &T) -> Self::Cache {}
-
-    fn initial_step_from_value(&self, _value: &T) -> Self::MutationStep {
-        1
+    fn validate_value(&self, value: &T) -> Option<(Self::Cache, Self::MutationStep)> {
+        Some(((), INITIAL_MUTATION_STEP))
     }
 
     fn max_complexity(&self) -> f64 {
@@ -44,22 +41,26 @@ where
         crate::size_to_cplxity(std::mem::variant_count::<T>())
     }
 
-    fn ordered_arbitrary(&self, step: &mut Self::ArbitraryStep, max_cplx: f64) -> Option<(T, Self::Cache)> {
+    fn ordered_arbitrary(
+        &self,
+        step: &mut Self::ArbitraryStep,
+        max_cplx: f64,
+    ) -> Option<(T, Self::Cache, Self::MutationStep)> {
         if max_cplx < <Self as Mutator<T>>::min_complexity(self) {
             return None;
         }
         if *step < std::mem::variant_count::<T>() {
             let old_step = *step;
             *step += 1;
-            Some((T::from_item_index(old_step), ()))
+            Some((T::from_item_index(old_step), (), INITIAL_MUTATION_STEP))
         } else {
             None
         }
     }
 
-    fn random_arbitrary(&self, _max_cplx: f64) -> (T, Self::Cache) {
+    fn random_arbitrary(&self, _max_cplx: f64) -> (T, Self::Cache, Self::MutationStep) {
         let item_idx = self.rng.usize(..std::mem::variant_count::<T>());
-        (T::from_item_index(item_idx), ())
+        (T::from_item_index(item_idx), (), INITIAL_MUTATION_STEP)
     }
 
     fn ordered_mutate(
@@ -97,15 +98,15 @@ where
     }
 }
 
-extern crate self as fuzzcheck_mutators;
+// extern crate self as fuzzcheck_mutators;
 
-fuzzcheck_mutators_derive::make_basic_enum_mutators!(1);
-fuzzcheck_mutators_derive::make_basic_enum_mutators!(2);
-fuzzcheck_mutators_derive::make_basic_enum_mutators!(3);
-fuzzcheck_mutators_derive::make_basic_enum_mutators!(4);
-fuzzcheck_mutators_derive::make_basic_enum_mutators!(5);
-fuzzcheck_mutators_derive::make_basic_enum_mutators!(6);
-fuzzcheck_mutators_derive::make_basic_enum_mutators!(7);
-fuzzcheck_mutators_derive::make_basic_enum_mutators!(8);
-fuzzcheck_mutators_derive::make_basic_enum_mutators!(9);
-fuzzcheck_mutators_derive::make_basic_enum_mutators!(10);
+// fuzzcheck_mutators_derive::make_basic_enum_mutators!(1);
+// fuzzcheck_mutators_derive::make_basic_enum_mutators!(2);
+// fuzzcheck_mutators_derive::make_basic_enum_mutators!(3);
+// fuzzcheck_mutators_derive::make_basic_enum_mutators!(4);
+// fuzzcheck_mutators_derive::make_basic_enum_mutators!(5);
+// fuzzcheck_mutators_derive::make_basic_enum_mutators!(6);
+// fuzzcheck_mutators_derive::make_basic_enum_mutators!(7);
+// fuzzcheck_mutators_derive::make_basic_enum_mutators!(8);
+// fuzzcheck_mutators_derive::make_basic_enum_mutators!(9);
+// fuzzcheck_mutators_derive::make_basic_enum_mutators!(10);

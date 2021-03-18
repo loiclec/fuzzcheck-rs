@@ -1208,10 +1208,9 @@ mod tests {
             ()
         }
 
-        fn cache_from_value(&self, _value: &f64) -> Self::Cache {}
-
-        fn initial_step_from_value(&self, _value: &f64) -> Self::MutationStep {}
-
+        fn validate_value(&self, _value: &f64) -> Option<(Self::Cache, Self::MutationStep)> {
+            Some(((), ()))
+        }
         fn max_complexity(&self) -> f64 {
             0.0
         }
@@ -1224,12 +1223,12 @@ mod tests {
             0.0
         }
 
-        fn ordered_arbitrary(&self, _step: &mut Self::ArbitraryStep, _max_cplx: f64) -> Option<(f64, Self::Cache)> {
+        fn ordered_arbitrary(&self, _step: &mut Self::ArbitraryStep, _max_cplx: f64) -> Option<(f64, Self::Cache, Self::MutationStep)> {
             todo!()
         }
 
-        fn random_arbitrary(&self, _max_cplx: f64) -> (f64, Self::Cache) {
-            (0.0, ())
+        fn random_arbitrary(&self, _max_cplx: f64) -> (f64, Self::Cache, Self::MutationStep) {
+            (0.0, (), ())
         }
 
         fn ordered_mutate(

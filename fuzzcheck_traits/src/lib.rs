@@ -93,18 +93,19 @@ pub trait Mutator<Value: Clone>: Sized {
 
     fn default_arbitrary_step(&self) -> Self::ArbitraryStep;
 
-    /// Compute the cache for the given value
-    fn cache_from_value(&self, value: &Value) -> Self::Cache;
-    /// Compute the initial mutation step for the given value
-    fn initial_step_from_value(&self, value: &Value) -> Self::MutationStep;
-    /// The maximum complexity of an input of this type
+    fn validate_value(&self, value: &Value) -> Option<(Self::Cache, Self::MutationStep)>;
+
     fn max_complexity(&self) -> f64;
-    /// The minimum complexity of an input of this type
+
     fn min_complexity(&self) -> f64;
     fn complexity(&self, value: &Value, cache: &Self::Cache) -> f64;
 
-    fn ordered_arbitrary(&self, step: &mut Self::ArbitraryStep, max_cplx: f64) -> Option<(Value, Self::Cache)>;
-    fn random_arbitrary(&self, max_cplx: f64) -> (Value, Self::Cache);
+    fn ordered_arbitrary(
+        &self,
+        step: &mut Self::ArbitraryStep,
+        max_cplx: f64,
+    ) -> Option<(Value, Self::Cache, Self::MutationStep)>;
+    fn random_arbitrary(&self, max_cplx: f64) -> (Value, Self::Cache, Self::MutationStep);
 
     fn ordered_mutate(
         &self,
@@ -182,12 +183,8 @@ where
         RecursingArbitraryStep::Default
     }
 
-    fn cache_from_value(&self, value: &T) -> Self::Cache {
-        self.reference.upgrade().unwrap().cache_from_value(value)
-    }
-
-    fn initial_step_from_value(&self, value: &T) -> Self::MutationStep {
-        self.reference.upgrade().unwrap().initial_step_from_value(value)
+    fn validate_value(&self, value: &T) -> Option<(Self::Cache, Self::MutationStep)> {
+        self.reference.upgrade().unwrap().validate_value(value)
     }
 
     fn max_complexity(&self) -> f64 {
@@ -202,7 +199,11 @@ where
         self.reference.upgrade().unwrap().complexity(value, cache)
     }
 
-    fn ordered_arbitrary(&self, step: &mut Self::ArbitraryStep, max_cplx: f64) -> Option<(T, Self::Cache)> {
+    fn ordered_arbitrary(
+        &self,
+        step: &mut Self::ArbitraryStep,
+        max_cplx: f64,
+    ) -> Option<(T, Self::Cache, Self::MutationStep)> {
         match step {
             RecursingArbitraryStep::Default => {
                 let mutator = self.reference.upgrade().unwrap();
@@ -219,7 +220,7 @@ where
         }
     }
 
-    fn random_arbitrary(&self, max_cplx: f64) -> (T, Self::Cache) {
+    fn random_arbitrary(&self, max_cplx: f64) -> (T, Self::Cache, Self::MutationStep) {
         self.reference.upgrade().unwrap().random_arbitrary(max_cplx)
     }
 
@@ -259,12 +260,8 @@ where
         Rc::as_ref(&self.mutator).default_arbitrary_step()
     }
 
-    fn cache_from_value(&self, value: &T) -> Self::Cache {
-        Rc::as_ref(&self.mutator).cache_from_value(value)
-    }
-
-    fn initial_step_from_value(&self, value: &T) -> Self::MutationStep {
-        Rc::as_ref(&self.mutator).initial_step_from_value(value)
+    fn validate_value(&self, value: &T) -> Option<(Self::Cache, Self::MutationStep)> {
+        Rc::as_ref(&self.mutator).validate_value(value)
     }
 
     fn max_complexity(&self) -> f64 {
@@ -279,11 +276,15 @@ where
         Rc::as_ref(&self.mutator).complexity(value, cache)
     }
 
-    fn ordered_arbitrary(&self, step: &mut Self::ArbitraryStep, max_cplx: f64) -> Option<(T, Self::Cache)> {
+    fn ordered_arbitrary(
+        &self,
+        step: &mut Self::ArbitraryStep,
+        max_cplx: f64,
+    ) -> Option<(T, Self::Cache, Self::MutationStep)> {
         Rc::as_ref(&self.mutator).ordered_arbitrary(step, max_cplx)
     }
 
-    fn random_arbitrary(&self, max_cplx: f64) -> (T, Self::Cache) {
+    fn random_arbitrary(&self, max_cplx: f64) -> (T, Self::Cache, Self::MutationStep) {
         Rc::as_ref(&self.mutator).random_arbitrary(max_cplx)
     }
 
