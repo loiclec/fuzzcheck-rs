@@ -1,7 +1,4 @@
 #![feature(generic_associated_types)]
-#![feature(auto_traits)]
-#![feature(negative_impls)]
-#![feature(min_specialization)]
 #![feature(variant_count)]
 #![feature(int_bits_const)]
 #![feature(arc_new_cyclic)]

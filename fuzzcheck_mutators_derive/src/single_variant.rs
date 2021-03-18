@@ -138,24 +138,7 @@ pub fn make_single_variant_mutator(tb: &mut TokenBuilder, enu: &Enum) {
     pub struct " EnumSingleVariantMutator enum_generics_no_eq enum_where_clause_plus_cond " {
         _phantom:" cm.PhantomData "<(" join_ts!(&enum_generics_no_bounds.type_params, tp, tp, separator: ",") ")>
     }
-    #[allow(non_snake_case)]
-    impl" enum_generics_no_eq EnumSingleVariantMutator enum_generics_no_bounds enum_where_clause_plus_cond " {"
-    join_ts!(&enu.items, item,
-        "pub fn" item.ident "<" ident!("M" item.ident) ">(m:" ident!("M" item.ident) ")
-            ->" EnumSingleVariant "<"
-            join_ts!(&enu.items, item_i,
-                if item_i.ident == item.ident {
-                    ts!(ident!("M" item.ident))
-                } else {
-                    ts!(cm.NeverMutator)
-                }
-            , separator: ",")
-            "> where" ident!("M" item.ident) ":" item_mutators[&item.ident]
-        "{"
-            EnumSingleVariant "::" item.ident "(m)"
-        "}"
-    )
-    "}
+
     #[allow(non_shorthand_field_patterns)]
     impl " impl_mutator_generics.removing_eq_type() cm.fuzzcheck_mutator_traits_Mutator "<" enu.ident enum_generics_no_bounds "> 
         for " EnumSingleVariant single_variant_generics.removing_bounds_and_eq_type() impl_mutator_where_clause 
@@ -310,102 +293,6 @@ pub fn make_single_variant_mutator(tb: &mut TokenBuilder, enu: &Enum) {
         }
     }
     ");
-
-    let other_single_variant_generics = single_variant_generics_for_prefix(&ident!("N"));
-
-    let impl_or_mutator_generics = {
-        let mut impl_or_mutator_generics = impl_mutator_generics.clone();
-        for lp in &other_single_variant_generics.lifetime_params {
-            impl_or_mutator_generics.lifetime_params.push(lp.clone());
-        }
-        for tp in &other_single_variant_generics.type_params {
-            impl_or_mutator_generics.type_params.push(tp.clone());
-        }
-        impl_or_mutator_generics
-    };
-    let mut impl_or_mutator_where_clause = impl_mutator_where_clause.clone();
-    impl_or_mutator_where_clause.add_clause_items(join_ts!(&enu.items, item,
-        ident!("N" item.ident) ":" item_mutators[&item.ident] ","
-    ));
-    impl_or_mutator_where_clause.add_clause_items(ts!(
-        cm.EqualProof "<"
-            EnumSingleVariant single_variant_generics.removing_bounds_and_eq_type() ","
-            EnumSingleVariant other_single_variant_generics.removing_bounds_and_eq_type()
-        "> :" cm.NotEqual
-    ));
-
-    let mut impl_supertype_where_clause = impl_or_mutator_where_clause.clone();
-
-    impl_or_mutator_where_clause.add_clause_items(ts!(join_ts!(&enu.items, item, {
-        let fields = &item_fields[&item.ident];
-        let field_tys = join_ts!(fields, f, f, separator: ",");
-        if fields.is_empty() {
-            ts!(
-                ident!("M" item.ident) ":"
-                    cm.CommonMutatorSuperType "<"
-                        "(),"
-                        ident!("N" item.ident)
-                    "> ,"
-            )
-        } else {
-            ts!(
-                ident!("M" item.ident) ":"
-                    cm.CommonTupleMutatorSuperType "<
-                        ("  field_tys ") ,"
-                        Tuplei(fields.len()) "<" field_tys "> ,"
-                        ident!("N" item.ident)
-                    "> ,"
-            )
-        }
-    })));
-    impl_supertype_where_clause.add_clause_items(ts!(join_ts!(&enu.items, item, {
-        let fields = &item_fields[&item.ident];
-        let field_tys = join_ts!(fields, f, f, separator: ",");
-        if fields.is_empty() {
-            ts!(
-                ident!("M" item.ident) ":"
-                    cm.MutatorSuperType "<"
-                        "(),"
-                        ident!("N" item.ident)
-                    "> ,"
-            )
-        } else {
-            ts!(
-                ident!("M" item.ident) ":"
-                    cm.TupleMutatorSuperType "<
-                        ("  field_tys ") ,"
-                        Tuplei(fields.len()) "<" field_tys "> ,"
-                        ident!("N" item.ident)
-                    "> ,"
-            )
-        }
-    })));
-
-    extend_ts!(tb,
-    "impl " impl_or_mutator_generics.removing_eq_type()
-        cm.CommonMutatorSuperType "<" enu.ident enum_generics_no_bounds "," EnumSingleVariant other_single_variant_generics.removing_bounds_and_eq_type() ">"
-        "for " EnumSingleVariant single_variant_generics.removing_bounds_and_eq_type()
-        impl_or_mutator_where_clause "
-    {
-        type Output = " EnumSingleVariant single_variant_generics.mutating_type_params(|tp| {
-            tp.type_ident = ts!(tp.type_ident "::Output")
-        }) ";
-    }
-    
-    impl " impl_or_mutator_generics.removing_eq_type() 
-        cm.MutatorSuperType "<" enu.ident enum_generics_no_bounds "," EnumSingleVariant other_single_variant_generics.removing_bounds_and_eq_type() ">
-        for " EnumSingleVariant single_variant_generics.removing_bounds_and_eq_type() "
-        " impl_supertype_where_clause "
-        {
-            fn upcast(m: " EnumSingleVariant other_single_variant_generics ") -> Self {
-                match m {"
-                join_ts!(&enu.items, item,
-                    EnumSingleVariant "::" item.ident "(m) => " EnumSingleVariant "::" item.ident "(" ident!("M" item.ident) "::upcast(m)),"
-                )
-                "}
-            }
-        }"
-    );
 }
 
 #[cfg(test)]
@@ -444,33 +331,7 @@ mod tests {
             _phantom: ::std::marker::PhantomData<(T)>
         }
 
-        #[allow(non_snake_case)]
-        impl<T: SomeTrait> ASTSingleVariantMutator<T> where T: Default, T: ::std::clone::Clone + 'static {
-            pub fn Text<MText>(m: MText) -> ASTSingleVariant<MText, fuzzcheck_mutators::NeverMutator, fuzzcheck_mutators::NeverMutator, fuzzcheck_mutators::NeverMutator>
-            where
-                MText: fuzzcheck_mutators::TupleMutator<(Vec<char>), fuzzcheck_mutators::Tuple1<Vec<char> > >
-            {
-                ASTSingleVariant::Text(m)
-            }
-            pub fn Child<MChild>(m: MChild) -> ASTSingleVariant<fuzzcheck_mutators::NeverMutator, MChild, fuzzcheck_mutators::NeverMutator, fuzzcheck_mutators::NeverMutator>
-            where
-                MChild: fuzzcheck_mutators::TupleMutator<(Box<AST>, T), fuzzcheck_mutators::Tuple2<Box<AST>, T> >
-            {
-                ASTSingleVariant::Child(m)
-            }
-            pub fn Leaf1<MLeaf1>(m: MLeaf1) -> ASTSingleVariant<fuzzcheck_mutators::NeverMutator, fuzzcheck_mutators::NeverMutator, MLeaf1, fuzzcheck_mutators::NeverMutator>
-            where
-                MLeaf1: fuzzcheck_mutators::fuzzcheck_traits::Mutator<()>
-            {
-                ASTSingleVariant::Leaf1(m)
-            }
-            pub fn Leaf2<MLeaf2>(m: MLeaf2) -> ASTSingleVariant<fuzzcheck_mutators::NeverMutator, fuzzcheck_mutators::NeverMutator, fuzzcheck_mutators::NeverMutator, MLeaf2>
-            where
-                MLeaf2: fuzzcheck_mutators::fuzzcheck_traits::Mutator<()>
-            {
-                ASTSingleVariant::Leaf2(m)
-            }
-        }
+        #[allow(non_shorthand_field_patterns)]
         impl<T: SomeTrait, MText, MChild, MLeaf1, MLeaf2> fuzzcheck_mutators::fuzzcheck_traits::Mutator<AST<T> > for ASTSingleVariant<MText, MChild, MLeaf1, MLeaf2>
             where 
             T: Default, 
@@ -719,58 +580,6 @@ mod tests {
                 }
             }
         }
-        impl < T : SomeTrait , MText , MChild , MLeaf1 , MLeaf2 , NText , NChild , NLeaf1 , NLeaf2 >
-            fuzzcheck_mutators :: algebra :: CommonMutatorSuperType < AST < T > , ASTSingleVariant < NText , NChild , NLeaf1 , NLeaf2 > > 
-            for 
-            ASTSingleVariant < MText , MChild , MLeaf1 , MLeaf2 > 
-        where 
-            T : Default , 
-            T : :: std :: clone :: Clone + 'static , 
-            MText : fuzzcheck_mutators :: TupleMutator < (Vec < char >) , fuzzcheck_mutators :: Tuple1 < Vec < char > > > , 
-            MChild : fuzzcheck_mutators :: TupleMutator < (Box < AST >, T) , fuzzcheck_mutators :: Tuple2 < Box < AST >, T > > , 
-            MLeaf1 : fuzzcheck_mutators :: fuzzcheck_traits :: Mutator < () > , 
-            MLeaf2 : fuzzcheck_mutators :: fuzzcheck_traits :: Mutator < () > , 
-            NText : fuzzcheck_mutators :: TupleMutator < (Vec < char >) , fuzzcheck_mutators :: Tuple1 < Vec < char > > > , 
-            NChild : fuzzcheck_mutators :: TupleMutator < (Box < AST >, T) , fuzzcheck_mutators :: Tuple2 < Box < AST >, T > > , 
-            NLeaf1 : fuzzcheck_mutators :: fuzzcheck_traits :: Mutator < () > , 
-            NLeaf2 : fuzzcheck_mutators :: fuzzcheck_traits :: Mutator < () > , 
-            fuzzcheck_mutators :: algebra :: EqualProof < ASTSingleVariant < MText , MChild , MLeaf1 , MLeaf2 > , ASTSingleVariant < NText , NChild , NLeaf1 , NLeaf2 > > : fuzzcheck_mutators :: algebra :: NotEqual ,
-            MText : fuzzcheck_mutators :: algebra :: CommonTupleMutatorSuperType < (Vec < char >) , fuzzcheck_mutators :: Tuple1 < Vec < char > > , NText > , 
-            MChild : fuzzcheck_mutators :: algebra :: CommonTupleMutatorSuperType < (Box < AST >, T) , fuzzcheck_mutators :: Tuple2 < Box < AST >, T > , NChild > , 
-            MLeaf1 : fuzzcheck_mutators :: algebra :: CommonMutatorSuperType < () , NLeaf1 > , 
-            MLeaf2 : fuzzcheck_mutators :: algebra :: CommonMutatorSuperType < () , NLeaf2 > 
-        { 
-            type Output = ASTSingleVariant < MText :: Output , MChild :: Output , MLeaf1 :: Output , MLeaf2 :: Output > ; 
-        }
-        impl < T : SomeTrait , MText , MChild , MLeaf1 , MLeaf2 , NText , NChild , NLeaf1 , NLeaf2 > 
-            fuzzcheck_mutators :: algebra :: MutatorSuperType < AST < T > , ASTSingleVariant < NText , NChild , NLeaf1 , NLeaf2 > > 
-            for 
-            ASTSingleVariant < MText , MChild , MLeaf1 , MLeaf2 > 
-        where 
-            T : Default , 
-            T : :: std :: clone :: Clone + 'static , 
-            MText : fuzzcheck_mutators :: TupleMutator < (Vec < char >) , fuzzcheck_mutators :: Tuple1 < Vec < char > > > , 
-            MChild : fuzzcheck_mutators :: TupleMutator < (Box < AST >, T) , fuzzcheck_mutators :: Tuple2 < Box < AST >, T > > , 
-            MLeaf1 : fuzzcheck_mutators :: fuzzcheck_traits :: Mutator < () > , 
-            MLeaf2 : fuzzcheck_mutators :: fuzzcheck_traits :: Mutator < () > , 
-            NText : fuzzcheck_mutators :: TupleMutator < (Vec < char >) , fuzzcheck_mutators :: Tuple1 < Vec < char > > > , 
-            NChild : fuzzcheck_mutators :: TupleMutator < (Box < AST >, T) , fuzzcheck_mutators :: Tuple2 < Box < AST >, T > > , 
-            NLeaf1 : fuzzcheck_mutators :: fuzzcheck_traits :: Mutator < () > , 
-            NLeaf2 : fuzzcheck_mutators :: fuzzcheck_traits :: Mutator < () > , 
-            fuzzcheck_mutators :: algebra :: EqualProof < ASTSingleVariant < MText , MChild , MLeaf1 , MLeaf2 > , ASTSingleVariant < NText , NChild , NLeaf1 , NLeaf2 > > : fuzzcheck_mutators :: algebra :: NotEqual , 
-            MText : fuzzcheck_mutators :: algebra :: TupleMutatorSuperType < (Vec < char >) , fuzzcheck_mutators :: Tuple1 < Vec < char > > , NText > , 
-            MChild : fuzzcheck_mutators :: algebra :: TupleMutatorSuperType < (Box < AST >, T) , fuzzcheck_mutators :: Tuple2 < Box < AST >, T > , NChild > , 
-            MLeaf1 : fuzzcheck_mutators :: algebra :: MutatorSuperType < () , NLeaf1 > , MLeaf2 : fuzzcheck_mutators :: algebra :: MutatorSuperType < () , NLeaf2 > 
-        { 
-            fn upcast (m : ASTSingleVariant < NText , NChild , NLeaf1 , NLeaf2 >) -> Self { 
-                match m { 
-                    ASTSingleVariant :: Text (m) => ASTSingleVariant :: Text (MText :: upcast (m)) , 
-                    ASTSingleVariant :: Child (m) => ASTSingleVariant :: Child (MChild :: upcast (m)) , 
-                    ASTSingleVariant :: Leaf1 (m) => ASTSingleVariant :: Leaf1 (MLeaf1 :: upcast (m)) , 
-                    ASTSingleVariant :: Leaf2 (m) => ASTSingleVariant :: Leaf2 (MLeaf2 :: upcast (m)) , 
-                } 
-            }
-        } 
         "
         .parse::<TokenStream>()
         .unwrap()

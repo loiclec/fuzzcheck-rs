@@ -2,21 +2,6 @@ use std::{cmp::Ordering, marker::PhantomData};
 
 use fuzzcheck_traits::Mutator;
 
-use crate::algebra::{CommonMutatorSuperType, MutatorSuperType};
-
-#[macro_export]
-macro_rules! alternation_mutator {
-    ( $first: expr , $( $x:expr ),* $(,)?) => {
-        {
-            let result = $crate::alternation::AlternationMutator::new(vec![$first]);
-            $(
-                let result = result.adding_mutator($x);
-            )*
-            result
-        }
-    };
-}
-
 pub struct AlternationMutator<T, M>
 where
     T: Clone,
@@ -54,41 +39,6 @@ where
             max_complexity,
             min_complexity,
             rng: fastrand::Rng::default(),
-            _phantom: PhantomData,
-        }
-    }
-
-    pub fn adding_mutator<N>(self, mutator: N) -> AlternationMutator<T, <M as CommonMutatorSuperType<T, N>>::Output>
-    where
-        N: Mutator<T>,
-        M: CommonMutatorSuperType<T, N>,
-    {
-        let mut mutators = self
-            .mutators
-            .into_iter()
-            .map(|m| <<M as CommonMutatorSuperType<T, N>>::Output as MutatorSuperType<T, M>>::upcast(m))
-            .collect::<Vec<_>>();
-
-        let mut max_complexity = self.max_complexity;
-        let mut min_complexity = self.min_complexity;
-        let mutator = <<M as CommonMutatorSuperType<T, N>>::Output as MutatorSuperType<T, N>>::upcast(mutator);
-        let mutator_max_cplx = mutator.max_complexity();
-        let mutator_min_cplx = mutator.min_complexity();
-
-        mutators.push(mutator);
-        if max_complexity < mutator_max_cplx {
-            max_complexity = mutator_max_cplx;
-        }
-        if min_complexity > mutator_min_cplx {
-            min_complexity = mutator_min_cplx;
-        }
-        let complexity_from_choice = crate::size_to_cplxity(mutators.len());
-        AlternationMutator {
-            mutators,
-            complexity_from_choice,
-            max_complexity,
-            min_complexity,
-            rng: self.rng,
             _phantom: PhantomData,
         }
     }

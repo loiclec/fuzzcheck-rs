@@ -6,10 +6,3 @@ pub enum Option<T> {
     Some(T),
     None,
 }
-
-// crate::make_single_variant_mutator! {
-//     pub enum Option<T> {
-//         Some(T),
-//         None,
-//     }
-// }

@@ -199,14 +199,10 @@ mod test {
     #[test]
     fn test_impl_default_mutator_for_enum() {
         let code = "
-        enum X {
-            A(
-                #[field_mutator(CustomU32Mutator)]
-                u8
-            ),
-            B {x: u8, y: u16},
-            C,
-        }
+        pub enum X<T> {
+            A(T),
+            B(Vec<T>),
+        }     
         "
         .parse::<TokenStream>()
         .unwrap();
@@ -214,6 +210,7 @@ mod test {
         let enu = parser.eat_enumeration().unwrap();
 
         let mut tb = TokenBuilder::new();
+        crate::single_variant::make_single_variant_mutator(&mut tb, &enu);
         impl_default_mutator_for_enum(&mut tb, &enu, &<_>::default());
         let generated = tb.end().to_string();
 
