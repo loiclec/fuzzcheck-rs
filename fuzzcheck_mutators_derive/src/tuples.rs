@@ -66,11 +66,9 @@ pub(crate) fn impl_tuple_structure_trait(tb: &mut TokenBuilder, struc: &Struct) 
     let field_types = join_ts!(&struc.struct_fields, field, field.ty, separator: ",");
     // let Ti = |i: usize| ident!("T" i);
 
-    let TupleKind = if nbr_elements == 1 {
-        cm.Wrapped_path.clone()
-    } else {
+    let TupleKind =
         cm.TupleN_path.clone()
-    };
+    ;
 
     let generics_no_eq = struc.generics.removing_eq_type();
     let generics_no_eq_nor_bounds = struc.generics.removing_bounds_and_eq_type();
@@ -180,11 +178,9 @@ pub(crate) fn impl_default_mutator_for_struct(
         }
     }).collect::<Vec<_>>()];
 
-    let TupleKind = if nbr_elements == 1 {
-        cm.Wrapped_path.clone()
-    } else {
+    let TupleKind = 
         cm.TupleN_path.clone()
-    };
+    ;
 
     let TupleN_and_generics = ts!(TupleKind "<" field_types ">");
 
@@ -226,6 +222,11 @@ pub(crate) fn impl_default_mutator_for_struct(
             }
             }"
         ),
+        default_impl: &ts!("
+            fn default() -> Self {
+                Self { mutator : <_>::default() }
+            }
+        "),
         settings: &settings,  
     };
 
@@ -668,6 +669,30 @@ mod test {
     };
 
     #[test]
+    fn test_impl_default_mutator_one_field() {
+        let mut tb = TokenBuilder::new();
+        let code = "
+        pub struct Y {
+            x: bool,
+        }        
+        "
+        .parse::<TokenStream>()
+        .unwrap();
+        let mut parser = TokenParser::new(code);
+        let struc = parser.eat_struct().unwrap();
+        impl_tuple_structure_trait(&mut tb, &struc);
+        // impl_default_mutator_for_struct(&mut tb, &struc, &<_>::default());
+        let generated = tb.end().to_string();
+
+        let expected  = ""
+        .parse::<TokenStream>()
+        .unwrap()
+        .to_string();
+
+        assert_eq!(generated, expected, "\n\n{} \n\n{}\n\n", generated, expected);
+    }
+
+    #[test]
     fn test_impl_default_mutator_two_fields() {
         let mut tb = TokenBuilder::new();
         let code = "
@@ -813,7 +838,7 @@ impl < T : Into < u8 >, M0 , M1 > :: std :: default :: Default for SMutator < T 
     where T : Default , T : :: std :: clone :: Clone + 'static , 
     M0 : fuzzcheck_mutators :: fuzzcheck_traits :: Mutator < u8 > , 
     M1 : fuzzcheck_mutators :: fuzzcheck_traits :: Mutator < Vec < T > > , 
-    {inner_mutator} : :: std :: default :: Default 
+    M0 : :: std :: default :: Default , M1 : :: std :: default :: Default 
 {{
      fn default () -> Self {{ 
         Self {{ 
@@ -1298,7 +1323,7 @@ pub struct MutationStep<T0, T1> {
     inner: ::std::vec::Vec<InnerMutationStep>
 }
 
-#[derive(::std::default::Default, ::std::clone::Clone)]
+#[derive(::std::clone::Clone)]
 pub struct ArbitraryStep<T0, T1> {
     t0: T0,
     t1: T1

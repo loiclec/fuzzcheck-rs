@@ -68,8 +68,9 @@ where
     }
 }
 
-impl<T, M> TupleMutator<T, Tuple1<T>> for Tuple1Mutator<T, M>
+impl<T, U, M> TupleMutator<U, Tuple1<T>> for Tuple1Mutator<T, M>
 where
+    U: TupleStructure<Tuple1<T>>,
     T: ::std::clone::Clone + 'static,
     M: ::fuzzcheck_traits::Mutator<T>,
 {
@@ -102,12 +103,17 @@ where
         &self,
         step: &mut Self::ArbitraryStep,
         max_cplx: f64,
-    ) -> Option<(T, Self::Cache, Self::MutationStep)> {
-        self.mutator.ordered_arbitrary(step, max_cplx)
+    ) -> Option<(U, Self::Cache, Self::MutationStep)> {
+        if let Some((v, c, s)) = self.mutator.ordered_arbitrary(step, max_cplx) {
+            Some((U::new(v), c, s))
+        } else {
+            None
+        }
     }
 
-    fn random_arbitrary(&self, max_cplx: f64) -> (T, Self::Cache, Self::MutationStep) {
-        self.mutator.random_arbitrary(max_cplx)
+    fn random_arbitrary(&self, max_cplx: f64) -> (U, Self::Cache, Self::MutationStep) {
+        let (v, c, s) = self.mutator.random_arbitrary(max_cplx);
+        (U::new(v), c, s)
     }
 
     fn ordered_mutate<'a>(
@@ -128,86 +134,6 @@ where
         self.mutator.unmutate(value, cache, t)
     }
 }
-
-// pub struct Wrapped<T: 'static> {
-//     _phantom: PhantomData<T>,
-// }
-// impl<T: 'static> RefTypes for Wrapped<T> {
-//     type Owned = T;
-//     type Ref<'a> = &'a T;
-//     type Mut<'a> = &'a mut T;
-
-//     fn get_ref_from_mut<'a>(v: &'a Self::Mut<'a>) -> Self::Ref<'a> {
-//         v
-//     }
-// }
-
-// impl<T, U, M> TupleMutator<U, Wrapped<T>> for Tuple1Mutator<T, M>
-// where
-//     U: TupleStructure<Wrapped<T>>,
-//     T: ::std::clone::Clone + 'static,
-//     M: ::fuzzcheck_traits::Mutator<T>,
-// {
-//     type Cache = M::Cache;
-//     type MutationStep = M::MutationStep;
-//     type ArbitraryStep = M::ArbitraryStep;
-//     type UnmutateToken = M::UnmutateToken;
-
-//     fn default_arbitrary_step(&self) -> Self::ArbitraryStep {
-//         self.mutator.default_arbitrary_step()
-//     }
-
-//     fn complexity<'a>(&'a self, value: &'a T, cache: &'a Self::Cache) -> f64 {
-//         self.mutator.complexity(value, cache)
-//     }
-
-//     fn validate_value<'a>(&'a self, value: &'a T) -> Option<(Self::Cache, Self::MutationStep)> {
-//         self.mutator.validate_value(value)
-//     }
-
-//     fn max_complexity(&self) -> f64 {
-//         self.mutator.max_complexity()
-//     }
-
-//     fn min_complexity(&self) -> f64 {
-//         self.mutator.min_complexity()
-//     }
-
-//     fn ordered_arbitrary(
-//         &self,
-//         step: &mut Self::ArbitraryStep,
-//         max_cplx: f64,
-//     ) -> Option<(U, Self::Cache, Self::MutationStep)> {
-//         if let Some((value, cache, step)) = self.mutator.ordered_arbitrary(step, max_cplx) {
-//             Some((U::new(value), cache, step))
-//         } else {
-//             None
-//         }
-//     }
-
-//     fn random_arbitrary(&self, max_cplx: f64) -> (U, Self::Cache, Self::MutationStep) {
-//         let (value, cache, step) = self.mutator.random_arbitrary(max_cplx);
-//         (U::new(value), cache, step)
-//     }
-
-//     fn ordered_mutate<'a>(
-//         &'a self,
-//         value: &'a mut T,
-//         cache: &'a mut Self::Cache,
-//         step: &'a mut Self::MutationStep,
-//         max_cplx: f64,
-//     ) -> Option<Self::UnmutateToken> {
-//         self.mutator.ordered_mutate(value, cache, step, max_cplx)
-//     }
-
-//     fn random_mutate<'a>(&'a self, value: &'a mut T, cache: &'a mut Self::Cache, max_cplx: f64) -> Self::UnmutateToken {
-//         self.mutator.random_mutate(value, cache, max_cplx)
-//     }
-
-//     fn unmutate<'a>(&'a self, value: &'a mut T, cache: &'a mut Self::Cache, t: Self::UnmutateToken) {
-//         self.mutator.unmutate(value, cache, t)
-//     }
-// }
 
 pub trait TupleStructure<TupleKind: RefTypes> {
     fn get_ref<'a>(&'a self) -> TupleKind::Ref<'a>;

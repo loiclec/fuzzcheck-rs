@@ -281,7 +281,6 @@ pub(crate) struct Common {
     TupleStructure: TokenStream,
     UnitMutator: TokenStream,
     Vec: TokenStream,
-    Wrapped_path: TokenStream,
     RecursiveMutator: TokenStream,
     Box: TokenStream,
 }
@@ -345,7 +344,6 @@ impl Common {
             TupleStructure,
             UnitMutator: ts!(fuzzcheck_mutators_crate "::UnitMutator"),
             Vec: ts!("::std::vec::Vec"),
-            Wrapped_path: ts!(fuzzcheck_mutators_crate "::Wrapped"),
             RecursiveMutator: ts!(fuzzcheck_mutators_crate "::fuzzcheck_traits::RecursiveMutator"),
             Box: ts!("::std::boxed::Box"),
         }

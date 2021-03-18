@@ -137,6 +137,11 @@ where
         if step.indices.is_empty() {
             return None;
         }
+        if max_cplx < self.min_complexity() {
+            return None;
+        }
+        let max_cplx = max_cplx - self.complexity_from_choice;
+
         let idx = step.indices[step.idx % step.indices.len()];
         let mutator = &self.mutators[idx];
         let inner_step = &mut step.inner[idx];
@@ -159,6 +164,8 @@ where
     fn random_arbitrary(&self, max_cplx: f64) -> (T, Self::Cache, Self::MutationStep) {
         let idx = self.rng.usize(..self.mutators.len());
         let mutator = &self.mutators[idx];
+        let max_cplx = max_cplx - self.complexity_from_choice;
+
         let (v, c, s) = mutator.random_arbitrary(max_cplx);
         (
             v,
@@ -177,8 +184,21 @@ where
         step: &mut Self::MutationStep,
         max_cplx: f64,
     ) -> Option<Self::UnmutateToken> {
+        if max_cplx < self.min_complexity() {
+            return None;
+        }
+        let max_cplx = max_cplx - self.complexity_from_choice;
+
+        if self.rng.usize(..100) == 0 {
+            let (new_value, new_cache, _new_step) = self.random_arbitrary(max_cplx);
+            let old_value = ::std::mem::replace(value, new_value);
+            let old_cache = ::std::mem::replace(cache, new_cache);
+            return Some(UnmutateToken::Replace(old_value, old_cache));
+        }
+
         let idx = cache.mutator_idx;
         let mutator = &self.mutators[idx];
+
         if let Some(t) = mutator.ordered_mutate(value, &mut cache.inner, &mut step.inner, max_cplx) {
             Some(UnmutateToken::Inner(t))
         } else {
@@ -195,7 +215,18 @@ where
     fn random_mutate(&self, value: &mut T, cache: &mut Self::Cache, max_cplx: f64) -> Self::UnmutateToken {
         let idx = cache.mutator_idx;
         let mutator = &self.mutators[idx];
-        // TODO: randomly create new from arbitrary
+        let max_cplx = max_cplx - self.complexity_from_choice;
+        // this ensures that `arbitrary` is used instead of a unit mutator that will return
+        // the same thing every time
+        // there should be a better way to prevent this though
+        // maybe it's time to give random_mutate a MutationStep too?
+        if self.rng.usize(..100) == 0 || mutator.max_complexity() < 0.1 {
+            let (new_value, new_cache, _new_step) = self.random_arbitrary(max_cplx);
+            let old_value = ::std::mem::replace(value, new_value);
+            let old_cache = ::std::mem::replace(cache, new_cache);
+            return UnmutateToken::Replace(old_value, old_cache);
+        }
+
         let t = mutator.random_mutate(value, &mut cache.inner, max_cplx);
         UnmutateToken::Inner(t)
     }

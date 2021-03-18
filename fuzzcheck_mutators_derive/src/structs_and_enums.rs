@@ -46,6 +46,7 @@ pub(crate) struct CreateWrapperMutatorParams<'a> {
     pub(crate) field_mutators: &'a Vec<Vec<FieldMutator>>,
     pub(crate) InnerMutator: &'a TokenStream,
     pub(crate) new_impl: &'a TokenStream,
+    pub(crate) default_impl: &'a TokenStream,
     pub(crate) settings: &'a MakeMutatorSettings,
 }
 
@@ -60,6 +61,7 @@ pub(crate) fn make_mutator_type_and_impl(params: CreateWrapperMutatorParams) -> 
         field_mutators,
         InnerMutator,
         new_impl,
+        default_impl,
         settings,
     } = params;
 
@@ -105,7 +107,9 @@ pub(crate) fn make_mutator_type_and_impl(params: CreateWrapperMutatorParams) -> 
         .collect::<Vec<_>>();
 
     let mut Default_where_clause = NameMutator_where_clause.clone();
-    Default_where_clause.add_clause_items(ts!(InnerMutator ":" cm.Default));
+    Default_where_clause.add_clause_items(join_ts!(field_mutators.iter().flatten(), field_mutator,
+        field_mutator.mutator_stream(&cm) ":" cm.Default
+    , separator: ","));
 
     let mut DefaultMutator_Mutator_generics = type_generics.removing_bounds_and_eq_type();
     for field_mutator in field_mutators.iter().flatten() {
@@ -194,10 +198,9 @@ pub(crate) fn make_mutator_type_and_impl(params: CreateWrapperMutatorParams) -> 
     "}"
     "impl " NameMutator_generics cm.Default "for" NameMutator NameMutator_generics.removing_bounds_and_eq_type()
         Default_where_clause "
-        {
-            fn default() -> Self {
-                Self { mutator : <_>::default() }
-            }
+        {"
+            default_impl
+        "
         }
         impl " NameMutator_generics cm.fuzzcheck_mutator_traits_Mutator "<" type_ident type_generics.removing_bounds_and_eq_type() "> 
             for " NameMutator NameMutator_generics.removing_bounds_and_eq_type() NameMutator_where_clause "

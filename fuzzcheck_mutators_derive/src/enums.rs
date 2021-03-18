@@ -114,6 +114,17 @@ pub(crate) fn impl_default_mutator_for_enum(tb: &mut TokenBuilder, enu: &Enum, s
                 }
             }"
         ),
+        default_impl: &ts!("
+            fn default() -> Self {
+                Self::new("
+                join_ts!(&enu.items, item,
+                    match item.get_struct_data() {
+                        Some((_, fields)) if !fields.is_empty() => ts!("<_>::default() ,"),
+                        _ => ts!()
+                    }
+                ) ")
+            }
+        "),
         settings,
     };
 
@@ -201,8 +212,8 @@ mod test {
         let code = "
         pub enum X<T> {
             A(T),
-            B(Vec<T>),
-        }     
+            B(#[field_mutator(VecMutator<X<T>, RecurToMutator<Self>>)] Vec<T>),
+        }  
         "
         .parse::<TokenStream>()
         .unwrap();

@@ -8,32 +8,7 @@ pub trait BasicEnumStructure {
     fn get_item_index(&self) -> usize;
 }
 
-#[derive(Clone, crate::DefaultMutator)]
-enum X {
-    A(u8),
-    B { x: u8, y: u16 },
-    C,
-}
-
 extern crate self as fuzzcheck_mutators;
-// crate::make_single_variant_mutator! {
-//     enum X {
-//         A(
-//             u8
-//         ),
-//         B {x: u8, y: u16},
-//         C,
-//     }
-// }
-
-// fn foo(
-//     x: XSingleVariant<
-//         fuzzcheck_mutators::Tuple1Mutator<u8, crate::U8Mutator>,
-//         fuzzcheck_mutators::Tuple2Mutator<u8, u16, crate::U8Mutator, crate::U16Mutator>,
-//         UnitMutator<()>,
-//     >,
-// ) {
-// }
 
 #[derive(Default)]
 pub struct BasicEnumMutator {
@@ -127,16 +102,3 @@ where
         *value = T::from_item_index(t);
     }
 }
-
-// extern crate self as fuzzcheck_mutators;
-
-// fuzzcheck_mutators_derive::make_basic_enum_mutators!(1);
-// fuzzcheck_mutators_derive::make_basic_enum_mutators!(2);
-// fuzzcheck_mutators_derive::make_basic_enum_mutators!(3);
-// fuzzcheck_mutators_derive::make_basic_enum_mutators!(4);
-// fuzzcheck_mutators_derive::make_basic_enum_mutators!(5);
-// fuzzcheck_mutators_derive::make_basic_enum_mutators!(6);
-// fuzzcheck_mutators_derive::make_basic_enum_mutators!(7);
-// fuzzcheck_mutators_derive::make_basic_enum_mutators!(8);
-// fuzzcheck_mutators_derive::make_basic_enum_mutators!(9);
-// fuzzcheck_mutators_derive::make_basic_enum_mutators!(10);
