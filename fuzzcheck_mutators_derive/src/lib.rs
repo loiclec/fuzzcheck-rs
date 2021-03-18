@@ -297,7 +297,7 @@ pub(crate) struct Common {
     // EnumNPayloadArbitraryStep_path: TokenStream,
     // EnumNPayloadMutationStep_path: TokenStream,
     // WrappedTupleN_ident: Ident,
-    BottomMutator: TokenStream,
+    NeverMutator: TokenStream,
     Clone: TokenStream,
     Default: TokenStream,
     DefaultMutator: TokenStream,
@@ -330,6 +330,12 @@ pub(crate) struct Common {
     Tuplei: Box<dyn (Fn(usize) -> TokenStream)>,
     TupleKindi: Box<dyn (Fn(usize) -> Ident)>,
     TupleMutator: TokenStream,
+    MutatorSuperType: TokenStream,
+    TupleMutatorSuperType: TokenStream,
+    CommonTupleMutatorSuperType: TokenStream,
+    CommonMutatorSuperType: TokenStream,
+    EqualProof: TokenStream,
+    NotEqual: TokenStream,
     TupleMutatorWrapper: TokenStream,
     TupleMutatorTiTupleKindi: Box<dyn (Fn(usize) -> TokenStream)>,
     TupleN_ident: Ident,
@@ -355,6 +361,12 @@ impl Common {
         let Ti = Box::new(|i: usize| ident!("T" i));
         let TupleKindi = Box::new(|i: usize| ident!("TupleKind" i));
         let TupleMutator = ts!(fuzzcheck_mutators_crate "::TupleMutator");
+        let MutatorSuperType = ts!(fuzzcheck_mutators_crate "::algebra::MutatorSuperType");
+        let TupleMutatorSuperType = ts!(fuzzcheck_mutators_crate "::algebra::TupleMutatorSuperType");
+        let CommonMutatorSuperType = ts!(fuzzcheck_mutators_crate "::algebra::CommonMutatorSuperType");
+        let CommonTupleMutatorSuperType = ts!(fuzzcheck_mutators_crate "::algebra::CommonTupleMutatorSuperType");
+        let EqualProof = ts!(fuzzcheck_mutators_crate "::algebra::EqualProof");
+        let NotEqual = ts!(fuzzcheck_mutators_crate "::algebra::NotEqual");
         let TupleMutatorTiTupleKindi = {
             let Ti = Ti.clone();
             let TupleKindi = TupleKindi.clone();
@@ -411,7 +423,7 @@ impl Common {
             // EnumNPayloadMutationStep_path,
             // fuzzcheck_mutators_crate: fuzzcheck_mutators_crate.clone(),
             // WrappedTupleN_ident,
-            BottomMutator: ts!(fuzzcheck_mutators_crate "::BottomMutator"),
+            NeverMutator: ts!(fuzzcheck_mutators_crate "::NeverMutator"),
             Clone: ts!("::std::clone::Clone"),
             Default: ts!("::std::default::Default"),
             DefaultMutator: ts!(fuzzcheck_mutators_crate "::DefaultMutator"),
@@ -444,6 +456,12 @@ impl Common {
             Tuplei,
             TupleKindi,
             TupleMutator,
+            MutatorSuperType,
+            TupleMutatorSuperType,
+            CommonTupleMutatorSuperType,
+            CommonMutatorSuperType,
+            EqualProof,
+            NotEqual,
             TupleMutatorWrapper: ts!(fuzzcheck_mutators_crate "::TupleMutatorWrapper"),
             TupleMutatorTiTupleKindi,
             TupleN_ident: ident!("Tuple" n),

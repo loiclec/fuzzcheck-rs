@@ -215,7 +215,7 @@ pub trait TupleStructure<TupleKind: RefTypes> {
     fn new(t: TupleKind::Owned) -> Self;
 }
 
-pub trait TupleMutator<T, TupleKind>
+pub trait TupleMutator<T, TupleKind>: Sized
 where
     TupleKind: RefTypes,
     T: TupleStructure<TupleKind>,

@@ -2,9 +2,9 @@ use fuzzcheck_traits::Mutator;
 
 use crate::{RefTypes, TupleMutator, TupleStructure};
 
-pub enum BottomMutator {}
+pub enum NeverMutator {}
 
-impl<T: Clone> Mutator<T> for BottomMutator {
+impl<T: Clone> Mutator<T> for NeverMutator {
     type Cache = ();
     type MutationStep = ();
     type ArbitraryStep = ();
@@ -60,7 +60,7 @@ impl<T: Clone> Mutator<T> for BottomMutator {
     }
 }
 
-impl<T: Clone, TupleKind: RefTypes> TupleMutator<T, TupleKind> for BottomMutator
+impl<T: Clone, TupleKind: RefTypes> TupleMutator<T, TupleKind> for NeverMutator
 where
     T: TupleStructure<TupleKind>,
 {

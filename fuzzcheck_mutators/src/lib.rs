@@ -1,10 +1,10 @@
 #![feature(generic_associated_types)]
+#![feature(auto_traits)]
+#![feature(negative_impls)]
+#![feature(min_specialization)]
 #![feature(variant_count)]
-#![feature(cmp_min_max_by)]
-#![feature(never_type)]
 #![feature(int_bits_const)]
 #![feature(arc_new_cyclic)]
-#![feature(assoc_char_consts)]
 #![feature(assoc_char_funcs)]
 
 pub extern crate fastrand;
@@ -12,13 +12,15 @@ pub extern crate fuzzcheck_mutators_derive;
 pub extern crate fuzzcheck_traits;
 pub use fuzzcheck_mutators_derive::*;
 
+pub mod algebra;
+mod alternatives;
 mod bool;
-mod bottom;
 mod r#box;
 mod dictionary;
 mod enums;
 mod fixed_len_vector;
 mod integer;
+mod never;
 mod option;
 mod tuples;
 mod unit;
@@ -32,14 +34,28 @@ List of features required to make string-from-regex mutators:
 - [x] add fixed len vector mutator where each index has a different mutator
 - [x] have a mutator that wraps multiple mutators of different types -> needs to be a proc_macro, called SingleVariantMutator
 - [ ] have a mutator that wraps multiple mutators of the same type
+    1. important that they are the same type? maybe not
+    2. but the mutator acts like the regular enum mutator, tends to stay within same mutator
+    except exceptionally to add some randomness
+    3. so the SingleVariantMutator I use for string-from-regex should actually contain the types of the
+    mutators for the other cases and not NeverMutator
+        3.1. an alternative is to compose them with something like:
+        mutator_1.or_variant_2(mutator_2).or_variant_4(mutator_4) : AlternativeMutator<SingleVariantMutator<M1, M2, Bottom, M4, Bottom>> ???
+        mutator_1.and_variant_2(mutator_2).and_variant_4(mutator_4) : SingleVariantMutator<M1, M2, Bottom, M4, Bottom> ???
+        3.2. To do that, I need to add convenience methods to the builder!
+        3.3. it may be a good idea to add traits for composing mutators, first by writing the one that
+        combines a Bottom and a M and returns a M, but also one that combines two AlternativeMutator or
+        a AlternativeMutator and a SingleVariantMutator... need more thoughts into this, but developing
+        an algebra of mutators could be nice, especially since it could allow a lot of optimizations
+        3.4. then I can get rid of the my custom enum mutators and the EnumStructure traits!!! that's great
 - [ ] add a MapMutator
 - [ ] improve recursive mutators in general, as generic string-from-grammar depend on them
 */
 
 pub use crate::bool::BoolMutator;
-pub use crate::bottom::*;
 pub use crate::dictionary::DictionaryMutator;
 pub use crate::integer::*;
+pub use crate::never::*;
 pub use crate::option::OptionMutator;
 pub use crate::r#box::BoxMutator;
 

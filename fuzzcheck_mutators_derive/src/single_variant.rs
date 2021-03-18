@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{any::Any, collections::HashMap};
 
 use decent_synquote_alternative as synquote;
 use proc_macro2::{Ident, Span, TokenStream};
@@ -12,22 +12,25 @@ pub fn make_single_variant_mutator(tb: &mut TokenBuilder, enu: &Enum) {
     let cm = Common::new(0);
 
     let EnumSingleVariant = ident!(enu.ident "SingleVariant");
-    let MItem = |item_ident: &Ident| ident!("M" item_ident);
+
     let EnumSingleVariantMutator = ident!(enu.ident "SingleVariantMutator");
     let Tuplei = cm.Tuplei.as_ref();
 
-    let (item_is_empty, item_mutators, item_pattern_match_bindings): (
-        HashMap<Ident, bool>,
+    // item_fields: vector holding the item field types
+    // item_mutators: the token stream of the tuple mutator for the item fields
+    // item_pattern_match_bindings: the bindings made when pattern matching the item
+    let (item_fields, item_mutators, item_pattern_match_bindings): (
+        HashMap<Ident, Vec<TokenStream>>,
         HashMap<Ident, TokenStream>,
         HashMap<Ident, Vec<Ident>>,
     ) = {
-        let mut emptys = HashMap::new();
+        let mut item_fields = HashMap::new();
         let mut map = HashMap::new();
         let mut bindings = HashMap::new();
         for item in &enu.items {
             match item.get_struct_data() {
                 Some((_, fields)) if !fields.is_empty() => {
-                    emptys.insert(item.ident.clone(), false);
+                    item_fields.insert(item.ident.clone(), fields.iter().map(|x| ts!(x.ty)).collect());
                     let field_tys = join_ts!(fields.iter(), field, field.ty, separator: ",");
                     map.insert(
                         item.ident.clone(),
@@ -41,7 +44,7 @@ pub fn make_single_variant_mutator(tb: &mut TokenBuilder, enu: &Enum) {
                     );
                 }
                 _ => {
-                    emptys.insert(item.ident.clone(), true);
+                    item_fields.insert(item.ident.clone(), vec![]);
                     map.insert(
                         item.ident.clone(),
                         ts!(
@@ -52,42 +55,45 @@ pub fn make_single_variant_mutator(tb: &mut TokenBuilder, enu: &Enum) {
                 }
             }
         }
-        (emptys, map, bindings)
+        (item_fields, map, bindings)
     };
 
-    let single_variant_generics = Generics {
+    let single_variant_generics_for_prefix = |prefix: &Ident| Generics {
         lifetime_params: vec![],
         type_params: enu
             .items
             .iter()
             .map(|item| TypeParam {
-                type_ident: ts!(MItem(&item.ident)),
+                type_ident: ts!(ident!(prefix item.ident)),
                 ..<_>::default()
             })
             .collect(),
     };
+    let single_variant_generics = single_variant_generics_for_prefix(&ident!("M"));
     let enum_generics_no_eq = enu.generics.removing_eq_type();
     let enum_generics_no_bounds = enu.generics.removing_bounds_and_eq_type();
 
-    let mut impl_mutator_generics = enu.generics.clone();
-    for lp in &single_variant_generics.lifetime_params {
-        impl_mutator_generics.lifetime_params.push(lp.clone());
-    }
-    for tp in &single_variant_generics.type_params {
-        impl_mutator_generics.type_params.push(tp.clone());
-    }
     let mut enum_where_clause_plus_cond = enu.where_clause.clone().unwrap_or_default();
     enum_where_clause_plus_cond.add_clause_items(join_ts!(&enu.generics.type_params, tp,
         tp.type_ident ":" cm.Clone "+ 'static ,"
     ));
-
+    let impl_mutator_generics = {
+        let mut impl_mutator_generics = enu.generics.clone();
+        for lp in &single_variant_generics.lifetime_params {
+            impl_mutator_generics.lifetime_params.push(lp.clone());
+        }
+        for tp in &single_variant_generics.type_params {
+            impl_mutator_generics.type_params.push(tp.clone());
+        }
+        impl_mutator_generics
+    };
     let mut impl_mutator_where_clause = enum_where_clause_plus_cond.clone();
     impl_mutator_where_clause.add_clause_items(join_ts!(&enu.items, item,
-        MItem(&item.ident) ":" item_mutators[&item.ident] ","
+        ident!("M" item.ident) ":" item_mutators[&item.ident] ","
     ));
 
     let item_pattern_match_bindings_to_tuple = |item_ident, append: Option<Ident>, mutable| {
-        if item_is_empty[item_ident] {
+        if item_fields[item_ident].is_empty() {
             if mutable {
                 ts!("&mut ()")
             } else {
@@ -125,26 +131,26 @@ pub fn make_single_variant_mutator(tb: &mut TokenBuilder, enu: &Enum) {
     "#[derive(" cm.Clone ")]
     pub enum " EnumSingleVariant single_variant_generics.removing_eq_type() "{"
     join_ts!(&enu.items, item,
-        item.ident "(" MItem(&item.ident) "),"
+        item.ident "(" ident!("M" item.ident) "),"
     )
     "}
     #[derive(" cm.Default ")]
     pub struct " EnumSingleVariantMutator enum_generics_no_eq enum_where_clause_plus_cond " {
-        _phantom:" cm.PhantomData "<(" enum_generics_no_bounds.type_params ")>
+        _phantom:" cm.PhantomData "<(" join_ts!(&enum_generics_no_bounds.type_params, tp, tp, separator: ",") ")>
     }
     #[allow(non_snake_case)]
     impl" enum_generics_no_eq EnumSingleVariantMutator enum_generics_no_bounds enum_where_clause_plus_cond " {"
     join_ts!(&enu.items, item,
-        "pub fn" item.ident "<" MItem(&item.ident) ">(m:" MItem(&item.ident) ")
+        "pub fn" item.ident "<" ident!("M" item.ident) ">(m:" ident!("M" item.ident) ")
             ->" EnumSingleVariant "<"
             join_ts!(&enu.items, item_i,
                 if item_i.ident == item.ident {
-                    ts!(MItem(&item.ident))
+                    ts!(ident!("M" item.ident))
                 } else {
-                    ts!(cm.BottomMutator)
+                    ts!(cm.NeverMutator)
                 }
             , separator: ",")
-            "> where" MItem(&item.ident) ":" item_mutators[&item.ident]
+            "> where" ident!("M" item.ident) ":" item_mutators[&item.ident]
         "{"
             EnumSingleVariant "::" item.ident "(m)"
         "}"
@@ -310,8 +316,103 @@ pub fn make_single_variant_mutator(tb: &mut TokenBuilder, enu: &Enum) {
             }
         }
     }
-    "
-    )
+    ");
+
+    let other_single_variant_generics = single_variant_generics_for_prefix(&ident!("N"));
+
+    let impl_or_mutator_generics = {
+        let mut impl_or_mutator_generics = impl_mutator_generics.clone();
+        for lp in &other_single_variant_generics.lifetime_params {
+            impl_or_mutator_generics.lifetime_params.push(lp.clone());
+        }
+        for tp in &other_single_variant_generics.type_params {
+            impl_or_mutator_generics.type_params.push(tp.clone());
+        }
+        impl_or_mutator_generics
+    };
+    let mut impl_or_mutator_where_clause = impl_mutator_where_clause.clone();
+    impl_or_mutator_where_clause.add_clause_items(join_ts!(&enu.items, item,
+        ident!("N" item.ident) ":" item_mutators[&item.ident] ","
+    ));
+    impl_or_mutator_where_clause.add_clause_items(ts!(
+        cm.EqualProof "<"
+            EnumSingleVariant single_variant_generics.removing_bounds_and_eq_type() ","
+            EnumSingleVariant other_single_variant_generics.removing_bounds_and_eq_type()
+        "> :" cm.NotEqual
+    ));
+
+    let mut impl_supertype_where_clause = impl_or_mutator_where_clause.clone();
+
+    impl_or_mutator_where_clause.add_clause_items(ts!(join_ts!(&enu.items, item, {
+        let fields = &item_fields[&item.ident];
+        let field_tys = join_ts!(fields, f, f, separator: ",");
+        if fields.is_empty() {
+            ts!(
+                ident!("M" item.ident) ":"
+                    cm.CommonMutatorSuperType "<"
+                        "(),"
+                        ident!("N" item.ident)
+                    "> ,"
+            )
+        } else {
+            ts!(
+                ident!("M" item.ident) ":"
+                    cm.CommonTupleMutatorSuperType "<
+                        ("  field_tys ") ,"
+                        Tuplei(fields.len()) "<" field_tys "> ,"
+                        ident!("N" item.ident)
+                    "> ,"
+            )
+        }
+    })));
+    impl_supertype_where_clause.add_clause_items(ts!(join_ts!(&enu.items, item, {
+        let fields = &item_fields[&item.ident];
+        let field_tys = join_ts!(fields, f, f, separator: ",");
+        if fields.is_empty() {
+            ts!(
+                ident!("M" item.ident) ":"
+                    cm.MutatorSuperType "<"
+                        "(),"
+                        ident!("N" item.ident)
+                    "> ,"
+            )
+        } else {
+            ts!(
+                ident!("M" item.ident) ":"
+                    cm.TupleMutatorSuperType "<
+                        ("  field_tys ") ,"
+                        Tuplei(fields.len()) "<" field_tys "> ,"
+                        ident!("N" item.ident)
+                    "> ,"
+            )
+        }
+    })));
+
+    extend_ts!(tb,
+    "impl " impl_or_mutator_generics.removing_eq_type()
+        cm.CommonMutatorSuperType "<" enu.ident enum_generics_no_bounds "," EnumSingleVariant other_single_variant_generics.removing_bounds_and_eq_type() ">"
+        "for " EnumSingleVariant single_variant_generics.removing_bounds_and_eq_type()
+        impl_or_mutator_where_clause "
+    {
+        type Output = " EnumSingleVariant single_variant_generics.mutating_type_params(|tp| {
+            tp.type_ident = ts!(tp.type_ident "::Output")
+        }) ";
+    }
+    
+    impl " impl_or_mutator_generics.removing_eq_type() 
+        cm.MutatorSuperType "<" enu.ident enum_generics_no_bounds "," EnumSingleVariant other_single_variant_generics.removing_bounds_and_eq_type() ">
+        for " EnumSingleVariant single_variant_generics.removing_bounds_and_eq_type() "
+        " impl_supertype_where_clause "
+        {
+            fn upcast(m: " EnumSingleVariant other_single_variant_generics ") -> Self {
+                match m {"
+                join_ts!(&enu.items, item,
+                    EnumSingleVariant "::" item.ident "(m) => " EnumSingleVariant "::" item.ident "(" ident!("M" item.ident) "::upcast(m)),"
+                )
+                "}
+            }
+        }"
+    );
 }
 
 #[cfg(test)]
@@ -352,25 +453,25 @@ mod tests {
 
         #[allow(non_snake_case)]
         impl<T: SomeTrait> ASTSingleVariantMutator<T> where T: Default, T: ::std::clone::Clone + 'static {
-            pub fn Text<MText>(m: MText) -> ASTSingleVariant<MText, fuzzcheck_mutators::BottomMutator, fuzzcheck_mutators::BottomMutator, fuzzcheck_mutators::BottomMutator>
+            pub fn Text<MText>(m: MText) -> ASTSingleVariant<MText, fuzzcheck_mutators::NeverMutator, fuzzcheck_mutators::NeverMutator, fuzzcheck_mutators::NeverMutator>
             where
                 MText: fuzzcheck_mutators::TupleMutator<(Vec<char>), fuzzcheck_mutators::Tuple1<Vec<char> > >
             {
                 ASTSingleVariant::Text(m)
             }
-            pub fn Child<MChild>(m: MChild) -> ASTSingleVariant<fuzzcheck_mutators::BottomMutator, MChild, fuzzcheck_mutators::BottomMutator, fuzzcheck_mutators::BottomMutator>
+            pub fn Child<MChild>(m: MChild) -> ASTSingleVariant<fuzzcheck_mutators::NeverMutator, MChild, fuzzcheck_mutators::NeverMutator, fuzzcheck_mutators::NeverMutator>
             where
                 MChild: fuzzcheck_mutators::TupleMutator<(Box<AST>, T), fuzzcheck_mutators::Tuple2<Box<AST>, T> >
             {
                 ASTSingleVariant::Child(m)
             }
-            pub fn Leaf1<MLeaf1>(m: MLeaf1) -> ASTSingleVariant<fuzzcheck_mutators::BottomMutator, fuzzcheck_mutators::BottomMutator, MLeaf1, fuzzcheck_mutators::BottomMutator>
+            pub fn Leaf1<MLeaf1>(m: MLeaf1) -> ASTSingleVariant<fuzzcheck_mutators::NeverMutator, fuzzcheck_mutators::NeverMutator, MLeaf1, fuzzcheck_mutators::NeverMutator>
             where
                 MLeaf1: fuzzcheck_mutators::fuzzcheck_traits::Mutator<()>
             {
                 ASTSingleVariant::Leaf1(m)
             }
-            pub fn Leaf2<MLeaf2>(m: MLeaf2) -> ASTSingleVariant<fuzzcheck_mutators::BottomMutator, fuzzcheck_mutators::BottomMutator, fuzzcheck_mutators::BottomMutator, MLeaf2>
+            pub fn Leaf2<MLeaf2>(m: MLeaf2) -> ASTSingleVariant<fuzzcheck_mutators::NeverMutator, fuzzcheck_mutators::NeverMutator, fuzzcheck_mutators::NeverMutator, MLeaf2>
             where
                 MLeaf2: fuzzcheck_mutators::fuzzcheck_traits::Mutator<()>
             {
