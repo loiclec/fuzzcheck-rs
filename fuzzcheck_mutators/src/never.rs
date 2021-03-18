@@ -13,7 +13,7 @@ impl<T: Clone> Mutator<T> for NeverMutator {
         unreachable!()
     }
 
-    fn validate_value(&self, value: &T) -> Option<(Self::Cache, Self::MutationStep)> {
+    fn validate_value(&self, _value: &T) -> Option<(Self::Cache, Self::MutationStep)> {
         unreachable!()
     }
 
@@ -77,7 +77,7 @@ where
         unreachable!()
     }
 
-    fn validate_value<'a>(&'a self, value: TupleKind::Ref<'a>) -> Option<(Self::Cache, Self::MutationStep)> {
+    fn validate_value<'a>(&'a self, _value: TupleKind::Ref<'a>) -> Option<(Self::Cache, Self::MutationStep)> {
         unreachable!()
     }
 

@@ -2,9 +2,7 @@ use std::{cmp::Ordering, marker::PhantomData};
 
 use fuzzcheck_traits::Mutator;
 
-use crate::{
-    algebra::{CommonMutatorSuperType, MutatorSuperType},
-};
+use crate::algebra::{CommonMutatorSuperType, MutatorSuperType};
 
 #[macro_export]
 macro_rules! alternation_mutator {
@@ -74,12 +72,13 @@ where
         let mut max_complexity = self.max_complexity;
         let mut min_complexity = self.min_complexity;
         let mutator = <<M as CommonMutatorSuperType<T, N>>::Output as MutatorSuperType<T, N>>::upcast(mutator);
-        mutators.push(mutator);
         let mutator_max_cplx = mutator.max_complexity();
+        let mutator_min_cplx = mutator.min_complexity();
+
+        mutators.push(mutator);
         if max_complexity < mutator_max_cplx {
             max_complexity = mutator_max_cplx;
         }
-        let mutator_min_cplx = mutator.min_complexity();
         if min_complexity > mutator_min_cplx {
             min_complexity = mutator_min_cplx;
         }
@@ -114,7 +113,7 @@ pub struct Cache<C> {
     mutator_idx: usize,
 }
 
-enum UnmutateToken<T, C, U> {
+pub enum UnmutateToken<T, C, U> {
     Replace(T, C),
     Inner(U),
 }
@@ -189,7 +188,7 @@ where
             return None;
         }
         let idx = step.indices[step.idx % step.indices.len()];
-        let mutator = self.mutators[idx];
+        let mutator = &self.mutators[idx];
         let inner_step = &mut step.inner[idx];
         if let Some((v, c, s)) = mutator.ordered_arbitrary(inner_step, max_cplx) {
             step.idx += 1;
@@ -209,7 +208,7 @@ where
 
     fn random_arbitrary(&self, max_cplx: f64) -> (T, Self::Cache, Self::MutationStep) {
         let idx = self.rng.usize(..self.mutators.len());
-        let mutator = self.mutators[idx];
+        let mutator = &self.mutators[idx];
         let (v, c, s) = mutator.random_arbitrary(max_cplx);
         (
             v,
@@ -229,11 +228,11 @@ where
         max_cplx: f64,
     ) -> Option<Self::UnmutateToken> {
         let idx = cache.mutator_idx;
-        let mutator = self.mutators[idx];
+        let mutator = &self.mutators[idx];
         if let Some(t) = mutator.ordered_mutate(value, &mut cache.inner, &mut step.inner, max_cplx) {
             Some(UnmutateToken::Inner(t))
         } else {
-            if let Some((mut v, mut c, s)) = self.ordered_arbitrary(&mut step.arbitrary, max_cplx) {
+            if let Some((mut v, mut c, _s)) = self.ordered_arbitrary(&mut step.arbitrary, max_cplx) {
                 std::mem::swap(value, &mut v);
                 std::mem::swap(cache, &mut c);
                 return Some(UnmutateToken::Replace(v, c));
@@ -245,7 +244,7 @@ where
 
     fn random_mutate(&self, value: &mut T, cache: &mut Self::Cache, max_cplx: f64) -> Self::UnmutateToken {
         let idx = cache.mutator_idx;
-        let mutator = self.mutators[idx];
+        let mutator = &self.mutators[idx];
         // TODO: randomly create new from arbitrary
         let t = mutator.random_mutate(value, &mut cache.inner, max_cplx);
         UnmutateToken::Inner(t)
@@ -254,11 +253,11 @@ where
     fn unmutate(&self, value: &mut T, cache: &mut Self::Cache, t: Self::UnmutateToken) {
         match t {
             UnmutateToken::Replace(v, c) => {
-                std::mem::swap(value, &mut v);
-                std::mem::swap(cache, &mut c);
+                let _ = std::mem::replace(value, v);
+                let _ = std::mem::replace(cache, c);
             }
             UnmutateToken::Inner(t) => {
-                let mutator = self.mutators[cache.mutator_idx];
+                let mutator = &self.mutators[cache.mutator_idx];
                 mutator.unmutate(value, &mut cache.inner, t);
             }
         }

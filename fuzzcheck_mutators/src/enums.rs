@@ -1,9 +1,39 @@
 use fuzzcheck_traits::Mutator;
 
+// TODO: it is probably best to use an integer mutator and a map mutator than
+// require this trait?
+
 pub trait BasicEnumStructure {
     fn from_item_index(item_index: usize) -> Self;
     fn get_item_index(&self) -> usize;
 }
+
+#[derive(Clone, crate::DefaultMutator)]
+enum X {
+    A(u8),
+    B { x: u8, y: u16 },
+    C,
+}
+
+extern crate self as fuzzcheck_mutators;
+// crate::make_single_variant_mutator! {
+//     enum X {
+//         A(
+//             u8
+//         ),
+//         B {x: u8, y: u16},
+//         C,
+//     }
+// }
+
+// fn foo(
+//     x: XSingleVariant<
+//         fuzzcheck_mutators::Tuple1Mutator<u8, crate::U8Mutator>,
+//         fuzzcheck_mutators::Tuple2Mutator<u8, u16, crate::U8Mutator, crate::U16Mutator>,
+//         UnitMutator<()>,
+//     >,
+// ) {
+// }
 
 #[derive(Default)]
 pub struct BasicEnumMutator {
@@ -25,7 +55,7 @@ where
         0
     }
 
-    fn validate_value(&self, value: &T) -> Option<(Self::Cache, Self::MutationStep)> {
+    fn validate_value(&self, _value: &T) -> Option<(Self::Cache, Self::MutationStep)> {
         Some(((), INITIAL_MUTATION_STEP))
     }
 

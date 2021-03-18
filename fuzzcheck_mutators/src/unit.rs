@@ -63,7 +63,7 @@ where
         false
     }
 
-    fn validate_value(&self, value: &T) -> Option<(Self::Cache, Self::MutationStep)> {
+    fn validate_value(&self, _value: &T) -> Option<(Self::Cache, Self::MutationStep)> {
         Some(((), ()))
     }
 

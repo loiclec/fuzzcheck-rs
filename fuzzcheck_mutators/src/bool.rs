@@ -45,7 +45,7 @@ impl Mutator<bool> for BoolMutator {
         1.0
     }
 
-    fn validate_value(&self, value: &bool) -> Option<(Self::Cache, Self::MutationStep)> {
+    fn validate_value(&self, _value: &bool) -> Option<(Self::Cache, Self::MutationStep)> {
         Some(((), INITIAL_MUTATION_STEP))
     }
 

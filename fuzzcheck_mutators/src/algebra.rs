@@ -1,8 +1,6 @@
-
 use fuzzcheck_traits::Mutator;
 
-use crate::U32WithinRangeMutator;
-use crate::{NeverMutator, RefTypes, Tuple1Mutator, TupleMutator, TupleStructure};
+use crate::{NeverMutator, RefTypes, TupleMutator, TupleStructure};
 
 /* TODO
  * add a way to get a single-variant mutator with no restriction on the generated variant
@@ -70,18 +68,6 @@ where
     fn upcast(m: M) -> Self {
         m
     }
-}
-
-fn upcast_mutators<T, M1, M2>(x: M1, y: M2) -> <M1 as CommonMutatorSuperType<T, M2>>::Output
-where
-    T: Clone,
-    M1: Mutator<T>,
-    M2: Mutator<T>,
-    M1: CommonMutatorSuperType<T, M2>,
-    // M2: MutatorSubtype<T, <M1 as CommonMutatorSuperType<T, M2>>::Output>,
-{
-    <<M1 as CommonMutatorSuperType<T, M2>>::Output as MutatorSuperType<T, M1>>::upcast(x)
-    // <<M1 as CommonMutatorSuperType<T, M2>>::Output as MutatorSuperType<T, M2>>::upcast(y)
 }
 
 pub trait CommonMutatorSuperType<T, A>: Mutator<T>
@@ -185,9 +171,7 @@ crate::make_single_variant_mutator! {
     }
 }
 
-// TODO: traits for combining mutators together!
-// e.g. two single variant mutators into one many-variants mutator
-fn make_mutator_supertype<T, M1, M2>(x: M1, y: M2) -> [<M1 as CommonMutatorSuperType<T, M2>>::Output; 2]
+pub fn make_mutator_supertype<T, M1, M2>(x: M1, y: M2) -> [<M1 as CommonMutatorSuperType<T, M2>>::Output; 2]
 where
     T: Clone,
     M1: Mutator<T>,
@@ -200,6 +184,7 @@ where
     ]
 }
 
+#[macro_export]
 macro_rules! make_mutator_supertype {
     ($mfirst: expr, $($m: expr),*) => {
         {
@@ -213,87 +198,4 @@ macro_rules! make_mutator_supertype {
     ($mfirst: expr, $($m: expr),* ,) => {
         make_mutator_supertype!($mfirst, $($m),*)
     };
-}
-
-fn foo<T, M1, M2>(x: M1, y: M2) -> [<M1 as CommonMutatorSuperType<T, M2>>::Output; 2]
-where
-    T: Clone,
-    M1: Mutator<T>,
-    M2: Mutator<T>,
-    M1: CommonMutatorSuperType<T, M2>,
-{
-    make_mutator_supertype![x, y,]
-}
-
-use super::U16Mutator;
-use super::U32Mutator;
-
-type T = EitherX;
-type X1 = EitherXSingleVariant<Tuple1Mutator<u32, U32Mutator>, NeverMutator>;
-type X2 = EitherXSingleVariant<NeverMutator, Tuple1Mutator<u16, U16Mutator>>;
-type X3 = EitherXSingleVariant<Tuple1Mutator<u32, U32Mutator>, Tuple1Mutator<u16, U16Mutator>>;
-type Y1 = EitherXSingleVariant<Tuple1Mutator<u32, U32WithinRangeMutator>, NeverMutator>;
-
-fn upcast(x: X1) -> <X1 as CommonMutatorSuperType<T, X2>>::Output {
-    <X1 as CommonMutatorSuperType<T, X2>>::Output::upcast(x)
-    // match x {
-    //     EitherXSingleVariant::Left(m) => EitherXSingleVariant::Left(m),
-    //     EitherXSingleVariant::Right(m) => unreachable!(),
-    // }
-}
-
-fn bar(x: &X1, y: X2) -> <X1 as CommonMutatorSuperType<T, X2>>::Output {
-    <X1 as CommonMutatorSuperType<T, X2>>::Output::upcast(y)
-}
-fn bar2(x: X1, y: X3) -> <X1 as CommonMutatorSuperType<T, X3>>::Output {
-    <X1 as CommonMutatorSuperType<T, X3>>::Output::upcast(x)
-    //<X1 as CommonMutatorSuperType<T, X3>>::Output::upcast(y)
-}
-fn bar3(x: &X1, y: X1) -> <X2 as CommonMutatorSuperType<T, X2>>::Output {
-    panic!()
-}
-// fn bar0(x: X1, y: X1) -> <X1 as CommonMutatorSuperType<T, X1>>::Output {
-//     panic!()
-// }
-
-fn baz(x: &Tuple1Mutator<u32, U32Mutator>) -> bool {
-    false
-}
-
-fn baz2(x: &Tuple1Mutator<u16, U16Mutator>) -> bool {
-    false
-}
-
-fn combine(x: X1, y: X2) -> [<X1 as CommonMutatorSuperType<T, X2>>::Output; 2] {
-    [
-        match x {
-            EitherXSingleVariant::Left(m) => EitherXSingleVariant::Left(m),
-            EitherXSingleVariant::Right(m) => {
-                unreachable!()
-            }
-        },
-        match y {
-            EitherXSingleVariant::Left(m) => {
-                unreachable!()
-            }
-            EitherXSingleVariant::Right(m) => EitherXSingleVariant::Right(m),
-        },
-    ]
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    #[test]
-    fn foo() {
-        let x: X1 = EitherXSingleVariantMutator::Left(Tuple1Mutator::new(U32Mutator::default()));
-        let y: X2 = EitherXSingleVariantMutator::Right(Tuple1Mutator::new(U16Mutator::default()));
-
-        let z = combine(x, y);
-
-        assert!(match &z[0] {
-            EitherXSingleVariant::Left(x) => baz(x),
-            EitherXSingleVariant::Right(y) => baz2(y),
-        })
-    }
 }

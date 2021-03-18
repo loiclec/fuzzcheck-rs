@@ -124,7 +124,7 @@ impl<T: Clone, M: Mutator<T>> VecMutator<T, M> {
             self.rng.usize(0..value.len())
         };
 
-        let (el, el_cache, el_step) = self.m.random_arbitrary(spare_cplx);
+        let (el, el_cache, _el_step) = self.m.random_arbitrary(spare_cplx);
         let el_cplx = self.m.complexity(&el, &el_cache);
 
         value.insert(idx, el);
@@ -230,7 +230,7 @@ impl<T: Clone, M: Mutator<T>> VecMutator<T, M> {
             return None;
         }
 
-        let (el, el_cache, el_step) = self.m.random_arbitrary(target_cplx / (len as f64));
+        let (el, el_cache, _el_step) = self.m.random_arbitrary(target_cplx / (len as f64));
         let el_cplx = self.m.complexity(&el, &el_cache);
 
         insert_many(value, idx, repeat(el).take(len));
@@ -343,17 +343,23 @@ impl<T: Clone, M: Mutator<T>> Mutator<Vec<T>> for VecMutator<T, M> {
             return None;
         }
 
+        let mut inner_caches = Vec::with_capacity(inner.len());
+        let mut inner_steps = Vec::with_capacity(inner.len());
+        for (cache, step) in inner.into_iter() {
+            inner_caches.push(cache);
+            inner_steps.push(step);
+        }
         let sum_cplx = value
             .iter()
-            .zip(inner.iter().map(|x| x.0))
+            .zip(inner_caches.iter())
             .fold(0.0, |cplx, (v, cache)| cplx + self.m.complexity(&v, &cache));
 
         let cache = VecMutatorCache {
-            inner: inner.iter().map(|x| x.0).collect(),
+            inner: inner_caches,
             sum_cplx,
         };
         let step = MutationStep {
-            inner: inner.iter().map(|x| x.1).collect(),
+            inner: inner_steps,
             element_step: 0,
         };
 

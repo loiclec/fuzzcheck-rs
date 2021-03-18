@@ -156,6 +156,7 @@ pub fn make_single_variant_mutator(tb: &mut TokenBuilder, enu: &Enum) {
         "}"
     )
     "}
+    #[allow(non_shorthand_field_patterns)]
     impl " impl_mutator_generics.removing_eq_type() cm.fuzzcheck_mutator_traits_Mutator "<" enu.ident enum_generics_no_bounds "> 
         for " EnumSingleVariant single_variant_generics.removing_bounds_and_eq_type() impl_mutator_where_clause 
     "{

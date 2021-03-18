@@ -122,7 +122,7 @@ impl<T: Clone, M: Mutator<T>> Mutator<T> for DictionaryMutator<T, M> {
         max_cplx: f64,
     ) -> Option<Self::UnmutateToken> {
         if step.idx < self.dictionary.len() {
-            let (new_value, new_cache, new_step) = self.dictionary[step.idx].clone();
+            let (new_value, new_cache, _new_step) = self.dictionary[step.idx].clone();
             step.idx += 1;
             let old_value = std::mem::replace(value, new_value);
             let old_cache = std::mem::replace(cache, new_cache);
@@ -138,7 +138,7 @@ impl<T: Clone, M: Mutator<T>> Mutator<T> for DictionaryMutator<T, M> {
     fn random_mutate(&self, value: &mut T, cache: &mut Self::Cache, max_cplx: f64) -> Self::UnmutateToken {
         if !self.dictionary.is_empty() && self.rng.usize(..20) == 0 {
             let idx = self.rng.usize(..self.dictionary.len());
-            let (new_value, new_cache, new_step) = self.dictionary[idx].clone();
+            let (new_value, new_cache, _new_step) = self.dictionary[idx].clone();
 
             let old_value = std::mem::replace(value, new_value);
             let old_cache = std::mem::replace(cache, new_cache);

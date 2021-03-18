@@ -142,18 +142,24 @@ impl<T: Clone, M: Mutator<T>> Mutator<Vec<T>> for FixedLenVecMutator<T, M> {
             return None;
         }
 
+        let mut inner_caches = Vec::with_capacity(inner.len());
+        let mut inner_steps = Vec::with_capacity(inner.len());
+        for (cache, step) in inner.into_iter() {
+            inner_caches.push(cache);
+            inner_steps.push(step);
+        }
         let sum_cplx = value
             .iter()
             .zip(self.mutators.iter())
-            .zip(inner.iter().map(|x| x.0))
+            .zip(inner_caches.iter())
             .fold(0.0, |cplx, ((v, mutator), cache)| cplx + mutator.complexity(&v, &cache));
 
         let cache = VecMutatorCache {
-            inner: inner.iter().map(|x| x.0).collect(),
+            inner: inner_caches,
             sum_cplx,
         };
         let step = MutationStep {
-            inner: inner.iter().map(|x| x.1).collect(),
+            inner: inner_steps,
             element_step: 0,
         };
 
