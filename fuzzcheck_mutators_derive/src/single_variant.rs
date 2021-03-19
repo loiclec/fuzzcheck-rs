@@ -204,15 +204,14 @@ pub fn make_single_variant_mutator(tb: &mut TokenBuilder, enu: &Enum) {
             )   "_ => unreachable!()
             }
         }
-        fn ordered_arbitrary(&self, step: &mut Self::ArbitraryStep, max_cplx: f64) -> Option<(" enu.ident enum_generics_no_bounds ", Self::Cache , Self::MutationStep)> {
+        fn ordered_arbitrary(&self, step: &mut Self::ArbitraryStep, max_cplx: f64) -> Option<(" enu.ident enum_generics_no_bounds ", Self::Cache)> {
             match (self, step) {"
             join_ts!(&enu.items, item,
                 "(" EnumSingleVariant "::" item.ident "(m)," EnumSingleVariant "::" item.ident "(s)) => {"
-                    "if let" cm.Some "((v, c, s)) = m.ordered_arbitrary(s, max_cplx) {
+                    "if let" cm.Some "((v, c)) = m.ordered_arbitrary(s, max_cplx) {
                         " cm.Some "(("
                             item_pattern_match_bindings_to_enum_item(&item) ","
-                            EnumSingleVariant "::" item.ident "(c) ,"
-                            EnumSingleVariant "::" item.ident "(s)
+                            EnumSingleVariant "::" item.ident "(c)
                         ))
                     } else {
                         None
@@ -222,15 +221,14 @@ pub fn make_single_variant_mutator(tb: &mut TokenBuilder, enu: &Enum) {
             }
         }
 
-        fn random_arbitrary(&self, max_cplx: f64) -> (" enu.ident enum_generics_no_bounds ", Self::Cache, Self::MutationStep) {
+        fn random_arbitrary(&self, max_cplx: f64) -> (" enu.ident enum_generics_no_bounds ", Self::Cache) {
             match self {"
             join_ts!(&enu.items, item,
                 EnumSingleVariant "::" item.ident "(m) => {
-                    let (v, c, s) = m.random_arbitrary(max_cplx);
+                    let (v, c) = m.random_arbitrary(max_cplx);
                     (" 
                         item_pattern_match_bindings_to_enum_item(&item) ",
-                        " EnumSingleVariant "::" item.ident "(c) ,
-                        " EnumSingleVariant "::" item.ident "(s)
+                        " EnumSingleVariant "::" item.ident "(c)
                     )
                 }"
             )"}
@@ -425,29 +423,29 @@ mod tests {
             fn ordered_arbitrary(&self, step: &mut Self::ArbitraryStep, max_cplx: f64) -> Option<(AST<T> , Self::Cache, Self::MutationStep)> {
                 match (self, step) {
                     (ASTSingleVariant::Text(m), ASTSingleVariant::Text(s)) => {
-                        if let ::std::option::Option::Some((v, c, s)) = m.ordered_arbitrary(s, max_cplx) {
-                            ::std::option::Option::Some((AST::Text { 0: v }, ASTSingleVariant::Text(c), ASTSingleVariant::Text(s)))
+                        if let ::std::option::Option::Some((v, c)) = m.ordered_arbitrary(s, max_cplx) {
+                            ::std::option::Option::Some((AST::Text { 0: v }, ASTSingleVariant::Text(c))
                         } else {
                             None
                         }
                     }
                     (ASTSingleVariant::Child(m), ASTSingleVariant::Child(s)) => {
-                        if let ::std::option::Option::Some((v, c, s)) = m.ordered_arbitrary(s, max_cplx) {
-                            ::std::option::Option::Some((AST::Child { x: v.0, y: v.1 }, ASTSingleVariant::Child(c), ASTSingleVariant::Child(s)))
+                        if let ::std::option::Option::Some((v, c)) = m.ordered_arbitrary(s, max_cplx) {
+                            ::std::option::Option::Some((AST::Child { x: v.0, y: v.1 }, ASTSingleVariant::Child(c))
                         } else {
                             None
                         }
                     }
                     (ASTSingleVariant::Leaf1(m), ASTSingleVariant::Leaf1(s)) => {
-                        if let ::std::option::Option::Some((v, c, s)) = m.ordered_arbitrary(s, max_cplx) {
-                            ::std::option::Option::Some((AST::Leaf1 {}, ASTSingleVariant::Leaf1(c), ASTSingleVariant::Leaf1(s)))
+                        if let ::std::option::Option::Some((v, c)) = m.ordered_arbitrary(s, max_cplx) {
+                            ::std::option::Option::Some((AST::Leaf1 {}, ASTSingleVariant::Leaf1(c))
                         } else {
                             None
                         }
                     }
                     (ASTSingleVariant::Leaf2(m), ASTSingleVariant::Leaf2(s)) => {
-                        if let ::std::option::Option::Some((v, c, s)) = m.ordered_arbitrary(s, max_cplx) {
-                            ::std::option::Option::Some((AST::Leaf2 {}, ASTSingleVariant::Leaf2(c), ASTSingleVariant::Leaf2(s)))
+                        if let ::std::option::Option::Some((v, c)) = m.ordered_arbitrary(s, max_cplx) {
+                            ::std::option::Option::Some((AST::Leaf2 {}, ASTSingleVariant::Leaf2(c))
                         } else {
                             None
                         }
@@ -458,12 +456,12 @@ mod tests {
             fn random_arbitrary(&self, max_cplx: f64) -> (AST<T> , Self::Cache, Self::MutationStep) {
                 match self {
                     ASTSingleVariant::Text(m) => {
-                        let (v, c, s) = m.random_arbitrary(max_cplx);
-                        (AST::Text { 0: v }, ASTSingleVariant::Text(c), ASTSingleVariant::Text(s))
+                        let (v, c) = m.random_arbitrary(max_cplx);
+                        (AST::Text { 0: v }, ASTSingleVariant::Text(c))
                     }
                     ASTSingleVariant::Child(m) => {
-                        let (v, c, s) = m.random_arbitrary(max_cplx);
-                        (AST::Child { x: v.0, y: v.1 }, ASTSingleVariant::Child(c), ASTSingleVariant::Child(s))
+                        let (v, c) = m.random_arbitrary(max_cplx);
+                        (AST::Child { x: v.0, y: v.1 }, ASTSingleVariant::Child(c))
                     }
                     ASTSingleVariant::Leaf1(m) => {
                         let (v, c, s) = m.random_arbitrary(max_cplx);

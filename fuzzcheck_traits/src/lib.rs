@@ -100,12 +100,8 @@ pub trait Mutator<Value: Clone>: Sized {
     fn min_complexity(&self) -> f64;
     fn complexity(&self, value: &Value, cache: &Self::Cache) -> f64;
 
-    fn ordered_arbitrary(
-        &self,
-        step: &mut Self::ArbitraryStep,
-        max_cplx: f64,
-    ) -> Option<(Value, Self::Cache, Self::MutationStep)>;
-    fn random_arbitrary(&self, max_cplx: f64) -> (Value, Self::Cache, Self::MutationStep);
+    fn ordered_arbitrary(&self, step: &mut Self::ArbitraryStep, max_cplx: f64) -> Option<(Value, Self::Cache)>;
+    fn random_arbitrary(&self, max_cplx: f64) -> (Value, Self::Cache);
 
     fn ordered_mutate(
         &self,
@@ -199,11 +195,7 @@ where
         self.reference.upgrade().unwrap().complexity(value, cache)
     }
 
-    fn ordered_arbitrary(
-        &self,
-        step: &mut Self::ArbitraryStep,
-        max_cplx: f64,
-    ) -> Option<(T, Self::Cache, Self::MutationStep)> {
+    fn ordered_arbitrary(&self, step: &mut Self::ArbitraryStep, max_cplx: f64) -> Option<(T, Self::Cache)> {
         match step {
             RecursingArbitraryStep::Default => {
                 let mutator = self.reference.upgrade().unwrap();
@@ -220,7 +212,7 @@ where
         }
     }
 
-    fn random_arbitrary(&self, max_cplx: f64) -> (T, Self::Cache, Self::MutationStep) {
+    fn random_arbitrary(&self, max_cplx: f64) -> (T, Self::Cache) {
         self.reference.upgrade().unwrap().random_arbitrary(max_cplx)
     }
 
@@ -276,15 +268,11 @@ where
         Rc::as_ref(&self.mutator).complexity(value, cache)
     }
 
-    fn ordered_arbitrary(
-        &self,
-        step: &mut Self::ArbitraryStep,
-        max_cplx: f64,
-    ) -> Option<(T, Self::Cache, Self::MutationStep)> {
+    fn ordered_arbitrary(&self, step: &mut Self::ArbitraryStep, max_cplx: f64) -> Option<(T, Self::Cache)> {
         Rc::as_ref(&self.mutator).ordered_arbitrary(step, max_cplx)
     }
 
-    fn random_arbitrary(&self, max_cplx: f64) -> (T, Self::Cache, Self::MutationStep) {
+    fn random_arbitrary(&self, max_cplx: f64) -> (T, Self::Cache) {
         Rc::as_ref(&self.mutator).random_arbitrary(max_cplx)
     }
 

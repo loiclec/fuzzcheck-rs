@@ -79,21 +79,17 @@ where
         0.0
     }
 
-    fn ordered_arbitrary(
-        &self,
-        step: &mut Self::ArbitraryStep,
-        _max_cplx: f64,
-    ) -> Option<(T, Self::Cache, Self::MutationStep)> {
+    fn ordered_arbitrary(&self, step: &mut Self::ArbitraryStep, _max_cplx: f64) -> Option<(T, Self::Cache)> {
         if !*step {
             *step = true;
-            Some((self.value.clone(), (), ()))
+            Some((self.value.clone(), ()))
         } else {
             None
         }
     }
 
-    fn random_arbitrary(&self, _max_cplx: f64) -> (T, Self::Cache, Self::MutationStep) {
-        (self.value.clone(), (), ())
+    fn random_arbitrary(&self, _max_cplx: f64) -> (T, Self::Cache) {
+        (self.value.clone(), ())
     }
 
     fn ordered_mutate(

@@ -99,21 +99,17 @@ where
         self.mutator.min_complexity()
     }
 
-    fn ordered_arbitrary(
-        &self,
-        step: &mut Self::ArbitraryStep,
-        max_cplx: f64,
-    ) -> Option<(U, Self::Cache, Self::MutationStep)> {
-        if let Some((v, c, s)) = self.mutator.ordered_arbitrary(step, max_cplx) {
-            Some((U::new(v), c, s))
+    fn ordered_arbitrary(&self, step: &mut Self::ArbitraryStep, max_cplx: f64) -> Option<(U, Self::Cache)> {
+        if let Some((v, c)) = self.mutator.ordered_arbitrary(step, max_cplx) {
+            Some((U::new(v), c))
         } else {
             None
         }
     }
 
-    fn random_arbitrary(&self, max_cplx: f64) -> (U, Self::Cache, Self::MutationStep) {
-        let (v, c, s) = self.mutator.random_arbitrary(max_cplx);
-        (U::new(v), c, s)
+    fn random_arbitrary(&self, max_cplx: f64) -> (U, Self::Cache) {
+        let (v, c) = self.mutator.random_arbitrary(max_cplx);
+        (U::new(v), c)
     }
 
     fn ordered_mutate<'a>(
@@ -161,13 +157,9 @@ where
 
     fn min_complexity(&self) -> f64;
 
-    fn ordered_arbitrary(
-        &self,
-        step: &mut Self::ArbitraryStep,
-        max_cplx: f64,
-    ) -> Option<(T, Self::Cache, Self::MutationStep)>;
+    fn ordered_arbitrary(&self, step: &mut Self::ArbitraryStep, max_cplx: f64) -> Option<(T, Self::Cache)>;
 
-    fn random_arbitrary(&self, max_cplx: f64) -> (T, Self::Cache, Self::MutationStep);
+    fn random_arbitrary(&self, max_cplx: f64) -> (T, Self::Cache);
 
     fn ordered_mutate<'a>(
         &'a self,
@@ -259,15 +251,11 @@ where
         self.mutator.min_complexity()
     }
 
-    fn ordered_arbitrary(
-        &self,
-        step: &mut Self::ArbitraryStep,
-        max_cplx: f64,
-    ) -> Option<(T, Self::Cache, Self::MutationStep)> {
+    fn ordered_arbitrary(&self, step: &mut Self::ArbitraryStep, max_cplx: f64) -> Option<(T, Self::Cache)> {
         self.mutator.ordered_arbitrary(step, max_cplx)
     }
 
-    fn random_arbitrary(&self, max_cplx: f64) -> (T, Self::Cache, Self::MutationStep) {
+    fn random_arbitrary(&self, max_cplx: f64) -> (T, Self::Cache) {
         self.mutator.random_arbitrary(max_cplx)
     }
 

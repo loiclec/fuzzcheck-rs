@@ -134,11 +134,12 @@ where
     }
 
     fn arbitrary_input(&mut self) -> Option<FuzzedInput<T, M>> {
-        if let Some((v, cache, mutation_step)) = self
+        if let Some((v, _)) = self
             .mutator
             .ordered_arbitrary(&mut self.arbitrary_step, self.settings.max_input_cplx)
         {
-            Some(FuzzedInput::new(v, cache, mutation_step))
+            let (cache, step) = self.mutator.validate_value(&v).unwrap();
+            Some(FuzzedInput::new(v, cache, step))
         } else {
             None
         }
@@ -385,9 +386,9 @@ where
             })
             .collect();
 
-        if let Some(arbitrary) = FuzzedInput::default(&mut self.state.mutator) {
-            inputs.push(arbitrary);
-        }
+        // if let Some(arbitrary) = FuzzedInput::default(&mut self.state.mutator) {
+        //     inputs.push(arbitrary);
+        // }
         for _ in 0..100 {
             if let Some(input) = self.state.arbitrary_input() {
                 inputs.push(input);
@@ -471,7 +472,7 @@ where
             .world
             .do_actions(vec![WorldAction::ReportEvent(FuzzerEvent::Start)], &self.state.stats)?;
         let value = self.state.world.read_input_file()?;
-        
+
         if let Some((cache, mutation_step)) = self.state.mutator.validate_value(&value) {
             let input = FuzzedInput::<T, M>::new(value, cache, mutation_step);
             let input_cplx = input.complexity(&self.state.mutator);

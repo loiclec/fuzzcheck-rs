@@ -124,7 +124,7 @@ impl<T: Clone, M: Mutator<T>> VecMutator<T, M> {
             self.rng.usize(0..value.len())
         };
 
-        let (el, el_cache, _el_step) = self.m.random_arbitrary(spare_cplx);
+        let (el, el_cache) = self.m.random_arbitrary(spare_cplx);
         let el_cplx = self.m.complexity(&el, &el_cache);
 
         value.insert(idx, el);
@@ -230,7 +230,7 @@ impl<T: Clone, M: Mutator<T>> VecMutator<T, M> {
             return None;
         }
 
-        let (el, el_cache, _el_step) = self.m.random_arbitrary(target_cplx / (len as f64));
+        let (el, el_cache) = self.m.random_arbitrary(target_cplx / (len as f64));
         let el_cplx = self.m.complexity(&el, &el_cache);
 
         insert_many(value, idx, repeat(el).take(len));
@@ -276,20 +276,12 @@ impl<T: Clone, M: Mutator<T>> VecMutator<T, M> {
         &self,
         target_len: usize,
         target_cplx: f64,
-    ) -> (
-        Vec<T>,
-        <Self as Mutator<Vec<T>>>::Cache,
-        <Self as Mutator<Vec<T>>>::MutationStep,
-    ) {
+    ) -> (Vec<T>, <Self as Mutator<Vec<T>>>::Cache) {
         // TODO: create a new_input_with_complexity method
         let mut v = Vec::with_capacity(target_len);
         let mut cache = VecMutatorCache {
             inner: Vec::with_capacity(target_len),
             sum_cplx: 0.0,
-        };
-        let mut step = MutationStep {
-            inner: Vec::with_capacity(target_len),
-            element_step: 0,
         };
 
         let mut remaining_cplx = target_cplx;
@@ -300,11 +292,10 @@ impl<T: Clone, M: Mutator<T>> VecMutator<T, M> {
                 break;
             }
             let cplx_element = crate::gen_f64(&self.rng, min_cplx_el..max_cplx_element);
-            let (x, x_cache, x_step) = self.m.random_arbitrary(cplx_element);
+            let (x, x_cache) = self.m.random_arbitrary(cplx_element);
             let x_cplx = self.m.complexity(&x, &x_cache);
             v.push(x);
             cache.inner.push(x_cache);
-            step.inner.push(x_step);
             cache.sum_cplx += x_cplx;
             remaining_cplx -= x_cplx;
         }
@@ -314,15 +305,14 @@ impl<T: Clone, M: Mutator<T>> VecMutator<T, M> {
             // at this point it should be smaller, not larger than it must be, so we add new elements
             let remaining = target_len - v.len();
             for _ in 0..remaining {
-                let (x, x_cache, x_step) = self.m.random_arbitrary(0.0);
+                let (x, x_cache) = self.m.random_arbitrary(0.0);
                 let x_cplx = self.m.complexity(&x, &x_cache);
                 v.push(x);
                 cache.inner.push(x_cache);
-                step.inner.push(x_step);
                 cache.sum_cplx += x_cplx;
             }
         }
-        (v, cache, step)
+        (v, cache)
     }
 }
 
@@ -379,11 +369,7 @@ impl<T: Clone, M: Mutator<T>> Mutator<Vec<T>> for VecMutator<T, M> {
         1.0 + cache.sum_cplx + crate::size_to_cplxity(value.len() + 1)
     }
 
-    fn ordered_arbitrary(
-        &self,
-        step: &mut Self::ArbitraryStep,
-        mut max_cplx: f64,
-    ) -> Option<(Vec<T>, Self::Cache, Self::MutationStep)> {
+    fn ordered_arbitrary(&self, step: &mut Self::ArbitraryStep, mut max_cplx: f64) -> Option<(Vec<T>, Self::Cache)> {
         if max_cplx < self.min_complexity() {
             return None;
         }
@@ -394,7 +380,7 @@ impl<T: Clone, M: Mutator<T>> Mutator<Vec<T>> for VecMutator<T, M> {
         if !*step || max_cplx <= 1.0 {
             *step = true;
             if self.len_range.contains(&0) {
-                return Some((<_>::default(), Self::Cache::default(), Self::MutationStep::default()));
+                return Some((<_>::default(), Self::Cache::default()));
             } else {
                 return Some(self.random_arbitrary(max_cplx));
             }
@@ -403,7 +389,7 @@ impl<T: Clone, M: Mutator<T>> Mutator<Vec<T>> for VecMutator<T, M> {
         }
     }
 
-    fn random_arbitrary(&self, mut max_cplx: f64) -> (Vec<T>, Self::Cache, Self::MutationStep) {
+    fn random_arbitrary(&self, mut max_cplx: f64) -> (Vec<T>, Self::Cache) {
         let mutator_max_cplx = self.max_complexity();
         if max_cplx > mutator_max_cplx {
             max_cplx = mutator_max_cplx;
@@ -551,7 +537,7 @@ mod tests {
         let m = VecMutator::<u8, U8Mutator>::new(U8Mutator::default(), range.clone());
         let mut step = false;
         for _ in 0..100 {
-            let (x, _, _) = m.ordered_arbitrary(&mut step, 800.0).unwrap();
+            let (x, _) = m.ordered_arbitrary(&mut step, 800.0).unwrap();
             eprintln!("{}", x.len());
             assert!(range.contains(&x.len()), "{}", x.len());
         }

@@ -29,15 +29,11 @@ impl<T: Clone> Mutator<T> for NeverMutator {
         unreachable!()
     }
 
-    fn ordered_arbitrary(
-        &self,
-        _step: &mut Self::ArbitraryStep,
-        _max_cplx: f64,
-    ) -> Option<(T, Self::Cache, Self::MutationStep)> {
+    fn ordered_arbitrary(&self, _step: &mut Self::ArbitraryStep, _max_cplx: f64) -> Option<(T, Self::Cache)> {
         unreachable!()
     }
 
-    fn random_arbitrary(&self, _max_cplx: f64) -> (T, Self::Cache, Self::MutationStep) {
+    fn random_arbitrary(&self, _max_cplx: f64) -> (T, Self::Cache) {
         unreachable!()
     }
 
@@ -89,15 +85,11 @@ where
         unreachable!()
     }
 
-    fn ordered_arbitrary(
-        &self,
-        _step: &mut Self::ArbitraryStep,
-        _max_cplx: f64,
-    ) -> Option<(T, Self::Cache, Self::MutationStep)> {
+    fn ordered_arbitrary(&self, _step: &mut Self::ArbitraryStep, _max_cplx: f64) -> Option<(T, Self::Cache)> {
         unreachable!()
     }
 
-    fn random_arbitrary(&self, _max_cplx: f64) -> (T, Self::Cache, Self::MutationStep) {
+    fn random_arbitrary(&self, _max_cplx: f64) -> (T, Self::Cache) {
         unreachable!()
     }
 

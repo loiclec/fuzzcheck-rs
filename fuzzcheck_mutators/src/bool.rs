@@ -53,29 +53,25 @@ impl Mutator<bool> for BoolMutator {
         1.0
     }
 
-    fn ordered_arbitrary(
-        &self,
-        step: &mut Self::ArbitraryStep,
-        max_cplx: f64,
-    ) -> Option<(bool, Self::Cache, Self::MutationStep)> {
+    fn ordered_arbitrary(&self, step: &mut Self::ArbitraryStep, max_cplx: f64) -> Option<(bool, Self::Cache)> {
         if max_cplx < self.min_complexity() {
             return None;
         }
         match step {
             ArbitraryStep::Never => {
                 *step = ArbitraryStep::Once;
-                Some((false, (), INITIAL_MUTATION_STEP))
+                Some((false, ()))
             }
             ArbitraryStep::Once => {
                 *step = ArbitraryStep::Twice;
-                Some((true, (), INITIAL_MUTATION_STEP))
+                Some((true, ()))
             }
             ArbitraryStep::Twice => None,
         }
     }
 
-    fn random_arbitrary(&self, _max_cplx: f64) -> (bool, Self::Cache, Self::MutationStep) {
-        (self.rng.bool(), (), INITIAL_MUTATION_STEP)
+    fn random_arbitrary(&self, _max_cplx: f64) -> (bool, Self::Cache) {
+        (self.rng.bool(), ())
     }
 
     fn ordered_mutate(

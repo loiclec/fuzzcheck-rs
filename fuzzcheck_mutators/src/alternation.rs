@@ -129,11 +129,7 @@ where
         self.complexity_from_choice + self.mutators[cache.mutator_idx].complexity(value, &cache.inner)
     }
 
-    fn ordered_arbitrary(
-        &self,
-        step: &mut Self::ArbitraryStep,
-        max_cplx: f64,
-    ) -> Option<(T, Self::Cache, Self::MutationStep)> {
+    fn ordered_arbitrary(&self, step: &mut Self::ArbitraryStep, max_cplx: f64) -> Option<(T, Self::Cache)> {
         if step.indices.is_empty() {
             return None;
         }
@@ -145,7 +141,7 @@ where
         let idx = step.indices[step.idx % step.indices.len()];
         let mutator = &self.mutators[idx];
         let inner_step = &mut step.inner[idx];
-        if let Some((v, c, s)) = mutator.ordered_arbitrary(inner_step, max_cplx) {
+        if let Some((v, c)) = mutator.ordered_arbitrary(inner_step, max_cplx) {
             step.idx += 1;
             Some((
                 v,
@@ -153,27 +149,25 @@ where
                     inner: c,
                     mutator_idx: idx,
                 },
-                self.default_mutation_step(s, idx),
             ))
         } else {
-            step.indices.remove(idx);
+            step.indices.remove(step.idx % step.indices.len());
             self.ordered_arbitrary(step, max_cplx)
         }
     }
 
-    fn random_arbitrary(&self, max_cplx: f64) -> (T, Self::Cache, Self::MutationStep) {
+    fn random_arbitrary(&self, max_cplx: f64) -> (T, Self::Cache) {
         let idx = self.rng.usize(..self.mutators.len());
         let mutator = &self.mutators[idx];
         let max_cplx = max_cplx - self.complexity_from_choice;
 
-        let (v, c, s) = mutator.random_arbitrary(max_cplx);
+        let (v, c) = mutator.random_arbitrary(max_cplx);
         (
             v,
             Cache {
                 inner: c,
                 mutator_idx: idx,
             },
-            self.default_mutation_step(s, idx),
         )
     }
 
@@ -190,7 +184,7 @@ where
         let max_cplx = max_cplx - self.complexity_from_choice;
 
         if self.rng.usize(..100) == 0 {
-            let (new_value, new_cache, _new_step) = self.random_arbitrary(max_cplx);
+            let (new_value, new_cache) = self.random_arbitrary(max_cplx);
             let old_value = ::std::mem::replace(value, new_value);
             let old_cache = ::std::mem::replace(cache, new_cache);
             return Some(UnmutateToken::Replace(old_value, old_cache));
@@ -202,7 +196,7 @@ where
         if let Some(t) = mutator.ordered_mutate(value, &mut cache.inner, &mut step.inner, max_cplx) {
             Some(UnmutateToken::Inner(t))
         } else {
-            if let Some((mut v, mut c, _s)) = self.ordered_arbitrary(&mut step.arbitrary, max_cplx) {
+            if let Some((mut v, mut c)) = self.ordered_arbitrary(&mut step.arbitrary, max_cplx) {
                 std::mem::swap(value, &mut v);
                 std::mem::swap(cache, &mut c);
                 return Some(UnmutateToken::Replace(v, c));
@@ -221,7 +215,7 @@ where
         // there should be a better way to prevent this though
         // maybe it's time to give random_mutate a MutationStep too?
         if self.rng.usize(..100) == 0 || mutator.max_complexity() < 0.1 {
-            let (new_value, new_cache, _new_step) = self.random_arbitrary(max_cplx);
+            let (new_value, new_cache) = self.random_arbitrary(max_cplx);
             let old_value = ::std::mem::replace(value, new_value);
             let old_cache = ::std::mem::replace(cache, new_cache);
             return UnmutateToken::Replace(old_value, old_cache);

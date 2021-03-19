@@ -46,26 +46,22 @@ where
         crate::size_to_cplxity(std::mem::variant_count::<T>())
     }
 
-    fn ordered_arbitrary(
-        &self,
-        step: &mut Self::ArbitraryStep,
-        max_cplx: f64,
-    ) -> Option<(T, Self::Cache, Self::MutationStep)> {
+    fn ordered_arbitrary(&self, step: &mut Self::ArbitraryStep, max_cplx: f64) -> Option<(T, Self::Cache)> {
         if max_cplx < <Self as Mutator<T>>::min_complexity(self) {
             return None;
         }
         if *step < std::mem::variant_count::<T>() {
             let old_step = *step;
             *step += 1;
-            Some((T::from_item_index(old_step), (), INITIAL_MUTATION_STEP))
+            Some((T::from_item_index(old_step), ()))
         } else {
             None
         }
     }
 
-    fn random_arbitrary(&self, _max_cplx: f64) -> (T, Self::Cache, Self::MutationStep) {
+    fn random_arbitrary(&self, _max_cplx: f64) -> (T, Self::Cache) {
         let item_idx = self.rng.usize(..std::mem::variant_count::<T>());
-        (T::from_item_index(item_idx), (), INITIAL_MUTATION_STEP)
+        (T::from_item_index(item_idx), ())
     }
 
     fn ordered_mutate(

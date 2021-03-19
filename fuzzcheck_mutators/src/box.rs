@@ -51,21 +51,17 @@ impl<T: Clone, M: Mutator<T>> Mutator<Box<T>> for BoxMutator<T, M> {
         self.mutator.complexity(value, cache)
     }
 
-    fn ordered_arbitrary(
-        &self,
-        step: &mut Self::ArbitraryStep,
-        max_cplx: f64,
-    ) -> Option<(Box<T>, Self::Cache, Self::MutationStep)> {
-        if let Some((value, cache, step)) = self.mutator.ordered_arbitrary(step, max_cplx) {
-            Some((Box::new(value), cache, step))
+    fn ordered_arbitrary(&self, step: &mut Self::ArbitraryStep, max_cplx: f64) -> Option<(Box<T>, Self::Cache)> {
+        if let Some((value, cache)) = self.mutator.ordered_arbitrary(step, max_cplx) {
+            Some((Box::new(value), cache))
         } else {
             None
         }
     }
 
-    fn random_arbitrary(&self, max_cplx: f64) -> (Box<T>, Self::Cache, Self::MutationStep) {
-        let (value, cache, step) = self.mutator.random_arbitrary(max_cplx);
-        (Box::new(value), cache, step)
+    fn random_arbitrary(&self, max_cplx: f64) -> (Box<T>, Self::Cache) {
+        let (value, cache) = self.mutator.random_arbitrary(max_cplx);
+        (Box::new(value), cache)
     }
 
     fn ordered_mutate(

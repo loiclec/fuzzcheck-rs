@@ -3,7 +3,6 @@
 #![feature(int_bits_const)]
 #![feature(arc_new_cyclic)]
 #![feature(assoc_char_funcs)]
-#![feature(array_map)]
 
 pub extern crate fastrand;
 pub extern crate fuzzcheck_mutators_derive;

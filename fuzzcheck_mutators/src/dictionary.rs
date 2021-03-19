@@ -2,15 +2,15 @@ use fuzzcheck_traits::Mutator;
 
 pub struct DictionaryMutator<T: Clone, M: Mutator<T>> {
     m: M,
-    dictionary: Vec<(T, <M as Mutator<T>>::Cache, <M as Mutator<T>>::MutationStep)>,
+    dictionary: Vec<(T, <M as Mutator<T>>::Cache)>,
     rng: fastrand::Rng,
 }
 impl<T: Clone, M: Mutator<T>> DictionaryMutator<T, M> {
     pub fn new(value_mutator: M, dictionary: impl Iterator<Item = T>) -> Self {
         let dictionary = dictionary
             .filter_map(|v| {
-                if let Some((cache, step)) = value_mutator.validate_value(&v) {
-                    Some((v, cache, step))
+                if let Some((cache, _)) = value_mutator.validate_value(&v) {
+                    Some((v, cache))
                 } else {
                     None
                 }
@@ -68,17 +68,13 @@ impl<T: Clone, M: Mutator<T>> Mutator<T> for DictionaryMutator<T, M> {
         }
     }
 
-    fn ordered_arbitrary(
-        &self,
-        step: &mut Self::ArbitraryStep,
-        max_cplx: f64,
-    ) -> Option<(T, Self::Cache, Self::MutationStep)> {
+    fn ordered_arbitrary(&self, step: &mut Self::ArbitraryStep, max_cplx: f64) -> Option<(T, Self::Cache)> {
         match step {
             ArbitraryStep::Dictionary(inner_step) => {
                 if *inner_step < self.dictionary.len() {
-                    let (v, c, s) = self.dictionary[*inner_step].clone();
+                    let (v, c) = self.dictionary[*inner_step].clone();
                     *inner_step += 1;
-                    Some((v, c, Self::MutationStep::new(s)))
+                    Some((v, c))
                 } else {
                     let inner_step = self.m.default_arbitrary_step();
                     *step = self::ArbitraryStep::Wrapped(inner_step);
@@ -88,18 +84,18 @@ impl<T: Clone, M: Mutator<T>> Mutator<T> for DictionaryMutator<T, M> {
             ArbitraryStep::Wrapped(inner_step) => self
                 .m
                 .ordered_arbitrary(inner_step, max_cplx)
-                .map(|(v, c, s)| (v.into(), c, MutationStep::new(s))),
+                .map(|(v, c)| (v.into(), c)),
         }
     }
 
-    fn random_arbitrary(&self, max_cplx: f64) -> (T, Self::Cache, Self::MutationStep) {
-        let (v, c, s) = if !self.dictionary.is_empty() && self.rng.usize(..20) == 0 {
+    fn random_arbitrary(&self, max_cplx: f64) -> (T, Self::Cache) {
+        let (v, c) = if !self.dictionary.is_empty() && self.rng.usize(..20) == 0 {
             let idx = self.rng.usize(..self.dictionary.len());
             self.dictionary[idx].clone()
         } else {
             self.m.random_arbitrary(max_cplx)
         };
-        (v, c, MutationStep::new(s))
+        (v, c)
     }
 
     fn max_complexity(&self) -> f64 {
@@ -122,7 +118,7 @@ impl<T: Clone, M: Mutator<T>> Mutator<T> for DictionaryMutator<T, M> {
         max_cplx: f64,
     ) -> Option<Self::UnmutateToken> {
         if step.idx < self.dictionary.len() {
-            let (new_value, new_cache, _new_step) = self.dictionary[step.idx].clone();
+            let (new_value, new_cache) = self.dictionary[step.idx].clone();
             step.idx += 1;
             let old_value = std::mem::replace(value, new_value);
             let old_cache = std::mem::replace(cache, new_cache);
@@ -138,7 +134,7 @@ impl<T: Clone, M: Mutator<T>> Mutator<T> for DictionaryMutator<T, M> {
     fn random_mutate(&self, value: &mut T, cache: &mut Self::Cache, max_cplx: f64) -> Self::UnmutateToken {
         if !self.dictionary.is_empty() && self.rng.usize(..20) == 0 {
             let idx = self.rng.usize(..self.dictionary.len());
-            let (new_value, new_cache, _new_step) = self.dictionary[idx].clone();
+            let (new_value, new_cache) = self.dictionary[idx].clone();
 
             let old_value = std::mem::replace(value, new_value);
             let old_cache = std::mem::replace(cache, new_cache);

@@ -252,8 +252,9 @@ impl<T: Clone, Mut: Mutator<T>> FuzzedInput<T, Mut> {
     }
     pub fn default(m: &mut Mut) -> Option<Self> {
         let mut step = m.default_arbitrary_step();
-        if let Some((value, cache, mutation_step)) = m.ordered_arbitrary(&mut step, 1.0) {
-            Some(Self::new(value, cache, mutation_step))
+        if let Some((value, _)) = m.ordered_arbitrary(&mut step, 1.0) {
+            let (cache, step) = m.validate_value(&value).unwrap();
+            Some(Self::new(value, cache, step))
         } else {
             None
         }
@@ -261,11 +262,7 @@ impl<T: Clone, Mut: Mutator<T>> FuzzedInput<T, Mut> {
 
     pub fn new_source(&self, m: &Mut) -> Self {
         let (cache, mutation_step) = m.validate_value(&self.value).unwrap();
-        Self::new(
-            self.value.clone(),
-            cache,
-            mutation_step,
-        )
+        Self::new(self.value.clone(), cache, mutation_step)
     }
 
     pub fn complexity(&self, m: &Mut) -> f64 {

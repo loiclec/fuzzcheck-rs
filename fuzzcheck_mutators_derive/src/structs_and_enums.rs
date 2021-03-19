@@ -234,17 +234,17 @@ pub(crate) fn make_mutator_type_and_impl(params: CreateWrapperMutatorParams) -> 
                 " InnerMutator_as_Mutator "::complexity(&self.mutator, value, &cache.inner)
             }
     
-            fn ordered_arbitrary(&self, step: &mut Self::ArbitraryStep, max_cplx: f64) -> Option<(" type_ident type_generics.removing_bounds_and_eq_type() ", Self::Cache, Self::MutationStep)> {
-                if let " cm.Some "((value, cache, step)) = " InnerMutator_as_Mutator "::ordered_arbitrary(&self.mutator, &mut step.inner, max_cplx) {"
-                cm.Some "((value, Self::Cache::new(cache), Self::MutationStep::new(step)))"
+            fn ordered_arbitrary(&self, step: &mut Self::ArbitraryStep, max_cplx: f64) -> Option<(" type_ident type_generics.removing_bounds_and_eq_type() ", Self::Cache)> {
+                if let " cm.Some "((value, cache)) = " InnerMutator_as_Mutator "::ordered_arbitrary(&self.mutator, &mut step.inner, max_cplx) {"
+                cm.Some "((value, Self::Cache::new(cache)))"
             "} else {"
                 cm.None
             "}
             }
     
-            fn random_arbitrary(&self, max_cplx: f64) -> (" type_ident type_generics.removing_bounds_and_eq_type() ", Self::Cache, Self::MutationStep) {
-                let (value, cache, step) = " InnerMutator_as_Mutator "::random_arbitrary(&self.mutator, max_cplx) ;
-                (value, Self::Cache::new(cache), Self::MutationStep::new(step))
+            fn random_arbitrary(&self, max_cplx: f64) -> (" type_ident type_generics.removing_bounds_and_eq_type() ", Self::Cache) {
+                let (value, cache) = " InnerMutator_as_Mutator "::random_arbitrary(&self.mutator, max_cplx) ;
+                (value, Self::Cache::new(cache))
             }
     
             fn ordered_mutate(

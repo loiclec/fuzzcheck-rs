@@ -1223,12 +1223,12 @@ mod tests {
             0.0
         }
 
-        fn ordered_arbitrary(&self, _step: &mut Self::ArbitraryStep, _max_cplx: f64) -> Option<(f64, Self::Cache, Self::MutationStep)> {
+        fn ordered_arbitrary(&self, _step: &mut Self::ArbitraryStep, _max_cplx: f64) -> Option<(f64, Self::Cache)> {
             todo!()
         }
 
-        fn random_arbitrary(&self, _max_cplx: f64) -> (f64, Self::Cache, Self::MutationStep) {
-            (0.0, (), ())
+        fn random_arbitrary(&self, _max_cplx: f64) -> (f64, Self::Cache) {
+            (0.0, ())
         }
 
         fn ordered_mutate(
