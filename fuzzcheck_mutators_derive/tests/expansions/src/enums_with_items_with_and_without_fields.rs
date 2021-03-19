@@ -1,4 +1,4 @@
-use fuzzcheck_mutators::{DefaultMutator, EnumNPayloadStructure};
+use fuzzcheck_mutators::DefaultMutator;
 
 #[derive(Clone, DefaultMutator)]
 pub enum A {
@@ -9,23 +9,6 @@ pub enum A {
 pub enum X {
     A(u8),
     B,
-}
-
-#[derive(Clone, EnumNPayloadStructure)]
-pub enum Y {
-    V {
-        v: Vec<Option<bool>>,
-        w: (),
-        x: ::std::collections::HashMap<u8, bool>,
-        y: u8,
-        z: bool,
-    },
-    W(bool, bool, bool, bool),
-    X(bool),
-    Y {
-        y: Option<u8>,
-    },
-    Z(),
 }
 
 #[derive(Clone, DefaultMutator)]
@@ -43,10 +26,10 @@ mod test {
     #[test]
     fn test_compile() {
         let m = A::default_mutator();
-        let (_alue, _cache): (A, _) = m.random_arbitrary(10.0);
+        let (_alue, _cache, _): (A, _, _) = m.random_arbitrary(10.0);
 
         let m = X::default_mutator();
-        let (value, _cache): (X, _) = m.random_arbitrary(10.0);
+        let (value, _cache, _): (X, _, _) = m.random_arbitrary(10.0);
 
         match value {
             X::A(_x) => {}
@@ -54,7 +37,7 @@ mod test {
         }
 
         let m = Z::default_mutator();
-        let (value, _cache): (Z, _) = m.random_arbitrary(10.0);
+        let (value, _cache, _): (Z, _, _) = m.random_arbitrary(10.0);
 
         match value {
             _ => {}

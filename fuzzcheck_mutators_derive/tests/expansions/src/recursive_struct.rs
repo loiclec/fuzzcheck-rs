@@ -19,7 +19,7 @@ mod test {
         });
         let _m: RecursiveMutator<SMutator<BoolMutator>> = S::default_mutator();
         let m = S::default_mutator();
-        let (x, _) = m.random_arbitrary(10.0);
+        let (x, _, _) = m.random_arbitrary(10.0);
         println!("{:?}", x);
     }
 }

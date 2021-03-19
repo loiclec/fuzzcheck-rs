@@ -1,5 +1,9 @@
 #![feature(arc_new_cyclic)]
 #![feature(test)]
+#![feature(negative_impls)]
+#![feature(auto_traits)]
+#![feature(specialization)]
+
 extern crate fuzzcheck_mutators;
 
 mod empty_structs;

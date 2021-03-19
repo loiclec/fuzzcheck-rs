@@ -12,7 +12,7 @@ mod test {
     #[test]
     fn test_compile() {
         let m = X::default_mutator();
-        let (_value, _cache): (X, _) = m.random_arbitrary(10.0);
+        let (_value, _cache, _): (X, _, _) = m.random_arbitrary(10.0);
     }
 }
 // #[derive(DefaultMutator)]

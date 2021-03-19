@@ -1,6 +1,6 @@
 use fuzzcheck_mutators::fuzzcheck_traits::RecurToMutator;
 use fuzzcheck_mutators::make_mutator;
-use fuzzcheck_mutators::{BoxMutator, OptionMutator};
+use fuzzcheck_mutators::BoxMutator;
 
 #[cfg(test)]
 mod test {
@@ -10,7 +10,7 @@ mod test {
     #[test]
     fn test_compile() {
         let m = S::default_mutator();
-        let (x, _) = m.random_arbitrary(10.0);
+        let (x, _, _) = m.random_arbitrary(10.0);
         println!("{:?}", x);
     }
 }
