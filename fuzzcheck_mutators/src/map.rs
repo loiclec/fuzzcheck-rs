@@ -8,7 +8,7 @@ where
     U: Clone,
     Mut: Mutator<T>,
     Parse: Fn(&U) -> Option<T>,
-    Map: Fn(&T) -> U,
+    Map: Fn(T) -> U,
 {
     mutator: Mut,
     map: Map,
@@ -21,7 +21,7 @@ where
     U: Clone,
     Mut: Mutator<T>,
     Parse: Fn(&U) -> Option<T>,
-    Map: Fn(&T) -> U,
+    Map: Fn(T) -> U,
 {
     pub fn new(mutator: Mut, map: Map, parse: Parse) -> Self {
         Self {
@@ -33,15 +33,13 @@ where
     }
 }
 
-#[derive(Clone)]
 pub struct Cache<T, C> {
     value: T,
     cache: C,
 }
 
-pub struct UnmutateToken<V, T> {
+pub struct UnmutateToken<V> {
     value: V,
-    inner: T,
 }
 
 impl<T, U, Mut, Parse, Map> Mutator<U> for MapMutator<T, U, Mut, Parse, Map>
@@ -50,12 +48,12 @@ where
     U: Clone,
     Mut: Mutator<T>,
     Parse: Fn(&U) -> Option<T>,
-    Map: Fn(&T) -> U,
+    Map: Fn(T) -> U,
 {
     type Cache = Cache<T, Mut::Cache>;
     type MutationStep = Mut::MutationStep;
     type ArbitraryStep = Mut::ArbitraryStep;
-    type UnmutateToken = UnmutateToken<U, Mut::UnmutateToken>;
+    type UnmutateToken = UnmutateToken<U>;
 
     fn default_arbitrary_step(&self) -> Self::ArbitraryStep {
         self.mutator.default_arbitrary_step()
@@ -85,53 +83,45 @@ where
         self.mutator.complexity(&cache.value, &cache.cache)
     }
 
-    fn ordered_arbitrary(&self, step: &mut Self::ArbitraryStep, max_cplx: f64) -> Option<(U, Self::Cache)> {
-        self.mutator.ordered_arbitrary(step, max_cplx).map(|(value, cache)| {
-            let cache = Cache { value, cache };
-            ((self.map)(&cache.value), cache)
-        })
+    fn ordered_arbitrary(&self, step: &mut Self::ArbitraryStep, max_cplx: f64) -> Option<(U, f64)> {
+        self.mutator
+            .ordered_arbitrary(step, max_cplx)
+            .map(|(value, cplx)| ((self.map)(value), cplx))
     }
 
-    fn random_arbitrary(&self, max_cplx: f64) -> (U, Self::Cache) {
+    fn random_arbitrary(&self, max_cplx: f64) -> (U, f64) {
         let (v, c) = self.mutator.random_arbitrary(max_cplx);
-        let cache = Cache { value: v, cache: c };
-        let value = (self.map)(&cache.value);
-        (value, cache)
+        let value = (self.map)(v);
+        (value, c)
     }
 
     fn ordered_mutate(
         &self,
         value: &mut U,
-        cache: &mut Self::Cache,
+        cache: &Self::Cache,
         step: &mut Self::MutationStep,
         max_cplx: f64,
     ) -> Option<Self::UnmutateToken> {
-        if let Some(t) = self
+        let mut inner_value = cache.value.clone();
+        if let Some(_) = self
             .mutator
-            .ordered_mutate(&mut cache.value, &mut cache.cache, step, max_cplx)
+            .ordered_mutate(&mut inner_value, &cache.cache, step, max_cplx)
         {
-            let old_value = std::mem::replace(value, (self.map)(&cache.value));
-            Some(UnmutateToken {
-                value: old_value,
-                inner: t,
-            })
+            let old_value = std::mem::replace(value, (self.map)(inner_value));
+            Some(UnmutateToken { value: old_value })
         } else {
             None
         }
     }
 
-    fn random_mutate(&self, value: &mut U, cache: &mut Self::Cache, max_cplx: f64) -> Self::UnmutateToken {
-        let t = self.mutator.random_mutate(&mut cache.value, &mut cache.cache, max_cplx);
-        *value = (self.map)(&cache.value);
-        let old_value = std::mem::replace(value, (self.map)(&cache.value));
-        UnmutateToken {
-            value: old_value,
-            inner: t,
-        }
+    fn random_mutate(&self, value: &mut U, cache: &Self::Cache, max_cplx: f64) -> Self::UnmutateToken {
+        let mut inner_value = cache.value.clone();
+        let _ = self.mutator.random_mutate(&mut inner_value, &cache.cache, max_cplx);
+        let old_value = std::mem::replace(value, (self.map)(inner_value));
+        UnmutateToken { value: old_value }
     }
 
-    fn unmutate(&self, value: &mut U, cache: &mut Self::Cache, t: Self::UnmutateToken) {
+    fn unmutate(&self, value: &mut U, t: Self::UnmutateToken) {
         *value = t.value;
-        self.mutator.unmutate(&mut cache.value, &mut cache.cache, t.inner);
     }
 }

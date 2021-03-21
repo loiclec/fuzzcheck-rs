@@ -24,7 +24,7 @@ mod dictionary;
 mod enums;
 mod fixed_len_vector;
 mod integer;
-pub mod map;
+// pub mod map;
 mod never;
 mod option;
 pub mod proc_macro;

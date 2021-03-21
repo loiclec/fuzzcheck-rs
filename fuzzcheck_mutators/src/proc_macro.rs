@@ -173,7 +173,7 @@ pub struct TokenStreamSource {
         println!("making vec of token tree mutators");
         let x = VecMutator::new_with_dict(
         TokenTreeSourceMutator::new(
-            GroupSourceMutator::new(<_>::default(), self_.into()),
+            GroupSourceMutator::new(crate::BasicEnumMutator::new::<DelimiterSource>(), self_.into()),
             ChoiceIdents::default_mutator(),PunctSource::default_mutator(),LiteralSource::default_mutator(),
         ), 0 ..= 100, dictionary()
     );

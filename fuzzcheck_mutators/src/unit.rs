@@ -79,30 +79,32 @@ where
         0.0
     }
 
-    fn ordered_arbitrary(&self, step: &mut Self::ArbitraryStep, _max_cplx: f64) -> Option<(T, Self::Cache)> {
+    fn ordered_arbitrary(&self, step: &mut Self::ArbitraryStep, _max_cplx: f64) -> Option<(T, f64)> {
         if !*step {
             *step = true;
-            Some((self.value.clone(), ()))
+            Some((self.value.clone(), 0.0))
         } else {
             None
         }
     }
 
-    fn random_arbitrary(&self, _max_cplx: f64) -> (T, Self::Cache) {
-        (self.value.clone(), ())
+    fn random_arbitrary(&self, _max_cplx: f64) -> (T, f64) {
+        (self.value.clone(), 0.0)
     }
 
     fn ordered_mutate(
         &self,
         _value: &mut T,
-        _cache: &mut Self::Cache,
+        _cache: &Self::Cache,
         _step: &mut Self::MutationStep,
         _max_cplx: f64,
-    ) -> Option<Self::UnmutateToken> {
+    ) -> Option<(Self::UnmutateToken, f64)> {
         None
     }
 
-    fn random_mutate(&self, _value: &mut T, _cache: &mut Self::Cache, _max_cplx: f64) -> Self::UnmutateToken {}
+    fn random_mutate(&self, _value: &mut T, _cache: &Self::Cache, _max_cplx: f64) -> (Self::UnmutateToken, f64) {
+        ((), 0.0)
+    }
 
-    fn unmutate(&self, _value: &mut T, _cache: &mut Self::Cache, _t: Self::UnmutateToken) {}
+    fn unmutate(&self, _value: &mut T, _t: Self::UnmutateToken) {}
 }

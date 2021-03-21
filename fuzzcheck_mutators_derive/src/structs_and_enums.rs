@@ -165,17 +165,6 @@ pub(crate) fn make_mutator_type_and_impl(params: CreateWrapperMutatorParams) -> 
             } 
             ")
     };
-    let impl_clone_helper_type = |helper_type: &str| {
-        ts!(
-            "impl" NameMutator_generics.removing_eq_type()  cm.Clone "for" ident!(NameMutator helper_type) NameMutator_generics.removing_bounds_and_eq_type() NameMutator_where_clause "{
-                fn clone(&self) -> Self {
-                    Self {
-                        inner: self.inner.clone()
-                    }
-                }
-            }" 
-        )
-    };
 
     let InnerMutator_as_Mutator = ts!("<" InnerMutator "as" cm.fuzzcheck_traits_Mutator "<" type_ident type_generics.removing_bounds_and_eq_type() "> >" );
 
@@ -185,11 +174,8 @@ pub(crate) fn make_mutator_type_and_impl(params: CreateWrapperMutatorParams) -> 
         pub mutator:" InnerMutator "
     }"
     helper_type("Cache")
-    impl_clone_helper_type("Cache")
     helper_type("MutationStep")
-    impl_clone_helper_type("MutationStep")
     helper_type("ArbitraryStep")
-    impl_clone_helper_type("ArbitraryStep")
     helper_type("UnmutateToken")
 
     "impl " NameMutator_generics NameMutator NameMutator_generics.removing_bounds_and_eq_type() NameMutator_where_clause "
@@ -234,45 +220,46 @@ pub(crate) fn make_mutator_type_and_impl(params: CreateWrapperMutatorParams) -> 
                 " InnerMutator_as_Mutator "::complexity(&self.mutator, value, &cache.inner)
             }
     
-            fn ordered_arbitrary(&self, step: &mut Self::ArbitraryStep, max_cplx: f64) -> Option<(" type_ident type_generics.removing_bounds_and_eq_type() ", Self::Cache)> {
-                if let " cm.Some "((value, cache)) = " InnerMutator_as_Mutator "::ordered_arbitrary(&self.mutator, &mut step.inner, max_cplx) {"
-                cm.Some "((value, Self::Cache::new(cache)))"
+            fn ordered_arbitrary(&self, step: &mut Self::ArbitraryStep, max_cplx: f64) -> Option<(" type_ident type_generics.removing_bounds_and_eq_type() ", f64)> {
+                if let " cm.Some "((value, cplx)) = " InnerMutator_as_Mutator "::ordered_arbitrary(&self.mutator, &mut step.inner, max_cplx) {"
+                cm.Some "((value, cplx))"
             "} else {"
                 cm.None
             "}
             }
     
-            fn random_arbitrary(&self, max_cplx: f64) -> (" type_ident type_generics.removing_bounds_and_eq_type() ", Self::Cache) {
-                let (value, cache) = " InnerMutator_as_Mutator "::random_arbitrary(&self.mutator, max_cplx) ;
-                (value, Self::Cache::new(cache))
+            fn random_arbitrary(&self, max_cplx: f64) -> (" type_ident type_generics.removing_bounds_and_eq_type() ", f64) {
+                let (value, cplx) = " InnerMutator_as_Mutator "::random_arbitrary(&self.mutator, max_cplx) ;
+                (value, cplx)
             }
     
             fn ordered_mutate(
                 &self,
                 value: &mut " type_ident type_generics.removing_bounds_and_eq_type() ",
-                cache: &mut Self::Cache,
+                cache: &Self::Cache,
                 step: &mut Self::MutationStep,
                 max_cplx: f64,
-            ) -> Option<Self::UnmutateToken> {
-                if let " cm.Some "(t) = " InnerMutator_as_Mutator "::ordered_mutate(
+            ) -> Option<(Self::UnmutateToken, f64)> {
+                if let " cm.Some "((t, c)) = " InnerMutator_as_Mutator "::ordered_mutate(
                     &self.mutator,
                     value,
-                    &mut cache.inner,
+                    &cache.inner,
                     &mut step.inner,
                     max_cplx,
                 ) {
-                    " cm.Some "(Self::UnmutateToken::new(t))
+                    " cm.Some "((Self::UnmutateToken::new(t), c))
                 } else {"
                 cm.None
             "}
             }
     
-            fn random_mutate(&self, value: &mut " type_ident type_generics.removing_bounds_and_eq_type() ", cache: &mut Self::Cache, max_cplx: f64) -> Self::UnmutateToken {
-                Self::UnmutateToken::new(" InnerMutator_as_Mutator "::random_mutate(&self.mutator, value, &mut cache.inner, max_cplx) )
+            fn random_mutate(&self, value: &mut " type_ident type_generics.removing_bounds_and_eq_type() ", cache: &Self::Cache, max_cplx: f64) -> (Self::UnmutateToken, f64) {
+                let (t, c) =" InnerMutator_as_Mutator "::random_mutate(&self.mutator, value, &cache.inner, max_cplx);
+                (Self::UnmutateToken::new(t), c)
             }
     
-            fn unmutate(&self, value: &mut " type_ident type_generics.removing_bounds_and_eq_type() ", cache: &mut Self::Cache, t: Self::UnmutateToken) {
-                " InnerMutator_as_Mutator "::unmutate(&self.mutator, value, &mut cache.inner," if settings.recursive {
+            fn unmutate(&self, value: &mut " type_ident type_generics.removing_bounds_and_eq_type() ", t: Self::UnmutateToken) {
+                " InnerMutator_as_Mutator "::unmutate(&self.mutator, value, " if settings.recursive {
                 "*t.inner"
             } else {
                 "t.inner"

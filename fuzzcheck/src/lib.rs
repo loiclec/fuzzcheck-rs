@@ -261,21 +261,21 @@ impl<T: Clone, Mut: Mutator<T>> FuzzedInput<T, Mut> {
         m.complexity(&self.value, &self.cache)
     }
 
-    pub fn mutate(&mut self, m: &mut Mut, max_cplx: f64) -> Option<Mut::UnmutateToken> {
+    pub fn mutate(&mut self, m: &mut Mut, max_cplx: f64) -> Option<(Mut::UnmutateToken, f64)> {
         m.ordered_mutate(&mut self.value, &mut self.cache, &mut self.mutation_step, max_cplx)
     }
 
     pub fn unmutate(&mut self, m: &Mut, t: Mut::UnmutateToken) {
-        m.unmutate(&mut self.value, &mut self.cache, t);
+        m.unmutate(&mut self.value, t);
     }
 }
 
-impl<T: Clone, M: Mutator<T>> Clone for FuzzedInput<T, M> {
-    fn clone(&self) -> Self {
-        Self {
-            value: self.value.clone(),
-            cache: self.cache.clone(),
-            mutation_step: self.mutation_step.clone(),
-        }
-    }
-}
+// impl<T: Clone, M: Mutator<T>> Clone for FuzzedInput<T, M> {
+//     fn clone(&self) -> Self {
+//         Self {
+//             value: self.value.clone(),
+//             cache: self.cache.clone(),
+//             mutation_step: self.mutation_step.clone(),
+//         }
+//     }
+// }

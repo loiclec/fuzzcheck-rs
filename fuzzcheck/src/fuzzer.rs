@@ -133,13 +133,13 @@ where
         }
     }
 
-    fn arbitrary_input(&mut self) -> Option<FuzzedInput<T, M>> {
-        if let Some((v, _)) = self
+    fn arbitrary_input(&mut self) -> Option<(FuzzedInput<T, M>, f64)> {
+        if let Some((v, cplx)) = self
             .mutator
             .ordered_arbitrary(&mut self.arbitrary_step, self.settings.max_input_cplx)
         {
             let (cache, step) = self.mutator.validate_value(&v).unwrap();
-            Some(FuzzedInput::new(v, cache, step))
+            Some((FuzzedInput::new(v, cache, step), cplx))
         } else {
             None
         }
@@ -289,12 +289,11 @@ where
         result
     }
 
-    fn test_input_and_analyze(&mut self) -> Result<(), std::io::Error> {
+    fn test_input_and_analyze(&mut self, cplx: f64) -> Result<(), std::io::Error> {
         self.state.world.handle_user_message();
 
         // we have verified in the caller function that there is an input
         let input = FuzzerState::<T, M, S>::get_input(&self.state.input_idx, &self.state.pool).unwrap();
-        let cplx = input.complexity(&self.state.mutator);
 
         Self::test_input(
             &self.test,
@@ -329,11 +328,11 @@ where
             self.state.input_idx = FuzzerInputIndex::Pool(idx);
             let input = self.state.pool.get(idx);
 
-            if let Some(unmutate_token) = input.mutate(&mut self.state.mutator, self.state.settings.max_input_cplx) {
-                let cplx = input.complexity(&self.state.mutator);
-
+            if let Some((unmutate_token, cplx)) =
+                input.mutate(&mut self.state.mutator, self.state.settings.max_input_cplx)
+            {
                 if cplx < self.state.settings.max_input_cplx {
-                    self.test_input_and_analyze()?;
+                    self.test_input_and_analyze(cplx)?;
                 }
 
                 // Retrieving the input may fail because the input may have been deleted
@@ -351,12 +350,11 @@ where
                 self.process_next_inputs()
             }
         } else {
-            if let Some(input) = self.state.arbitrary_input() {
-                let cplx = input.complexity(&self.state.mutator);
+            if let Some((input, cplx)) = self.state.arbitrary_input() {
                 self.state.input_idx = FuzzerInputIndex::Temporary(input);
 
                 if cplx < self.state.settings.max_input_cplx {
-                    self.test_input_and_analyze()?;
+                    self.test_input_and_analyze(cplx)?;
                 }
 
                 Ok(())
@@ -390,7 +388,7 @@ where
         //     inputs.push(arbitrary);
         // }
         for _ in 0..100 {
-            if let Some(input) = self.state.arbitrary_input() {
+            if let Some((input, _)) = self.state.arbitrary_input() {
                 inputs.push(input);
             } else {
                 break;
@@ -403,8 +401,9 @@ where
         self.state.world.set_start_instant();
         self.state.world.set_checkpoint_instant();
         for input in inputs {
+            let cplx = input.complexity(&self.state.mutator);
             self.state.input_idx = FuzzerInputIndex::Temporary(input);
-            self.test_input_and_analyze()?;
+            self.test_input_and_analyze(cplx)?;
         }
 
         Ok(())

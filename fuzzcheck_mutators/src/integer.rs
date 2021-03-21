@@ -176,7 +176,7 @@ macro_rules! impl_int_mutator {
                 <$name>::BITS as f64
             }
 
-            fn ordered_arbitrary(&self, step: &mut Self::ArbitraryStep, max_cplx: f64) -> Option<($name, Self::Cache)> {
+            fn ordered_arbitrary(&self, step: &mut Self::ArbitraryStep, max_cplx: f64) -> Option<($name, f64)> {
                 if max_cplx < self.min_complexity() {
                     return None;
                 }
@@ -185,21 +185,21 @@ macro_rules! impl_int_mutator {
                 } else {
                     let value = self.uniform_permutation(*step) as $name;
                     *step += 1;
-                    Some((value, ()))
+                    Some((value, <$name>::BITS as f64))
                 }
             }
-            fn random_arbitrary(&self, _max_cplx: f64) -> ($name, Self::Cache) {
+            fn random_arbitrary(&self, _max_cplx: f64) -> ($name, f64) {
                 let value = self.rng.$name(..);
-                (value, ())
+                (value, <$name>::BITS as f64)
             }
 
             fn ordered_mutate(
                 &self,
                 value: &mut $name,
-                _cache: &mut Self::Cache,
+                _cache: &Self::Cache,
                 step: &mut Self::MutationStep,
                 max_cplx: f64,
-            ) -> Option<Self::UnmutateToken> {
+            ) -> Option<(Self::UnmutateToken, f64)> {
                 if max_cplx < self.min_complexity() {
                     return None;
                 }
@@ -223,19 +223,19 @@ macro_rules! impl_int_mutator {
                 };
                 *step = step.wrapping_add(1);
 
-                Some(token)
+                Some((token, <$name>::BITS as f64))
             }
 
             fn random_mutate(
                 &self,
                 value: &mut $name,
-                _cache: &mut Self::Cache,
+                _cache: &Self::Cache,
                 _max_cplx: f64,
-            ) -> Self::UnmutateToken {
-                std::mem::replace(value, self.rng.$name(..))
+            ) -> (Self::UnmutateToken, f64) {
+                (std::mem::replace(value, self.rng.$name(..)), <$name>::BITS as f64)
             }
 
-            fn unmutate(&self, value: &mut $name, _cache: &mut Self::Cache, t: Self::UnmutateToken) {
+            fn unmutate(&self, value: &mut $name, t: Self::UnmutateToken) {
                 *value = t;
             }
         }
@@ -321,7 +321,7 @@ macro_rules! impl_int_mutator_constrained {
                 <$name>::BITS as f64
             }
 
-            fn ordered_arbitrary(&self, step: &mut Self::ArbitraryStep, max_cplx: f64) -> Option<($name, Self::Cache)> {
+            fn ordered_arbitrary(&self, step: &mut Self::ArbitraryStep, max_cplx: f64) -> Option<($name, f64)> {
                 if max_cplx < self.min_complexity() {
                     return None;
                 }
@@ -330,23 +330,26 @@ macro_rules! impl_int_mutator_constrained {
                 } else {
                     let result = $name_binary_arbitrary_function(0, self.len_range, *step);
                     *step = step.wrapping_add(1);
-                    Some((self.start_range.wrapping_add(result as $name), ()))
+                    Some((
+                        self.start_range.wrapping_add(result as $name),
+                        <$name>::BITS as f64,
+                    ))
                 }
             }
-            fn random_arbitrary(&self, _max_cplx: f64) -> ($name, Self::Cache) {
+            fn random_arbitrary(&self, _max_cplx: f64) -> ($name, f64) {
                 let value = self
                     .rng
                     .$name(self.start_range..=self.start_range.wrapping_add(self.len_range as $name));
-                (value, ())
+                (value, <$name>::BITS as f64)
             }
 
             fn ordered_mutate(
                 &self,
                 value: &mut $name,
-                _cache: &mut Self::Cache,
+                _cache: &Self::Cache,
                 step: &mut Self::MutationStep,
                 max_cplx: f64,
-            ) -> Option<Self::UnmutateToken> {
+            ) -> Option<(Self::UnmutateToken, f64)> {
                 if max_cplx < self.min_complexity() {
                     return None;
                 }
@@ -359,23 +362,26 @@ macro_rules! impl_int_mutator_constrained {
                 *value = self.start_range.wrapping_add(result as $name);
                 *step = step.wrapping_add(1);
 
-                Some(token)
+                Some((token, <$name>::BITS as f64))
             }
 
             fn random_mutate(
                 &self,
                 value: &mut $name,
-                _cache: &mut Self::Cache,
+                _cache: &Self::Cache,
                 _max_cplx: f64,
-            ) -> Self::UnmutateToken {
-                std::mem::replace(
-                    value,
-                    self.rng
-                        .$name(self.start_range..=self.start_range.wrapping_add(self.len_range as $name)),
+            ) -> (Self::UnmutateToken, f64) {
+                (
+                    std::mem::replace(
+                        value,
+                        self.rng
+                            .$name(self.start_range..=self.start_range.wrapping_add(self.len_range as $name)),
+                    ),
+                    <$name>::BITS as f64,
                 )
             }
 
-            fn unmutate(&self, value: &mut $name, _cache: &mut Self::Cache, t: Self::UnmutateToken) {
+            fn unmutate(&self, value: &mut $name, t: Self::UnmutateToken) {
                 *value = t;
             }
         }
@@ -445,7 +451,7 @@ impl Mutator<char> for CharWithinRangeMutator {
         <u32>::BITS as f64
     }
 
-    fn ordered_arbitrary(&self, step: &mut Self::ArbitraryStep, max_cplx: f64) -> Option<(char, Self::Cache)> {
+    fn ordered_arbitrary(&self, step: &mut Self::ArbitraryStep, max_cplx: f64) -> Option<(char, f64)> {
         if max_cplx < self.min_complexity() {
             return None;
         }
@@ -455,24 +461,24 @@ impl Mutator<char> for CharWithinRangeMutator {
             let result = binary_search_arbitrary_u32(0, self.len_range, *step);
             *step = step.wrapping_add(1);
             let c = char::from_u32(self.start_range.wrapping_add(result)).unwrap();
-            Some((c, ()))
+            Some((c, <u32>::BITS as f64))
         }
     }
-    fn random_arbitrary(&self, _max_cplx: f64) -> (char, Self::Cache) {
+    fn random_arbitrary(&self, _max_cplx: f64) -> (char, f64) {
         let value = self
             .rng
             .u32(self.start_range..=self.start_range.wrapping_add(self.len_range));
         let value = char::from_u32(value).unwrap();
-        (value, ())
+        (value, <u32>::BITS as f64)
     }
 
     fn ordered_mutate(
         &self,
         value: &mut char,
-        _cache: &mut Self::Cache,
+        _cache: &Self::Cache,
         step: &mut Self::MutationStep,
         max_cplx: f64,
-    ) -> Option<Self::UnmutateToken> {
+    ) -> Option<(Self::UnmutateToken, f64)> {
         if max_cplx < self.min_complexity() {
             return None;
         }
@@ -485,21 +491,24 @@ impl Mutator<char> for CharWithinRangeMutator {
         *value = char::from_u32(self.start_range.wrapping_add(result)).unwrap();
         *step = step.wrapping_add(1);
 
-        Some(token)
+        Some((token, <u32>::BITS as f64))
     }
 
-    fn random_mutate(&self, value: &mut char, _cache: &mut Self::Cache, _max_cplx: f64) -> Self::UnmutateToken {
-        std::mem::replace(
-            value,
-            char::from_u32(
-                self.rng
-                    .u32(self.start_range..=self.start_range.wrapping_add(self.len_range)),
-            )
-            .unwrap(),
+    fn random_mutate(&self, value: &mut char, _cache: &Self::Cache, _max_cplx: f64) -> (Self::UnmutateToken, f64) {
+        (
+            std::mem::replace(
+                value,
+                char::from_u32(
+                    self.rng
+                        .u32(self.start_range..=self.start_range.wrapping_add(self.len_range)),
+                )
+                .unwrap(),
+            ),
+            <u32>::BITS as f64,
         )
     }
 
-    fn unmutate(&self, value: &mut char, _cache: &mut Self::Cache, t: Self::UnmutateToken) {
+    fn unmutate(&self, value: &mut char, t: Self::UnmutateToken) {
         *value = t;
     }
 }

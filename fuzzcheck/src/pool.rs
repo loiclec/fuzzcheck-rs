@@ -273,30 +273,31 @@ impl<T: Clone, M: Mutator<T>> Pool<T, M> {
         data: FuzzedInput<T, M>,
         complexity: f64,
         result: AnalysisResult<T, M>,
-        generation: usize,
+        _generation: usize,
     ) -> Vec<WorldAction<T>> {
         let AnalysisResult {
             existing_features,
             new_features,
-            lowest_stack,
+            lowest_stack: _,
         } = result;
 
         let mut actions: Vec<WorldAction<T>> = Vec::new();
 
-        if lowest_stack < self.lowest_stack() {
-            let new = LowestStackInput {
-                input: data.clone(),
-                stack_depth: lowest_stack,
-                generation,
-            };
-            let old = self.lowest_stack_input.replace(new);
+        // TODO: reenable stack tracing
+        // if lowest_stack < self.lowest_stack() {
+        //     let new = LowestStackInput {
+        //         input: data.clone(),
+        //         stack_depth: lowest_stack,
+        //         generation,
+        //     };
+        //     let old = self.lowest_stack_input.replace(new);
 
-            actions.push(WorldAction::Add(data.value.clone()));
-            if let Some(old) = old {
-                actions.push(WorldAction::Remove(old.input.value))
-            }
-            actions.push(WorldAction::ReportEvent(FuzzerEvent::ReplaceLowestStack(lowest_stack)));
-        }
+        //     actions.push(WorldAction::Add(data.value.clone()));
+        //     if let Some(old) = old {
+        //         actions.push(WorldAction::Remove(old.input.value))
+        //     }
+        //     actions.push(WorldAction::ReportEvent(FuzzerEvent::ReplaceLowestStack(lowest_stack)));
+        // }
 
         if existing_features.is_empty() && new_features.is_empty() {
             return actions;
@@ -1223,26 +1224,28 @@ mod tests {
             0.0
         }
 
-        fn ordered_arbitrary(&self, _step: &mut Self::ArbitraryStep, _max_cplx: f64) -> Option<(f64, Self::Cache)> {
+        fn ordered_arbitrary(&self, _step: &mut Self::ArbitraryStep, _max_cplx: f64) -> Option<(f64, f64)> {
             todo!()
         }
 
-        fn random_arbitrary(&self, _max_cplx: f64) -> (f64, Self::Cache) {
-            (0.0, ())
+        fn random_arbitrary(&self, _max_cplx: f64) -> (f64, f64) {
+            (0.0, 0.0)
         }
 
         fn ordered_mutate(
             &self,
             _value: &mut f64,
-            _cache: &mut Self::Cache,
+            _cache: &Self::Cache,
             _step: &mut Self::MutationStep,
             _max_cplx: f64,
-        ) -> Option<Self::UnmutateToken> {
-            Some(())
+        ) -> Option<(Self::UnmutateToken, f64)> {
+            Some(((), 0.0))
         }
 
-        fn random_mutate(&self, _value: &mut f64, _cache: &mut Self::Cache, _max_cplx: f64) -> Self::UnmutateToken {}
+        fn random_mutate(&self, _value: &mut f64, _cache: &Self::Cache, _max_cplx: f64) -> (Self::UnmutateToken, f64) {
+            ((), 0.0)
+        }
 
-        fn unmutate(&self, _value: &mut f64, _cache: &mut Self::Cache, _t: Self::UnmutateToken) {}
+        fn unmutate(&self, _value: &mut f64, _t: Self::UnmutateToken) {}
     }
 }

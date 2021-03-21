@@ -194,7 +194,7 @@ pub(crate) fn impl_default_mutator_for_basic_enum(tb: &mut TokenBuilder, enu: &E
             type Mutator = " BasicEnumMutator ";
         
             fn default_mutator() -> Self::Mutator {
-                Self::Mutator::default()
+                Self::Mutator::new::<" enu.ident ">()
             }
         }"
     )

@@ -311,20 +311,17 @@ fn declare_tuple_mutator_helper_types(
     let tuple_type_params = join_ts!(0..nbr_elements, i, ident!("T" i), separator: ",");
 
     extend_ts!(tb,
-        "#[derive( " cm.Clone " )]
-        pub struct Cache <" tuple_type_params "> {"
+        "pub struct Cache <" tuple_type_params "> {"
             join_ts!(0..nbr_elements, i,
                 ti(i) ":" ident!("T" i) ","
             )
             "cplx : f64
         }
-        #[derive( " cm.Clone " )]
         pub enum InnerMutationStep {"
             join_ts!(0..nbr_elements, i,
                 Ti(i)
             , separator: ",")
         "}
-        #[derive( " cm.Clone " )]
         pub struct MutationStep < " tuple_type_params " > {"
             join_ts!(0..nbr_elements, i,
                 ti(i) ":" Ti(i) ","
@@ -332,7 +329,6 @@ fn declare_tuple_mutator_helper_types(
             "step : usize ,
             inner : " cm.Vec " < InnerMutationStep > 
         }
-        #[derive(" cm.Clone ")]
         pub struct ArbitraryStep < " tuple_type_params " > {"
             join_ts!(0..nbr_elements, i,
                 ti(i) ":" Ti(i)
@@ -343,7 +339,7 @@ fn declare_tuple_mutator_helper_types(
             join_ts!(0..nbr_elements, i,
                 ti(i) ":" cm.Option "<" Ti(i) "> ,"
             )
-            "cplx : f64
+            "
         }
         impl < " tuple_type_params " > " cm.Default " for UnmutateToken < " tuple_type_params " > {
             fn default() -> Self {
@@ -351,7 +347,7 @@ fn declare_tuple_mutator_helper_types(
                     join_ts!(0..nbr_elements, i,
                         ti(i) ":" cm.None ","
                     )
-                    "cplx : <_>::default()
+                    "
                 }
             }
         }
@@ -373,7 +369,6 @@ fn impl_mutator_trait(tb: &mut TokenBuilder, nbr_elements: usize) {
     let Mi = cm.Mi.as_ref();
     let mutator_i = cm.mutator_i.as_ref();
     let ti_value = cm.ti_value.as_ref();
-    let ti_cache = cm.ti_cache.as_ref();
 
     // let tuple_owned = ts!("(" join_ts!(0..nbr_elements, i, Ti(i), separator: ",") ")");
     let tuple_ref = ts!("(" join_ts!(0..nbr_elements, i, "&'a" Ti(i), separator: ",") ")");
@@ -462,29 +457,27 @@ fn impl_mutator_trait(tb: &mut TokenBuilder, nbr_elements: usize) {
             &self,
             step: &mut Self::ArbitraryStep,
             max_cplx: f64,
-        ) -> " cm.Option "<(T, Self::Cache)> {
+        ) -> " cm.Option "<(T, f64)> {
             if max_cplx < <Self as" cm.TupleMutator "<T , " cm.TupleN_ident "<" tuple_type_params "> > >::min_complexity(self) { 
                 return " cm.None " 
             }
             " // TODO: actually write something that is ordered_arbitrary sense here
             cm.Some "  (self.random_arbitrary(max_cplx))
         }
-        fn random_arbitrary(&self, max_cplx: f64) -> (T, Self::Cache) {"
+        fn random_arbitrary(&self, max_cplx: f64) -> (T, f64) {"
             join_ts!(0..nbr_elements, i,
                 "let mut" ti_value(i) ":" cm.Option "<_> =" cm.None ";"
-                "let mut" ti_cache(i) ":" cm.Option "<_> =" cm.None ";"
             )
             "let mut indices = ( 0 .." nbr_elements ").collect::<" cm.Vec "<_>>();"
             "self.rng.shuffle(&mut indices);"
-            "let mut cplx = 0.0;
+            "let mut sum_cplx = 0.0;
             for idx in indices.iter() {
                 match idx {"
                 join_ts!(0..nbr_elements, i,
                     i "=> {
-                        let (value, cache) = self." mutator_i(i) ".random_arbitrary(max_cplx - cplx);
-                        cplx += self." mutator_i(i) ".complexity(&value, &cache);
-                        " ti_value(i) "= " cm.Some "(value);
-                        " ti_cache(i) "= " cm.Some "(cache);
+                        let (value, cplx) = self." mutator_i(i) ".random_arbitrary(max_cplx - sum_cplx);
+                        " ti_value(i) " = Some(value);
+                        sum_cplx += cplx;
                     }"
                 )
                     "_ => unreachable!() ,
@@ -498,22 +491,17 @@ fn impl_mutator_trait(tb: &mut TokenBuilder, nbr_elements: usize) {
                     , separator:",")
                     ")
                 ),
-                Self::Cache {"
-                    join_ts!(0..nbr_elements, i,
-                        ti(i) ":" ti_cache(i) ".unwrap() ,"
-                    )
-                    "cplx,
-                }
+                sum_cplx,
             )
         }
 
         fn ordered_mutate<'a>(
             &'a self,
             value: " tuple_mut ",
-            cache: &'a mut Self::Cache,
+            cache: &'a Self::Cache,
             step: &'a mut Self::MutationStep,
             max_cplx: f64,
-        ) -> " cm.Option "<Self::UnmutateToken> {
+        ) -> " cm.Option "<(Self::UnmutateToken, f64)> {
             if max_cplx < <Self as" cm.TupleMutator "<T , " cm.TupleN_ident "<" tuple_type_params "> > >::min_complexity(self) { return " cm.None " }
             if step.inner.is_empty() {
                 return " cm.None ";
@@ -526,19 +514,16 @@ fn impl_mutator_trait(tb: &mut TokenBuilder, nbr_elements: usize) {
             match step.inner[orig_step % step.inner.len()] {"
             join_ts!(0..nbr_elements, i,
                 "InnerMutationStep::" Ti(i) "=> {
-                    let current_field_cplx = self." mutator_i(i) ".complexity(value." i ", &cache." ti(i) ");
-                    let max_field_cplx = max_cplx - current_cplx + current_field_cplx;
-                    if let " cm.Some "(token) =
+                    let old_field_cplx = self." mutator_i(i) ".complexity(value." i ", &cache." ti(i) ");
+                    let max_field_cplx = max_cplx - current_cplx + old_field_cplx;
+                    if let " cm.Some "((token, new_field_cplx)) =
                         self." mutator_i(i) "
-                            .ordered_mutate(value." i ", &mut cache." ti(i) ", &mut step." ti(i) ", max_field_cplx)
+                            .ordered_mutate(value." i ", &cache." ti(i) ", &mut step." ti(i) ", max_field_cplx)
                     {
-                        let new_field_complexity = self." mutator_i(i) ".complexity(value." i ", &cache." ti(i) ");
-                        cache.cplx = cache.cplx - current_field_cplx + new_field_complexity;
-                        return " cm.Some "(Self::UnmutateToken {
+                        return " cm.Some "((Self::UnmutateToken {
                             " ti(i) ": " cm.Some "(token),
-                            cplx: current_cplx,
                             ..Self::UnmutateToken::default()
-                        });
+                        }, current_cplx - old_field_cplx + new_field_cplx));
                     } else {
                         inner_step_to_remove = orig_step % step.inner.len();
                     }
@@ -551,33 +536,29 @@ fn impl_mutator_trait(tb: &mut TokenBuilder, nbr_elements: usize) {
         "
         // TODO!
         "
-        fn random_mutate<'a>(&'a self, value: " tuple_mut ", cache: &'a mut Self::Cache, max_cplx: f64, ) -> Self::UnmutateToken {
+        fn random_mutate<'a>(&'a self, value: " tuple_mut ", cache: &'a Self::Cache, max_cplx: f64, ) -> (Self::UnmutateToken, f64) {
             let current_cplx = " SelfAsTupleMutator "::complexity(self, " TupleNAsRefTypes "::get_ref_from_mut(&value), cache);
             match self.rng.usize(.." nbr_elements ") {"
                 join_ts!(0..nbr_elements, i,
                     i "=> {
-                        let current_field_cplx = self." mutator_i(i) ".complexity(value." i ", &cache." ti(i) ");
-                        let max_field_cplx = max_cplx - current_cplx + current_field_cplx;
-                        let token = self." mutator_i(i) "
-                            .random_mutate(value." i ", &mut cache." ti(i) ", max_field_cplx) ;
-                    
-                        let new_field_complexity = self." mutator_i(i) ".complexity(value." i ", &cache." ti(i) ");
-                        cache.cplx = cache.cplx - current_field_cplx + new_field_complexity;
-                        return Self::UnmutateToken {
+                        let old_field_cplx = self." mutator_i(i) ".complexity(value." i ", &cache." ti(i) ");
+                        let max_field_cplx = max_cplx - current_cplx + old_field_cplx;
+                        let (token, new_field_cplx) = self." mutator_i(i) "
+                            .random_mutate(value." i ", &cache." ti(i) ", max_field_cplx) ;
+                        
+                        return (Self::UnmutateToken {
                             " ti(i) ": " cm.Some "(token),
-                            cplx: current_cplx,
                             ..Self::UnmutateToken::default()
-                        };
+                        },  current_cplx - old_field_cplx + new_field_cplx);
                     }"
                 )
                 "_ => unreachable!() ,
             }
         }
-        fn unmutate<'a>(&'a self, value: " tuple_mut ", cache: &'a mut Self::Cache, t: Self::UnmutateToken) {
-            cache.cplx = t.cplx;"
+        fn unmutate<'a>(&'a self, value: " tuple_mut ", t: Self::UnmutateToken) {"
             join_ts!(0..nbr_elements, i,
                 "if let" cm.Some "(subtoken) = t." ti(i) "{
-                    self. " mutator_i(i) ".unmutate(value." i ", &mut cache. " ti(i) " , subtoken);
+                    self. " mutator_i(i) ".unmutate(value." i ", subtoken);
                 }"
             )
         "}
@@ -1196,8 +1177,6 @@ impl<T, T0, T1, M0, M1> fuzzcheck_mutators::TupleMutator<T, Tuple2<T0, T1> > for
                     self.mutator_0
                         .ordered_mutate(value.0, &mut cache.t0, &mut step.t0, max_field_cplx)
                 {
-                    let new_field_complexity = self.mutator_0.complexity(value.0, &cache.t0);
-                    cache.cplx = cache.cplx - current_field_cplx + new_field_complexity;
                     return ::std::option::Option::Some(Self::UnmutateToken {
                         t0: ::std::option::Option::Some(token),
                         cplx: current_cplx,
@@ -1214,8 +1193,6 @@ impl<T, T0, T1, M0, M1> fuzzcheck_mutators::TupleMutator<T, Tuple2<T0, T1> > for
                     self.mutator_1
                         .ordered_mutate(value.1, &mut cache.t1, &mut step.t1, max_field_cplx)
                 {
-                    let new_field_complexity = self.mutator_1.complexity(value.1, &cache.t1);
-                    cache.cplx = cache.cplx - current_field_cplx + new_field_complexity;
                     return ::std::option::Option::Some(Self::UnmutateToken {
                         t1: ::std::option::Option::Some(token),
                         cplx: current_cplx,
@@ -1242,8 +1219,6 @@ impl<T, T0, T1, M0, M1> fuzzcheck_mutators::TupleMutator<T, Tuple2<T0, T1> > for
                 let current_field_cplx = self.mutator_0.complexity(value.0, &cache.t0);
                 let max_field_cplx = max_cplx - current_cplx + current_field_cplx;
                 let token = self.mutator_0.random_mutate(value.0, &mut cache.t0, max_field_cplx);
-                let new_field_complexity = self.mutator_0.complexity(value.0, &cache.t0);
-                cache.cplx = cache.cplx - current_field_cplx + new_field_complexity;
                 return Self::UnmutateToken {
                     t0: ::std::option::Option::Some(token),
                     cplx: current_cplx,
@@ -1254,8 +1229,6 @@ impl<T, T0, T1, M0, M1> fuzzcheck_mutators::TupleMutator<T, Tuple2<T0, T1> > for
                 let current_field_cplx = self.mutator_1.complexity(value.1, &cache.t1);
                 let max_field_cplx = max_cplx - current_cplx + current_field_cplx;
                 let token = self.mutator_1.random_mutate(value.1, &mut cache.t1, max_field_cplx);
-                let new_field_complexity = self.mutator_1.complexity(value.1, &cache.t1);
-                cache.cplx = cache.cplx - current_field_cplx + new_field_complexity;
                 return Self::UnmutateToken {
                     t1: ::std::option::Option::Some(token),
                     cplx: current_cplx,
@@ -1290,18 +1263,15 @@ impl<T, T0, T1, M0, M1> fuzzcheck_mutators::TupleMutator<T, Tuple2<T0, T1> > for
         let generated = tb.end().to_string();
 
         let expected = r#"
-#[derive(::std::clone::Clone)]
 pub struct Cache<T0, T1> {
     t0: T0,
     t1: T1,
     cplx: f64
 }
-#[derive(::std::clone::Clone)]
 pub enum InnerMutationStep {
     T0,
     T1
 }
-#[derive(::std::clone::Clone)]
 pub struct MutationStep<T0, T1> {
     t0: T0,
     t1: T1,
@@ -1309,7 +1279,6 @@ pub struct MutationStep<T0, T1> {
     inner: ::std::vec::Vec<InnerMutationStep>
 }
 
-#[derive(::std::clone::Clone)]
 pub struct ArbitraryStep<T0, T1> {
     t0: T0,
     t1: T1
@@ -1437,5 +1406,14 @@ where
         .to_string();
 
         assert_eq!(generated, expected, "\n\n{} \n\n{}", generated, expected);
+    }
+
+    #[test]
+    fn test_make_basic_tuple_mutator() {
+        let mut tb = TokenBuilder::new();
+        super::make_basic_tuple_mutator(&mut tb, 2);
+        let generated = tb.end();
+        eprintln!("\n\n{}\n\n", generated);
+        assert!(false);
     }
 }

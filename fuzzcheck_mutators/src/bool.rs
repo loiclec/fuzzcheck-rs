@@ -13,7 +13,6 @@ impl DefaultMutator for bool {
     }
 }
 
-#[derive(Clone)]
 pub enum ArbitraryStep {
     Never = 0,
     Once = 1,
@@ -25,6 +24,7 @@ impl Default for ArbitraryStep {
     }
 }
 
+const BOOL_COMPLEXITY: f64 = 1.0;
 const INITIAL_MUTATION_STEP: bool = false;
 
 impl Mutator<bool> for BoolMutator {
@@ -38,11 +38,11 @@ impl Mutator<bool> for BoolMutator {
     }
 
     fn max_complexity(&self) -> f64 {
-        1.0
+        BOOL_COMPLEXITY
     }
 
     fn min_complexity(&self) -> f64 {
-        1.0
+        BOOL_COMPLEXITY
     }
 
     fn validate_value(&self, _value: &bool) -> Option<(Self::Cache, Self::MutationStep)> {
@@ -50,53 +50,53 @@ impl Mutator<bool> for BoolMutator {
     }
 
     fn complexity(&self, _value: &bool, _cache: &Self::Cache) -> f64 {
-        1.0
+        BOOL_COMPLEXITY
     }
 
-    fn ordered_arbitrary(&self, step: &mut Self::ArbitraryStep, max_cplx: f64) -> Option<(bool, Self::Cache)> {
+    fn ordered_arbitrary(&self, step: &mut Self::ArbitraryStep, max_cplx: f64) -> Option<(bool, f64)> {
         if max_cplx < self.min_complexity() {
             return None;
         }
         match step {
             ArbitraryStep::Never => {
                 *step = ArbitraryStep::Once;
-                Some((false, ()))
+                Some((false, BOOL_COMPLEXITY))
             }
             ArbitraryStep::Once => {
                 *step = ArbitraryStep::Twice;
-                Some((true, ()))
+                Some((true, BOOL_COMPLEXITY))
             }
             ArbitraryStep::Twice => None,
         }
     }
 
-    fn random_arbitrary(&self, _max_cplx: f64) -> (bool, Self::Cache) {
-        (self.rng.bool(), ())
+    fn random_arbitrary(&self, _max_cplx: f64) -> (bool, f64) {
+        (self.rng.bool(), BOOL_COMPLEXITY)
     }
 
     fn ordered_mutate(
         &self,
         value: &mut bool,
-        _cache: &mut Self::Cache,
+        _cache: &Self::Cache,
         step: &mut Self::MutationStep,
         max_cplx: f64,
-    ) -> Option<Self::UnmutateToken> {
+    ) -> Option<(Self::UnmutateToken, f64)> {
         if max_cplx < self.min_complexity() {
             return None;
         }
         if !*step {
             *step = !*step;
-            Some(std::mem::replace(value, !*value))
+            Some((std::mem::replace(value, !*value), BOOL_COMPLEXITY))
         } else {
             None
         }
     }
 
-    fn random_mutate(&self, value: &mut bool, _cache: &mut Self::Cache, _max_cplx: f64) -> Self::UnmutateToken {
-        std::mem::replace(value, !*value)
+    fn random_mutate(&self, value: &mut bool, _cache: &Self::Cache, _max_cplx: f64) -> (Self::UnmutateToken, f64) {
+        (std::mem::replace(value, !*value), BOOL_COMPLEXITY)
     }
 
-    fn unmutate(&self, value: &mut bool, _cache: &mut Self::Cache, t: Self::UnmutateToken) {
+    fn unmutate(&self, value: &mut bool, t: Self::UnmutateToken) {
         *value = t;
     }
 }

@@ -51,7 +51,7 @@ impl<T: Clone, M: Mutator<T>> Mutator<Box<T>> for BoxMutator<T, M> {
         self.mutator.complexity(value, cache)
     }
 
-    fn ordered_arbitrary(&self, step: &mut Self::ArbitraryStep, max_cplx: f64) -> Option<(Box<T>, Self::Cache)> {
+    fn ordered_arbitrary(&self, step: &mut Self::ArbitraryStep, max_cplx: f64) -> Option<(Box<T>, f64)> {
         if let Some((value, cache)) = self.mutator.ordered_arbitrary(step, max_cplx) {
             Some((Box::new(value), cache))
         } else {
@@ -59,7 +59,7 @@ impl<T: Clone, M: Mutator<T>> Mutator<Box<T>> for BoxMutator<T, M> {
         }
     }
 
-    fn random_arbitrary(&self, max_cplx: f64) -> (Box<T>, Self::Cache) {
+    fn random_arbitrary(&self, max_cplx: f64) -> (Box<T>, f64) {
         let (value, cache) = self.mutator.random_arbitrary(max_cplx);
         (Box::new(value), cache)
     }
@@ -67,19 +67,19 @@ impl<T: Clone, M: Mutator<T>> Mutator<Box<T>> for BoxMutator<T, M> {
     fn ordered_mutate(
         &self,
         value: &mut Box<T>,
-        cache: &mut Self::Cache,
+        cache: &Self::Cache,
         step: &mut Self::MutationStep,
         max_cplx: f64,
-    ) -> Option<Self::UnmutateToken> {
+    ) -> Option<(Self::UnmutateToken, f64)> {
         self.mutator.ordered_mutate(value, cache, step, max_cplx)
     }
 
-    fn random_mutate(&self, value: &mut Box<T>, cache: &mut Self::Cache, max_cplx: f64) -> Self::UnmutateToken {
+    fn random_mutate(&self, value: &mut Box<T>, cache: &Self::Cache, max_cplx: f64) -> (Self::UnmutateToken, f64) {
         self.mutator.random_mutate(value, cache, max_cplx)
     }
 
-    fn unmutate(&self, value: &mut Box<T>, cache: &mut Self::Cache, t: Self::UnmutateToken) {
-        self.mutator.unmutate(value, cache, t)
+    fn unmutate(&self, value: &mut Box<T>, t: Self::UnmutateToken) {
+        self.mutator.unmutate(value, t)
     }
 }
 

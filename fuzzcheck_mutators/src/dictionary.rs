@@ -2,7 +2,7 @@ use crate::fuzzcheck_traits::Mutator;
 
 pub struct DictionaryMutator<T: Clone, M: Mutator<T>> {
     m: M,
-    dictionary: Vec<(T, <M as Mutator<T>>::Cache)>,
+    dictionary: Vec<(T, f64)>,
     rng: fastrand::Rng,
 }
 impl<T: Clone, M: Mutator<T>> DictionaryMutator<T, M> {
@@ -10,7 +10,8 @@ impl<T: Clone, M: Mutator<T>> DictionaryMutator<T, M> {
         let dictionary = dictionary
             .filter_map(|v| {
                 if let Some((cache, _)) = value_mutator.validate_value(&v) {
-                    Some((v, cache))
+                    let complexity = value_mutator.complexity(&v, &cache);
+                    Some((v, complexity))
                 } else {
                     None
                 }
@@ -24,7 +25,6 @@ impl<T: Clone, M: Mutator<T>> DictionaryMutator<T, M> {
     }
 }
 
-#[derive(Clone)]
 pub struct MutationStep<T> {
     idx: usize,
     wrapped: T,
@@ -36,10 +36,10 @@ impl<T> MutationStep<T> {
 }
 
 pub enum UnmutateToken<T: Clone, M: Mutator<T>> {
-    Replace(T, M::Cache),
+    Replace(T),
     Unmutate(M::UnmutateToken),
 }
-#[derive(Clone)]
+
 pub enum ArbitraryStep<T> {
     Dictionary(usize),
     Wrapped(T),
@@ -68,7 +68,7 @@ impl<T: Clone, M: Mutator<T>> Mutator<T> for DictionaryMutator<T, M> {
         }
     }
 
-    fn ordered_arbitrary(&self, step: &mut Self::ArbitraryStep, max_cplx: f64) -> Option<(T, Self::Cache)> {
+    fn ordered_arbitrary(&self, step: &mut Self::ArbitraryStep, max_cplx: f64) -> Option<(T, f64)> {
         match step {
             ArbitraryStep::Dictionary(inner_step) => {
                 if *inner_step < self.dictionary.len() {
@@ -88,7 +88,7 @@ impl<T: Clone, M: Mutator<T>> Mutator<T> for DictionaryMutator<T, M> {
         }
     }
 
-    fn random_arbitrary(&self, max_cplx: f64) -> (T, Self::Cache) {
+    fn random_arbitrary(&self, max_cplx: f64) -> (T, f64) {
         let (v, c) = if !self.dictionary.is_empty() && self.rng.usize(..20) == 0 {
             let idx = self.rng.usize(..self.dictionary.len());
             self.dictionary[idx].clone()
@@ -113,45 +113,43 @@ impl<T: Clone, M: Mutator<T>> Mutator<T> for DictionaryMutator<T, M> {
     fn ordered_mutate(
         &self,
         value: &mut T,
-        cache: &mut Self::Cache,
+        cache: &Self::Cache,
         step: &mut Self::MutationStep,
         max_cplx: f64,
-    ) -> Option<Self::UnmutateToken> {
+    ) -> Option<(Self::UnmutateToken, f64)> {
         if step.idx < self.dictionary.len() {
-            let (new_value, new_cache) = self.dictionary[step.idx].clone();
+            let (new_value, new_value_cplx) = self.dictionary[step.idx].clone();
             step.idx += 1;
             let old_value = std::mem::replace(value, new_value);
-            let old_cache = std::mem::replace(cache, new_cache);
 
-            Some(UnmutateToken::Replace(old_value, old_cache))
+            Some((UnmutateToken::Replace(old_value), new_value_cplx))
         } else {
             self.m
                 .ordered_mutate(value, cache, &mut step.wrapped, max_cplx)
-                .map(self::UnmutateToken::Unmutate)
+                .map(|(t, c)| (self::UnmutateToken::Unmutate(t), c))
         }
     }
 
-    fn random_mutate(&self, value: &mut T, cache: &mut Self::Cache, max_cplx: f64) -> Self::UnmutateToken {
+    fn random_mutate(&self, value: &mut T, cache: &Self::Cache, max_cplx: f64) -> (Self::UnmutateToken, f64) {
         if !self.dictionary.is_empty() && self.rng.usize(..20) == 0 {
             let idx = self.rng.usize(..self.dictionary.len());
-            let (new_value, new_cache) = self.dictionary[idx].clone();
+            let (new_value, new_value_cplx) = self.dictionary[idx].clone();
 
             let old_value = std::mem::replace(value, new_value);
-            let old_cache = std::mem::replace(cache, new_cache);
 
-            UnmutateToken::Replace(old_value, old_cache)
+            (UnmutateToken::Replace(old_value), new_value_cplx)
         } else {
-            self::UnmutateToken::Unmutate(self.m.random_mutate(value, cache, max_cplx))
+            let (t, cplx) = self.m.random_mutate(value, cache, max_cplx);
+            (self::UnmutateToken::Unmutate(t), cplx)
         }
     }
 
-    fn unmutate(&self, value: &mut T, cache: &mut Self::Cache, t: Self::UnmutateToken) {
+    fn unmutate(&self, value: &mut T, t: Self::UnmutateToken) {
         match t {
-            UnmutateToken::Replace(new_value, new_cache) => {
+            UnmutateToken::Replace(new_value) => {
                 let _ = std::mem::replace(value, new_value);
-                let _ = std::mem::replace(cache, new_cache);
             }
-            UnmutateToken::Unmutate(t) => self.m.unmutate(value, cache, t),
+            UnmutateToken::Unmutate(t) => self.m.unmutate(value, t),
         }
     }
 }

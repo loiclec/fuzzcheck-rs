@@ -268,7 +268,6 @@ pub(crate) struct Common {
     Some: TokenStream,
     ti: Box<dyn (Fn(usize) -> Ident)>,
     ti_value: Box<dyn (Fn(usize) -> Ident)>,
-    ti_cache: Box<dyn (Fn(usize) -> Ident)>,
     Ti: Box<dyn (Fn(usize) -> Ident)>,
     Tuplei: Box<dyn (Fn(usize) -> TokenStream)>,
     TupleMutator: TokenStream,
@@ -289,7 +288,6 @@ impl Common {
         let fuzzcheck_mutators_crate = ts!("fuzzcheck_mutators");
         let ti = Box::new(|i: usize| ident!("t" i));
         let ti_value = Box::new(|i: usize| ident!("t" i "_value"));
-        let ti_cache = Box::new(|i: usize| ident!("t" i "_cache"));
         let Ti = Box::new(|i: usize| ident!("T" i));
         let TupleMutator = ts!(fuzzcheck_mutators_crate "::TupleMutator");
         let Option = ts!("::std::option::Option");
@@ -330,7 +328,6 @@ impl Common {
             Some: some,
             ti,
             ti_value,
-            ti_cache,
             Ti,
             Tuplei,
             TupleMutator,
