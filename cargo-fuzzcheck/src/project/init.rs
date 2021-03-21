@@ -177,7 +177,9 @@ extern crate decent_serde_json_alternative;
 // re-export fuzzcheck_serializer so it can be used by the fuzz targets
 pub extern crate fuzzcheck_serializer;
 
+use fuzzcheck_serializer::decent_serde_json_alternative;
 use decent_serde_json_alternative::{{FromJson, ToJson}};
+
 use fuzzcheck_mutators::DefaultMutator;
 
 #[derive(Clone, FromJson, ToJson, DefaultMutator)]
@@ -258,16 +260,10 @@ publish = false
 [package.metadata]
 cargo-fuzzcheck = true
 
-# [dependencies.{library}]
-# path = "../.."
-# Managed by cargo-fuzzcheck
-
-# [dependencies.{library}-instrumented-fuzz]
-# path = "../instrumented"
-# Managed by cargo-fuzzcheck
-
 [dependencies.fuzzcheck]
 {fuzzcheck_dep}
+default_features = false
+features = []
 
 # Prevent this from interfering with workspaces
 [workspace]
@@ -286,13 +282,6 @@ panic = 'abort'
 overflow-checks = false
 incremental = false
 
-[profile.release.package.libc]
-opt-level = 0
-codegen-units = 16
-
-[profile.release.package.getopts]
-opt-level = 0
-codegen-units = 16
 "##,
             library = library,
             fuzzcheck_dep = fuzzcheck_dep,
@@ -320,16 +309,11 @@ path = "../.."
 
 [dependencies.fuzzcheck_mutators]
 {fuzzcheck_mutators_dep}
+features = ["compile_fuzzcheck_traits"]
 
 [dependencies.fuzzcheck_serializer]
 {fuzzcheck_serializer_dep}
-features = ["serde-json-alternative"]
-
-[dependencies.json]
-version = "0.12"
-
-[dependencies.decent-serde-json-alternative]
-version = "0.4.0"
+features = ["compile_fuzzcheck_traits", "serde-json-alternative"]
 
 # Prevent this from interfering with workspaces
 [workspace]
@@ -339,24 +323,8 @@ members = ["."]
 debug = false
 opt-level = 3
 codegen-units = 1
-overflow-checks = true
+overflow-checks = false
 incremental = false
-
-[profile.release.package.fuzzcheck_mutators_derive]
-opt-level = 0
-codegen-units = 16
-
-[profile.release.package.proc-macro2]
-opt-level = 0
-codegen-units = 16
-
-[profile.release.package.decent-synquote-alternative]
-opt-level = 0
-codegen-units = 16
-
-[profile.release.package.decent-serde-json-derive-alternative]
-opt-level = 0
-codegen-units = 16
 "##,
             library = library,
             fuzzcheck_mutators_dep = fuzzcheck_mutators_dep,

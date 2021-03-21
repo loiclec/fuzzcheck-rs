@@ -1,4 +1,4 @@
-use fuzzcheck_traits::Mutator;
+use crate::fuzzcheck_traits::Mutator;
 
 pub struct DictionaryMutator<T: Clone, M: Mutator<T>> {
     m: M,

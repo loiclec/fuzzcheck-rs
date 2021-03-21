@@ -12,7 +12,9 @@ categories = ["development-tools"]
 links = "fuzzcheck_traits"
 
 [features]
+default = ["compile-fuzzcheck-traits"]
 ui = ["base64", "json", "decent-serde-json-alternative", "fuzzcheck_common/ui"]
+compile-fuzzcheck-traits = ["fuzzcheck_traits"]
 
 [dependencies.base64]
 version = "0.13"
@@ -46,9 +48,13 @@ version = "0.2"
 path = "../fuzzcheck_common"
 version = "0.6.0"
 
-[target.'cfg(not(fuzzcheck))'.dependencies.fuzzcheck_traits]
+# [target.'cfg(not(fuzzcheck))'.dependencies.fuzzcheck_traits]
+# path = "../fuzzcheck_traits"
+# version = "0.6.0"
+[dependencies.fuzzcheck_traits]
 path = "../fuzzcheck_traits"
 version = "0.6.0"
+optional = true
 
 [lib]
 name = "fuzzcheck"

@@ -26,7 +26,7 @@ mod test {
     #[test]
     fn test_compile() {
         let m = A::default_mutator();
-        let (_alue, _cache, _): (A, _, _) = m.random_arbitrary(10.0);
+        let (_alue, _cache): (A, _) = m.random_arbitrary(10.0);
 
         let m = X::default_mutator();
         let (value, _cache, _): (X, _, _) = m.random_arbitrary(10.0);

@@ -13,5 +13,8 @@ categories = ["development-tools"]
 proc-macro = true
 
 [dependencies]
-decent-synquote-alternative = "0.3"
+decent-synquote-alternative = { version = "0.3", package = "decent-synquote-alternative" }
 proc-macro2 = "1.0"
+
+[patch.crates-io]
+decent-synquote-alternative = { git = "file:///Users/loic/Documents/decent-synquote-alternative" }

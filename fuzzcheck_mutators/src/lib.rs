@@ -3,10 +3,18 @@
 #![feature(int_bits_const)]
 #![feature(arc_new_cyclic)]
 #![feature(assoc_char_funcs)]
+#![feature(type_alias_impl_trait)]
+#![feature(trivial_bounds)]
 
 pub extern crate fastrand;
 pub extern crate fuzzcheck_mutators_derive;
+
+#[cfg(feature = "compile_fuzzcheck_traits")]
 pub extern crate fuzzcheck_traits;
+
+#[cfg(feature = "fuzzcheck_traits_through_fuzzcheck")]
+pub use fuzzcheck::fuzzcheck_traits;
+
 pub use fuzzcheck_mutators_derive::*;
 
 mod alternation;
@@ -19,6 +27,7 @@ mod integer;
 pub mod map;
 mod never;
 mod option;
+pub mod proc_macro;
 mod tuples;
 mod unit;
 mod vector;
@@ -44,7 +53,7 @@ pub use crate::fixed_len_vector::FixedLenVecMutator;
 pub use crate::unit::*;
 pub use crate::vector::VecMutator;
 
-use fuzzcheck_traits::Mutator;
+use crate::fuzzcheck_traits::Mutator;
 use std::ops::Range;
 
 pub trait DefaultMutator: Clone {

@@ -93,7 +93,7 @@ pub(crate) fn make_mutator_type_and_impl(params: CreateWrapperMutatorParams) -> 
             ty_param.type_ident ":" cm.Clone "+ 'static ,"
         )
         join_ts!(&field_generic_mutators, field_mutator,
-            field_mutator.mutator_stream(&cm) ":" cm.fuzzcheck_mutator_traits_Mutator "<" field_mutator.field.ty "> ,"
+            field_mutator.mutator_stream(&cm) ":" cm.fuzzcheck_traits_Mutator "<" field_mutator.field.ty "> ,"
         )
     ));
 
@@ -146,7 +146,7 @@ pub(crate) fn make_mutator_type_and_impl(params: CreateWrapperMutatorParams) -> 
                 } else {
                     ts!("")
                 }
-                "<" InnerMutator " as " cm.fuzzcheck_mutator_traits_Mutator "<" type_ident type_generics.removing_bounds_and_eq_type() "> >::" helper_type
+                "<" InnerMutator " as " cm.fuzzcheck_traits_Mutator "<" type_ident type_generics.removing_bounds_and_eq_type() "> >::" helper_type
                 if settings.recursive {
                     ">"
                 } else {
@@ -155,7 +155,7 @@ pub(crate) fn make_mutator_type_and_impl(params: CreateWrapperMutatorParams) -> 
                 ",
             }
             impl " NameMutator_generics.removing_eq_type() ident!(NameMutator helper_type) NameMutator_generics.removing_bounds_and_eq_type() NameMutator_where_clause "{
-                fn new(inner: <" InnerMutator " as " cm.fuzzcheck_mutator_traits_Mutator "<" type_ident type_generics.removing_bounds_and_eq_type() "> >::" helper_type") -> Self {"
+                fn new(inner: <" InnerMutator " as " cm.fuzzcheck_traits_Mutator "<" type_ident type_generics.removing_bounds_and_eq_type() "> >::" helper_type") -> Self {"
                     "Self {
                         inner: "  if settings.recursive { ts!(cm.Box "::new") } else { ts!("") }
                             "(inner)"
@@ -177,7 +177,7 @@ pub(crate) fn make_mutator_type_and_impl(params: CreateWrapperMutatorParams) -> 
         )
     };
 
-    let InnerMutator_as_Mutator = ts!("<" InnerMutator "as" cm.fuzzcheck_mutator_traits_Mutator "<" type_ident type_generics.removing_bounds_and_eq_type() "> >" );
+    let InnerMutator_as_Mutator = ts!("<" InnerMutator "as" cm.fuzzcheck_traits_Mutator "<" type_ident type_generics.removing_bounds_and_eq_type() "> >" );
 
     ts!(
     visibility "struct" NameMutator NameMutator_generics NameMutator_where_clause
@@ -202,7 +202,7 @@ pub(crate) fn make_mutator_type_and_impl(params: CreateWrapperMutatorParams) -> 
             default_impl
         "
         }
-        impl " NameMutator_generics cm.fuzzcheck_mutator_traits_Mutator "<" type_ident type_generics.removing_bounds_and_eq_type() "> 
+        impl " NameMutator_generics cm.fuzzcheck_traits_Mutator "<" type_ident type_generics.removing_bounds_and_eq_type() "> 
             for " NameMutator NameMutator_generics.removing_bounds_and_eq_type() NameMutator_where_clause "
         {
             type Cache =" NameMutatorCache NameMutator_generics.removing_bounds_and_eq_type() ";
@@ -299,7 +299,7 @@ pub(crate) fn make_mutator_type_and_impl(params: CreateWrapperMutatorParams) -> 
                                 ts!("<" field_mutator.field.ty "as" cm.DefaultMutator ">::default_mutator()")
                             }
                             FieldMutatorKind::Prescribed(_, Some(init)) => {
-                                ts!(init)
+                                ts!("{" init "}")
                             }
                             FieldMutatorKind::Prescribed(mutator, None) => {
                                 ts!("<" mutator "as" cm.Default ">::default()")

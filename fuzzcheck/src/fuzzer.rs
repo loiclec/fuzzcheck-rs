@@ -523,6 +523,7 @@ where
 
     let mut fuzzer = Fuzzer::new(test, mutator, args.clone(), World::new(serializer, args));
     unsafe { fuzzer.state.set_up_signal_handler() };
+
     match command {
         FuzzerCommand::Fuzz => fuzzer.main_loop()?,
         FuzzerCommand::MinifyInput => fuzzer.input_minifying_loop()?,

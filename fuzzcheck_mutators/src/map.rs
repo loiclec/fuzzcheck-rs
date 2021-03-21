@@ -1,8 +1,8 @@
 use std::marker::PhantomData;
 
-use fuzzcheck_traits::Mutator;
+use crate::fuzzcheck_traits::Mutator;
 
-struct MapMutator<T, U, Mut, Parse, Map>
+pub struct MapMutator<T, U, Mut, Parse, Map>
 where
     T: Clone,
     U: Clone,
@@ -15,14 +15,31 @@ where
     parse: Parse,
     _phantom: PhantomData<(T, U)>,
 }
+impl<T, U, Mut, Parse, Map> MapMutator<T, U, Mut, Parse, Map>
+where
+    T: Clone,
+    U: Clone,
+    Mut: Mutator<T>,
+    Parse: Fn(&U) -> Option<T>,
+    Map: Fn(&T) -> U,
+{
+    pub fn new(mutator: Mut, map: Map, parse: Parse) -> Self {
+        Self {
+            mutator,
+            map,
+            parse,
+            _phantom: PhantomData,
+        }
+    }
+}
 
 #[derive(Clone)]
-struct Cache<T, C> {
+pub struct Cache<T, C> {
     value: T,
     cache: C,
 }
 
-struct UnmutateToken<V, T> {
+pub struct UnmutateToken<V, T> {
     value: V,
     inner: T,
 }

@@ -1,6 +1,6 @@
 use std::{cmp::Ordering, marker::PhantomData};
 
-use fuzzcheck_traits::Mutator;
+use crate::fuzzcheck_traits::Mutator;
 
 pub struct AlternationMutator<T, M>
 where

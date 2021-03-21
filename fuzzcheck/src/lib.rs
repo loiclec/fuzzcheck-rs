@@ -8,6 +8,8 @@
 #![feature(thread_local)]
 #![feature(test)]
 
+pub extern crate fuzzcheck_traits;
+
 mod nix_subset;
 
 mod code_coverage_sensor;
@@ -24,7 +26,6 @@ use fuzzcheck_common::arg::{
     CORPUS_SIZE_FLAG, INPUT_FILE_FLAG, IN_CORPUS_FLAG,
 };
 
-extern crate fuzzcheck_traits;
 use fuzzcheck_traits::*;
 
 use std::borrow::Borrow;
@@ -248,15 +249,6 @@ impl<T: Clone, Mut: Mutator<T>> FuzzedInput<T, Mut> {
             value,
             cache,
             mutation_step,
-        }
-    }
-    pub fn default(m: &mut Mut) -> Option<Self> {
-        let mut step = m.default_arbitrary_step();
-        if let Some((value, _)) = m.ordered_arbitrary(&mut step, 1.0) {
-            let (cache, step) = m.validate_value(&value).unwrap();
-            Some(Self::new(value, cache, step))
-        } else {
-            None
         }
     }
 

@@ -9,7 +9,11 @@
 //! copy/pasting the bytes from/to the files. The extension is customizable.
 //!
 
+#[cfg(feature = "compile_fuzzcheck_traits")]
 extern crate fuzzcheck_traits;
+
+#[cfg(feature = "fuzzcheck_traits_through_fuzzcheck")]
+use fuzzcheck::fuzzcheck_traits;
 
 #[cfg(feature = "serde-json")]
 mod serde_serializer;
@@ -18,6 +22,10 @@ pub use serde_serializer::SerdeSerializer;
 
 #[cfg(feature = "serde-json-alternative")]
 mod json_serializer;
+#[cfg(feature = "serde-json-alternative")]
+pub use decent_serde_json_alternative;
+#[cfg(feature = "serde-json-alternative")]
+pub use json;
 #[cfg(feature = "serde-json-alternative")]
 pub use json_serializer::JsonSerializer;
 

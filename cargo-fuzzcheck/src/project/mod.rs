@@ -378,7 +378,7 @@ impl Default for FullConfig {
         FullConfig {
             command: FullFuzzerCommand::Fuzz,
             coverage_level: CoverageLevel::Four,
-            trace_compares: true,
+            trace_compares: false,
             stack_depth: false,
             instrumented_default_features: true,
             non_instrumented_default_features: true,

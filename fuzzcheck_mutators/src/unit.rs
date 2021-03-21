@@ -1,6 +1,6 @@
 use std::marker::PhantomData;
 
-use fuzzcheck_traits::Mutator;
+use crate::fuzzcheck_traits::Mutator;
 
 use crate::DefaultMutator;
 

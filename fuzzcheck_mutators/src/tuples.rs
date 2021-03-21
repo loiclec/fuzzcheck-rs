@@ -1,6 +1,7 @@
 use std::marker::PhantomData;
 
-use fuzzcheck_traits::Mutator;
+use crate::fuzzcheck_traits;
+use crate::fuzzcheck_traits::Mutator;
 
 pub trait RefTypes {
     type Owned;
@@ -36,7 +37,7 @@ impl<T: 'static> TupleStructure<Tuple1<T>> for T {
 pub struct Tuple1Mutator<T, M>
 where
     T: ::std::clone::Clone,
-    M: ::fuzzcheck_traits::Mutator<T>,
+    M: fuzzcheck_traits::Mutator<T>,
 {
     pub mutator: M,
     _phantom: ::std::marker::PhantomData<(T, T)>,
@@ -44,7 +45,7 @@ where
 impl<T, M> Tuple1Mutator<T, M>
 where
     T: ::std::clone::Clone,
-    M: ::fuzzcheck_traits::Mutator<T>,
+    M: fuzzcheck_traits::Mutator<T>,
 {
     pub fn new(mutator: M) -> Self {
         Self {
@@ -57,7 +58,7 @@ where
 impl<T, M> Default for Tuple1Mutator<T, M>
 where
     T: ::std::clone::Clone,
-    M: ::fuzzcheck_traits::Mutator<T>,
+    M: fuzzcheck_traits::Mutator<T>,
     M: Default,
 {
     fn default() -> Self {
@@ -72,7 +73,7 @@ impl<T, U, M> TupleMutator<U, Tuple1<T>> for Tuple1Mutator<T, M>
 where
     U: TupleStructure<Tuple1<T>>,
     T: ::std::clone::Clone + 'static,
-    M: ::fuzzcheck_traits::Mutator<T>,
+    M: fuzzcheck_traits::Mutator<T>,
 {
     type Cache = M::Cache;
     type MutationStep = M::MutationStep;

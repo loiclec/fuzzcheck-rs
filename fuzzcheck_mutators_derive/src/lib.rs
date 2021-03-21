@@ -255,9 +255,8 @@ pub(crate) struct Common {
     Clone: TokenStream,
     Default: TokenStream,
     DefaultMutator: TokenStream,
-    fastrand: TokenStream,
     fastrand_Rng: TokenStream,
-    fuzzcheck_mutator_traits_Mutator: TokenStream,
+    // fuzzcheck_mutator_traits_Mutator: TokenStream,
     fuzzcheck_traits_Mutator: TokenStream,
     Mi_j: Box<dyn (Fn(usize, usize) -> Ident)>,
     Mi: Box<dyn (Fn(usize) -> Ident)>,
@@ -307,7 +306,7 @@ impl Common {
             Box::new(move |n: usize| ts!(fuzzcheck_mutators_crate "::" ident!("Tuple" n "Mutator")))
         };
 
-        let fuzzcheck_traits_Mutator = ts!("::fuzzcheck_traits::Mutator");
+        let fuzzcheck_traits_Mutator = ts!("fuzzcheck_mutators::fuzzcheck_traits::Mutator");
 
         let fastrand = ts!(fuzzcheck_mutators_crate "::fastrand");
         let fastrand_Rng = ts!(fastrand "::Rng");
@@ -318,9 +317,8 @@ impl Common {
             Clone: ts!("::std::clone::Clone"),
             Default: ts!("::std::default::Default"),
             DefaultMutator: ts!(fuzzcheck_mutators_crate "::DefaultMutator"),
-            fastrand,
             fastrand_Rng,
-            fuzzcheck_mutator_traits_Mutator: ts!(fuzzcheck_mutators_crate fuzzcheck_traits_Mutator),
+            // fuzzcheck_mutator_traits_Mutator: ts!(fuzzcheck_mutators_crate fuzzcheck_traits_Mutator),
             fuzzcheck_traits_Mutator,
             Mi_j: Box::new(|i, j| ident!("M" i "_" j)),
             Mi: Box::new(|i| ident!("M" i)),

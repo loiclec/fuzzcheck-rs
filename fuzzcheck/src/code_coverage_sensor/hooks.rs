@@ -68,8 +68,9 @@ unsafe fn return_address() -> usize {
     __return_address(0) as usize
 }
 
-#[thread_local]
-#[export_name = "__sancov_lowest_stack"]
+// TODO: reenable at some point
+// #[thread_local]
+// #[export_name = "__sancov_lowest_stack"]
 static mut LOWEST_STACK: libc::uintptr_t = usize::MAX;
 
 static START: Once = Once::new();

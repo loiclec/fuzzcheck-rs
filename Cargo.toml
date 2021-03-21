@@ -14,3 +14,8 @@ members = [
 exclude = [
     "usage_tests",
 ]
+
+[patch.crates-io]
+decent-synquote-alternative = { git = "file:///Users/loic/Documents/decent-synquote-alternative" }
+fastrand = { git = "https://github.com/loiclec/fastrand.git" }
+proc-macro2 = { path = "/Users/loic/Documents/proc-macro2" }

@@ -21,7 +21,7 @@ mod test {
     #[test]
     fn test_compile() {
         let m = X::<Vec<u8>>::default_mutator();
-        let (value, _cache, _step): (X<Vec<u8>>, _, _) = m.random_arbitrary(10.0);
+        let (value, _cache): (X<Vec<u8>>, _) = m.random_arbitrary(10.0);
 
         match value {
             X::A(_x) => {}

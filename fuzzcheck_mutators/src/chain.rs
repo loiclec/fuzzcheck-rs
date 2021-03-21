@@ -1,4 +1,4 @@
-// use fuzzcheck_traits::Mutator;
+// use crate::fuzzcheck_traits::Mutator;
 
 // #[derive(Default)]
 // pub struct ChainingMutator<M: Mutator> {

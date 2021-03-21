@@ -1,6 +1,9 @@
 extern crate decent_serde_json_alternative;
 extern crate json;
 
+// #[cfg(feature = "fuzzcheck_traits_through_fuzzcheck")]
+// use fuzzcheck::fuzzcheck_traits;
+
 use std::marker::PhantomData;
 
 /// `JsonSerializer<T>` uses `json` and `serde_json_alternative` to serialize the test
@@ -15,7 +18,7 @@ impl<S> Default for JsonSerializer<S> {
     }
 }
 
-impl<S> fuzzcheck_traits::Serializer for JsonSerializer<S>
+impl<S> crate::fuzzcheck_traits::Serializer for JsonSerializer<S>
 where
     S: decent_serde_json_alternative::FromJson + decent_serde_json_alternative::ToJson,
 {

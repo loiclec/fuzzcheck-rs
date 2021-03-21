@@ -1,4 +1,4 @@
-use fuzzcheck_traits::Mutator;
+use crate::fuzzcheck_traits::Mutator;
 
 // TODO: it is probably best to use an integer mutator and a map mutator than
 // require this trait?
