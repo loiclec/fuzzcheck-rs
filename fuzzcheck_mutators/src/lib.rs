@@ -24,7 +24,7 @@ mod dictionary;
 mod enums;
 mod fixed_len_vector;
 mod integer;
-// pub mod map;
+pub mod map;
 mod never;
 mod option;
 pub mod proc_macro;
@@ -41,6 +41,7 @@ pub use crate::never::*;
 pub use crate::option::OptionMutator;
 pub use crate::r#box::BoxMutator;
 pub use crate::tuples::{RefTypes, TupleMutator, TupleMutatorWrapper, TupleStructure};
+pub use map::MapMutator;
 
 pub use crate::enums::{BasicEnumMutator, BasicEnumStructure};
 

@@ -101,24 +101,24 @@ where
         cache: &Self::Cache,
         step: &mut Self::MutationStep,
         max_cplx: f64,
-    ) -> Option<Self::UnmutateToken> {
+    ) -> Option<(Self::UnmutateToken, f64)> {
         let mut inner_value = cache.value.clone();
-        if let Some(_) = self
+        if let Some((_, cplx)) = self
             .mutator
             .ordered_mutate(&mut inner_value, &cache.cache, step, max_cplx)
         {
             let old_value = std::mem::replace(value, (self.map)(inner_value));
-            Some(UnmutateToken { value: old_value })
+            Some((UnmutateToken { value: old_value }, cplx))
         } else {
             None
         }
     }
 
-    fn random_mutate(&self, value: &mut U, cache: &Self::Cache, max_cplx: f64) -> Self::UnmutateToken {
+    fn random_mutate(&self, value: &mut U, cache: &Self::Cache, max_cplx: f64) -> (Self::UnmutateToken, f64) {
         let mut inner_value = cache.value.clone();
-        let _ = self.mutator.random_mutate(&mut inner_value, &cache.cache, max_cplx);
+        let (_, cplx) = self.mutator.random_mutate(&mut inner_value, &cache.cache, max_cplx);
         let old_value = std::mem::replace(value, (self.map)(inner_value));
-        UnmutateToken { value: old_value }
+        (UnmutateToken { value: old_value }, cplx)
     }
 
     fn unmutate(&self, value: &mut U, t: Self::UnmutateToken) {
