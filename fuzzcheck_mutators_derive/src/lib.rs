@@ -279,6 +279,7 @@ pub(crate) struct Common {
     TupleStructure: TokenStream,
     UnitMutator: TokenStream,
     Vec: TokenStream,
+    VoseAlias: TokenStream,
     RecursiveMutator: TokenStream,
     Box: TokenStream,
 }
@@ -339,6 +340,7 @@ impl Common {
             TupleStructure,
             UnitMutator: ts!(fuzzcheck_mutators_crate "::UnitMutator"),
             Vec: ts!("::std::vec::Vec"),
+            VoseAlias: ts!(fuzzcheck_mutators_crate "::vose_alias::VoseAlias"),
             RecursiveMutator: ts!(fuzzcheck_mutators_crate "::fuzzcheck_traits::RecursiveMutator"),
             Box: ts!("::std::boxed::Box"),
         }

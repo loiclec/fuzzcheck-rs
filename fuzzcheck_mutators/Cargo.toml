@@ -34,8 +34,5 @@ version = "0.6.0"
 [dependencies.fastrand]
 version = "1.0"
 
-# [dependencies.proc-macro2]
-# version = "1.0"
-
 [patch.crates-io]
 decent-synquote-alternative = { git = "file:///Users/loic/Documents/decent-synquote-alternative" }

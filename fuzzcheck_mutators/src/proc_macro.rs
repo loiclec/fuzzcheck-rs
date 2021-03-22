@@ -3,7 +3,7 @@ extern crate self as fuzzcheck_mutators;
 
 use crate::fuzzcheck_traits;
 
-use fuzzcheck_mutators::{TupleStructure, VecMutator};
+use fuzzcheck_mutators::{VecMutator};
 use fuzzcheck_traits::RecurToMutator;
 use fuzzcheck_mutators::DefaultMutator;
 use fuzzcheck_mutators::{AlternationMutator, CharWithinRangeMutator};

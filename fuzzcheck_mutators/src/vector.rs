@@ -1,5 +1,5 @@
-use crate::fuzzcheck_traits::Mutator;
 use crate::DefaultMutator;
+use crate::{fuzzcheck_traits::Mutator, vose_alias::VoseAlias};
 use fastrand::Rng;
 
 use std::{
@@ -61,28 +61,14 @@ where
 
 pub struct MutationStep<S> {
     inner: Vec<S>,
-    element_step: usize,
-}
-impl<S> Default for MutationStep<S> {
-    fn default() -> Self {
-        Self {
-            inner: vec![],
-            element_step: 0,
-        }
-    }
+    dead_ends: Vec<bool>,
+    dead_end: bool,
 }
 
 pub struct VecMutatorCache<C> {
     inner: Vec<C>,
     sum_cplx: f64,
-}
-impl<C> Default for VecMutatorCache<C> {
-    fn default() -> Self {
-        Self {
-            inner: Vec::new(),
-            sum_cplx: 0.0,
-        }
-    }
+    alias: Option<VoseAlias>,
 }
 
 pub enum UnmutateVecToken<T: Clone, M: Mutator<T>> {
@@ -359,18 +345,31 @@ impl<T: Clone, M: Mutator<T>> Mutator<Vec<T>> for VecMutator<T, M> {
             inner_caches.push(cache);
             inner_steps.push(step);
         }
-        let sum_cplx = value
+
+        let cplxs = value
             .iter()
             .zip(inner_caches.iter())
-            .fold(0.0, |cplx, (v, cache)| cplx + self.m.complexity(&v, &cache));
+            .map(|(v, c)| self.m.complexity(&v, &c))
+            .collect::<Vec<_>>();
+
+        let sum_cplx = cplxs.iter().fold(0.0, |sum_cplx, c| sum_cplx + c);
+
+        let alias = if inner_caches.len() > 0 {
+            Some(VoseAlias::new(cplxs.into_iter().map(|c| (c / sum_cplx)).collect()))
+        } else {
+            None
+        };
 
         let cache = VecMutatorCache {
             inner: inner_caches,
             sum_cplx,
+            alias,
         };
+        let dead_ends = repeat(false).take(inner_steps.len()).collect();
         let step = MutationStep {
             inner: inner_steps,
-            element_step: 0,
+            dead_ends,
+            dead_end: false,
         };
 
         Some((cache, step))
@@ -444,7 +443,7 @@ impl<T: Clone, M: Mutator<T>> Mutator<Vec<T>> for VecMutator<T, M> {
         let current_cplx = self.complexity(value, cache);
         let spare_cplx = max_cplx - current_cplx;
 
-        let token = if value.is_empty() || self.rng.usize(0..20) == 0 {
+        let token = if value.is_empty() || step.dead_end || self.rng.usize(0..20) == 0 {
             // vector mutation
             match self.rng.usize(0..11) {
                 0..=3 => self.insert_element(value, current_cplx, spare_cplx),
@@ -455,10 +454,23 @@ impl<T: Clone, M: Mutator<T>> Mutator<Vec<T>> for VecMutator<T, M> {
                 _ => unreachable!(),
             }
         } else {
-            // element mutation
-            let idx = step.element_step % value.len();
-            step.element_step += 1;
-            self.mutate_element(value, cache, step, idx, current_cplx, spare_cplx)
+            // we know value is not empty, therefore the alias is Some
+            let alias = cache.alias.as_ref().unwrap();
+            let idx = loop {
+                let candidate = alias.sample();
+                if !step.dead_ends[candidate] {
+                    break candidate;
+                }
+            };
+            if let Some(x) = self.mutate_element(value, cache, step, idx, current_cplx, spare_cplx) {
+                Some(x)
+            } else {
+                step.dead_ends[idx] = true;
+                if !step.dead_ends.contains(&false) {
+                    step.dead_end = true;
+                }
+                None
+            }
         };
         if let Some(token) = token {
             Some(token)
@@ -493,7 +505,11 @@ impl<T: Clone, M: Mutator<T>> Mutator<Vec<T>> for VecMutator<T, M> {
             .unwrap_or_else(|| self.random_mutate(value, cache, max_cplx))
         } else {
             // element mutation
-            let idx = self.rng.usize(0..value.len());
+            // we know value is not empty, therefore the alias is Some
+            let alias = cache.alias.as_ref().unwrap();
+            // element mutation
+            let idx = alias.sample();
+            // let idx = self.rng.usize(0..value.len());
             let el = &mut value[idx];
             let el_cache = &cache.inner[idx];
 

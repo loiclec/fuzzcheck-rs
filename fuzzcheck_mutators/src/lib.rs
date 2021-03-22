@@ -31,6 +31,7 @@ pub mod proc_macro;
 mod tuples;
 mod unit;
 mod vector;
+mod vose_alias;
 
 pub use crate::alternation::AlternationMutator;
 pub use crate::bool::BoolMutator;

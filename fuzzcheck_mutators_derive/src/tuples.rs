@@ -315,7 +315,8 @@ fn declare_tuple_mutator_helper_types(
             join_ts!(0..nbr_elements, i,
                 ti(i) ":" ident!("T" i) ","
             )
-            "cplx : f64
+            "cplx : f64,
+            vose_alias : " cm.VoseAlias "
         }
         pub enum InnerMutationStep {"
             join_ts!(0..nbr_elements, i,
@@ -326,8 +327,9 @@ fn declare_tuple_mutator_helper_types(
             join_ts!(0..nbr_elements, i,
                 ti(i) ":" Ti(i) ","
             )
-            "step : usize ,
-            inner : " cm.Vec " < InnerMutationStep > 
+            "inner : " cm.Vec " < InnerMutationStep > ,
+            dead_ends : " cm.Vec "<bool> ,
+            dead_end: bool,
         }
         pub struct ArbitraryStep < " tuple_type_params " > {"
             join_ts!(0..nbr_elements, i,
@@ -435,20 +437,32 @@ fn impl_mutator_trait(tb: &mut TokenBuilder, nbr_elements: usize) {
             join_ts!(0..nbr_elements, i,
                 "let (" ident!("c" i) ", " ident!("s" i) ") = self." mutator_i(i) ".validate_value(value." i ")?;"
             )
-            "let cplx = "
+            join_ts!(0..nbr_elements, i,
+                "let" ident!("cplx_" i) " = self." mutator_i(i) ".complexity(value." i ", &" ident!("c" i) ");"
+            )
+
+            "let sum_cplx = "
                 join_ts!(0..nbr_elements, i,
-                    "self." mutator_i(i) ".complexity(value." i ", &" ident!("c" i) ")"
+                    ident!("cplx_" i)
                 , separator: "+") ";
-            let step = 0;
+
+            let dead_ends = vec![" join_ts!(0 .. nbr_elements, _, "false,")  "];
+
             let step = Self::MutationStep {"
                 join_ts!(0..nbr_elements, i, ti(i) ":" ident!("s" i) ",")
                 "inner: vec![" join_ts!(0..nbr_elements, i, "InnerMutationStep::" Ti(i), separator: ",") "] ,
-                step ,
+                dead_ends,
+                dead_end: false,
             };
 
             let cache = Self::Cache {"
                 join_ts!(0..nbr_elements, i, ti(i) ":" ident!("c" i) ",")
-                "cplx
+                "cplx: sum_cplx,
+                vose_alias :" cm.VoseAlias "::new(vec!["  
+                    join_ts!(0..nbr_elements, i,
+                        ident!("cplx_" i) "/ sum_cplx"
+                    , separator: ",") "
+                ])
             };
 
             " cm.Some "((cache, step))
@@ -503,15 +517,19 @@ fn impl_mutator_trait(tb: &mut TokenBuilder, nbr_elements: usize) {
             max_cplx: f64,
         ) -> " cm.Option "<(Self::UnmutateToken, f64)> {
             if max_cplx < <Self as" cm.TupleMutator "<T , " cm.TupleN_ident "<" tuple_type_params "> > >::min_complexity(self) { return " cm.None " }
-            if step.inner.is_empty() {
+            if step.inner.is_empty() || step.dead_end {
                 return " cm.None ";
             }
-            let orig_step = step.step;
-            step.step += 1;
+            let step_idx = loop {
+                let candidate = cache.vose_alias.sample();
+                if !step.dead_ends[candidate] { 
+                    break candidate
+                }
+            };
             let current_cplx = " SelfAsTupleMutator "::complexity(self, " TupleNAsRefTypes "::get_ref_from_mut(&value), cache); 
             let inner_step_to_remove: usize;
 
-            match step.inner[orig_step % step.inner.len()] {"
+            match step.inner[step_idx] {"
             join_ts!(0..nbr_elements, i,
                 "InnerMutationStep::" Ti(i) "=> {
                     let old_field_cplx = self." mutator_i(i) ".complexity(value." i ", &cache." ti(i) ");
@@ -525,12 +543,19 @@ fn impl_mutator_trait(tb: &mut TokenBuilder, nbr_elements: usize) {
                             ..Self::UnmutateToken::default()
                         }, current_cplx - old_field_cplx + new_field_cplx));
                     } else {
-                        inner_step_to_remove = orig_step % step.inner.len();
+                        inner_step_to_remove = step_idx;
                     }
                 }"
             )"
             }
-            step.inner.remove(inner_step_to_remove);
+            step.dead_ends[inner_step_to_remove] = true;
+            if !step.dead_ends.contains(&false) {
+                step.dead_end = true;
+                return None
+            }
+            "
+            // TODO: step.inner.remove(inner_step_to_remove);
+            "
             " SelfAsTupleMutator "::ordered_mutate(self, value, cache, step, max_cplx)
         }
         "
@@ -538,7 +563,7 @@ fn impl_mutator_trait(tb: &mut TokenBuilder, nbr_elements: usize) {
         "
         fn random_mutate<'a>(&'a self, value: " tuple_mut ", cache: &'a Self::Cache, max_cplx: f64, ) -> (Self::UnmutateToken, f64) {
             let current_cplx = " SelfAsTupleMutator "::complexity(self, " TupleNAsRefTypes "::get_ref_from_mut(&value), cache);
-            match self.rng.usize(.." nbr_elements ") {"
+            match cache.vose_alias.sample() {"
                 join_ts!(0..nbr_elements, i,
                     i "=> {
                         let old_field_cplx = self." mutator_i(i) ".complexity(value." i ", &cache." ti(i) ");
