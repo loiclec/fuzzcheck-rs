@@ -1,12 +1,11 @@
-
 extern crate self as fuzzcheck_mutators;
 
 use crate::fuzzcheck_traits;
 
-use fuzzcheck_mutators::{VecMutator};
-use fuzzcheck_traits::RecurToMutator;
 use fuzzcheck_mutators::DefaultMutator;
+use fuzzcheck_mutators::VecMutator;
 use fuzzcheck_mutators::{AlternationMutator, CharWithinRangeMutator};
+use fuzzcheck_traits::RecurToMutator;
 
 #[derive(Clone, DefaultMutator)]
 pub enum ChoiceIdents {
@@ -32,7 +31,8 @@ pub struct LiteralSource;
 
 #[derive(Clone, DefaultMutator)]
 pub enum SpacingSource {
-    Alone, Joint
+    Alone,
+    Joint,
 }
 
 #[derive(Clone)]
@@ -103,62 +103,87 @@ pub struct TokenStreamSource {
 
 fn dictionary() -> Vec<Vec<TokenTreeSource>> {
     vec![
-        vec![TokenTreeSource::Punct(PunctSource {
-            c: ':',
-            spacing: SpacingSource::Joint
-        }), TokenTreeSource::Punct(PunctSource {
-            c: ':',
-            spacing: SpacingSource::Alone
-        })],
-        vec![TokenTreeSource::Punct(PunctSource {
-            c: '-',
-            spacing: SpacingSource::Joint
-        }), TokenTreeSource::Punct(PunctSource {
-            c: '>',
-            spacing: SpacingSource::Alone
-        })],
-        vec![TokenTreeSource::Punct(PunctSource {
-            c: '<',
-            spacing: SpacingSource::Alone
-        }), TokenTreeSource::Punct(PunctSource {
-            c: '>',
-            spacing: SpacingSource::Alone
-        })],
-        vec![TokenTreeSource::Punct(PunctSource {
-            c: '\'',
-            spacing: SpacingSource::Joint
-        }), TokenTreeSource::Punct(PunctSource {
-            c: '_',
-            spacing: SpacingSource::Alone
-        })],
-        vec![TokenTreeSource::Punct(PunctSource {
-            c: '=',
-            spacing: SpacingSource::Joint
-        }), TokenTreeSource::Punct(PunctSource {
-            c: '>',
-            spacing: SpacingSource::Alone
-        })],
-        vec![TokenTreeSource::Punct(PunctSource {
-            c: '.',
-            spacing: SpacingSource::Joint
-        }), TokenTreeSource::Punct(PunctSource {
-            c: '.',
-            spacing: SpacingSource::Joint
-        }), TokenTreeSource::Punct(PunctSource {
-            c: '.',
-            spacing: SpacingSource::Alone
-        })],
-        vec![TokenTreeSource::Punct(PunctSource {
-            c: '-',
-            spacing: SpacingSource::Alone
-        }), TokenTreeSource::Group(GroupSource {
-            delimiter: DelimiterSource::Bracket,
-            stream: TokenStreamSource { tokens: vec![] }
-        })],
-        vec![TokenTreeSource::Ident(ChoiceIdents::Foo), TokenTreeSource::Group(GroupSource {
-            delimiter: DelimiterSource::Parenthesis,
-            stream: TokenStreamSource { tokens: vec![] }
-        })]
+        vec![
+            TokenTreeSource::Punct(PunctSource {
+                c: ':',
+                spacing: SpacingSource::Joint,
+            }),
+            TokenTreeSource::Punct(PunctSource {
+                c: ':',
+                spacing: SpacingSource::Alone,
+            }),
+        ],
+        vec![
+            TokenTreeSource::Punct(PunctSource {
+                c: '-',
+                spacing: SpacingSource::Joint,
+            }),
+            TokenTreeSource::Punct(PunctSource {
+                c: '>',
+                spacing: SpacingSource::Alone,
+            }),
+        ],
+        vec![
+            TokenTreeSource::Punct(PunctSource {
+                c: '<',
+                spacing: SpacingSource::Alone,
+            }),
+            TokenTreeSource::Punct(PunctSource {
+                c: '>',
+                spacing: SpacingSource::Alone,
+            }),
+        ],
+        vec![
+            TokenTreeSource::Punct(PunctSource {
+                c: '\'',
+                spacing: SpacingSource::Joint,
+            }),
+            TokenTreeSource::Punct(PunctSource {
+                c: '_',
+                spacing: SpacingSource::Alone,
+            }),
+        ],
+        vec![
+            TokenTreeSource::Punct(PunctSource {
+                c: '=',
+                spacing: SpacingSource::Joint,
+            }),
+            TokenTreeSource::Punct(PunctSource {
+                c: '>',
+                spacing: SpacingSource::Alone,
+            }),
+        ],
+        vec![
+            TokenTreeSource::Punct(PunctSource {
+                c: '.',
+                spacing: SpacingSource::Joint,
+            }),
+            TokenTreeSource::Punct(PunctSource {
+                c: '.',
+                spacing: SpacingSource::Joint,
+            }),
+            TokenTreeSource::Punct(PunctSource {
+                c: '.',
+                spacing: SpacingSource::Alone,
+            }),
+        ],
+        vec![
+            TokenTreeSource::Punct(PunctSource {
+                c: '-',
+                spacing: SpacingSource::Alone,
+            }),
+            TokenTreeSource::Group(GroupSource {
+                delimiter: DelimiterSource::Bracket,
+                stream: TokenStreamSource { tokens: vec![] },
+            }),
+        ],
+        vec![
+            TokenTreeSource::Ident(ChoiceIdents::Foo),
+            TokenTreeSource::Group(GroupSource {
+                delimiter: DelimiterSource::Parenthesis,
+                stream: TokenStreamSource { tokens: vec![] },
+            }),
+        ],
     ]
 }
 

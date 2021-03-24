@@ -4,8 +4,8 @@ use proc_macro2::{Ident, Span, TokenStream};
 use synquote::parser::*;
 use synquote::token_builder::*;
 
-use crate::{Common, MakeMutatorSettings};
 use crate::structs_and_enums::{FieldMutator, FieldMutatorKind};
+use crate::{Common, MakeMutatorSettings};
 
 pub fn make_basic_tuple_mutator(tb: &mut TokenBuilder, nbr_elements: usize) {
     make_tuple_type_structure(tb, nbr_elements);
@@ -66,9 +66,7 @@ pub(crate) fn impl_tuple_structure_trait(tb: &mut TokenBuilder, struc: &Struct) 
     let field_types = join_ts!(&struc.struct_fields, field, field.ty, separator: ",");
     // let Ti = |i: usize| ident!("T" i);
 
-    let TupleKind =
-        cm.TupleN_path.clone()
-    ;
+    let TupleKind = cm.TupleN_path.clone();
 
     let generics_no_eq = struc.generics.removing_eq_type();
     let generics_no_eq_nor_bounds = struc.generics.removing_bounds_and_eq_type();
@@ -78,11 +76,9 @@ pub(crate) fn impl_tuple_structure_trait(tb: &mut TokenBuilder, struc: &Struct) 
     let tuple_mut = ts!("(" join_ts!(&struc.struct_fields, field, "&'a mut" field.ty , separator: ",") ")");
 
     let mut where_clause = struc.where_clause.clone().unwrap_or_default();
-    where_clause.add_clause_items(
-        join_ts!(&struc.generics.type_params, tp,
-            tp.type_ident ": 'static,"
-        )
-    );
+    where_clause.add_clause_items(join_ts!(&struc.generics.type_params, tp,
+        tp.type_ident ": 'static,"
+    ));
 
     extend_ts!(tb,
         "impl" generics_no_eq cm.TupleStructure "<" TupleKind "<" field_types "> >
@@ -110,10 +106,7 @@ pub(crate) fn impl_tuple_structure_trait(tb: &mut TokenBuilder, struc: &Struct) 
     );
 }
 
-pub(crate) fn impl_default_mutator_for_struct_with_0_field(
-    tb: &mut TokenBuilder,
-    struc: &Struct
-) {
+pub(crate) fn impl_default_mutator_for_struct_with_0_field(tb: &mut TokenBuilder, struc: &Struct) {
     assert!(struc.struct_fields.len() == 0);
     let cm = Common::new(0);
     let generics_no_eq = struc.generics.removing_eq_type();
@@ -121,11 +114,9 @@ pub(crate) fn impl_default_mutator_for_struct_with_0_field(
 
     // add T: DefaultMutator for each generic type parameter to the existing where clause
     let mut where_clause = struc.where_clause.clone().unwrap_or(WhereClause::default());
-    where_clause.add_clause_items(
-        join_ts!(&struc.generics.type_params, ty_param,
-            ty_param ":" cm.DefaultMutator ","
-        )
-    );
+    where_clause.add_clause_items(join_ts!(&struc.generics.type_params, ty_param,
+        ty_param ":" cm.DefaultMutator ","
+    ));
 
     let init = struc.kind.map(|kind| ts!(kind.open() kind.close()));
 
@@ -140,13 +131,8 @@ pub(crate) fn impl_default_mutator_for_struct_with_0_field(
     ");
 }
 
-
 #[allow(non_snake_case)]
-pub(crate) fn impl_default_mutator_for_struct(
-    tb: &mut TokenBuilder,
-    struc: &Struct,
-    settings: &MakeMutatorSettings,
-) {
+pub(crate) fn impl_default_mutator_for_struct(tb: &mut TokenBuilder, struc: &Struct, settings: &MakeMutatorSettings) {
     let nbr_elements = struc.struct_fields.len();
 
     let cm = Common::new(nbr_elements);
@@ -154,33 +140,36 @@ pub(crate) fn impl_default_mutator_for_struct(
 
     let field_types = join_ts!(&struc.struct_fields, field, field.ty, separator: ",");
 
-    let field_mutators = vec![struc.struct_fields.iter().enumerate().map(|(i, field)| {
-        let mut mutator = None;
-        for attribute in field.attributes.iter() {
-            if let Some((m, init)) = super::read_field_default_mutator_attribute(attribute.clone()) {
-                mutator = Some((m, init));
+    let field_mutators = vec![struc
+        .struct_fields
+        .iter()
+        .enumerate()
+        .map(|(i, field)| {
+            let mut mutator = None;
+            for attribute in field.attributes.iter() {
+                if let Some((m, init)) = super::read_field_default_mutator_attribute(attribute.clone()) {
+                    mutator = Some((m, init));
+                }
             }
-        }
-        if let Some(m) = mutator {
-            FieldMutator {
-                i: i, 
-                j: None, 
-                field: field.clone(), 
-                kind: FieldMutatorKind::Prescribed(m.0.clone(), m.1.clone())
+            if let Some(m) = mutator {
+                FieldMutator {
+                    i: i,
+                    j: None,
+                    field: field.clone(),
+                    kind: FieldMutatorKind::Prescribed(m.0.clone(), m.1.clone()),
+                }
+            } else {
+                FieldMutator {
+                    i: i,
+                    j: None,
+                    field: field.clone(),
+                    kind: FieldMutatorKind::Generic,
+                }
             }
-        } else {
-            FieldMutator {
-                i: i, 
-                j: None, 
-                field: field.clone(), 
-                kind: FieldMutatorKind::Generic
-            }
-        }
-    }).collect::<Vec<_>>()];
+        })
+        .collect::<Vec<_>>()];
 
-    let TupleKind = 
-        cm.TupleN_path.clone()
-    ;
+    let TupleKind = cm.TupleN_path.clone();
 
     let TupleN_and_generics = ts!(TupleKind "<" field_types ">");
 
@@ -189,7 +178,7 @@ pub(crate) fn impl_default_mutator_for_struct(
             struc.ident struc.generics.removing_bounds_and_eq_type() ","
             TupleNMutator "<"
                 field_types ", "
-                join_ts!(field_mutators.iter().flatten(), m, 
+                join_ts!(field_mutators.iter().flatten(), m,
                     m.mutator_stream(&cm)
                 , separator: ",")
             ">,"
@@ -197,7 +186,7 @@ pub(crate) fn impl_default_mutator_for_struct(
         ">"
     );
 
-    use crate::structs_and_enums::{CreateWrapperMutatorParams, make_mutator_type_and_impl};
+    use crate::structs_and_enums::{make_mutator_type_and_impl, CreateWrapperMutatorParams};
 
     let params = CreateWrapperMutatorParams {
         cm: &cm,
@@ -208,7 +197,7 @@ pub(crate) fn impl_default_mutator_for_struct(
         field_mutators: &field_mutators,
         InnerMutator: &TupleMutatorWrapper,
         new_impl: &ts!(
-            "pub fn new(" 
+            "pub fn new("
             join_ts!(struc.struct_fields.iter().zip(field_mutators.iter().flatten()), (field, mutator),
                 ident!("mutator_" field.access()) ":" mutator.mutator_stream(&cm)
             , separator: ",")
@@ -227,7 +216,7 @@ pub(crate) fn impl_default_mutator_for_struct(
                 Self { mutator : <_>::default() }
             }
         "),
-        settings: &settings,  
+        settings: &settings,
     };
 
     extend_ts!(tb, make_mutator_type_and_impl(params));
@@ -301,10 +290,7 @@ fn declare_tuple_mutator(tb: &mut TokenBuilder, nbr_elements: usize) {
 }
 
 #[allow(non_snake_case)]
-fn declare_tuple_mutator_helper_types(
-    tb: &mut TokenBuilder,
-    nbr_elements: usize,
-) {
+fn declare_tuple_mutator_helper_types(tb: &mut TokenBuilder, nbr_elements: usize) {
     let cm = Common::new(nbr_elements);
     let Ti = cm.Ti.as_ref();
     let ti = cm.ti.as_ref();
@@ -462,7 +448,7 @@ fn impl_mutator_trait(tb: &mut TokenBuilder, nbr_elements: usize) {
             let cache = Self::Cache {"
                 join_ts!(0..nbr_elements, i, ti(i) ":" ident!("c" i) ",")
                 "cplx: sum_cplx,
-                vose_alias :" cm.VoseAlias "::new(vec!["  
+                vose_alias :" cm.VoseAlias "::new(vec!["
                     join_ts!(0..nbr_elements, i,
                         ident!("cplx_" i) "/ sum_cplx"
                     , separator: ",") "
@@ -669,9 +655,8 @@ mod test {
     use crate::MakeMutatorSettings;
 
     use super::{
-        declare_tuple_mutator, declare_tuple_mutator_helper_types,
-        impl_default_mutator_for_struct, impl_default_mutator_for_tuple, impl_mutator_trait,
-        impl_tuple_structure_trait, make_tuple_type_structure,
+        declare_tuple_mutator, declare_tuple_mutator_helper_types, impl_default_mutator_for_struct,
+        impl_default_mutator_for_tuple, impl_mutator_trait, impl_tuple_structure_trait, make_tuple_type_structure,
     };
 
     #[test]
@@ -690,10 +675,7 @@ mod test {
         // impl_default_mutator_for_struct(&mut tb, &struc, &<_>::default());
         let generated = tb.end().to_string();
 
-        let expected  = ""
-        .parse::<TokenStream>()
-        .unwrap()
-        .to_string();
+        let expected = "".parse::<TokenStream>().unwrap().to_string();
 
         assert_eq!(generated, expected, "\n\n{} \n\n{}\n\n", generated, expected);
     }
@@ -980,7 +962,6 @@ where
 
         assert_eq!(generated, expected, "\n\n{} \n\n{}", generated, expected);
     }
-
 
     #[test]
     fn test_impl_tuple_structure_trait_one_field_generics() {
