@@ -155,7 +155,8 @@ pub fn make_single_variant_mutator(tb: &mut TokenBuilder, enu: &Enum) {
             single_variant_generics.mutating_type_params(|tp| {
                 tp.type_ident = ts!(tp.type_ident "::UnmutateToken")
             }) ";
-    
+        
+        
         fn default_arbitrary_step(&self) -> Self::ArbitraryStep {
             match self {"
                 join_ts!(&enu.items, item,
@@ -164,6 +165,7 @@ pub fn make_single_variant_mutator(tb: &mut TokenBuilder, enu: &Enum) {
             "}
         }
 
+        
         fn validate_value(&self, value: &" enu.ident enum_generics_no_bounds ") -> " cm.Option "<(Self::Cache, Self::MutationStep)> {
             match (self, value) {"
             join_ts!(&enu.items, item,
@@ -175,7 +177,8 @@ pub fn make_single_variant_mutator(tb: &mut TokenBuilder, enu: &Enum) {
             )" _ => " cm.None ",
             }
         }
-
+        
+        
         fn max_complexity(&self) -> f64 {
             match self {"
             join_ts!(&enu.items, item,
@@ -183,6 +186,7 @@ pub fn make_single_variant_mutator(tb: &mut TokenBuilder, enu: &Enum) {
             )"
             }
         }
+        
         fn min_complexity(&self) -> f64 {
             match self {"
             join_ts!(&enu.items, item,
@@ -190,6 +194,7 @@ pub fn make_single_variant_mutator(tb: &mut TokenBuilder, enu: &Enum) {
             )"
             }
         }
+        
         fn complexity(&self, value: &" enu.ident enum_generics_no_bounds ", cache: &Self::Cache) -> f64 {
             match (self, value, cache) {"
             join_ts!(&enu.items, item,
@@ -203,6 +208,7 @@ pub fn make_single_variant_mutator(tb: &mut TokenBuilder, enu: &Enum) {
             )   "_ => unreachable!()
             }
         }
+        
         fn ordered_arbitrary(&self, step: &mut Self::ArbitraryStep, max_cplx: f64) -> Option<(" enu.ident enum_generics_no_bounds ", f64)> {
             match (self, step) {"
             join_ts!(&enu.items, item,
@@ -219,7 +225,7 @@ pub fn make_single_variant_mutator(tb: &mut TokenBuilder, enu: &Enum) {
             ) "_ => unreachable!()
             }
         }
-
+        
         fn random_arbitrary(&self, max_cplx: f64) -> (" enu.ident enum_generics_no_bounds ", f64) {
             match self {"
             join_ts!(&enu.items, item,
@@ -232,7 +238,7 @@ pub fn make_single_variant_mutator(tb: &mut TokenBuilder, enu: &Enum) {
                 }"
             )"}
         }
-
+        
         fn ordered_mutate(
             &self,
             value: &mut " enu.ident enum_generics_no_bounds ",
@@ -254,6 +260,7 @@ pub fn make_single_variant_mutator(tb: &mut TokenBuilder, enu: &Enum) {
             )" _ => unreachable!(),
             }
         }
+        
         fn random_mutate(&self, value: &mut " enu.ident enum_generics_no_bounds ", cache: &Self::Cache, max_cplx: f64) -> (Self::UnmutateToken, f64) {
             match (self, value, cache) {"
             join_ts!(&enu.items, item,
@@ -270,6 +277,7 @@ pub fn make_single_variant_mutator(tb: &mut TokenBuilder, enu: &Enum) {
             )   "_ => unreachable!()"
             "}
         }
+        
         fn unmutate(&self, value: &mut " enu.ident enum_generics_no_bounds ", t: Self::UnmutateToken) {
             match (self, value, t) {"
             join_ts!(&enu.items, item,

@@ -165,13 +165,16 @@ macro_rules! impl_int_mutator {
             }
 
             /// The maximum complexity of an input of this type
+
             fn max_complexity(&self) -> f64 {
                 <$name>::BITS as f64
             }
             /// The minimum complexity of an input of this type
+
             fn min_complexity(&self) -> f64 {
                 <$name>::BITS as f64
             }
+
             fn complexity(&self, _value: &$name, _cache: &Self::Cache) -> f64 {
                 <$name>::BITS as f64
             }
@@ -188,6 +191,7 @@ macro_rules! impl_int_mutator {
                     Some((value, <$name>::BITS as f64))
                 }
             }
+
             fn random_arbitrary(&self, _max_cplx: f64) -> ($name, f64) {
                 let value = self.rng.$name(..);
                 (value, <$name>::BITS as f64)
@@ -314,9 +318,11 @@ macro_rules! impl_int_mutator_constrained {
             fn max_complexity(&self) -> f64 {
                 <$name>::BITS as f64
             }
+
             fn min_complexity(&self) -> f64 {
                 <$name>::BITS as f64
             }
+
             fn complexity(&self, _value: &$name, _cache: &Self::Cache) -> f64 {
                 <$name>::BITS as f64
             }
@@ -336,6 +342,7 @@ macro_rules! impl_int_mutator_constrained {
                     ))
                 }
             }
+
             fn random_arbitrary(&self, _max_cplx: f64) -> ($name, f64) {
                 let value = self
                     .rng
@@ -434,9 +441,11 @@ impl Mutator<char> for CharWithinRangeMutator {
     type MutationStep = u64; // mutation step
     type ArbitraryStep = u64;
     type UnmutateToken = char; // old value
+
     fn default_arbitrary_step(&self) -> Self::ArbitraryStep {
         0
     }
+
     fn validate_value(&self, _value: &char) -> Option<(Self::Cache, Self::MutationStep)> {
         Some(((), INITIAL_MUTATION_STEP))
     }
@@ -444,9 +453,11 @@ impl Mutator<char> for CharWithinRangeMutator {
     fn max_complexity(&self) -> f64 {
         <u32>::BITS as f64
     }
+
     fn min_complexity(&self) -> f64 {
         <u32>::BITS as f64
     }
+
     fn complexity(&self, _value: &char, _cache: &Self::Cache) -> f64 {
         <u32>::BITS as f64
     }
@@ -464,6 +475,7 @@ impl Mutator<char> for CharWithinRangeMutator {
             Some((c, <u32>::BITS as f64))
         }
     }
+
     fn random_arbitrary(&self, _max_cplx: f64) -> (char, f64) {
         let value = self
             .rng

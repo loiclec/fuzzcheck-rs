@@ -2,8 +2,6 @@
 #![feature(variant_count)]
 #![feature(int_bits_const)]
 #![feature(arc_new_cyclic)]
-#![feature(assoc_char_funcs)]
-#![feature(type_alias_impl_trait)]
 #![feature(trivial_bounds)]
 
 pub extern crate fastrand;
@@ -66,7 +64,7 @@ pub trait DefaultMutator: Clone {
 /// Generate a random f64 within the given range
 /// The start and end of the range must be finite
 /// This is a very naive implementation
-#[inline(always)]
+
 fn gen_f64(rng: &fastrand::Rng, range: Range<f64>) -> f64 {
     range.start + rng.f64() * (range.end - range.start)
 }

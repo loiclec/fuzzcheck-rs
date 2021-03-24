@@ -917,7 +917,9 @@ impl<T: Clone, M: Mutator<T>> Pool<T, M> {
             });
             assert!(
                 (input.score - expected_input_score).abs() < 0.01,
-                format!("{:.2} != {:.2}", input.score, expected_input_score)
+                "{:.2} != {:.2}",
+                input.score,
+                expected_input_score
             );
             assert!(!input.least_complex_for_features.is_empty());
 
@@ -1156,7 +1158,9 @@ mod tests {
                 pool.sanity_check();
                 assert!(
                     (pool.score() - prev_score) > -0.01,
-                    format!("{:.3} > {:.3}", prev_score, pool.score())
+                    "{:.3} > {:.3}",
+                    prev_score,
+                    pool.score()
                 );
             }
             for _ in 0..pool.len() {
@@ -1165,7 +1169,9 @@ mod tests {
                 pool.sanity_check();
                 assert!(
                     (prev_score - pool.score()) > -0.01,
-                    format!("{:.3} < {:.3}", prev_score, pool.score())
+                    "{:.3} < {:.3}",
+                    prev_score,
+                    pool.score()
                 );
             }
         }

@@ -406,12 +406,13 @@ fn impl_mutator_trait(tb: &mut TokenBuilder, nbr_elements: usize) {
                 "<" Mi(i) "as" cm.fuzzcheck_traits_Mutator "<" Ti(i) "> >::ArbitraryStep "
             , separator: ",")
         ">;
+        
         type UnmutateToken = UnmutateToken <"
             join_ts!(0..nbr_elements, i,
                 "<" Mi(i) "as" cm.fuzzcheck_traits_Mutator "<" Ti(i) "> >::UnmutateToken "
             , separator: ",")
         ">;
-
+        
         fn default_arbitrary_step(&self) -> Self::ArbitraryStep {
             Self::ArbitraryStep {"
                 join_ts!(0..nbr_elements, i,
@@ -419,20 +420,23 @@ fn impl_mutator_trait(tb: &mut TokenBuilder, nbr_elements: usize) {
                 , separator: ",")
             "}
         }
-
+        
         fn max_complexity(&self) -> f64 {"
             join_ts!(0..nbr_elements, i,
                 "self." mutator_i(i) ".max_complexity()"
             , separator: "+")
         "}
+        
         fn min_complexity(&self) -> f64 {"
             join_ts!(0..nbr_elements, i,
                 "self." mutator_i(i) ".min_complexity()"
             , separator: "+")
         "}
+        
         fn complexity<'a>(&'a self, _value: " tuple_ref ", cache: &'a Self::Cache) -> f64 {
             cache.cplx
         }
+        
         fn validate_value<'a>(&'a self, value: " tuple_ref ") -> " cm.Option "<(Self::Cache, Self::MutationStep)> {"
             join_ts!(0..nbr_elements, i,
                 "let (" ident!("c" i) ", " ident!("s" i) ") = self." mutator_i(i) ".validate_value(value." i ")?;"
@@ -467,6 +471,7 @@ fn impl_mutator_trait(tb: &mut TokenBuilder, nbr_elements: usize) {
 
             " cm.Some "((cache, step))
         }
+        
         fn ordered_arbitrary(
             &self,
             step: &mut Self::ArbitraryStep,
@@ -478,6 +483,7 @@ fn impl_mutator_trait(tb: &mut TokenBuilder, nbr_elements: usize) {
             " // TODO: actually write something that is ordered_arbitrary sense here
             cm.Some "  (self.random_arbitrary(max_cplx))
         }
+        
         fn random_arbitrary(&self, max_cplx: f64) -> (T, f64) {"
             join_ts!(0..nbr_elements, i,
                 "let mut" ti_value(i) ":" cm.Option "<_> =" cm.None ";"
@@ -508,7 +514,7 @@ fn impl_mutator_trait(tb: &mut TokenBuilder, nbr_elements: usize) {
                 sum_cplx,
             )
         }
-
+        
         fn ordered_mutate<'a>(
             &'a self,
             value: " tuple_mut ",
@@ -522,7 +528,7 @@ fn impl_mutator_trait(tb: &mut TokenBuilder, nbr_elements: usize) {
             }
             let step_idx = loop {
                 let candidate = cache.vose_alias.sample();
-                if !step.dead_ends[candidate] { 
+                if ! unsafe { *step.dead_ends.get_unchecked(candidate) } { 
                     break candidate
                 }
             };
@@ -561,6 +567,7 @@ fn impl_mutator_trait(tb: &mut TokenBuilder, nbr_elements: usize) {
         "
         // TODO!
         "
+        
         fn random_mutate<'a>(&'a self, value: " tuple_mut ", cache: &'a Self::Cache, max_cplx: f64, ) -> (Self::UnmutateToken, f64) {
             let current_cplx = " SelfAsTupleMutator "::complexity(self, " TupleNAsRefTypes "::get_ref_from_mut(&value), cache);
             match cache.vose_alias.sample() {"
@@ -580,6 +587,7 @@ fn impl_mutator_trait(tb: &mut TokenBuilder, nbr_elements: usize) {
                 "_ => unreachable!() ,
             }
         }
+        
         fn unmutate<'a>(&'a self, value: " tuple_mut ", t: Self::UnmutateToken) {"
             join_ts!(0..nbr_elements, i,
                 "if let" cm.Some "(subtoken) = t." ti(i) "{

@@ -278,11 +278,11 @@ impl CommandLineArguments {
 
         match (command, &input_file, &corpus_in) {
             (FuzzerCommand::MinifyInput, &None, _) => {
-                panic!("An input file must be given when minifying a test case".to_owned())
+                panic!("{}", "An input file must be given when minifying a test case")
                 // TODO: return error for that
             }
             (FuzzerCommand::MinifyCorpus, _, &None) => {
-                panic!("An input corpus must be given when minifying a corpus".to_owned())
+                panic!("{}", "An input corpus must be given when minifying a corpus")
             }
             _ => (),
         }

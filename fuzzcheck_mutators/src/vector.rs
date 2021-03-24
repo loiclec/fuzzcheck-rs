@@ -581,7 +581,7 @@ mod tests {
 // /// Generate a random f64 within the given range
 // /// The start and end of the range must be finite
 // /// This is a very naive implementation
-// #[inline(always)]
+//
 // fn gen_f64(rng: &fastrand::Rng, range: Range<f64>) -> f64 {
 //     range.start + rng.f64() * (range.end - range.start)
 // }

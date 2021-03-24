@@ -84,12 +84,12 @@ impl VoseAlias {
         // Step 1
         let i = self.rng.usize(..self.prob.len());
         // Step 2
-        if self.rng.f64() <= self.prob[i] {
+        if self.rng.f64() <= unsafe { *self.prob.get_unchecked(i) } {
             // Step 3
             i
         } else {
             // Step 4
-            self.alias[i]
+            unsafe { *self.alias.get_unchecked(i) }
         }
     }
 }
