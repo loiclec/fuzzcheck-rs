@@ -413,8 +413,11 @@ impl<T: Clone, M: Mutator<T>> Mutator<Vec<T>> for VecMutator<T, M> {
         if max_cplx > mutator_max_cplx {
             max_cplx = mutator_max_cplx;
         }
-
-        let target_cplx = crate::gen_f64(&self.rng, 1.0..max_cplx);
+        let min_cplx_len_1 = self.complexity_from_inner(self.m.min_complexity(), 1);
+        if max_cplx < self.complexity_from_inner(min_cplx_len_1, 1) || self.rng.u8(..) == 0 {
+            return (<_>::default(), 1.0);
+        }
+        let target_cplx = crate::gen_f64(&self.rng, (min_cplx_len_1 - 2.0)..max_cplx);
         let len_range = self.choose_slice_length(target_cplx);
         let target_len = self.rng.usize(len_range);
 
@@ -443,14 +446,14 @@ impl<T: Clone, M: Mutator<T>> Mutator<Vec<T>> for VecMutator<T, M> {
         let current_cplx = self.complexity(value, cache);
         let spare_cplx = max_cplx - current_cplx;
 
-        let token = if value.is_empty() || step.dead_end || self.rng.usize(0..20) == 0 {
+        let token = if value.is_empty() || step.dead_end || self.rng.usize(0..10) == 0 {
             // vector mutation
-            match self.rng.usize(0..11) {
+            match self.rng.usize(0..15) {
                 0..=3 => self.insert_element(value, current_cplx, spare_cplx),
                 4..=7 => self.remove_element(value, cache, current_cplx),
                 8 => self.insert_repeated_elements(value, current_cplx, spare_cplx),
                 9 => self.remove_many_elements(value, cache, current_cplx),
-                10 => self.use_dictionary(value, current_cplx, spare_cplx),
+                10..=14 => self.use_dictionary(value, current_cplx, spare_cplx),
                 _ => unreachable!(),
             }
         } else {
@@ -494,12 +497,12 @@ impl<T: Clone, M: Mutator<T>> Mutator<Vec<T>> for VecMutator<T, M> {
 
         if value.is_empty() || self.rng.usize(0..10) == 0 {
             // vector mutation
-            match self.rng.usize(0..11) {
+            match self.rng.usize(0..15) {
                 0..=3 => self.insert_element(value, current_cplx, spare_cplx),
                 4..=7 => self.remove_element(value, cache, current_cplx),
                 8 => self.insert_repeated_elements(value, current_cplx, spare_cplx),
                 9 => self.remove_many_elements(value, cache, current_cplx),
-                10 => self.use_dictionary(value, current_cplx, spare_cplx),
+                10..=14 => self.use_dictionary(value, current_cplx, spare_cplx),
                 _ => None,
             }
             .unwrap_or_else(|| self.random_mutate(value, cache, max_cplx))
@@ -561,20 +564,49 @@ fn clamp(range: &RangeInclusive<usize>, x: usize) -> usize {
 
 #[cfg(test)]
 mod tests {
+    use std::iter::repeat;
+
     use crate::fuzzcheck_traits::Mutator;
 
     use crate::U8Mutator;
     use crate::VecMutator;
     #[test]
-    fn test_constrained_length_mutator() {
+    fn test_constrained_length_mutator_ordered_arbitrary() {
         let range = 0..=10;
         let m = VecMutator::<u8, U8Mutator>::new(U8Mutator::default(), range.clone());
         let mut step = false;
-        for _ in 0..100 {
-            let (x, _) = m.ordered_arbitrary(&mut step, 800.0).unwrap();
-            eprintln!("{}", x.len());
+
+        let mut lengths: Vec<_> = repeat(0).take(11).collect();
+        let mut cplxs: Vec<_> = repeat(0).take(81).collect();
+
+        for _ in 0..100000 {
+            let (x, cplx) = m.ordered_arbitrary(&mut step, 800.0).unwrap();
+            lengths[x.len()] += 1;
+            cplxs[(cplx / 10.0) as usize] += 1;
+            // eprintln!("{:?}", x);
             assert!(range.contains(&x.len()), "{}", x.len());
         }
+        println!("{:?}", lengths);
+        println!("{:?}", cplxs);
+    }
+    #[test]
+    fn test_constrained_length_mutator_ordered_mutate() {
+        let range = 0..=10;
+        let m = VecMutator::<u8, U8Mutator>::new(U8Mutator::default(), range.clone());
+        let mut step = false;
+
+        let mut lengths: Vec<_> = repeat(0).take(11).collect();
+        let mut cplxs: Vec<_> = repeat(0).take(81).collect();
+
+        for _ in 0..100000 {
+            let (x, cplx) = m.ordered_arbitrary(&mut step, 800.0).unwrap();
+            lengths[x.len()] += 1;
+            cplxs[(cplx / 10.0) as usize] += 1;
+            // eprintln!("{:?}", x);
+            assert!(range.contains(&x.len()), "{}", x.len());
+        }
+        println!("{:?}", lengths);
+        println!("{:?}", cplxs);
     }
 }
 // // ========== WeightedIndex ===========
