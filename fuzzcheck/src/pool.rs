@@ -234,8 +234,6 @@ pub struct Pool<T: Clone, M: Mutator<T>> {
 impl<T: Clone, M: Mutator<T>> Pool<T, M> {
     pub fn default() -> Self {
         let rng = fastrand::Rng::new();
-        rng.seed(0);
-
         Pool {
             features: Vec::new(),
             slab_features: Slab::new(),
@@ -511,7 +509,7 @@ impl<T: Clone, M: Mutator<T>> Pool<T, M> {
             self.inputs.swap(to_delete_idx, to_swap_idx);
             self.inputs.pop();
 
-            let to_delete_el = &mut self.slab_inputs[to_delete_key];
+            let to_delete_el = &self.slab_inputs[to_delete_key];
             // to_delete_el.idx_in_pool = to_swap_idx; // not necessary, element will be deleted
 
             // TODO: not ideal to clone all features
@@ -571,7 +569,7 @@ impl<T: Clone, M: Mutator<T>> Pool<T, M> {
         self.inputs.swap(to_delete_idx, to_swap_idx);
         self.inputs.pop();
 
-        let to_delete_el = &mut self.slab_inputs[to_delete_key];
+        let to_delete_el = &self.slab_inputs[to_delete_key];
         // to_delete_el.idx_in_pool = to_swap_idx; // not necessary, element will be deleted
 
         // 2. iter through all features and remove the input from their list of inputs
