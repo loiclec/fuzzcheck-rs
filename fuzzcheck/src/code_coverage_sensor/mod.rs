@@ -21,7 +21,7 @@ static mut SHARED_SENSOR: MaybeUninit<CodeCoverageSensor> = MaybeUninit::<CodeCo
 /// Records the code coverage of the program and converts it into `Feature`s
 /// that the `pool` can understand.
 struct CodeCoverageSensor {
-    eight_bit_counters: &'static mut [u8],
+    eight_bit_counters: &'static mut [u32],
     /// pointer to the __sancov_lowest_stack variable
     _lowest_stack: &'static mut libc::uintptr_t,
     /// value of __sancov_lowest_stack after running an input
@@ -55,8 +55,16 @@ where
     F: FnMut(Feature) -> (),
 {
     let sensor = unsafe { SHARED_SENSOR.as_mut_ptr() };
+
+    // for (i, x) in unsafe { (*sensor).eight_bit_counters.iter().enumerate() } {
+    //     if *x > 0 {
+    //         let f = Feature::edge(i, *x as u16);
+    //         handle(f)
+    //     }
+    // }
+
     const CHUNK_SIZE: usize = 16;
-    let zero: [u8; CHUNK_SIZE] = [0; CHUNK_SIZE];
+    let zero: [u32; CHUNK_SIZE] = [0; CHUNK_SIZE];
     let length_chunks = unsafe { (*sensor).eight_bit_counters.len() / CHUNK_SIZE };
 
     for i in 0..length_chunks {
@@ -64,7 +72,7 @@ where
         let end = start + CHUNK_SIZE;
 
         let slice =
-            unsafe { <&[u8; CHUNK_SIZE]>::try_from((*sensor).eight_bit_counters.get_unchecked(start..end)).unwrap() };
+            unsafe { <&[u32; CHUNK_SIZE]>::try_from((*sensor).eight_bit_counters.get_unchecked(start..end)).unwrap() };
 
         if slice == &zero {
             continue;
@@ -73,7 +81,7 @@ where
                 if x == 0 {
                     continue;
                 }
-                let f = Feature::edge(start + j, u16::from(x));
+                let f = Feature::edge(start + j, x as u16);
                 handle(f);
             }
         }
@@ -86,7 +94,7 @@ where
             continue;
         }
         let i = start_remainder + j;
-        let f = Feature::edge(i, u16::from(x));
+        let f = Feature::edge(i, x as u16);
         handle(f);
     }
 

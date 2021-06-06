@@ -32,7 +32,7 @@ pub struct World<S: Serializer> {
     checkpoint_instant: Instant,
     #[cfg(feature = "ui")]
     pause_at_next_event: bool,
-    serializer: S,
+    pub serializer: S,
 }
 
 impl<S: Serializer> World<S> {

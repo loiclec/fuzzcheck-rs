@@ -50,8 +50,8 @@
 //! ```
 
 use super::{CodeCoverageSensor, SHARED_SENSOR};
-use std::slice;
 use std::sync::Once;
+use std::{panic::Location, slice};
 
 #[cfg(trace_compares)]
 use crate::data_structures::HBitSet;
@@ -75,26 +75,73 @@ static mut LOWEST_STACK: libc::uintptr_t = usize::MAX;
 
 static START: Once = Once::new();
 
-#[export_name = "__sanitizer_cov_8bit_counters_init"]
-fn counters_init(start: *mut u8, stop: *mut u8) {
-    unsafe {
-        if !(start != stop && *start == 0) {
-            return;
-        }
+// #[export_name = "__sanitizer_cov_bool_flag_init"]
+// fn bool_flags_init(start: *mut bool, stop: *mut bool) {
+//     unsafe {
+//         if !(start != stop && *start == false) {
+//             return;
+//         }
 
-        let dist = stop.offset_from(start).abs() as usize;
-        START.call_once(|| {
-            println!("Number of counters: {}", dist);
-            SHARED_SENSOR.as_mut_ptr().write(CodeCoverageSensor {
-                eight_bit_counters: slice::from_raw_parts_mut(start, dist),
-                _lowest_stack: &mut LOWEST_STACK,
-                lowest_stack: usize::MAX,
-                #[cfg(trace_compares)]
-                instr_features: HBitSet::new(),
-            });
-        });
+//         let dist = stop.offset_from(start).abs() as usize;
+//         START.call_once(|| {
+//             println!("Number of counters: {}", dist);
+//             SHARED_SENSOR.as_mut_ptr().write(CodeCoverageSensor {
+//                 eight_bit_counters: slice::from_raw_parts_mut(start, dist),
+//                 _lowest_stack: &mut LOWEST_STACK,
+//                 lowest_stack: usize::MAX,
+//                 #[cfg(trace_compares)]
+//                 instr_features: HBitSet::new(),
+//             });
+//         });
+//     }
+// }
+
+#[export_name = "__sanitizer_cov_trace_pc_guard_init"]
+unsafe fn pcguard_init(start: *mut u32, stop: *mut u32) {
+    if start == stop {
+        return;
     }
+
+    let dist = stop.offset_from(start).abs() as usize;
+    START.call_once(|| {
+        let l = Location::caller();
+        println!("{:?}", l);
+        println!("Number of counters: {}", dist);
+        SHARED_SENSOR.as_mut_ptr().write(CodeCoverageSensor {
+            eight_bit_counters: slice::from_raw_parts_mut(start, dist),
+            _lowest_stack: &mut LOWEST_STACK,
+            lowest_stack: usize::MAX,
+            #[cfg(trace_compares)]
+            instr_features: HBitSet::new(),
+        });
+    });
 }
+
+#[export_name = "__sanitizer_cov_trace_pc_guard"]
+unsafe fn trace_pc_guard(guard: *mut u32) {
+    *guard += 1;
+}
+
+// #[export_name = "__sanitizer_cov_8bit_counters_init"]
+// fn counters_init(start: *mut u8, stop: *mut u8) {
+//     unsafe {
+//         if !(start != stop && *start == 0) {
+//             return;
+//         }
+
+//         let dist = stop.offset_from(start).abs() as usize;
+//         START.call_once(|| {
+//             println!("Number of counters: {}", dist);
+//             SHARED_SENSOR.as_mut_ptr().write(CodeCoverageSensor {
+//                 eight_bit_counters: slice::from_raw_parts_mut(start, dist),
+//                 _lowest_stack: &mut LOWEST_STACK,
+//                 lowest_stack: usize::MAX,
+//                 #[cfg(trace_compares)]
+//                 instr_features: HBitSet::new(),
+//             });
+//         });
+//     }
+// }
 
 /// `__sanitizer_cov_trace_pc_indir`
 ///
@@ -108,12 +155,12 @@ fn counters_init(start: *mut u8, stop: *mut u8) {
 ///
 /// We save the address of the caller and of the callee to identify the
 /// indirect call and include it in the code coverage analysis.
-#[export_name = "__sanitizer_cov_trace_pc_indir"]
-fn trace_pc_indir(_callee: usize) {
-    // TODO: feature disabled for now
-    // let caller = unsafe { return_address() };
-    // sensor.handle_trace_indir(caller, callee);
-}
+// #[export_name = "__sanitizer_cov_trace_pc_indir"]
+// fn trace_pc_indir(_callee: usize) {
+//     // TODO: feature disabled for now
+//     // let caller = unsafe { return_address() };
+//     // sensor.handle_trace_indir(caller, callee);
+// }
 
 /// `__sanitizer_cov_trace_cmp1`
 ///
