@@ -25,7 +25,7 @@ mod integer;
 pub mod map;
 mod never;
 mod option;
-pub mod proc_macro;
+// pub mod proc_macro;
 mod tuples;
 mod unit;
 mod vector;

@@ -50,8 +50,8 @@
 //! ```
 
 use super::{CodeCoverageSensor, SHARED_SENSOR};
+use std::slice;
 use std::sync::Once;
-use std::{panic::Location, slice};
 
 #[cfg(trace_compares)]
 use crate::data_structures::HBitSet;
@@ -104,8 +104,6 @@ unsafe fn pcguard_init(start: *mut u32, stop: *mut u32) {
 
     let dist = stop.offset_from(start).abs() as usize;
     START.call_once(|| {
-        let l = Location::caller();
-        println!("{:?}", l);
         println!("Number of counters: {}", dist);
         SHARED_SENSOR.as_mut_ptr().write(CodeCoverageSensor {
             eight_bit_counters: slice::from_raw_parts_mut(start, dist),

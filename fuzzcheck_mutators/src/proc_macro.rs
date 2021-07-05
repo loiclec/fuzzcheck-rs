@@ -135,6 +135,17 @@ fn dictionary() -> Vec<Vec<TokenTreeSource>> {
         ],
         vec![
             TokenTreeSource::Punct(PunctSource {
+                c: '<',
+                spacing: SpacingSource::Alone,
+            }),
+            TokenTreeSource::Ident(ChoiceIdents::Foo),
+            TokenTreeSource::Punct(PunctSource {
+                c: '>',
+                spacing: SpacingSource::Alone,
+            }),
+        ],
+        vec![
+            TokenTreeSource::Punct(PunctSource {
                 c: '\'',
                 spacing: SpacingSource::Joint,
             }),
@@ -169,7 +180,7 @@ fn dictionary() -> Vec<Vec<TokenTreeSource>> {
         ],
         vec![
             TokenTreeSource::Punct(PunctSource {
-                c: '-',
+                c: '#',
                 spacing: SpacingSource::Alone,
             }),
             TokenTreeSource::Group(GroupSource {
@@ -182,6 +193,28 @@ fn dictionary() -> Vec<Vec<TokenTreeSource>> {
             TokenTreeSource::Group(GroupSource {
                 delimiter: DelimiterSource::Parenthesis,
                 stream: TokenStreamSource { tokens: vec![] },
+            }),
+            TokenTreeSource::Punct(PunctSource {
+                c: ',',
+                spacing: SpacingSource::Alone,
+            }),
+        ],
+        vec![
+            TokenTreeSource::Ident(ChoiceIdents::Foo),
+            TokenTreeSource::Group(GroupSource {
+                delimiter: DelimiterSource::Brace,
+                stream: TokenStreamSource { tokens: vec![] },
+            }),
+            TokenTreeSource::Punct(PunctSource {
+                c: ',',
+                spacing: SpacingSource::Alone,
+            }),
+        ],
+        vec![
+            TokenTreeSource::Ident(ChoiceIdents::Foo),
+            TokenTreeSource::Punct(PunctSource {
+                c: ':',
+                spacing: SpacingSource::Alone,
             }),
         ],
     ]
