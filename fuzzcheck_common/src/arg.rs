@@ -50,9 +50,9 @@ impl Default for DefaultArguments {
     fn default() -> Self {
         Self {
             command: FuzzerCommand::Fuzz,
-            in_corpus: PathBuf::from("corpus".to_string()),
-            out_corpus: PathBuf::from("corpus".to_string()),
-            artifacts: PathBuf::from("artifacts".to_string()),
+            in_corpus: PathBuf::from("fuzz/in_corpus".to_string()),
+            out_corpus: PathBuf::from("fuzz/out_corpus".to_string()),
+            artifacts: PathBuf::from("fuzz/artifacts".to_string()),
             max_nbr_of_runs: core::usize::MAX,
             max_input_cplx: 4096.0,
             timeout: 0,
