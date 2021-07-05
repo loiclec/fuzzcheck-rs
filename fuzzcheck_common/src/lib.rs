@@ -5,8 +5,8 @@ pub mod ipc;
 #[cfg(feature = "ui")]
 use decent_serde_json_alternative::{FromJson, ToJson};
 
-#[cfg_attr(feature = "ui", derive(FromJson, ToJson))]
 #[derive(Clone, Copy, Default)]
+#[cfg_attr(feature = "ui", derive(FromJson, ToJson))]
 pub struct FuzzerStats {
     pub total_number_of_runs: usize,
     pub number_of_runs_since_last_reset_time: usize,
@@ -29,8 +29,8 @@ impl FuzzerStats {
     }
 }
 
-#[cfg_attr(feature = "ui", derive(FromJson, ToJson))]
 #[derive(Clone, Copy)]
+#[cfg_attr(feature = "ui", derive(FromJson, ToJson))]
 pub enum FuzzerEvent {
     Start,
     Stop,
