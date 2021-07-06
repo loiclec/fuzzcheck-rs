@@ -3,6 +3,8 @@
 //! test inputs.
 
 use crate::nix_subset as nix;
+#[cfg(feature = "ui")]
+use crate::pool::Input;
 use crate::pool::{AnalyzedFeature, Pool, PoolIndex};
 use crate::signals_handler::{set_signal_handlers, set_timer};
 use crate::world::World;
@@ -52,7 +54,7 @@ pub(crate) struct AnalysisResult<T: Clone, M: Mutator<T>> {
     // always contains the value of the lowest stack,
     // will need to check if it is lower than the other
     // inputs in the pool
-    pub lowest_stack: usize,
+    pub _lowest_stack: usize,
 }
 
 struct FuzzerState<T: Clone, M: Mutator<T>, S: Serializer<Value = T>> {
@@ -271,13 +273,13 @@ where
             Some(AnalysisResult {
                 existing_features: existing_features.clone(),
                 new_features: new_features.clone(),
-                lowest_stack: lowest_stack,
+                _lowest_stack: lowest_stack,
             })
         } else if lowest_stack < self.state.pool.lowest_stack() {
             Some(AnalysisResult {
                 existing_features: vec![],
                 new_features: vec![],
-                lowest_stack: lowest_stack,
+                _lowest_stack: lowest_stack,
             })
         } else {
             None
@@ -293,34 +295,71 @@ where
         self.state.world.handle_user_message();
 
         // we have verified in the caller function that there is an input
-        let input = FuzzerState::<T, M, S>::get_input(&self.state.input_idx, &self.state.pool).unwrap();
+        {
+            let input = FuzzerState::<T, M, S>::get_input(&self.state.input_idx, &self.state.pool).unwrap();
 
-        Self::test_input(
-            &self.test,
-            &self.state.mutator,
-            &input,
-            self.state.settings.timeout,
-            &mut self.state.world,
-            self.state.stats,
-        )?;
-        self.state.stats.total_number_of_runs += 1;
-
+            Self::test_input(
+                &self.test,
+                &self.state.mutator,
+                &input,
+                self.state.settings.timeout,
+                &mut self.state.world,
+                self.state.stats,
+            )?;
+            self.state.stats.total_number_of_runs += 1;
+        }
         if let Some(result) = self.analyze(cplx) {
-            // call state.get_input again to satisfy borrow checker
-            let input_cloned = FuzzerState::<T, M, S>::get_input(&self.state.input_idx, &self.state.pool)
-                .unwrap()
-                .new_source(&self.state.mutator);
-            let actions = self
-                .state
-                .pool
-                .add(input_cloned, cplx, result, self.state.stats.total_number_of_runs);
-            self.state.update_stats();
-            self.state.world.do_actions(actions, &self.state.stats)?;
+            #[allow(unused_variables)]
+            let new_input_key = {
+                // call state.get_input again to satisfy borrow checker
+                let input_cloned = FuzzerState::<T, M, S>::get_input(&self.state.input_idx, &self.state.pool)
+                    .unwrap()
+                    .new_source(&self.state.mutator);
+                let (actions, new_input_key) =
+                    self.state
+                        .pool
+                        .add(input_cloned, cplx, result, self.state.stats.total_number_of_runs);
+                self.state.update_stats();
+                self.state.world.do_actions(actions, &self.state.stats)?;
+                new_input_key
+            };
+            #[cfg(feature = "ui")]
+            if let Some(new_input_key) = new_input_key {
+                self.send_coverage_location(new_input_key)?;
+            }
 
             Ok(())
         } else {
             Ok(())
         }
+    }
+    #[cfg(feature = "ui")]
+    fn send_coverage_location(&mut self, input_key: SlabKey<Input<T, M>>) -> Result<(), std::io::Error> {
+        code_coverage_sensor::clear();
+        unsafe {
+            code_coverage_sensor::TRACE_PC_GUARD_IMPL = code_coverage_sensor::record_location_guard;
+        }
+        code_coverage_sensor::start_recording();
+        let cell = NotUnwindSafe { value: &self.test };
+        let input = FuzzerState::<T, M, S>::get_input(&self.state.input_idx, &self.state.pool).unwrap();
+        let input_cell = NotUnwindSafe {
+            value: input.value.borrow(),
+        };
+        let result = catch_unwind(|| (cell.value)(input_cell.value));
+        assert!(!result.is_err() && result.unwrap());
+        code_coverage_sensor::stop_recording();
+        unsafe {
+            code_coverage_sensor::TRACE_PC_GUARD_IMPL = code_coverage_sensor::trace_pc_guard_increase_counter;
+        }
+        let action = unsafe {
+            code_coverage_sensor::with_coverage_map(|coverage_map| {
+                self.state
+                    .pool
+                    .send_coverage_information_for_input(input_key, coverage_map)
+            })
+        };
+        self.state.world.do_actions(vec![action], &self.state.stats)?;
+        Ok(())
     }
 
     fn process_next_inputs(&mut self) -> Result<(), std::io::Error> {

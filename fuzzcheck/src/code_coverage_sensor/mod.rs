@@ -2,7 +2,14 @@
 
 mod hooks;
 
+#[cfg(feature = "ui")]
+use backtrace::BacktraceSymbol;
+
 use crate::Feature;
+#[cfg(feature = "ui")]
+use std::collections::hash_map::Entry;
+#[cfg(feature = "ui")]
+use std::collections::HashMap;
 use std::convert::TryFrom;
 
 #[cfg(trace_compares)]
@@ -22,12 +29,42 @@ static mut SHARED_SENSOR: MaybeUninit<CodeCoverageSensor> = MaybeUninit::<CodeCo
 /// that the `pool` can understand.
 struct CodeCoverageSensor {
     eight_bit_counters: &'static mut [u32],
+    #[cfg(feature = "ui")]
+    eight_bit_counters_locations: HashMap<Feature, Vec<BacktraceSymbol>>,
     /// pointer to the __sancov_lowest_stack variable
     _lowest_stack: &'static mut libc::uintptr_t,
     /// value of __sancov_lowest_stack after running an input
     lowest_stack: usize,
     #[cfg(trace_compares)]
     instr_features: HBitSet,
+}
+
+#[cfg(feature = "ui")]
+pub static mut TRACE_PC_GUARD_IMPL: unsafe fn(*mut u32) = trace_pc_guard_increase_counter;
+
+#[cfg(feature = "ui")]
+pub(crate) unsafe fn with_coverage_map<T>(do_thing: impl Fn(&HashMap<Feature, Vec<BacktraceSymbol>>) -> T) -> T {
+    let sensor = SHARED_SENSOR.as_mut_ptr();
+    do_thing(&(*sensor).eight_bit_counters_locations)
+}
+#[cfg(feature = "ui")]
+pub unsafe fn record_location_guard(guard: *mut u32) {
+    let sensor = SHARED_SENSOR.as_mut_ptr();
+    let feature_group =
+        Feature::edge(guard.offset_from((*sensor).eight_bit_counters.as_ptr()) as usize, 1).erasing_payload();
+    match (*sensor).eight_bit_counters_locations.entry(feature_group) {
+        Entry::Occupied(_) => {}
+        Entry::Vacant(entry) => {
+            let bt = backtrace::Backtrace::new();
+            let frames = bt.frames();
+            let coverage_point = frames[2].symbols().to_owned();
+            entry.insert(coverage_point);
+        }
+    }
+}
+#[cfg(feature = "ui")]
+pub unsafe fn trace_pc_guard_increase_counter(guard: *mut u32) {
+    *guard += 1;
 }
 
 pub fn lowest_stack() -> usize {

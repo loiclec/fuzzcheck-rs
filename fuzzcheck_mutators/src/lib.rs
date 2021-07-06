@@ -1,6 +1,5 @@
 #![feature(generic_associated_types)]
 #![feature(variant_count)]
-#![feature(int_bits_const)]
 #![feature(arc_new_cyclic)]
 #![feature(trivial_bounds)]
 

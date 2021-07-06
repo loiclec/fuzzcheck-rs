@@ -12,6 +12,7 @@ use std::collections::hash_map::DefaultHasher;
 use std::fs;
 use std::hash::{Hash, Hasher};
 use std::io::{self, Result};
+
 use std::time::Instant;
 
 use fuzzcheck_common::{FuzzerEvent, FuzzerStats};
@@ -22,6 +23,11 @@ pub(crate) enum WorldAction<T> {
     Remove(T),
     Add(T),
     ReportEvent(FuzzerEvent),
+    #[cfg(feature = "ui")]
+    ReportCoverage {
+        input: T,
+        coverage_map: Vec<Vec<(Option<String>, Option<u32>, Option<u32>)>>,
+    },
 }
 
 pub struct World<S: Serializer> {
@@ -58,8 +64,8 @@ impl<S: Serializer> World<S> {
     }
 
     #[cfg(not(feature = "ui"))]
-    fn hash_and_string_of_input(&self, input: S::Value) -> (String, Vec<u8>) {
-        let input = self.serializer.to_data(&input);
+    fn hash_and_string_of_input(&self, input: &S::Value) -> (String, Vec<u8>) {
+        let input = self.serializer.to_data(input);
         let mut hasher = DefaultHasher::new();
         input.hash(&mut hasher);
         let hash = hasher.finish();
@@ -68,7 +74,7 @@ impl<S: Serializer> World<S> {
     }
 
     #[cfg(feature = "ui")]
-    fn hash_and_string_of_input(&self, input: S::Value) -> (String, Vec<u8>) {
+    fn hash_and_string_of_input(&self, input: &S::Value) -> (String, Vec<u8>) {
         let input = self.serializer.to_data(&input);
         let mut hasher = DefaultHasher::new();
         input.hash(&mut hasher);
@@ -88,7 +94,7 @@ impl<S: Serializer> World<S> {
         for a in actions {
             let message = match a {
                 WorldAction::Add(x) => {
-                    let (hash, input) = self.hash_and_string_of_input(x);
+                    let (hash, input) = self.hash_and_string_of_input(&x);
                     self.add_to_output_corpus(hash.clone(), input.clone())?;
                     #[cfg(feature = "ui")]
                     TuiMessage::AddInput {
@@ -97,7 +103,7 @@ impl<S: Serializer> World<S> {
                     }
                 }
                 WorldAction::Remove(x) => {
-                    let (hash, input) = self.hash_and_string_of_input(x);
+                    let (hash, input) = self.hash_and_string_of_input(&x);
                     self.remove_from_output_corpus(hash.clone())?;
                     #[cfg(feature = "ui")]
                     TuiMessage::RemoveInput {
@@ -114,6 +120,8 @@ impl<S: Serializer> World<S> {
                         time_ms: self.elapsed_time_since_start() / 1000,
                     })
                 }
+                #[cfg(feature = "ui")]
+                WorldAction::ReportCoverage { input, coverage_map } => self.report_coverage(&input, coverage_map),
             };
 
             #[cfg(feature = "ui")]
@@ -313,6 +321,16 @@ This should never happen, and is probably a bug in fuzzcheck. Sorry :("#
             self.write_to_stream(&message);
         }
         Result::Ok(())
+    }
+
+    #[cfg(feature = "ui")]
+    pub fn report_coverage(
+        &mut self,
+        input: &S::Value,
+        coverage: Vec<Vec<(Option<String>, Option<u32>, Option<u32>)>>,
+    ) -> TuiMessage {
+        let (hash_input, _) = self.hash_and_string_of_input(input);
+        TuiMessage::ReportCoverage { hash_input, coverage }
     }
 
     #[cfg(feature = "ui")]

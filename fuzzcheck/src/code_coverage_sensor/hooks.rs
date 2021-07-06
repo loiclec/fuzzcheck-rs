@@ -50,6 +50,9 @@
 //! ```
 
 use super::{CodeCoverageSensor, SHARED_SENSOR};
+#[cfg(feature = "ui")]
+use std::collections::HashMap;
+
 use std::slice;
 use std::sync::Once;
 
@@ -107,6 +110,8 @@ unsafe fn pcguard_init(start: *mut u32, stop: *mut u32) {
         println!("Number of counters: {}", dist);
         SHARED_SENSOR.as_mut_ptr().write(CodeCoverageSensor {
             eight_bit_counters: slice::from_raw_parts_mut(start, dist),
+            #[cfg(feature = "ui")]
+            eight_bit_counters_locations: HashMap::new(),
             _lowest_stack: &mut LOWEST_STACK,
             lowest_stack: usize::MAX,
             #[cfg(trace_compares)]
@@ -117,7 +122,14 @@ unsafe fn pcguard_init(start: *mut u32, stop: *mut u32) {
 
 #[export_name = "__sanitizer_cov_trace_pc_guard"]
 unsafe fn trace_pc_guard(guard: *mut u32) {
-    *guard += 1;
+    #[cfg(feature = "ui")]
+    {
+        super::TRACE_PC_GUARD_IMPL(guard);
+    }
+    #[cfg(not(feature = "ui"))]
+    {
+        *guard += 1;
+    }
 }
 
 // #[export_name = "__sanitizer_cov_8bit_counters_init"]

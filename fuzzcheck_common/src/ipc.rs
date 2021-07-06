@@ -38,10 +38,24 @@ pub enum MessageUserToFuzzer {
 
 #[derive(Clone, FromJson, ToJson)]
 pub enum TuiMessage {
-    AddInput { hash: String, input: String },
-    RemoveInput { hash: String, input: String },
-    SaveArtifact { hash: String, input: String },
+    AddInput {
+        hash: String,
+        input: String,
+    },
+    RemoveInput {
+        hash: String,
+        input: String,
+    },
+    SaveArtifact {
+        hash: String,
+        input: String,
+    },
     ReportEvent(TuiMessageEvent),
+    #[cfg(feature = "ui")]
+    ReportCoverage {
+        hash_input: String,
+        coverage: Vec<Vec<(Option<String>, Option<u32>, Option<u32>)>>,
+    },
     Paused,
     UnPaused,
     Stopped,

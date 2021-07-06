@@ -59,10 +59,14 @@
 
 use std::cmp::Ordering;
 use std::collections::BTreeSet;
+#[cfg(feature = "ui")]
+use std::collections::HashMap;
 use std::fmt;
 use std::ops::Range;
 
 extern crate fastrand;
+#[cfg(feature = "ui")]
+use backtrace::BacktraceSymbol;
 use fastrand::Rng;
 
 use crate::data_structures::{Slab, SlabKey, WeightedIndex};
@@ -272,11 +276,11 @@ impl<T: Clone, M: Mutator<T>> Pool<T, M> {
         complexity: f64,
         result: AnalysisResult<T, M>,
         _generation: usize,
-    ) -> Vec<WorldAction<T>> {
+    ) -> (Vec<WorldAction<T>>, Option<SlabKey<Input<T, M>>>) {
         let AnalysisResult {
             existing_features,
             new_features,
-            lowest_stack: _,
+            _lowest_stack: _,
         } = result;
 
         let mut actions: Vec<WorldAction<T>> = Vec::new();
@@ -298,7 +302,7 @@ impl<T: Clone, M: Mutator<T>> Pool<T, M> {
         // }
 
         if existing_features.is_empty() && new_features.is_empty() {
-            return actions;
+            return (actions, None);
         }
 
         let element_key: SlabKey<Input<T, M>> = {
@@ -489,7 +493,7 @@ impl<T: Clone, M: Mutator<T>> Pool<T, M> {
 
         // self.sanity_check();
 
-        actions
+        (actions, Some(element_key))
     }
 
     pub fn delete_elements(
@@ -828,6 +832,41 @@ impl<T: Clone, M: Mutator<T>> Pool<T, M> {
         self.update_stats()
     }
 
+    #[cfg(feature = "ui")]
+    pub(crate) fn send_coverage_information_for_input(
+        &self,
+        key: SlabKey<Input<T, M>>,
+        coverage_map: &HashMap<Feature, Vec<BacktraceSymbol>>,
+    ) -> WorldAction<T> {
+        let input = &self.slab_inputs[key];
+        let mut coverage = HashMap::new();
+
+        for feature_key in &input.all_features {
+            let feature = &self.slab_features[*feature_key];
+            let feature_group = feature.feature.erasing_payload();
+            coverage.insert(feature_group, coverage_map[&feature_group].clone());
+        }
+        let coverage: Vec<_> = coverage
+            .iter()
+            .map(|(_, symbols)| {
+                symbols
+                    .iter()
+                    .map(|symbol| {
+                        (
+                            symbol.filename().map(|p| p.to_str().unwrap().to_owned()),
+                            symbol.lineno(),
+                            symbol.colno(),
+                        )
+                    })
+                    .collect()
+            })
+            .collect();
+        WorldAction::ReportCoverage {
+            input: input.data.value.clone(),
+            coverage_map: coverage,
+        }
+    }
+
     #[cfg(test)]
     fn print_recap(&self) {
         println!("recap inputs:");
@@ -1148,7 +1187,7 @@ mod tests {
                 let analysis_result = AnalysisResult {
                     existing_features: existing_features_1,
                     new_features: new_features_1,
-                    lowest_stack: 0,
+                    _lowest_stack: 0,
                 };
                 // println!("adding input of cplx {:.2} with new features {:?} and existing features {:?}", cplx1, new_features_1, existing_features_1);
                 let _ = pool.add(mock(cplx1), cplx1, analysis_result, 0);
