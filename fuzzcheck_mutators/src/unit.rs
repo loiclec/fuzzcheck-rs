@@ -95,16 +95,16 @@ where
     fn ordered_mutate(
         &self,
         _value: &mut T,
-        _cache: &Self::Cache,
+        _cache: &mut Self::Cache,
         _step: &mut Self::MutationStep,
         _max_cplx: f64,
     ) -> Option<(Self::UnmutateToken, f64)> {
         None
     }
 
-    fn random_mutate(&self, _value: &mut T, _cache: &Self::Cache, _max_cplx: f64) -> (Self::UnmutateToken, f64) {
+    fn random_mutate(&self, _value: &mut T, _cache: &mut Self::Cache, _max_cplx: f64) -> (Self::UnmutateToken, f64) {
         ((), 0.0)
     }
 
-    fn unmutate(&self, _value: &mut T, _t: Self::UnmutateToken) {}
+    fn unmutate(&self, _value: &mut T, _cache: &mut Self::Cache, _t: Self::UnmutateToken) {}
 }

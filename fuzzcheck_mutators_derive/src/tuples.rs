@@ -504,7 +504,7 @@ fn impl_mutator_trait(tb: &mut TokenBuilder, nbr_elements: usize) {
         fn ordered_mutate<'a>(
             &'a self,
             value: " tuple_mut ",
-            cache: &'a Self::Cache,
+            cache: &'a mut Self::Cache,
             step: &'a mut Self::MutationStep,
             max_cplx: f64,
         ) -> " cm.Option "<(Self::UnmutateToken, f64)> {
@@ -524,11 +524,11 @@ fn impl_mutator_trait(tb: &mut TokenBuilder, nbr_elements: usize) {
             match step.inner[step_idx] {"
             join_ts!(0..nbr_elements, i,
                 "InnerMutationStep::" Ti(i) "=> {
-                    let old_field_cplx = self." mutator_i(i) ".complexity(value." i ", &cache." ti(i) ");
+                    let old_field_cplx = self." mutator_i(i) ".complexity(value." i ", &mut cache." ti(i) ");
                     let max_field_cplx = max_cplx - current_cplx + old_field_cplx;
                     if let " cm.Some "((token, new_field_cplx)) =
                         self." mutator_i(i) "
-                            .ordered_mutate(value." i ", &cache." ti(i) ", &mut step." ti(i) ", max_field_cplx)
+                            .ordered_mutate(value." i ", &mut cache." ti(i) ", &mut step." ti(i) ", max_field_cplx)
                     {
                         return " cm.Some "((Self::UnmutateToken {
                             " ti(i) ": " cm.Some "(token),
@@ -554,15 +554,15 @@ fn impl_mutator_trait(tb: &mut TokenBuilder, nbr_elements: usize) {
         // TODO!
         "
         
-        fn random_mutate<'a>(&'a self, value: " tuple_mut ", cache: &'a Self::Cache, max_cplx: f64, ) -> (Self::UnmutateToken, f64) {
+        fn random_mutate<'a>(&'a self, value: " tuple_mut ", cache: &'a mut Self::Cache, max_cplx: f64, ) -> (Self::UnmutateToken, f64) {
             let current_cplx = " SelfAsTupleMutator "::complexity(self, " TupleNAsRefTypes "::get_ref_from_mut(&value), cache);
             match cache.vose_alias.sample() {"
                 join_ts!(0..nbr_elements, i,
                     i "=> {
-                        let old_field_cplx = self." mutator_i(i) ".complexity(value." i ", &cache." ti(i) ");
+                        let old_field_cplx = self." mutator_i(i) ".complexity(value." i ", &mut cache." ti(i) ");
                         let max_field_cplx = max_cplx - current_cplx + old_field_cplx;
                         let (token, new_field_cplx) = self." mutator_i(i) "
-                            .random_mutate(value." i ", &cache." ti(i) ", max_field_cplx) ;
+                            .random_mutate(value." i ", &mut cache." ti(i) ", max_field_cplx) ;
                         
                         return (Self::UnmutateToken {
                             " ti(i) ": " cm.Some "(token),
@@ -574,10 +574,10 @@ fn impl_mutator_trait(tb: &mut TokenBuilder, nbr_elements: usize) {
             }
         }
         
-        fn unmutate<'a>(&'a self, value: " tuple_mut ", t: Self::UnmutateToken) {"
+        fn unmutate<'a>(&'a self, value: " tuple_mut ", cache: &'a mut Self::Cache, t: Self::UnmutateToken) {"
             join_ts!(0..nbr_elements, i,
                 "if let" cm.Some "(subtoken) = t." ti(i) "{
-                    self. " mutator_i(i) ".unmutate(value." i ", subtoken);
+                    self. " mutator_i(i) ".unmutate(value." i ", &mut cache." ti(i) ", subtoken);
                 }"
             )
         "}

@@ -32,7 +32,13 @@ path = "../fuzzcheck_mutators_derive"
 version = "0.6.0"
 
 [dependencies.fastrand]
-version = "1.0"
+version = "*"
+
+[dependencies.regex-syntax]
+version = "*"
+
+[dependencies.nom]
+version = "*"
 
 [patch.crates-io]
 decent-synquote-alternative = { git = "file:///Users/loic/Documents/decent-synquote-alternative" }

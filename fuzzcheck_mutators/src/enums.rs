@@ -75,7 +75,7 @@ where
     fn ordered_mutate(
         &self,
         value: &mut T,
-        _cache: &Self::Cache,
+        _cache: &mut Self::Cache,
         step: &mut Self::MutationStep,
         max_cplx: f64,
     ) -> Option<(Self::UnmutateToken, f64)> {
@@ -95,14 +95,14 @@ where
         }
     }
 
-    fn random_mutate(&self, value: &mut T, _cache: &Self::Cache, _max_cplx: f64) -> (Self::UnmutateToken, f64) {
+    fn random_mutate(&self, value: &mut T, _cache: &mut Self::Cache, _max_cplx: f64) -> (Self::UnmutateToken, f64) {
         let old_index = value.get_item_index();
         let item_idx = self.rng.usize(..std::mem::variant_count::<T>());
         *value = T::from_item_index(item_idx);
         (old_index, self.cplx)
     }
 
-    fn unmutate(&self, value: &mut T, t: Self::UnmutateToken) {
+    fn unmutate(&self, value: &mut T, _cache: &mut Self::Cache, t: Self::UnmutateToken) {
         *value = T::from_item_index(t);
     }
 }

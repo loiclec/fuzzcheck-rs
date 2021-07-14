@@ -116,7 +116,7 @@ where
     fn ordered_mutate<'a>(
         &'a self,
         value: &'a mut T,
-        cache: &'a Self::Cache,
+        cache: &'a mut Self::Cache,
         step: &'a mut Self::MutationStep,
         max_cplx: f64,
     ) -> Option<(Self::UnmutateToken, f64)> {
@@ -126,14 +126,14 @@ where
     fn random_mutate<'a>(
         &'a self,
         value: &'a mut T,
-        cache: &'a Self::Cache,
+        cache: &'a mut Self::Cache,
         max_cplx: f64,
     ) -> (Self::UnmutateToken, f64) {
         self.mutator.random_mutate(value, cache, max_cplx)
     }
 
-    fn unmutate<'a>(&'a self, value: &'a mut T, t: Self::UnmutateToken) {
-        self.mutator.unmutate(value, t)
+    fn unmutate<'a>(&'a self, value: &'a mut T, cache: &'a mut Self::Cache, t: Self::UnmutateToken) {
+        self.mutator.unmutate(value, cache, t)
     }
 }
 
@@ -170,7 +170,7 @@ where
     fn ordered_mutate<'a>(
         &'a self,
         value: TupleKind::Mut<'a>,
-        cache: &'a Self::Cache,
+        cache: &'a mut Self::Cache,
         step: &'a mut Self::MutationStep,
         max_cplx: f64,
     ) -> Option<(Self::UnmutateToken, f64)>;
@@ -178,11 +178,11 @@ where
     fn random_mutate<'a>(
         &'a self,
         value: TupleKind::Mut<'a>,
-        cache: &'a Self::Cache,
+        cache: &'a mut Self::Cache,
         max_cplx: f64,
     ) -> (Self::UnmutateToken, f64);
 
-    fn unmutate<'a>(&'a self, value: TupleKind::Mut<'a>, t: Self::UnmutateToken);
+    fn unmutate<'a>(&'a self, value: TupleKind::Mut<'a>, cache: &'a mut Self::Cache, t: Self::UnmutateToken);
 }
 
 pub struct TupleMutatorWrapper<T, M, TupleKind>
@@ -268,19 +268,19 @@ where
     fn ordered_mutate(
         &self,
         value: &mut T,
-        cache: &Self::Cache,
+        cache: &mut Self::Cache,
         step: &mut Self::MutationStep,
         max_cplx: f64,
     ) -> Option<(Self::UnmutateToken, f64)> {
         self.mutator.ordered_mutate(value.get_mut(), cache, step, max_cplx)
     }
 
-    fn random_mutate(&self, value: &mut T, cache: &Self::Cache, max_cplx: f64) -> (Self::UnmutateToken, f64) {
+    fn random_mutate(&self, value: &mut T, cache: &mut Self::Cache, max_cplx: f64) -> (Self::UnmutateToken, f64) {
         self.mutator.random_mutate(value.get_mut(), cache, max_cplx)
     }
 
-    fn unmutate(&self, value: &mut T, t: Self::UnmutateToken) {
-        self.mutator.unmutate(value.get_mut(), t)
+    fn unmutate(&self, value: &mut T, cache: &mut Self::Cache, t: Self::UnmutateToken) {
+        self.mutator.unmutate(value.get_mut(), cache, t)
     }
 }
 

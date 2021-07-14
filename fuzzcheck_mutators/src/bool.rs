@@ -77,7 +77,7 @@ impl Mutator<bool> for BoolMutator {
     fn ordered_mutate(
         &self,
         value: &mut bool,
-        _cache: &Self::Cache,
+        _cache: &mut Self::Cache,
         step: &mut Self::MutationStep,
         max_cplx: f64,
     ) -> Option<(Self::UnmutateToken, f64)> {
@@ -92,11 +92,11 @@ impl Mutator<bool> for BoolMutator {
         }
     }
 
-    fn random_mutate(&self, value: &mut bool, _cache: &Self::Cache, _max_cplx: f64) -> (Self::UnmutateToken, f64) {
+    fn random_mutate(&self, value: &mut bool, _cache: &mut Self::Cache, _max_cplx: f64) -> (Self::UnmutateToken, f64) {
         (std::mem::replace(value, !*value), BOOL_COMPLEXITY)
     }
 
-    fn unmutate(&self, value: &mut bool, t: Self::UnmutateToken) {
+    fn unmutate(&self, value: &mut bool, _cache: &mut Self::Cache, t: Self::UnmutateToken) {
         *value = t;
     }
 }

@@ -238,14 +238,14 @@ pub(crate) fn make_mutator_type_and_impl(params: CreateWrapperMutatorParams) -> 
             fn ordered_mutate(
                 &self,
                 value: &mut " type_ident type_generics.removing_bounds_and_eq_type() ",
-                cache: &Self::Cache,
+                cache: &mut Self::Cache,
                 step: &mut Self::MutationStep,
                 max_cplx: f64,
             ) -> Option<(Self::UnmutateToken, f64)> {
                 if let " cm.Some "((t, c)) = " InnerMutator_as_Mutator "::ordered_mutate(
                     &self.mutator,
                     value,
-                    &cache.inner,
+                    &mut cache.inner,
                     &mut step.inner,
                     max_cplx,
                 ) {
@@ -255,13 +255,13 @@ pub(crate) fn make_mutator_type_and_impl(params: CreateWrapperMutatorParams) -> 
             "}
             }
             
-            fn random_mutate(&self, value: &mut " type_ident type_generics.removing_bounds_and_eq_type() ", cache: &Self::Cache, max_cplx: f64) -> (Self::UnmutateToken, f64) {
-                let (t, c) =" InnerMutator_as_Mutator "::random_mutate(&self.mutator, value, &cache.inner, max_cplx);
+            fn random_mutate(&self, value: &mut " type_ident type_generics.removing_bounds_and_eq_type() ", cache: &mut Self::Cache, max_cplx: f64) -> (Self::UnmutateToken, f64) {
+                let (t, c) =" InnerMutator_as_Mutator "::random_mutate(&self.mutator, value, &mut cache.inner, max_cplx);
                 (Self::UnmutateToken::new(t), c)
             }
             
-            fn unmutate(&self, value: &mut " type_ident type_generics.removing_bounds_and_eq_type() ", t: Self::UnmutateToken) {
-                " InnerMutator_as_Mutator "::unmutate(&self.mutator, value, " if settings.recursive {
+            fn unmutate(&self, value: &mut " type_ident type_generics.removing_bounds_and_eq_type() ", cache: &mut Self::Cache, t: Self::UnmutateToken) {
+                " InnerMutator_as_Mutator "::unmutate(&self.mutator, value, &mut cache.inner," if settings.recursive {
                 "*t.inner"
             } else {
                 "t.inner"

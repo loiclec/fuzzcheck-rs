@@ -67,19 +67,19 @@ impl<T: Clone, M: Mutator<T>> Mutator<Box<T>> for BoxMutator<T, M> {
     fn ordered_mutate(
         &self,
         value: &mut Box<T>,
-        cache: &Self::Cache,
+        cache: &mut Self::Cache,
         step: &mut Self::MutationStep,
         max_cplx: f64,
     ) -> Option<(Self::UnmutateToken, f64)> {
         self.mutator.ordered_mutate(value, cache, step, max_cplx)
     }
 
-    fn random_mutate(&self, value: &mut Box<T>, cache: &Self::Cache, max_cplx: f64) -> (Self::UnmutateToken, f64) {
+    fn random_mutate(&self, value: &mut Box<T>, cache: &mut Self::Cache, max_cplx: f64) -> (Self::UnmutateToken, f64) {
         self.mutator.random_mutate(value, cache, max_cplx)
     }
 
-    fn unmutate(&self, value: &mut Box<T>, t: Self::UnmutateToken) {
-        self.mutator.unmutate(value, t)
+    fn unmutate(&self, value: &mut Box<T>, cache: &mut Self::Cache, t: Self::UnmutateToken) {
+        self.mutator.unmutate(value, cache, t)
     }
 }
 

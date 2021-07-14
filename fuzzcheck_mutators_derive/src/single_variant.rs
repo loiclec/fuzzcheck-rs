@@ -242,7 +242,7 @@ pub fn make_single_variant_mutator(tb: &mut TokenBuilder, enu: &Enum) {
         fn ordered_mutate(
             &self,
             value: &mut " enu.ident enum_generics_no_bounds ",
-            cache: &Self::Cache,
+            cache: &mut Self::Cache,
             step: &mut Self::MutationStep,
             max_cplx: f64,
         ) -> Option<(Self::UnmutateToken, f64)> {
@@ -261,7 +261,7 @@ pub fn make_single_variant_mutator(tb: &mut TokenBuilder, enu: &Enum) {
             }
         }
         
-        fn random_mutate(&self, value: &mut " enu.ident enum_generics_no_bounds ", cache: &Self::Cache, max_cplx: f64) -> (Self::UnmutateToken, f64) {
+        fn random_mutate(&self, value: &mut " enu.ident enum_generics_no_bounds ", cache: &mut Self::Cache, max_cplx: f64) -> (Self::UnmutateToken, f64) {
             match (self, value, cache) {"
             join_ts!(&enu.items, item,
                 "(
@@ -278,15 +278,16 @@ pub fn make_single_variant_mutator(tb: &mut TokenBuilder, enu: &Enum) {
             "}
         }
         
-        fn unmutate(&self, value: &mut " enu.ident enum_generics_no_bounds ", t: Self::UnmutateToken) {
-            match (self, value, t) {"
+        fn unmutate(&self, value: &mut " enu.ident enum_generics_no_bounds ", cache: &mut Self::Cache, t: Self::UnmutateToken) {
+            match (self, value, cache, t) {"
             join_ts!(&enu.items, item,
                 "(
                     " EnumSingleVariant "::" item.ident "(m) ,
                     " item.pattern_match(&enu.ident, Some(pattern_match_binding_append.clone())) ",
+                    " EnumSingleVariant "::" item.ident "(c) ,
                     " EnumSingleVariant "::" item.ident "(t)
                 ) => {"
-                    "m.unmutate(" item_pattern_match_bindings_to_tuple(&item.ident, true) ", t)"
+                    "m.unmutate(" item_pattern_match_bindings_to_tuple(&item.ident, true) ", c, t)"
                 "}"
             )" _ => unreachable!()
             }

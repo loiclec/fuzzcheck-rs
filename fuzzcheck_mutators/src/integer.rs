@@ -200,7 +200,7 @@ macro_rules! impl_int_mutator {
             fn ordered_mutate(
                 &self,
                 value: &mut $name,
-                _cache: &Self::Cache,
+                _cache: &mut Self::Cache,
                 step: &mut Self::MutationStep,
                 max_cplx: f64,
             ) -> Option<(Self::UnmutateToken, f64)> {
@@ -233,13 +233,13 @@ macro_rules! impl_int_mutator {
             fn random_mutate(
                 &self,
                 value: &mut $name,
-                _cache: &Self::Cache,
+                _cache: &mut Self::Cache,
                 _max_cplx: f64,
             ) -> (Self::UnmutateToken, f64) {
                 (std::mem::replace(value, self.rng.$name(..)), <$name>::BITS as f64)
             }
 
-            fn unmutate(&self, value: &mut $name, t: Self::UnmutateToken) {
+            fn unmutate(&self, value: &mut $name, _cache: &mut Self::Cache, t: Self::UnmutateToken) {
                 *value = t;
             }
         }
@@ -353,7 +353,7 @@ macro_rules! impl_int_mutator_constrained {
             fn ordered_mutate(
                 &self,
                 value: &mut $name,
-                _cache: &Self::Cache,
+                _cache: &mut Self::Cache,
                 step: &mut Self::MutationStep,
                 max_cplx: f64,
             ) -> Option<(Self::UnmutateToken, f64)> {
@@ -375,7 +375,7 @@ macro_rules! impl_int_mutator_constrained {
             fn random_mutate(
                 &self,
                 value: &mut $name,
-                _cache: &Self::Cache,
+                _cache: &mut Self::Cache,
                 _max_cplx: f64,
             ) -> (Self::UnmutateToken, f64) {
                 (
@@ -388,7 +388,7 @@ macro_rules! impl_int_mutator_constrained {
                 )
             }
 
-            fn unmutate(&self, value: &mut $name, t: Self::UnmutateToken) {
+            fn unmutate(&self, value: &mut $name, _cache: &mut Self::Cache, t: Self::UnmutateToken) {
                 *value = t;
             }
         }
@@ -487,7 +487,7 @@ impl Mutator<char> for CharWithinRangeMutator {
     fn ordered_mutate(
         &self,
         value: &mut char,
-        _cache: &Self::Cache,
+        _cache: &mut Self::Cache,
         step: &mut Self::MutationStep,
         max_cplx: f64,
     ) -> Option<(Self::UnmutateToken, f64)> {
@@ -506,7 +506,7 @@ impl Mutator<char> for CharWithinRangeMutator {
         Some((token, <u32>::BITS as f64))
     }
 
-    fn random_mutate(&self, value: &mut char, _cache: &Self::Cache, _max_cplx: f64) -> (Self::UnmutateToken, f64) {
+    fn random_mutate(&self, value: &mut char, _cache: &mut Self::Cache, _max_cplx: f64) -> (Self::UnmutateToken, f64) {
         (
             std::mem::replace(
                 value,
@@ -520,7 +520,7 @@ impl Mutator<char> for CharWithinRangeMutator {
         )
     }
 
-    fn unmutate(&self, value: &mut char, t: Self::UnmutateToken) {
+    fn unmutate(&self, value: &mut char, _cache: &mut Self::Cache, t: Self::UnmutateToken) {
         *value = t;
     }
 }

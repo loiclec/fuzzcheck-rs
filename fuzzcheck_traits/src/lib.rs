@@ -86,6 +86,8 @@ use std::rc::{Rc, Weak};
 
 **/
 pub trait Mutator<Value: Clone>: Sized {
+    // change Value above to TestInput
+    // type Value: MutatorValue<Value>;
     type Cache;
     type MutationStep;
     type ArbitraryStep;
@@ -106,14 +108,14 @@ pub trait Mutator<Value: Clone>: Sized {
     fn ordered_mutate(
         &self,
         value: &mut Value,
-        cache: &Self::Cache,
+        cache: &mut Self::Cache,
         step: &mut Self::MutationStep,
         max_cplx: f64,
     ) -> Option<(Self::UnmutateToken, f64)>;
 
-    fn random_mutate(&self, value: &mut Value, cache: &Self::Cache, max_cplx: f64) -> (Self::UnmutateToken, f64);
+    fn random_mutate(&self, value: &mut Value, cache: &mut Self::Cache, max_cplx: f64) -> (Self::UnmutateToken, f64);
 
-    fn unmutate(&self, value: &mut Value, t: Self::UnmutateToken);
+    fn unmutate(&self, value: &mut Value, cache: &mut Self::Cache, t: Self::UnmutateToken);
 }
 
 /**
@@ -219,7 +221,7 @@ where
     fn ordered_mutate(
         &self,
         value: &mut T,
-        cache: &Self::Cache,
+        cache: &mut Self::Cache,
         step: &mut Self::MutationStep,
         max_cplx: f64,
     ) -> Option<(Self::UnmutateToken, f64)> {
@@ -229,12 +231,12 @@ where
             .ordered_mutate(value, cache, step, max_cplx)
     }
 
-    fn random_mutate(&self, value: &mut T, cache: &Self::Cache, max_cplx: f64) -> (Self::UnmutateToken, f64) {
+    fn random_mutate(&self, value: &mut T, cache: &mut Self::Cache, max_cplx: f64) -> (Self::UnmutateToken, f64) {
         self.reference.upgrade().unwrap().random_mutate(value, cache, max_cplx)
     }
 
-    fn unmutate(&self, value: &mut T, t: Self::UnmutateToken) {
-        self.reference.upgrade().unwrap().unmutate(value, t)
+    fn unmutate(&self, value: &mut T, cache: &mut Self::Cache, t: Self::UnmutateToken) {
+        self.reference.upgrade().unwrap().unmutate(value, cache, t)
     }
 }
 
@@ -279,18 +281,18 @@ where
     fn ordered_mutate(
         &self,
         value: &mut T,
-        cache: &Self::Cache,
+        cache: &mut Self::Cache,
         step: &mut Self::MutationStep,
         max_cplx: f64,
     ) -> Option<(Self::UnmutateToken, f64)> {
         Rc::as_ref(&self.mutator).ordered_mutate(value, cache, step, max_cplx)
     }
 
-    fn random_mutate(&self, value: &mut T, cache: &Self::Cache, max_cplx: f64) -> (Self::UnmutateToken, f64) {
+    fn random_mutate(&self, value: &mut T, cache: &mut Self::Cache, max_cplx: f64) -> (Self::UnmutateToken, f64) {
         Rc::as_ref(&self.mutator).random_mutate(value, cache, max_cplx)
     }
 
-    fn unmutate(&self, value: &mut T, t: Self::UnmutateToken) {
-        Rc::as_ref(&self.mutator).unmutate(value, t)
+    fn unmutate(&self, value: &mut T, cache: &mut Self::Cache, t: Self::UnmutateToken) {
+        Rc::as_ref(&self.mutator).unmutate(value, cache, t)
     }
 }

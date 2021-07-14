@@ -60,7 +60,7 @@ impl<T: Clone, M: Mutator<T>> FixedLenVecMutator<T, M> {
     fn mutate_element(
         &self,
         value: &mut Vec<T>,
-        cache: &VecMutatorCache<M::Cache>,
+        cache: &mut VecMutatorCache<M::Cache>,
         step: &mut MutationStep<M::MutationStep>,
         idx: usize,
         current_cplx: f64,
@@ -68,7 +68,7 @@ impl<T: Clone, M: Mutator<T>> FixedLenVecMutator<T, M> {
     ) -> Option<(UnmutateVecToken<T, M>, f64)> {
         let mutator = &self.mutators[idx];
         let el = &mut value[idx];
-        let el_cache = &cache.inner[idx];
+        let el_cache = &mut cache.inner[idx];
         let el_step = &mut step.inner[idx];
 
         let old_cplx = mutator.complexity(&el, el_cache);
@@ -185,7 +185,7 @@ impl<T: Clone, M: Mutator<T>> Mutator<Vec<T>> for FixedLenVecMutator<T, M> {
     fn ordered_mutate(
         &self,
         value: &mut Vec<T>,
-        cache: &Self::Cache,
+        cache: &mut Self::Cache,
         step: &mut Self::MutationStep,
         mut max_cplx: f64,
     ) -> Option<(Self::UnmutateToken, f64)> {
@@ -205,7 +205,12 @@ impl<T: Clone, M: Mutator<T>> Mutator<Vec<T>> for FixedLenVecMutator<T, M> {
             .or_else(|| Some(self.random_mutate(value, cache, max_cplx)))
     }
 
-    fn random_mutate(&self, value: &mut Vec<T>, cache: &Self::Cache, mut max_cplx: f64) -> (Self::UnmutateToken, f64) {
+    fn random_mutate(
+        &self,
+        value: &mut Vec<T>,
+        cache: &mut Self::Cache,
+        mut max_cplx: f64,
+    ) -> (Self::UnmutateToken, f64) {
         let mutator_max_cplx = self.max_complexity();
         if max_cplx > mutator_max_cplx {
             max_cplx = mutator_max_cplx;
@@ -215,7 +220,7 @@ impl<T: Clone, M: Mutator<T>> Mutator<Vec<T>> for FixedLenVecMutator<T, M> {
 
         let idx = self.rng.usize(0..value.len());
         let el = &mut value[idx];
-        let el_cache = &cache.inner[idx];
+        let el_cache = &mut cache.inner[idx];
 
         let old_el_cplx = self.mutators[idx].complexity(&el, el_cache);
         let (token, new_el_cplx) = self.mutators[idx].random_mutate(el, el_cache, spare_cplx + old_el_cplx);
@@ -226,11 +231,11 @@ impl<T: Clone, M: Mutator<T>> Mutator<Vec<T>> for FixedLenVecMutator<T, M> {
         )
     }
 
-    fn unmutate(&self, value: &mut Vec<T>, t: Self::UnmutateToken) {
+    fn unmutate(&self, value: &mut Vec<T>, cache: &mut Self::Cache, t: Self::UnmutateToken) {
         match t {
             UnmutateVecToken::Element(idx, inner_t) => {
                 let el = &mut value[idx];
-                self.mutators[idx].unmutate(el, inner_t);
+                self.mutators[idx].unmutate(el, &mut cache.inner[idx], inner_t);
             }
         }
     }

@@ -7,7 +7,7 @@ where
     T: Clone,
     M: Mutator<T>,
 {
-    mutators: Vec<M>,
+    pub mutators: Vec<M>,
     complexity_from_choice: f64,
     max_complexity: f64,
     min_complexity: f64,
@@ -169,7 +169,7 @@ where
     fn ordered_mutate(
         &self,
         value: &mut T,
-        cache: &Self::Cache,
+        cache: &mut Self::Cache,
         step: &mut Self::MutationStep,
         max_cplx: f64,
     ) -> Option<(Self::UnmutateToken, f64)> {
@@ -187,7 +187,7 @@ where
         let idx = cache.mutator_idx;
         let mutator = &self.mutators[idx];
 
-        if let Some((t, cplx)) = mutator.ordered_mutate(value, &cache.inner, &mut step.inner, max_cplx) {
+        if let Some((t, cplx)) = mutator.ordered_mutate(value, &mut cache.inner, &mut step.inner, max_cplx) {
             Some((UnmutateToken::Inner(idx, t), self.complexity_from_inner(cplx)))
         } else {
             if let Some((mut v, cplx)) = self.ordered_arbitrary(&mut step.arbitrary, max_cplx) {
@@ -199,7 +199,7 @@ where
         }
     }
 
-    fn random_mutate(&self, value: &mut T, cache: &Self::Cache, max_cplx: f64) -> (Self::UnmutateToken, f64) {
+    fn random_mutate(&self, value: &mut T, cache: &mut Self::Cache, max_cplx: f64) -> (Self::UnmutateToken, f64) {
         let idx = cache.mutator_idx;
         let mutator = &self.mutators[idx];
         let max_cplx = max_cplx - self.complexity_from_choice;
@@ -213,18 +213,18 @@ where
             return (UnmutateToken::Replace(old_value), cplx);
         }
 
-        let (t, cplx) = mutator.random_mutate(value, &cache.inner, max_cplx);
+        let (t, cplx) = mutator.random_mutate(value, &mut cache.inner, max_cplx);
         (UnmutateToken::Inner(idx, t), self.complexity_from_inner(cplx))
     }
 
-    fn unmutate(&self, value: &mut T, t: Self::UnmutateToken) {
+    fn unmutate(&self, value: &mut T, cache: &mut Self::Cache, t: Self::UnmutateToken) {
         match t {
             UnmutateToken::Replace(v) => {
                 let _ = std::mem::replace(value, v);
             }
             UnmutateToken::Inner(idx, t) => {
                 let mutator = &self.mutators[idx];
-                mutator.unmutate(value, t);
+                mutator.unmutate(value, &mut cache.inner, t);
             }
         }
     }

@@ -40,18 +40,18 @@ impl<T: Clone> Mutator<T> for NeverMutator {
     fn ordered_mutate(
         &self,
         _value: &mut T,
-        _cache: &Self::Cache,
+        _cache: &mut Self::Cache,
         _step: &mut Self::MutationStep,
         _max_cplx: f64,
     ) -> Option<(Self::UnmutateToken, f64)> {
         unreachable!()
     }
 
-    fn random_mutate(&self, _value: &mut T, _cache: &Self::Cache, _max_cplx: f64) -> (Self::UnmutateToken, f64) {
+    fn random_mutate(&self, _value: &mut T, _cache: &mut Self::Cache, _max_cplx: f64) -> (Self::UnmutateToken, f64) {
         unreachable!()
     }
 
-    fn unmutate(&self, _value: &mut T, _t: Self::UnmutateToken) {
+    fn unmutate(&self, _value: &mut T, _cache: &mut Self::Cache, _t: Self::UnmutateToken) {
         unreachable!()
     }
 }
@@ -96,7 +96,7 @@ where
     fn ordered_mutate<'a>(
         &'a self,
         _value: TupleKind::Mut<'a>,
-        _cache: &'a Self::Cache,
+        _cache: &'a mut Self::Cache,
         _step: &'a mut Self::MutationStep,
         _max_cplx: f64,
     ) -> Option<(Self::UnmutateToken, f64)> {
@@ -106,13 +106,13 @@ where
     fn random_mutate<'a>(
         &'a self,
         _value: TupleKind::Mut<'a>,
-        _cache: &'a Self::Cache,
+        _cache: &'a mut Self::Cache,
         _max_cplx: f64,
     ) -> (Self::UnmutateToken, f64) {
         unreachable!()
     }
 
-    fn unmutate<'a>(&'a self, _value: TupleKind::Mut<'a>, _t: Self::UnmutateToken) {
+    fn unmutate<'a>(&'a self, _value: TupleKind::Mut<'a>, _cache: &'a mut Self::Cache, _t: Self::UnmutateToken) {
         unreachable!()
     }
 }
