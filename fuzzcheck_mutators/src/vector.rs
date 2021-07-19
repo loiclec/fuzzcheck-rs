@@ -415,9 +415,9 @@ impl<T: Clone, M: Mutator<T>> Mutator<Vec<T>> for VecMutator<T, M> {
         let min_cplx_len_1 = self.complexity_from_inner(self.m.min_complexity(), 1);
         if max_cplx < self.complexity_from_inner(min_cplx_len_1, 1) || self.rng.u8(..) == 0 {
             // return the least complex value possible
-            let mut v = Vec::with_capacity(*self.len_range.start());
+            let mut v = Vec::with_capacity(self.len_range.clone().count());
             let mut inner_cplx = 0.0;
-            for _ in self.len_range.clone().into_iter() {
+            for _ in *self.len_range.start()..*self.len_range.end() {
                 let (el, el_cplx) = self.m.random_arbitrary(0.0);
                 v.push(el);
                 inner_cplx += el_cplx;

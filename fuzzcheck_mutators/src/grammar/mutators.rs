@@ -263,7 +263,7 @@ impl ASTMutator {
 mod tests {
     use crate::grammar::grammar::Grammar;
     use crate::grammar::mutators::GrammarBasedStringMutator;
-    use crate::{alternation, concatenation, literal, repetition};
+    use crate::{concatenation, literal, repetition};
     use fuzzcheck_traits::Mutator;
 
     #[test]
