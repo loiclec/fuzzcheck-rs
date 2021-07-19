@@ -5,6 +5,7 @@ use decent_serde_json_alternative::ToJson;
 use fuzzcheck_common::arg::{FullCommandLineArguments, FuzzerCommand};
 #[cfg(feature = "ui")]
 use fuzzcheck_common::ipc::{self, MessageUserToFuzzer, TuiMessage, TuiMessageEvent};
+use std::collections::HashMap;
 #[cfg(feature = "ui")]
 use std::net::TcpStream;
 
@@ -20,8 +21,13 @@ use fuzzcheck_common::{FuzzerEvent, FuzzerStats};
 use crate::{fuzzer::TerminationStatus, Serializer};
 
 pub(crate) enum WorldAction<T> {
-    Remove(T),
-    Add(T),
+    Remove {
+        key: usize,
+    },
+    Add {
+        content: T,
+        key: usize,
+    },
     ReportEvent(FuzzerEvent),
     #[cfg(feature = "ui")]
     ReportCoverage {
@@ -39,6 +45,8 @@ pub struct World<S: Serializer> {
     #[cfg(feature = "ui")]
     pause_at_next_event: bool,
     pub serializer: S,
+    /// keeps track of the hash of each input in the corpus, indexed by the Pool key
+    pub corpus: HashMap<usize, String>,
 }
 
 impl<S: Serializer> World<S> {
@@ -60,6 +68,7 @@ impl<S: Serializer> World<S> {
             #[cfg(feature = "ui")]
             pause_at_next_event,
             serializer,
+            corpus: HashMap::new(),
         }
     }
 
@@ -93,8 +102,10 @@ impl<S: Serializer> World<S> {
     pub(crate) fn do_actions(&mut self, actions: Vec<WorldAction<S::Value>>, stats: &FuzzerStats) -> Result<()> {
         for a in actions {
             let message = match a {
-                WorldAction::Add(x) => {
-                    let (hash, input) = self.hash_and_string_of_input(&x);
+                WorldAction::Add { content, key } => {
+                    let (hash, input) = self.hash_and_string_of_input(&content);
+                    let old = self.corpus.insert(key, hash.clone());
+                    assert!(old.is_none());
                     self.add_to_output_corpus(hash.clone(), input.clone())?;
                     #[cfg(feature = "ui")]
                     TuiMessage::AddInput {
@@ -102,14 +113,11 @@ impl<S: Serializer> World<S> {
                         input: String::from_utf8_lossy(&input).to_string(),
                     }
                 }
-                WorldAction::Remove(x) => {
-                    let (hash, input) = self.hash_and_string_of_input(&x);
+                WorldAction::Remove { key } => {
+                    let hash = self.corpus.remove(&key).unwrap();
                     self.remove_from_output_corpus(hash.clone())?;
                     #[cfg(feature = "ui")]
-                    TuiMessage::RemoveInput {
-                        hash,
-                        input: String::from_utf8_lossy(&input).to_string(),
-                    }
+                    TuiMessage::RemoveInput { hash }
                 }
                 WorldAction::ReportEvent(event) => {
                     self.report_event(event.clone(), Some(*stats));

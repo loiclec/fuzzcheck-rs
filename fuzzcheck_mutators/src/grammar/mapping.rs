@@ -202,11 +202,12 @@ where
                 // adjust len of whole mapping
                 // and indices of things following them
                 *self.len = *self.len + len;
+                self.children.insert(*idx, new_c);
+                to_value.insert_str(start_index, &new_s);
+
                 for child in &mut self.children[idx + 1..] {
                     child.start_index = child.start_index + len;
                 }
-                self.children.insert(*idx, new_c);
-                to_value.insert_str(start_index, &new_s);
             }
             UnmutateVecToken::InsertMany(idx, xs) => {
                 let mut start_index = self
@@ -277,6 +278,18 @@ where
                 }
                 *self.len = self.len.wrapping_add(diff_len);
             }
+            fixed_len_vector::UnmutateVecToken::Replace(_) => {
+                let mut start_index = *self.start_index;
+                let original_start_idx = start_index;
+                self.children.clear();
+                let mut new_s = String::new();
+                for x in from_value {
+                    let c = x.generate_string_in(&mut new_s, &mut start_index);
+                    self.children.push(c);
+                }
+                to_value.replace_range(*self.start_index..*self.start_index + *self.len, &new_s);
+                *self.len = start_index - original_start_idx;
+            }
         }
     }
 
@@ -291,6 +304,18 @@ where
                     child.start_index = child.start_index.wrapping_add(diff_len);
                 }
                 *self.len = self.len.wrapping_add(diff_len);
+            }
+            fixed_len_vector::UnmutateVecToken::Replace(x) => {
+                let mut start_index = *self.start_index;
+                let original_start_idx = start_index;
+                self.children.clear();
+                let mut new_s = String::new();
+                for x in x {
+                    let c = x.generate_string_in(&mut new_s, &mut start_index);
+                    self.children.push(c);
+                }
+                to_value.replace_range(*self.start_index..*self.start_index + *self.len, &new_s);
+                *self.len = start_index - original_start_idx;
             }
         }
     }

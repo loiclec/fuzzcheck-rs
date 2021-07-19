@@ -158,14 +158,15 @@ impl<T: Clone, M: Mutator<T>> VecMutator<T, M> {
         if value.len() <= *self.len_range.start() {
             return None;
         }
-        let max_elements_to_remove = cmp::max(value.len() - *self.len_range.start(), 10);
-
+        let max_elements_to_remove = cmp::min(value.len() - *self.len_range.start(), 10);
         let start_idx = if value.len() == 1 {
             0
         } else {
             self.rng.usize(0..value.len() - 1)
         };
-        let end_idx = cmp::min(value.len(), start_idx + self.rng.usize(1..max_elements_to_remove));
+        let nbr_elements_to_remove = self.rng.usize(1..=max_elements_to_remove);
+        let end_idx = cmp::min(value.len(), start_idx + nbr_elements_to_remove);
+
         let removed_cplx = value[start_idx..end_idx]
             .iter()
             .zip(cache.inner[start_idx..end_idx].iter())
@@ -241,11 +242,10 @@ impl<T: Clone, M: Mutator<T>> VecMutator<T, M> {
                 0.0..crate::gen_f64(&self.rng, 0.0..crate::gen_f64(&self.rng, 0.0..spare_cplx)),
             ),
         );
-        let len_range = self.choose_slice_length(target_cplx);
+        let len_range = self.choose_slice_length(spare_cplx);
 
         let len = self.rng.usize(len_range);
-        if len == 0 {
-            // TODO: maybe that shouldn't happen under normal circumstances?
+        if len == 0 || !self.len_range.contains(&(value.len() + len)) {
             return None;
         }
 
@@ -262,7 +262,6 @@ impl<T: Clone, M: Mutator<T>> VecMutator<T, M> {
 
     /**
     Give an approximation for the range of lengths within which the target complexity can be reached.
-    result.0 is the minimum length, result.1 is the maximum length
     */
     fn choose_slice_length(&self, target_cplx: f64) -> RangeInclusive<usize> {
         // The maximum length is the target complexity divided by the minimum complexity of each element
@@ -415,7 +414,16 @@ impl<T: Clone, M: Mutator<T>> Mutator<Vec<T>> for VecMutator<T, M> {
         }
         let min_cplx_len_1 = self.complexity_from_inner(self.m.min_complexity(), 1);
         if max_cplx < self.complexity_from_inner(min_cplx_len_1, 1) || self.rng.u8(..) == 0 {
-            return (<_>::default(), 1.0);
+            // return the least complex value possible
+            let mut v = Vec::with_capacity(*self.len_range.start());
+            let mut inner_cplx = 0.0;
+            for _ in self.len_range.clone().into_iter() {
+                let (el, el_cplx) = self.m.random_arbitrary(0.0);
+                v.push(el);
+                inner_cplx += el_cplx;
+            }
+            let cplx = self.complexity_from_inner(inner_cplx, v.len());
+            return (v, cplx);
         }
         let target_cplx = crate::gen_f64(&self.rng, (min_cplx_len_1 - 2.0)..max_cplx);
         let len_range = self.choose_slice_length(target_cplx);

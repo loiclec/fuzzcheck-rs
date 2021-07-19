@@ -65,3 +65,9 @@ macro_rules! alternation {
     }
     ;
 }
+#[macro_export]
+macro_rules! repetition {
+    ($g:expr, $range:expr) => {
+        Grammar::repetition($g, $range)
+    };
+}

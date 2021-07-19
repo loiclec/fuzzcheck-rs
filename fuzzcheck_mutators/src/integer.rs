@@ -507,7 +507,7 @@ impl Mutator<char> for CharWithinRangeMutator {
         *value = char::from_u32(self.start_range.wrapping_add(result)).unwrap();
         *step = step.wrapping_add(1);
 
-        Some((token, <u32>::BITS as f64))
+        Some((token, (value.len_utf8() * 8) as f64))
     }
 
     fn random_mutate(&self, value: &mut char, _cache: &mut Self::Cache, _max_cplx: f64) -> (Self::UnmutateToken, f64) {
@@ -520,7 +520,7 @@ impl Mutator<char> for CharWithinRangeMutator {
                 )
                 .unwrap(),
             ),
-            <u32>::BITS as f64,
+            (value.len_utf8() * 8) as f64,
         )
     }
 

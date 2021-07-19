@@ -126,9 +126,6 @@ mod tests {
 // ========= Slab ============
 
 pub struct SlabKey<T> {
-    #[cfg(not(test))]
-    key: usize,
-    #[cfg(test)]
     pub key: usize,
     phantom: std::marker::PhantomData<T>,
 }

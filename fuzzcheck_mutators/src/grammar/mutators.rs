@@ -263,50 +263,83 @@ impl ASTMutator {
 mod tests {
     use crate::grammar::grammar::Grammar;
     use crate::grammar::mutators::GrammarBasedStringMutator;
-    use crate::{alternation, concatenation, literal};
+    use crate::{alternation, concatenation, literal, repetition};
     use fuzzcheck_traits::Mutator;
 
     #[test]
     fn test_a10() {
+        // let grammar = concatenation! {
+        //     alternation! {
+        //         literal!('a' ..= 'z'),
+        //         literal!('0' ..= '9')
+        //     },
+        //     literal!('a' ..= 'z'),
+        //     alternation! {
+        //         concatenation! {
+        //             alternation! {
+        //                 literal!('a'..='z'),
+        //                 literal!('0'..='9')
+        //             },
+        //             literal!('a' ..= 'z')
+        //         },
+        //         literal!('a' ..= 'c')
+        //     }
+        // };
+        // let grammar = repetition!(literal!('a'..='z'), 5..10);
         let grammar = concatenation! {
-            alternation! {
-                literal!('a' ..= 'z'),
-                literal!('0' ..= '9')
-            },
             literal!('a' ..= 'z'),
-            alternation! {
-                concatenation! {
-                    alternation! {
-                        literal!('a'..='z'),
-                        literal!('0'..='9')
-                    },
-                    literal!('a' ..= 'z')
-                },
-                literal!('a' ..= 'c')
-            }
+            repetition! {
+                literal!(('a'..='z'), ('0'..='9')),
+                5..=10
+            },
+            repetition! {
+                literal!('0'..='9'),
+                2 ..= 6
+            },
+            literal!('z')
         };
 
         let mutator = GrammarBasedStringMutator::new(grammar);
 
-        for _ in 0..10 {
-            let (mut value, _cplx) = mutator.random_arbitrary(1000.0);
-            println!("{}", value);
-            if let Some((mut cache, mut step)) = mutator.validate_value(&value) {
-                println!("{:?}", value);
-                let original = value.clone();
-                for _ in 0..10 {
-                    if let Some((t, _cplx)) = mutator.ordered_mutate(&mut value, &mut cache, &mut step, 1000.) {
-                        println!("{:?}", value);
-                        let _x = mutator.validate_value(&value).unwrap();
-                        mutator.unmutate(&mut value, &mut cache, t);
-                        assert_eq!(original, value);
-                    } else {
-                        panic!("exhausted");
-                    }
-                }
-            } else {
-                panic!();
+        let mut value = "a25y3c03z".to_owned();
+        let (mut cache, mut step) = mutator.validate_value(&value).unwrap();
+        for i in 0..100000 {
+            let (t, cplx) = mutator
+                .ordered_mutate(&mut value, &mut cache, &mut step, 1000.)
+                .unwrap();
+            println!("{} {}", value, cplx);
+            if value.starts_with("az") {
+                panic!("{}: {}", i, value);
             }
+            mutator.unmutate(&mut value, &mut cache, t);
+            // println!("{}", value);
         }
+
+        // for _ in 0..10 {
+        //     let (mut value, _cplx) = mutator.random_arbitrary(1000.0);
+        //     println!("{}", value);
+        //     if let Some((mut cache, mut step)) = mutator.validate_value(&value) {
+        //         println!("{:?}", value);
+        //         let original_value = value.clone();
+        //         let original_ast = cache.ast.clone();
+        //         let original_mapping = cache.mapping.clone();
+        //         for _ in 0..10_000 {
+        //             if let Some((t, _cplx)) = mutator.ordered_mutate(&mut value, &mut cache, &mut step, 1000.) {
+        //                 // println!("{:?}", cache.ast);
+        //                 println!("{:?}", value);
+        //                 assert!(mutator.validate_value(&value).is_some());
+        //                 mutator.unmutate(&mut value, &mut cache, t);
+        //                 assert_eq!(original_value, value);
+        //                 assert_eq!(original_ast, cache.ast);
+        //                 assert_eq!(original_mapping, cache.mapping);
+        //             } else {
+        //                 panic!("exhausted");
+        //             }
+        //         }
+        //     } else {
+        //         println!("value is empty? {}", value.is_empty());
+        //         panic!("could not parse {}", value);
+        //     }
+        // }
     }
 }

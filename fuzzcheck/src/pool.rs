@@ -387,10 +387,7 @@ impl<T: Clone, M: Mutator<T>> Pool<T, M> {
         to_delete.sort();
         to_delete.dedup();
 
-        let deleted_values: Vec<_> = to_delete
-            .iter()
-            .map(|&key| self.slab_inputs[key].data.value.clone())
-            .collect();
+        let deleted_values: Vec<_> = to_delete.iter().map(|&key| key.key).collect();
 
         self.delete_elements(to_delete, element_key);
 
@@ -480,15 +477,17 @@ impl<T: Clone, M: Mutator<T>> Pool<T, M> {
 
         if deleted_values.is_empty() {
             actions.push(WorldAction::ReportEvent(FuzzerEvent::New));
-            actions.push(WorldAction::Add(value));
         } else {
             actions.push(WorldAction::ReportEvent(FuzzerEvent::Replace(deleted_values.len())));
         }
 
-        for i in deleted_values {
-            actions.push(WorldAction::Remove(i));
+        for key in deleted_values {
+            actions.push(WorldAction::Remove { key });
         }
-
+        actions.push(WorldAction::Add {
+            content: value,
+            key: element_key.key,
+        });
         self.update_stats();
 
         // self.sanity_check();
@@ -672,13 +671,11 @@ impl<T: Clone, M: Mutator<T>> Pool<T, M> {
             .copied()
             .unwrap();
 
-        let deleted_value = self.slab_inputs[pick_key].data.value.clone();
-
         self.delete_element(pick_key);
 
         let mut actions: Vec<WorldAction<T>> = Vec::new();
         actions.push(WorldAction::ReportEvent(FuzzerEvent::Remove));
-        actions.push(WorldAction::Remove(deleted_value));
+        actions.push(WorldAction::Remove { key: pick_key.key });
 
         self.update_stats();
 

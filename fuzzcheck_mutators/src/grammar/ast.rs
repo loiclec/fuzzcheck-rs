@@ -1,7 +1,7 @@
 extern crate self as fuzzcheck_mutators;
 
 /// An abstract syntax tree.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum AST {
     Token(char),
     Sequence(Vec<AST>),
@@ -60,13 +60,13 @@ impl AST {
 }
 
 /// Like an abstract syntax tree, but augmented with the string indices that correspond to each node
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ASTMapping {
     pub start_index: usize,
     pub len: usize,
     pub content: ASTMappingKind,
 }
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ASTMappingKind {
     Token,
     Sequence(Vec<ASTMapping>),

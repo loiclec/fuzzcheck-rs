@@ -545,14 +545,8 @@ fn impl_mutator_trait(tb: &mut TokenBuilder, nbr_elements: usize) {
                 step.dead_end = true;
                 return None
             }
-            "
-            // TODO: step.inner.remove(inner_step_to_remove);
-            "
             " SelfAsTupleMutator "::ordered_mutate(self, value, cache, step, max_cplx)
         }
-        "
-        // TODO!
-        "
         
         fn random_mutate<'a>(&'a self, value: " tuple_mut ", cache: &'a mut Self::Cache, max_cplx: f64, ) -> (Self::UnmutateToken, f64) {
             let current_cplx = " SelfAsTupleMutator "::complexity(self, " TupleNAsRefTypes "::get_ref_from_mut(&value), cache);

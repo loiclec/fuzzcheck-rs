@@ -52,6 +52,7 @@ impl<C> Default for VecMutatorCache<C> {
 
 pub enum UnmutateVecToken<T: Clone, M: Mutator<T>> {
     Element(usize, M::UnmutateToken),
+    Replace(Vec<T>),
 }
 
 impl<T: Clone, M: Mutator<T>> FixedLenVecMutator<T, M> {
@@ -193,6 +194,11 @@ impl<T: Clone, M: Mutator<T>> Mutator<Vec<T>> for FixedLenVecMutator<T, M> {
         if max_cplx < self.min_complexity() {
             return None;
         }
+        if self.rng.usize(0..100) == 0 {
+            let (mut v, cplx) = self.random_arbitrary(max_cplx);
+            std::mem::swap(value, &mut v);
+            return Some((UnmutateVecToken::Replace(v), cplx));
+        }
         let mutator_max_cplx = self.max_complexity();
         if max_cplx > mutator_max_cplx {
             max_cplx = mutator_max_cplx;
@@ -216,6 +222,11 @@ impl<T: Clone, M: Mutator<T>> Mutator<Vec<T>> for FixedLenVecMutator<T, M> {
         if max_cplx > mutator_max_cplx {
             max_cplx = mutator_max_cplx;
         }
+        if self.rng.usize(0..100) == 0 {
+            let (mut v, cplx) = self.random_arbitrary(max_cplx);
+            std::mem::swap(value, &mut v);
+            return (UnmutateVecToken::Replace(v), cplx);
+        }
         let current_cplx = self.complexity(value, cache);
         let spare_cplx = max_cplx - current_cplx;
 
@@ -237,6 +248,9 @@ impl<T: Clone, M: Mutator<T>> Mutator<Vec<T>> for FixedLenVecMutator<T, M> {
             UnmutateVecToken::Element(idx, inner_t) => {
                 let el = &mut value[idx];
                 self.mutators[idx].unmutate(el, &mut cache.inner[idx], inner_t);
+            }
+            UnmutateVecToken::Replace(new_value) => {
+                let _ = std::mem::replace(value, new_value);
             }
         }
     }

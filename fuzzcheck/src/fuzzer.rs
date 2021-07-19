@@ -366,7 +366,6 @@ where
         if let Some(idx) = self.state.pool.random_index() {
             self.state.input_idx = FuzzerInputIndex::Pool(idx);
             let input = self.state.pool.get(idx);
-
             if let Some((unmutate_token, cplx)) =
                 input.mutate(&mut self.state.mutator, self.state.settings.max_input_cplx)
             {
@@ -423,9 +422,6 @@ where
             })
             .collect();
 
-        // if let Some(arbitrary) = FuzzedInput::default(&mut self.state.mutator) {
-        //     inputs.push(arbitrary);
-        // }
         for _ in 0..100 {
             if let Some((input, _)) = self.state.arbitrary_input() {
                 inputs.push(input);

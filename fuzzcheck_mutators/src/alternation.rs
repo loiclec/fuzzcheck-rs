@@ -186,7 +186,6 @@ where
 
         let idx = cache.mutator_idx;
         let mutator = &self.mutators[idx];
-
         if let Some((t, cplx)) = mutator.ordered_mutate(value, &mut cache.inner, &mut step.inner, max_cplx) {
             Some((UnmutateToken::Inner(idx, t), self.complexity_from_inner(cplx)))
         } else {

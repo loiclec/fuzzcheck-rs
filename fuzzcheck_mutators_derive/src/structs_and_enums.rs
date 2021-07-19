@@ -251,8 +251,8 @@ pub(crate) fn make_mutator_type_and_impl(params: CreateWrapperMutatorParams) -> 
                 ) {
                     " cm.Some "((Self::UnmutateToken::new(t), c))
                 } else {"
-                cm.None
-            "}
+                    cm.None
+                "}
             }
             
             fn random_mutate(&self, value: &mut " type_ident type_generics.removing_bounds_and_eq_type() ", cache: &mut Self::Cache, max_cplx: f64) -> (Self::UnmutateToken, f64) {

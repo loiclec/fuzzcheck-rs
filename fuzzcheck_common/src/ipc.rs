@@ -44,7 +44,6 @@ pub enum TuiMessage {
     },
     RemoveInput {
         hash: String,
-        input: String,
     },
     SaveArtifact {
         hash: String,
