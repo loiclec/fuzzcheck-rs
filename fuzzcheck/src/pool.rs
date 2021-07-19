@@ -1278,17 +1278,22 @@ mod tests {
         fn ordered_mutate(
             &self,
             _value: &mut f64,
-            _cache: &Self::Cache,
+            _cache: &mut Self::Cache,
             _step: &mut Self::MutationStep,
             _max_cplx: f64,
         ) -> Option<(Self::UnmutateToken, f64)> {
             Some(((), 0.0))
         }
 
-        fn random_mutate(&self, _value: &mut f64, _cache: &Self::Cache, _max_cplx: f64) -> (Self::UnmutateToken, f64) {
+        fn random_mutate(
+            &self,
+            _value: &mut f64,
+            _cache: &mut Self::Cache,
+            _max_cplx: f64,
+        ) -> (Self::UnmutateToken, f64) {
             ((), 0.0)
         }
 
-        fn unmutate(&self, _value: &mut f64, _t: Self::UnmutateToken) {}
+        fn unmutate(&self, _value: &mut f64, _cache: &mut Self::Cache, _t: Self::UnmutateToken) {}
     }
 }

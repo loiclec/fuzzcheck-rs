@@ -446,8 +446,12 @@ impl Mutator<char> for CharWithinRangeMutator {
         0
     }
 
-    fn validate_value(&self, _value: &char) -> Option<(Self::Cache, Self::MutationStep)> {
-        Some(((), INITIAL_MUTATION_STEP))
+    fn validate_value(&self, value: &char) -> Option<(Self::Cache, Self::MutationStep)> {
+        if (self.start_range..=self.start_range + self.len_range).contains(&(*value as u32)) {
+            Some(((), INITIAL_MUTATION_STEP))
+        } else {
+            None
+        }
     }
 
     fn max_complexity(&self) -> f64 {

@@ -85,9 +85,7 @@ use std::rc::{Rc, Weak};
  ```
 
 **/
-pub trait Mutator<Value: Clone>: Sized {
-    // change Value above to TestInput
-    // type Value: MutatorValue<Value>;
+pub trait Mutator<Value: Clone> {
     type Cache;
     type MutationStep;
     type ArbitraryStep;
@@ -294,5 +292,61 @@ where
 
     fn unmutate(&self, value: &mut T, cache: &mut Self::Cache, t: Self::UnmutateToken) {
         Rc::as_ref(&self.mutator).unmutate(value, cache, t)
+    }
+}
+
+impl<T: Clone, M> Mutator<T> for Box<M>
+where
+    M: Mutator<T>,
+{
+    type Cache = M::Cache;
+    type MutationStep = M::MutationStep;
+    type ArbitraryStep = M::ArbitraryStep;
+    type UnmutateToken = M::UnmutateToken;
+
+    fn default_arbitrary_step(&self) -> Self::ArbitraryStep {
+        self.as_ref().default_arbitrary_step()
+    }
+
+    fn validate_value(&self, value: &T) -> Option<(Self::Cache, Self::MutationStep)> {
+        self.as_ref().validate_value(value)
+    }
+
+    fn max_complexity(&self) -> f64 {
+        self.as_ref().max_complexity()
+    }
+
+    fn min_complexity(&self) -> f64 {
+        self.as_ref().min_complexity()
+    }
+
+    fn complexity(&self, value: &T, cache: &Self::Cache) -> f64 {
+        self.as_ref().complexity(value, cache)
+    }
+
+    fn ordered_arbitrary(&self, step: &mut Self::ArbitraryStep, max_cplx: f64) -> Option<(T, f64)> {
+        self.as_ref().ordered_arbitrary(step, max_cplx)
+    }
+
+    fn random_arbitrary(&self, max_cplx: f64) -> (T, f64) {
+        self.as_ref().random_arbitrary(max_cplx)
+    }
+
+    fn ordered_mutate(
+        &self,
+        value: &mut T,
+        cache: &mut Self::Cache,
+        step: &mut Self::MutationStep,
+        max_cplx: f64,
+    ) -> Option<(Self::UnmutateToken, f64)> {
+        self.as_ref().ordered_mutate(value, cache, step, max_cplx)
+    }
+
+    fn random_mutate(&self, value: &mut T, cache: &mut Self::Cache, max_cplx: f64) -> (Self::UnmutateToken, f64) {
+        self.as_ref().random_mutate(value, cache, max_cplx)
+    }
+
+    fn unmutate(&self, value: &mut T, cache: &mut Self::Cache, t: Self::UnmutateToken) {
+        self.as_ref().unmutate(value, cache, t)
     }
 }

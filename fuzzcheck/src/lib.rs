@@ -266,7 +266,7 @@ impl<T: Clone, Mut: Mutator<T>> FuzzedInput<T, Mut> {
     }
 
     pub fn unmutate(&mut self, m: &Mut, t: Mut::UnmutateToken) {
-        m.unmutate(&mut self.value, t);
+        m.unmutate(&mut self.value, &mut self.cache, t);
     }
 }
 

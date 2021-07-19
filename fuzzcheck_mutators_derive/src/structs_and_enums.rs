@@ -140,7 +140,7 @@ pub(crate) fn make_mutator_type_and_impl(params: CreateWrapperMutatorParams) -> 
     let helper_type = |helper_type: &str| {
         ts!(
             visibility "struct" ident!(NameMutator helper_type) NameMutator_generics.removing_eq_type() NameMutator_where_clause "{
-            inner : "
+            pub inner : "
                 if settings.recursive {
                     ts!(cm.Box "<")
                 } else {

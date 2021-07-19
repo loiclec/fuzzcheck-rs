@@ -18,6 +18,7 @@ impl<T: Clone, M: Mutator<T> + Clone> FixedLenVecMutator<T, M> {
 
 impl<T: Clone, M: Mutator<T>> FixedLenVecMutator<T, M> {
     pub fn new(mutators: Vec<M>) -> Self {
+        assert!(!mutators.is_empty());
         let max_complexity =
             crate::size_to_cplxity(mutators.len() + 1) + mutators.iter().fold(0.0, |cplx, m| cplx + m.max_complexity());
         let min_complexity = crate::size_to_cplxity(mutators.len() + 1);

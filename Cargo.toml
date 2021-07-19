@@ -19,3 +19,7 @@ exclude = [
 decent-synquote-alternative = { git = "file:///Users/loic/Documents/decent-synquote-alternative" }
 fastrand = { git = "https://github.com/loiclec/fastrand.git" }
 proc-macro2 = { path = "/Users/loic/Documents/proc-macro2" }
+
+
+[profile.release]
+debug = true
