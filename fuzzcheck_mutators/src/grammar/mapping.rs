@@ -1,8 +1,7 @@
 use crate::fuzzcheck_traits::Mutator;
-use crate::grammar::ast::ASTMutator;
-use crate::grammar::ast::ASTSingleVariant;
+use crate::grammar::mutators::ASTMutator;
+use crate::grammar::mutators::ASTSingleVariant;
 use crate::BoxMutator;
-use crate::NeverMutator;
 use crate::Tuple1Mutator;
 use crate::{alternation, either::Either, vector::UnmutateVecToken, CharWithinRangeMutator};
 use crate::{fixed_len_vector, AlternationMutator, FixedLenVecMutator, VecMutator};
@@ -255,61 +254,6 @@ where
     }
 }
 
-impl<'a, M> IncrementalMapping<Vec<AST>, String, AlternationMutator<Vec<AST>, M>> for ASTMappingSequence<'a>
-where
-    M: Mutator<Vec<AST>>,
-    Self: IncrementalMapping<Vec<AST>, String, M>,
-{
-    fn mutate_value_from_token(
-        &mut self,
-        from_value: &Vec<AST>,
-        to_value: &mut String,
-        token: &<AlternationMutator<Vec<AST>, M> as Mutator<Vec<AST>>>::UnmutateToken,
-    ) {
-        match token {
-            alternation::UnmutateToken::Replace(_) => {
-                let mut s = String::new();
-                let mut idx = *self.start_index;
-                let mut mappings = Vec::new();
-                for v in from_value.iter() {
-                    let mapping = v.generate_string_in(&mut s, &mut idx);
-                    mappings.push(mapping);
-                }
-                to_value.replace_range(*self.start_index..*self.start_index + *self.len, &s);
-                *self.len = idx - *self.start_index;
-                *self.children = mappings;
-            }
-            alternation::UnmutateToken::Inner(_, token) => {
-                self.mutate_value_from_token(from_value, to_value, token);
-            }
-        }
-    }
-
-    fn unmutate_value_from_token(
-        &mut self,
-        to_value: &mut String,
-        token: &<AlternationMutator<Vec<AST>, M> as Mutator<Vec<AST>>>::UnmutateToken,
-    ) {
-        match token {
-            alternation::UnmutateToken::Replace(x) => {
-                let mut s = String::new();
-                let mut idx = *self.start_index;
-                let mut mappings = Vec::new();
-                for v in x.iter() {
-                    let mapping = v.generate_string_in(&mut s, &mut idx);
-                    mappings.push(mapping);
-                }
-                to_value.replace_range(*self.start_index..*self.start_index + *self.len, &s);
-                *self.len = idx - *self.start_index;
-                *self.children = mappings;
-            }
-            alternation::UnmutateToken::Inner(_, token) => {
-                self.unmutate_value_from_token(to_value, token);
-            }
-        }
-    }
-}
-
 impl<'a, M> IncrementalMapping<Vec<AST>, String, FixedLenVecMutator<AST, M>> for ASTMappingSequence<'a>
 where
     M: Mutator<AST>,
@@ -499,79 +443,6 @@ impl<'a> IncrementalMapping<char, String, CharWithinRangeMutator> for ASTMapping
     }
 }
 
-impl<'a, M1, M2> IncrementalMapping<char, String, Either<M1, M2>> for ASTMappingAtom<'a>
-where
-    M1: Mutator<char>,
-    M2: Mutator<char>,
-    Self: IncrementalMapping<char, String, M1> + IncrementalMapping<char, String, M2>,
-{
-    fn mutate_value_from_token(
-        &mut self,
-        from_value: &char,
-        to_value: &mut String,
-        token: &<Either<M1, M2> as Mutator<char>>::UnmutateToken,
-    ) {
-        match token {
-            Either::Left(token) => <Self as IncrementalMapping<char, String, M1>>::mutate_value_from_token(
-                self, from_value, to_value, token,
-            ),
-            Either::Right(token) => <Self as IncrementalMapping<char, String, M2>>::mutate_value_from_token(
-                self, from_value, to_value, token,
-            ),
-        }
-    }
-
-    fn unmutate_value_from_token(
-        &mut self,
-        to_value: &mut String,
-        token: &<Either<M1, M2> as Mutator<char>>::UnmutateToken,
-    ) {
-        match token {
-            Either::Left(token) => {
-                <Self as IncrementalMapping<char, String, M1>>::unmutate_value_from_token(self, to_value, token)
-            }
-            Either::Right(token) => {
-                <Self as IncrementalMapping<char, String, M2>>::unmutate_value_from_token(self, to_value, token)
-            }
-        }
-    }
-}
-
-impl<'a, M> IncrementalMapping<char, String, AlternationMutator<char, M>> for ASTMappingAtom<'a>
-where
-    M: Mutator<char>,
-    Self: IncrementalMapping<char, String, M>,
-{
-    fn mutate_value_from_token(
-        &mut self,
-        from_value: &char,
-        to_value: &mut String,
-        _: &alternation::UnmutateToken<char, M::UnmutateToken>,
-    ) {
-        to_value.replace_range(
-            *self.start_index..*self.start_index + *self.len,
-            &from_value.to_string(),
-        );
-        *self.len = from_value.len_utf8();
-    }
-
-    fn unmutate_value_from_token(
-        &mut self,
-        to_value: &mut String,
-        token: &alternation::UnmutateToken<char, M::UnmutateToken>,
-    ) {
-        match token {
-            alternation::UnmutateToken::Replace(l) => {
-                to_value.replace_range(*self.start_index..*self.start_index + *self.len, &l.to_string());
-                *self.len = l.len_utf8();
-            }
-            alternation::UnmutateToken::Inner(_, token) => {
-                self.unmutate_value_from_token(to_value, token);
-            }
-        }
-    }
-}
-
 pub struct ASTMappingSequence<'a> {
     children: &'a mut Vec<ASTMapping>,
     start_index: &'a mut usize,
@@ -702,14 +573,5 @@ impl IncrementalMapping<AST, String, ASTMutator> for ASTMapping {
                 Tuple1Mutator<Box<AST>, BoxMutator<AST, Either<ASTMutator, AlternationMutator<AST, ASTMutator>>>>,
             >,
         >>::unmutate_value_from_token(self, to_value, token.inner.as_ref());
-    }
-}
-impl<A: Clone, B, C> IncrementalMapping<A, B, NeverMutator> for C {
-    fn mutate_value_from_token(&mut self, _: &A, _: &mut B, _: &()) {
-        unreachable!()
-    }
-
-    fn unmutate_value_from_token(&mut self, _: &mut B, _: &()) {
-        unreachable!()
     }
 }

@@ -24,7 +24,6 @@ pub enum InnerGrammar {
     Repetition(Grammar, Range<usize>),
     Shared(Rc<Grammar>),
     Recurse(Weak<Grammar>),
-    // End,
 }
 
 impl Grammar {
@@ -62,7 +61,7 @@ impl Grammar {
         let end = match range.end_bound() {
             std::ops::Bound::Included(x) => *x + 1,
             std::ops::Bound::Excluded(x) => *x,
-            std::ops::Bound::Unbounded => panic!("The range must have an upper bound"),
+            std::ops::Bound::Unbounded => usize::MAX,
         };
         Grammar::new(InnerGrammar::Repetition(gs, start..end))
     }

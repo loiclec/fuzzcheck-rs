@@ -213,12 +213,12 @@ fn validate_value(&self, value: &String) -> Option<(Self::Cache, Self::MutationS
 }
 ```
 Note that the provided parser is slow, cannot handle left-recursive grammars 
-and is vulnerable to catastrophic backtracking and thus stack overflows. But it
+and is vulnerable to catastrophic backtracking and stack overflows. But it
 will work for well-formed grammars and medium-sized strings. I will improve it
 over time.
 
 I imagine there are cases where one cannot provide a parser. For example, if 
-this string-based mutator is used to test a parser! It is possible to modify 
-the solution proposed here such that no parser is necessary. The mutator would 
-then read and produce values of type `(AST, String)`. I will explore that 
-later.
+this string-based mutator is used to test a parser for the same grammar! 
+It is possible to modify the solution proposed here such that no parser is 
+necessary. The mutator would then read and produce values of type 
+`(AST, String)`. I will explore that later.

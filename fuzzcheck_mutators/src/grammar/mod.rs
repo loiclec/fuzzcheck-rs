@@ -1,18 +1,52 @@
-pub mod ast;
+mod ast;
 mod grammar;
 mod list;
 mod mapping;
-pub mod parser;
+mod mutators;
+mod parser;
 
+pub use ast::{ASTMapping, ASTMappingKind, AST};
+pub use grammar::{Grammar, InnerGrammar};
+pub use mutators::{
+    ASTMutator, ASTMutatorArbitraryStep, ASTMutatorCache, ASTMutatorMutationStep, ASTMutatorUnmutateToken,
+    GrammarBasedStringMutator,
+};
+pub use parser::parse_from_grammar;
+
+/**
+    Creates a grammar corresponding to a single character within the specfied range or ranges.
+    ```
+    let a = literal!('a'); // a single character
+    let a_to_z = literal!('a' ..= 'z'); // a character within a range
+    let digit_or_space = literal! { ('0'..='9'), (' ') }; // either a digit or a space
+    ```
+*/
 #[macro_export]
 macro_rules! literal {
-    ($c:expr) => {
-        Grammar::literal($c)
+    ($l:literal) => {
+        Grammar::literal($l..=$l)
     };
-    ($($a:expr),*) => {
-        Grammar::alternation([$(Grammar::literal($a)),*])
+    ($l:expr) => {
+        Grammar::literal($l)
+    };
+    ( $(($x:expr)),* ) => {
+        Grammar::alternation(vec![
+            $(literal!($x)),*
+        ])
     };
 }
+/**
+    Creates a grammar corresponding to a sequence of rules.
+    ```
+    // will match only the string "abcd"
+    let abcd = concatenation! {
+        literal!('a'),
+        literal!('b'),
+        literal!('c'),
+        literal!('d')
+    };
+    ```
+*/
 #[macro_export]
 macro_rules! concatenation {
     ($($gsm:expr),*) => {

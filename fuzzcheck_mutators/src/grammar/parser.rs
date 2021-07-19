@@ -4,7 +4,7 @@ use super::ast::AST;
 use super::{grammar::Grammar, grammar::InnerGrammar, list::List};
 
 pub fn parse_from_grammar(string: &str, grammar: Grammar) -> Option<AST> {
-    let mut parser = parse_grammar(string, 0, grammar);
+    let mut parser = grammar_parser(string, 0, grammar);
     while let Some((ast, idx)) = parser() {
         if idx == string.len() {
             return Some(ast);
@@ -13,18 +13,18 @@ pub fn parse_from_grammar(string: &str, grammar: Grammar) -> Option<AST> {
     None
 }
 
-fn parse_grammar<'a>(string: &'a str, idx: usize, grammar: Grammar) -> Box<dyn 'a + FnMut() -> Option<(AST, usize)>> {
+fn grammar_parser<'a>(string: &'a str, idx: usize, grammar: Grammar) -> Box<dyn 'a + FnMut() -> Option<(AST, usize)>> {
     match grammar.grammar.as_ref() {
-        InnerGrammar::Literal(l) => parse_atom(string, idx, l.clone()),
-        InnerGrammar::Repetition(g, range) => parse_repetition(string, idx, g.clone(), range.clone()),
-        InnerGrammar::Alternation(gs) => parse_alternation(string, idx, Rc::new(List::from_slice(gs))),
-        InnerGrammar::Shared(grammar) => parse_grammar(string, idx, grammar.as_ref().clone()),
-        InnerGrammar::Recurse(grammar) => parse_grammar(string, idx, grammar.upgrade().unwrap().as_ref().clone()),
-        InnerGrammar::Concatenation(gs) => parse_concatenation(string, idx, gs),
+        InnerGrammar::Literal(l) => atom_parser(string, idx, l.clone()),
+        InnerGrammar::Repetition(g, range) => repetition_parser(string, idx, g.clone(), range.clone()),
+        InnerGrammar::Alternation(gs) => alternation_parser(string, idx, Rc::new(List::from_slice(gs))),
+        InnerGrammar::Shared(grammar) => grammar_parser(string, idx, grammar.as_ref().clone()),
+        InnerGrammar::Recurse(grammar) => grammar_parser(string, idx, grammar.upgrade().unwrap().as_ref().clone()),
+        InnerGrammar::Concatenation(gs) => concatenation_parser(string, idx, gs),
     }
 }
 
-fn parse_atom<'a>(
+fn atom_parser<'a>(
     string: &'a str,
     idx: usize,
     range_chars: Range<char>,
@@ -50,12 +50,12 @@ fn parse_atom<'a>(
     })
 }
 
-fn parse_concatenation<'a>(
+fn concatenation_parser<'a>(
     string: &'a str,
     idx: usize,
     gs: &[Grammar],
 ) -> Box<dyn 'a + FnMut() -> Option<(AST, usize)>> {
-    let mut rec = parse_concatenation_rec(string, idx, Rc::new(List::from_slice(gs)), Rc::new(List::Empty));
+    let mut rec = concatenation_parser_rec(string, idx, Rc::new(List::from_slice(gs)), Rc::new(List::Empty));
     Box::new(move || {
         let (asts, idx) = rec()?;
         let mut asts = asts.to_vec();
@@ -64,13 +64,13 @@ fn parse_concatenation<'a>(
     })
 }
 
-fn parse_concatenation_rec<'a>(
+fn concatenation_parser_rec<'a>(
     string: &'a str,
     idx: usize,
     gs: Rc<List<Grammar>>,
     current_asts: Rc<List<AST>>,
 ) -> Box<dyn 'a + FnMut() -> Option<(Rc<List<AST>>, usize)>> {
-    let mut grammar_parser: Option<(Box<dyn FnMut() -> Option<(AST, usize)>>, Rc<List<Grammar>>)> = None;
+    let mut current_grammar_parser: Option<(Box<dyn FnMut() -> Option<(AST, usize)>>, Rc<List<Grammar>>)> = None;
     let mut rest_concatenation_parser: Option<Box<dyn FnMut() -> Option<(Rc<List<AST>>, usize)>>> = None;
     let mut last = false;
     Box::new(move || {
@@ -85,9 +85,9 @@ fn parse_concatenation_rec<'a>(
                     rest_concatenation_parser = None;
                     continue 'main;
                 }
-            } else if let Some((grammar_parser, rest)) = &mut grammar_parser {
+            } else if let Some((grammar_parser, rest)) = &mut current_grammar_parser {
                 if let Some((next_ast, next_idx)) = grammar_parser() {
-                    rest_concatenation_parser = Some(parse_concatenation_rec(
+                    rest_concatenation_parser = Some(concatenation_parser_rec(
                         string.clone(),
                         next_idx,
                         rest.clone(),
@@ -113,7 +113,7 @@ fn parse_concatenation_rec<'a>(
                         }
                     }
                     Some((r, rest)) => {
-                        grammar_parser = Some((parse_grammar(string.clone(), idx, r), rest));
+                        current_grammar_parser = Some((grammar_parser(string.clone(), idx, r), rest));
                         continue 'main;
                     }
                 }
@@ -122,13 +122,13 @@ fn parse_concatenation_rec<'a>(
     })
 }
 
-fn parse_repetition<'a>(
+fn repetition_parser<'a>(
     string: &'a str,
     idx: usize,
     g: Grammar,
     range: Range<usize>,
 ) -> Box<dyn 'a + FnMut() -> Option<(AST, usize)>> {
-    let mut rec = parse_repetition_rec(string, idx, g, 0, range, Rc::new(List::Empty));
+    let mut rec = repetition_parser_rec(string, idx, g, 0, range, Rc::new(List::Empty));
     Box::new(move || {
         let (asts, idx) = rec()?;
         let mut asts = asts.to_vec();
@@ -137,7 +137,7 @@ fn parse_repetition<'a>(
     })
 }
 
-fn parse_repetition_rec<'a>(
+fn repetition_parser_rec<'a>(
     string: &'a str,
     idx: usize,
     g: Grammar,
@@ -145,7 +145,7 @@ fn parse_repetition_rec<'a>(
     range: Range<usize>,
     current_asts: Rc<List<AST>>,
 ) -> Box<dyn 'a + FnMut() -> Option<(Rc<List<AST>>, usize)>> {
-    let mut grammar_parser: Option<Box<dyn FnMut() -> Option<(AST, usize)>>> = None;
+    let mut current_grammar_parser: Option<Box<dyn FnMut() -> Option<(AST, usize)>>> = None;
     let mut rest_concatenation_parser: Option<Box<dyn FnMut() -> Option<(Rc<List<AST>>, usize)>>> = None;
     let mut produced_first_output = false;
     Box::new(move || {
@@ -157,9 +157,9 @@ fn parse_repetition_rec<'a>(
                     rest_concatenation_parser = None;
                     continue 'main;
                 }
-            } else if let Some(grammar_parser) = &mut grammar_parser {
+            } else if let Some(grammar_parser) = &mut current_grammar_parser {
                 if let Some((next_ast, next_idx)) = grammar_parser() {
-                    rest_concatenation_parser = Some(parse_repetition_rec(
+                    rest_concatenation_parser = Some(repetition_parser_rec(
                         string.clone(),
                         next_idx,
                         g.clone(),
@@ -180,14 +180,14 @@ fn parse_repetition_rec<'a>(
                     produced_first_output = true;
                     return Some((current_asts.clone(), idx));
                 }
-                grammar_parser = Some(parse_grammar(string, idx, g.clone()));
+                current_grammar_parser = Some(grammar_parser(string, idx, g.clone()));
                 continue 'main;
             }
         }
     })
 }
 
-fn parse_alternation<'a>(
+fn alternation_parser<'a>(
     string: &'a str,
     idx: usize,
     rs: Rc<List<Grammar>>,
@@ -205,7 +205,7 @@ fn parse_alternation<'a>(
             }
         }
         if let Some(grammar) = rs_iter.next() {
-            parser = Some(parse_grammar(string, idx, grammar));
+            parser = Some(grammar_parser(string, idx, grammar));
             continue 'main;
         } else {
             return None;
@@ -235,7 +235,7 @@ mod tests {
     fn test_atom() {
         let grammar = Grammar::literal('a'..='c');
         for string in ["a", "b", "c", "d"] {
-            let mut parser = super::parse_grammar(string, 0, grammar.clone());
+            let mut parser = super::grammar_parser(string, 0, grammar.clone());
             while let Some((ast, _)) = parser() {
                 println!("{:?}", ast);
             }
@@ -250,7 +250,7 @@ mod tests {
             Grammar::literal('y'..='z'),
         ]);
         for string in ["a", "b", "e", "y", "i"] {
-            let mut parser = super::parse_grammar(string, 0, grammar.clone());
+            let mut parser = super::grammar_parser(string, 0, grammar.clone());
             while let Some((ast, _)) = parser() {
                 println!("{:?}", ast);
             }
@@ -265,7 +265,7 @@ mod tests {
         ]);
         for string in ["a", "ad", "ady", "bfz", "adyg"] {
             println!("results for {}", string);
-            let mut parser = super::parse_grammar(string, 0, grammar.clone());
+            let mut parser = super::grammar_parser(string, 0, grammar.clone());
             while let Some((ast, _)) = parser() {
                 println!("{:?}", ast);
             }
@@ -276,7 +276,7 @@ mod tests {
         let grammar = Grammar::concatenation([Grammar::literal('a'..='c'), Grammar::literal('d'..='g')]);
         for string in ["a", "ad", "ady", "bfz"] {
             println!("results for {}", string);
-            let mut parser = super::parse_grammar(string, 0, grammar.clone());
+            let mut parser = super::grammar_parser(string, 0, grammar.clone());
             while let Some((ast, _)) = parser() {
                 println!("{:?}", ast);
             }
@@ -290,7 +290,7 @@ mod tests {
         )]);
         for string in ["", "a", "ad", "adad", "adadad"] {
             println!("results for {}", string);
-            let mut parser = super::parse_grammar(string, 0, grammar.clone());
+            let mut parser = super::grammar_parser(string, 0, grammar.clone());
             while let Some((ast, _)) = parser() {
                 println!("{:?}", ast);
             }
@@ -312,14 +312,14 @@ mod tests {
         let grammar = Grammar::concatenation([Grammar::shared(&main_rule)]);
 
         let string = "a|a";
-        let mut parser = super::parse_grammar(string, 0, grammar.clone());
+        let mut parser = super::grammar_parser(string, 0, grammar.clone());
         while let Some((ast, _)) = parser() {
             println!("{:?}", ast);
         }
 
         for string in ["a", "a|a", "a|a|a", ""] {
             println!("results for {}", string);
-            let mut parser = super::parse_grammar(string, 0, grammar.clone());
+            let mut parser = super::grammar_parser(string, 0, grammar.clone());
             while let Some((ast, _)) = parser() {
                 println!("{:?}", ast);
             }
@@ -351,7 +351,7 @@ mod tests {
 
         for string in ["a", "a | a"] {
             println!("results for {}", string);
-            let mut parser = super::parse_grammar(string, 0, grammar.clone());
+            let mut parser = super::grammar_parser(string, 0, grammar.clone());
             while let Some((ast, _)) = parser() {
                 println!("{:?}", ast);
             }
@@ -401,7 +401,7 @@ mod tests {
             Grammar::alternation([char_literal, repetition, alternation /*, group*/])
         }))]);
         let string = "((('a'|'b')|'b')*)|('a'+)";
-        let mut parser = super::parse_grammar(string, 0, grammar.clone());
+        let mut parser = super::grammar_parser(string, 0, grammar.clone());
         while let Some((ast, _)) = parser() {
             println!("{:?}", ast);
         }
