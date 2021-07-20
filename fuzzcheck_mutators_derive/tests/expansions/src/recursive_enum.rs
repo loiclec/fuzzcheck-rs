@@ -21,15 +21,13 @@ enum S {
     B(Box<S>),
 }
 
-#[make_mutator(name: SMutator, recursive: true, default: true)]
-enum S {
-    A(bool),
-    B(#[field_mutator(BoxMutator<S, RecurToMutator<SMutator<M0_0>>> = { BoxMutator::new(self_.into()) }) ] Box<S>),
+make_mutator! {
+    name: SMutator,
+    recursive: true,
+    default: true,
+    type:
+        enum S {
+            A(bool),
+            B(#[field_mutator(BoxMutator<S, RecurToMutator<SMutator<M0_0>>> = { BoxMutator::new(self_.into()) }) ] Box<S>),
+        }
 }
-
-// #[make_mutator(name: SMutator, recursive: true, default: true)]
-// struct S {
-//     x: bool,
-//     #[field_mutator(OptionMutator<Box<S>, BoxMutator<S, RecurToMutator<SMutator<M0>>>> = { OptionMutator::new(BoxMutator::new(self_.into())) }) ]
-//     y: Option<Box<S>>,
-// }

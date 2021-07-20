@@ -12,11 +12,15 @@ use super::mapping::IncrementalMapping;
 use crate::grammar::ast::{ASTMapping, AST};
 
 // we don't use ASTMutator__, but we do use ASTSingleVariant and its Mutator conformance
-#[make_mutator(name: ASTMutator__, recursive: false, default: false)]
-pub enum AST {
-    Token(char),
-    Sequence(Vec<AST>),
-    Box(Box<AST>),
+make_mutator! {
+    name: ASTMutator__,
+    recursive: false,
+    default: false,
+    type: pub enum AST {
+        Token(char),
+        Sequence(Vec<AST>),
+        Box(Box<AST>),
+    }
 }
 
 type InnerASTMutator = ASTSingleVariant<
@@ -303,14 +307,12 @@ mod tests {
 
         let mut value = "a25y3c03z".to_owned();
         let (mut cache, mut step) = mutator.validate_value(&value).unwrap();
-        for i in 0..100000 {
+        for _ in 0..10 {
             let (t, cplx) = mutator
                 .ordered_mutate(&mut value, &mut cache, &mut step, 1000.)
                 .unwrap();
             println!("{} {}", value, cplx);
-            if value.starts_with("az") {
-                panic!("{}: {}", i, value);
-            }
+
             mutator.unmutate(&mut value, &mut cache, t);
             // println!("{}", value);
         }

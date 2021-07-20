@@ -30,9 +30,14 @@ struct S {
     y: Option<Box<S>>,
 }
 
-#[make_mutator(name: SMutator, recursive: true, default: true)]
-struct S {
-    x: bool,
-    #[field_mutator(OptionMutator<Box<S>, BoxMutator<S, RecurToMutator<SMutator<M0>>>> = { OptionMutator::new(BoxMutator::new(self_.into())) }) ]
-    y: Option<Box<S>>,
+make_mutator! {
+    name: SMutator,
+    recursive: true,
+    default: true,
+    type:
+    struct S {
+        x: bool,
+        #[field_mutator(OptionMutator<Box<S>, BoxMutator<S, RecurToMutator<SMutator<M0>>>> = { OptionMutator::new(BoxMutator::new(self_.into())) }) ]
+        y: Option<Box<S>>,
+    }
 }

@@ -50,18 +50,19 @@ pub fn derive_tuple_structure(item: proc_macro::TokenStream) -> proc_macro::Toke
     derive_tuple_structure_(input).into()
 }
 
-#[proc_macro_attribute]
-pub fn make_mutator(attribute: proc_macro::TokenStream, item: proc_macro::TokenStream) -> proc_macro::TokenStream {
-    let settings = MakeMutatorSettings::from(attribute.into());
-    let item = proc_macro2::TokenStream::from(item);
-    derive_default_mutator_(item, settings).into()
+#[proc_macro]
+pub fn make_mutator(item: proc_macro::TokenStream) -> proc_macro::TokenStream {
+    let (settings, parser) = MakeMutatorSettings::from(item.clone().into());
+    // let item = proc_macro2::TokenStream::from(item);
+    derive_default_mutator_(parser, settings).into()
 }
 
 #[proc_macro_derive(DefaultMutator)]
 pub fn derive_default_mutator(item: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let settings = MakeMutatorSettings::default();
     let item = proc_macro2::TokenStream::from(item);
-    derive_default_mutator_(item, settings).into()
+    let parser = TokenParser::new(item);
+    derive_default_mutator_(parser, settings).into()
 }
 
 #[proc_macro]
@@ -102,10 +103,8 @@ fn derive_tuple_structure_(item: proc_macro2::TokenStream) -> proc_macro2::Token
     return tb.end();
 }
 
-fn derive_default_mutator_(item: proc_macro2::TokenStream, settings: MakeMutatorSettings) -> proc_macro2::TokenStream {
-    let input = item;
+fn derive_default_mutator_(mut parser: TokenParser, settings: MakeMutatorSettings) -> proc_macro2::TokenStream {
     let mut tb = TokenBuilder::new();
-    let mut parser = TokenParser::new(input);
 
     if let Some(s) = parser.eat_struct() {
         let nbr_fields = s.struct_fields.len();
@@ -166,7 +165,7 @@ struct MakeMutatorSettings {
 }
 impl MakeMutatorSettings {
     // TODO: don't panic like that, add a nice compile error
-    fn from(attribute: proc_macro2::TokenStream) -> Self {
+    fn from(attribute: proc_macro2::TokenStream) -> (MakeMutatorSettings, TokenParser) {
         let mut parser = TokenParser::new(attribute);
         let mut name = None;
         let mut recursive = None;
@@ -219,6 +218,22 @@ impl MakeMutatorSettings {
                             panic!()
                         }
                     }
+                    "type" => {
+                        if parser.eat_punct(':').is_none() {
+                            panic!()
+                        }
+                        let default_settings = MakeMutatorSettings::default();
+                        return (
+                            MakeMutatorSettings {
+                                name,
+                                recursive: recursive.unwrap_or(default_settings.recursive),
+                                default: default.unwrap_or(default_settings.default),
+                                fuzzcheck_mutators_crate: fuzzcheck_mutators_crate
+                                    .unwrap_or(default_settings.fuzzcheck_mutators_crate),
+                            },
+                            parser,
+                        );
+                    }
                     _ => {
                         panic!()
                     }
@@ -228,13 +243,7 @@ impl MakeMutatorSettings {
                 panic!()
             }
         }
-        let default_settings = MakeMutatorSettings::default();
-        MakeMutatorSettings {
-            name,
-            recursive: recursive.unwrap_or(default_settings.recursive),
-            default: default.unwrap_or(default_settings.default),
-            fuzzcheck_mutators_crate: fuzzcheck_mutators_crate.unwrap_or(default_settings.fuzzcheck_mutators_crate),
-        }
+        panic!()
     }
 }
 impl Default for MakeMutatorSettings {
