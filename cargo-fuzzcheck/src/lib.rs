@@ -1,8 +1,5 @@
 pub mod project;
 
-#[cfg(feature = "ui")]
-pub mod ui;
-
 use project::*;
 
 use fuzzcheck_common::arg::*;

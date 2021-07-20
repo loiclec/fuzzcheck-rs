@@ -10,17 +10,6 @@ license = "MIT"
 keywords = ["fuzzing", "test"]
 categories = ["development-tools"]
 
-[features]
-ui = ["tui", "termion", "unicode-width", "json", "decent-serde-json-alternative", "fuzzcheck_common/ui"]
-
-[dependencies]
-getopts = "0.2"
-tui = { version = "0.14.0", optional = true }
-unicode-width = { version = "0.1", optional = true }
-termion = { version = "1.5", optional = true }
-json = { version = "0.12", optional = true }
-libc = { version = "0.2", optional = true }
-
 [dependencies.decent-toml-rs-alternative]
 version = "0.3.0"
 features = ["derive"]
