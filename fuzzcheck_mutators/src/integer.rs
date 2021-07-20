@@ -436,6 +436,10 @@ impl CharWithinRangeMutator {
     }
 }
 
+fn char_complexity(c: char) -> f64 {
+    (c.len_utf8() * 8) as f64
+}
+
 impl Mutator<char> for CharWithinRangeMutator {
     type Cache = ();
     type MutationStep = u64; // mutation step
@@ -455,15 +459,15 @@ impl Mutator<char> for CharWithinRangeMutator {
     }
 
     fn max_complexity(&self) -> f64 {
-        <u32>::BITS as f64
+        32.
     }
 
     fn min_complexity(&self) -> f64 {
-        <u32>::BITS as f64
+        8.
     }
 
-    fn complexity(&self, _value: &char, _cache: &Self::Cache) -> f64 {
-        <u32>::BITS as f64
+    fn complexity(&self, value: &char, _cache: &Self::Cache) -> f64 {
+        char_complexity(*value)
     }
 
     fn ordered_arbitrary(&self, step: &mut Self::ArbitraryStep, max_cplx: f64) -> Option<(char, f64)> {
@@ -476,7 +480,7 @@ impl Mutator<char> for CharWithinRangeMutator {
             let result = binary_search_arbitrary_u32(0, self.len_range, *step);
             *step = step.wrapping_add(1);
             let c = char::from_u32(self.start_range.wrapping_add(result)).unwrap();
-            Some((c, <u32>::BITS as f64))
+            Some((c, char_complexity(c)))
         }
     }
 
@@ -485,13 +489,13 @@ impl Mutator<char> for CharWithinRangeMutator {
             .rng
             .u32(self.start_range..=self.start_range.wrapping_add(self.len_range));
         let value = char::from_u32(value).unwrap();
-        (value, <u32>::BITS as f64)
+        (value, char_complexity(value))
     }
 
     fn ordered_mutate(
         &self,
         value: &mut char,
-        _cache: &mut Self::Cache,
+        cache: &mut Self::Cache,
         step: &mut Self::MutationStep,
         max_cplx: f64,
     ) -> Option<(Self::UnmutateToken, f64)> {
@@ -504,10 +508,15 @@ impl Mutator<char> for CharWithinRangeMutator {
         let token = *value;
 
         let result = binary_search_arbitrary_u32(0, self.len_range, *step);
-        *value = char::from_u32(self.start_range.wrapping_add(result)).unwrap();
+        let result = char::from_u32(self.start_range.wrapping_add(result)).unwrap();
         *step = step.wrapping_add(1);
+        if result == *value {
+            return self.ordered_mutate(value, cache, step, max_cplx);
+        }
 
-        Some((token, (value.len_utf8() * 8) as f64))
+        *value = result;
+
+        Some((token, char_complexity(*value)))
     }
 
     fn random_mutate(&self, value: &mut char, _cache: &mut Self::Cache, _max_cplx: f64) -> (Self::UnmutateToken, f64) {
@@ -520,41 +529,11 @@ impl Mutator<char> for CharWithinRangeMutator {
                 )
                 .unwrap(),
             ),
-            (value.len_utf8() * 8) as f64,
+            char_complexity(*value),
         )
     }
 
     fn unmutate(&self, value: &mut char, _cache: &mut Self::Cache, t: Self::UnmutateToken) {
         *value = t;
-    }
-}
-
-#[cfg(test)]
-mod test {
-    use super::*;
-    use std::collections::HashSet;
-    fn test_arbitrary_for_range_mutator(range: impl RangeBounds<i8> + IntoIterator<Item = i8> + Clone) {
-        let m = I8WithinRangeMutator::new(range.clone());
-        for _ in 0..1000 {
-            let x = m.random_arbitrary(100.0).0;
-            assert!(range.contains(&x), "{}", x);
-        }
-        let mut step = 0;
-        let mut all_generated = HashSet::new();
-        while let Some((x, _)) = m.ordered_arbitrary(&mut step, 100.0) {
-            let is_new = all_generated.insert(x);
-            assert!(is_new);
-        }
-        for x in range {
-            assert!(all_generated.contains(&x));
-        }
-    }
-    #[test]
-    fn arbitrary_constrained() {
-        test_arbitrary_for_range_mutator(-128..12);
-        test_arbitrary_for_range_mutator(5..10);
-        test_arbitrary_for_range_mutator(0..=0);
-        test_arbitrary_for_range_mutator(-128..=127);
-        test_arbitrary_for_range_mutator(-100..50);
     }
 }
