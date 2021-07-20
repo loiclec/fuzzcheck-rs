@@ -105,16 +105,16 @@ mod tests {
             let i = alias.sample();
             choices[i] += 1;
         }
-        assert!(false, "{:?}", choices);
+        println!("{:?}", choices);
     }
     #[test]
     fn test_probabilities_2() {
-        let alias = VoseAlias::new(vec![0.1, 0.4, 0.2]);
-        let mut choices = vec![0, 0, 0];
+        let alias = VoseAlias::new(vec![0.1, 0.4, 0.2, 0.3]);
+        let mut choices = vec![0, 0, 0, 0];
         for _ in 0..100_000 {
             let i = alias.sample();
             choices[i] += 1;
         }
-        assert!(false, "{:?}", choices);
+        println!("{:?}", choices);
     }
 }
