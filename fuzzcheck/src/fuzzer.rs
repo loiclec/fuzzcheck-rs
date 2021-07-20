@@ -54,7 +54,7 @@ pub(crate) struct AnalysisResult<T: Clone, M: Mutator<T>> {
     // always contains the value of the lowest stack,
     // will need to check if it is lower than the other
     // inputs in the pool
-    pub _lowest_stack: usize,
+    // pub _lowest_stack: usize,
 }
 
 struct FuzzerState<T: Clone, M: Mutator<T>, S: Serializer<Value = T>> {
@@ -268,20 +268,22 @@ where
                 new_features.push(feature);
             }
         });
-        let lowest_stack = code_coverage_sensor::lowest_stack();
+        // let lowest_stack = code_coverage_sensor::lowest_stack();
         let result = if best_input_for_a_feature {
             Some(AnalysisResult {
                 existing_features: existing_features.clone(),
                 new_features: new_features.clone(),
-                _lowest_stack: lowest_stack,
+                // _lowest_stack: lowest_stack,
             })
-        } else if lowest_stack < self.state.pool.lowest_stack() {
+        }
+        /*else if lowest_stack < self.state.pool.lowest_stack() {
             Some(AnalysisResult {
                 existing_features: vec![],
                 new_features: vec![],
                 _lowest_stack: lowest_stack,
             })
-        } else {
+        } */
+        else {
             None
         };
 

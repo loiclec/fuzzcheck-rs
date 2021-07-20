@@ -213,7 +213,7 @@ impl FeatureGroup {
 
 pub struct LowestStackInput<T: Clone, M: Mutator<T>> {
     input: FuzzedInput<T, M>,
-    stack_depth: usize,
+    // stack_depth: usize,
     generation: usize,
 }
 
@@ -265,9 +265,9 @@ impl<T: Clone, M: Mutator<T>> Pool<T, M> {
         *self.cumulative_weights.last().unwrap_or(&0.0)
     }
 
-    pub fn lowest_stack(&self) -> usize {
-        self.lowest_stack_input.as_ref().map_or(usize::MAX, |x| x.stack_depth)
-    }
+    // pub fn lowest_stack(&self) -> usize {
+    //     self.lowest_stack_input.as_ref().map_or(usize::MAX, |x| x.stack_depth)
+    // }
 
     #[allow(clippy::too_many_lines)]
     pub(crate) fn add(
@@ -280,7 +280,7 @@ impl<T: Clone, M: Mutator<T>> Pool<T, M> {
         let AnalysisResult {
             existing_features,
             new_features,
-            _lowest_stack: _,
+            // _lowest_stack: _,
         } = result;
 
         let mut actions: Vec<WorldAction<T>> = Vec::new();
@@ -1184,7 +1184,7 @@ mod tests {
                 let analysis_result = AnalysisResult {
                     existing_features: existing_features_1,
                     new_features: new_features_1,
-                    _lowest_stack: 0,
+                    // _lowest_stack: 0,
                 };
                 // println!("adding input of cplx {:.2} with new features {:?} and existing features {:?}", cplx1, new_features_1, existing_features_1);
                 let _ = pool.add(mock(cplx1), cplx1, analysis_result, 0);

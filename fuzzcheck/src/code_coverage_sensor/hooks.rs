@@ -74,30 +74,9 @@ unsafe fn return_address() -> usize {
 // TODO: reenable at some point
 // #[thread_local]
 // #[export_name = "__sancov_lowest_stack"]
-static mut LOWEST_STACK: libc::uintptr_t = usize::MAX;
+// static mut LOWEST_STACK: libc::uintptr_t = usize::MAX;
 
 static START: Once = Once::new();
-
-// #[export_name = "__sanitizer_cov_bool_flag_init"]
-// fn bool_flags_init(start: *mut bool, stop: *mut bool) {
-//     unsafe {
-//         if !(start != stop && *start == false) {
-//             return;
-//         }
-
-//         let dist = stop.offset_from(start).abs() as usize;
-//         START.call_once(|| {
-//             println!("Number of counters: {}", dist);
-//             SHARED_SENSOR.as_mut_ptr().write(CodeCoverageSensor {
-//                 eight_bit_counters: slice::from_raw_parts_mut(start, dist),
-//                 _lowest_stack: &mut LOWEST_STACK,
-//                 lowest_stack: usize::MAX,
-//                 #[cfg(trace_compares)]
-//                 instr_features: HBitSet::new(),
-//             });
-//         });
-//     }
-// }
 
 #[export_name = "__sanitizer_cov_trace_pc_guard_init"]
 unsafe fn pcguard_init(start: *mut u32, stop: *mut u32) {
@@ -112,8 +91,8 @@ unsafe fn pcguard_init(start: *mut u32, stop: *mut u32) {
             eight_bit_counters: slice::from_raw_parts_mut(start, dist),
             #[cfg(feature = "ui")]
             eight_bit_counters_locations: HashMap::new(),
-            _lowest_stack: &mut LOWEST_STACK,
-            lowest_stack: usize::MAX,
+            // _lowest_stack: &mut LOWEST_STACK,
+            // lowest_stack: usize::MAX,
             #[cfg(trace_compares)]
             instr_features: HBitSet::new(),
         });

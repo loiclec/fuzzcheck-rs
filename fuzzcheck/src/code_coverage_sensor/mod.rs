@@ -31,10 +31,10 @@ struct CodeCoverageSensor {
     eight_bit_counters: &'static mut [u32],
     #[cfg(feature = "ui")]
     eight_bit_counters_locations: HashMap<Feature, Vec<BacktraceSymbol>>,
-    /// pointer to the __sancov_lowest_stack variable
-    _lowest_stack: &'static mut libc::uintptr_t,
-    /// value of __sancov_lowest_stack after running an input
-    lowest_stack: usize,
+    // /// pointer to the __sancov_lowest_stack variable
+    // _lowest_stack: &'static mut libc::uintptr_t,
+    // /// value of __sancov_lowest_stack after running an input
+    // lowest_stack: usize,
     #[cfg(trace_compares)]
     instr_features: HBitSet,
 }
@@ -67,23 +67,23 @@ pub unsafe fn trace_pc_guard_increase_counter(guard: *mut u32) {
     *guard += 1;
 }
 
-pub fn lowest_stack() -> usize {
-    unsafe { (*SHARED_SENSOR.as_ptr()).lowest_stack }
-}
+// pub fn lowest_stack() -> usize {
+//     unsafe { (*SHARED_SENSOR.as_ptr()).lowest_stack }
+// }
 
 pub fn start_recording() {
-    unsafe {
-        let sensor = SHARED_SENSOR.as_mut_ptr();
-        (*sensor).lowest_stack = usize::MAX;
-        *(*sensor)._lowest_stack = usize::MAX;
-    }
+    // unsafe {
+    //     let sensor = SHARED_SENSOR.as_mut_ptr();
+    //     // (*sensor).lowest_stack = usize::MAX;
+    //     // *(*sensor)._lowest_stack = usize::MAX;
+    // }
 }
 
 pub fn stop_recording() {
-    unsafe {
-        let sensor = SHARED_SENSOR.as_mut_ptr();
-        (*sensor).lowest_stack = *(*sensor)._lowest_stack;
-    }
+    // unsafe {
+    //     let sensor = SHARED_SENSOR.as_mut_ptr();
+    //     // (*sensor).lowest_stack = *(*sensor)._lowest_stack;
+    // }
 }
 
 /// Runs the closure on all recorded features.
