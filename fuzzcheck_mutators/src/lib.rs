@@ -87,7 +87,7 @@ pub mod testing_utilities {
     use std::fmt::Debug;
     use std::hash::Hash;
 
-    use fuzzcheck_traits::Mutator;
+    use crate::fuzzcheck_traits::Mutator;
 
     pub fn test_mutator<T, M>(
         m: M,
@@ -132,7 +132,13 @@ pub mod testing_utilities {
                         }
                         let validated = m.validate_value(&x_mut).unwrap();
                         let other_cplx = m.complexity(&x_mut, &validated.0);
-                        assert!((cplx - other_cplx).abs() < 0.01, "{:.3} != {:.3}", cplx, other_cplx);
+                        assert!(
+                            (cplx - other_cplx).abs() < 0.01,
+                            "{:.3} != {:.3} for {:?}",
+                            cplx,
+                            other_cplx,
+                            x_mut
+                        );
                         m.unmutate(&mut x_mut, &mut cache_mut, token);
                         assert_eq!(x, x_mut);
                         assert_eq!(cache, cache_mut);

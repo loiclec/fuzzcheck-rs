@@ -92,7 +92,6 @@ impl<T: Clone, M: Mutator<T>> VecMutator<T, M> {
         cache: &mut VecMutatorCache<M::Cache>,
         step: &mut MutationStep<M::MutationStep>,
         idx: usize,
-        current_cplx: f64,
         spare_cplx: f64,
     ) -> Option<(UnmutateVecToken<T, M>, f64)> {
         let el = &mut value[idx];
@@ -104,7 +103,7 @@ impl<T: Clone, M: Mutator<T>> VecMutator<T, M> {
         if let Some((token, new_cplx)) = self.m.ordered_mutate(el, el_cache, el_step, spare_cplx + old_cplx) {
             Some((
                 UnmutateVecToken::Element(idx, token),
-                self.complexity_from_inner(current_cplx - old_cplx + new_cplx, value.len()),
+                self.complexity_from_inner(cache.sum_cplx - old_cplx + new_cplx, value.len()),
             ))
         } else {
             None
@@ -114,7 +113,7 @@ impl<T: Clone, M: Mutator<T>> VecMutator<T, M> {
     fn insert_element(
         &self,
         value: &mut Vec<T>,
-        current_cplx: f64,
+        cache: &VecMutatorCache<M::Cache>,
         spare_cplx: f64,
     ) -> Option<(UnmutateVecToken<T, M>, f64)> {
         if value.len() >= *self.len_range.end() {
@@ -128,14 +127,13 @@ impl<T: Clone, M: Mutator<T>> VecMutator<T, M> {
         let (el, el_cplx) = self.m.random_arbitrary(spare_cplx);
         value.insert(idx, el);
         let token = UnmutateVecToken::Remove(idx);
-        Some((token, self.complexity_from_inner(current_cplx + el_cplx, value.len())))
+        Some((token, self.complexity_from_inner(cache.sum_cplx + el_cplx, value.len())))
     }
 
     fn remove_element(
         &self,
         value: &mut Vec<T>,
         cache: &VecMutatorCache<M::Cache>,
-        current_cplx: f64,
     ) -> Option<(UnmutateVecToken<T, M>, f64)> {
         if value.len() <= *self.len_range.start() {
             return None;
@@ -146,7 +144,7 @@ impl<T: Clone, M: Mutator<T>> VecMutator<T, M> {
         let token = UnmutateVecToken::Insert(idx, removed_el);
         Some((
             token,
-            self.complexity_from_inner(current_cplx - removed_el_cplx, value.len()),
+            self.complexity_from_inner(cache.sum_cplx - removed_el_cplx, value.len()),
         ))
     }
 
@@ -154,7 +152,6 @@ impl<T: Clone, M: Mutator<T>> VecMutator<T, M> {
         &self,
         value: &mut Vec<T>,
         cache: &VecMutatorCache<M::Cache>,
-        current_cplx: f64,
     ) -> Option<(UnmutateVecToken<T, M>, f64)> {
         if value.len() <= *self.len_range.start() {
             return None;
@@ -176,14 +173,14 @@ impl<T: Clone, M: Mutator<T>> VecMutator<T, M> {
 
         Some((
             UnmutateVecToken::InsertMany(start_idx, removed_elements),
-            self.complexity_from_inner(current_cplx - removed_cplx, value.len()),
+            self.complexity_from_inner(cache.sum_cplx - removed_cplx, value.len()),
         ))
     }
 
     fn use_dictionary(
         &self,
         value: &mut Vec<T>,
-        current_cplx: f64,
+        cache: &VecMutatorCache<M::Cache>,
         spare_cplx: f64,
     ) -> Option<(UnmutateVecToken<T, M>, f64)> {
         if value.len() >= *self.len_range.end() || spare_cplx < 0.01 {
@@ -207,7 +204,7 @@ impl<T: Clone, M: Mutator<T>> VecMutator<T, M> {
                     let token = UnmutateVecToken::RemoveMany(idx..(idx + x.len()));
                     return Some((
                         token,
-                        self.complexity_from_inner(current_cplx + added_complexity, value.len()),
+                        self.complexity_from_inner(cache.sum_cplx + added_complexity, value.len()),
                     ));
                 } else {
                     continue;
@@ -223,7 +220,7 @@ impl<T: Clone, M: Mutator<T>> VecMutator<T, M> {
     fn insert_repeated_elements(
         &self,
         value: &mut Vec<T>,
-        current_cplx: f64,
+        cache: &VecMutatorCache<M::Cache>,
         spare_cplx: f64,
     ) -> Option<(UnmutateVecToken<T, M>, f64)> {
         if value.len() >= *self.len_range.end() || spare_cplx < 0.01 {
@@ -257,7 +254,7 @@ impl<T: Clone, M: Mutator<T>> VecMutator<T, M> {
 
         Some((
             token,
-            self.complexity_from_inner(current_cplx + (len as f64) * el_cplx, value.len()),
+            self.complexity_from_inner(cache.sum_cplx + (len as f64) * el_cplx, value.len()),
         ))
     }
 
@@ -458,11 +455,11 @@ impl<T: Clone, M: Mutator<T>> Mutator<Vec<T>> for VecMutator<T, M> {
         let token = if value.is_empty() || step.dead_end || self.rng.usize(0..10) == 0 {
             // vector mutation
             match self.rng.usize(0..15) {
-                0..=3 => self.insert_element(value, current_cplx, spare_cplx),
-                4..=7 => self.remove_element(value, cache, current_cplx),
-                8 => self.insert_repeated_elements(value, current_cplx, spare_cplx),
-                9 => self.remove_many_elements(value, cache, current_cplx),
-                10..=14 => self.use_dictionary(value, current_cplx, spare_cplx),
+                0..=3 => self.insert_element(value, cache, spare_cplx),
+                4..=7 => self.remove_element(value, cache),
+                8 => self.insert_repeated_elements(value, cache, spare_cplx),
+                9 => self.remove_many_elements(value, cache),
+                10..=14 => self.use_dictionary(value, cache, spare_cplx),
                 _ => unreachable!(),
             }
         } else {
@@ -474,7 +471,7 @@ impl<T: Clone, M: Mutator<T>> Mutator<Vec<T>> for VecMutator<T, M> {
                     break candidate;
                 }
             };
-            if let Some(x) = self.mutate_element(value, cache, step, idx, current_cplx, spare_cplx) {
+            if let Some(x) = self.mutate_element(value, cache, step, idx, spare_cplx) {
                 Some(x)
             } else {
                 step.dead_ends[idx] = true;
@@ -512,11 +509,11 @@ impl<T: Clone, M: Mutator<T>> Mutator<Vec<T>> for VecMutator<T, M> {
         if value.is_empty() || self.rng.usize(0..10) == 0 {
             // vector mutation
             match self.rng.usize(0..15) {
-                0..=3 => self.insert_element(value, current_cplx, spare_cplx),
-                4..=7 => self.remove_element(value, cache, current_cplx),
-                8 => self.insert_repeated_elements(value, current_cplx, spare_cplx),
-                9 => self.remove_many_elements(value, cache, current_cplx),
-                10..=14 => self.use_dictionary(value, current_cplx, spare_cplx),
+                0..=3 => self.insert_element(value, cache, spare_cplx),
+                4..=7 => self.remove_element(value, cache),
+                8 => self.insert_repeated_elements(value, cache, spare_cplx),
+                9 => self.remove_many_elements(value, cache),
+                10..=14 => self.use_dictionary(value, cache, spare_cplx),
                 _ => None,
             }
             .unwrap_or_else(|| self.random_mutate(value, cache, max_cplx))
@@ -535,7 +532,7 @@ impl<T: Clone, M: Mutator<T>> Mutator<Vec<T>> for VecMutator<T, M> {
 
             (
                 UnmutateVecToken::Element(idx, token),
-                self.complexity_from_inner(current_cplx - old_el_cplx + new_el_cplx, value.len()),
+                self.complexity_from_inner(cache.sum_cplx - old_el_cplx + new_el_cplx, value.len()),
             )
         }
     }

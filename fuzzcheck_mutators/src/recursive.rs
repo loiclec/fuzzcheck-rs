@@ -1,4 +1,4 @@
-use fuzzcheck_traits::Mutator;
+use crate::fuzzcheck_traits::Mutator;
 use std::rc::{Rc, Weak};
 
 /// The ArbitraryStep that is used for recursive mutators
