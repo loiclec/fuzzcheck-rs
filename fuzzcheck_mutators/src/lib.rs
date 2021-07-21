@@ -32,10 +32,7 @@ pub mod vector;
 pub mod vose_alias;
 
 use crate::fuzzcheck_traits::Mutator;
-use std::{
-    ops::Range,
-    rc::{Rc, Weak},
-};
+use std::ops::Range;
 
 pub trait DefaultMutator: Clone {
     type Mutator: Mutator<Self>;
