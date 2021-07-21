@@ -4,6 +4,8 @@
 #![feature(trivial_bounds)]
 #![allow(clippy::nonstandard_macro_braces)]
 #![allow(clippy::too_many_arguments)]
+// TODO: remove
+#![feature(box_syntax)]
 
 pub extern crate fastrand;
 pub extern crate fuzzcheck_mutators_derive;
@@ -77,5 +79,89 @@ mod test {
         assert_eq!(3.0, size_to_cplxity(5));
         assert_eq!(3.0, size_to_cplxity(8));
         assert_eq!(5.0, size_to_cplxity(31));
+    }
+}
+
+pub mod testing_utilities {
+    use std::collections::HashSet;
+    use std::fmt::Debug;
+    use std::hash::Hash;
+
+    use fuzzcheck_traits::Mutator;
+
+    pub fn test_mutator<T, M>(
+        m: M,
+        maximum_complexity_arbitrary: f64,
+        maximum_complexity_mutate: f64,
+        avoid_duplicates: bool,
+        nbr_arbitraries: usize,
+        nbr_mutations: usize,
+    ) where
+        M: Mutator<T>,
+        T: Clone + Debug + PartialEq + Eq + Hash,
+        M::Cache: Clone + Debug + PartialEq,
+    {
+        let mut arbitrary_step = m.default_arbitrary_step();
+
+        let mut arbitraries = HashSet::new();
+        for _i in 0..nbr_arbitraries {
+            if let Some((x, cplx)) = m.ordered_arbitrary(&mut arbitrary_step, maximum_complexity_arbitrary) {
+                let is_new = arbitraries.insert(x.clone());
+                if avoid_duplicates {
+                    assert!(is_new);
+                }
+                let (cache, mut mutation_step) = m.validate_value(&x).unwrap();
+                let other_cplx = m.complexity(&x, &cache);
+                assert!((cplx - other_cplx).abs() < 0.01, "{:.3} != {:.3}", cplx, other_cplx);
+
+                let mut mutated = HashSet::new();
+                mutated.insert(x.clone());
+                let mut x_mut = x.clone();
+                let mut cache_mut = cache.clone();
+                for _j in 0..nbr_mutations {
+                    if let Some((token, cplx)) = m.ordered_mutate(
+                        &mut x_mut,
+                        &mut cache_mut,
+                        &mut mutation_step,
+                        maximum_complexity_mutate,
+                    ) {
+                        assert!(cplx <= maximum_complexity_mutate);
+                        let is_new = mutated.insert(x_mut.clone());
+                        if avoid_duplicates {
+                            assert!(is_new);
+                        }
+                        let validated = m.validate_value(&x_mut).unwrap();
+                        let other_cplx = m.complexity(&x_mut, &validated.0);
+                        assert!((cplx - other_cplx).abs() < 0.01, "{:.3} != {:.3}", cplx, other_cplx);
+                        m.unmutate(&mut x_mut, &mut cache_mut, token);
+                        assert_eq!(x, x_mut);
+                        assert_eq!(cache, cache_mut);
+                    } else {
+                        // println!("Stopped mutating at {}", j);
+                        break;
+                    }
+                }
+            } else {
+                // println!("Stopped arbitraries at {}", i);
+                break;
+            }
+        }
+        for _i in 0..nbr_arbitraries {
+            let (x, cplx) = m.random_arbitrary(maximum_complexity_arbitrary);
+            let (cache, _) = m.validate_value(&x).unwrap();
+            let other_cplx = m.complexity(&x, &cache);
+            assert!((cplx - other_cplx).abs() < 0.01, "{:.3} != {:.3}", cplx, other_cplx);
+            let mut x_mut = x.clone();
+            let mut cache_mut = cache.clone();
+            for _j in 0..nbr_mutations {
+                let (token, cplx) = m.random_mutate(&mut x_mut, &mut cache_mut, maximum_complexity_mutate);
+                let validated = m.validate_value(&x_mut).unwrap();
+                let other_cplx = m.complexity(&x_mut, &validated.0);
+                assert!((cplx - other_cplx).abs() < 0.01, "{:.3} != {:.3}", cplx, other_cplx);
+                m.unmutate(&mut x_mut, &mut cache_mut, token);
+                assert_eq!(x, x_mut);
+                assert_eq!(cache, cache_mut);
+            }
+        }
     }
 }

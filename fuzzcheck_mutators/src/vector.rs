@@ -65,6 +65,7 @@ pub struct MutationStep<S> {
     dead_end: bool,
 }
 
+#[derive(Clone, Debug, PartialEq)]
 pub struct VecMutatorCache<C> {
     inner: Vec<C>,
     sum_cplx: f64,

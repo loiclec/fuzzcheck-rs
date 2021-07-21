@@ -294,7 +294,8 @@ fn declare_tuple_mutator_helper_types(tb: &mut TokenBuilder, nbr_elements: usize
     let tuple_type_params = join_ts!(0..nbr_elements, i, ident!("T" i), separator: ",");
 
     extend_ts!(tb,
-        "pub struct Cache <" tuple_type_params "> {"
+        "#[derive(" cm.Clone ", " cm.Debug ", " cm.PartialEq ")]
+        pub struct Cache <" tuple_type_params "> {"
             join_ts!(0..nbr_elements, i,
                 ti(i) ":" ident!("T" i) ","
             )

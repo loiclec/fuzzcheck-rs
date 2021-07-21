@@ -1,8 +1,5 @@
 use crate::fuzzcheck_traits::Mutator;
 
-// TODO: it is probably best to use an integer mutator and a map mutator than
-// require this trait?
-
 pub trait BasicEnumStructure {
     fn from_item_index(item_index: usize) -> Self;
     fn get_item_index(&self) -> usize;

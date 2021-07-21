@@ -138,31 +138,46 @@ pub(crate) fn make_mutator_type_and_impl(params: CreateWrapperMutatorParams) -> 
     let NameMutatorUnmutateToken = ident!(NameMutator "UnmutateToken");
 
     let helper_type = |helper_type: &str| {
+        let InnerType = ts!(
+            "<" InnerMutator " as " cm.fuzzcheck_traits_Mutator "<" type_ident type_generics.removing_bounds_and_eq_type() "> >::" helper_type
+        );
+
+        let mut clone_where_clause = NameMutator_where_clause.clone();
+        clone_where_clause.add_clause_items(ts!(InnerType ":" cm.Clone));
+
+        let mut debug_where_clause = NameMutator_where_clause.clone();
+        debug_where_clause.add_clause_items(ts!(InnerType ":" cm.Debug));
+
+        let mut partialeq_where_clause = NameMutator_where_clause.clone();
+        partialeq_where_clause.add_clause_items(ts!(InnerType ":" cm.PartialEq));
         ts!(
             visibility "struct" ident!(NameMutator helper_type) NameMutator_generics.removing_eq_type() NameMutator_where_clause "{
-            pub inner : "
-                if settings.recursive {
-                    ts!(cm.Box "<")
-                } else {
-                    ts!("")
-                }
-                "<" InnerMutator " as " cm.fuzzcheck_traits_Mutator "<" type_ident type_generics.removing_bounds_and_eq_type() "> >::" helper_type
-                if settings.recursive {
-                    ">"
-                } else {
-                    ""
-                }
-                ",
+            pub inner : " if settings.recursive { ts!(cm.Box "<") } else { ts!("") } InnerType if settings.recursive { ">" } else { "" } ",
             }
             impl " NameMutator_generics.removing_eq_type() ident!(NameMutator helper_type) NameMutator_generics.removing_bounds_and_eq_type() NameMutator_where_clause "{
-                fn new(inner: <" InnerMutator " as " cm.fuzzcheck_traits_Mutator "<" type_ident type_generics.removing_bounds_and_eq_type() "> >::" helper_type") -> Self {"
+                fn new(inner: " InnerType ") -> Self {"
                     "Self {
                         inner: "  if settings.recursive { ts!(cm.Box "::new") } else { ts!("") }
                             "(inner)"
                         "
                     }"
                 "}
-            } 
+            }
+            impl" NameMutator_generics.removing_eq_type() cm.Clone "for" ident!(NameMutator helper_type) NameMutator_generics.removing_bounds_and_eq_type() clone_where_clause "{
+                fn clone(&self) -> Self {
+                    Self::new(self.inner " if settings.recursive { ".as_ref()" } else { "" } ".clone())
+                }
+            }
+            impl" NameMutator_generics.removing_eq_type() cm.Debug "for" ident!(NameMutator helper_type) NameMutator_generics.removing_bounds_and_eq_type() debug_where_clause "{
+                fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::result::Result<(), ::std::fmt::Error> {
+                    self.inner.fmt(f)
+                }
+            }
+            impl" NameMutator_generics.removing_eq_type() cm.PartialEq "for" ident!(NameMutator helper_type) NameMutator_generics.removing_bounds_and_eq_type() partialeq_where_clause "{
+                fn eq(&self, other: &Self) -> bool {
+                    self.inner.eq(&other.inner)
+                }
+            }
             ")
     };
 

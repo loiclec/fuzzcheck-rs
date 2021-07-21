@@ -55,6 +55,7 @@ pub struct MutationStep<MS, AS> {
     arbitrary: AS,
 }
 
+#[derive(Clone, Debug, PartialEq)]
 pub struct Cache<C> {
     inner: C,
     mutator_idx: usize,
@@ -190,7 +191,7 @@ where
             Some((UnmutateToken::Inner(idx, t), self.complexity_from_inner(cplx)))
         } else if let Some((mut v, cplx)) = self.ordered_arbitrary(&mut step.arbitrary, max_cplx) {
             std::mem::swap(value, &mut v);
-            Some((UnmutateToken::Replace(v), self.complexity_from_inner(cplx)))
+            Some((UnmutateToken::Replace(v), cplx))
         } else {
             None
         }

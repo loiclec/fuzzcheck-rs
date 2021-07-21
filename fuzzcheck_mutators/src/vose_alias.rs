@@ -7,6 +7,11 @@ pub struct VoseAlias {
     prob: Vec<f64>,
     rng: Rng,
 }
+impl PartialEq for VoseAlias {
+    fn eq(&self, other: &Self) -> bool {
+        self.alias.eq(&other.alias) && self.prob.eq(&other.prob)
+    }
+}
 
 // implementation from https://www.keithschwarz.com/darts-dice-coins/
 impl VoseAlias {

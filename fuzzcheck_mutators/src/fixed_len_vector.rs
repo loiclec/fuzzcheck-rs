@@ -37,6 +37,7 @@ pub struct MutationStep<S> {
     element_step: usize,
 }
 
+#[derive(Clone, PartialEq)]
 pub struct VecMutatorCache<C> {
     inner: Vec<C>,
     sum_cplx: f64,

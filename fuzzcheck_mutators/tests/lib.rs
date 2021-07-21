@@ -1,4 +1,5 @@
 #![feature(arc_new_cyclic)]
+use fuzzcheck_traits::Mutator;
 //
 //
 mod alternation_char_mutators;
