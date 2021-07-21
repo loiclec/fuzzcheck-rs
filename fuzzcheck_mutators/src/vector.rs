@@ -411,8 +411,8 @@ impl<T: Clone, M: Mutator<T>> Mutator<Vec<T>> for VecMutator<T, M> {
         if max_cplx > mutator_max_cplx {
             max_cplx = mutator_max_cplx;
         }
-        let min_cplx_len_1 = self.complexity_from_inner(self.m.min_complexity(), 1);
-        if max_cplx < self.complexity_from_inner(min_cplx_len_1, 1) || self.rng.u8(..) == 0 {
+        let min_cplx = self.min_complexity();
+        if max_cplx < min_cplx || self.rng.u8(..) == 0 {
             // return the least complex value possible
             let mut v = Vec::with_capacity(*self.len_range.start());
             let mut inner_cplx = 0.0;
@@ -424,7 +424,7 @@ impl<T: Clone, M: Mutator<T>> Mutator<Vec<T>> for VecMutator<T, M> {
             let cplx = self.complexity_from_inner(inner_cplx, v.len());
             return (v, cplx);
         }
-        let target_cplx = crate::gen_f64(&self.rng, (min_cplx_len_1 - 2.0)..max_cplx);
+        let target_cplx = crate::gen_f64(&self.rng, min_cplx..max_cplx);
         let len_range = self.choose_slice_length(target_cplx);
         let target_len = self.rng.usize(len_range);
         self.new_input_with_length_and_complexity(target_len, target_cplx)
