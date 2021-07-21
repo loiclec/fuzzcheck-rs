@@ -18,12 +18,12 @@ use std::rc::{Rc, Weak};
 
  For example, the complexity of a vector is the complexity of its length,
  plus  the sum of the complexities of its elements. So `vec![]` would have a
- complexity of `0.0` and `vec![76]` would have a complexity of `9.0`: `1.0`
- for  its short length and `8.0` for the 8-bit integer “76”. But there is no
+ complexity of `1.0` and `vec![76]` would have a complexity of `10.0`: `2.0`
+ for its short length and `8.0` for the 8-bit integer “76”. But there is no
  fixed rule for how to compute the complexity of a value, and it is up to you
  to judge how “large” something is.
 
-  ## Cache
+ ## Cache
 
  In order to mutate values efficiently, the mutator is able to make use of a
  per-value *cache*. The Cache contains information associated with the value
@@ -31,7 +31,7 @@ use std::rc::{Rc, Weak};
  it. For a vector, its cache is its total complexity, along with a vector of
  the cache of each of its element.
 
-  ## MutationStep
+ ## MutationStep
 
  The same values will be passed to the mutator many times, so that it is
  mutated in many different ways. There are different strategies to choose
@@ -46,6 +46,34 @@ use std::rc::{Rc, Weak};
  operation has already been tried. This allows you to deterministically
  apply mutations to a value such that better mutations are tried first, and
  duplicate mutations are avoided.
+
+ It is not always possible to schedule mutations in order. For that reason,
+ we have two method: [random_mutate](crate::Mutator::random_mutate) executes
+ a random mutation, and [ordered_mutate](crate::Mutator::ordered_mutate) uses
+ the MutationStep to schedule mutations in order. The fuzzing engine only ever
+ uses `ordered_mutate` directly, but the former is sometimes necessary to
+ compose mutators together.
+
+ If you don't want to bother with ordered mutations, that is fine. In that
+ case, only implement `random_mutate` and call it from the `ordered_mutate`
+ method.
+ ```rust
+ fn random_mutate(&self, value: &mut Value, cache: &mut Self::Cache, max_cplx: f64) -> (Self::UnmutateToken, f64) {
+     // ...
+ }
+fn ordered_mutate(&self, value: &mut Value, cache: &mut Self::Cache, step: &mut Self::MutationStep, max_cplx: f64) -> Option<(Self::UnmutateToken, f64)> {
+    Some(self.random_mutate(value, cache, max_cplx))
+ }
+ ```
+
+ ## Arbitrary
+
+ A mutator must also be able to generate new values from nothing. This is what
+ the [random_arbitrary](crate::Mutator::random_arbitrary) and
+ [ordered_arbitrary](crate::Mutator::ordered_arbitrary) methods are for. The
+ latter one is called by the fuzzer directly and uses an `ArbitraryStep` that
+ can be used to smartly generate more interesting values first and avoid
+ duplicates.
 
  ## Unmutate
 
@@ -84,25 +112,70 @@ use std::rc::{Rc, Weak};
  // step = s2 (step has not been reversed)
  ```
 
+When a mutated value is deemed interesting by the fuzzing engine, the method
+[validate_value](crate::Mutator::validate_value) is called on it in order to
+get a new Cache and MutationStep for it. The same method is called when the
+fuzzer reads values from a corpus to verify that they conform to the
+mutator’s expectations. For example, a CharWithinRangeMutator
+will check whether the character is within a certain range.
+
+Note that in most cases, it is completely fine to never mutate a value’s cache,
+since it is recomputed by [validate_value](crate::Mutator::validate_value) when
+needed.
 **/
 pub trait Mutator<Value: Clone> {
+    /// Accompanies each value to help compute its complexity and mutate it efficiently.
     type Cache;
+    /// Contains information about what mutations have already been tried.
     type MutationStep;
+    /// Contains information about what arbitrary values have already been generated.
     type ArbitraryStep;
+    /// Describes how to reverse a mutation
     type UnmutateToken;
 
+    /// The first ArbitraryStep value to be passed to [ordered_arbitrary](crate::Mutator::ordered_arbitrary)
     fn default_arbitrary_step(&self) -> Self::ArbitraryStep;
 
+    /// Verifies that the value conforms to the mutator’s expectations and, if it does,
+    /// returns the Cache and first MutationStep associated with that value.
     fn validate_value(&self, value: &Value) -> Option<(Self::Cache, Self::MutationStep)>;
 
+    /// The maximum complexity that a Value can possibly have.
     fn max_complexity(&self) -> f64;
-
+    /// The minimum complexity that a Value can possibly have.
     fn min_complexity(&self) -> f64;
+
+    /// Computes the complexity of the value.
+    ///
+    /// The returned value must be greater or equal than 0.
     fn complexity(&self, value: &Value, cache: &Self::Cache) -> f64;
 
+    /// Generates an entirely new value based on the given `ArbitraryStep`.
+    ///
+    /// The generated value should be smaller than the given `max_cplx`.
+    /// The return value is `None` if no more new value can be generated or if
+    /// it is not possible to stay within the given complexity. Otherwise, it
+    /// is the value itself and its complexity, which must be equal to
+    /// `self.complexity(value, cache)`
     fn ordered_arbitrary(&self, step: &mut Self::ArbitraryStep, max_cplx: f64) -> Option<(Value, f64)>;
+
+    /// Generates an entirely new value.
+
+    /// The generated value should be smaller
+    /// than the given `max_cplx`. However, if that is not possible, then
+    /// it should return a value of the lowest possible complexity.
+    /// Returns the value itself and its complexity, which must be equal to
+    /// `self.complexity(value, cache)`
     fn random_arbitrary(&self, max_cplx: f64) -> (Value, f64);
 
+    /// Mutates a value (and optionally its cache) based on the given
+    /// `MutationStep`.
+
+    /// The mutated value should be within the given
+    /// `max_cplx`. Returns `None` if it no longer possible to mutate
+    /// the value to a new state, or if it is not possible to keep it under
+    /// `max_cplx`. Otherwise, return the `UnmutateToken` that describes how to
+    /// undo the mutation as well as the new complexity of the value.
     fn ordered_mutate(
         &self,
         value: &mut Value,
@@ -111,8 +184,15 @@ pub trait Mutator<Value: Clone> {
         max_cplx: f64,
     ) -> Option<(Self::UnmutateToken, f64)>;
 
+    /// Mutates a value (and optionally its cache). The mutated value should be
+    /// within the given `max_cplx`. But if that is not possible, then it
+    /// should mutate the value so that it has a minimal complexity. Returns
+    /// the `UnmutateToken` that describes how to undo the mutation as well as
+    /// the new complexity of the value.
     fn random_mutate(&self, value: &mut Value, cache: &mut Self::Cache, max_cplx: f64) -> (Self::UnmutateToken, f64);
 
+    /// Undoes a mutation performed on the given value and cache, described by
+    /// the given `UnmutateToken`.
     fn unmutate(&self, value: &mut Value, cache: &mut Self::Cache, t: Self::UnmutateToken);
 }
 
@@ -132,6 +212,7 @@ pub trait Serializer {
     fn to_data(&self, value: &Self::Value) -> Vec<u8>;
 }
 
+/// The ArbitraryStep that is used for recursive mutators
 #[derive(Clone)]
 pub enum RecursingArbitraryStep<AS> {
     Default,
@@ -143,10 +224,34 @@ impl<AS> Default for RecursingArbitraryStep<AS> {
     }
 }
 
+/**
+A wrapper that allows a mutator to call itself recursively.
+
+For example, it is used to provide mutators for types such as:
+```rust
+struct S {
+    content: T,
+    // to mutate this field, a mutator must be able to recursively call itself
+    next: Option<Box<S>>
+}
+```
+`RecursiveMutator` is only the top-level type. It must be used in conjuction
+with [RecurToMutator](crate::RecurToMutator) at points of recursion.
+For example:
+```rust
+let s_mutator = RecursiveMutator::new(|mutator| {
+    SMutator {
+        content_mutator: ContentMutator::default(),
+        next_mutator: OptionMutator::new(BoxMutator::new(RecurToMutator::new(mutator.clone())))
+    }
+});
+```
+*/
 pub struct RecursiveMutator<M> {
     pub mutator: Rc<M>,
 }
 impl<M> RecursiveMutator<M> {
+    /// Create a new `RecursiveMutator` using a weak reference to itself.
     pub fn new(data_fn: impl FnOnce(&Weak<M>) -> M) -> Self {
         Self {
             mutator: Rc::new_cyclic(data_fn),
@@ -154,6 +259,7 @@ impl<M> RecursiveMutator<M> {
     }
 }
 
+/// A mutator that defers to a weak reference of a [RecursiveMutator](crate::RecursiveMutator)
 pub struct RecurToMutator<M> {
     reference: Weak<M>,
 }
