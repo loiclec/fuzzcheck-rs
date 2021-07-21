@@ -4,8 +4,8 @@ use super::grammar::InnerGrammar;
 use crate::either::Either;
 use crate::fuzzcheck_traits::Mutator;
 
-use crate::{make_mutator, CharWithinRangeMutator, FixedLenVecMutator, VecMutator};
-use crate::{AlternationMutator, BoxMutator, Tuple1Mutator};
+use crate::{alternation::AlternationMutator, boxed::BoxMutator, tuples::Tuple1Mutator};
+use crate::{fixed_len_vector::FixedLenVecMutator, integer::CharWithinRangeMutator, make_mutator, vector::VecMutator};
 
 use super::grammar::Grammar;
 use super::mapping::IncrementalMapping;

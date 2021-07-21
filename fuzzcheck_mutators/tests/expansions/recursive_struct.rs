@@ -1,11 +1,8 @@
-use fuzzcheck_mutators::fuzzcheck_traits::RecurToMutator;
 use fuzzcheck_mutators::make_mutator;
+use fuzzcheck_mutators::recursive::{RecurToMutator, RecursiveMutator};
 use fuzzcheck_mutators::DefaultMutator;
-use fuzzcheck_mutators::{
-    fuzzcheck_traits::{Mutator, RecursiveMutator},
-    BoolMutator,
-};
-use fuzzcheck_mutators::{BoxMutator, OptionMutator};
+use fuzzcheck_mutators::{bool::BoolMutator, fuzzcheck_traits::Mutator};
+use fuzzcheck_mutators::{boxed::BoxMutator, option::OptionMutator};
 #[derive(Clone, Debug)]
 struct S {
     x: bool,

@@ -260,7 +260,7 @@ mod tests {
     use crate::fuzzcheck_traits::Mutator;
 
     use super::FixedLenVecMutator;
-    use crate::U8Mutator;
+    use crate::integer::U8Mutator;
     #[test]
     fn test_constrained_length_mutator() {
         let m = FixedLenVecMutator::<u8, U8Mutator>::new_with_repeated_mutator(U8Mutator::default(), 3);

@@ -1,4 +1,4 @@
-use fuzzcheck_mutators::{OptionMutator, U8Mutator};
+use fuzzcheck_mutators::{integer::U8Mutator, option::OptionMutator};
 use fuzzcheck_traits::Mutator;
 use std::collections::HashSet;
 

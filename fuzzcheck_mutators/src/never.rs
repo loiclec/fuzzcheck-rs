@@ -1,6 +1,7 @@
 use crate::fuzzcheck_traits::Mutator;
 
-use crate::{RefTypes, TupleMutator, TupleStructure};
+use crate::tuples::TupleStructure;
+use crate::{tuples::RefTypes, tuples::TupleMutator};
 
 pub enum NeverMutator {}
 

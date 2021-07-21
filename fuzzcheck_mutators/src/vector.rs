@@ -581,8 +581,8 @@ mod tests {
 
     use crate::fuzzcheck_traits::Mutator;
 
-    use crate::U8Mutator;
-    use crate::VecMutator;
+    use crate::integer::U8Mutator;
+    use crate::vector::VecMutator;
     #[test]
     fn test_constrained_length_mutator_ordered_arbitrary() {
         let range = 0..=10;

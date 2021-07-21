@@ -1,10 +1,12 @@
+use crate::boxed::BoxMutator;
 use crate::fuzzcheck_traits::Mutator;
 use crate::grammar::mutators::ASTMutator;
 use crate::grammar::mutators::ASTSingleVariant;
-use crate::BoxMutator;
-use crate::Tuple1Mutator;
-use crate::{alternation, either::Either, vector::UnmutateVecToken, CharWithinRangeMutator};
-use crate::{fixed_len_vector, AlternationMutator, FixedLenVecMutator, VecMutator};
+use crate::tuples::Tuple1Mutator;
+use crate::{alternation, either::Either, integer::CharWithinRangeMutator, vector::UnmutateVecToken};
+use crate::{
+    alternation::AlternationMutator, fixed_len_vector, fixed_len_vector::FixedLenVecMutator, vector::VecMutator,
+};
 
 use super::ast::{ASTMapping, ASTMappingKind, AST};
 

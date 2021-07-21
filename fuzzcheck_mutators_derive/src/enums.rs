@@ -141,7 +141,7 @@ pub(crate) fn impl_basic_enum_structure(tb: &mut TokenBuilder, enu: &Enum, setti
                 .all(|item| !matches!(&item.data, Some(EnumItemData::Struct(_, fields)) if fields.len() > 0))
     );
 
-    let BasicEnumStructure = ts!(settings.fuzzcheck_mutators_crate "::BasicEnumStructure");
+    let BasicEnumStructure = ts!(settings.fuzzcheck_mutators_crate "::enums::BasicEnumStructure");
 
     let items_init = enu
         .items
@@ -187,7 +187,7 @@ pub(crate) fn impl_default_mutator_for_basic_enum(tb: &mut TokenBuilder, enu: &E
 
     let cm = Common::new(0);
 
-    let BasicEnumMutator = ts!(settings.fuzzcheck_mutators_crate "::BasicEnumMutator");
+    let BasicEnumMutator = ts!(settings.fuzzcheck_mutators_crate "::enums::BasicEnumMutator");
 
     extend_ts!(tb,
         "impl" cm.DefaultMutator "for " enu.ident " {
@@ -252,7 +252,7 @@ mod test {
 
         let expected = "
         impl fuzzcheck_mutators::DefaultMutator for X {
-            type Mutator = fuzzcheck_mutators::BasicEnumMutator;
+            type Mutator = fuzzcheck_mutators::enums::BasicEnumMutator;
         
             fn default_mutator() -> Self::Mutator {
                 Self::Mutator::default()
@@ -284,7 +284,7 @@ mod test {
         let generated = tb.end().to_string();
 
         let expected = "
-        impl fuzzcheck_mutators::BasicEnumStructure for X {
+        impl fuzzcheck_mutators::enums::BasicEnumStructure for X {
             fn from_item_index(item_index: usize) -> Self {
                 match item_index {
                     0 => X::A,

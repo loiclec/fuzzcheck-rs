@@ -1,6 +1,6 @@
 use std::{collections::HashSet, ops::RangeInclusive};
 
-use fuzzcheck_mutators::CharWithinRangeMutator;
+use fuzzcheck_mutators::integer::CharWithinRangeMutator;
 use fuzzcheck_traits::Mutator;
 
 const MAX_CPLX: f64 = 100.;

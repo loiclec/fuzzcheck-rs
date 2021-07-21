@@ -259,7 +259,6 @@ impl Default for MakeMutatorSettings {
 
 #[allow(non_snake_case)]
 pub(crate) struct Common {
-    fuzzcheck_mutators: TokenStream,
     AlternationMutator: TokenStream,
     Clone: TokenStream,
     Default: TokenStream,
@@ -299,19 +298,19 @@ impl Common {
         let ti = Box::new(|i: usize| ident!("t" i));
         let ti_value = Box::new(|i: usize| ident!("t" i "_value"));
         let Ti = Box::new(|i: usize| ident!("T" i));
-        let TupleMutator = ts!(fuzzcheck_mutators_crate "::TupleMutator");
+        let TupleMutator = ts!(fuzzcheck_mutators_crate "::tuples::TupleMutator");
         let Option = ts!("::std::option::Option");
         let some = ts!(Option "::Some");
         let none = ts!(Option "::None");
 
-        let TupleStructure = ts!(fuzzcheck_mutators_crate "::TupleStructure");
+        let TupleStructure = ts!(fuzzcheck_mutators_crate "::tuples::TupleStructure");
         let Tuplei = {
             let fuzzcheck_mutators_crate = fuzzcheck_mutators_crate.clone();
-            Box::new(move |i: usize| ts!(fuzzcheck_mutators_crate "::" ident!("Tuple" i)))
+            Box::new(move |i: usize| ts!(fuzzcheck_mutators_crate "::tuples::" ident!("Tuple" i)))
         };
         let TupleNMutator = {
             let fuzzcheck_mutators_crate = fuzzcheck_mutators_crate.clone();
-            Box::new(move |n: usize| ts!(fuzzcheck_mutators_crate "::" ident!("Tuple" n "Mutator")))
+            Box::new(move |n: usize| ts!(fuzzcheck_mutators_crate "::tuples::" ident!("Tuple" n "Mutator")))
         };
 
         let fuzzcheck_traits_Mutator = ts!("fuzzcheck_mutators::fuzzcheck_traits::Mutator");
@@ -320,8 +319,7 @@ impl Common {
         let fastrand_Rng = ts!(fastrand "::Rng");
 
         Self {
-            fuzzcheck_mutators: ts!("fuzzcheck_mutators"),
-            AlternationMutator: ts!(fuzzcheck_mutators_crate "::AlternationMutator"),
+            AlternationMutator: ts!(fuzzcheck_mutators_crate "::alternation::AlternationMutator"),
             Clone: ts!("::std::clone::Clone"),
             Default: ts!("::std::default::Default"),
             DefaultMutator: ts!(fuzzcheck_mutators_crate "::DefaultMutator"),
@@ -334,23 +332,23 @@ impl Common {
             None: none,
             Option,
             PhantomData: ts!("::std::marker::PhantomData"),
-            RefTypes: ts!(fuzzcheck_mutators_crate "::RefTypes"),
+            RefTypes: ts!(fuzzcheck_mutators_crate "::tuples::RefTypes"),
             Some: some,
             ti,
             ti_value,
             Ti,
             Tuplei,
             TupleMutator,
-            TupleMutatorWrapper: ts!(fuzzcheck_mutators_crate "::TupleMutatorWrapper"),
+            TupleMutatorWrapper: ts!(fuzzcheck_mutators_crate "::tuples::TupleMutatorWrapper"),
             TupleN_ident: ident!("Tuple" n),
-            TupleN_path: ts!(fuzzcheck_mutators_crate "::" ident!("Tuple" n)),
+            TupleN_path: ts!(fuzzcheck_mutators_crate "::tuples::" ident!("Tuple" n)),
             TupleNMutator,
             TupleNMutator_ident: ident!("Tuple" n "Mutator"),
             TupleStructure,
-            UnitMutator: ts!(fuzzcheck_mutators_crate "::UnitMutator"),
+            UnitMutator: ts!(fuzzcheck_mutators_crate "::unit::UnitMutator"),
             Vec: ts!("::std::vec::Vec"),
             VoseAlias: ts!(fuzzcheck_mutators_crate "::vose_alias::VoseAlias"),
-            RecursiveMutator: ts!(fuzzcheck_mutators_crate "::fuzzcheck_traits::RecursiveMutator"),
+            RecursiveMutator: ts!(fuzzcheck_mutators_crate "::recursive::RecursiveMutator"),
             Box: ts!("::std::boxed::Box"),
         }
     }

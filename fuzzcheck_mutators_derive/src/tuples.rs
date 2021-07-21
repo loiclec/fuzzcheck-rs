@@ -363,8 +363,8 @@ fn impl_mutator_trait(tb: &mut TokenBuilder, nbr_elements: usize) {
     let tuple_mut = ts!("(" join_ts!(0..nbr_elements, i, "&'a mut" Ti(i), separator: ",") ")");
 
     let SelfAsTupleMutator = ts!("<Self as " cm.TupleMutator "<T, " cm.TupleN_ident "<" tuple_type_params "> >>");
-    let RefTypes = ts!(cm.fuzzcheck_mutators "::RefTypes");
-    let TupleNAsRefTypes = ts!("<" cm.TupleN_ident "<" tuple_type_params "> as " RefTypes ">");
+
+    let TupleNAsRefTypes = ts!("<" cm.TupleN_ident "<" tuple_type_params "> as " cm.RefTypes ">");
 
     extend_ts!(tb,"
     impl <T , " type_params " > " cm.TupleMutator "<T , " cm.TupleN_ident "<" tuple_type_params "> > 

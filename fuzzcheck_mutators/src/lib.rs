@@ -15,45 +15,27 @@ pub use fuzzcheck::fuzzcheck_traits;
 pub use fuzzcheck_mutators_derive::*;
 
 pub mod alternation;
-mod bool;
-mod r#box;
-mod dictionary;
-mod enums;
-mod fixed_len_vector;
-pub mod grammar;
-mod integer;
-mod never;
-mod option;
-
+pub mod bool;
+pub mod boxed;
+pub mod dictionary;
 pub mod either;
-mod tuples;
-mod unit;
+pub mod enums;
+pub mod fixed_len_vector;
+pub mod grammar;
+pub mod integer;
+pub mod never;
+pub mod option;
+pub mod recursive;
+pub mod tuples;
+pub mod unit;
 pub mod vector;
-mod vose_alias;
-
-pub use crate::alternation::AlternationMutator;
-pub use crate::bool::BoolMutator;
-pub use crate::dictionary::DictionaryMutator;
-pub use crate::integer::*;
-pub use crate::never::*;
-pub use crate::option::OptionMutator;
-pub use crate::r#box::BoxMutator;
-pub use crate::tuples::{RefTypes, TupleMutator, TupleMutatorWrapper, TupleStructure};
-
-pub use crate::enums::{BasicEnumMutator, BasicEnumStructure};
-
-pub use crate::tuples::{Tuple1, Tuple10, Tuple2, Tuple3, Tuple4, Tuple5, Tuple6, Tuple7, Tuple8, Tuple9};
-pub use crate::tuples::{
-    Tuple10Mutator, Tuple1Mutator, Tuple2Mutator, Tuple3Mutator, Tuple4Mutator, Tuple5Mutator, Tuple6Mutator,
-    Tuple7Mutator, Tuple8Mutator, Tuple9Mutator,
-};
-
-pub use crate::fixed_len_vector::FixedLenVecMutator;
-pub use crate::unit::*;
-pub use crate::vector::VecMutator;
+pub mod vose_alias;
 
 use crate::fuzzcheck_traits::Mutator;
-use std::ops::Range;
+use std::{
+    ops::Range,
+    rc::{Rc, Weak},
+};
 
 pub trait DefaultMutator: Clone {
     type Mutator: Mutator<Self>;
@@ -63,7 +45,6 @@ pub trait DefaultMutator: Clone {
 /// Generate a random f64 within the given range
 /// The start and end of the range must be finite
 /// This is a very naive implementation
-
 fn gen_f64(rng: &fastrand::Rng, range: Range<f64>) -> f64 {
     range.start + rng.f64() * (range.end - range.start)
 }
