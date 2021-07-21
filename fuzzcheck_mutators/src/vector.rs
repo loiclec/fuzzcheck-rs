@@ -296,26 +296,26 @@ impl<T: Clone, M: Mutator<T>> VecMutator<T, M> {
         for i in 0..target_len {
             let max_cplx_element = remaining_cplx / ((target_len - i) as f64);
             let min_cplx_el = self.m.min_complexity();
+
             if min_cplx_el >= max_cplx_element {
                 break;
             }
-            let cplx_element = crate::gen_f64(&self.rng, min_cplx_el..max_cplx_element);
-            let (x, x_cplx) = self.m.random_arbitrary(cplx_element);
+            let (x, x_cplx) = self.m.random_arbitrary(max_cplx_element);
             sum_cplx += x_cplx;
             v.push(x);
             remaining_cplx -= x_cplx;
         }
-
         if self.len_range.contains(&v.len()) {
         } else {
-            // at this point it should be smaller, not larger than it must be, so we add new elements
-            let remaining = target_len - v.len();
+            // at this point it is smaller than it must be, so we add new, minimal, elements
+            let remaining = self.len_range.start() - v.len();
             for _ in 0..remaining {
                 let (x, x_cplx) = self.m.random_arbitrary(0.0);
                 v.push(x);
                 sum_cplx += x_cplx;
             }
         }
+        self.rng.shuffle(&mut v);
         let cplx = self.complexity_from_inner(sum_cplx, v.len());
         (v, cplx)
     }
@@ -380,7 +380,8 @@ impl<T: Clone, M: Mutator<T>> Mutator<Vec<T>> for VecMutator<T, M> {
     }
 
     fn min_complexity(&self) -> f64 {
-        1.0
+        let min_len = *self.len_range.start();
+        self.complexity_from_inner((min_len as f64) * self.m.min_complexity(), min_len)
     }
 
     fn complexity(&self, value: &Vec<T>, cache: &Self::Cache) -> f64 {
@@ -415,9 +416,9 @@ impl<T: Clone, M: Mutator<T>> Mutator<Vec<T>> for VecMutator<T, M> {
         let min_cplx_len_1 = self.complexity_from_inner(self.m.min_complexity(), 1);
         if max_cplx < self.complexity_from_inner(min_cplx_len_1, 1) || self.rng.u8(..) == 0 {
             // return the least complex value possible
-            let mut v = Vec::with_capacity(self.len_range.clone().count());
+            let mut v = Vec::with_capacity(*self.len_range.start());
             let mut inner_cplx = 0.0;
-            for _ in *self.len_range.start()..*self.len_range.end() {
+            for _ in 0..*self.len_range.start() {
                 let (el, el_cplx) = self.m.random_arbitrary(0.0);
                 v.push(el);
                 inner_cplx += el_cplx;
@@ -428,7 +429,6 @@ impl<T: Clone, M: Mutator<T>> Mutator<Vec<T>> for VecMutator<T, M> {
         let target_cplx = crate::gen_f64(&self.rng, (min_cplx_len_1 - 2.0)..max_cplx);
         let len_range = self.choose_slice_length(target_cplx);
         let target_len = self.rng.usize(len_range);
-
         self.new_input_with_length_and_complexity(target_len, target_cplx)
     }
 
