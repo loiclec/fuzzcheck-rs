@@ -101,7 +101,7 @@ impl NonInstrumented {
         let cargo_config = CargoConfig {
             path: non_instrumented_folder.join(".cargo/config.toml"),
         };
-        let cargo_toml = CargoToml::init_non_instrumented(library, &fuzzcheck_dep);
+        let cargo_toml = CargoToml::init_non_instrumented(library, fuzzcheck_dep);
 
         Self {
             src,

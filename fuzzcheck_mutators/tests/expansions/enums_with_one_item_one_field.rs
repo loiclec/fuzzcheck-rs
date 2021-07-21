@@ -15,8 +15,3 @@ mod test {
         let (_value, _): (X, _) = m.random_arbitrary(10.0);
     }
 }
-// #[derive(DefaultMutator)]
-// #[derive(Clone)]
-// pub enum Y {
-//     Y { y: Option<u8> },
-// }

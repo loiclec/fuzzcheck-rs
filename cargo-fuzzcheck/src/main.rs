@@ -174,7 +174,7 @@ cargo-fuzzcheck {run} target1 {cmin} --{in_corpus} "fuzz-corpus" --{corpus_size}
                     panic!("unimplemented");
                 }
                 FuzzerCommand::MinifyCorpus => root
-                    .launch_executable(&target_name, &config, || process::Stdio::inherit())
+                    .launch_executable(target_name, &config, process::Stdio::inherit)
                     .and_then(|child| child.wait_with_output().map_err(|err| err.into()))
                     .map(|_| ()),
             };

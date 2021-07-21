@@ -89,7 +89,7 @@ pub fn stop_recording() {
 /// Runs the closure on all recorded features.
 pub(crate) fn iterate_over_collected_features<F>(mut handle: F)
 where
-    F: FnMut(Feature) -> (),
+    F: FnMut(Feature),
 {
     let sensor = unsafe { SHARED_SENSOR.as_mut_ptr() };
 

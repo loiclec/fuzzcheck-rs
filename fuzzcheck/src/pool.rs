@@ -269,7 +269,7 @@ impl<T: Clone, M: Mutator<T>> Pool<T, M> {
     //     self.lowest_stack_input.as_ref().map_or(usize::MAX, |x| x.stack_depth)
     // }
 
-    #[allow(clippy::too_many_lines)]
+    #[allow(clippy::too_many_lines, clippy::type_complexity)]
     pub(crate) fn add(
         &mut self,
         data: FuzzedInput<T, M>,
@@ -673,9 +673,10 @@ impl<T: Clone, M: Mutator<T>> Pool<T, M> {
 
         self.delete_element(pick_key);
 
-        let mut actions: Vec<WorldAction<T>> = Vec::new();
-        actions.push(WorldAction::ReportEvent(FuzzerEvent::Remove));
-        actions.push(WorldAction::Remove { key: pick_key.key });
+        let actions = vec![
+            WorldAction::ReportEvent(FuzzerEvent::Remove),
+            WorldAction::Remove { key: pick_key.key },
+        ];
 
         self.update_stats();
 
@@ -741,7 +742,7 @@ impl<T: Clone, M: Mutator<T>> Pool<T, M> {
             let dist = WeightedIndex {
                 cumulative_weights: &self.cumulative_weights,
             };
-            let x = dist.sample(&mut self.rng);
+            let x = dist.sample(&self.rng);
             let key = self.inputs[x];
             Some(PoolIndex::Normal(key))
         } else {
@@ -959,8 +960,11 @@ impl<T: Clone, M: Mutator<T>> Pool<T, M> {
 
             for f_key in &input.least_complex_for_features {
                 let analyzed_f = &self.slab_features[*f_key];
-                assert_eq!(analyzed_f.least_complexity, input.complexity);
-                assert!(analyzed_f.inputs.contains(&input_key));
+
+                #[allow(clippy::float_cmp)]
+                let equal_cplx = analyzed_f.least_complexity == input.complexity;
+                assert!(equal_cplx);
+                assert!(analyzed_f.inputs.contains(input_key));
                 assert!(
                     analyzed_f
                         .inputs
@@ -1121,12 +1125,10 @@ mod tests {
             for i in 0..fastrand::usize(0..100) {
                 let nbr_new_features = if new_features.is_empty() {
                     0
+                } else if i == 0 {
+                    fastrand::usize(1..new_features.len())
                 } else {
-                    if i == 0 {
-                        fastrand::usize(1..new_features.len())
-                    } else {
-                        fastrand::usize(0..new_features.len())
-                    }
+                    fastrand::usize(0..new_features.len())
                 };
                 let mut new_features_1: Vec<_> = {
                     let mut fs = new_features.iter().map(|&&f| f).collect::<Vec<_>>();
@@ -1171,6 +1173,7 @@ mod tests {
                     100.0
                 };
 
+                #[allow(clippy::float_cmp)]
                 if max_cplx == 1.0 {
                     break;
                 }
@@ -1245,9 +1248,7 @@ mod tests {
         type ArbitraryStep = ();
         type UnmutateToken = ();
 
-        fn default_arbitrary_step(&self) -> Self::ArbitraryStep {
-            ()
-        }
+        fn default_arbitrary_step(&self) -> Self::ArbitraryStep {}
 
         fn validate_value(&self, _value: &f64) -> Option<(Self::Cache, Self::MutationStep)> {
             Some(((), ()))

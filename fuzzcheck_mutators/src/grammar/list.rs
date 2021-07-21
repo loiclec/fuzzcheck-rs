@@ -39,7 +39,7 @@ where
         }
     }
     pub fn iter(self: Rc<Self>) -> ListIter<T> {
-        ListIter { list: self.clone() }
+        ListIter { list: self }
     }
 }
 pub struct ListIter<T>
@@ -60,6 +60,6 @@ where
             List::Cons(x, rest) => (rest.clone(), Some(x.clone())),
         };
         self.list = next_list;
-        result.clone()
+        result
     }
 }

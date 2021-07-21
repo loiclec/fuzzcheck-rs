@@ -22,11 +22,11 @@ impl<T: 'static> RefTypes for Tuple1<T> {
     }
 }
 impl<T: 'static> TupleStructure<Tuple1<T>> for T {
-    fn get_ref<'a>(&'a self) -> &'a T {
+    fn get_ref(&self) -> &T {
         self
     }
 
-    fn get_mut<'a>(&'a mut self) -> &'a mut T {
+    fn get_mut(&mut self) -> &mut T {
         self
     }
     fn new(t: T) -> Self {
@@ -138,8 +138,8 @@ where
 }
 
 pub trait TupleStructure<TupleKind: RefTypes> {
-    fn get_ref<'a>(&'a self) -> TupleKind::Ref<'a>;
-    fn get_mut<'a>(&'a mut self) -> TupleKind::Mut<'a>;
+    fn get_ref(&self) -> TupleKind::Ref<'_>;
+    fn get_mut(&mut self) -> TupleKind::Mut<'_>;
     fn new(t: TupleKind::Owned) -> Self;
 }
 

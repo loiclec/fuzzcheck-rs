@@ -83,17 +83,17 @@ pub(crate) fn make_mutator_type_and_impl(params: CreateWrapperMutatorParams) -> 
     let mut NameMutator_generics = type_generics.removing_eq_type();
     for field_mutator in field_generic_mutators.iter() {
         NameMutator_generics.type_params.push(TypeParam {
-            type_ident: field_mutator.mutator_stream(&cm),
+            type_ident: field_mutator.mutator_stream(cm),
             ..<_>::default()
         })
     }
-    let mut NameMutator_where_clause = type_where_clause.clone().unwrap_or(WhereClause::default());
+    let mut NameMutator_where_clause = type_where_clause.clone().unwrap_or_default();
     NameMutator_where_clause.add_clause_items(ts!(
         join_ts!(&type_generics.type_params, ty_param,
             ty_param.type_ident ":" cm.Clone "+ 'static ,"
         )
         join_ts!(&field_generic_mutators, field_mutator,
-            field_mutator.mutator_stream(&cm) ":" cm.fuzzcheck_traits_Mutator "<" field_mutator.field.ty "> ,"
+            field_mutator.mutator_stream(cm) ":" cm.fuzzcheck_traits_Mutator "<" field_mutator.field.ty "> ,"
         )
     ));
 
@@ -108,7 +108,7 @@ pub(crate) fn make_mutator_type_and_impl(params: CreateWrapperMutatorParams) -> 
 
     let mut Default_where_clause = NameMutator_where_clause.clone();
     Default_where_clause.add_clause_items(join_ts!(field_mutators.iter().flatten(), field_mutator,
-        field_mutator.mutator_stream(&cm) ":" cm.Default
+        field_mutator.mutator_stream(cm) ":" cm.Default
     , separator: ","));
 
     let mut DefaultMutator_Mutator_generics = type_generics.removing_bounds_and_eq_type();
@@ -122,7 +122,7 @@ pub(crate) fn make_mutator_type_and_impl(params: CreateWrapperMutatorParams) -> 
         }
     }
 
-    let mut DefaultMutator_where_clause = type_where_clause.clone().unwrap_or(WhereClause::default());
+    let mut DefaultMutator_where_clause = type_where_clause.clone().unwrap_or_default();
     DefaultMutator_where_clause.add_clause_items(ts!(
         join_ts!(&type_generics.type_params, ty_param,
             ty_param.type_ident ":" cm.DefaultMutator "+ 'static ,"

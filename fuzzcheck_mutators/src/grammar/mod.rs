@@ -1,3 +1,7 @@
+#![allow(clippy::type_complexity)]
+#![allow(clippy::module_inception)]
+#![allow(clippy::nonstandard_macro_braces)]
+
 mod ast;
 mod grammar;
 mod list;

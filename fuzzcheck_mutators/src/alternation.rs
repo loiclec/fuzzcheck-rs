@@ -121,7 +121,7 @@ where
                 ));
             }
         }
-        return None;
+        None
     }
 
     fn max_complexity(&self) -> f64 {
@@ -188,13 +188,11 @@ where
         let mutator = &self.mutators[idx];
         if let Some((t, cplx)) = mutator.ordered_mutate(value, &mut cache.inner, &mut step.inner, max_cplx) {
             Some((UnmutateToken::Inner(idx, t), self.complexity_from_inner(cplx)))
+        } else if let Some((mut v, cplx)) = self.ordered_arbitrary(&mut step.arbitrary, max_cplx) {
+            std::mem::swap(value, &mut v);
+            Some((UnmutateToken::Replace(v), self.complexity_from_inner(cplx)))
         } else {
-            if let Some((mut v, cplx)) = self.ordered_arbitrary(&mut step.arbitrary, max_cplx) {
-                std::mem::swap(value, &mut v);
-                return Some((UnmutateToken::Replace(v), self.complexity_from_inner(cplx)));
-            } else {
-                return None;
-            }
+            None
         }
     }
 

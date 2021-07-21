@@ -109,7 +109,7 @@ impl Fuzz {
             Ok(string)
         }) {
             let config_toml_value =
-                TomlValue::Table(toml::parse_toml(&config_toml_string).map_err(|e| ConfigTomlError::from(e))?);
+                TomlValue::Table(toml::parse_toml(&config_toml_string).map_err(ConfigTomlError::from)?);
             if let Some(config_toml) = ConfigToml::from_toml(Some(&config_toml_value)) {
                 Ok(config_toml)
             } else {
@@ -167,7 +167,7 @@ impl NonInstrumented {
 
 impl FuzzTargets {
     pub fn from_path(non_instrumented_folder: &Path) -> Result<Self, FuzzTargetsError> {
-        let folder = fs::read_dir(non_instrumented_folder).map_err(|e| FuzzTargetsError::IoError(e))?;
+        let folder = fs::read_dir(non_instrumented_folder).map_err(FuzzTargetsError::IoError)?;
 
         let mut targets = HashMap::new();
 
@@ -240,7 +240,7 @@ impl Instrumented {
 
 impl Corpora {
     pub fn from_path(corpora_folder: &Path) -> Result<Self, CorporaError> {
-        let folder = fs::read_dir(corpora_folder).map_err(|e| CorporaError::IoError(e))?;
+        let folder = fs::read_dir(corpora_folder).map_err(CorporaError::IoError)?;
 
         let mut corpora = Vec::new();
 
@@ -270,7 +270,7 @@ impl Corpora {
 
 impl Artifacts {
     pub fn from_path(artifacts_folder: &Path) -> Result<Self, ArtifactsError> {
-        let folder = fs::read_dir(artifacts_folder).map_err(|e| ArtifactsError::IoError(e))?;
+        let folder = fs::read_dir(artifacts_folder).map_err(ArtifactsError::IoError)?;
 
         let mut artifacts = Vec::new();
 

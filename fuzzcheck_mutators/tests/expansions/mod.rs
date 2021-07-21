@@ -1,3 +1,4 @@
+#![allow(clippy::nonstandard_macro_braces, clippy::too_many_arguments)]
 mod empty_structs;
 mod one_field_structs;
 mod structs_with_generic_type_params;

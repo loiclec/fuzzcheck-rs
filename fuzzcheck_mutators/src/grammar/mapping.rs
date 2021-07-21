@@ -62,9 +62,9 @@ where
                 self.children.insert(*idx, new_c);
                 to_value.insert_str(start_index, &new_s);
                 for child in &mut self.children[idx + 1..] {
-                    child.start_index = child.start_index + len;
+                    child.start_index += len;
                 }
-                *self.len = *self.len + len;
+                *self.len += len;
             }
             UnmutateVecToken::RemoveMany(range) => {
                 // I need to add the value v[idx] to s and c and update the following indices
@@ -97,9 +97,9 @@ where
                 to_value.insert_str(original_start_index, &tmp_s);
 
                 for child in &mut self.children[range.end..] {
-                    child.start_index = child.start_index + total_len;
+                    child.start_index += total_len;
                 }
-                *self.len = *self.len + total_len;
+                *self.len += total_len;
             }
             UnmutateVecToken::Insert(idx, _) => {
                 let (start_idx, len) = {
@@ -110,9 +110,9 @@ where
                 self.children.remove(*idx);
 
                 for child in &mut self.children[*idx..] {
-                    child.start_index = child.start_index - len;
+                    child.start_index -= len;
                 }
-                *self.len = *self.len - len;
+                *self.len -= len;
             }
             UnmutateVecToken::InsertMany(idx, xs) => {
                 let (start_idx, len) = {
@@ -128,9 +128,9 @@ where
                 self.children.drain(*idx..*idx + xs.len());
 
                 for child in &mut self.children[*idx..] {
-                    child.start_index = child.start_index - len;
+                    child.start_index -= len;
                 }
-                *self.len = *self.len - len;
+                *self.len -= len;
             }
             UnmutateVecToken::Replace(_) => {
                 let mut start_index = *self.start_index;
@@ -153,7 +153,7 @@ where
             UnmutateVecToken::Element(idx, t) => {
                 let child = &mut self.children[*idx];
                 let old_len = child.len;
-                child.unmutate_value_from_token(to_value, &t);
+                child.unmutate_value_from_token(to_value, t);
                 let diff_len = child.len.wrapping_sub(old_len);
                 for child in &mut self.children[idx + 1..] {
                     child.start_index = child.start_index.wrapping_add(diff_len);
@@ -169,9 +169,9 @@ where
                 self.children.remove(*idx);
 
                 for child in &mut self.children[*idx..] {
-                    child.start_index = child.start_index - len;
+                    child.start_index -= len;
                 }
-                *self.len = *self.len - len;
+                *self.len -= len;
             }
             UnmutateVecToken::RemoveMany(range) => {
                 let (start_idx, len) = {
@@ -187,9 +187,9 @@ where
                 self.children.drain(range.clone());
 
                 for child in &mut self.children[range.start..] {
-                    child.start_index = child.start_index - len;
+                    child.start_index -= len;
                 }
-                *self.len = *self.len - len;
+                *self.len -= len;
             }
             UnmutateVecToken::Insert(idx, x) => {
                 let start_index = self
@@ -203,12 +203,12 @@ where
                 let len = new_c.len;
                 // adjust len of whole mapping
                 // and indices of things following them
-                *self.len = *self.len + len;
+                *self.len += len;
                 self.children.insert(*idx, new_c);
                 to_value.insert_str(start_index, &new_s);
 
                 for child in &mut self.children[idx + 1..] {
-                    child.start_index = child.start_index + len;
+                    child.start_index += len;
                 }
             }
             UnmutateVecToken::InsertMany(idx, xs) => {
@@ -236,9 +236,9 @@ where
                 to_value.insert_str(original_start_index, &tmp_s);
 
                 for child in &mut self.children[idx + xs.len()..] {
-                    child.start_index = child.start_index + total_len;
+                    child.start_index += total_len;
                 }
-                *self.len = *self.len + total_len;
+                *self.len += total_len;
             }
             UnmutateVecToken::Replace(x) => {
                 let mut start_index = *self.start_index;
@@ -300,7 +300,7 @@ where
             fixed_len_vector::UnmutateVecToken::Element(idx, t) => {
                 let child = &mut self.children[*idx];
                 let old_len = child.len;
-                child.unmutate_value_from_token(to_value, &t);
+                child.unmutate_value_from_token(to_value, t);
                 let diff_len = child.len.wrapping_sub(old_len);
                 for child in &mut self.children[idx + 1..] {
                     child.start_index = child.start_index.wrapping_add(diff_len);

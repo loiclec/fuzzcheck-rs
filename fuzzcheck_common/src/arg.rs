@@ -167,7 +167,7 @@ pub fn options_parser() -> Options {
     options.optopt(
         "",
         SOCK_ADDR_FLAG,
-        format!("address of the TCP socket for communication between cargo-fuzzcheck and the fuzz target",).as_str(),
+        "address of the TCP socket for communication between cargo-fuzzcheck and the fuzz target",
         "127.0.0.1:0",
     );
 
@@ -190,13 +190,15 @@ impl CommandLineArguments {
             COMMAND_READ => FuzzerCommand::Read,
             COMMAND_MINIFY_INPUT => FuzzerCommand::MinifyInput,
             COMMAND_MINIFY_CORPUS => FuzzerCommand::MinifyCorpus,
-            _ => Err(format!(
-                r#"The command {c} is not supported. It can either be ‘{fuzz}’, ‘{tmin}’, or ‘{cmin}’."#,
-                c = args[0],
-                fuzz = COMMAND_FUZZ,
-                tmin = COMMAND_MINIFY_INPUT,
-                cmin = COMMAND_MINIFY_CORPUS
-            ))?,
+            _ => {
+                return Err(format!(
+                    r#"The command {c} is not supported. It can either be ‘{fuzz}’, ‘{tmin}’, or ‘{cmin}’."#,
+                    c = args[0],
+                    fuzz = COMMAND_FUZZ,
+                    tmin = COMMAND_MINIFY_INPUT,
+                    cmin = COMMAND_MINIFY_CORPUS
+                ))
+            }
         };
 
         let max_input_cplx: Option<f64> = matches
@@ -237,7 +239,7 @@ impl CommandLineArguments {
         let timeout: Option<usize> = matches.opt_str(TIMEOUT_FLAG).and_then(|x| x.parse::<usize>().ok());
 
         let socket_address = matches.opt_str(SOCK_ADDR_FLAG).and_then(|x| {
-            if let Some(mut addrs) = x.to_socket_addrs().ok() {
+            if let Ok(mut addrs) = x.to_socket_addrs() {
                 addrs.next()
             } else {
                 None

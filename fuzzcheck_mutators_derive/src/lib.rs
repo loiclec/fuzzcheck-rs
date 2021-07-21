@@ -1,4 +1,5 @@
 #![allow(non_snake_case)]
+#![allow(clippy::type_complexity)]
 
 use decent_synquote_alternative::{
     self as synquote,
@@ -52,7 +53,7 @@ pub fn derive_tuple_structure(item: proc_macro::TokenStream) -> proc_macro::Toke
 
 #[proc_macro]
 pub fn make_mutator(item: proc_macro::TokenStream) -> proc_macro::TokenStream {
-    let (settings, parser) = MakeMutatorSettings::from(item.clone().into());
+    let (settings, parser) = MakeMutatorSettings::from(item.into());
     // let item = proc_macro2::TokenStream::from(item);
     derive_default_mutator_(parser, settings).into()
 }
@@ -90,7 +91,7 @@ fn derive_tuple_structure_(item: proc_macro2::TokenStream) -> proc_macro2::Token
                 "compile_error!(\"The TupleStructure macro only works for structs with one or more fields.\");"
             )
         }
-    } else if let Some(_) = parser.eat_enumeration() {
+    } else if parser.eat_enumeration().is_some() {
         extend_ts!(
             &mut tb,
             "compile_error!(\"The TupleStructure macro cannot be used on enums.\");"
@@ -100,7 +101,7 @@ fn derive_tuple_structure_(item: proc_macro2::TokenStream) -> proc_macro2::Token
             "compile_error!(\"The item could not be parsed by the TupleStructure macro. Note: only enums are supported.\");"
         )
     }
-    return tb.end();
+    tb.end()
 }
 
 fn derive_default_mutator_(mut parser: TokenParser, settings: MakeMutatorSettings) -> proc_macro2::TokenStream {
@@ -117,11 +118,11 @@ fn derive_default_mutator_(mut parser: TokenParser, settings: MakeMutatorSetting
     } else if let Some(e) = parser.eat_enumeration() {
         if e.items
             .iter()
-            .any(|item| matches!(&item.data, Some(EnumItemData::Struct(_, fields)) if fields.len() > 0))
+            .any(|item| matches!(&item.data, Some(EnumItemData::Struct(_, fields)) if !fields.is_empty()))
         {
             single_variant::make_single_variant_mutator(&mut tb, &e);
             enums::impl_default_mutator_for_enum(&mut tb, &e, &settings);
-        } else if e.items.len() > 0 {
+        } else if !e.items.is_empty() {
             // no associated data anywhere
             enums::impl_basic_enum_structure(&mut tb, &e, &settings);
             enums::impl_default_mutator_for_basic_enum(&mut tb, &e, &settings);

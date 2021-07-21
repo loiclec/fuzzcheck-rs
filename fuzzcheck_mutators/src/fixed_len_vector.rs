@@ -73,7 +73,7 @@ impl<T: Clone, M: Mutator<T>> FixedLenVecMutator<T, M> {
         let el_cache = &mut cache.inner[idx];
         let el_step = &mut step.inner[idx];
 
-        let old_cplx = mutator.complexity(&el, el_cache);
+        let old_cplx = mutator.complexity(el, el_cache);
 
         if let Some((token, new_cplx)) = mutator.ordered_mutate(el, el_cache, el_step, spare_cplx + old_cplx) {
             Some((
@@ -111,9 +111,7 @@ impl<T: Clone, M: Mutator<T>> Mutator<Vec<T>> for FixedLenVecMutator<T, M> {
     type ArbitraryStep = ();
     type UnmutateToken = UnmutateVecToken<T, M>;
 
-    fn default_arbitrary_step(&self) -> Self::ArbitraryStep {
-        ()
-    }
+    fn default_arbitrary_step(&self) -> Self::ArbitraryStep {}
 
     fn validate_value(&self, value: &Vec<T>) -> Option<(Self::Cache, Self::MutationStep)> {
         let inner: Vec<_> = value
@@ -136,7 +134,7 @@ impl<T: Clone, M: Mutator<T>> Mutator<Vec<T>> for FixedLenVecMutator<T, M> {
             .iter()
             .zip(self.mutators.iter())
             .zip(inner_caches.iter())
-            .fold(0.0, |cplx, ((v, mutator), cache)| cplx + mutator.complexity(&v, &cache));
+            .fold(0.0, |cplx, ((v, mutator), cache)| cplx + mutator.complexity(v, cache));
 
         let cache = VecMutatorCache {
             inner: inner_caches,
@@ -170,7 +168,7 @@ impl<T: Clone, M: Mutator<T>> Mutator<Vec<T>> for FixedLenVecMutator<T, M> {
         if max_cplx > mutator_max_cplx {
             max_cplx = mutator_max_cplx;
         }
-        return Some(self.random_arbitrary(max_cplx));
+        Some(self.random_arbitrary(max_cplx))
     }
 
     fn random_arbitrary(&self, mut max_cplx: f64) -> (Vec<T>, f64) {
@@ -234,7 +232,7 @@ impl<T: Clone, M: Mutator<T>> Mutator<Vec<T>> for FixedLenVecMutator<T, M> {
         let el = &mut value[idx];
         let el_cache = &mut cache.inner[idx];
 
-        let old_el_cplx = self.mutators[idx].complexity(&el, el_cache);
+        let old_el_cplx = self.mutators[idx].complexity(el, el_cache);
         let (token, new_el_cplx) = self.mutators[idx].random_mutate(el, el_cache, spare_cplx + old_el_cplx);
 
         (

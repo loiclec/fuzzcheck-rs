@@ -20,7 +20,7 @@ impl NonInitializedRoot {
     pub fn init_command(&self, fuzzcheck_path_or_version: &str) -> Result<(), CargoFuzzcheckError> {
         let fuzz_folder = &self.path.join("fuzz");
         let fuzz = Fuzz::init(fuzz_folder, &self.name, fuzzcheck_path_or_version);
-        fuzz.write(&fuzz_folder)?;
+        fuzz.write(fuzz_folder)?;
         Ok(())
     }
 }
@@ -264,7 +264,7 @@ impl Root {
     ) -> Result<(), CargoFuzzcheckError> {
         let mut config = config.clone();
         let file_to_minify = if let FullFuzzerCommand::MinifyInput { input_file } = config.command {
-            input_file.clone()
+            input_file
         } else {
             panic!()
         };
@@ -298,7 +298,7 @@ impl Root {
                 .map(|x| x.0)
         }
 
-        let mut simplest = simplest_input_file(&artifacts_folder.as_path()).unwrap_or(file_to_minify);
+        let mut simplest = simplest_input_file(artifacts_folder.as_path()).unwrap_or(file_to_minify);
         config.command = FullFuzzerCommand::Read {
             input_file: simplest.clone(),
         };
@@ -316,11 +316,11 @@ impl Root {
         // }
 
         loop {
-            simplest = simplest_input_file(&artifacts_folder).unwrap_or(simplest.clone());
+            simplest = simplest_input_file(&artifacts_folder).unwrap_or_else(|| simplest.clone());
             config.command = FullFuzzerCommand::MinifyInput {
                 input_file: simplest.clone(),
             };
-            let mut c = self.launch_executable(target_name, &config, || Stdio::inherit())?;
+            let mut c = self.launch_executable(target_name, &config, Stdio::inherit)?;
             c.wait()?;
         }
     }
@@ -368,13 +368,16 @@ pub fn strings_from_config(config: &FullConfig) -> Vec<String> {
     }
     .map(|f| vec!["--".to_owned() + INPUT_FILE_FLAG, path_str(f)]);
 
-    if let Some(input_file_args) = input_file_args {
-        s.append(&mut input_file_args.clone());
+    if let Some(mut input_file_args) = input_file_args {
+        s.append(&mut input_file_args);
     }
-
-    s.append(&mut corpus_in_args.clone());
-    s.append(&mut corpus_out_args.clone());
-    s.append(&mut artifacts_args.clone());
+    {
+        let (mut corpus_in_args, mut corpus_out_args, mut artifacts_args) =
+            (corpus_in_args, corpus_out_args, artifacts_args);
+        s.append(&mut corpus_in_args);
+        s.append(&mut corpus_out_args);
+        s.append(&mut artifacts_args);
+    }
     s.append(&mut vec![
         "--".to_owned() + MAX_INPUT_CPLX_FLAG,
         config.max_cplx.to_string(),
@@ -403,10 +406,7 @@ fn use_gold_linker() -> bool {
         .status()
     {
         Err(_) => false,
-        Ok(status) => match status.code() {
-            Some(0) => true,
-            _ => false,
-        },
+        Ok(status) => matches!(status.code(), Some(0)),
     }
 }
 
@@ -451,6 +451,6 @@ impl From<String> for CargoFuzzcheckError {
 fn path_str(p: PathBuf) -> String {
     p.as_path().to_str().unwrap().to_owned()
 }
-fn path_str_ref(p: &PathBuf) -> String {
-    p.as_path().to_str().unwrap().to_owned()
+fn path_str_ref(p: &Path) -> String {
+    p.to_str().unwrap().to_owned()
 }

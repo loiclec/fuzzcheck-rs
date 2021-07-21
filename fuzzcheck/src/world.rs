@@ -120,6 +120,7 @@ impl<S: Serializer> World<S> {
                     TuiMessage::RemoveInput { hash }
                 }
                 WorldAction::ReportEvent(event) => {
+                    #[allow(clippy::clone_on_copy)]
                     self.report_event(event.clone(), Some(*stats));
                     #[cfg(feature = "ui")]
                     TuiMessage::ReportEvent(TuiMessageEvent {
@@ -214,9 +215,8 @@ This should never happen, and is probably a bug in fuzzcheck. Sorry :("#
                 println!("FINISHED READING CORPUS");
                 return;
             }
-            FuzzerEvent::CaughtSignal(signal) => match signal {
-                _ => println!("\n================ SIGNAL {} ================", signal),
-            },
+            FuzzerEvent::CaughtSignal(signal) => println!("\n================ SIGNAL {} ================", signal),
+
             FuzzerEvent::TestFailure => {
                 println!("\n================ TEST FAILED ================");
             }
@@ -224,7 +224,7 @@ This should never happen, and is probably a bug in fuzzcheck. Sorry :("#
                 print!("RPLC {}\t", count);
             }
             FuzzerEvent::ReplaceLowestStack(stack) => {
-                print!("STACK {}\n", stack);
+                println!("STACK {}", stack);
             }
         };
         if let Some(stats) = stats {
@@ -306,7 +306,7 @@ This should never happen, and is probably a bug in fuzzcheck. Sorry :("#
         }
 
         let mut hasher = DefaultHasher::new();
-        let content = self.serializer.to_data(&input);
+        let content = self.serializer.to_data(input);
         content.hash(&mut hasher);
         let hash = hasher.finish();
 

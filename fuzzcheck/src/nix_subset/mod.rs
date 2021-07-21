@@ -1,7 +1,7 @@
 //! This module is a subset of the `nix` crate. It is used to provide
 //! signal handling wrappers to fuzzcheck.
-
 #![allow(non_camel_case_types)]
+#![allow(clippy::unnecessary_cast, clippy::upper_case_acronyms, clippy::enum_variant_names)]
 
 #[macro_use]
 mod macros;

@@ -215,7 +215,7 @@ pub fn make_single_variant_mutator(tb: &mut TokenBuilder, enu: &Enum) {
                 "(" EnumSingleVariant "::" item.ident "(m)," EnumSingleVariant "::" item.ident "(s)) => {"
                     "if let" cm.Some "((v, c)) = m.ordered_arbitrary(s, max_cplx) {
                         " cm.Some "(("
-                            item_pattern_match_bindings_to_enum_item(&item) ",
+                            item_pattern_match_bindings_to_enum_item(item) ",
                             c
                         ))
                     } else {
@@ -232,7 +232,7 @@ pub fn make_single_variant_mutator(tb: &mut TokenBuilder, enu: &Enum) {
                 EnumSingleVariant "::" item.ident "(m) => {
                     let (v, c) = m.random_arbitrary(max_cplx);
                     (" 
-                        item_pattern_match_bindings_to_enum_item(&item) ",
+                        item_pattern_match_bindings_to_enum_item(item) ",
                         c
                     )
                 }"
@@ -322,7 +322,7 @@ mod tests {
         make_single_variant_mutator(&mut tb, &enu);
         let generated = tb.end().to_string();
 
-        assert!(false, "{}", generated);
+        panic!("{}", generated);
         // let expected = "
         // #[derive(:: std :: clone :: Clone)]
         // pub enum ASTSingleVariant<MText, MChild, MLeaf1, MLeaf2> {

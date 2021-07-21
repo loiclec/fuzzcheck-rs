@@ -81,10 +81,7 @@ impl<T: Clone, M: Mutator<T>> Mutator<T> for DictionaryMutator<T, M> {
                     self.ordered_arbitrary(step, max_cplx)
                 }
             }
-            ArbitraryStep::Wrapped(inner_step) => self
-                .m
-                .ordered_arbitrary(inner_step, max_cplx)
-                .map(|(v, c)| (v.into(), c)),
+            ArbitraryStep::Wrapped(inner_step) => self.m.ordered_arbitrary(inner_step, max_cplx).map(|(v, c)| (v, c)),
         }
     }
 

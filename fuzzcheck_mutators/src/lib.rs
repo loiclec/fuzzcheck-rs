@@ -2,6 +2,8 @@
 #![feature(variant_count)]
 #![feature(arc_new_cyclic)]
 #![feature(trivial_bounds)]
+#![allow(clippy::nonstandard_macro_braces)]
+#![allow(clippy::too_many_arguments)]
 
 pub extern crate fastrand;
 pub extern crate fuzzcheck_mutators_derive;
@@ -64,6 +66,7 @@ fn size_to_cplxity(size: usize) -> f64 {
 mod test {
     use crate::size_to_cplxity;
 
+    #[allow(clippy::float_cmp)]
     #[test]
     fn test_size_to_cplxity() {
         assert_eq!(0.0, size_to_cplxity(0));

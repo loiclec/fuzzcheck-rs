@@ -6,19 +6,10 @@ use fuzzcheck_traits::Mutator;
 const MAX_CPLX: f64 = 100.;
 
 fn alternation_char_mutator_property_test(ranges: impl IntoIterator<Item = RangeInclusive<char>> + Clone) {
-    let m = AlternationMutator::new(
-        ranges
-            .clone()
-            .into_iter()
-            .map(|range| CharWithinRangeMutator::new(range))
-            .collect(),
-    );
+    let m = AlternationMutator::new(ranges.clone().into_iter().map(CharWithinRangeMutator::new).collect());
     let mut arbitrary_step = m.default_arbitrary_step();
 
-    let total_count = ranges
-        .clone()
-        .into_iter()
-        .fold(0, |acc, range| acc + range.clone().count());
+    let total_count = ranges.clone().into_iter().fold(0, |acc, range| acc + range.count());
 
     println!("{}", total_count);
 
@@ -54,7 +45,7 @@ fn alternation_char_mutator_property_test(ranges: impl IntoIterator<Item = Range
             break;
         }
     }
-    for range in ranges.clone().into_iter() {
+    for range in ranges.into_iter() {
         for c in range {
             assert!(arbitraries.contains(&c));
         }

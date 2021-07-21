@@ -11,7 +11,7 @@ use super::grammar::Grammar;
 use super::mapping::IncrementalMapping;
 use crate::grammar::ast::{ASTMapping, AST};
 
-// we don't use ASTMutator__, but we do use ASTSingleVariant and its Mutator conformance
+// we don't use ASTMutator__, but we do use ASTSingleVariant and its Mutator conformance]
 make_mutator! {
     name: ASTMutator__,
     recursive: false,

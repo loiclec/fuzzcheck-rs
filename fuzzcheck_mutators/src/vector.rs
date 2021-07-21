@@ -98,7 +98,7 @@ impl<T: Clone, M: Mutator<T>> VecMutator<T, M> {
         let el_cache = &mut cache.inner[idx];
         let el_step = &mut step.inner[idx];
 
-        let old_cplx = self.m.complexity(&el, el_cache);
+        let old_cplx = self.m.complexity(el, el_cache);
 
         if let Some((token, new_cplx)) = self.m.ordered_mutate(el, el_cache, el_step, spare_cplx + old_cplx) {
             Some((
@@ -199,10 +199,10 @@ impl<T: Clone, M: Mutator<T>> VecMutator<T, M> {
 
         for dic_idx in indices {
             let x = &self.dictionary[dic_idx];
-            if let Some((el_cache, _)) = self.validate_value(&x) {
-                let added_complexity = self.complexity(&x, &el_cache);
+            if let Some((el_cache, _)) = self.validate_value(x) {
+                let added_complexity = self.complexity(x, &el_cache);
                 if added_complexity < spare_cplx {
-                    insert_many(value, idx, x.iter().map(|x| x.clone()));
+                    insert_many(value, idx, x.iter().cloned());
                     let token = UnmutateVecToken::RemoveMany(idx..(idx + x.len()));
                     return Some((
                         token,
@@ -216,7 +216,7 @@ impl<T: Clone, M: Mutator<T>> VecMutator<T, M> {
             }
         }
 
-        return None;
+        None
     }
 
     fn insert_repeated_elements(
@@ -348,12 +348,12 @@ impl<T: Clone, M: Mutator<T>> Mutator<Vec<T>> for VecMutator<T, M> {
         let cplxs = value
             .iter()
             .zip(inner_caches.iter())
-            .map(|(v, c)| self.m.complexity(&v, &c))
+            .map(|(v, c)| self.m.complexity(v, c))
             .collect::<Vec<_>>();
 
         let sum_cplx = cplxs.iter().fold(0.0, |sum_cplx, c| sum_cplx + c);
 
-        let alias = if inner_caches.len() > 0 {
+        let alias = if !inner_caches.is_empty() {
             Some(VoseAlias::new(cplxs.into_iter().map(|c| (c / sum_cplx)).collect()))
         } else {
             None
@@ -399,12 +399,12 @@ impl<T: Clone, M: Mutator<T>> Mutator<Vec<T>> for VecMutator<T, M> {
         if !*step || max_cplx <= 1.0 {
             *step = true;
             if self.len_range.contains(&0) {
-                return Some((<_>::default(), 1.0));
+                Some((<_>::default(), 1.0))
             } else {
-                return Some(self.random_arbitrary(max_cplx));
+                Some(self.random_arbitrary(max_cplx))
             }
         } else {
-            return Some(self.random_arbitrary(max_cplx));
+            Some(self.random_arbitrary(max_cplx))
         }
     }
 
@@ -529,7 +529,7 @@ impl<T: Clone, M: Mutator<T>> Mutator<Vec<T>> for VecMutator<T, M> {
             let el = &mut value[idx];
             let el_cache = &mut cache.inner[idx];
 
-            let old_el_cplx = self.m.complexity(&el, el_cache);
+            let old_el_cplx = self.m.complexity(el, el_cache);
             let (token, new_el_cplx) = self.m.random_mutate(el, el_cache, spare_cplx + old_el_cplx);
 
             (
@@ -558,7 +558,7 @@ impl<T: Clone, M: Mutator<T>> Mutator<Vec<T>> for VecMutator<T, M> {
                 insert_many(value, idx, v.into_iter());
             }
             UnmutateVecToken::RemoveMany(range) => {
-                value.drain(range.clone());
+                value.drain(range);
             }
             UnmutateVecToken::Nothing => {}
         }

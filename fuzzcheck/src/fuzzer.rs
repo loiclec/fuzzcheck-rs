@@ -275,15 +275,14 @@ where
                 new_features: new_features.clone(),
                 // _lowest_stack: lowest_stack,
             })
-        }
-        /*else if lowest_stack < self.state.pool.lowest_stack() {
-            Some(AnalysisResult {
-                existing_features: vec![],
-                new_features: vec![],
-                _lowest_stack: lowest_stack,
-            })
-        } */
-        else {
+            /*} else if lowest_stack < self.state.pool.lowest_stack() {
+                Some(AnalysisResult {
+                    existing_features: vec![],
+                    new_features: vec![],
+                    _lowest_stack: lowest_stack,
+                })
+            } */
+        } else {
             None
         };
 
@@ -303,7 +302,7 @@ where
             Self::test_input(
                 &self.test,
                 &self.state.mutator,
-                &input,
+                input,
                 self.state.settings.timeout,
                 &mut self.state.world,
                 self.state.stats,
@@ -389,22 +388,20 @@ where
                 self.state.pool.mark_input_as_dead_end(idx);
                 self.process_next_inputs()
             }
-        } else {
-            if let Some((input, cplx)) = self.state.arbitrary_input() {
-                self.state.input_idx = FuzzerInputIndex::Temporary(input);
+        } else if let Some((input, cplx)) = self.state.arbitrary_input() {
+            self.state.input_idx = FuzzerInputIndex::Temporary(input);
 
-                if cplx < self.state.settings.max_input_cplx {
-                    self.test_input_and_analyze(cplx)?;
-                }
-
-                Ok(())
-            } else {
-                self.state
-                    .world
-                    .do_actions(vec![WorldAction::ReportEvent(FuzzerEvent::End)], &self.state.stats)?;
-                //self.state.world.report_event(FuzzerEvent::End, None);
-                exit(TerminationStatus::Success as i32);
+            if cplx < self.state.settings.max_input_cplx {
+                self.test_input_and_analyze(cplx)?;
             }
+
+            Ok(())
+        } else {
+            self.state
+                .world
+                .do_actions(vec![WorldAction::ReportEvent(FuzzerEvent::End)], &self.state.stats)?;
+            //self.state.world.report_event(FuzzerEvent::End, None);
+            exit(TerminationStatus::Success as i32);
         }
     }
 
@@ -571,7 +568,7 @@ where
                 Fuzzer::<T, FT, F, M, S>::test_input(
                     &fuzzer.test,
                     &fuzzer.state.mutator,
-                    &input,
+                    input,
                     fuzzer.state.settings.timeout,
                     &mut fuzzer.state.world,
                     fuzzer.state.stats,

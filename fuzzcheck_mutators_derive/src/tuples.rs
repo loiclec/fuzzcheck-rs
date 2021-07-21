@@ -107,13 +107,13 @@ pub(crate) fn impl_tuple_structure_trait(tb: &mut TokenBuilder, struc: &Struct) 
 }
 
 pub(crate) fn impl_default_mutator_for_struct_with_0_field(tb: &mut TokenBuilder, struc: &Struct) {
-    assert!(struc.struct_fields.len() == 0);
+    assert!(struc.struct_fields.is_empty());
     let cm = Common::new(0);
     let generics_no_eq = struc.generics.removing_eq_type();
     let generics_no_eq_nor_bounds = struc.generics.removing_bounds_and_eq_type();
 
     // add T: DefaultMutator for each generic type parameter to the existing where clause
-    let mut where_clause = struc.where_clause.clone().unwrap_or(WhereClause::default());
+    let mut where_clause = struc.where_clause.clone().unwrap_or_default();
     where_clause.add_clause_items(join_ts!(&struc.generics.type_params, ty_param,
         ty_param ":" cm.DefaultMutator ","
     ));
@@ -153,14 +153,14 @@ pub(crate) fn impl_default_mutator_for_struct(tb: &mut TokenBuilder, struc: &Str
             }
             if let Some(m) = mutator {
                 FieldMutator {
-                    i: i,
+                    i,
                     j: None,
                     field: field.clone(),
-                    kind: FieldMutatorKind::Prescribed(m.0.clone(), m.1.clone()),
+                    kind: FieldMutatorKind::Prescribed(m.0.clone(), m.1),
                 }
             } else {
                 FieldMutator {
-                    i: i,
+                    i,
                     j: None,
                     field: field.clone(),
                     kind: FieldMutatorKind::Generic,
@@ -216,7 +216,7 @@ pub(crate) fn impl_default_mutator_for_struct(tb: &mut TokenBuilder, struc: &Str
                 Self { mutator : <_>::default() }
             }
         "),
-        settings: &settings,
+        settings,
     };
 
     extend_ts!(tb, make_mutator_type_and_impl(params));
@@ -524,7 +524,7 @@ fn impl_mutator_trait(tb: &mut TokenBuilder, nbr_elements: usize) {
             match step.inner[step_idx] {"
             join_ts!(0..nbr_elements, i,
                 "InnerMutationStep::" Ti(i) "=> {
-                    let old_field_cplx = self." mutator_i(i) ".complexity(value." i ", &mut cache." ti(i) ");
+                    let old_field_cplx = self." mutator_i(i) ".complexity(value." i ", &cache." ti(i) ");
                     let max_field_cplx = max_cplx - current_cplx + old_field_cplx;
                     if let " cm.Some "((token, new_field_cplx)) =
                         self." mutator_i(i) "
@@ -553,7 +553,7 @@ fn impl_mutator_trait(tb: &mut TokenBuilder, nbr_elements: usize) {
             match cache.vose_alias.sample() {"
                 join_ts!(0..nbr_elements, i,
                     i "=> {
-                        let old_field_cplx = self." mutator_i(i) ".complexity(value." i ", &mut cache." ti(i) ");
+                        let old_field_cplx = self." mutator_i(i) ".complexity(value." i ", &cache." ti(i) ");
                         let max_field_cplx = max_cplx - current_cplx + old_field_cplx;
                         let (token, new_field_cplx) = self." mutator_i(i) "
                             .random_mutate(value." i ", &mut cache." ti(i) ", max_field_cplx) ;
@@ -641,12 +641,9 @@ fn impl_default_mutator_for_tuple(tb: &mut TokenBuilder, nbr_elements: usize) {
 
 #[cfg(test)]
 mod test {
-    use decent_synquote_alternative::TokenBuilderExtend;
     use decent_synquote_alternative::{parser::TokenParser, token_builder};
     use proc_macro2::TokenStream;
     use token_builder::TokenBuilder;
-
-    use crate::MakeMutatorSettings;
 
     use super::{
         declare_tuple_mutator, declare_tuple_mutator_helper_types, impl_default_mutator_for_struct,
@@ -971,8 +968,6 @@ where
 
         let mut tb = TokenBuilder::new();
 
-        let mut settings = MakeMutatorSettings::default();
-        settings.fuzzcheck_mutators_crate = ts!("fuzzcheck_mutators");
         impl_tuple_structure_trait(&mut tb, &struc);
 
         let generated = tb.end().to_string();
@@ -1012,8 +1007,6 @@ where
 
         let mut tb = TokenBuilder::new();
 
-        let mut settings = MakeMutatorSettings::default();
-        settings.fuzzcheck_mutators_crate = ts!("crate");
         impl_tuple_structure_trait(&mut tb, &struc);
 
         let generated = tb.end().to_string();
@@ -1422,6 +1415,6 @@ where
         super::make_basic_tuple_mutator(&mut tb, 2);
         let generated = tb.end();
         eprintln!("\n\n{}\n\n", generated);
-        assert!(false);
+        panic!();
     }
 }

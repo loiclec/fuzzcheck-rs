@@ -34,9 +34,5 @@ fn test_compile() {
     }
 
     let m = Z::default_mutator();
-    let (value, _): (Z, _) = m.random_arbitrary(10.0);
-
-    match value {
-        _ => {}
-    }
+    let (_value, _): (Z, _) = m.random_arbitrary(10.0);
 }

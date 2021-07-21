@@ -108,7 +108,7 @@ impl CargoConfig {
                 if let Some(rustflags) = content.get("build").and_then(|build| build.get("rustflags")) {
                     if let TomlValue::Array(flags) = rustflags {
                         flags
-                            .into_iter()
+                            .iter()
                             .map(|flag| {
                                 if let TomlValue::String(flag) = flag {
                                     flag.clone()
@@ -128,12 +128,14 @@ impl CargoConfig {
         }
     }
     pub fn write_build_rustflags(&self, new_rustflags: Vec<String>) {
-        let mut toml_content = self.get_toml().unwrap_or(<_>::default());
+        let mut toml_content = self.get_toml().unwrap_or_default();
         let build = toml_content
             .entry("build".to_string())
-            .or_insert(TomlValue::Table(<_>::default()));
+            .or_insert_with(|| TomlValue::Table(<_>::default()));
         if let TomlValue::Table(build) = build {
-            let rustflags = build.entry("rustflags".to_string()).or_insert(TomlValue::Array(vec![]));
+            let rustflags = build
+                .entry("rustflags".to_string())
+                .or_insert_with(|| TomlValue::Array(vec![]));
             *rustflags = TomlValue::Array(new_rustflags.into_iter().map(TomlValue::String).collect());
         } else {
             panic!("build.rustflags should be an array of strings")
@@ -144,22 +146,22 @@ impl CargoConfig {
     }
 
     pub fn write_rustc_flags_for_link(&self, link: &str, new_rustc_flags: String) {
-        let mut toml_content = self.get_toml().unwrap_or(<_>::default());
+        let mut toml_content = self.get_toml().unwrap_or_default();
         let target = toml_content
             .entry("target".to_string())
-            .or_insert(TomlValue::Table(<_>::default()));
+            .or_insert_with(|| TomlValue::Table(<_>::default()));
         if let TomlValue::Table(target) = target {
             let target = target
                 .entry(TARGET.to_string())
-                .or_insert(TomlValue::Table(<_>::default()));
+                .or_insert_with(|| TomlValue::Table(<_>::default()));
             if let TomlValue::Table(target) = target {
                 let link = target
                     .entry(link.to_string())
-                    .or_insert(TomlValue::Table(<_>::default()));
+                    .or_insert_with(|| TomlValue::Table(<_>::default()));
                 if let TomlValue::Table(link) = link {
                     let rustc_flags = link
                         .entry("rustc-flags".to_string())
-                        .or_insert(TomlValue::Array(vec![]));
+                        .or_insert_with(|| TomlValue::Array(vec![]));
                     *rustc_flags = TomlValue::String(new_rustc_flags);
                 } else {
                     panic!("target.<triple>.rustcflags should be a string")
@@ -312,9 +314,9 @@ pub enum CoverageLevel {
     Three,
     Four,
 }
-impl Into<usize> for CoverageLevel {
-    fn into(self) -> usize {
-        match self {
+impl From<CoverageLevel> for usize {
+    fn from(coverage_level: CoverageLevel) -> Self {
+        match coverage_level {
             CoverageLevel::One => 1,
             CoverageLevel::Two => 2,
             CoverageLevel::Three => 3,
@@ -559,7 +561,7 @@ impl FullConfig {
             self.artifacts = None;
         }
         if let Some(socket_address) = socket_address {
-            self.socket_address = Some(socket_address.clone());
+            self.socket_address = Some(*socket_address);
         }
     }
 }
@@ -582,81 +584,81 @@ impl ConfigToml {
         Config {
             coverage_level: target_config
                 .and_then(|c| c.coverage_level.as_ref())
-                .or(self.default.coverage_level.as_ref())
+                .or_else(|| self.default.coverage_level.as_ref())
                 .cloned(),
             trace_compares: target_config
                 .and_then(|c| c.trace_compares.as_ref())
-                .or(self.default.trace_compares.as_ref())
+                .or_else(|| self.default.trace_compares.as_ref())
                 .cloned(),
             stack_depth: target_config
                 .and_then(|c| c.stack_depth.as_ref())
-                .or(self.default.stack_depth.as_ref())
+                .or_else(|| self.default.stack_depth.as_ref())
                 .cloned(),
 
             instrumented_default_features: target_config
                 .and_then(|c| c.instrumented_default_features.as_ref())
-                .or(self.default.instrumented_default_features.as_ref())
+                .or_else(|| self.default.instrumented_default_features.as_ref())
                 .cloned(),
             non_instrumented_default_features: target_config
                 .and_then(|c| c.non_instrumented_default_features.as_ref())
-                .or(self.default.non_instrumented_default_features.as_ref())
+                .or_else(|| self.default.non_instrumented_default_features.as_ref())
                 .cloned(),
             instrumented_features: target_config
                 .and_then(|c| c.instrumented_features.as_ref())
-                .or(self.default.instrumented_features.as_ref())
+                .or_else(|| self.default.instrumented_features.as_ref())
                 .cloned(),
             non_instrumented_features: target_config
                 .and_then(|c| c.non_instrumented_features.as_ref())
-                .or(self.default.non_instrumented_features.as_ref())
+                .or_else(|| self.default.non_instrumented_features.as_ref())
                 .cloned(),
 
             lto: target_config
                 .and_then(|c| c.lto.as_ref())
-                .or(self.default.lto.as_ref())
+                .or_else(|| self.default.lto.as_ref())
                 .cloned(),
             extra_cargo_flags: target_config
                 .and_then(|c| c.extra_cargo_flags.as_ref())
-                .or(self.default.extra_cargo_flags.as_ref())
+                .or_else(|| self.default.extra_cargo_flags.as_ref())
                 .cloned(),
             corpus_size: target_config
                 .and_then(|c| c.corpus_size.as_ref())
-                .or(self.default.corpus_size.as_ref())
+                .or_else(|| self.default.corpus_size.as_ref())
                 .cloned(),
             max_nbr_of_runs: target_config
                 .and_then(|c| c.max_nbr_of_runs.as_ref())
-                .or(self.default.max_nbr_of_runs.as_ref())
+                .or_else(|| self.default.max_nbr_of_runs.as_ref())
                 .cloned(),
             max_cplx: target_config
                 .and_then(|c| c.max_cplx.as_ref())
-                .or(self.default.max_cplx.as_ref())
+                .or_else(|| self.default.max_cplx.as_ref())
                 .cloned(),
             timeout: target_config
                 .and_then(|c| c.timeout.as_ref())
-                .or(self.default.timeout.as_ref())
+                .or_else(|| self.default.timeout.as_ref())
                 .cloned(),
             in_corpus: target_config
                 .and_then(|c| c.in_corpus.as_ref())
-                .or(self.default.in_corpus.as_ref())
+                .or_else(|| self.default.in_corpus.as_ref())
                 .cloned(),
             out_corpus: target_config
                 .and_then(|c| c.out_corpus.as_ref())
-                .or(self.default.out_corpus.as_ref())
+                .or_else(|| self.default.out_corpus.as_ref())
                 .cloned(),
             artifacts: target_config
                 .and_then(|c| c.artifacts.as_ref())
-                .or(self.default.artifacts.as_ref())
+                .or_else(|| self.default.artifacts.as_ref())
                 .cloned(),
             no_in_corpus: target_config
                 .and_then(|c| c.no_in_corpus.as_ref())
-                .or(self.default.no_in_corpus.as_ref())
+                .or_else(|| self.default.no_in_corpus.as_ref())
                 .cloned(),
             no_out_corpus: target_config
                 .and_then(|c| c.no_out_corpus.as_ref())
-                .or(self.default.no_out_corpus.as_ref())
+                .or_else(|| self.default.no_out_corpus.as_ref())
                 .cloned(),
             no_artifacts: target_config
                 .and_then(|c| c.no_artifacts.as_ref())
-                .or(self.default.no_artifacts.as_ref())
+                .or_else(|| self.default.no_artifacts.as_ref())
                 .cloned(),
         }
     }
