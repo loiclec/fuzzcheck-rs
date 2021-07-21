@@ -16,6 +16,8 @@ pub use parser::parse_from_grammar;
 /**
     Creates a grammar corresponding to a single character within the specfied range or ranges.
     ```
+    # use fuzzcheck_mutators::grammar::Grammar;
+    # use fuzzcheck_mutators::{concatenation, literal};
     let a = literal!('a'); // a single character
     let a_to_z = literal!('a' ..= 'z'); // a character within a range
     let digit_or_space = literal! { ('0'..='9'), (' ') }; // either a digit or a space
@@ -37,7 +39,10 @@ macro_rules! literal {
 }
 /**
     Creates a grammar corresponding to a sequence of rules.
+
     ```
+    # use fuzzcheck_mutators::grammar::Grammar;
+    # use fuzzcheck_mutators::{concatenation, literal};
     // will match only the string "abcd"
     let abcd = concatenation! {
         literal!('a'),
