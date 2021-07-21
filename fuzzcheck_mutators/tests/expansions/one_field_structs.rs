@@ -17,7 +17,7 @@ mod test {
         let _m = X::default_mutator();
         let m = Y::default_mutator();
 
-        let (_y, _, _) = m.random_arbitrary(10.0);
+        let (_y, _) = m.random_arbitrary(10.0);
         // assert!(false, "{}", y.x);
     }
 }

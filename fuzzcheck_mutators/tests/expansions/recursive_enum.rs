@@ -2,17 +2,13 @@ use fuzzcheck_mutators::fuzzcheck_traits::RecurToMutator;
 use fuzzcheck_mutators::make_mutator;
 use fuzzcheck_mutators::BoxMutator;
 
-#[cfg(test)]
-mod test {
-    use super::*;
-    use fuzzcheck_mutators::fuzzcheck_traits::Mutator;
-    use fuzzcheck_mutators::DefaultMutator;
-    #[test]
-    fn test_compile() {
-        let m = S::default_mutator();
-        let (x, _) = m.random_arbitrary(10.0);
-        println!("{:?}", x);
-    }
+use fuzzcheck_mutators::fuzzcheck_traits::Mutator;
+use fuzzcheck_mutators::DefaultMutator;
+#[test]
+fn test_compile() {
+    let m = S::default_mutator();
+    let (x, _) = m.random_arbitrary(10.0);
+    println!("{:?}", x);
 }
 
 #[derive(Clone, Debug)]

@@ -8,4 +8,3 @@ pub struct Y {}
 
 #[derive(Clone, DefaultMutator)]
 pub struct Z();
-
