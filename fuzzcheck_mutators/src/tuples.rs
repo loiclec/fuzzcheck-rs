@@ -1,6 +1,6 @@
 use std::marker::PhantomData;
 
-use crate::fuzzcheck_traits;
+// use crate::fuzzcheck_traits;
 use crate::fuzzcheck_traits::Mutator;
 
 pub trait RefTypes {
@@ -8,133 +8,6 @@ pub trait RefTypes {
     type Ref<'a>: Copy;
     type Mut<'a>;
     fn get_ref_from_mut<'a>(v: &'a Self::Mut<'a>) -> Self::Ref<'a>;
-}
-
-pub struct Tuple1<T: 'static> {
-    _phantom: PhantomData<T>,
-}
-impl<T: 'static> RefTypes for Tuple1<T> {
-    type Owned = T;
-    type Ref<'a> = &'a T;
-    type Mut<'a> = &'a mut T;
-    fn get_ref_from_mut<'a>(v: &'a Self::Mut<'a>) -> Self::Ref<'a> {
-        v
-    }
-}
-impl<T: 'static> TupleStructure<Tuple1<T>> for T {
-    fn get_ref(&self) -> &T {
-        self
-    }
-
-    fn get_mut(&mut self) -> &mut T {
-        self
-    }
-    fn new(t: T) -> Self {
-        t
-    }
-}
-
-pub struct Tuple1Mutator<T, M>
-where
-    T: ::std::clone::Clone,
-    M: fuzzcheck_traits::Mutator<T>,
-{
-    pub mutator: M,
-    _phantom: ::std::marker::PhantomData<(T, T)>,
-}
-impl<T, M> Tuple1Mutator<T, M>
-where
-    T: ::std::clone::Clone,
-    M: fuzzcheck_traits::Mutator<T>,
-{
-    pub fn new(mutator: M) -> Self {
-        Self {
-            mutator,
-            _phantom: PhantomData,
-        }
-    }
-}
-
-impl<T, M> Default for Tuple1Mutator<T, M>
-where
-    T: ::std::clone::Clone,
-    M: fuzzcheck_traits::Mutator<T>,
-    M: Default,
-{
-    fn default() -> Self {
-        Self {
-            mutator: <_>::default(),
-            _phantom: PhantomData,
-        }
-    }
-}
-
-impl<T, U, M> TupleMutator<U, Tuple1<T>> for Tuple1Mutator<T, M>
-where
-    U: TupleStructure<Tuple1<T>>,
-    T: ::std::clone::Clone + 'static,
-    M: fuzzcheck_traits::Mutator<T>,
-{
-    type Cache = M::Cache;
-    type MutationStep = M::MutationStep;
-    type ArbitraryStep = M::ArbitraryStep;
-    type UnmutateToken = M::UnmutateToken;
-
-    fn default_arbitrary_step(&self) -> Self::ArbitraryStep {
-        self.mutator.default_arbitrary_step()
-    }
-
-    fn complexity<'a>(&'a self, value: &'a T, cache: &'a Self::Cache) -> f64 {
-        self.mutator.complexity(value, cache)
-    }
-
-    fn validate_value<'a>(&'a self, value: &'a T) -> Option<(Self::Cache, Self::MutationStep)> {
-        self.mutator.validate_value(value)
-    }
-
-    fn max_complexity(&self) -> f64 {
-        self.mutator.max_complexity()
-    }
-
-    fn min_complexity(&self) -> f64 {
-        self.mutator.min_complexity()
-    }
-
-    fn ordered_arbitrary(&self, step: &mut Self::ArbitraryStep, max_cplx: f64) -> Option<(U, f64)> {
-        if let Some((v, c)) = self.mutator.ordered_arbitrary(step, max_cplx) {
-            Some((U::new(v), c))
-        } else {
-            None
-        }
-    }
-
-    fn random_arbitrary(&self, max_cplx: f64) -> (U, f64) {
-        let (v, c) = self.mutator.random_arbitrary(max_cplx);
-        (U::new(v), c)
-    }
-
-    fn ordered_mutate<'a>(
-        &'a self,
-        value: &'a mut T,
-        cache: &'a mut Self::Cache,
-        step: &'a mut Self::MutationStep,
-        max_cplx: f64,
-    ) -> Option<(Self::UnmutateToken, f64)> {
-        self.mutator.ordered_mutate(value, cache, step, max_cplx)
-    }
-
-    fn random_mutate<'a>(
-        &'a self,
-        value: &'a mut T,
-        cache: &'a mut Self::Cache,
-        max_cplx: f64,
-    ) -> (Self::UnmutateToken, f64) {
-        self.mutator.random_mutate(value, cache, max_cplx)
-    }
-
-    fn unmutate<'a>(&'a self, value: &'a mut T, cache: &'a mut Self::Cache, t: Self::UnmutateToken) {
-        self.mutator.unmutate(value, cache, t)
-    }
 }
 
 pub trait TupleStructure<TupleKind: RefTypes> {
@@ -284,6 +157,12 @@ where
     }
 }
 
+pub use tuple1::{Tuple1, Tuple1Mutator};
+mod tuple1 {
+    #![allow(clippy::needless_update)]
+    extern crate self as fuzzcheck_mutators;
+    fuzzcheck_mutators_derive::make_basic_tuple_mutator!(1);
+}
 pub use tuple2::{Tuple2, Tuple2Mutator};
 mod tuple2 {
     extern crate self as fuzzcheck_mutators;

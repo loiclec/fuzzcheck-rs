@@ -25,11 +25,11 @@ pub fn make_tuple_type_structure(tb: &mut TokenBuilder, nbr_elements: usize) {
     // T0, T1, ...
     let type_params = join_ts!(0..nbr_elements, i, Ti(i), separator: ",");
     let type_params_static_bound = join_ts!(0..nbr_elements, i, Ti(i) ": 'static", separator: ",");
-    let tuple_owned = ts!("(" type_params ")");
-    let tuple_ref = ts!("(" join_ts!(0..nbr_elements, i, "&'a" Ti(i), separator: ",") ")");
-    let tuple_mut = ts!("(" join_ts!(0..nbr_elements, i, "&'a mut" Ti(i), separator: "," ) ")");
+    let tuple_owned = ts!("(" type_params ",)");
+    let tuple_ref = ts!("(" join_ts!(0..nbr_elements, i, "&'a" Ti(i) ",") ")");
+    let tuple_mut = ts!("(" join_ts!(0..nbr_elements, i, "&'a mut" Ti(i) ",") ")");
 
-    let PhantomData = ts!(cm.PhantomData "<(" type_params ")>");
+    let PhantomData = ts!(cm.PhantomData "<(" type_params ",)>");
 
     extend_ts!(tb,
         "pub struct" cm.TupleN_ident "<" type_params_static_bound "> {
@@ -40,17 +40,17 @@ pub fn make_tuple_type_structure(tb: &mut TokenBuilder, nbr_elements: usize) {
             type Ref<'a> = " tuple_ref ";
             type Mut<'a> = " tuple_mut ";
             fn get_ref_from_mut<'a>(v: &'a Self::Mut<'a>) -> Self::Ref<'a> {
-                (" join_ts!(0..nbr_elements, i, "v." i, separator: ",") ")
+                (" join_ts!(0..nbr_elements, i, "v." i ",") ")
             }
         }
         "
         "impl<" type_params_static_bound "> " cm.TupleStructure "<" cm.TupleN_ident "<" type_params "> > for" tuple_owned "{
             fn get_ref<'a>(&'a self) -> " tuple_ref " {
-                (" join_ts!(0..nbr_elements, i, "&self." i, separator: ",") ")
+                (" join_ts!(0..nbr_elements, i, "&self." i ",") ")
             }
 
             fn get_mut<'a>(&'a mut self) -> " tuple_mut " {
-                (" join_ts!(0..nbr_elements, i, "&mut self." i, separator: ",") ")
+                (" join_ts!(0..nbr_elements, i, "&mut self." i ",") ")
             }
             fn new(t: " tuple_owned ") -> Self {
                 t
@@ -71,9 +71,9 @@ pub(crate) fn impl_tuple_structure_trait(tb: &mut TokenBuilder, struc: &Struct) 
     let generics_no_eq = struc.generics.removing_eq_type();
     let generics_no_eq_nor_bounds = struc.generics.removing_bounds_and_eq_type();
 
-    let tuple_owned = ts!("(" join_ts!(&struc.struct_fields, field, field.ty , separator: ",") ")");
-    let tuple_ref = ts!("(" join_ts!(&struc.struct_fields, field, "&'a" field.ty , separator: ",") ")");
-    let tuple_mut = ts!("(" join_ts!(&struc.struct_fields, field, "&'a mut" field.ty , separator: ",") ")");
+    let tuple_owned = ts!("(" join_ts!(&struc.struct_fields, field, field.ty ",") ")");
+    let tuple_ref = ts!("(" join_ts!(&struc.struct_fields, field, "&'a" field.ty ",") ")");
+    let tuple_mut = ts!("(" join_ts!(&struc.struct_fields, field, "&'a mut" field.ty ",") ")");
 
     let mut where_clause = struc.where_clause.clone().unwrap_or_default();
     where_clause.add_clause_items(join_ts!(&struc.generics.type_params, tp,
@@ -84,22 +84,19 @@ pub(crate) fn impl_tuple_structure_trait(tb: &mut TokenBuilder, struc: &Struct) 
         "impl" generics_no_eq cm.TupleStructure "<" TupleKind "<" field_types "> >
             for" struc.ident generics_no_eq_nor_bounds where_clause "{
             fn get_ref<'a>(&'a self) -> " tuple_ref " {
-                (" join_ts!(&struc.struct_fields, field, "&self." field.access(), separator: ",") ")
+                (" join_ts!(&struc.struct_fields, field, "&self." field.access() ",") ")
             }
 
             fn get_mut<'a>(&'a mut self) -> " tuple_mut " {
-                (" join_ts!(&struc.struct_fields, field, "&mut self." field.access(), separator: ",") ")
+                (" join_ts!(&struc.struct_fields, field, "&mut self." field.access() ",") ")
             }
 
             fn new(t:" tuple_owned ") -> Self {
                 Self {"
-                    if nbr_elements > 1 {
-                        join_ts!(struc.struct_fields.iter().enumerate(), (i, field),
-                            field.access() ": t." i
-                        , separator: ",")
-                    } else {
-                        ts!(struc.struct_fields[0].access() ": t")
-                    }
+                    join_ts!(struc.struct_fields.iter().enumerate(), (i, field),
+                        field.access() ": t." i ","
+                    )
+
                 "}
             }
         }"
@@ -231,7 +228,7 @@ fn declare_tuple_mutator(tb: &mut TokenBuilder, nbr_elements: usize) {
     let tuple_type_params = join_ts!(0..nbr_elements, i, ident!("T" i), separator: ",");
     let mutator_type_params = join_ts!(0..nbr_elements, i, ident!("M" i), separator: ",");
     let type_params = ts!(tuple_type_params "," mutator_type_params);
-    let tuple_type = ts!("(" tuple_type_params ")");
+    let tuple_type = ts!("(" tuple_type_params ",)");
 
     let where_clause = ts!(
         "where"
@@ -325,7 +322,7 @@ fn declare_tuple_mutator_helper_types(tb: &mut TokenBuilder, nbr_elements: usize
 
         pub struct UnmutateToken < " tuple_type_params " > {"
             join_ts!(0..nbr_elements, i,
-                ti(i) ":" cm.Option "<" Ti(i) "> ,"
+                "pub" ti(i) ":" cm.Option "<" Ti(i) "> ,"
             )
             "
         }
@@ -359,8 +356,8 @@ fn impl_mutator_trait(tb: &mut TokenBuilder, nbr_elements: usize) {
     let ti_value = cm.ti_value.as_ref();
 
     // let tuple_owned = ts!("(" join_ts!(0..nbr_elements, i, Ti(i), separator: ",") ")");
-    let tuple_ref = ts!("(" join_ts!(0..nbr_elements, i, "&'a" Ti(i), separator: ",") ")");
-    let tuple_mut = ts!("(" join_ts!(0..nbr_elements, i, "&'a mut" Ti(i), separator: ",") ")");
+    let tuple_ref = ts!("(" join_ts!(0..nbr_elements, i, "&'a" Ti(i) ",") ")");
+    let tuple_mut = ts!("(" join_ts!(0..nbr_elements, i, "&'a mut" Ti(i) ",") ")");
 
     let SelfAsTupleMutator = ts!("<Self as " cm.TupleMutator "<T, " cm.TupleN_ident "<" tuple_type_params "> >>");
 
@@ -493,8 +490,8 @@ fn impl_mutator_trait(tb: &mut TokenBuilder, nbr_elements: usize) {
                 T::new(
                     ("
                     join_ts!(0..nbr_elements, i,
-                        ti_value(i) ".unwrap()"
-                    , separator:",")
+                        ti_value(i) ".unwrap(),"
+                    )
                     ")
                 ),
                 sum_cplx,
@@ -594,7 +591,7 @@ fn impl_default_mutator_for_tuple(tb: &mut TokenBuilder, nbr_elements: usize) {
     let TupleN = ts!(ident!("Tuple" nbr_elements) "<" tuple_type_params ">");
     let TupleMutatorWrapper = ts!(
         cm.TupleMutatorWrapper "<
-            (" tuple_type_params "),"
+            (" tuple_type_params ",),"
             cm.TupleNMutator_ident "<"
                 tuple_type_params ", "
                 join_ts!(0..nbr_elements, i,
@@ -624,7 +621,7 @@ fn impl_default_mutator_for_tuple(tb: &mut TokenBuilder, nbr_elements: usize) {
         }
     } 
 
-    impl<" tuple_type_params ">" cm.DefaultMutator "for (" tuple_type_params ")
+    impl<" tuple_type_params ">" cm.DefaultMutator "for (" tuple_type_params ",)
         where" join_ts!(0..nbr_elements, i, Ti(i) ":" cm.DefaultMutator "+ 'static", separator: ",")
     "{
         type Mutator = " TupleMutatorWrapper ";

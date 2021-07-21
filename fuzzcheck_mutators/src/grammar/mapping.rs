@@ -516,7 +516,7 @@ where
                     start_index: &mut self.start_index,
                     len: &mut self.len,
                 };
-                atom.mutate_value_from_token(from_value, to_value, token);
+                atom.mutate_value_from_token(from_value, to_value, token.t0.as_ref().unwrap());
             }
             (ASTSingleVariant::Sequence(token), AST::Sequence(from_value), ASTMappingKind::Sequence(children)) => {
                 let mut sequence = ASTMappingSequence {
@@ -524,11 +524,14 @@ where
                     start_index: &mut self.start_index,
                     len: &mut self.len,
                 };
-                sequence.mutate_value_from_token(from_value, to_value, token);
+                sequence.mutate_value_from_token(from_value, to_value, token.t0.as_ref().unwrap());
             }
             (ASTSingleVariant::Box(token), AST::Box(from_value), ASTMappingKind::Box(mapping)) => {
                 <ASTMapping as IncrementalMapping<AST, String, M3>>::mutate_value_from_token(
-                    mapping, from_value, to_value, token,
+                    mapping,
+                    from_value,
+                    to_value,
+                    token.t0.as_ref().unwrap(),
                 )
             }
             _ => panic!(),
@@ -550,7 +553,7 @@ where
                     start_index: &mut self.start_index,
                     len: &mut self.len,
                 };
-                atom.unmutate_value_from_token(to_value, token);
+                atom.unmutate_value_from_token(to_value, token.t0.as_ref().unwrap());
             }
             (ASTSingleVariant::Sequence(token), ASTMappingKind::Sequence(children)) => {
                 let mut sequence = ASTMappingSequence {
@@ -558,10 +561,14 @@ where
                     start_index: &mut self.start_index,
                     len: &mut self.len,
                 };
-                sequence.unmutate_value_from_token(to_value, token);
+                sequence.unmutate_value_from_token(to_value, token.t0.as_ref().unwrap());
             }
             (ASTSingleVariant::Box(token), ASTMappingKind::Box(mapping)) => {
-                <ASTMapping as IncrementalMapping<AST, String, M3>>::unmutate_value_from_token(mapping, to_value, token)
+                <ASTMapping as IncrementalMapping<AST, String, M3>>::unmutate_value_from_token(
+                    mapping,
+                    to_value,
+                    token.t0.as_ref().unwrap(),
+                )
             }
             _ => panic!(),
         }

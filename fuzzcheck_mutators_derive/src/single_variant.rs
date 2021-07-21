@@ -35,7 +35,7 @@ pub fn make_single_variant_mutator(tb: &mut TokenBuilder, enu: &Enum) {
                     map.insert(
                         item.ident.clone(),
                         ts!(
-                            cm.TupleMutator "< (" field_tys ") ," Tuplei(fields.len()) "<" field_tys "> >"
+                            cm.TupleMutator "< (" field_tys ",) ," Tuplei(fields.len()) "<" field_tys "> >"
                         ),
                     );
                     bindings.insert(
@@ -103,8 +103,8 @@ pub fn make_single_variant_mutator(tb: &mut TokenBuilder, enu: &Enum) {
         } else {
             ts!("("
                 join_ts!(item_pattern_match_bindings[item_ident].iter(), binding,
-                    ident!(binding pattern_match_binding_append)
-                , separator: ",")
+                    ident!(binding pattern_match_binding_append) ","
+                )
                 ")"
             )
         }
@@ -113,13 +113,11 @@ pub fn make_single_variant_mutator(tb: &mut TokenBuilder, enu: &Enum) {
         let fields = item.get_struct_data().map(|x| x.1).unwrap_or_default();
         ts!(
             enu.ident "::" item.ident "{"
-            if fields.len() == 1 {
-                ts!(fields[0].access() ": v")
-            } else {
-                join_ts!(fields.iter().enumerate(), (i, field),
-                    field.access() ": v." i
-                , separator: ",")
-            }
+
+            join_ts!(fields.iter().enumerate(), (i, field),
+                field.access() ": v." i
+            , separator: ",")
+
             "}"
         )
     };
@@ -132,7 +130,7 @@ pub fn make_single_variant_mutator(tb: &mut TokenBuilder, enu: &Enum) {
     "}
     #[derive(" cm.Default ")]
     pub struct " EnumSingleVariantMutator enum_generics_no_eq enum_where_clause_plus_cond " {
-        _phantom:" cm.PhantomData "<(" join_ts!(&enum_generics_no_bounds.type_params, tp, tp, separator: ",") ")>
+        _phantom:" cm.PhantomData "<(" join_ts!(&enum_generics_no_bounds.type_params, tp, tp ",") ")>
     }
 
     #[allow(non_shorthand_field_patterns)]
