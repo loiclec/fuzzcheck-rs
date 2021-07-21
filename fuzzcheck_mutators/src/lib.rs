@@ -106,8 +106,9 @@ pub mod testing_utilities {
         let mut arbitraries = HashSet::new();
         for _i in 0..nbr_arbitraries {
             if let Some((x, cplx)) = m.ordered_arbitrary(&mut arbitrary_step, maximum_complexity_arbitrary) {
-                let is_new = arbitraries.insert(x.clone());
+                // assert!(cplx <= maximum_complexity_mutate);
                 if avoid_duplicates {
+                    let is_new = arbitraries.insert(x.clone());
                     assert!(is_new);
                 }
                 let (cache, mut mutation_step) = m.validate_value(&x).unwrap();
@@ -115,7 +116,9 @@ pub mod testing_utilities {
                 assert!((cplx - other_cplx).abs() < 0.01, "{:.3} != {:.3}", cplx, other_cplx);
 
                 let mut mutated = HashSet::new();
-                mutated.insert(x.clone());
+                if avoid_duplicates {
+                    mutated.insert(x.clone());
+                }
                 let mut x_mut = x.clone();
                 let mut cache_mut = cache.clone();
                 for _j in 0..nbr_mutations {
@@ -125,11 +128,12 @@ pub mod testing_utilities {
                         &mut mutation_step,
                         maximum_complexity_mutate,
                     ) {
-                        assert!(cplx <= maximum_complexity_mutate);
-                        let is_new = mutated.insert(x_mut.clone());
+                        // assert!(cplx <= maximum_complexity_mutate);
                         if avoid_duplicates {
+                            let is_new = mutated.insert(x_mut.clone());
                             assert!(is_new);
                         }
+
                         let validated = m.validate_value(&x_mut).unwrap();
                         let other_cplx = m.complexity(&x_mut, &validated.0);
                         assert!(
