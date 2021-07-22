@@ -83,7 +83,7 @@ macro_rules! alternation {
 }
 
 /**
-    Creates a grammar corresponding to a repetition of rules.
+    Creates a grammar corresponding to the repetition of a rule.
 
     ```
     use fuzzcheck_mutators::{repetition, literal};
