@@ -1,9 +1,12 @@
 extern crate self as fuzzcheck_mutators;
 
-use super::grammar::InnerGrammar;
+use std::collections::HashMap;
+use std::rc::{Rc, Weak};
+
 use crate::either::Either;
 use crate::fuzzcheck_traits::Mutator;
 
+use crate::recursive::{RecurToMutator, RecursiveMutator};
 use crate::{alternation::AlternationMutator, boxed::BoxMutator, tuples::Tuple1Mutator};
 use crate::{fixed_len_vector::FixedLenVecMutator, integer::CharWithinRangeMutator, make_mutator, vector::VecMutator};
 
@@ -23,10 +26,19 @@ make_mutator! {
     }
 }
 
-type InnerASTMutator = ASTSingleVariant<
-    Tuple1Mutator<char, CharWithinRangeMutator>,
-    Tuple1Mutator<Vec<AST>, Either<FixedLenVecMutator<AST, ASTMutator>, VecMutator<AST, ASTMutator>>>,
-    Tuple1Mutator<Box<AST>, BoxMutator<AST, Either<ASTMutator, AlternationMutator<AST, ASTMutator>>>>,
+type InnerASTMutator = Either<
+    ASTSingleVariant<
+        Tuple1Mutator<char, CharWithinRangeMutator>,
+        Tuple1Mutator<Vec<AST>, Either<FixedLenVecMutator<AST, ASTMutator>, VecMutator<AST, ASTMutator>>>,
+        Tuple1Mutator<
+            Box<AST>,
+            BoxMutator<
+                AST,
+                Either<Either<ASTMutator, RecurToMutator<ASTMutator>>, AlternationMutator<AST, ASTMutator>>,
+            >,
+        >,
+    >,
+    RecursiveMutator<ASTMutator>,
 >;
 
 pub struct ASTMutator {
@@ -120,11 +132,11 @@ impl Mutator<AST> for ASTMutator {
 }
 
 pub struct GrammarBasedStringMutator {
-    grammar: Grammar,
+    grammar: Rc<Grammar>,
     ast_mutator: ASTMutator,
 }
 impl GrammarBasedStringMutator {
-    pub fn new(grammar: Grammar) -> Self {
+    pub fn new(grammar: Rc<Grammar>) -> Self {
         Self {
             grammar: grammar.clone(),
             ast_mutator: ASTMutator::from_grammar(grammar),
@@ -230,35 +242,78 @@ impl Mutator<String> for GrammarBasedStringMutator {
 impl ASTMutator {
     fn token(m: CharWithinRangeMutator) -> Self {
         Self {
-            inner: Box::new(ASTSingleVariant::Token(Tuple1Mutator::new(m))),
+            inner: Box::new(Either::Left(ASTSingleVariant::Token(Tuple1Mutator::new(m)))),
         }
     }
     fn sequence(m: Either<FixedLenVecMutator<AST, ASTMutator>, VecMutator<AST, ASTMutator>>) -> Self {
         Self {
-            inner: Box::new(ASTSingleVariant::Sequence(Tuple1Mutator::new(m))),
+            inner: Box::new(Either::Left(ASTSingleVariant::Sequence(Tuple1Mutator::new(m)))),
         }
     }
-    fn boxed(m: Either<ASTMutator, AlternationMutator<AST, ASTMutator>>) -> Self {
+    fn alternation(m: AlternationMutator<AST, ASTMutator>) -> Self {
         Self {
-            inner: Box::new(ASTSingleVariant::Box(Tuple1Mutator::new(BoxMutator::new(m)))),
+            inner: Box::new(Either::Left(ASTSingleVariant::Box(Tuple1Mutator::new(
+                BoxMutator::new(Either::Right(m)),
+            )))),
+        }
+    }
+    // fn boxed(m: ASTMutator) -> Self {
+    //     Self {
+    //         inner: Box::new(Either::Left(ASTSingleVariant::Box(Tuple1Mutator::new(
+    //             BoxMutator::new(Either::Left(Either::Left(m))),
+    //         )))),
+    //     }
+    // }
+    fn recur(m: RecurToMutator<ASTMutator>) -> Self {
+        Self {
+            inner: Box::new(Either::Left(ASTSingleVariant::Box(Tuple1Mutator::new(
+                BoxMutator::new(Either::Left(Either::Right(m))),
+            )))),
+        }
+    }
+    fn recursive(m: impl FnMut(&Weak<Self>) -> Self) -> Self {
+        Self {
+            inner: Box::new(Either::Right(RecursiveMutator::new(m))),
         }
     }
 
-    pub fn from_grammar(grammar: Grammar) -> Self {
-        match grammar.grammar.as_ref() {
-            InnerGrammar::Literal(l) => Self::token(CharWithinRangeMutator::new(l.clone())),
-            InnerGrammar::Alternation(gs) => Self::boxed(Either::Right(AlternationMutator::new(
-                gs.iter().map(|g| Self::from_grammar(g.clone())).collect(),
-            ))),
-            InnerGrammar::Concatenation(gs) => Self::sequence(Either::Left(FixedLenVecMutator::new(
-                gs.iter().map(|g| Self::from_grammar(g.clone())).collect(),
-            ))),
-            InnerGrammar::Repetition(g, range) => Self::sequence(Either::Right(VecMutator::new(
-                Self::from_grammar(g.clone()),
+    pub fn from_grammar(grammar: Rc<Grammar>) -> Self {
+        let mut others = HashMap::new();
+        Self::from_grammar_rec(grammar, &mut others)
+    }
+
+    pub fn from_grammar_rec(grammar: Rc<Grammar>, others: &mut HashMap<*const Grammar, Weak<ASTMutator>>) -> Self {
+        match grammar.as_ref() {
+            Grammar::Literal(l) => Self::token(CharWithinRangeMutator::new(l.clone())),
+            Grammar::Alternation(gs) => Self::alternation(AlternationMutator::new(
+                gs.iter().map(|g| Self::from_grammar_rec(g.clone(), others)).collect(),
+            )),
+            Grammar::Concatenation(gs) => {
+                let mut ms = Vec::<ASTMutator>::new();
+                for g in gs {
+                    let m = Self::from_grammar_rec(g.clone(), others);
+                    ms.push(m);
+                }
+                return Self::sequence(Either::Left(FixedLenVecMutator::new(ms)));
+            }
+            Grammar::Repetition(g, range) => Self::sequence(Either::Right(VecMutator::new(
+                Self::from_grammar_rec(g.clone(), others),
                 range.start..=range.end - 1,
             ))),
-            InnerGrammar::Shared(g) => Self::from_grammar(g.as_ref().clone()),
-            InnerGrammar::Recurse(_) => todo!(),
+            Grammar::Recurse(g) => {
+                if let Some(m) = others.get(&g.as_ptr()) {
+                    return Self::recur(RecurToMutator::from(m));
+                } else {
+                    panic!()
+                }
+            }
+            Grammar::Recursive(g) => Self::recursive(|m| {
+                let weak_g = Rc::downgrade(g);
+                println!("recursive grammar: {:?}", weak_g.as_ptr());
+                others.insert(weak_g.as_ptr(), m.clone());
+                println!("recurse others: {:?}", others.keys());
+                Self::from_grammar_rec(g.clone(), others)
+            }),
         }
     }
 }
@@ -267,7 +322,7 @@ impl ASTMutator {
 mod tests {
     use crate::grammar::grammar::Grammar;
     use crate::grammar::mutators::GrammarBasedStringMutator;
-    use crate::{concatenation, literal, repetition};
+    use crate::{alternation, concatenation, literal, recursive, repetition};
     use fuzzcheck_traits::Mutator;
 
     #[test]
@@ -290,22 +345,35 @@ mod tests {
         //     }
         // };
         // let grammar = repetition!(literal!('a'..='z'), 5..10);
-        let grammar = concatenation! {
-            literal!('a' ..= 'z'),
-            repetition! {
-                literal!(('a'..='z'), ('0'..='9')),
-                5..=10
-            },
-            repetition! {
-                literal!('0'..='9'),
-                2 ..= 6
-            },
-            literal!('z')
+        // let grammar = concatenation! {
+        //     literal!('a' ..= 'z'),
+        //     repetition! {
+        //         literal!(('a'..='z'), ('0'..='9')),
+        //         5..=10
+        //     },
+        //     repetition! {
+        //         literal!('0'..='9'),
+        //         2 ..= 6
+        //     },
+        //     literal!('z')
+        // };
+
+        let grammar = recursive! { g in
+            alternation! {
+                literal!('a'),
+                concatenation! {
+                    literal!('('),
+                    Grammar::recurse(g),
+                    Grammar::recurse(g),
+                    literal!(')')
+                }
+            }
         };
+        println!("{:?}", grammar);
 
         let mutator = GrammarBasedStringMutator::new(grammar);
 
-        let mut value = "a25y3c03z".to_owned();
+        let mut value = "(aa)".to_owned();
         let (mut cache, mut step) = mutator.validate_value(&value).unwrap();
         for _ in 0..10 {
             let (t, cplx) = mutator

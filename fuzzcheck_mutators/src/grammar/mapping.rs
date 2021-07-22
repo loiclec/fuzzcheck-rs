@@ -2,6 +2,8 @@ use crate::boxed::BoxMutator;
 use crate::fuzzcheck_traits::Mutator;
 use crate::grammar::mutators::ASTMutator;
 use crate::grammar::mutators::ASTSingleVariant;
+use crate::recursive::RecurToMutator;
+use crate::recursive::RecursiveMutator;
 use crate::tuples::Tuple1Mutator;
 use crate::{alternation, either::Either, integer::CharWithinRangeMutator, vector::UnmutateVecToken};
 use crate::{
@@ -404,6 +406,52 @@ where
     }
 }
 
+impl<M> IncrementalMapping<AST, String, RecurToMutator<M>> for ASTMapping
+where
+    M: Mutator<AST>,
+    Self: IncrementalMapping<AST, String, M>,
+{
+    fn mutate_value_from_token(
+        &mut self,
+        from_value: &AST,
+        to_value: &mut String,
+        token: &<RecurToMutator<M> as Mutator<AST>>::UnmutateToken,
+    ) {
+        <Self as IncrementalMapping<AST, String, M>>::mutate_value_from_token(self, from_value, to_value, token);
+    }
+
+    fn unmutate_value_from_token(
+        &mut self,
+        to_value: &mut String,
+        token: &<RecurToMutator<M> as Mutator<AST>>::UnmutateToken,
+    ) {
+        <Self as IncrementalMapping<AST, String, M>>::unmutate_value_from_token(self, to_value, token);
+    }
+}
+
+impl<M> IncrementalMapping<AST, String, RecursiveMutator<M>> for ASTMapping
+where
+    M: Mutator<AST>,
+    Self: IncrementalMapping<AST, String, M>,
+{
+    fn mutate_value_from_token(
+        &mut self,
+        from_value: &AST,
+        to_value: &mut String,
+        token: &<RecursiveMutator<M> as Mutator<AST>>::UnmutateToken,
+    ) {
+        <Self as IncrementalMapping<AST, String, M>>::mutate_value_from_token(self, from_value, to_value, token);
+    }
+
+    fn unmutate_value_from_token(
+        &mut self,
+        to_value: &mut String,
+        token: &<RecursiveMutator<M> as Mutator<AST>>::UnmutateToken,
+    ) {
+        <Self as IncrementalMapping<AST, String, M>>::unmutate_value_from_token(self, to_value, token);
+    }
+}
+
 impl<M1, M2> IncrementalMapping<AST, String, Either<M1, M2>> for ASTMapping
 where
     M1: Mutator<AST>,
@@ -585,10 +633,19 @@ impl IncrementalMapping<AST, String, ASTMutator> for ASTMapping {
         <Self as IncrementalMapping<
             AST,
             String,
-            ASTSingleVariant<
-                Tuple1Mutator<char, CharWithinRangeMutator>,
-                Tuple1Mutator<Vec<AST>, Either<FixedLenVecMutator<AST, ASTMutator>, VecMutator<AST, ASTMutator>>>,
-                Tuple1Mutator<Box<AST>, BoxMutator<AST, Either<ASTMutator, AlternationMutator<AST, ASTMutator>>>>,
+            Either<
+                ASTSingleVariant<
+                    Tuple1Mutator<char, CharWithinRangeMutator>,
+                    Tuple1Mutator<Vec<AST>, Either<FixedLenVecMutator<AST, ASTMutator>, VecMutator<AST, ASTMutator>>>,
+                    Tuple1Mutator<
+                        Box<AST>,
+                        BoxMutator<
+                            AST,
+                            Either<Either<ASTMutator, RecurToMutator<ASTMutator>>, AlternationMutator<AST, ASTMutator>>,
+                        >,
+                    >,
+                >,
+                RecursiveMutator<ASTMutator>,
             >,
         >>::mutate_value_from_token(self, from_value, to_value, token.inner.as_ref());
     }
@@ -601,10 +658,19 @@ impl IncrementalMapping<AST, String, ASTMutator> for ASTMapping {
         <Self as IncrementalMapping<
             AST,
             String,
-            ASTSingleVariant<
-                Tuple1Mutator<char, CharWithinRangeMutator>,
-                Tuple1Mutator<Vec<AST>, Either<FixedLenVecMutator<AST, ASTMutator>, VecMutator<AST, ASTMutator>>>,
-                Tuple1Mutator<Box<AST>, BoxMutator<AST, Either<ASTMutator, AlternationMutator<AST, ASTMutator>>>>,
+            Either<
+                ASTSingleVariant<
+                    Tuple1Mutator<char, CharWithinRangeMutator>,
+                    Tuple1Mutator<Vec<AST>, Either<FixedLenVecMutator<AST, ASTMutator>, VecMutator<AST, ASTMutator>>>,
+                    Tuple1Mutator<
+                        Box<AST>,
+                        BoxMutator<
+                            AST,
+                            Either<Either<ASTMutator, RecurToMutator<ASTMutator>>, AlternationMutator<AST, ASTMutator>>,
+                        >,
+                    >,
+                >,
+                RecursiveMutator<ASTMutator>,
             >,
         >>::unmutate_value_from_token(self, to_value, token.inner.as_ref());
     }
