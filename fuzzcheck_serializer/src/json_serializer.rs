@@ -38,7 +38,7 @@ where
     fn to_data(&self, value: &Self::Value) -> Vec<u8> {
         let j = value.to_json();
         let mut res = vec![];
-        j.write(&mut res).unwrap();
+        j.write_pretty(&mut res, 4).unwrap();
         res
     }
 }
