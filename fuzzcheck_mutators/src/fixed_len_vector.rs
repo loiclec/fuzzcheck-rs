@@ -21,7 +21,8 @@ impl<T: Clone, M: Mutator<T>> FixedLenVecMutator<T, M> {
         assert!(!mutators.is_empty());
         let max_complexity =
             crate::size_to_cplxity(mutators.len() + 1) + mutators.iter().fold(0.0, |cplx, m| cplx + m.max_complexity());
-        let min_complexity = crate::size_to_cplxity(mutators.len() + 1);
+        let min_complexity =
+            crate::size_to_cplxity(mutators.len() + 1) + mutators.iter().fold(0.0, |cplx, m| cplx + m.min_complexity());
         Self {
             rng: Rng::default(),
             mutators,
@@ -90,8 +91,9 @@ impl<T: Clone, M: Mutator<T>> FixedLenVecMutator<T, M> {
         let mut v = Vec::with_capacity(self.len());
         let mut sum_cplx = 0.0;
         let mut remaining_cplx = target_cplx;
+        let mut remaining_min_complexity = self.min_complexity();
         for (i, mutator) in self.mutators.iter().enumerate() {
-            let mut max_cplx_element = remaining_cplx / ((self.len() - i) as f64);
+            let mut max_cplx_element = remaining_cplx / ((self.len() - i) as f64) - remaining_min_complexity;
             let min_cplx_el = mutator.min_complexity();
             if min_cplx_el >= max_cplx_element {
                 max_cplx_element = min_cplx_el;
@@ -101,6 +103,7 @@ impl<T: Clone, M: Mutator<T>> FixedLenVecMutator<T, M> {
             v.push(x);
             sum_cplx += x_cplx;
             remaining_cplx -= x_cplx;
+            remaining_min_complexity -= mutator.min_complexity();
         }
         (v, self.min_complexity + sum_cplx)
     }
