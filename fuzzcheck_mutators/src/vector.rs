@@ -286,7 +286,6 @@ impl<T: Clone, M: Mutator<T>> VecMutator<T, M> {
     }
 
     fn new_input_with_length_and_complexity(&self, target_len: usize, target_cplx: f64) -> (Vec<T>, f64) {
-        // TODO: create a new_input_with_complexity method
         let mut v = Vec::with_capacity(target_len);
         let mut sum_cplx = 0.0;
 
@@ -426,7 +425,9 @@ impl<T: Clone, M: Mutator<T>> Mutator<Vec<T>> for VecMutator<T, M> {
         }
         let target_cplx = crate::gen_f64(&self.rng, min_cplx..max_cplx);
         let len_range = self.choose_slice_length(target_cplx);
-        let target_len = self.rng.usize(len_range);
+        let upperbound_max_len = std::cmp::min(*len_range.end(), (max_cplx / self.m.min_complexity()).ceil() as usize);
+        let target_len = self.rng.usize(0..=upperbound_max_len);
+
         self.new_input_with_length_and_complexity(target_len, target_cplx)
     }
 
