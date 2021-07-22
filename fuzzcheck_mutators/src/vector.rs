@@ -441,7 +441,7 @@ impl<T: Clone, M: Mutator<T>> Mutator<Vec<T>> for VecMutator<T, M> {
         if max_cplx < self.min_complexity() {
             return None;
         }
-        if self.rng.usize(0..500) == 0 {
+        if self.rng.usize(0..100) == 0 {
             let (mut v, cplx) = self.random_arbitrary(max_cplx);
             std::mem::swap(value, &mut v);
             return Some((UnmutateVecToken::Replace(v), cplx));
@@ -499,7 +499,7 @@ impl<T: Clone, M: Mutator<T>> Mutator<Vec<T>> for VecMutator<T, M> {
         if max_cplx > mutator_max_cplx {
             max_cplx = mutator_max_cplx;
         }
-        if self.rng.usize(0..500) == 0 {
+        if self.rng.usize(0..100) == 0 {
             let (mut v, cplx) = self.random_arbitrary(max_cplx);
             std::mem::swap(value, &mut v);
             return (UnmutateVecToken::Replace(v), cplx);
