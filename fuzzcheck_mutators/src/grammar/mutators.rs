@@ -3,23 +3,21 @@ extern crate self as fuzzcheck_mutators;
 use std::collections::HashMap;
 use std::rc::{Rc, Weak};
 
+use fuzzcheck_mutators_derive::make_single_variant_mutator;
+
 use crate::either::Either;
 use crate::fuzzcheck_traits::Mutator;
 
 use crate::recursive::{RecurToMutator, RecursiveMutator};
 use crate::{alternation::AlternationMutator, boxed::BoxMutator, tuples::Tuple1Mutator};
-use crate::{fixed_len_vector::FixedLenVecMutator, integer::CharWithinRangeMutator, make_mutator, vector::VecMutator};
+use crate::{fixed_len_vector::FixedLenVecMutator, integer::CharWithinRangeMutator, vector::VecMutator};
 
 use super::grammar::Grammar;
 use super::mapping::IncrementalMapping;
 use crate::grammar::ast::{ASTMapping, AST};
 
-// we don't use ASTMutator__, but we do use ASTSingleVariant and its Mutator conformance]
-make_mutator! {
-    name: ASTMutator__,
-    recursive: false,
-    default: false,
-    type: pub enum AST {
+make_single_variant_mutator! {
+    pub enum AST {
         Token(char),
         Sequence(Vec<AST>),
         Box(Box<AST>),
