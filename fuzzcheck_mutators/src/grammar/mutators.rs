@@ -13,8 +13,9 @@ use crate::{alternation::AlternationMutator, boxed::BoxMutator, tuples::Tuple1Mu
 use crate::{fixed_len_vector::FixedLenVecMutator, integer::CharWithinRangeMutator, vector::VecMutator};
 
 use super::grammar::Grammar;
-use super::mapping::IncrementalMapping;
-use crate::grammar::ast::{ASTMapping, AST};
+use super::parser::parse_from_grammar;
+use crate::grammar::ast::{ASTMap, AST};
+use crate::incremental_map::IncrementalMapMutator;
 
 make_single_variant_mutator! {
     pub enum AST {
@@ -23,6 +24,28 @@ make_single_variant_mutator! {
         Box(Box<AST>),
     }
 }
+
+/**
+TODO: something like this
+make_mutator_wrapper! {
+    name: ASTMutator,
+    additional_wrapper: Box,
+    wrapped_mutator:  Either<
+    ASTSingleVariant<
+        Tuple1Mutator<char, CharWithinRangeMutator>,
+        Tuple1Mutator<Vec<AST>, Either<FixedLenVecMutator<AST, ASTMutator>, VecMutator<AST, ASTMutator>>>,
+        Tuple1Mutator<
+            Box<AST>,
+            BoxMutator<
+                AST,
+                Either<Either<ASTMutator, RecurToMutator<ASTMutator>>, AlternationMutator<AST, ASTMutator>>,
+            >,
+        >,
+    >,
+    RecursiveMutator<ASTMutator>,
+>
+}
+*/
 
 type InnerASTMutator = Either<
     ASTSingleVariant<
@@ -129,112 +152,10 @@ impl Mutator<AST> for ASTMutator {
     }
 }
 
-pub struct GrammarBasedStringMutator {
-    grammar: Rc<Grammar>,
-    ast_mutator: ASTMutator,
-}
-impl GrammarBasedStringMutator {
-    pub fn new(grammar: Rc<Grammar>) -> Self {
-        Self {
-            grammar: grammar.clone(),
-            ast_mutator: ASTMutator::from_grammar(grammar),
-        }
-    }
-}
-pub struct Cache {
-    ast: AST,
-    ast_mutator_cache: <ASTMutator as Mutator<AST>>::Cache,
-    mapping: ASTMapping,
-}
-
-impl Mutator<String> for GrammarBasedStringMutator {
-    type Cache = Cache;
-    type MutationStep = <ASTMutator as Mutator<AST>>::MutationStep;
-    type ArbitraryStep = <ASTMutator as Mutator<AST>>::ArbitraryStep;
-    type UnmutateToken = <ASTMutator as Mutator<AST>>::UnmutateToken;
-
-    fn default_arbitrary_step(&self) -> Self::ArbitraryStep {
-        self.ast_mutator.default_arbitrary_step()
-    }
-
-    fn validate_value(&self, value: &String) -> Option<(Self::Cache, Self::MutationStep)> {
-        let ast = crate::grammar::parser::parse_from_grammar(value, self.grammar.clone())?;
-        let (ast_mutator_cache, mutation_step) = self.ast_mutator.validate_value(&ast).unwrap();
-        let (_, mapping) = ast.generate_string();
-        let cache = Cache {
-            ast,
-            ast_mutator_cache,
-            mapping,
-        };
-        Some((cache, mutation_step))
-    }
-
-    fn max_complexity(&self) -> f64 {
-        self.ast_mutator.max_complexity()
-    }
-
-    fn min_complexity(&self) -> f64 {
-        self.ast_mutator.min_complexity()
-    }
-
-    fn complexity(&self, _value: &String, cache: &Self::Cache) -> f64 {
-        self.ast_mutator.complexity(&cache.ast, &cache.ast_mutator_cache)
-    }
-
-    fn ordered_arbitrary(&self, step: &mut Self::ArbitraryStep, max_cplx: f64) -> Option<(String, f64)> {
-        let (value, cplx) = self.ast_mutator.ordered_arbitrary(step, max_cplx)?;
-        let (x, _) = value.generate_string();
-        Some((x, cplx))
-    }
-
-    fn random_arbitrary(&self, max_cplx: f64) -> (String, f64) {
-        let (value, cplx) = self.ast_mutator.random_arbitrary(max_cplx);
-        let (x, _) = value.generate_string();
-        (x, cplx)
-    }
-
-    fn ordered_mutate(
-        &self,
-        value: &mut String,
-        cache: &mut Self::Cache,
-        step: &mut Self::MutationStep,
-        max_cplx: f64,
-    ) -> Option<(Self::UnmutateToken, f64)> {
-        let (token, cplx) =
-            self.ast_mutator
-                .ordered_mutate(&mut cache.ast, &mut cache.ast_mutator_cache, step, max_cplx)?;
-        <ASTMapping as IncrementalMapping<AST, String, ASTMutator>>::mutate_value_from_token(
-            &mut cache.mapping,
-            &cache.ast,
-            value,
-            &token,
-        );
-        Some((token, cplx))
-    }
-
-    fn random_mutate(&self, value: &mut String, cache: &mut Self::Cache, max_cplx: f64) -> (Self::UnmutateToken, f64) {
-        let (token, cplx) = self
-            .ast_mutator
-            .random_mutate(&mut cache.ast, &mut cache.ast_mutator_cache, max_cplx);
-        <ASTMapping as IncrementalMapping<AST, String, ASTMutator>>::mutate_value_from_token(
-            &mut cache.mapping,
-            &cache.ast,
-            value,
-            &token,
-        );
-        (token, cplx)
-    }
-
-    fn unmutate(&self, value: &mut String, cache: &mut Self::Cache, t: Self::UnmutateToken) {
-        <ASTMapping as IncrementalMapping<AST, String, ASTMutator>>::unmutate_value_from_token(
-            &mut cache.mapping,
-            value,
-            &t,
-        );
-
-        self.ast_mutator
-            .unmutate(&mut cache.ast, &mut cache.ast_mutator_cache, t);
-    }
+pub fn grammar_based_string_mutator(grammar: Rc<Grammar>) -> impl Mutator<String> {
+    let grammar_cloned = grammar.clone();
+    let parse = move |string: &String| parse_from_grammar(string, grammar_cloned.clone());
+    IncrementalMapMutator::<AST, String, ASTMutator, ASTMap, _>::new(parse, ASTMutator::from_grammar(grammar))
 }
 
 impl ASTMutator {
@@ -255,13 +176,6 @@ impl ASTMutator {
             )))),
         }
     }
-    // fn boxed(m: ASTMutator) -> Self {
-    //     Self {
-    //         inner: Box::new(Either::Left(ASTSingleVariant::Box(Tuple1Mutator::new(
-    //             BoxMutator::new(Either::Left(Either::Left(m))),
-    //         )))),
-    //     }
-    // }
     fn recur(m: RecurToMutator<ASTMutator>) -> Self {
         Self {
             inner: Box::new(Either::Left(ASTSingleVariant::Box(Tuple1Mutator::new(

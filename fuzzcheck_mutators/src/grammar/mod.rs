@@ -4,24 +4,18 @@
 
 mod ast;
 mod grammar;
+mod incremental_map_conformance;
 mod list;
-mod mapping;
 mod mutators;
 mod parser;
 
-pub use ast::{ASTMapping, ASTMappingKind, AST};
 pub use grammar::Grammar;
-pub use mutators::{
-    ASTMutator, ASTMutatorArbitraryStep, ASTMutatorCache, ASTMutatorMutationStep, ASTMutatorUnmutateToken,
-    GrammarBasedStringMutator,
-};
-pub use parser::parse_from_grammar;
+pub use mutators::grammar_based_string_mutator;
 
 /**
     Creates a grammar corresponding to a single character within the specfied range or ranges.
     ```
-    # use fuzzcheck_mutators::grammar::Grammar;
-    # use fuzzcheck_mutators::{concatenation, literal};
+    use fuzzcheck_mutators::{concatenation, literal};
     let a = literal!('a'); // a single character
     let a_to_z = literal!('a' ..= 'z'); // a character within a range
     let digit_or_space = literal! { ('0'..='9'), (' ') }; // either a digit or a space
@@ -30,13 +24,13 @@ pub use parser::parse_from_grammar;
 #[macro_export]
 macro_rules! literal {
     ($l:literal) => {
-        Grammar::literal($l..=$l)
+        $crate::grammar::Grammar::literal($l..=$l)
     };
     ($l:expr) => {
-        Grammar::literal($l)
+        $crate::grammar::Grammar::literal($l)
     };
     ( $(($x:expr)),* ) => {
-        Grammar::alternation(vec![
+        $crate::grammar::Grammar::alternation(vec![
             $(literal!($x)),*
         ])
     };
@@ -45,8 +39,7 @@ macro_rules! literal {
     Creates a grammar corresponding to a sequence of rules.
 
     ```
-    # use fuzzcheck_mutators::grammar::Grammar;
-    # use fuzzcheck_mutators::{concatenation, literal};
+    use fuzzcheck_mutators::{concatenation, literal};
     // will match only the string "abcd"
     let abcd = concatenation! {
         literal!('a'),
@@ -59,37 +52,86 @@ macro_rules! literal {
 #[macro_export]
 macro_rules! concatenation {
     ($($gsm:expr),*) => {
-        Grammar::concatenation([
+        $crate::grammar::Grammar::concatenation([
             $($gsm),*
         ])
     }
     ;
 }
+
+/**
+    Creates a grammar corresponding to an alternation of rules.
+
+    ```
+    use fuzzcheck_mutators::{alternation, literal};
+    // will match only the strings "a", "b", and "c"
+    let abc = alternation! {
+        literal!('a'),
+        literal!('b'),
+        literal!('c'),
+    };
+    ```
+*/
 #[macro_export]
 macro_rules! alternation {
     ($($gsm:expr),*) => {
-        Grammar::alternation([
+        $crate::grammar::Grammar::alternation([
             $($gsm),*
         ])
     }
     ;
 }
+
+/**
+    Creates a grammar corresponding to a repetition of rules.
+
+    ```
+    use fuzzcheck_mutators::{repetition, literal};
+    // will match only the strings "", "a", and "aa"
+    let g = repetition! {
+        literal!('a'),
+        0 ..= 2
+    };
+    ```
+*/
 #[macro_export]
 macro_rules! repetition {
     ($g:expr, $range:expr) => {
-        Grammar::repetition($g, $range)
+        $crate::grammar::Grammar::repetition($g, $range)
     };
 }
 
+/**
+    Creates a recursive grammar.
+
+    ```
+    use fuzzcheck_mutators::{recursive, recurse, literal, alternation};
+    // will match the strings "a", "(a)", "((a))", "(((a)))", and so on
+    let g = recursive! { g in
+        alternation! {
+            concatenation! {
+                literal!('('),
+                recurse!(g),
+                literal!(')')
+            },
+            literal('a')
+        }
+    };
+    ```
+*/
 #[macro_export]
 macro_rules! recursive {
     ($g:pat in $e:expr) => {
-        Grammar::recursive(|$g| $e)
+        $crate::grammar::Grammar::recursive(|$g| $e)
     };
 }
+
+/**
+    Creates a point of recursion in a grammar. See: [recursive!](crate::recursive!)
+*/
 #[macro_export]
 macro_rules! recurse {
     ($g:ident) => {
-        Grammar::recurse($g)
+        $crate::grammar::Grammar::recurse($g)
     };
 }

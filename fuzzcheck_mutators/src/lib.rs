@@ -2,6 +2,7 @@
 #![feature(variant_count)]
 #![feature(arc_new_cyclic)]
 #![feature(trivial_bounds)]
+//#![feature(min_type_alias_impl_trait)]
 #![allow(clippy::nonstandard_macro_braces)]
 #![allow(clippy::too_many_arguments)]
 
@@ -66,6 +67,7 @@ pub mod either;
 pub mod enums;
 pub mod fixed_len_vector;
 pub mod grammar;
+pub mod incremental_map;
 pub mod integer;
 pub mod never;
 pub mod option;

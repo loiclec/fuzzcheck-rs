@@ -8,15 +8,29 @@ pub enum AST {
     Box(Box<AST>),
 }
 
+/// Like an abstract syntax tree, but augmented with the string indices that correspond to each node
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ASTMap {
+    pub start_index: usize,
+    pub len: usize,
+    pub content: ASTMappingKind,
+}
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ASTMappingKind {
+    Token,
+    Sequence(Vec<ASTMap>),
+    Box(Box<ASTMap>),
+}
+
 impl AST {
-    pub fn generate_string_in(&self, s: &mut String, start_index: &mut usize) -> ASTMapping {
+    pub fn generate_string_in(&self, s: &mut String, start_index: &mut usize) -> ASTMap {
         match self {
             AST::Token(c) => {
                 let len = c.len_utf8();
                 let orig_start_index = *start_index;
                 s.push(*c);
                 *start_index += len;
-                ASTMapping {
+                ASTMap {
                     start_index: orig_start_index,
                     len,
                     content: ASTMappingKind::Token,
@@ -29,7 +43,7 @@ impl AST {
                     let c = ast.generate_string_in(s, start_index);
                     cs.push(c);
                 }
-                ASTMapping {
+                ASTMap {
                     start_index: original_start_idx,
                     len: *start_index - original_start_idx,
                     content: ASTMappingKind::Sequence(cs),
@@ -37,7 +51,7 @@ impl AST {
             }
             AST::Box(ast) => {
                 let mapping = ast.generate_string_in(s, start_index);
-                ASTMapping {
+                ASTMap {
                     start_index: mapping.start_index,
                     len: mapping.len,
                     content: ASTMappingKind::Box(Box::new(mapping)),
@@ -45,13 +59,13 @@ impl AST {
             }
         }
     }
-    pub fn generate_string(&self) -> (String, ASTMapping) {
+    pub fn generate_string(&self) -> (String, ASTMap) {
         let mut s = String::new();
         let mut start_index = 0;
         let c = self.generate_string_in(&mut s, &mut start_index);
         (s, c)
     }
-    pub fn generate_string_starting_at_idx(&self, idx: usize) -> (String, ASTMapping) {
+    pub fn generate_string_starting_at_idx(&self, idx: usize) -> (String, ASTMap) {
         let mut s = String::new();
         let mut start_index = idx;
         let c = self.generate_string_in(&mut s, &mut start_index);
@@ -59,16 +73,13 @@ impl AST {
     }
 }
 
-/// Like an abstract syntax tree, but augmented with the string indices that correspond to each node
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ASTMapping {
-    pub start_index: usize,
-    pub len: usize,
-    pub content: ASTMappingKind,
+impl From<&AST> for ASTMap {
+    fn from(ast: &AST) -> Self {
+        ast.generate_string().1
+    }
 }
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum ASTMappingKind {
-    Token,
-    Sequence(Vec<ASTMapping>),
-    Box(Box<ASTMapping>),
+impl From<AST> for String {
+    fn from(ast: AST) -> Self {
+        ast.generate_string().0
+    }
 }
