@@ -70,6 +70,7 @@ pub mod integer;
 pub mod never;
 pub mod option;
 pub mod recursive;
+pub mod result;
 pub mod tuples;
 pub mod unit;
 pub mod vector;
