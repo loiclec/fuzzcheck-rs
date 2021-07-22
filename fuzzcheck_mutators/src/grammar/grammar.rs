@@ -5,29 +5,17 @@ use std::{
 };
 
 #[derive(Clone, Debug)]
-pub struct Grammar {
-    pub grammar: Rc<InnerGrammar>,
-}
-impl Grammar {
-    pub fn new(inner: InnerGrammar) -> Self {
-        Self {
-            grammar: Rc::new(inner),
-        }
-    }
-}
-
-#[derive(Debug)]
-pub enum InnerGrammar {
+pub enum Grammar {
     Literal(Range<char>),
-    Alternation(Vec<Grammar>),
-    Concatenation(Vec<Grammar>),
-    Repetition(Grammar, Range<usize>),
-    Shared(Rc<Grammar>),
+    Alternation(Vec<Rc<Grammar>>),
+    Concatenation(Vec<Rc<Grammar>>),
+    Repetition(Rc<Grammar>, Range<usize>),
     Recurse(Weak<Grammar>),
+    Recursive(Rc<Grammar>),
 }
 
 impl Grammar {
-    pub fn literal<R>(range: R) -> Grammar
+    pub fn literal<R>(range: R) -> Rc<Grammar>
     where
         R: RangeBounds<char>,
     {
@@ -41,15 +29,15 @@ impl Grammar {
             std::ops::Bound::Excluded(x) => *x,
             std::ops::Bound::Unbounded => panic!("The range must have an upper bound"),
         };
-        Grammar::new(InnerGrammar::Literal(start..end))
+        Rc::new(Grammar::Literal(start..end))
     }
-    pub fn alternation(gs: impl IntoIterator<Item = Grammar>) -> Grammar {
-        Grammar::new(InnerGrammar::Alternation(gs.into_iter().collect()))
+    pub fn alternation(gs: impl IntoIterator<Item = Rc<Grammar>>) -> Rc<Grammar> {
+        Rc::new(Grammar::Alternation(gs.into_iter().collect()))
     }
-    pub fn concatenation(gs: impl IntoIterator<Item = Grammar>) -> Grammar {
-        Grammar::new(InnerGrammar::Concatenation(gs.into_iter().collect()))
+    pub fn concatenation(gs: impl IntoIterator<Item = Rc<Grammar>>) -> Rc<Grammar> {
+        Rc::new(Grammar::Concatenation(gs.into_iter().collect()))
     }
-    pub fn repetition<R>(gs: Grammar, range: R) -> Grammar
+    pub fn repetition<R>(gs: Rc<Grammar>, range: R) -> Rc<Grammar>
     where
         R: RangeBounds<usize>,
     {
@@ -59,17 +47,19 @@ impl Grammar {
             std::ops::Bound::Unbounded => panic!("The range must have a lower bound"),
         };
         let end = match range.end_bound() {
-            std::ops::Bound::Included(x) => *x + 1,
+            std::ops::Bound::Included(x) => x.saturating_add(1),
             std::ops::Bound::Excluded(x) => *x,
             std::ops::Bound::Unbounded => usize::MAX,
         };
-        Grammar::new(InnerGrammar::Repetition(gs, start..end))
+        Rc::new(Grammar::Repetition(gs, start..end))
     }
 
-    pub fn shared(g: &Rc<Grammar>) -> Grammar {
-        Grammar::new(InnerGrammar::Shared(g.clone()))
+    pub fn recurse(g: &Weak<Grammar>) -> Rc<Grammar> {
+        Rc::new(Grammar::Recurse(g.clone()))
     }
-    pub fn recurse(g: &Weak<Grammar>) -> Grammar {
-        Grammar::new(InnerGrammar::Recurse(g.clone()))
+    pub fn recursive(data_fn: impl Fn(&Weak<Grammar>) -> Rc<Grammar>) -> Rc<Grammar> {
+        Rc::new(Grammar::Recursive(Rc::new_cyclic(|g| {
+            Rc::try_unwrap(data_fn(g)).unwrap()
+        })))
     }
 }

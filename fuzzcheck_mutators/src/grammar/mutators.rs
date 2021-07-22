@@ -309,9 +309,7 @@ impl ASTMutator {
             }
             Grammar::Recursive(g) => Self::recursive(|m| {
                 let weak_g = Rc::downgrade(g);
-                println!("recursive grammar: {:?}", weak_g.as_ptr());
                 others.insert(weak_g.as_ptr(), m.clone());
-                println!("recurse others: {:?}", others.keys());
                 Self::from_grammar_rec(g.clone(), others)
             }),
         }
@@ -322,7 +320,7 @@ impl ASTMutator {
 mod tests {
     use crate::grammar::grammar::Grammar;
     use crate::grammar::mutators::GrammarBasedStringMutator;
-    use crate::{alternation, concatenation, literal, recursive, repetition};
+    use crate::{alternation, concatenation, literal, recurse, recursive, repetition};
     use fuzzcheck_traits::Mutator;
 
     #[test]
@@ -357,25 +355,34 @@ mod tests {
         //     },
         //     literal!('z')
         // };
-
-        let grammar = recursive! { g in
-            alternation! {
-                literal!('a'),
-                concatenation! {
-                    literal!('('),
-                    Grammar::recurse(g),
-                    Grammar::recurse(g),
-                    literal!(')')
-                }
+        let grammar = recursive! { grammar in
+            concatenation! {
+                literal!('a' ..= 'z'),
+                repetition! {
+                    literal!('a'..='z'),
+                    5..=10
+                },
+                repetition! {
+                    recurse!(grammar),
+                    0 ..= usize::MAX
+                },
+                repetition! {
+                    recurse!(grammar),
+                    0 ..= usize::MAX
+                },
+                repetition! {
+                    literal!('0'..='9'),
+                    2 ..= 6
+                },
+                literal!('z')
             }
         };
-        println!("{:?}", grammar);
 
         let mutator = GrammarBasedStringMutator::new(grammar);
-
-        let mut value = "(aa)".to_owned();
+        println!("{:?}", mutator.min_complexity());
+        let mut value = "abcdefabcdeffveencwgrfal51z28z0123z0123z".to_owned();
         let (mut cache, mut step) = mutator.validate_value(&value).unwrap();
-        for _ in 0..10 {
+        for _ in 0..100 {
             let (t, cplx) = mutator
                 .ordered_mutate(&mut value, &mut cache, &mut step, 1000.)
                 .unwrap();
@@ -385,27 +392,27 @@ mod tests {
             // println!("{}", value);
         }
 
-        // for _ in 0..10 {
-        //     let (mut value, _cplx) = mutator.random_arbitrary(1000.0);
-        //     println!("{}", value);
+        // for _ in 0..100 {
+        //     let (mut value, cplx) = mutator.random_arbitrary(1000.0);
+        //     println!("{} {}", value, cplx);
         //     if let Some((mut cache, mut step)) = mutator.validate_value(&value) {
-        //         println!("{:?}", value);
-        //         let original_value = value.clone();
-        //         let original_ast = cache.ast.clone();
-        //         let original_mapping = cache.mapping.clone();
-        //         for _ in 0..10_000 {
-        //             if let Some((t, _cplx)) = mutator.ordered_mutate(&mut value, &mut cache, &mut step, 1000.) {
-        //                 // println!("{:?}", cache.ast);
-        //                 println!("{:?}", value);
-        //                 assert!(mutator.validate_value(&value).is_some());
-        //                 mutator.unmutate(&mut value, &mut cache, t);
-        //                 assert_eq!(original_value, value);
-        //                 assert_eq!(original_ast, cache.ast);
-        //                 assert_eq!(original_mapping, cache.mapping);
-        //             } else {
-        //                 panic!("exhausted");
-        //             }
-        //         }
+        //         // println!("{:?}", value);
+        //         // let original_value = value.clone();
+        //         // let original_ast = cache.ast.clone();
+        //         // let original_mapping = cache.mapping.clone();
+        //         // for _ in 0..10_000 {
+        //         //     if let Some((t, _cplx)) = mutator.ordered_mutate(&mut value, &mut cache, &mut step, 1000.) {
+        //         //         // println!("{:?}", cache.ast);
+        //         //         println!("{:?}", value);
+        //         //         assert!(mutator.validate_value(&value).is_some());
+        //         //         mutator.unmutate(&mut value, &mut cache, t);
+        //         //         assert_eq!(original_value, value);
+        //         //         assert_eq!(original_ast, cache.ast);
+        //         //         assert_eq!(original_mapping, cache.mapping);
+        //         //     } else {
+        //         //         panic!("exhausted");
+        //         //     }
+        //         // }
         //     } else {
         //         println!("value is empty? {}", value.is_empty());
         //         panic!("could not parse {}", value);

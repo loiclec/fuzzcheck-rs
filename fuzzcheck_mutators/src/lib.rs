@@ -4,8 +4,6 @@
 #![feature(trivial_bounds)]
 #![allow(clippy::nonstandard_macro_braces)]
 #![allow(clippy::too_many_arguments)]
-// TODO: remove
-#![feature(box_syntax)]
 
 pub extern crate fastrand;
 pub extern crate fuzzcheck_mutators_derive;

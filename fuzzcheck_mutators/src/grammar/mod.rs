@@ -10,7 +10,7 @@ mod mutators;
 mod parser;
 
 pub use ast::{ASTMapping, ASTMappingKind, AST};
-pub use grammar::{Grammar, InnerGrammar};
+pub use grammar::Grammar;
 pub use mutators::{
     ASTMutator, ASTMutatorArbitraryStep, ASTMutatorCache, ASTMutatorMutationStep, ASTMutatorUnmutateToken,
     GrammarBasedStringMutator,
@@ -78,5 +78,18 @@ macro_rules! alternation {
 macro_rules! repetition {
     ($g:expr, $range:expr) => {
         Grammar::repetition($g, $range)
+    };
+}
+
+#[macro_export]
+macro_rules! recursive {
+    ($g:pat in $e:expr) => {
+        Grammar::recursive(|$g| $e)
+    };
+}
+#[macro_export]
+macro_rules! recurse {
+    ($g:ident) => {
+        Grammar::recurse($g)
     };
 }

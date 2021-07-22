@@ -82,7 +82,12 @@ where
     }
 
     fn min_complexity(&self) -> f64 {
-        0.0 // not right, but easy hack for now
+        // should be the min complexity of the mutator
+        if let Some(m) = self.reference.upgrade() {
+            m.as_ref().min_complexity()
+        } else {
+            1.0 // not right, but easy hack for now
+        }
     }
 
     fn complexity(&self, value: &T, cache: &Self::Cache) -> f64 {
