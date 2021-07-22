@@ -122,7 +122,7 @@ impl<T: Clone, M: Mutator<T>> VecMutator<T, M> {
         let idx = if value.is_empty() {
             0
         } else {
-            self.rng.usize(0..value.len())
+            self.rng.usize(0..=value.len())
         };
         let (el, el_cplx) = self.m.random_arbitrary(spare_cplx);
         value.insert(idx, el);
@@ -230,7 +230,7 @@ impl<T: Clone, M: Mutator<T>> VecMutator<T, M> {
         let idx = if value.is_empty() {
             0
         } else {
-            self.rng.usize(0..value.len())
+            self.rng.usize(0..=value.len())
         };
 
         let target_cplx = crate::gen_f64(
