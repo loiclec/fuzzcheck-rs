@@ -408,6 +408,7 @@ pub struct CharWithinRangeMutator {
     start_range: u32,
     len_range: u32,
     rng: fastrand::Rng,
+    cplx: f64,
 }
 impl CharWithinRangeMutator {
     pub fn new<RB: RangeBounds<char>>(range: RB) -> Self {
@@ -428,10 +429,13 @@ impl CharWithinRangeMutator {
             Bound::Unbounded => <u32>::MAX,
         };
         assert!(start <= end);
+        let len_range = end.wrapping_sub(start);
+        let cplx = 1.0 + crate::size_to_cplxity(len_range as usize);
         Self {
             start_range: start,
-            len_range: end.wrapping_sub(start) as u32,
+            len_range: len_range as u32,
             rng: fastrand::Rng::default(),
+            cplx,
         }
     }
 }
@@ -459,15 +463,15 @@ impl Mutator<char> for CharWithinRangeMutator {
     }
 
     fn max_complexity(&self) -> f64 {
-        32.
+        self.cplx
     }
 
     fn min_complexity(&self) -> f64 {
-        8.
+        self.cplx
     }
 
-    fn complexity(&self, value: &char, _cache: &Self::Cache) -> f64 {
-        char_complexity(*value)
+    fn complexity(&self, _value: &char, _cache: &Self::Cache) -> f64 {
+        self.cplx
     }
 
     fn ordered_arbitrary(&self, step: &mut Self::ArbitraryStep, max_cplx: f64) -> Option<(char, f64)> {
