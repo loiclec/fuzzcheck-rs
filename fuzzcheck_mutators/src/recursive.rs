@@ -29,8 +29,8 @@ For example:
 ```rust
 let s_mutator = RecursiveMutator::new(|mutator| {
     SMutator {
-        content_mutator: ContentMutator::default(),
-        next_mutator: OptionMutator::new(BoxMutator::new(RecurToMutator::new(mutator.clone())))
+        content_mutator: TMutator::default(),
+        next_mutator: OptionMutator::new(BoxMutator::new(RecurToMutator::from(mutator)))
     }
 });
 ```
