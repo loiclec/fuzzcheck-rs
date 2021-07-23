@@ -1,21 +1,21 @@
 extern crate self as fuzzcheck_mutators;
 
-use std::collections::HashMap;
-use std::rc::{Rc, Weak};
-
-use fuzzcheck_mutators_derive::make_single_variant_mutator;
-
-use crate::either::Either;
-use crate::fuzzcheck_traits::Mutator;
-
-use crate::recursive::{RecurToMutator, RecursiveMutator};
-use crate::{alternation::AlternationMutator, boxed::BoxMutator, tuples::Tuple1Mutator};
-use crate::{fixed_len_vector::FixedLenVecMutator, integer::CharWithinRangeMutator, vector::VecMutator};
-
 use super::grammar::Grammar;
 use super::parser::parse_from_grammar;
+use crate::alternation::AlternationMutator;
+use crate::boxed::BoxMutator;
+use crate::char::CharWithinRangeMutator;
+use crate::either::Either;
+use crate::fixed_len_vector::FixedLenVecMutator;
+use crate::fuzzcheck_traits::Mutator;
 use crate::grammar::ast::{ASTMap, AST};
 use crate::incremental_map::IncrementalMapMutator;
+use crate::recursive::{RecurToMutator, RecursiveMutator};
+use crate::tuples::Tuple1Mutator;
+use crate::vector::VecMutator;
+use fuzzcheck_mutators_derive::make_single_variant_mutator;
+use std::collections::HashMap;
+use std::rc::{Rc, Weak};
 
 make_single_variant_mutator! {
     pub enum AST {

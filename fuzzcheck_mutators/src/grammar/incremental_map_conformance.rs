@@ -1,12 +1,12 @@
 use super::ast::{ASTMap, ASTMappingKind, AST};
 use crate::alternation::{self, AlternationMutator};
 use crate::boxed::BoxMutator;
+use crate::char::CharWithinRangeMutator;
 use crate::either::Either;
 use crate::fixed_len_vector::{self, FixedLenVecMutator};
 use crate::fuzzcheck_traits::Mutator;
 use crate::grammar::mutators::{ASTMutator, ASTSingleVariant};
 use crate::incremental_map::IncrementalMapping;
-use crate::integer::CharWithinRangeMutator;
 use crate::recursive::{RecurToMutator, RecursiveMutator};
 use crate::tuples::Tuple1Mutator;
 use crate::vector::{UnmutateVecToken, VecMutator};
