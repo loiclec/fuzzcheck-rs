@@ -81,6 +81,7 @@ pub mod tuples;
 pub mod unit;
 pub mod vector;
 pub mod vose_alias;
+pub mod wrapper;
 
 use crate::fuzzcheck_traits::Mutator;
 use std::ops::Range;
