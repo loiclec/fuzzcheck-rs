@@ -58,22 +58,16 @@ where
     fn unmutate<'a>(&'a self, value: TupleKind::Mut<'a>, cache: &'a mut Self::Cache, t: Self::UnmutateToken);
 }
 
-pub struct TupleMutatorWrapper<T, M, TupleKind>
+pub struct TupleMutatorWrapper<M, TupleKind>
 where
-    T: Clone + 'static,
     TupleKind: RefTypes,
-    T: TupleStructure<TupleKind>,
-    M: TupleMutator<T, TupleKind>,
 {
     pub mutator: M,
-    _phantom: PhantomData<(T, TupleKind)>,
+    _phantom: PhantomData<TupleKind>,
 }
-impl<T, M, TupleKind> TupleMutatorWrapper<T, M, TupleKind>
+impl<M, TupleKind> TupleMutatorWrapper<M, TupleKind>
 where
-    T: Clone + 'static,
     TupleKind: RefTypes,
-    T: TupleStructure<TupleKind>,
-    M: TupleMutator<T, TupleKind>,
 {
     pub fn new(mutator: M) -> Self {
         Self {
@@ -82,12 +76,9 @@ where
         }
     }
 }
-impl<T, M, TupleKind> Default for TupleMutatorWrapper<T, M, TupleKind>
+impl<M, TupleKind> Default for TupleMutatorWrapper<M, TupleKind>
 where
-    T: Clone + 'static,
     TupleKind: RefTypes,
-    T: TupleStructure<TupleKind>,
-    M: TupleMutator<T, TupleKind>,
     M: Default,
 {
     fn default() -> Self {
@@ -98,7 +89,7 @@ where
     }
 }
 
-impl<T, M, TupleKind> Mutator<T> for TupleMutatorWrapper<T, M, TupleKind>
+impl<T, M, TupleKind> Mutator<T> for TupleMutatorWrapper<M, TupleKind>
 where
     T: Clone + 'static,
     TupleKind: RefTypes,

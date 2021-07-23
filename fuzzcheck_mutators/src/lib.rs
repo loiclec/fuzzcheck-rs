@@ -5,7 +5,6 @@
 //#![feature(min_type_alias_impl_trait)]
 #![allow(clippy::nonstandard_macro_braces)]
 #![allow(clippy::too_many_arguments)]
-
 /*!
 This crate provides a range of [mutators](fuzzcheck_traits::Mutator) that can
 be used to run structure-aware fuzz tests using the [fuzzcheck](https://github.com/loiclec/fuzzcheck-rs)

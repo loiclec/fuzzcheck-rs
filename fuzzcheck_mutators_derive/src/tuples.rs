@@ -172,9 +172,7 @@ pub(crate) fn impl_default_mutator_for_struct(tb: &mut TokenBuilder, struc: &Str
 
     let TupleMutatorWrapper = ts!(
         cm.TupleMutatorWrapper "<"
-            struc.ident struc.generics.removing_bounds_and_eq_type() ","
             TupleNMutator "<"
-                field_types ", "
                 join_ts!(field_mutators.iter().flatten(), m,
                     m.mutator_stream(&cm)
                 , separator: ",")
@@ -222,21 +220,10 @@ pub(crate) fn impl_default_mutator_for_struct(tb: &mut TokenBuilder, struc: &Str
 #[allow(non_snake_case)]
 fn declare_tuple_mutator(tb: &mut TokenBuilder, nbr_elements: usize) {
     let cm = Common::new(nbr_elements);
-    let Ti = cm.Ti.as_ref();
     let Mi = cm.Mi.as_ref();
 
-    let tuple_type_params = join_ts!(0..nbr_elements, i, ident!("T" i), separator: ",");
     let mutator_type_params = join_ts!(0..nbr_elements, i, ident!("M" i), separator: ",");
-    let type_params = ts!(tuple_type_params "," mutator_type_params);
-    let tuple_type = ts!("(" tuple_type_params ",)");
-
-    let where_clause = ts!(
-        "where"
-        join_ts!(0..nbr_elements, i,
-            Ti(i) ":" cm.Clone ","
-            Mi(i) ":" cm.fuzzcheck_traits_Mutator "<" Ti(i) ">"
-        ,separator: ",")
-    );
+    let type_params = ts!(mutator_type_params);
 
     let mutator_type_params_replacing_one_by_m = |replacing: usize| -> TokenStream {
         join_ts!(0..nbr_elements, i, 
@@ -249,36 +236,33 @@ fn declare_tuple_mutator(tb: &mut TokenBuilder, nbr_elements: usize) {
     };
 
     extend_ts!(tb,
-        "pub struct" cm.TupleNMutator_ident "<" type_params ">" where_clause
+        "#[derive(" cm.Default ")]"
+        "pub struct" cm.TupleNMutator_ident "<" type_params ">"
         "{"
             join_ts!(0..nbr_elements, i,
                 "pub" ident!("mutator_" i) ":" ident!("M" i) ","
             )
-            "rng :" cm.fastrand_Rng ",
-            _phantom :" cm.PhantomData "<" tuple_type ">"
+            "rng :" cm.fastrand_Rng
         "}
         
-        impl < " type_params " >" cm.TupleNMutator_ident "<" type_params ">" where_clause "{
+        impl < " type_params " >" cm.TupleNMutator_ident "<" type_params "> {
             pub fn new(" join_ts!(0..nbr_elements, i, ident!("mutator_" i) ":" ident!("M" i), separator: ",") ") -> Self {
                 Self {"
                     join_ts!(0..nbr_elements, i,
                         ident!("mutator_" i) ","
                     )
-                    "rng: <_>::default() ,
-                    _phantom:" cm.PhantomData
+                    "rng: <_>::default() ,"
                 "}
             }"
             join_ts!(0..nbr_elements, i,
                 "pub fn" ident!("replacing_mutator_" i) " < M > ( self , mutator : M )
-                    ->" cm.TupleNMutator_ident "<" tuple_type_params ", " mutator_type_params_replacing_one_by_m(i) " >" "
-                    where M :" cm.fuzzcheck_traits_Mutator "<" ident!("T" i) "> 
+                    ->" cm.TupleNMutator_ident "<" mutator_type_params_replacing_one_by_m(i) " >" "
                 {
                     " cm.TupleNMutator_ident " {"
                         join_ts!(0..nbr_elements, j,
                             ident!("mutator_" j) ":" if i == j { ts!("mutator") } else { ts!("self ." ident!("mutator_" j)) } ","
                         )
                         "rng : self.rng ,
-                        _phantom : self._phantom
                     }
                 }"
             )
@@ -366,7 +350,7 @@ fn impl_mutator_trait(tb: &mut TokenBuilder, nbr_elements: usize) {
 
     extend_ts!(tb,"
     impl <T , " type_params " > " cm.TupleMutator "<T , " cm.TupleN_ident "<" tuple_type_params "> > 
-        for " cm.TupleNMutator_ident "< " type_params " >
+        for " cm.TupleNMutator_ident "< " mutator_type_params " >
     where
         T: " cm.Clone "," 
         join_ts!(0..nbr_elements, i,
@@ -591,10 +575,8 @@ fn impl_default_mutator_for_tuple(tb: &mut TokenBuilder, nbr_elements: usize) {
 
     let TupleN = ts!(ident!("Tuple" nbr_elements) "<" tuple_type_params ">");
     let TupleMutatorWrapper = ts!(
-        cm.TupleMutatorWrapper "<
-            (" tuple_type_params ",),"
+        cm.TupleMutatorWrapper "<"
             cm.TupleNMutator_ident "<"
-                tuple_type_params ", "
                 join_ts!(0..nbr_elements, i,
                     "<" Ti(i) "as" cm.DefaultMutator "> :: Mutator"
                 , separator: ",")
@@ -604,24 +586,20 @@ fn impl_default_mutator_for_tuple(tb: &mut TokenBuilder, nbr_elements: usize) {
     );
 
     extend_ts!(tb,
+    // "
+    // impl<" type_params ">" cm.Default "for" cm.TupleNMutator_ident "<" mutator_type_params ">
+    //     where"
+    //     join_ts!(0..nbr_elements, i, Mi(i) ":" cm.Default, separator: ",")
+    // "{
+    //     fn default() -> Self {
+    //         Self::new("
+    //             join_ts!(0..nbr_elements, i,
+    //                 "<" Mi(i) "as" cm.Default "> :: default()"
+    //             , separator: ",")
+    //         ")
+    //     }
+    // }
     "
-    impl<" type_params ">" cm.Default "for" cm.TupleNMutator_ident "<" type_params ">
-        where"
-        join_ts!(0..nbr_elements, i,
-            Ti(i) ":" cm.Clone ","
-            Mi(i) ":" cm.fuzzcheck_traits_Mutator "<" Ti(i) ">,"
-        )
-        join_ts!(0..nbr_elements, i, Mi(i) ":" cm.Default, separator: ",")
-    "{
-        fn default() -> Self {
-            Self::new("
-                join_ts!(0..nbr_elements, i,
-                    "<" Mi(i) "as" cm.Default "> :: default()"
-                , separator: ",")
-            ")
-        }
-    } 
-
     impl<" tuple_type_params ">" cm.DefaultMutator "for (" tuple_type_params ",)
         where" join_ts!(0..nbr_elements, i, Ti(i) ":" cm.DefaultMutator "+ 'static", separator: ",")
     "{

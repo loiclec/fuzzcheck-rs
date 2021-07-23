@@ -49,14 +49,10 @@ make_mutator_wrapper! {
 
 type InnerASTMutator = Either<
     ASTSingleVariant<
-        Tuple1Mutator<char, CharWithinRangeMutator>,
-        Tuple1Mutator<Vec<AST>, Either<FixedLenVecMutator<AST, ASTMutator>, VecMutator<AST, ASTMutator>>>,
+        Tuple1Mutator<CharWithinRangeMutator>,
+        Tuple1Mutator<Either<FixedLenVecMutator<AST, ASTMutator>, VecMutator<AST, ASTMutator>>>,
         Tuple1Mutator<
-            Box<AST>,
-            BoxMutator<
-                AST,
-                Either<Either<ASTMutator, RecurToMutator<ASTMutator>>, AlternationMutator<AST, ASTMutator>>,
-            >,
+            BoxMutator<Either<Either<ASTMutator, RecurToMutator<ASTMutator>>, AlternationMutator<AST, ASTMutator>>>,
         >,
     >,
     RecursiveMutator<ASTMutator>,

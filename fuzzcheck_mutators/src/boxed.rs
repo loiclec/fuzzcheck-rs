@@ -1,31 +1,17 @@
-use std::marker::PhantomData;
-
 use crate::fuzzcheck_traits::Mutator;
-
 use crate::DefaultMutator;
 
-pub struct BoxMutator<T: Clone, M: Mutator<T>> {
+#[derive(Default)]
+pub struct BoxMutator<M> {
     pub mutator: M,
-    _phantom: PhantomData<T>,
 }
-impl<T: Clone, M: Mutator<T>> BoxMutator<T, M> {
+impl<M> BoxMutator<M> {
     pub fn new(mutator: M) -> Self {
-        Self {
-            mutator,
-            _phantom: PhantomData,
-        }
-    }
-}
-impl<T: Clone, M: Mutator<T>> Default for BoxMutator<T, M>
-where
-    M: Default,
-{
-    fn default() -> Self {
-        Self::new(<_>::default())
+        Self { mutator }
     }
 }
 
-impl<T: Clone, M: Mutator<T>> Mutator<Box<T>> for BoxMutator<T, M> {
+impl<T: Clone, M: Mutator<T>> Mutator<Box<T>> for BoxMutator<M> {
     type Cache = M::Cache;
     type MutationStep = M::MutationStep;
     type ArbitraryStep = M::ArbitraryStep;
@@ -87,7 +73,7 @@ impl<T> DefaultMutator for Box<T>
 where
     T: DefaultMutator,
 {
-    type Mutator = BoxMutator<T, <T as DefaultMutator>::Mutator>;
+    type Mutator = BoxMutator<<T as DefaultMutator>::Mutator>;
     fn default_mutator() -> Self::Mutator {
         Self::Mutator::new(T::default_mutator())
     }

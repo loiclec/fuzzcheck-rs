@@ -392,11 +392,7 @@ impl<M1, M2, M3>
     IncrementalMapping<
         AST,
         String,
-        ASTSingleVariant<
-            Tuple1Mutator<char, M1>,
-            Tuple1Mutator<Vec<AST>, M2>,
-            Tuple1Mutator<Box<AST>, BoxMutator<AST, M3>>,
-        >,
+        ASTSingleVariant<Tuple1Mutator<M1>, Tuple1Mutator<M2>, Tuple1Mutator<BoxMutator<M3>>>,
     > for ASTMap
 where
     M1: Mutator<char>,
@@ -410,11 +406,7 @@ where
         &mut self,
         from_value: &AST,
         to_value: &mut String,
-        token: &UnmutateTokenSingleVariant<
-            Tuple1Mutator<char, M1>,
-            Tuple1Mutator<Vec<AST>, M2>,
-            Tuple1Mutator<Box<AST>, BoxMutator<AST, M3>>,
-        >,
+        token: &UnmutateTokenSingleVariant<Tuple1Mutator<M1>, Tuple1Mutator<M2>, Tuple1Mutator<BoxMutator<M3>>>,
     ) {
         match (token, from_value, &mut self.content) {
             (ASTSingleVariant::Token(token), AST::Token(from_value), ASTMappingKind::Token) => {
@@ -447,11 +439,7 @@ where
     fn unmutate_value_from_token(
         &mut self,
         to_value: &mut String,
-        token: &UnmutateTokenSingleVariant<
-            Tuple1Mutator<char, M1>,
-            Tuple1Mutator<Vec<AST>, M2>,
-            Tuple1Mutator<Box<AST>, BoxMutator<AST, M3>>,
-        >,
+        token: &UnmutateTokenSingleVariant<Tuple1Mutator<M1>, Tuple1Mutator<M2>, Tuple1Mutator<BoxMutator<M3>>>,
     ) {
         match (token, &mut self.content) {
             (ASTSingleVariant::Token(token), ASTMappingKind::Token) => {
@@ -493,12 +481,10 @@ impl IncrementalMapping<AST, String, ASTMutator> for ASTMap {
             String,
             Either<
                 ASTSingleVariant<
-                    Tuple1Mutator<char, CharWithinRangeMutator>,
-                    Tuple1Mutator<Vec<AST>, Either<FixedLenVecMutator<AST, ASTMutator>, VecMutator<AST, ASTMutator>>>,
+                    Tuple1Mutator<CharWithinRangeMutator>,
+                    Tuple1Mutator<Either<FixedLenVecMutator<AST, ASTMutator>, VecMutator<AST, ASTMutator>>>,
                     Tuple1Mutator<
-                        Box<AST>,
                         BoxMutator<
-                            AST,
                             Either<Either<ASTMutator, RecurToMutator<ASTMutator>>, AlternationMutator<AST, ASTMutator>>,
                         >,
                     >,
@@ -518,12 +504,10 @@ impl IncrementalMapping<AST, String, ASTMutator> for ASTMap {
             String,
             Either<
                 ASTSingleVariant<
-                    Tuple1Mutator<char, CharWithinRangeMutator>,
-                    Tuple1Mutator<Vec<AST>, Either<FixedLenVecMutator<AST, ASTMutator>, VecMutator<AST, ASTMutator>>>,
+                    Tuple1Mutator<CharWithinRangeMutator>,
+                    Tuple1Mutator<Either<FixedLenVecMutator<AST, ASTMutator>, VecMutator<AST, ASTMutator>>>,
                     Tuple1Mutator<
-                        Box<AST>,
                         BoxMutator<
-                            AST,
                             Either<Either<ASTMutator, RecurToMutator<ASTMutator>>, AlternationMutator<AST, ASTMutator>>,
                         >,
                     >,

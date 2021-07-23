@@ -1,22 +1,34 @@
+use std::marker::PhantomData;
+
 use crate::fuzzcheck_traits::Mutator;
 use fastrand::Rng;
 
-use std::marker::PhantomData;
-
-pub struct FixedLenVecMutator<T: Clone, M: Mutator<T>> {
+pub struct FixedLenVecMutator<T, M>
+where
+    T: Clone,
+    M: Mutator<T>,
+{
     pub rng: Rng,
     mutators: Vec<M>,
     min_complexity: f64,
     max_complexity: f64,
     _phantom: PhantomData<T>,
 }
-impl<T: Clone, M: Mutator<T> + Clone> FixedLenVecMutator<T, M> {
+impl<T, M> FixedLenVecMutator<T, M>
+where
+    T: Clone,
+    M: Mutator<T> + Clone,
+{
     pub fn new_with_repeated_mutator(mutator: M, len: usize) -> Self {
         Self::new(std::iter::repeat(mutator).take(len).collect())
     }
 }
 
-impl<T: Clone, M: Mutator<T>> FixedLenVecMutator<T, M> {
+impl<T, M> FixedLenVecMutator<T, M>
+where
+    T: Clone,
+    M: Mutator<T>,
+{
     pub fn new(mutators: Vec<M>) -> Self {
         assert!(!mutators.is_empty());
         let max_complexity =
@@ -28,7 +40,7 @@ impl<T: Clone, M: Mutator<T>> FixedLenVecMutator<T, M> {
             mutators,
             min_complexity,
             max_complexity,
-            _phantom: <_>::default(),
+            _phantom: PhantomData,
         }
     }
 }
