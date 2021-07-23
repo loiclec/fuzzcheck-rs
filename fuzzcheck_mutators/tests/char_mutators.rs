@@ -1,4 +1,4 @@
-use fuzzcheck_mutators::integer::CharWithinRangeMutator;
+use fuzzcheck_mutators::char::CharWithinRangeMutator;
 use fuzzcheck_mutators::testing_utilities::*;
 
 #[test]

@@ -40,10 +40,6 @@ impl CharWithinRangeMutator {
     }
 }
 
-fn char_complexity(c: char) -> f64 {
-    (c.len_utf8() * 8) as f64
-}
-
 impl Mutator<char> for CharWithinRangeMutator {
     type Cache = ();
     type MutationStep = u64; // mutation step
@@ -84,7 +80,7 @@ impl Mutator<char> for CharWithinRangeMutator {
             let result = binary_search_arbitrary_u32(0, self.len_range, *step);
             *step = step.wrapping_add(1);
             let c = char::from_u32(self.start_range.wrapping_add(result)).unwrap();
-            Some((c, char_complexity(c)))
+            Some((c, self.cplx))
         }
     }
 
@@ -93,7 +89,7 @@ impl Mutator<char> for CharWithinRangeMutator {
             .rng
             .u32(self.start_range..=self.start_range.wrapping_add(self.len_range));
         let value = char::from_u32(value).unwrap();
-        (value, char_complexity(value))
+        (value, self.cplx)
     }
 
     fn ordered_mutate(
@@ -120,7 +116,7 @@ impl Mutator<char> for CharWithinRangeMutator {
 
         *value = result;
 
-        Some((token, char_complexity(*value)))
+        Some((token, self.cplx))
     }
 
     fn random_mutate(&self, value: &mut char, _cache: &mut Self::Cache, _max_cplx: f64) -> (Self::UnmutateToken, f64) {
@@ -133,7 +129,7 @@ impl Mutator<char> for CharWithinRangeMutator {
                 )
                 .unwrap(),
             ),
-            char_complexity(*value),
+            self.cplx,
         )
     }
 

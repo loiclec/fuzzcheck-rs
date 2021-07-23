@@ -1,6 +1,6 @@
 use std::{collections::HashSet, ops::RangeBounds};
 
-use fuzzcheck_mutators::integer::I8WithinRangeMutator;
+use fuzzcheck_mutators::integer_within_range::I8WithinRangeMutator;
 use fuzzcheck_traits::Mutator;
 
 fn test_arbitrary_for_int_range_mutator(range: impl RangeBounds<i8> + IntoIterator<Item = i8> + Clone) {
