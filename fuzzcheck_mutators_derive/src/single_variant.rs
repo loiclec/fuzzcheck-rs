@@ -13,7 +13,7 @@ pub fn make_single_variant_mutator(tb: &mut TokenBuilder, enu: &Enum) {
 
     let EnumSingleVariant = ident!(enu.ident "SingleVariant");
 
-    let EnumSingleVariantMutator = ident!(enu.ident "SingleVariantMutator");
+    // let EnumSingleVariantMutator = ident!(enu.ident "SingleVariantMutator");
     let Tuplei = cm.Tuplei.as_ref();
 
     // item_fields: vector holding the item field types
@@ -130,11 +130,6 @@ pub fn make_single_variant_mutator(tb: &mut TokenBuilder, enu: &Enum) {
         item.ident "(" ident!("M" item.ident) "),"
     )
     "}
-    #[derive(" cm.Default ")]
-    pub struct " EnumSingleVariantMutator enum_generics_no_eq enum_where_clause_plus_cond " {
-        _phantom:" cm.PhantomData "<(" join_ts!(&enum_generics_no_bounds.type_params, tp, tp ",") ")>
-    }
-
     #[allow(non_shorthand_field_patterns)]
     impl " impl_mutator_generics.removing_eq_type() cm.fuzzcheck_traits_Mutator "<" enu.ident enum_generics_no_bounds "> 
         for " EnumSingleVariant single_variant_generics.removing_bounds_and_eq_type() impl_mutator_where_clause 
