@@ -215,41 +215,43 @@ pub trait Serializer {
     fn to_data(&self, value: &Self::Value) -> Vec<u8>;
 }
 
-impl<T: Clone, M> Mutator<T> for Box<M>
-where
-    M: Mutator<T>,
-{
-    type Cache = M::Cache;
-    type MutationStep = M::MutationStep;
-    type ArbitraryStep = M::ArbitraryStep;
-    type UnmutateToken = M::UnmutateToken;
+pub trait MutatorWrapper {
+    type Wrapped;
+    fn wrapped_mutator(&self) -> &Self::Wrapped;
+}
+
+impl<T:Clone,W,M> Mutator<T> for M where M: MutatorWrapper<Wrapped=W>, W: Mutator<T> {
+    type Cache = W::Cache;
+    type MutationStep = W::MutationStep;
+    type ArbitraryStep = W::ArbitraryStep;
+    type UnmutateToken = W::UnmutateToken;
 
     fn default_arbitrary_step(&self) -> Self::ArbitraryStep {
-        self.as_ref().default_arbitrary_step()
+        self.wrapped_mutator().default_arbitrary_step()
     }
 
     fn validate_value(&self, value: &T) -> Option<(Self::Cache, Self::MutationStep)> {
-        self.as_ref().validate_value(value)
+        self.wrapped_mutator().validate_value(value)
     }
 
     fn max_complexity(&self) -> f64 {
-        self.as_ref().max_complexity()
+        self.wrapped_mutator().max_complexity()
     }
 
     fn min_complexity(&self) -> f64 {
-        self.as_ref().min_complexity()
+        self.wrapped_mutator().min_complexity()
     }
 
     fn complexity(&self, value: &T, cache: &Self::Cache) -> f64 {
-        self.as_ref().complexity(value, cache)
+        self.wrapped_mutator().complexity(value, cache)
     }
 
     fn ordered_arbitrary(&self, step: &mut Self::ArbitraryStep, max_cplx: f64) -> Option<(T, f64)> {
-        self.as_ref().ordered_arbitrary(step, max_cplx)
+        self.wrapped_mutator().ordered_arbitrary(step, max_cplx)
     }
 
     fn random_arbitrary(&self, max_cplx: f64) -> (T, f64) {
-        self.as_ref().random_arbitrary(max_cplx)
+        self.wrapped_mutator().random_arbitrary(max_cplx)
     }
 
     fn ordered_mutate(
@@ -259,14 +261,20 @@ where
         step: &mut Self::MutationStep,
         max_cplx: f64,
     ) -> Option<(Self::UnmutateToken, f64)> {
-        self.as_ref().ordered_mutate(value, cache, step, max_cplx)
+        self.wrapped_mutator().ordered_mutate(value, cache, step, max_cplx)
     }
 
     fn random_mutate(&self, value: &mut T, cache: &mut Self::Cache, max_cplx: f64) -> (Self::UnmutateToken, f64) {
-        self.as_ref().random_mutate(value, cache, max_cplx)
+        self.wrapped_mutator().random_mutate(value, cache, max_cplx)
     }
 
     fn unmutate(&self, value: &mut T, cache: &mut Self::Cache, t: Self::UnmutateToken) {
-        self.as_ref().unmutate(value, cache, t)
+        self.wrapped_mutator().unmutate(value, cache, t)
+    }
+}
+impl<M> MutatorWrapper for Box<M> {
+    type Wrapped = M;
+    fn wrapped_mutator(&self) -> &Self::Wrapped {
+        self.as_ref()
     }
 }

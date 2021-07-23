@@ -1,3 +1,5 @@
+use fuzzcheck_traits::MutatorWrapper;
+
 use crate::fuzzcheck_traits::Mutator;
 use std::rc::{Rc, Weak};
 
@@ -137,59 +139,10 @@ where
     }
 }
 
-impl<T, M> Mutator<T> for RecursiveMutator<M>
-where
-    M: Mutator<T>,
-    T: Clone,
-{
-    type Cache = <M as Mutator<T>>::Cache;
-    type MutationStep = <M as Mutator<T>>::MutationStep;
-    type ArbitraryStep = <M as Mutator<T>>::ArbitraryStep;
-    type UnmutateToken = <M as Mutator<T>>::UnmutateToken;
+impl<M> MutatorWrapper for RecursiveMutator<M> {
+    type Wrapped = M;
 
-    fn default_arbitrary_step(&self) -> Self::ArbitraryStep {
-        Rc::as_ref(&self.mutator).default_arbitrary_step()
-    }
-
-    fn validate_value(&self, value: &T) -> Option<(Self::Cache, Self::MutationStep)> {
-        Rc::as_ref(&self.mutator).validate_value(value)
-    }
-
-    fn max_complexity(&self) -> f64 {
-        std::f64::INFINITY
-    }
-
-    fn min_complexity(&self) -> f64 {
-        Rc::as_ref(&self.mutator).min_complexity()
-    }
-
-    fn complexity(&self, value: &T, cache: &Self::Cache) -> f64 {
-        Rc::as_ref(&self.mutator).complexity(value, cache)
-    }
-
-    fn ordered_arbitrary(&self, step: &mut Self::ArbitraryStep, max_cplx: f64) -> Option<(T, f64)> {
-        Rc::as_ref(&self.mutator).ordered_arbitrary(step, max_cplx)
-    }
-
-    fn random_arbitrary(&self, max_cplx: f64) -> (T, f64) {
-        Rc::as_ref(&self.mutator).random_arbitrary(max_cplx)
-    }
-
-    fn ordered_mutate(
-        &self,
-        value: &mut T,
-        cache: &mut Self::Cache,
-        step: &mut Self::MutationStep,
-        max_cplx: f64,
-    ) -> Option<(Self::UnmutateToken, f64)> {
-        Rc::as_ref(&self.mutator).ordered_mutate(value, cache, step, max_cplx)
-    }
-
-    fn random_mutate(&self, value: &mut T, cache: &mut Self::Cache, max_cplx: f64) -> (Self::UnmutateToken, f64) {
-        Rc::as_ref(&self.mutator).random_mutate(value, cache, max_cplx)
-    }
-
-    fn unmutate(&self, value: &mut T, cache: &mut Self::Cache, t: Self::UnmutateToken) {
-        Rc::as_ref(&self.mutator).unmutate(value, cache, t)
+    fn wrapped_mutator(&self) -> &Self::Wrapped {
+        Rc::as_ref(&self.mutator)
     }
 }
