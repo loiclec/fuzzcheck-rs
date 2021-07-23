@@ -3,6 +3,7 @@ use std::fmt::Debug;
 
 #[derive(Debug, Clone)]
 pub struct VoseAlias {
+    pub original_probabilities: Vec<f64>,
     alias: Vec<usize>,
     prob: Vec<f64>,
     rng: Rng,
@@ -17,6 +18,7 @@ impl PartialEq for VoseAlias {
 impl VoseAlias {
     /// Note: the probabilities must sum up to 1.0
     pub fn new(mut probabilities: Vec<f64>) -> VoseAlias {
+        let original_probabilities = probabilities.clone();
         // Step 0: ensure sum of probabilities is equal to 1
         assert!(!probabilities.is_empty());
         let sum = probabilities.iter().fold(0.0, |sum, p| sum + p);
@@ -80,6 +82,7 @@ impl VoseAlias {
         }
 
         VoseAlias {
+            original_probabilities,
             alias,
             prob,
             rng: Rng::default(),

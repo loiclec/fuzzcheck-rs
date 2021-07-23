@@ -296,8 +296,7 @@ fn declare_tuple_mutator_helper_types(tb: &mut TokenBuilder, nbr_elements: usize
                 ti(i) ":" Ti(i) ","
             )
             "inner : " cm.Vec " < InnerMutationStep > ,
-            dead_ends : " cm.Vec "<bool> ,
-            dead_end: bool,
+            vose_alias : Option<" cm.VoseAlias ">
         }
         pub struct ArbitraryStep < " tuple_type_params " > {"
             join_ts!(0..nbr_elements, i,
@@ -418,23 +417,25 @@ fn impl_mutator_trait(tb: &mut TokenBuilder, nbr_elements: usize) {
                     ident!("cplx_" i)
                 , separator: "+") ";
 
-            let dead_ends = vec![" join_ts!(0 .. nbr_elements, _, "false,")  "];
+            let mut probabilities = vec!["
+                join_ts!(0..nbr_elements, i,
+                    "10. +" ident!("cplx_" i)
+                , separator: ",") "
+            ];
+            let sum_prob = probabilities.iter().sum::<f64>();
+            probabilities.iter_mut().for_each(|c| *c /= sum_prob);
+            let vose_alias = " cm.VoseAlias "::new(probabilities);
 
             let step = Self::MutationStep {"
                 join_ts!(0..nbr_elements, i, ti(i) ":" ident!("s" i) ",")
                 "inner: vec![" join_ts!(0..nbr_elements, i, "InnerMutationStep::" Ti(i), separator: ",") "] ,
-                dead_ends,
-                dead_end: false,
+                vose_alias: Some(vose_alias.clone())
             };
 
             let cache = Self::Cache {"
                 join_ts!(0..nbr_elements, i, ti(i) ":" ident!("c" i) ",")
                 "cplx: sum_cplx,
-                vose_alias :" cm.VoseAlias "::new(vec!["
-                    join_ts!(0..nbr_elements, i,
-                        ident!("cplx_" i) "/ sum_cplx"
-                    , separator: ",") "
-                ])
+                vose_alias,
             };
 
             " cm.Some "((cache, step))
@@ -491,15 +492,12 @@ fn impl_mutator_trait(tb: &mut TokenBuilder, nbr_elements: usize) {
             max_cplx: f64,
         ) -> " cm.Option "<(Self::UnmutateToken, f64)> {
             if max_cplx < <Self as" cm.TupleMutator "<T , " cm.TupleN_ident "<" tuple_type_params "> > >::min_complexity(self) { return " cm.None " }
-            if step.inner.is_empty() || step.dead_end {
+            if step.inner.is_empty() || step.vose_alias.is_none() {
                 return " cm.None ";
             }
-            let step_idx = loop {
-                let candidate = cache.vose_alias.sample();
-                if ! unsafe { *step.dead_ends.get_unchecked(candidate) } { 
-                    break candidate
-                }
-            };
+            let vose_alias = step.vose_alias.as_ref().unwrap();
+            let step_idx = vose_alias.sample();
+
             let current_cplx = " SelfAsTupleMutator "::complexity(self, " TupleNAsRefTypes "::get_ref_from_mut(&value), cache); 
             let inner_step_to_remove: usize;
 
@@ -522,10 +520,14 @@ fn impl_mutator_trait(tb: &mut TokenBuilder, nbr_elements: usize) {
                 }"
             )"
             }
-            step.dead_ends[inner_step_to_remove] = true;
-            if !step.dead_ends.contains(&false) {
-                step.dead_end = true;
-                return None
+            let mut prob = vose_alias.original_probabilities.clone();
+            prob[inner_step_to_remove] = 0.0;
+            let sum = prob.iter().sum::<f64>();
+            if sum == 0.0 {
+                step.vose_alias = " cm.None ";
+            }  else {
+                prob.iter_mut().for_each(|c| *c /= sum );
+                step.vose_alias = " cm.Some "(" cm.VoseAlias "::new(prob));
             }
             " SelfAsTupleMutator "::ordered_mutate(self, value, cache, step, max_cplx)
         }

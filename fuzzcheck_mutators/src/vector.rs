@@ -61,8 +61,7 @@ where
 
 pub struct MutationStep<S> {
     inner: Vec<S>,
-    dead_ends: Vec<bool>,
-    dead_end: bool,
+    alias: Option<VoseAlias>,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -351,7 +350,10 @@ impl<T: Clone, M: Mutator<T>> Mutator<Vec<T>> for VecMutator<T, M> {
         let sum_cplx = cplxs.iter().fold(0.0, |sum_cplx, c| sum_cplx + c);
 
         let alias = if !inner_caches.is_empty() {
-            Some(VoseAlias::new(cplxs.into_iter().map(|c| (c / sum_cplx)).collect()))
+            let mut probabilities = cplxs.into_iter().map(|c| 10. + c).collect::<Vec<_>>();
+            let sum_prob = probabilities.iter().sum::<f64>();
+            probabilities.iter_mut().for_each(|c| *c /= sum_prob);
+            Some(VoseAlias::new(probabilities))
         } else {
             None
         };
@@ -359,13 +361,11 @@ impl<T: Clone, M: Mutator<T>> Mutator<Vec<T>> for VecMutator<T, M> {
         let cache = VecMutatorCache {
             inner: inner_caches,
             sum_cplx,
-            alias,
+            alias: alias.clone(),
         };
-        let dead_ends = repeat(false).take(inner_steps.len()).collect();
         let step = MutationStep {
             inner: inner_steps,
-            dead_ends,
-            dead_end: false,
+            alias
         };
 
         Some((cache, step))
@@ -453,32 +453,36 @@ impl<T: Clone, M: Mutator<T>> Mutator<Vec<T>> for VecMutator<T, M> {
         let current_cplx = self.complexity(value, cache);
         let spare_cplx = max_cplx - current_cplx;
 
-        let token = if value.is_empty() || step.dead_end || self.rng.usize(0..10) == 0 {
+        let token = if value.is_empty() || step.alias.is_none() || self.rng.usize(0..10) == 0 {
             // vector mutation
-            match self.rng.usize(0..15) {
+            match self.rng.usize(0.. if value.is_empty() { 5 } else { 15 }) {
                 0..=3 => self.insert_element(value, cache, spare_cplx),
-                4..=7 => self.remove_element(value, cache),
-                8 => self.insert_repeated_elements(value, cache, spare_cplx),
+                4 => self.insert_repeated_elements(value, cache, spare_cplx),
+                5..=8 => self.remove_element(value, cache),
                 9 => self.remove_many_elements(value, cache),
                 10..=14 => self.use_dictionary(value, cache, spare_cplx),
                 _ => unreachable!(),
             }
         } else {
             // we know value is not empty, therefore the alias is Some
-            let alias = cache.alias.as_ref().unwrap();
-            let idx = loop {
-                let candidate = alias.sample();
-                if !step.dead_ends[candidate] {
-                    break candidate;
+            if let Some(alias) = step.alias.as_ref() {
+                let idx = alias.sample();
+                if let Some(x) = self.mutate_element(value, cache, step, idx, spare_cplx) {
+                    Some(x)
+                } else {
+                    let mut prob = step.alias.as_ref().unwrap().original_probabilities.clone();
+                    prob[idx] = 0.0;
+                    let sum = prob.iter().sum::<f64>();
+                    if sum == 0.0 {
+                        step.alias = None;
+                    }  else {
+                        prob.iter_mut().for_each(|c| *c /= sum );
+                        step.alias = Some(VoseAlias::new(prob));
+                    }
+                    
+                    None
                 }
-            };
-            if let Some(x) = self.mutate_element(value, cache, step, idx, spare_cplx) {
-                Some(x)
             } else {
-                step.dead_ends[idx] = true;
-                if !step.dead_ends.contains(&false) {
-                    step.dead_end = true;
-                }
                 None
             }
         };
@@ -509,15 +513,17 @@ impl<T: Clone, M: Mutator<T>> Mutator<Vec<T>> for VecMutator<T, M> {
 
         if value.is_empty() || self.rng.usize(0..10) == 0 {
             // vector mutation
-            match self.rng.usize(0..15) {
+            match self.rng.usize(0.. if value.is_empty() { 5 } else { 15 } ) {
                 0..=3 => self.insert_element(value, cache, spare_cplx),
-                4..=7 => self.remove_element(value, cache),
-                8 => self.insert_repeated_elements(value, cache, spare_cplx),
+                4 => self.insert_repeated_elements(value, cache, spare_cplx),
+                5..=8 => self.remove_element(value, cache),
                 9 => self.remove_many_elements(value, cache),
                 10..=14 => self.use_dictionary(value, cache, spare_cplx),
                 _ => None,
             }
-            .unwrap_or_else(|| self.random_mutate(value, cache, max_cplx))
+            .unwrap_or_else(|| {
+                self.random_mutate(value, cache, max_cplx)
+            })
         } else {
             // element mutation
             // we know value is not empty, therefore the alias is Some
