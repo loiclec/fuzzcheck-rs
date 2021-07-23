@@ -70,7 +70,6 @@ pub fn make_single_variant_mutator(tb: &mut TokenBuilder, enu: &Enum) {
             .collect(),
     };
     let single_variant_generics = single_variant_generics_for_prefix(&ident!("M"));
-    let enum_generics_no_eq = enu.generics.removing_eq_type();
     let enum_generics_no_bounds = enu.generics.removing_bounds_and_eq_type();
 
     let mut enum_where_clause_plus_cond = enu.where_clause.clone().unwrap_or_default();

@@ -567,11 +567,8 @@ fn impl_default_mutator_for_tuple(tb: &mut TokenBuilder, nbr_elements: usize) {
     let cm = Common::new(nbr_elements);
 
     let Ti = cm.Ti.as_ref();
-    let Mi = cm.Mi.as_ref();
 
     let tuple_type_params = join_ts!(0..nbr_elements, i, Ti(i), separator: ",");
-    let mutator_type_params = join_ts!(0..nbr_elements, i, Mi(i), separator: ",");
-    let type_params = ts!(tuple_type_params "," mutator_type_params);
 
     let TupleN = ts!(ident!("Tuple" nbr_elements) "<" tuple_type_params ">");
     let TupleMutatorWrapper = ts!(
