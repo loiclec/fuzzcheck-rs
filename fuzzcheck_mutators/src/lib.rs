@@ -67,6 +67,7 @@ pub mod either;
 pub mod enums;
 pub mod fixed_len_vector;
 pub mod grammar;
+pub mod map;
 pub mod incremental_map;
 pub mod integer;
 pub mod integer_within_range;
