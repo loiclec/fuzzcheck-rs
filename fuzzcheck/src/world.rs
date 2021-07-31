@@ -50,6 +50,7 @@ pub struct World<S: Serializer> {
 }
 
 impl<S: Serializer> World<S> {
+    #[no_coverage]
     pub fn new(serializer: S, settings: FullCommandLineArguments) -> Self {
         #[cfg(feature = "ui")]
         let stream = if let Some(socket_address) = settings.socket_address {
@@ -73,6 +74,7 @@ impl<S: Serializer> World<S> {
     }
 
     #[cfg(not(feature = "ui"))]
+    #[no_coverage]
     fn hash_and_string_of_input(&self, input: &S::Value) -> (String, Vec<u8>) {
         let input = self.serializer.to_data(input);
         let mut hasher = DefaultHasher::new();
@@ -83,6 +85,7 @@ impl<S: Serializer> World<S> {
     }
 
     #[cfg(feature = "ui")]
+    #[no_coverage]
     fn hash_and_string_of_input(&self, input: &S::Value) -> (String, Vec<u8>) {
         let input = self.serializer.to_data(&input);
         let mut hasher = DefaultHasher::new();
@@ -99,6 +102,7 @@ impl<S: Serializer> World<S> {
     }
 
     #[allow(unused_variables)]
+    #[no_coverage]
     pub(crate) fn do_actions(&mut self, actions: Vec<WorldAction<S::Value>>, stats: &FuzzerStats) -> Result<()> {
         for a in actions {
             let message = match a {
@@ -143,6 +147,7 @@ impl<S: Serializer> World<S> {
         Ok(())
     }
 
+    #[no_coverage]
     pub fn add_to_output_corpus(&self, name: String, content: Vec<u8>) -> Result<()> {
         if self.settings.corpus_out.is_none() {
             return Ok(());
@@ -159,6 +164,7 @@ impl<S: Serializer> World<S> {
         Ok(())
     }
 
+    #[no_coverage]
     pub fn remove_from_output_corpus(&self, name: String) -> Result<()> {
         if self.settings.corpus_out.is_none() {
             return Ok(());
@@ -171,6 +177,7 @@ impl<S: Serializer> World<S> {
         Ok(())
     }
 
+    #[no_coverage]
     fn report_event(&self, event: FuzzerEvent, stats: Option<FuzzerStats>) {
         // println uses a lock, which may mess up the signal handling
         match event {
@@ -237,19 +244,24 @@ This should never happen, and is probably a bug in fuzzcheck. Sorry :("#
         }
     }
 
+    #[no_coverage]
     pub fn set_start_instant(&mut self) {
         self.initial_instant = Instant::now();
     }
+    #[no_coverage]
     pub fn set_checkpoint_instant(&mut self) {
         self.checkpoint_instant = Instant::now();
     }
+    #[no_coverage]
     pub fn elapsed_time_since_start(&self) -> usize {
         self.initial_instant.elapsed().as_micros() as usize
     }
+    #[no_coverage]
     pub fn elapsed_time_since_last_checkpoint(&self) -> usize {
         self.checkpoint_instant.elapsed().as_micros() as usize
     }
 
+    #[no_coverage]
     pub fn read_input_corpus(&self) -> Result<Vec<S::Value>> {
         if self.settings.corpus_in.is_none() {
             return Result::Ok(vec![]);
@@ -275,6 +287,7 @@ This should never happen, and is probably a bug in fuzzcheck. Sorry :("#
         }
         Ok(inputs)
     }
+    #[no_coverage]
     pub fn read_input_file(&self) -> Result<S::Value> {
         if let Some(input_file) = &self.settings.input_file {
             let data = fs::read(input_file)?;
@@ -294,6 +307,7 @@ This should never happen, and is probably a bug in fuzzcheck. Sorry :("#
         }
     }
 
+    #[no_coverage]
     pub fn save_artifact(&mut self, input: &S::Value, cplx: f64) -> Result<()> {
         let artifacts_folder = self.settings.artifacts_folder.as_ref();
         if artifacts_folder.is_none() {
@@ -332,6 +346,7 @@ This should never happen, and is probably a bug in fuzzcheck. Sorry :("#
     }
 
     #[cfg(feature = "ui")]
+    #[no_coverage]
     pub fn report_coverage(
         &mut self,
         input: &S::Value,
@@ -342,6 +357,7 @@ This should never happen, and is probably a bug in fuzzcheck. Sorry :("#
     }
 
     #[cfg(feature = "ui")]
+    #[no_coverage]
     pub fn read_message_from_user(&mut self, blocking: bool) -> Option<MessageUserToFuzzer> {
         if let Some(stream) = &mut self.stream {
             let _ = stream.set_nonblocking(blocking);
@@ -357,12 +373,14 @@ This should never happen, and is probably a bug in fuzzcheck. Sorry :("#
     }
 
     #[cfg(feature = "ui")]
+    #[no_coverage]
     fn write_to_stream(&mut self, message: &TuiMessage) {
         if let Some(stream) = &mut self.stream {
             ipc::write(stream, &message.to_json().to_string());
         }
     }
 
+    #[no_coverage]
     pub fn pause_until_unpause_message(&mut self) {
         #[cfg(feature = "ui")]
         {
@@ -394,6 +412,7 @@ This should never happen, and is probably a bug in fuzzcheck. Sorry :("#
         }
     }
 
+    #[no_coverage]
     pub fn handle_user_message(&mut self) {
         #[cfg(feature = "ui")]
         {
@@ -409,6 +428,7 @@ This should never happen, and is probably a bug in fuzzcheck. Sorry :("#
         }
     }
 
+    #[no_coverage]
     pub fn stop(&mut self) -> ! {
         #[cfg(feature = "ui")]
         self.write_to_stream(&TuiMessage::Stopped);

@@ -5,7 +5,7 @@ use fuzzcheck_mutators::recursive::RecurToMutator;
 use fuzzcheck_mutators::fuzzcheck_traits::Mutator;
 use fuzzcheck_mutators::DefaultMutator;
 #[test]
-fn test_compile() {
+#[no_coverage] fn test_compile() {
     let m = S::default_mutator();
     let (x, _) = m.random_arbitrary(10.0);
     println!("{:?}", x);

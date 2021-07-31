@@ -13,6 +13,7 @@ mod test {
     use super::*;
     use fuzzcheck_mutators::fuzzcheck_traits::Mutator;
     #[test]
+    #[no_coverage]
     fn test_compile() {
         let _m = X::default_mutator();
         let m = Y::default_mutator();

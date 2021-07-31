@@ -6,6 +6,7 @@ use nix::signal;
 
 static mut SIGNAL_HANDLER: Option<Box<dyn Fn(nix::libc::c_int) -> !>> = None;
 
+#[no_coverage]
 extern "C" fn os_handler(s: nix::libc::c_int) {
     // Assuming this always succeeds. Can't really handle errors in any meaningful way.
     unsafe {
@@ -18,6 +19,7 @@ extern "C" fn os_handler(s: nix::libc::c_int) {
     }
 }
 // TODO: remove nix dependency, only use libc?
+#[no_coverage]
 pub unsafe fn set_signal_handlers<F: 'static>(f: F)
 where
     F: Fn(nix::libc::c_int) -> !,
@@ -53,6 +55,7 @@ where
     }
 }
 
+#[no_coverage]
 unsafe fn reset_signal_handlers() {
     let reset_action = signal::SigAction::new(
         signal::SigHandler::SigDfl,
@@ -67,6 +70,7 @@ unsafe fn reset_signal_handlers() {
 }
 
 extern "C" {
+    #[no_coverage]
     fn setitimer(
         which: nix::libc::c_int,
         new_value: *mut nix::libc::itimerval,
@@ -74,6 +78,7 @@ extern "C" {
     ) -> nix::libc::c_int;
 }
 
+#[no_coverage]
 pub fn set_timer(milliseconds: usize) {
     let seconds = milliseconds / 1000;
     let microseconds = (((milliseconds - (1000 * seconds)) * 1000) % (i32::MAX) as usize) as libc::suseconds_t;

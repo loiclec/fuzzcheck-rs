@@ -1,4 +1,6 @@
 #![feature(arc_new_cyclic)]
+#![feature(no_coverage)]
+
 /*!
 The fuzzcheck_traits crate defines the `Mutator` and `Serializer` traits
 used by all fuzzcheck-related crates.
@@ -61,10 +63,10 @@ used by all fuzzcheck-related crates.
  case, only implement `random_mutate` and call it from the `ordered_mutate`
  method.
  ```rust
- fn random_mutate(&self, value: &mut Value, cache: &mut Self::Cache, max_cplx: f64) -> (Self::UnmutateToken, f64) {
+ #[no_coverage] fn random_mutate(&self, value: &mut Value, cache: &mut Self::Cache, max_cplx: f64) -> (Self::UnmutateToken, f64) {
      // ...
  }
-fn ordered_mutate(&self, value: &mut Value, cache: &mut Self::Cache, step: &mut Self::MutationStep, max_cplx: f64) -> Option<(Self::UnmutateToken, f64)> {
+#[no_coverage] fn ordered_mutate(&self, value: &mut Value, cache: &mut Self::Cache, step: &mut Self::MutationStep, max_cplx: f64) -> Option<(Self::UnmutateToken, f64)> {
     Some(self.random_mutate(value, cache, max_cplx))
  }
  ```
@@ -209,51 +211,68 @@ pub trait Mutator<Value: Clone> {
 */
 pub trait Serializer {
     type Value;
+
     fn is_utf8(&self) -> bool;
+
     fn extension(&self) -> &str;
+
     fn from_data(&self, data: &[u8]) -> Option<Self::Value>;
+
     fn to_data(&self, value: &Self::Value) -> Vec<u8>;
 }
 
 pub trait MutatorWrapper {
     type Wrapped;
+
     fn wrapped_mutator(&self) -> &Self::Wrapped;
 }
 
-impl<T:Clone,W,M> Mutator<T> for M where M: MutatorWrapper<Wrapped=W>, W: Mutator<T> {
+impl<T: Clone, W, M> Mutator<T> for M
+where
+    M: MutatorWrapper<Wrapped = W>,
+    W: Mutator<T>,
+{
     type Cache = W::Cache;
     type MutationStep = W::MutationStep;
     type ArbitraryStep = W::ArbitraryStep;
     type UnmutateToken = W::UnmutateToken;
 
+    #[no_coverage]
     fn default_arbitrary_step(&self) -> Self::ArbitraryStep {
         self.wrapped_mutator().default_arbitrary_step()
     }
 
+    #[no_coverage]
     fn validate_value(&self, value: &T) -> Option<(Self::Cache, Self::MutationStep)> {
         self.wrapped_mutator().validate_value(value)
     }
 
+    #[no_coverage]
     fn max_complexity(&self) -> f64 {
         self.wrapped_mutator().max_complexity()
     }
 
+    #[no_coverage]
     fn min_complexity(&self) -> f64 {
         self.wrapped_mutator().min_complexity()
     }
 
+    #[no_coverage]
     fn complexity(&self, value: &T, cache: &Self::Cache) -> f64 {
         self.wrapped_mutator().complexity(value, cache)
     }
 
+    #[no_coverage]
     fn ordered_arbitrary(&self, step: &mut Self::ArbitraryStep, max_cplx: f64) -> Option<(T, f64)> {
         self.wrapped_mutator().ordered_arbitrary(step, max_cplx)
     }
 
+    #[no_coverage]
     fn random_arbitrary(&self, max_cplx: f64) -> (T, f64) {
         self.wrapped_mutator().random_arbitrary(max_cplx)
     }
 
+    #[no_coverage]
     fn ordered_mutate(
         &self,
         value: &mut T,
@@ -264,16 +283,19 @@ impl<T:Clone,W,M> Mutator<T> for M where M: MutatorWrapper<Wrapped=W>, W: Mutato
         self.wrapped_mutator().ordered_mutate(value, cache, step, max_cplx)
     }
 
+    #[no_coverage]
     fn random_mutate(&self, value: &mut T, cache: &mut Self::Cache, max_cplx: f64) -> (Self::UnmutateToken, f64) {
         self.wrapped_mutator().random_mutate(value, cache, max_cplx)
     }
 
+    #[no_coverage]
     fn unmutate(&self, value: &mut T, cache: &mut Self::Cache, t: Self::UnmutateToken) {
         self.wrapped_mutator().unmutate(value, cache, t)
     }
 }
 impl<M> MutatorWrapper for Box<M> {
     type Wrapped = M;
+    #[no_coverage]
     fn wrapped_mutator(&self) -> &Self::Wrapped {
         self.as_ref()
     }

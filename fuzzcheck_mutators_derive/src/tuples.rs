@@ -39,19 +39,22 @@ pub fn make_tuple_type_structure(tb: &mut TokenBuilder, nbr_elements: usize) {
             type Owned = " tuple_owned ";
             type Ref<'a> = " tuple_ref ";
             type Mut<'a> = " tuple_mut ";
+            #[no_coverage]
             fn get_ref_from_mut<'a>(v: &'a Self::Mut<'a>) -> Self::Ref<'a> {
                 (" join_ts!(0..nbr_elements, i, "v." i ",") ")
             }
         }
         "
         "impl<" type_params_static_bound "> " cm.TupleStructure "<" cm.TupleN_ident "<" type_params "> > for" tuple_owned "{
+            #[no_coverage]
             fn get_ref<'a>(&'a self) -> " tuple_ref " {
                 (" join_ts!(0..nbr_elements, i, "&self." i ",") ")
             }
-
+            #[no_coverage]
             fn get_mut<'a>(&'a mut self) -> " tuple_mut " {
                 (" join_ts!(0..nbr_elements, i, "&mut self." i ",") ")
             }
+            #[no_coverage]
             fn new(t: " tuple_owned ") -> Self {
                 t
             }
@@ -83,14 +86,17 @@ pub(crate) fn impl_tuple_structure_trait(tb: &mut TokenBuilder, struc: &Struct) 
     extend_ts!(tb,
         "impl" generics_no_eq cm.TupleStructure "<" TupleKind "<" field_types "> >
             for" struc.ident generics_no_eq_nor_bounds where_clause "{
+            #[no_coverage]
             fn get_ref<'a>(&'a self) -> " tuple_ref " {
                 (" join_ts!(&struc.struct_fields, field, "&self." field.access() ",") ")
             }
 
+            #[no_coverage]
             fn get_mut<'a>(&'a mut self) -> " tuple_mut " {
                 (" join_ts!(&struc.struct_fields, field, "&mut self." field.access() ",") ")
             }
 
+            #[no_coverage]
             fn new(t:" tuple_owned ") -> Self {
                 Self {"
                     join_ts!(struc.struct_fields.iter().enumerate(), (i, field),
@@ -121,6 +127,7 @@ pub(crate) fn impl_default_mutator_for_struct_with_0_field(tb: &mut TokenBuilder
     "impl " generics_no_eq cm.DefaultMutator "for" struc.ident generics_no_eq_nor_bounds where_clause "{
         type Mutator = " cm.UnitMutator "<Self>;
     
+        #[no_coverage]
         fn default_mutator() -> Self::Mutator {
             Self::Mutator::new(" struc.ident init ")
         }
@@ -192,7 +199,9 @@ pub(crate) fn impl_default_mutator_for_struct(tb: &mut TokenBuilder, struc: &Str
         field_mutators: &field_mutators,
         InnerMutator: &TupleMutatorWrapper,
         new_impl: &ts!(
-            "pub fn new("
+            "
+            #[no_coverage]
+            pub fn new("
             join_ts!(struc.struct_fields.iter().zip(field_mutators.iter().flatten()), (field, mutator),
                 ident!("mutator_" field.access()) ":" mutator.mutator_stream(&cm)
             , separator: ",")
@@ -207,6 +216,7 @@ pub(crate) fn impl_default_mutator_for_struct(tb: &mut TokenBuilder, struc: &Str
             }"
         ),
         default_impl: &ts!("
+            #[no_coverage]
             fn default() -> Self {
                 Self { mutator : <_>::default() }
             }
@@ -246,6 +256,7 @@ fn declare_tuple_mutator(tb: &mut TokenBuilder, nbr_elements: usize) {
         "}
         
         impl < " type_params " >" cm.TupleNMutator_ident "<" type_params "> {
+            #[no_coverage]
             pub fn new(" join_ts!(0..nbr_elements, i, ident!("mutator_" i) ":" ident!("M" i), separator: ",") ") -> Self {
                 Self {"
                     join_ts!(0..nbr_elements, i,
@@ -255,7 +266,8 @@ fn declare_tuple_mutator(tb: &mut TokenBuilder, nbr_elements: usize) {
                 "}
             }"
             join_ts!(0..nbr_elements, i,
-                "pub fn" ident!("replacing_mutator_" i) " < M > ( self , mutator : M )
+                "#[no_coverage]
+                pub fn" ident!("replacing_mutator_" i) " < M > ( self , mutator : M )
                     ->" cm.TupleNMutator_ident "<" mutator_type_params_replacing_one_by_m(i) " >" "
                 {
                     " cm.TupleNMutator_ident " {"
@@ -311,6 +323,7 @@ fn declare_tuple_mutator_helper_types(tb: &mut TokenBuilder, nbr_elements: usize
             "
         }
         impl < " tuple_type_params " > " cm.Default " for UnmutateToken < " tuple_type_params " > {
+            #[no_coverage]
             fn default() -> Self {
                 Self {"
                     join_ts!(0..nbr_elements, i,
@@ -379,7 +392,7 @@ fn impl_mutator_trait(tb: &mut TokenBuilder, nbr_elements: usize) {
                 "<" Mi(i) "as" cm.fuzzcheck_traits_Mutator "<" Ti(i) "> >::UnmutateToken "
             , separator: ",")
         ">;
-        
+        #[no_coverage]
         fn default_arbitrary_step(&self) -> Self::ArbitraryStep {
             Self::ArbitraryStep {"
                 join_ts!(0..nbr_elements, i,
@@ -387,23 +400,23 @@ fn impl_mutator_trait(tb: &mut TokenBuilder, nbr_elements: usize) {
                 , separator: ",")
             "}
         }
-        
+        #[no_coverage]
         fn max_complexity(&self) -> f64 {"
             join_ts!(0..nbr_elements, i,
                 "self." mutator_i(i) ".max_complexity()"
             , separator: "+")
         "}
-        
+        #[no_coverage]
         fn min_complexity(&self) -> f64 {"
             join_ts!(0..nbr_elements, i,
                 "self." mutator_i(i) ".min_complexity()"
             , separator: "+")
         "}
-        
+        #[no_coverage]
         fn complexity<'a>(&'a self, _value: " tuple_ref ", cache: &'a Self::Cache) -> f64 {
             cache.cplx
         }
-        
+        #[no_coverage]
         fn validate_value<'a>(&'a self, value: " tuple_ref ") -> " cm.Option "<(Self::Cache, Self::MutationStep)> {"
             join_ts!(0..nbr_elements, i,
                 "let (" ident!("c" i) ", " ident!("s" i) ") = self." mutator_i(i) ".validate_value(value." i ")?;"
@@ -440,7 +453,7 @@ fn impl_mutator_trait(tb: &mut TokenBuilder, nbr_elements: usize) {
 
             " cm.Some "((cache, step))
         }
-        
+        #[no_coverage]
         fn ordered_arbitrary(
             &self,
             step: &mut Self::ArbitraryStep,
@@ -452,7 +465,7 @@ fn impl_mutator_trait(tb: &mut TokenBuilder, nbr_elements: usize) {
             " // TODO: actually write something that is ordered_arbitrary sense here
             cm.Some "  (self.random_arbitrary(max_cplx))
         }
-        
+        #[no_coverage]
         fn random_arbitrary(&self, max_cplx: f64) -> (T, f64) {"
             join_ts!(0..nbr_elements, i,
                 "let mut" ti_value(i) ":" cm.Option "<_> =" cm.None ";"
@@ -483,7 +496,7 @@ fn impl_mutator_trait(tb: &mut TokenBuilder, nbr_elements: usize) {
                 sum_cplx,
             )
         }
-        
+        #[no_coverage]
         fn ordered_mutate<'a>(
             &'a self,
             value: " tuple_mut ",
@@ -531,7 +544,7 @@ fn impl_mutator_trait(tb: &mut TokenBuilder, nbr_elements: usize) {
             }
             " SelfAsTupleMutator "::ordered_mutate(self, value, cache, step, max_cplx)
         }
-        
+        #[no_coverage]
         fn random_mutate<'a>(&'a self, value: " tuple_mut ", cache: &'a mut Self::Cache, max_cplx: f64, ) -> (Self::UnmutateToken, f64) {
             let current_cplx = " SelfAsTupleMutator "::complexity(self, " TupleNAsRefTypes "::get_ref_from_mut(&value), cache);
             match cache.vose_alias.sample() {"
@@ -551,7 +564,7 @@ fn impl_mutator_trait(tb: &mut TokenBuilder, nbr_elements: usize) {
                 "_ => unreachable!() ,
             }
         }
-        
+        #[no_coverage]
         fn unmutate<'a>(&'a self, value: " tuple_mut ", cache: &'a mut Self::Cache, t: Self::UnmutateToken) {"
             join_ts!(0..nbr_elements, i,
                 "if let" cm.Some "(subtoken) = t." ti(i) "{
@@ -603,6 +616,7 @@ fn impl_default_mutator_for_tuple(tb: &mut TokenBuilder, nbr_elements: usize) {
         where" join_ts!(0..nbr_elements, i, Ti(i) ":" cm.DefaultMutator "+ 'static", separator: ",")
     "{
         type Mutator = " TupleMutatorWrapper ";
+        #[no_coverage]
         fn default_mutator() -> Self::Mutator {
             Self::Mutator::new(" cm.TupleNMutator_ident "::new("
                 join_ts!(0..nbr_elements, i,

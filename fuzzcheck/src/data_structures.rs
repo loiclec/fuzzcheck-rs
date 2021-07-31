@@ -26,10 +26,11 @@ impl<'a, T> LargeStepFindIter<'a, T>
 where
     T: Copy,
 {
+    #[no_coverage]
     pub fn new(slice: &'a [T]) -> Self {
         Self { slice, position: 0 }
     }
-
+    #[no_coverage]
     fn slow_find<P>(&mut self, cmp: P, start: usize, end: usize) -> Option<T>
     where
         P: Fn(T) -> Ordering,
@@ -44,7 +45,7 @@ where
         }
         None
     }
-
+    #[no_coverage]
     pub fn find<P>(&mut self, cmp: P) -> Option<T>
     where
         P: Fn(T) -> Ordering,
@@ -99,6 +100,7 @@ mod tests {
     use super::*;
 
     #[test]
+    #[no_coverage]
     fn test_large_step_find_iter() {
         let xs = vec![
             0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 89, 90,
@@ -132,6 +134,7 @@ pub struct SlabKey<T> {
 
 impl<T> SlabKey<T> {
     #[cfg(not(test))]
+    #[no_coverage]
     fn new(key: usize) -> Self {
         Self {
             key,
@@ -140,6 +143,7 @@ impl<T> SlabKey<T> {
     }
 
     #[cfg(test)]
+    #[no_coverage]
     pub fn new(key: usize) -> Self {
         Self {
             key,
@@ -151,12 +155,14 @@ impl<T> SlabKey<T> {
 impl<T> Copy for SlabKey<T> {}
 
 impl<T> Clone for SlabKey<T> {
+    #[no_coverage]
     fn clone(&self) -> Self {
         Self::new(self.key)
     }
 }
 
 impl<T> PartialEq for SlabKey<T> {
+    #[no_coverage]
     fn eq(&self, other: &Self) -> bool {
         self.key == other.key
     }
@@ -165,17 +171,20 @@ impl<T> PartialEq for SlabKey<T> {
 impl<T> Eq for SlabKey<T> {}
 
 impl<T> fmt::Debug for SlabKey<T> {
+    #[no_coverage]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "k{}", self.key)
     }
 }
 
 impl<T> PartialOrd for SlabKey<T> {
+    #[no_coverage]
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.key.cmp(&other.key))
     }
 }
 impl<T> Ord for SlabKey<T> {
+    #[no_coverage]
     fn cmp(&self, other: &Self) -> Ordering {
         self.key.cmp(&other.key)
     }
@@ -191,13 +200,14 @@ pub struct Slab<T> {
 }
 
 impl<T> Slab<T> {
+    #[no_coverage]
     pub fn new() -> Self {
         Self {
             storage: Vec::with_capacity(1000),
             available_slots: Vec::with_capacity(32),
         }
     }
-
+    #[no_coverage]
     pub fn insert(&mut self, x: T) -> SlabKey<T> {
         if let Some(&slot) = self.available_slots.last() {
             self.available_slots.pop();
@@ -208,10 +218,11 @@ impl<T> Slab<T> {
             SlabKey::new(self.storage.len() - 1)
         }
     }
+    #[no_coverage]
     pub fn remove(&mut self, key: SlabKey<T>) {
         self.available_slots.push(key.key);
     }
-
+    #[no_coverage]
     pub fn next_key(&self) -> SlabKey<T> {
         if let Some(&slot) = self.available_slots.last() {
             SlabKey::new(slot)
@@ -219,7 +230,7 @@ impl<T> Slab<T> {
             SlabKey::new(self.storage.len())
         }
     }
-
+    #[no_coverage]
     pub fn get_mut(&mut self, key: SlabKey<T>) -> Option<&mut T> {
         // O(n) but in practice very fast because there will be almost no available slots
         if self.available_slots.contains(&key.key) {
@@ -232,12 +243,13 @@ impl<T> Slab<T> {
 
 impl<T> Index<SlabKey<T>> for Slab<T> {
     type Output = T;
-
+    #[no_coverage]
     fn index(&self, key: SlabKey<T>) -> &Self::Output {
         unsafe { self.storage.get_unchecked(key.key) }
     }
 }
 impl<T> IndexMut<SlabKey<T>> for Slab<T> {
+    #[no_coverage]
     fn index_mut(&mut self, key: SlabKey<T>) -> &mut Self::Output {
         unsafe { self.storage.get_unchecked_mut(key.key) }
     }
@@ -248,6 +260,7 @@ impl<T> IndexMut<SlabKey<T>> for Slab<T> {
 /// The start and end of the range must be finite
 /// This is a very naive implementation
 #[inline(always)]
+#[no_coverage]
 fn gen_f64(rng: &fastrand::Rng, range: Range<f64>) -> f64 {
     range.start + rng.f64() * (range.end - range.start)
 }
@@ -263,6 +276,7 @@ pub struct WeightedIndex<'a> {
 }
 
 impl<'a> WeightedIndex<'a> {
+    #[no_coverage]
     pub fn sample(&self, rng: &fastrand::Rng) -> usize {
         assert!(!self.cumulative_weights.is_empty());
         if self.cumulative_weights.len() == 1 {
@@ -281,212 +295,5 @@ impl<'a> WeightedIndex<'a> {
                 }
             })
             .unwrap_err()
-    }
-}
-
-#[cfg(all(trace_compares, test))]
-const SIZE: usize = 0b1 << 30;
-#[cfg(trace_compares)]
-const L0_SIZE: usize = 0b1 << 24;
-#[cfg(trace_compares)]
-const L1_SIZE: usize = 0b1 << 18;
-#[cfg(trace_compares)]
-const L2_SIZE: usize = 0b1 << 12;
-#[cfg(trace_compares)]
-const L3_SIZE: usize = 0b1 << 6;
-
-#[cfg(trace_compares)]
-pub struct HBitSet {
-    l0: Vec<u64>,
-    l1: Vec<u64>,
-    l2: Vec<u64>,
-    l3: Vec<u64>,
-}
-
-#[cfg(trace_compares)]
-impl HBitSet {
-    pub fn new() -> Self {
-        Self {
-            l0: std::iter::repeat(0).take(L0_SIZE).collect(),
-            l1: std::iter::repeat(0).take(L1_SIZE).collect(),
-            l2: std::iter::repeat(0).take(L2_SIZE).collect(),
-            l3: std::iter::repeat(0).take(L3_SIZE).collect(),
-        }
-    }
-
-    #[inline]
-    pub fn set(&mut self, mut idx: usize) {
-        // assert!(idx < SIZE);
-
-        let bit = 0b1 << (idx % 64);
-        idx /= 64;
-        unsafe {
-            *self.l0.get_unchecked_mut(idx) |= bit;
-        }
-
-        let bit = 0b1 << (idx % 64);
-        idx /= 64;
-        unsafe {
-            *self.l1.get_unchecked_mut(idx) |= bit;
-        }
-
-        let bit = 0b1 << (idx % 64);
-        idx /= 64;
-        unsafe {
-            *self.l2.get_unchecked_mut(idx) |= bit;
-        }
-
-        let bit = 0b1 << (idx % 64);
-        idx /= 64;
-        unsafe {
-            *self.l3.get_unchecked_mut(idx) |= bit;
-        }
-    }
-
-    // pub fn test(&self, el: usize) -> bool {
-    //     let (idx, bit) = (el / 64, el % 64);
-
-    //     self.l0[idx] & (0b1 << bit) != 0
-    // }
-
-    pub fn drain(&mut self, mut f: impl FnMut(u64)) {
-        for (idx, map) in self.l3.iter_mut().enumerate() {
-            if *map == 0 {
-                continue;
-            }
-            for bit in 0..64 {
-                if *map & (0b1 << bit) == 0 {
-                    continue;
-                }
-
-                let inner_idx = idx * 64 + bit;
-
-                for (idx, map) in unsafe {
-                    self.l2
-                        .get_unchecked_mut(inner_idx..inner_idx + (64 - bit))
-                        .iter_mut()
-                        .enumerate()
-                } {
-                    if *map == 0 {
-                        continue;
-                    }
-                    for bit in 0..64 {
-                        if *map & (0b1 << bit) == 0 {
-                            continue;
-                        }
-
-                        let inner_idx = (inner_idx + idx) * 64 + bit;
-
-                        for (idx, map) in unsafe {
-                            self.l1
-                                .get_unchecked_mut(inner_idx..inner_idx + (64 - bit))
-                                .iter_mut()
-                                .enumerate()
-                        } {
-                            if *map == 0 {
-                                continue;
-                            }
-                            for bit in 0..64 {
-                                if *map & (0b1 << bit) == 0 {
-                                    continue;
-                                }
-
-                                let inner_idx = (inner_idx + idx) * 64 + bit;
-
-                                for (idx, map) in unsafe {
-                                    self.l0
-                                        .get_unchecked_mut(inner_idx..inner_idx + (64 - bit))
-                                        .iter_mut()
-                                        .enumerate()
-                                } {
-                                    if *map == 0 {
-                                        continue;
-                                    }
-                                    let element = ((inner_idx + idx) as u64) * 64;
-                                    for bit in 0..64 {
-                                        if *map & (0b1 << bit) != 0 {
-                                            f(element + bit);
-                                        }
-                                    }
-
-                                    *map = 0;
-                                }
-                            }
-
-                            *map = 0;
-                        }
-                    }
-
-                    *map = 0;
-                }
-            }
-
-            *map = 0;
-        }
-    }
-}
-
-#[cfg(all(test, trace_compares))]
-mod bench_hbitset {
-    extern crate test;
-    use std::collections::HashSet;
-
-    use super::*;
-    use test::Bencher;
-
-    #[test]
-    fn test_set_correct() {
-        let mut hbitset = HBitSet::new();
-        let mut set = HashSet::new();
-        for _ in 0..1000_000 {
-            let j = fastrand::usize(0..SIZE);
-            set.insert(j);
-            hbitset.set(j);
-            // hbitset.set(i);
-            assert!(hbitset.test(j), "{}", j);
-            // hbitset.set(SIZE - 1 - i);
-            // assert!(hbitset.test(SIZE - 1 - i), "{}", i);
-            // assert!(hbitset.test(i - 2000) == false, "{}", i);
-        }
-
-        let mut count = 0;
-        hbitset.drain(|j| {
-            assert!(set.contains(&(j as usize)));
-            count += 1;
-        });
-        assert_eq!(count, set.len());
-        // for i in 10_000_001..20_000_000 {
-        //     assert!(hbitset.test(i) == false, "{}", i);
-        // }
-    }
-
-    #[bench]
-    fn test_set(b: &mut Bencher) {
-        let mut hbitset = HBitSet::new();
-        b.iter(|| {
-            for _ in 0..10 {
-                for i in 0..100_000 {
-                    let j = fastrand::usize(0..SIZE);
-                    hbitset.set(j);
-                }
-            }
-            std::hint::black_box(&hbitset);
-        });
-    }
-    #[bench]
-    fn test_drain(b: &mut Bencher) {
-        let mut hbitset = HBitSet::new();
-        b.iter(|| {
-            for _ in 0..10 {
-                for i in 0..10_000 {
-                    let j = fastrand::usize(0..SIZE);
-                    hbitset.set(j);
-                }
-                let mut sum = 0;
-                hbitset.drain(|_| sum += 1);
-                std::hint::black_box(sum);
-                assert!(sum > 0);
-            }
-        });
     }
 }

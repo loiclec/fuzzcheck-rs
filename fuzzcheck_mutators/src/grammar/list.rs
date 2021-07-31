@@ -12,12 +12,15 @@ impl<T> List<T>
 where
     T: Clone,
 {
+    #[no_coverage]
     pub fn is_empty(&self) -> bool {
         matches!(self, List::Empty)
     }
+    #[no_coverage]
     pub fn prepend(self: &Rc<Self>, x: T) -> Rc<List<T>> {
         Rc::new(List::Cons(x, self.clone()))
     }
+    #[no_coverage]
     fn to_vec_recursive(self: &Rc<Self>, acc: &mut Vec<T>) {
         match self.as_ref() {
             List::Empty => {}
@@ -27,17 +30,20 @@ where
             }
         }
     }
+    #[no_coverage]
     pub fn to_vec(self: &Rc<Self>) -> Vec<T> {
         let mut acc = Vec::new();
         self.to_vec_recursive(&mut acc);
         acc
     }
+    #[no_coverage]
     pub fn from_slice(v: &[T]) -> Self {
         match v {
             [] => Self::Empty,
             [r, rs @ ..] => Self::Cons(r.clone(), Rc::new(Self::from_slice(rs))),
         }
     }
+    #[no_coverage]
     pub fn iter(self: Rc<Self>) -> ListIter<T> {
         ListIter { list: self }
     }
@@ -54,6 +60,7 @@ where
 {
     type Item = T;
 
+    #[no_coverage]
     fn next(&mut self) -> Option<Self::Item> {
         let (next_list, result) = match self.list.as_ref() {
             List::Empty => (self.list.clone(), None),

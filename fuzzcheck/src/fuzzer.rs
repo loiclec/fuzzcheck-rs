@@ -2,6 +2,8 @@
 //!to the [Pool] and uses an evolutionary algorithm using [Mutator] to find new interesting
 //! test inputs.
 
+use crate::code_coverage_sensor::CodeCoverageSensor;
+use crate::data_structures::{LargeStepFindIter, SlabKey};
 use crate::nix_subset as nix;
 #[cfg(feature = "ui")]
 use crate::pool::Input;
@@ -9,10 +11,6 @@ use crate::pool::{AnalyzedFeature, Pool, PoolIndex};
 use crate::signals_handler::{set_signal_handlers, set_timer};
 use crate::world::World;
 use crate::world::WorldAction;
-use crate::{
-    code_coverage_sensor,
-    data_structures::{LargeStepFindIter, SlabKey},
-};
 use crate::{Feature, FuzzedInput, Mutator, Serializer};
 
 use fuzzcheck_common::{FuzzerEvent, FuzzerStats};
@@ -39,6 +37,7 @@ struct AnalysisCache<T: Clone, M: Mutator<T>> {
     new_features: Vec<Feature>,
 }
 impl<T: Clone, M: Mutator<T>> Default for AnalysisCache<T, M> {
+    #[no_coverage]
     fn default() -> Self {
         Self {
             existing_features: Vec::new(),
@@ -58,6 +57,7 @@ pub(crate) struct AnalysisResult<T: Clone, M: Mutator<T>> {
 }
 
 struct FuzzerState<T: Clone, M: Mutator<T>, S: Serializer<Value = T>> {
+    sensor: CodeCoverageSensor,
     mutator: M,
     pool: Pool<T, M>,
     arbitrary_step: M::ArbitraryStep,
@@ -69,6 +69,7 @@ struct FuzzerState<T: Clone, M: Mutator<T>, S: Serializer<Value = T>> {
 }
 
 impl<T: Clone, M: Mutator<T>, S: Serializer<Value = T>> FuzzerState<T, M, S> {
+    #[no_coverage]
     fn get_input<'a>(
         fuzzer_input_idx: &'a FuzzerInputIndex<T, M>,
         pool: &'a Pool<T, M>,
@@ -85,6 +86,7 @@ impl<T: Clone, M: Mutator<T>, S: Serializer<Value = T>> FuzzerState<T, M, S>
 where
     Self: 'static,
 {
+    #[no_coverage]
     fn update_stats(&mut self) {
         let microseconds = self.world.elapsed_time_since_last_checkpoint();
 
@@ -100,7 +102,7 @@ where
             self.stats.number_of_runs_since_last_reset_time = self.stats.total_number_of_runs;
         }
     }
-
+    #[no_coverage]
     fn receive_signal(&mut self, signal: i32) -> ! {
         use signal::Signal::{self, *};
         if let Ok(signal) = Signal::try_from(signal) {
@@ -134,7 +136,7 @@ where
             exit(TerminationStatus::Unknown as i32)
         }
     }
-
+    #[no_coverage]
     fn arbitrary_input(&mut self) -> Option<(FuzzedInput<T, M>, f64)> {
         if let Some((v, cplx)) = self
             .mutator
@@ -146,7 +148,7 @@ where
             None
         }
     }
-
+    #[no_coverage]
     unsafe fn set_up_signal_handler(&mut self) {
         let ptr = self as *mut Self;
         set_signal_handlers(move |sig| (&mut *ptr).receive_signal(sig));
@@ -175,10 +177,13 @@ where
     M: Mutator<T>,
     S: Serializer<Value = T>,
 {
+    #[no_coverage]
     pub fn new(test: F, mutator: M, settings: FullCommandLineArguments, world: World<S>) -> Self {
         let arbitrary_step = mutator.default_arbitrary_step();
+        let sensor = CodeCoverageSensor::new();
         Fuzzer {
             state: FuzzerState {
+                sensor,
                 mutator,
                 pool: Pool::default(),
                 arbitrary_step,
@@ -193,14 +198,7 @@ where
         }
     }
 
-    fn max_iter(&self) -> usize {
-        if self.state.settings.max_nbr_of_runs == 0 {
-            usize::max_value()
-        } else {
-            self.state.settings.max_nbr_of_runs
-        }
-    }
-
+    #[no_coverage]
     fn test_input(
         test: &F,
         mutator: &M,
@@ -208,14 +206,19 @@ where
         timeout: usize,
         world: &mut World<S>,
         stats: FuzzerStats,
+        sensor: &mut CodeCoverageSensor,
     ) -> Result<(), std::io::Error> {
-        code_coverage_sensor::clear();
+        unsafe {
+            sensor.clear();
+        }
 
         if timeout != 0 {
             set_timer(timeout);
         }
 
-        code_coverage_sensor::start_recording();
+        unsafe {
+            sensor.start_recording();
+        }
 
         let cell = NotUnwindSafe { value: test };
         let input_cell = NotUnwindSafe {
@@ -223,7 +226,9 @@ where
         };
         let result = catch_unwind(|| (cell.value)(input_cell.value));
 
-        code_coverage_sensor::stop_recording();
+        unsafe {
+            sensor.stop_recording();
+        }
 
         if timeout != 0 {
             set_timer(0);
@@ -233,7 +238,7 @@ where
             world.do_actions(vec![WorldAction::ReportEvent(FuzzerEvent::TestFailure)], &stats)?;
             //world.report_event(FuzzerEvent::TestFailure, Some(stats));
             let mut features: Vec<Feature> = Vec::new();
-            code_coverage_sensor::iterate_over_collected_features(|f| features.push(f));
+            unsafe { sensor.iterate_over_collected_features(|f| features.push(f)) };
             world.save_artifact(&input.value, input.complexity(mutator))?;
             exit(TerminationStatus::TestFailure as i32);
         }
@@ -241,6 +246,7 @@ where
         Ok(())
     }
 
+    #[no_coverage]
     fn analyze(&mut self, cur_input_cplx: f64) -> Option<AnalysisResult<T, M>> {
         let mut best_input_for_a_feature = false;
 
@@ -251,23 +257,25 @@ where
         let existing_features = &mut self.state.analysis_cache.existing_features;
         let new_features = &mut self.state.analysis_cache.new_features;
 
-        code_coverage_sensor::iterate_over_collected_features(|feature| {
-            if let Some(f_for_iter) = step_iter.find(|feature_for_iter| feature_for_iter.feature.cmp(&feature)) {
-                if f_for_iter.feature == feature {
-                    existing_features.push(f_for_iter.key);
-                    let f = &slab_features[f_for_iter.key];
-                    if cur_input_cplx < f.least_complexity {
+        unsafe {
+            self.state.sensor.iterate_over_collected_features(|feature| {
+                if let Some(f_for_iter) = step_iter.find(|feature_for_iter| feature_for_iter.feature.cmp(&feature)) {
+                    if f_for_iter.feature == feature {
+                        existing_features.push(f_for_iter.key);
+                        let f = &slab_features[f_for_iter.key];
+                        if cur_input_cplx < f.least_complexity {
+                            best_input_for_a_feature = true;
+                        }
+                    } else {
                         best_input_for_a_feature = true;
+                        new_features.push(feature);
                     }
                 } else {
-                    best_input_for_a_feature = true;
+                    best_input_for_a_feature = true; // the feature goes at the end of the pool, and it is new
                     new_features.push(feature);
                 }
-            } else {
-                best_input_for_a_feature = true; // the feature goes at the end of the pool, and it is new
-                new_features.push(feature);
-            }
-        });
+            });
+        }
         // let lowest_stack = code_coverage_sensor::lowest_stack();
         let result = if best_input_for_a_feature {
             Some(AnalysisResult {
@@ -292,6 +300,7 @@ where
         result
     }
 
+    #[no_coverage]
     fn test_input_and_analyze(&mut self, cplx: f64) -> Result<(), std::io::Error> {
         self.state.world.handle_user_message();
 
@@ -306,6 +315,7 @@ where
                 self.state.settings.timeout,
                 &mut self.state.world,
                 self.state.stats,
+                &mut self.state.sensor,
             )?;
             self.state.stats.total_number_of_runs += 1;
         }
@@ -335,6 +345,7 @@ where
         }
     }
     #[cfg(feature = "ui")]
+    #[no_coverage]
     fn send_coverage_location(&mut self, input_key: SlabKey<Input<T, M>>) -> Result<(), std::io::Error> {
         code_coverage_sensor::clear();
         unsafe {
@@ -363,6 +374,7 @@ where
         Ok(())
     }
 
+    #[no_coverage]
     fn process_next_inputs(&mut self) -> Result<(), std::io::Error> {
         if let Some(idx) = self.state.pool.random_index() {
             self.state.input_idx = FuzzerInputIndex::Pool(idx);
@@ -405,6 +417,7 @@ where
         }
     }
 
+    #[no_coverage]
     fn process_initial_inputs(&mut self) -> Result<(), std::io::Error> {
         let mut inputs: Vec<FuzzedInput<T, M>> = self
             .state
@@ -443,7 +456,8 @@ where
         Ok(())
     }
 
-    fn main_loop(&mut self) -> Result<(), std::io::Error> {
+    #[no_coverage]
+    fn main_loop(&mut self) -> Result<!, std::io::Error> {
         self.state
             .world
             .do_actions(vec![WorldAction::ReportEvent(FuzzerEvent::Start)], &self.state.stats)?;
@@ -454,7 +468,7 @@ where
         )?;
 
         let mut next_milestone = (self.state.stats.total_number_of_runs + 100_000) * 2;
-        while self.state.stats.total_number_of_runs < self.max_iter() {
+        loop {
             self.process_next_inputs()?;
             if self.state.stats.total_number_of_runs >= next_milestone {
                 self.state.update_stats();
@@ -464,11 +478,6 @@ where
                 next_milestone = self.state.stats.total_number_of_runs * 2;
             }
         }
-        self.state
-            .world
-            .do_actions(vec![WorldAction::ReportEvent(FuzzerEvent::Done)], &self.state.stats)?;
-
-        Ok(())
     }
 
     /// Reads a corpus of inputs from the [World] and minifies the corpus
@@ -476,6 +485,7 @@ where
     ///
     /// The number of inputs to keep is taken from
     /// [`self.settings.corpus_size`](FuzzerSettings::corpus_size)
+    #[no_coverage]
     fn corpus_minifying_loop(&mut self) -> Result<(), std::io::Error> {
         self.state
             .world
@@ -500,6 +510,7 @@ where
         Ok(())
     }
 
+    #[no_coverage]
     fn input_minifying_loop(&mut self) -> Result<(), std::io::Error> {
         self.state
             .world
@@ -538,6 +549,7 @@ pub enum TerminationStatus {
     Unknown = 3,
 }
 
+#[no_coverage]
 pub fn launch<T, FT, F, M, S>(
     test: F,
     mutator: M,
@@ -572,6 +584,7 @@ where
                     fuzzer.state.settings.timeout,
                     &mut fuzzer.state.world,
                     fuzzer.state.stats,
+                    &mut fuzzer.state.sensor,
                 )?;
             } else {
                 todo!()

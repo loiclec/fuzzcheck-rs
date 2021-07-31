@@ -3,6 +3,7 @@ use crate::fuzzcheck_traits::MutatorWrapper;
 pub struct Wrapper<T>(pub T);
 impl<T> MutatorWrapper for Wrapper<T> {
     type Wrapped = T;
+    #[no_coverage]
     fn wrapped_mutator(&self) -> &Self::Wrapped {
         &self.0
     }
@@ -14,7 +15,7 @@ macro_rules! recursive_mutator_wrapper {
         pub struct $name < $($e),* > ($t) where $($rest)*;
         impl< $($e),* > $crate::fuzzcheck_traits::MutatorWrapper for $name < $($e),* > where $($rest)* {
             type Wrapped = $name  < $($e),* > ;
-            fn wrapped_mutator(&self) -> &Self::Wrapped {
+            #[no_coverage] fn wrapped_mutator(&self) -> &Self::Wrapped {
                 &self.0
             }
         }

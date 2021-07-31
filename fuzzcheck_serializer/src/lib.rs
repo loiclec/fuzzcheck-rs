@@ -9,11 +9,7 @@
 //! copy/pasting the bytes from/to the files. The extension is customizable.
 //!
 
-#[cfg(feature = "compile_fuzzcheck_traits")]
-extern crate fuzzcheck_traits;
-
-#[cfg(feature = "fuzzcheck_traits_through_fuzzcheck")]
-use fuzzcheck::fuzzcheck_traits;
+#![feature(no_coverage)]
 
 #[cfg(feature = "serde-json")]
 mod serde_serializer;
@@ -33,7 +29,7 @@ pub use json_serializer::JsonSerializer;
 A Serializer for Vec<u8> that simply copies the bytes from/to the files.
 
 ```ignore
-fn parse(data: &[u8]) -> bool {
+#[no_coverage] fn parse(data: &[u8]) -> bool {
     // ...
 }
 let mutator = VecMutator<U8Mutator>::default();
@@ -49,6 +45,7 @@ pub struct ByteSerializer {
 }
 
 impl ByteSerializer {
+    #[no_coverage]
     pub fn new(ext: &'static str) -> Self {
         Self { ext }
     }
@@ -56,15 +53,19 @@ impl ByteSerializer {
 
 impl fuzzcheck_traits::Serializer for ByteSerializer {
     type Value = Vec<u8>;
+    #[no_coverage]
     fn is_utf8(&self) -> bool {
         false
     }
+    #[no_coverage]
     fn extension(&self) -> &str {
         self.ext
     }
+    #[no_coverage]
     fn from_data(&self, data: &[u8]) -> Option<Self::Value> {
         Some(data.into())
     }
+    #[no_coverage]
     fn to_data(&self, value: &Self::Value) -> Vec<u8> {
         value.clone()
     }

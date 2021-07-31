@@ -155,6 +155,7 @@ pub(crate) fn make_mutator_type_and_impl(params: CreateWrapperMutatorParams) -> 
             pub inner : " if settings.recursive { ts!(cm.Box "<") } else { ts!("") } InnerType if settings.recursive { ">" } else { "" } ",
             }
             impl " NameMutator_generics.removing_eq_type() ident!(NameMutator helper_type) NameMutator_generics.removing_bounds_and_eq_type() NameMutator_where_clause "{
+                #[no_coverage]
                 fn new(inner: " InnerType ") -> Self {"
                     "Self {
                         inner: "  if settings.recursive { ts!(cm.Box "::new") } else { ts!("") }
@@ -164,16 +165,19 @@ pub(crate) fn make_mutator_type_and_impl(params: CreateWrapperMutatorParams) -> 
                 "}
             }
             impl" NameMutator_generics.removing_eq_type() cm.Clone "for" ident!(NameMutator helper_type) NameMutator_generics.removing_bounds_and_eq_type() clone_where_clause "{
+                #[no_coverage]
                 fn clone(&self) -> Self {
                     Self::new(self.inner " if settings.recursive { ".as_ref()" } else { "" } ".clone())
                 }
             }
             impl" NameMutator_generics.removing_eq_type() cm.Debug "for" ident!(NameMutator helper_type) NameMutator_generics.removing_bounds_and_eq_type() debug_where_clause "{
+                #[no_coverage]
                 fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::result::Result<(), ::std::fmt::Error> {
                     self.inner.fmt(f)
                 }
             }
             impl" NameMutator_generics.removing_eq_type() cm.PartialEq "for" ident!(NameMutator helper_type) NameMutator_generics.removing_bounds_and_eq_type() partialeq_where_clause "{
+                #[no_coverage]
                 fn eq(&self, other: &Self) -> bool {
                     self.inner.eq(&other.inner)
                 }
@@ -211,12 +215,12 @@ pub(crate) fn make_mutator_type_and_impl(params: CreateWrapperMutatorParams) -> 
             type ArbitraryStep =" NameMutatorArbitraryStep NameMutator_generics.removing_bounds_and_eq_type() ";
             type UnmutateToken =" NameMutatorUnmutateToken NameMutator_generics.removing_bounds_and_eq_type() ";
         
-            
+            #[no_coverage]
             fn default_arbitrary_step(&self) -> Self::ArbitraryStep {
                 Self::ArbitraryStep::new(" InnerMutator_as_Mutator "::default_arbitrary_step(&self.mutator))
             }
 
-            
+            #[no_coverage]
             fn validate_value(&self, value: &" type_ident type_generics.removing_bounds_and_eq_type() ") -> " cm.Option "<(Self::Cache, Self::MutationStep)> {
                 if let " cm.Some "((c, s)) = " InnerMutator_as_Mutator "::validate_value(&self.mutator, value) {
                     " cm.Some "((Self::Cache::new(c) , Self::MutationStep::new(s) ))
@@ -224,19 +228,19 @@ pub(crate) fn make_mutator_type_and_impl(params: CreateWrapperMutatorParams) -> 
                     " cm.None "
                 }
             }
-            
+            #[no_coverage]
             fn max_complexity(&self) -> f64 {
                 " InnerMutator_as_Mutator "::max_complexity(&self.mutator)
             }
-            
+            #[no_coverage]
             fn min_complexity(&self) -> f64 {
                 " InnerMutator_as_Mutator "::min_complexity(&self.mutator)
             }
-            
+            #[no_coverage]
             fn complexity(&self, value: &" type_ident type_generics.removing_bounds_and_eq_type() ", cache: &Self::Cache) -> f64 {
                 " InnerMutator_as_Mutator "::complexity(&self.mutator, value, &cache.inner)
             }
-            
+            #[no_coverage]
             fn ordered_arbitrary(&self, step: &mut Self::ArbitraryStep, max_cplx: f64) -> Option<(" type_ident type_generics.removing_bounds_and_eq_type() ", f64)> {
                 if let " cm.Some "((value, cplx)) = " InnerMutator_as_Mutator "::ordered_arbitrary(&self.mutator, &mut step.inner, max_cplx) {"
                 cm.Some "((value, cplx))"
@@ -244,12 +248,12 @@ pub(crate) fn make_mutator_type_and_impl(params: CreateWrapperMutatorParams) -> 
                 cm.None
             "}
             }
-            
+            #[no_coverage]
             fn random_arbitrary(&self, max_cplx: f64) -> (" type_ident type_generics.removing_bounds_and_eq_type() ", f64) {
                 let (value, cplx) = " InnerMutator_as_Mutator "::random_arbitrary(&self.mutator, max_cplx) ;
                 (value, cplx)
             }
-            
+            #[no_coverage]
             fn ordered_mutate(
                 &self,
                 value: &mut " type_ident type_generics.removing_bounds_and_eq_type() ",
@@ -269,12 +273,12 @@ pub(crate) fn make_mutator_type_and_impl(params: CreateWrapperMutatorParams) -> 
                     cm.None
                 "}
             }
-            
+            #[no_coverage]
             fn random_mutate(&self, value: &mut " type_ident type_generics.removing_bounds_and_eq_type() ", cache: &mut Self::Cache, max_cplx: f64) -> (Self::UnmutateToken, f64) {
                 let (t, c) =" InnerMutator_as_Mutator "::random_mutate(&self.mutator, value, &mut cache.inner, max_cplx);
                 (Self::UnmutateToken::new(t), c)
             }
-            
+            #[no_coverage]
             fn unmutate(&self, value: &mut " type_ident type_generics.removing_bounds_and_eq_type() ", cache: &mut Self::Cache, t: Self::UnmutateToken) {
                 " InnerMutator_as_Mutator "::unmutate(&self.mutator, value, &mut cache.inner," if settings.recursive {
                 "*t.inner"
@@ -290,7 +294,8 @@ pub(crate) fn make_mutator_type_and_impl(params: CreateWrapperMutatorParams) -> 
             } else {
                 ts!("type Mutator = "  NameMutator DefaultMutator_Mutator_generics ";")
             }
-            "fn default_mutator() -> Self::Mutator {"
+            "#[no_coverage]
+            fn default_mutator() -> Self::Mutator {"
                 if settings.recursive {
                     format!("{}::new(|self_| {{", cm.RecursiveMutator)
                 } else {

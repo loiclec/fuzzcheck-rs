@@ -19,6 +19,7 @@ where
     T: Clone,
     M: Mutator<T> + Clone,
 {
+    #[no_coverage]
     pub fn new_with_repeated_mutator(mutator: M, len: usize) -> Self {
         Self::new(std::iter::repeat(mutator).take(len).collect())
     }
@@ -29,6 +30,7 @@ where
     T: Clone,
     M: Mutator<T>,
 {
+    #[no_coverage]
     pub fn new(mutators: Vec<M>) -> Self {
         assert!(!mutators.is_empty());
         let max_complexity =
@@ -56,6 +58,7 @@ pub struct VecMutatorCache<C> {
     sum_cplx: f64,
 }
 impl<C> Default for VecMutatorCache<C> {
+    #[no_coverage]
     fn default() -> Self {
         Self {
             inner: Vec::new(),
@@ -70,9 +73,11 @@ pub enum UnmutateVecToken<T: Clone, M: Mutator<T>> {
 }
 
 impl<T: Clone, M: Mutator<T>> FixedLenVecMutator<T, M> {
+    #[no_coverage]
     fn len(&self) -> usize {
         self.mutators.len()
     }
+    #[no_coverage]
     fn mutate_element(
         &self,
         value: &mut Vec<T>,
@@ -99,6 +104,7 @@ impl<T: Clone, M: Mutator<T>> FixedLenVecMutator<T, M> {
         }
     }
 
+    #[no_coverage]
     fn new_input_with_complexity(&self, target_cplx: f64) -> (Vec<T>, f64) {
         let mut v = Vec::with_capacity(self.len());
         let mut sum_cplx = 0.0;
@@ -127,8 +133,10 @@ impl<T: Clone, M: Mutator<T>> Mutator<Vec<T>> for FixedLenVecMutator<T, M> {
     type ArbitraryStep = ();
     type UnmutateToken = UnmutateVecToken<T, M>;
 
+    #[no_coverage]
     fn default_arbitrary_step(&self) -> Self::ArbitraryStep {}
 
+    #[no_coverage]
     fn validate_value(&self, value: &Vec<T>) -> Option<(Self::Cache, Self::MutationStep)> {
         let inner: Vec<_> = value
             .iter()
@@ -164,18 +172,22 @@ impl<T: Clone, M: Mutator<T>> Mutator<Vec<T>> for FixedLenVecMutator<T, M> {
         Some((cache, step))
     }
 
+    #[no_coverage]
     fn max_complexity(&self) -> f64 {
         self.max_complexity
     }
 
+    #[no_coverage]
     fn min_complexity(&self) -> f64 {
         self.min_complexity
     }
 
+    #[no_coverage]
     fn complexity(&self, _value: &Vec<T>, cache: &Self::Cache) -> f64 {
         self.min_complexity + cache.sum_cplx
     }
 
+    #[no_coverage]
     fn ordered_arbitrary(&self, _step: &mut Self::ArbitraryStep, mut max_cplx: f64) -> Option<(Vec<T>, f64)> {
         if max_cplx < self.min_complexity() {
             return None;
@@ -187,6 +199,7 @@ impl<T: Clone, M: Mutator<T>> Mutator<Vec<T>> for FixedLenVecMutator<T, M> {
         Some(self.random_arbitrary(max_cplx))
     }
 
+    #[no_coverage]
     fn random_arbitrary(&self, mut max_cplx: f64) -> (Vec<T>, f64) {
         let mutator_max_cplx = self.max_complexity();
         if max_cplx > mutator_max_cplx {
@@ -198,6 +211,7 @@ impl<T: Clone, M: Mutator<T>> Mutator<Vec<T>> for FixedLenVecMutator<T, M> {
         self.new_input_with_complexity(target_cplx)
     }
 
+    #[no_coverage]
     fn ordered_mutate(
         &self,
         value: &mut Vec<T>,
@@ -226,6 +240,7 @@ impl<T: Clone, M: Mutator<T>> Mutator<Vec<T>> for FixedLenVecMutator<T, M> {
             .or_else(|| Some(self.random_mutate(value, cache, max_cplx)))
     }
 
+    #[no_coverage]
     fn random_mutate(
         &self,
         value: &mut Vec<T>,
@@ -257,6 +272,7 @@ impl<T: Clone, M: Mutator<T>> Mutator<Vec<T>> for FixedLenVecMutator<T, M> {
         )
     }
 
+    #[no_coverage]
     fn unmutate(&self, value: &mut Vec<T>, cache: &mut Self::Cache, t: Self::UnmutateToken) {
         match t {
             UnmutateVecToken::Element(idx, inner_t) => {
@@ -276,6 +292,7 @@ mod tests {
     use super::FixedLenVecMutator;
     use crate::integer::U8Mutator;
     #[test]
+    #[no_coverage]
     fn test_constrained_length_mutator() {
         let m = FixedLenVecMutator::<u8, U8Mutator>::new_with_repeated_mutator(U8Mutator::default(), 3);
         for _ in 0..100 {

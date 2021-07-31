@@ -51,6 +51,7 @@ where
     Map: IncrementalMapping<From, To, M> + for<'a> std::convert::From<&'a From>,
     Parse: Fn(&To) -> Option<From>,
 {
+    #[no_coverage]
     pub fn new(parse: Parse, mutator: M) -> Self {
         Self {
             parse,
@@ -73,10 +74,12 @@ where
     type ArbitraryStep = M::ArbitraryStep;
     type UnmutateToken = M::UnmutateToken;
 
+    #[no_coverage]
     fn default_arbitrary_step(&self) -> Self::ArbitraryStep {
         self.mutator.default_arbitrary_step()
     }
 
+    #[no_coverage]
     fn validate_value(&self, value: &To) -> Option<(Self::Cache, Self::MutationStep)> {
         let from_value = (self.parse)(value)?;
         let (from_cache, mutation_step) = self.mutator.validate_value(&from_value).unwrap();
@@ -90,30 +93,36 @@ where
         Some((cache, mutation_step))
     }
 
+    #[no_coverage]
     fn max_complexity(&self) -> f64 {
         self.mutator.max_complexity()
     }
 
+    #[no_coverage]
     fn min_complexity(&self) -> f64 {
         self.mutator.min_complexity()
     }
 
+    #[no_coverage]
     fn complexity(&self, _value: &To, cache: &Self::Cache) -> f64 {
         self.mutator.complexity(&cache.from_value, &cache.from_cache)
     }
 
+    #[no_coverage]
     fn ordered_arbitrary(&self, step: &mut Self::ArbitraryStep, max_cplx: f64) -> Option<(To, f64)> {
         let (value, cplx) = self.mutator.ordered_arbitrary(step, max_cplx)?;
         let x = To::from(value);
         Some((x, cplx))
     }
 
+    #[no_coverage]
     fn random_arbitrary(&self, max_cplx: f64) -> (To, f64) {
         let (value, cplx) = self.mutator.random_arbitrary(max_cplx);
         let x = To::from(value);
         (x, cplx)
     }
 
+    #[no_coverage]
     fn ordered_mutate(
         &self,
         value: &mut To,
@@ -128,6 +137,7 @@ where
         Some((token, cplx))
     }
 
+    #[no_coverage]
     fn random_mutate(&self, value: &mut To, cache: &mut Self::Cache, max_cplx: f64) -> (Self::UnmutateToken, f64) {
         let (token, cplx) = self
             .mutator
@@ -136,6 +146,7 @@ where
         (token, cplx)
     }
 
+    #[no_coverage]
     fn unmutate(&self, value: &mut To, cache: &mut Self::Cache, t: Self::UnmutateToken) {
         cache.map.unmutate_value_from_token(value, &t);
         self.mutator.unmutate(&mut cache.from_value, &mut cache.from_cache, t);
@@ -149,6 +160,7 @@ where
     M: Mutator<From>,
     Self: IncrementalMapping<From, To, M>,
 {
+    #[no_coverage]
     fn mutate_value_from_token(
         &mut self,
         from_value: &From,
@@ -158,6 +170,7 @@ where
         <Self as IncrementalMapping<From, To, M>>::mutate_value_from_token(self, from_value, to_value, token);
     }
 
+    #[no_coverage]
     fn unmutate_value_from_token(
         &mut self,
         to_value: &mut To,
@@ -175,6 +188,7 @@ where
     M2: Mutator<From>,
     Self: IncrementalMapping<From, To, M1> + IncrementalMapping<From, To, M2>,
 {
+    #[no_coverage]
     fn mutate_value_from_token(
         &mut self,
         from_value: &From,
@@ -191,6 +205,7 @@ where
         }
     }
 
+    #[no_coverage]
     fn unmutate_value_from_token(
         &mut self,
         to_value: &mut To,
@@ -214,6 +229,7 @@ where
     M: Mutator<From>,
     Self: IncrementalMapping<From, To, M>,
 {
+    #[no_coverage]
     fn mutate_value_from_token(
         &mut self,
         from_value: &From,
@@ -223,6 +239,7 @@ where
         <Self as IncrementalMapping<From, To, M>>::mutate_value_from_token(self, from_value, to_value, token);
     }
 
+    #[no_coverage]
     fn unmutate_value_from_token(
         &mut self,
         to_value: &mut To,

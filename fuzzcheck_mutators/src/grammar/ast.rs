@@ -23,6 +23,7 @@ pub enum ASTMappingKind {
 }
 
 impl AST {
+    #[no_coverage]
     pub fn generate_string_in(&self, s: &mut String, start_index: &mut usize) -> ASTMap {
         match self {
             AST::Token(c) => {
@@ -59,12 +60,14 @@ impl AST {
             }
         }
     }
+    #[no_coverage]
     pub fn generate_string(&self) -> (String, ASTMap) {
         let mut s = String::new();
         let mut start_index = 0;
         let c = self.generate_string_in(&mut s, &mut start_index);
         (s, c)
     }
+    #[no_coverage]
     pub fn generate_string_starting_at_idx(&self, idx: usize) -> (String, ASTMap) {
         let mut s = String::new();
         let mut start_index = idx;
@@ -74,11 +77,13 @@ impl AST {
 }
 
 impl From<&AST> for ASTMap {
+    #[no_coverage]
     fn from(ast: &AST) -> Self {
         ast.generate_string().1
     }
 }
 impl From<AST> for String {
+    #[no_coverage]
     fn from(ast: AST) -> Self {
         ast.generate_string().0
     }

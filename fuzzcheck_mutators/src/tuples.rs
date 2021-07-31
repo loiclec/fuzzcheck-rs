@@ -69,6 +69,7 @@ impl<M, TupleKind> TupleMutatorWrapper<M, TupleKind>
 where
     TupleKind: RefTypes,
 {
+    #[no_coverage]
     pub fn new(mutator: M) -> Self {
         Self {
             mutator,
@@ -81,6 +82,7 @@ where
     TupleKind: RefTypes,
     M: Default,
 {
+    #[no_coverage]
     fn default() -> Self {
         Self {
             mutator: <_>::default(),
@@ -101,34 +103,42 @@ where
     type ArbitraryStep = M::ArbitraryStep;
     type UnmutateToken = M::UnmutateToken;
 
+    #[no_coverage]
     fn default_arbitrary_step(&self) -> Self::ArbitraryStep {
         self.mutator.default_arbitrary_step()
     }
 
+    #[no_coverage]
     fn complexity(&self, value: &T, cache: &Self::Cache) -> f64 {
         self.mutator.complexity(value.get_ref(), cache)
     }
 
+    #[no_coverage]
     fn validate_value(&self, value: &T) -> Option<(Self::Cache, Self::MutationStep)> {
         self.mutator.validate_value(value.get_ref())
     }
 
+    #[no_coverage]
     fn max_complexity(&self) -> f64 {
         self.mutator.max_complexity()
     }
 
+    #[no_coverage]
     fn min_complexity(&self) -> f64 {
         self.mutator.min_complexity()
     }
 
+    #[no_coverage]
     fn ordered_arbitrary(&self, step: &mut Self::ArbitraryStep, max_cplx: f64) -> Option<(T, f64)> {
         self.mutator.ordered_arbitrary(step, max_cplx)
     }
 
+    #[no_coverage]
     fn random_arbitrary(&self, max_cplx: f64) -> (T, f64) {
         self.mutator.random_arbitrary(max_cplx)
     }
 
+    #[no_coverage]
     fn ordered_mutate(
         &self,
         value: &mut T,
@@ -139,10 +149,12 @@ where
         self.mutator.ordered_mutate(value.get_mut(), cache, step, max_cplx)
     }
 
+    #[no_coverage]
     fn random_mutate(&self, value: &mut T, cache: &mut Self::Cache, max_cplx: f64) -> (Self::UnmutateToken, f64) {
         self.mutator.random_mutate(value.get_mut(), cache, max_cplx)
     }
 
+    #[no_coverage]
     fn unmutate(&self, value: &mut T, cache: &mut Self::Cache, t: Self::UnmutateToken) {
         self.mutator.unmutate(value.get_mut(), cache, t)
     }

@@ -9,7 +9,7 @@ pub struct Y {
     _y: Vec<X<u8>>,
 }
 
-fn _x() {
+#[no_coverage] fn _x() {
     let _x = X::<u8, Vec<u64>>::default_mutator();
     let _y = Y::default_mutator();
 }

@@ -12,13 +12,13 @@ pub enum FuzzerCommand {
     MinifyCorpus,
 }
 impl Default for FuzzerCommand {
+    #[no_coverage]
     fn default() -> Self {
         Self::Fuzz
     }
 }
 
 pub const TIMEOUT_FLAG: &str = "timeout";
-pub const MAX_NBR_RUNS_FLAG: &str = "max-iter";
 pub const MAX_INPUT_CPLX_FLAG: &str = "max-cplx";
 pub const INPUT_FILE_FLAG: &str = "input-file";
 pub const IN_CORPUS_FLAG: &str = "in-corpus";
@@ -47,12 +47,13 @@ pub struct DefaultArguments {
     pub corpus_size: usize,
 }
 impl Default for DefaultArguments {
+    #[no_coverage]
     fn default() -> Self {
         Self {
             command: FuzzerCommand::Fuzz,
-            in_corpus: PathBuf::from("fuzz/in_corpus".to_string()),
-            out_corpus: PathBuf::from("fuzz/out_corpus".to_string()),
-            artifacts: PathBuf::from("fuzz/artifacts".to_string()),
+            in_corpus: PathBuf::from("fuzz/in_corpus"),
+            out_corpus: PathBuf::from("fuzz/out_corpus"),
+            artifacts: PathBuf::from("fuzz/artifacts"),
             max_nbr_of_runs: core::usize::MAX,
             max_input_cplx: 4096.0,
             timeout: 0,
@@ -64,7 +65,6 @@ impl Default for DefaultArguments {
 #[derive(Debug, Clone)]
 pub struct FullCommandLineArguments {
     pub command: FuzzerCommand,
-    pub max_nbr_of_runs: usize,
     pub max_input_cplx: f64,
     pub timeout: usize,
     pub corpus_size: usize,
@@ -78,7 +78,6 @@ pub struct FullCommandLineArguments {
 #[derive(Default, Debug, Clone)]
 pub struct CommandLineArguments {
     pub command: FuzzerCommand,
-    pub max_nbr_of_runs: Option<usize>,
     pub max_input_cplx: Option<f64>,
     pub timeout: Option<usize>,
     pub corpus_size: Option<usize>,
@@ -95,6 +94,7 @@ pub struct CommandLineArguments {
 }
 
 #[must_use]
+#[no_coverage]
 pub fn options_parser() -> Options {
     let mut options = Options::new();
 
@@ -152,7 +152,6 @@ pub fn options_parser() -> Options {
         .as_str(),
         "N",
     );
-    options.optopt("", MAX_NBR_RUNS_FLAG, "maximum number of iterations", "N");
     options.optopt(
         "",
         TIMEOUT_FLAG,
@@ -177,7 +176,8 @@ pub fn options_parser() -> Options {
 }
 
 impl CommandLineArguments {
-    pub fn from_parser(options: &Options, args: &[String]) -> Result<Self, String> {
+    #[no_coverage]
+    pub fn from_parser(options: &Options, args: &[&str]) -> Result<Self, String> {
         let matches = options.parse(args).map_err(|e| e.to_string())?;
 
         // TODO: factor that out and make it prettier/more useful
@@ -185,7 +185,7 @@ impl CommandLineArguments {
             return Err("".to_owned());
         }
 
-        let command: FuzzerCommand = match args[0].as_str() {
+        let command: FuzzerCommand = match args[0] {
             COMMAND_FUZZ => FuzzerCommand::Fuzz,
             COMMAND_READ => FuzzerCommand::Read,
             COMMAND_MINIFY_INPUT => FuzzerCommand::MinifyInput,
@@ -234,8 +234,6 @@ impl CommandLineArguments {
             None
         };
 
-        let max_nbr_of_runs: Option<usize> = matches.opt_str(MAX_NBR_RUNS_FLAG).and_then(|x| x.parse::<usize>().ok());
-
         let timeout: Option<usize> = matches.opt_str(TIMEOUT_FLAG).and_then(|x| x.parse::<usize>().ok());
 
         let socket_address = matches.opt_str(SOCK_ADDR_FLAG).and_then(|x| {
@@ -248,7 +246,6 @@ impl CommandLineArguments {
 
         Ok(Self {
             command,
-            max_nbr_of_runs,
             max_input_cplx,
             timeout,
             corpus_size,
@@ -263,6 +260,7 @@ impl CommandLineArguments {
         })
     }
 
+    #[no_coverage]
     pub fn resolved(&self, defaults: DefaultArguments) -> FullCommandLineArguments {
         let command = self.command;
 
@@ -301,15 +299,12 @@ impl CommandLineArguments {
             self.artifacts_folder.clone()
         };
 
-        let max_nbr_of_runs: usize = self.max_nbr_of_runs.unwrap_or(core::usize::MAX);
-
         let timeout: usize = self.timeout.unwrap_or(defaults.timeout);
 
         let socket_address = self.socket_address;
 
         FullCommandLineArguments {
             command,
-            max_nbr_of_runs,
             max_input_cplx,
             timeout,
             corpus_size,
@@ -326,7 +321,8 @@ impl FullCommandLineArguments {
     /// Get the command line arguments to the fuzzer from the option parser
     /// # Errors
     /// TODO
-    pub fn from_parser(options: &Options, args: &[String]) -> Result<Self, String> {
+    #[no_coverage]
+    pub fn from_parser(options: &Options, args: &[&str]) -> Result<Self, String> {
         Ok(CommandLineArguments::from_parser(options, args)?.resolved(DefaultArguments::default()))
     }
 }

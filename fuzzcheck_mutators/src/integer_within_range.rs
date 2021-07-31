@@ -15,6 +15,8 @@ macro_rules! impl_int_mutator_constrained {
             rng: fastrand::Rng,
         }
         impl $name_mutator {
+            #[no_coverage]
+            #[no_coverage]
             pub fn new<RB: RangeBounds<$name>>(range: RB) -> Self {
                 let start = match range.start_bound() {
                     Bound::Included(b) => *b,
@@ -47,26 +49,32 @@ macro_rules! impl_int_mutator_constrained {
             type ArbitraryStep = u64;
             type UnmutateToken = $name; // old value
 
+            #[no_coverage]
             fn default_arbitrary_step(&self) -> Self::ArbitraryStep {
                 0
             }
 
+            #[no_coverage]
             fn validate_value(&self, _value: &$name) -> Option<(Self::Cache, Self::MutationStep)> {
                 Some(((), INITIAL_MUTATION_STEP))
             }
 
+            #[no_coverage]
             fn max_complexity(&self) -> f64 {
                 <$name>::BITS as f64
             }
 
+            #[no_coverage]
             fn min_complexity(&self) -> f64 {
                 <$name>::BITS as f64
             }
 
+            #[no_coverage]
             fn complexity(&self, _value: &$name, _cache: &Self::Cache) -> f64 {
                 <$name>::BITS as f64
             }
 
+            #[no_coverage]
             fn ordered_arbitrary(&self, step: &mut Self::ArbitraryStep, max_cplx: f64) -> Option<($name, f64)> {
                 if max_cplx < self.min_complexity() {
                     return None;
@@ -83,6 +91,7 @@ macro_rules! impl_int_mutator_constrained {
                 }
             }
 
+            #[no_coverage]
             fn random_arbitrary(&self, _max_cplx: f64) -> ($name, f64) {
                 let value = self
                     .rng
@@ -90,6 +99,7 @@ macro_rules! impl_int_mutator_constrained {
                 (value, <$name>::BITS as f64)
             }
 
+            #[no_coverage]
             fn ordered_mutate(
                 &self,
                 value: &mut $name,
@@ -112,6 +122,7 @@ macro_rules! impl_int_mutator_constrained {
                 Some((token, <$name>::BITS as f64))
             }
 
+            #[no_coverage]
             fn random_mutate(
                 &self,
                 value: &mut $name,
@@ -128,6 +139,7 @@ macro_rules! impl_int_mutator_constrained {
                 )
             }
 
+            #[no_coverage]
             fn unmutate(&self, value: &mut $name, _cache: &mut Self::Cache, t: Self::UnmutateToken) {
                 *value = t;
             }

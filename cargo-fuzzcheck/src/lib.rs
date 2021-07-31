@@ -383,11 +383,6 @@ pub fn strings_from_config(config: &FullConfig) -> Vec<String> {
         config.max_cplx.to_string(),
     ]);
 
-    s.append(&mut vec![
-        "--".to_owned() + MAX_NBR_RUNS_FLAG,
-        config.max_nbr_of_runs.to_string(),
-    ]);
-
     s.append(&mut vec!["--".to_owned() + TIMEOUT_FLAG, config.timeout.to_string()]);
 
     if let Some(socket_address) = config.socket_address {

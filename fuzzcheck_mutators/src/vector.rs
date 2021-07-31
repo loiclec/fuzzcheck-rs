@@ -16,6 +16,7 @@ pub struct VecMutator<T: Clone, M: Mutator<T>> {
     _phantom: PhantomData<T>,
 }
 impl<T: Clone, M: Mutator<T>> VecMutator<T, M> {
+    #[no_coverage]
     pub fn new(mutator: M, len_range: RangeInclusive<usize>) -> Self {
         Self {
             rng: Rng::default(),
@@ -25,6 +26,7 @@ impl<T: Clone, M: Mutator<T>> VecMutator<T, M> {
             _phantom: <_>::default(),
         }
     }
+    #[no_coverage]
     pub fn new_with_dict(mutator: M, len_range: RangeInclusive<usize>, dict: Vec<Vec<T>>) -> Self {
         Self {
             rng: Rng::default(),
@@ -39,6 +41,7 @@ impl<T: Clone, M: Mutator<T>> Default for VecMutator<T, M>
 where
     M: Default,
 {
+    #[no_coverage]
     fn default() -> Self {
         Self {
             rng: Rng::default(),
@@ -54,6 +57,7 @@ where
     T: DefaultMutator,
 {
     type Mutator = VecMutator<T, <T as DefaultMutator>::Mutator>;
+    #[no_coverage]
     fn default_mutator() -> Self::Mutator {
         Self::Mutator::new(T::default_mutator(), 0..=usize::MAX)
     }
@@ -82,9 +86,11 @@ pub enum UnmutateVecToken<T: Clone, M: Mutator<T>> {
 }
 
 impl<T: Clone, M: Mutator<T>> VecMutator<T, M> {
+    #[no_coverage]
     fn complexity_from_inner(&self, cplx: f64, len: usize) -> f64 {
         1.0 + cplx + crate::size_to_cplxity(len.saturating_add(1))
     }
+    #[no_coverage]
     fn mutate_element(
         &self,
         value: &mut Vec<T>,
@@ -109,6 +115,7 @@ impl<T: Clone, M: Mutator<T>> VecMutator<T, M> {
         }
     }
 
+    #[no_coverage]
     fn insert_element(
         &self,
         value: &mut Vec<T>,
@@ -129,6 +136,7 @@ impl<T: Clone, M: Mutator<T>> VecMutator<T, M> {
         Some((token, self.complexity_from_inner(cache.sum_cplx + el_cplx, value.len())))
     }
 
+    #[no_coverage]
     fn remove_element(
         &self,
         value: &mut Vec<T>,
@@ -147,6 +155,7 @@ impl<T: Clone, M: Mutator<T>> VecMutator<T, M> {
         ))
     }
 
+    #[no_coverage]
     fn remove_many_elements(
         &self,
         value: &mut Vec<T>,
@@ -176,6 +185,7 @@ impl<T: Clone, M: Mutator<T>> VecMutator<T, M> {
         ))
     }
 
+    #[no_coverage]
     fn use_dictionary(
         &self,
         value: &mut Vec<T>,
@@ -216,6 +226,7 @@ impl<T: Clone, M: Mutator<T>> VecMutator<T, M> {
         None
     }
 
+    #[no_coverage]
     fn insert_repeated_elements(
         &self,
         value: &mut Vec<T>,
@@ -260,10 +271,12 @@ impl<T: Clone, M: Mutator<T>> VecMutator<T, M> {
     /**
     Give an approximation for the range of lengths within which the target complexity can be reached.
     */
+    #[no_coverage]
     fn choose_slice_length(&self, target_cplx: f64) -> RangeInclusive<usize> {
         // The maximum length is the target complexity divided by the minimum complexity of each element
         // But that does not take into account the part of the complexity of the vector that comes from its length.
         // That complexity is given by 1.0 + crate::size_to_compelxity(len)
+        #[no_coverage]
         fn length_for_elements_of_cplx(target_cplx: f64, cplx: f64) -> usize {
             if cplx == 0.0 {
                 // cplx is 0, so the length is the maximum complexity of the length component of the vector
@@ -284,6 +297,7 @@ impl<T: Clone, M: Mutator<T>> VecMutator<T, M> {
         min_len..=max_len
     }
 
+    #[no_coverage]
     fn new_input_with_length_and_complexity(&self, target_len: usize, target_cplx: f64) -> (Vec<T>, f64) {
         let mut v = Vec::with_capacity(target_len);
         let mut sum_cplx = 0.0;
@@ -323,10 +337,12 @@ impl<T: Clone, M: Mutator<T>> Mutator<Vec<T>> for VecMutator<T, M> {
     type ArbitraryStep = bool; // false: check empty vector, true: random
     type UnmutateToken = UnmutateVecToken<T, M>;
 
+    #[no_coverage]
     fn default_arbitrary_step(&self) -> Self::ArbitraryStep {
         <_>::default()
     }
 
+    #[no_coverage]
     fn validate_value(&self, value: &Vec<T>) -> Option<(Self::Cache, Self::MutationStep)> {
         let inner: Vec<_> = value.iter().filter_map(|x| self.m.validate_value(x)).collect();
 
@@ -365,26 +381,30 @@ impl<T: Clone, M: Mutator<T>> Mutator<Vec<T>> for VecMutator<T, M> {
         };
         let step = MutationStep {
             inner: inner_steps,
-            alias
+            alias,
         };
 
         Some((cache, step))
     }
 
+    #[no_coverage]
     fn max_complexity(&self) -> f64 {
         let max_len = *self.len_range.end();
         self.complexity_from_inner((max_len as f64) * self.m.max_complexity(), max_len.saturating_add(1))
     }
 
+    #[no_coverage]
     fn min_complexity(&self) -> f64 {
         let min_len = *self.len_range.start();
         self.complexity_from_inner((min_len as f64) * self.m.min_complexity(), min_len)
     }
 
+    #[no_coverage]
     fn complexity(&self, value: &Vec<T>, cache: &Self::Cache) -> f64 {
         self.complexity_from_inner(cache.sum_cplx, value.len())
     }
 
+    #[no_coverage]
     fn ordered_arbitrary(&self, step: &mut Self::ArbitraryStep, mut max_cplx: f64) -> Option<(Vec<T>, f64)> {
         if max_cplx < self.min_complexity() {
             return None;
@@ -405,6 +425,7 @@ impl<T: Clone, M: Mutator<T>> Mutator<Vec<T>> for VecMutator<T, M> {
         }
     }
 
+    #[no_coverage]
     fn random_arbitrary(&self, mut max_cplx: f64) -> (Vec<T>, f64) {
         let mutator_max_cplx = self.max_complexity();
         if max_cplx > mutator_max_cplx {
@@ -431,6 +452,7 @@ impl<T: Clone, M: Mutator<T>> Mutator<Vec<T>> for VecMutator<T, M> {
         self.new_input_with_length_and_complexity(target_len, target_cplx)
     }
 
+    #[no_coverage]
     fn ordered_mutate(
         &self,
         value: &mut Vec<T>,
@@ -455,7 +477,7 @@ impl<T: Clone, M: Mutator<T>> Mutator<Vec<T>> for VecMutator<T, M> {
 
         let token = if value.is_empty() || step.alias.is_none() || self.rng.usize(0..10) == 0 {
             // vector mutation
-            match self.rng.usize(0.. if value.is_empty() { 5 } else { 15 }) {
+            match self.rng.usize(0..if value.is_empty() { 5 } else { 15 }) {
                 0..=3 => self.insert_element(value, cache, spare_cplx),
                 4 => self.insert_repeated_elements(value, cache, spare_cplx),
                 5..=8 => self.remove_element(value, cache),
@@ -475,11 +497,11 @@ impl<T: Clone, M: Mutator<T>> Mutator<Vec<T>> for VecMutator<T, M> {
                     let sum = prob.iter().sum::<f64>();
                     if sum == 0.0 {
                         step.alias = None;
-                    }  else {
-                        prob.iter_mut().for_each(|c| *c /= sum );
+                    } else {
+                        prob.iter_mut().for_each(|c| *c /= sum);
                         step.alias = Some(VoseAlias::new(prob));
                     }
-                    
+
                     None
                 }
             } else {
@@ -493,6 +515,7 @@ impl<T: Clone, M: Mutator<T>> Mutator<Vec<T>> for VecMutator<T, M> {
         }
     }
 
+    #[no_coverage]
     fn random_mutate(
         &self,
         value: &mut Vec<T>,
@@ -513,7 +536,7 @@ impl<T: Clone, M: Mutator<T>> Mutator<Vec<T>> for VecMutator<T, M> {
 
         if value.is_empty() || self.rng.usize(0..10) == 0 {
             // vector mutation
-            match self.rng.usize(0.. if value.is_empty() { 5 } else { 15 } ) {
+            match self.rng.usize(0..if value.is_empty() { 5 } else { 15 }) {
                 0..=3 => self.insert_element(value, cache, spare_cplx),
                 4 => self.insert_repeated_elements(value, cache, spare_cplx),
                 5..=8 => self.remove_element(value, cache),
@@ -521,9 +544,7 @@ impl<T: Clone, M: Mutator<T>> Mutator<Vec<T>> for VecMutator<T, M> {
                 10..=14 => self.use_dictionary(value, cache, spare_cplx),
                 _ => None,
             }
-            .unwrap_or_else(|| {
-                self.random_mutate(value, cache, max_cplx)
-            })
+            .unwrap_or_else(|| self.random_mutate(value, cache, max_cplx))
         } else {
             // element mutation
             // we know value is not empty, therefore the alias is Some
@@ -544,6 +565,7 @@ impl<T: Clone, M: Mutator<T>> Mutator<Vec<T>> for VecMutator<T, M> {
         }
     }
 
+    #[no_coverage]
     fn unmutate(&self, value: &mut Vec<T>, cache: &mut Self::Cache, t: Self::UnmutateToken) {
         match t {
             UnmutateVecToken::Element(idx, inner_t) => {
@@ -570,12 +592,14 @@ impl<T: Clone, M: Mutator<T>> Mutator<Vec<T>> for VecMutator<T, M> {
     }
 }
 
+#[no_coverage]
 pub fn insert_many<T>(v: &mut Vec<T>, idx: usize, iter: impl Iterator<Item = T>) {
     let moved_slice = v.drain(idx..).collect::<Vec<T>>().into_iter();
     v.extend(iter);
     v.extend(moved_slice);
 }
 
+#[no_coverage]
 fn clamp(range: &RangeInclusive<usize>, x: usize) -> usize {
     cmp::min(cmp::max(*range.start(), x), *range.end())
 }
@@ -589,6 +613,7 @@ mod tests {
     use crate::integer::U8Mutator;
     use crate::vector::VecMutator;
     #[test]
+    #[no_coverage]
     fn test_constrained_length_mutator_ordered_arbitrary() {
         let range = 0..=10;
         let m = VecMutator::<u8, U8Mutator>::new(U8Mutator::default(), range.clone());
@@ -608,6 +633,7 @@ mod tests {
         println!("{:?}", cplxs);
     }
     #[test]
+    #[no_coverage]
     fn test_constrained_length_mutator_ordered_mutate() {
         let range = 0..=10;
         let m = VecMutator::<u8, U8Mutator>::new(U8Mutator::default(), range.clone());
@@ -632,7 +658,7 @@ mod tests {
 // /// The start and end of the range must be finite
 // /// This is a very naive implementation
 //
-// fn gen_f64(rng: &fastrand::Rng, range: Range<f64>) -> f64 {
+// #[no_coverage] fn gen_f64(rng: &fastrand::Rng, range: Range<f64>) -> f64 {
 //     range.start + rng.f64() * (range.end - range.start)
 // }
 // /**
@@ -646,7 +672,7 @@ mod tests {
 // }
 
 // impl<'a> WeightedIndex<'a> {
-//     pub fn sample(&self, rng: &fastrand::Rng) -> usize {
+//     #[no_coverage]pub fn sample(&self, rng: &fastrand::Rng) -> usize {
 //         assert!(!self.cumulative_weights.is_empty());
 //         if self.cumulative_weights.len() == 1 {
 //             return 0;

@@ -4,7 +4,7 @@ use crate::{FuzzerEvent, FuzzerStats};
 use std::io::prelude::*;
 use std::net::TcpStream;
 
-pub fn write(stream: &mut TcpStream, message: &str) {
+#[no_coverage] pub fn write(stream: &mut TcpStream, message: &str) {
     let bytes = message.as_bytes();
     let len = bytes.len() as u32;
     let be_len = len.to_be_bytes();
@@ -17,7 +17,7 @@ pub fn write(stream: &mut TcpStream, message: &str) {
     stream.flush().unwrap();
 }
 
-pub fn read(stream: &mut TcpStream) -> Option<String> {
+#[no_coverage] pub fn read(stream: &mut TcpStream) -> Option<String> {
     let mut be_len = [0u8; std::mem::size_of::<u32>()];
     stream.read_exact(&mut be_len).ok()?;
 

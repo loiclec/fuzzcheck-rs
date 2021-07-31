@@ -1,3 +1,5 @@
+#![feature(no_coverage)]
+
 pub mod arg;
 
 #[cfg(feature = "ui")]
@@ -17,6 +19,7 @@ pub struct FuzzerStats {
 }
 
 impl FuzzerStats {
+    #[no_coverage]
     pub fn new() -> FuzzerStats {
         FuzzerStats {
             total_number_of_runs: 0,

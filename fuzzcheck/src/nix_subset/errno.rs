@@ -9,51 +9,58 @@ cfg_if! {
     if #[cfg(any(target_os = "freebsd",
                  target_os = "ios",
                  target_os = "macos"))] {
-        unsafe fn errno_location() -> *mut c_int {
+        #[no_coverage] unsafe fn errno_location() -> *mut c_int {
             libc::__error()
         }
     }  else if #[cfg(any(target_os = "android",
                         target_os = "netbsd",
                         target_os = "openbsd"))] {
-        unsafe fn errno_location() -> *mut c_int {
+        #[no_coverage] unsafe fn errno_location() -> *mut c_int {
             libc::__errno()
         }
     } else if #[cfg(any(target_os = "linux", target_os = "redox"))] {
-        unsafe fn errno_location() -> *mut c_int {
+        #[no_coverage] unsafe fn errno_location() -> *mut c_int {
             libc::__errno_location()
         }
     }
 }
 
 /// Sets the platform-specific errno to no-error
+#[no_coverage]
 unsafe fn clear() {
     *errno_location() = 0;
 }
 
 /// Returns the platform-specific value of errno
+#[no_coverage]
 pub fn errno() -> i32 {
     unsafe { (*errno_location()) as i32 }
 }
 
 impl Errno {
+    #[no_coverage]
     pub fn last() -> Self {
         last()
     }
 
+    #[no_coverage]
     pub fn desc(self) -> &'static str {
         desc(self)
     }
 
+    #[no_coverage]
     pub fn from_i32(err: i32) -> Errno {
         from_i32(err)
     }
 
+    #[no_coverage]
     pub unsafe fn clear() {
         clear()
     }
 
     /// Returns `Ok(value)` if it does not contain the sentinel value. This
     /// should not be used when `-1` is not the errno sentinel value.
+    #[no_coverage]
     pub fn result<S: ErrnoSentinel + PartialEq<S>>(value: S) -> Result<S> {
         if value == S::sentinel() {
             Err(Error::Sys(Self::last()))
@@ -70,30 +77,35 @@ pub trait ErrnoSentinel: Sized {
 }
 
 impl ErrnoSentinel for isize {
+    #[no_coverage]
     fn sentinel() -> Self {
         -1
     }
 }
 
 impl ErrnoSentinel for i32 {
+    #[no_coverage]
     fn sentinel() -> Self {
         -1
     }
 }
 
 impl ErrnoSentinel for i64 {
+    #[no_coverage]
     fn sentinel() -> Self {
         -1
     }
 }
 
 impl ErrnoSentinel for *mut c_void {
+    #[no_coverage]
     fn sentinel() -> Self {
         (-1 as isize) as *mut c_void
     }
 }
 
 impl ErrnoSentinel for libc::sighandler_t {
+    #[no_coverage]
     fn sentinel() -> Self {
         libc::SIG_ERR
     }
@@ -102,21 +114,25 @@ impl ErrnoSentinel for libc::sighandler_t {
 impl error::Error for Errno {}
 
 impl fmt::Display for Errno {
+    #[no_coverage]
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{:?}: {}", self, self.desc())
     }
 }
 
 impl From<Errno> for io::Error {
+    #[no_coverage]
     fn from(err: Errno) -> Self {
         io::Error::from_raw_os_error(err as i32)
     }
 }
 
+#[no_coverage]
 fn last() -> Errno {
     Errno::from_i32(errno())
 }
 
+#[no_coverage]
 fn desc(errno: Errno) -> &'static str {
     use self::Errno::*;
     match errno {
@@ -817,6 +833,7 @@ mod consts {
     pub const EDEADLOCK: Errno = Errno::EDEADLK;
     pub const ENOTSUP: Errno = Errno::EOPNOTSUPP;
 
+    #[no_coverage]
     pub fn from_i32(e: i32) -> Errno {
         use self::Errno::*;
 
@@ -1073,6 +1090,7 @@ mod consts {
         EQFULL = libc::EQFULL,
     }
 
+    #[no_coverage]
     pub fn from_i32(e: i32) -> Errno {
         use self::Errno::*;
 

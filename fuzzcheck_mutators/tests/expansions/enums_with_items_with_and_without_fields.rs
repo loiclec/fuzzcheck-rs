@@ -21,7 +21,7 @@ pub enum Z {
 
 use fuzzcheck_mutators::fuzzcheck_traits::Mutator;
 #[test]
-fn test_compile() {
+#[no_coverage] fn test_compile() {
     let m = A::default_mutator();
     let (_alue, _cache): (A, _) = m.random_arbitrary(10.0);
 

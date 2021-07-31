@@ -8,7 +8,7 @@ pub struct BoolMutator {
 
 impl DefaultMutator for bool {
     type Mutator = BoolMutator;
-    fn default_mutator() -> Self::Mutator {
+    #[no_coverage] fn default_mutator() -> Self::Mutator {
         <_>::default()
     }
 }
@@ -19,7 +19,7 @@ pub enum ArbitraryStep {
     Twice = 2,
 }
 impl Default for ArbitraryStep {
-    fn default() -> Self {
+    #[no_coverage] fn default() -> Self {
         Self::Never
     }
 }
@@ -33,27 +33,27 @@ impl Mutator<bool> for BoolMutator {
     type ArbitraryStep = ArbitraryStep;
     type UnmutateToken = bool;
 
-    fn default_arbitrary_step(&self) -> Self::ArbitraryStep {
+    #[no_coverage] fn default_arbitrary_step(&self) -> Self::ArbitraryStep {
         <_>::default()
     }
 
-    fn max_complexity(&self) -> f64 {
+    #[no_coverage] fn max_complexity(&self) -> f64 {
         BOOL_COMPLEXITY
     }
 
-    fn min_complexity(&self) -> f64 {
+    #[no_coverage] fn min_complexity(&self) -> f64 {
         BOOL_COMPLEXITY
     }
 
-    fn validate_value(&self, _value: &bool) -> Option<(Self::Cache, Self::MutationStep)> {
+    #[no_coverage] fn validate_value(&self, _value: &bool) -> Option<(Self::Cache, Self::MutationStep)> {
         Some(((), INITIAL_MUTATION_STEP))
     }
 
-    fn complexity(&self, _value: &bool, _cache: &Self::Cache) -> f64 {
+    #[no_coverage] fn complexity(&self, _value: &bool, _cache: &Self::Cache) -> f64 {
         BOOL_COMPLEXITY
     }
 
-    fn ordered_arbitrary(&self, step: &mut Self::ArbitraryStep, max_cplx: f64) -> Option<(bool, f64)> {
+    #[no_coverage] fn ordered_arbitrary(&self, step: &mut Self::ArbitraryStep, max_cplx: f64) -> Option<(bool, f64)> {
         if max_cplx < self.min_complexity() {
             return None;
         }
@@ -70,11 +70,11 @@ impl Mutator<bool> for BoolMutator {
         }
     }
 
-    fn random_arbitrary(&self, _max_cplx: f64) -> (bool, f64) {
+    #[no_coverage] fn random_arbitrary(&self, _max_cplx: f64) -> (bool, f64) {
         (self.rng.bool(), BOOL_COMPLEXITY)
     }
 
-    fn ordered_mutate(
+    #[no_coverage] fn ordered_mutate(
         &self,
         value: &mut bool,
         _cache: &mut Self::Cache,
@@ -92,11 +92,11 @@ impl Mutator<bool> for BoolMutator {
         }
     }
 
-    fn random_mutate(&self, value: &mut bool, _cache: &mut Self::Cache, _max_cplx: f64) -> (Self::UnmutateToken, f64) {
+    #[no_coverage] fn random_mutate(&self, value: &mut bool, _cache: &mut Self::Cache, _max_cplx: f64) -> (Self::UnmutateToken, f64) {
         (std::mem::replace(value, !*value), BOOL_COMPLEXITY)
     }
 
-    fn unmutate(&self, value: &mut bool, _cache: &mut Self::Cache, t: Self::UnmutateToken) {
+    #[no_coverage] fn unmutate(&self, value: &mut bool, _cache: &mut Self::Cache, t: Self::UnmutateToken) {
         *value = t;
     }
 }

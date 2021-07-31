@@ -19,6 +19,7 @@ where
     T: Clone,
     M: Mutator<T>,
 {
+    #[no_coverage]
     pub fn new(mutators: Vec<M>) -> Self {
         assert!(!mutators.is_empty());
         let max_complexity = mutators
@@ -70,6 +71,7 @@ where
     T: Clone,
     M: Mutator<T>,
 {
+    #[no_coverage]
     fn default_mutation_step(&self, inner: M::MutationStep, idx: usize) -> <Self as Mutator<T>>::MutationStep {
         MutationStep {
             inner,
@@ -86,6 +88,7 @@ where
     T: Clone,
     M: Mutator<T>,
 {
+    #[no_coverage]
     fn complexity_from_inner(&self, cplx: f64) -> f64 {
         self.complexity_from_choice + cplx
     }
@@ -101,6 +104,7 @@ where
     type ArbitraryStep = ArbitraryStep<M::ArbitraryStep>;
     type UnmutateToken = UnmutateToken<T, M::UnmutateToken>;
 
+    #[no_coverage]
     fn default_arbitrary_step(&self) -> Self::ArbitraryStep {
         Self::ArbitraryStep {
             inner: self.mutators.iter().map(|m| m.default_arbitrary_step()).collect(),
@@ -109,6 +113,7 @@ where
         }
     }
 
+    #[no_coverage]
     fn validate_value(&self, value: &T) -> Option<(Self::Cache, Self::MutationStep)> {
         for (idx, mutator) in self.mutators.iter().enumerate() {
             if let Some((c, s)) = mutator.validate_value(value) {
@@ -124,18 +129,22 @@ where
         None
     }
 
+    #[no_coverage]
     fn max_complexity(&self) -> f64 {
         self.complexity_from_inner(self.max_complexity)
     }
 
+    #[no_coverage]
     fn min_complexity(&self) -> f64 {
         self.complexity_from_inner(self.min_complexity)
     }
 
+    #[no_coverage]
     fn complexity(&self, value: &T, cache: &Self::Cache) -> f64 {
         self.complexity_from_inner(self.mutators[cache.mutator_idx].complexity(value, &cache.inner))
     }
 
+    #[no_coverage]
     fn ordered_arbitrary(&self, step: &mut Self::ArbitraryStep, max_cplx: f64) -> Option<(T, f64)> {
         if step.indices.is_empty() {
             return None;
@@ -157,6 +166,7 @@ where
         }
     }
 
+    #[no_coverage]
     fn random_arbitrary(&self, max_cplx: f64) -> (T, f64) {
         let idx = self.rng.usize(..self.mutators.len());
         let mutator = &self.mutators[idx];
@@ -166,6 +176,7 @@ where
         (v, self.complexity_from_inner(c))
     }
 
+    #[no_coverage]
     fn ordered_mutate(
         &self,
         value: &mut T,
@@ -196,6 +207,7 @@ where
         }
     }
 
+    #[no_coverage]
     fn random_mutate(&self, value: &mut T, cache: &mut Self::Cache, max_cplx: f64) -> (Self::UnmutateToken, f64) {
         let idx = cache.mutator_idx;
         let mutator = &self.mutators[idx];
@@ -214,6 +226,7 @@ where
         (UnmutateToken::Inner(idx, t), self.complexity_from_inner(cplx))
     }
 
+    #[no_coverage]
     fn unmutate(&self, value: &mut T, cache: &mut Self::Cache, t: Self::UnmutateToken) {
         match t {
             UnmutateToken::Replace(v) => {

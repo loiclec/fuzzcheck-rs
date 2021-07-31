@@ -9,6 +9,7 @@ pub struct VoseAlias {
     rng: Rng,
 }
 impl PartialEq for VoseAlias {
+    #[no_coverage]
     fn eq(&self, other: &Self) -> bool {
         self.alias.eq(&other.alias) && self.prob.eq(&other.prob)
     }
@@ -17,6 +18,7 @@ impl PartialEq for VoseAlias {
 // implementation from https://www.keithschwarz.com/darts-dice-coins/
 impl VoseAlias {
     /// Note: the probabilities must sum up to 1.0
+    #[no_coverage]
     pub fn new(mut probabilities: Vec<f64>) -> VoseAlias {
         let original_probabilities = probabilities.clone();
         // Step 0: ensure sum of probabilities is equal to 1
@@ -89,6 +91,7 @@ impl VoseAlias {
         }
     }
 
+    #[no_coverage]
     pub fn sample(&self) -> usize {
         // Step 1
         let i = self.rng.usize(..self.prob.len());
@@ -107,6 +110,7 @@ impl VoseAlias {
 mod tests {
     use super::VoseAlias;
     #[test]
+    #[no_coverage]
     fn test_probabilities_1() {
         let alias = VoseAlias::new(vec![0.1, 0.4, 0.2, 0.3]);
         let mut choices = vec![0, 0, 0, 0];
@@ -117,6 +121,7 @@ mod tests {
         println!("{:?}", choices);
     }
     #[test]
+    #[no_coverage]
     fn test_probabilities_2() {
         let alias = VoseAlias::new(vec![0.1, 0.4, 0.2, 0.3]);
         let mut choices = vec![0, 0, 0, 0];

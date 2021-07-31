@@ -38,7 +38,7 @@ pub enum Error {
 
 impl Error {
     /// Convert this `Error` to an [`Errno`](enum.Errno.html).
-    pub fn as_errno(self) -> Option<Errno> {
+    #[no_coverage] pub fn as_errno(self) -> Option<Errno> {
         if let Error::Sys(e) = self {
             Some(e)
         } else {
@@ -47,29 +47,29 @@ impl Error {
     }
 
     /// Create a nix Error from a given errno
-    pub fn from_errno(errno: Errno) -> Error {
+    #[no_coverage] pub fn from_errno(errno: Errno) -> Error {
         Error::Sys(errno)
     }
 
     /// Get the current errno and convert it to a nix Error
-    pub fn last() -> Error {
+    #[no_coverage] pub fn last() -> Error {
         Error::Sys(Errno::last())
     }
 
     /// Create a new invalid argument error (`EINVAL`)
-    pub fn invalid_argument() -> Error {
+    #[no_coverage] pub fn invalid_argument() -> Error {
         Error::Sys(Errno::EINVAL)
     }
 }
 
 impl From<Errno> for Error {
-    fn from(errno: Errno) -> Error {
+    #[no_coverage] fn from(errno: Errno) -> Error {
         Error::from_errno(errno)
     }
 }
 
 impl From<std::string::FromUtf8Error> for Error {
-    fn from(_: std::string::FromUtf8Error) -> Error {
+    #[no_coverage] fn from(_: std::string::FromUtf8Error) -> Error {
         Error::InvalidUtf8
     }
 }
@@ -77,7 +77,7 @@ impl From<std::string::FromUtf8Error> for Error {
 impl error::Error for Error {}
 
 impl fmt::Display for Error {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    #[no_coverage] fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             Error::InvalidPath => write!(f, "Invalid path"),
             Error::InvalidUtf8 => write!(f, "Invalid UTF-8 string"),

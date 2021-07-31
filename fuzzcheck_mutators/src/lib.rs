@@ -2,6 +2,7 @@
 #![feature(variant_count)]
 #![feature(arc_new_cyclic)]
 #![feature(trivial_bounds)]
+#![feature(no_coverage)]
 //#![feature(min_type_alias_impl_trait)]
 #![allow(clippy::nonstandard_macro_braces)]
 #![allow(clippy::too_many_arguments)]
@@ -67,10 +68,10 @@ pub mod either;
 pub mod enums;
 pub mod fixed_len_vector;
 pub mod grammar;
-pub mod map;
 pub mod incremental_map;
 pub mod integer;
 pub mod integer_within_range;
+pub mod map;
 pub mod never;
 pub mod num;
 pub mod option;
@@ -95,11 +96,13 @@ pub trait DefaultMutator: Clone {
 /// Generate a random f64 within the given range
 /// The start and end of the range must be finite
 /// This is a very naive implementation
+#[no_coverage]
 fn gen_f64(rng: &fastrand::Rng, range: Range<f64>) -> f64 {
     range.start + rng.f64() * (range.end - range.start)
 }
 
 #[must_use]
+#[no_coverage]
 fn cplxity_to_size(cplx: f64) -> usize {
     let size_f: f64 = 2.0_f64.powf(cplx).round();
     if std::usize::MAX as f64 > size_f {
@@ -109,6 +112,7 @@ fn cplxity_to_size(cplx: f64) -> usize {
     }
 }
 #[must_use]
+#[no_coverage]
 fn size_to_cplxity(size: usize) -> f64 {
     (usize::BITS - (size.saturating_sub(1)).leading_zeros()) as f64
 }
@@ -119,6 +123,7 @@ mod test {
 
     #[allow(clippy::float_cmp)]
     #[test]
+    #[no_coverage]
     fn test_size_to_cplxity() {
         assert_eq!(0.0, size_to_cplxity(0));
         assert_eq!(0.0, size_to_cplxity(1));
@@ -138,6 +143,7 @@ pub mod testing_utilities {
 
     use crate::fuzzcheck_traits::Mutator;
 
+    #[no_coverage]
     pub fn test_mutator<T, M>(
         m: M,
         maximum_complexity_arbitrary: f64,

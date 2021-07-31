@@ -84,6 +84,7 @@ pub(crate) fn impl_default_mutator_for_enum(tb: &mut TokenBuilder, enu: &Enum, s
         field_mutators: &field_mutators,
         InnerMutator: &InnerMutator,
         new_impl: &ts!("
+            #[no_coverage]
             pub fn new("
             join_ts!(field_mutators.iter().filter(|fields| !fields.is_empty()).flatten(), field_mutator,
                 ident!("mutator_" enu.items[field_mutator.i].ident "_" field_mutator.field.access()) ":" field_mutator.mutator_stream(&cm)
@@ -112,6 +113,7 @@ pub(crate) fn impl_default_mutator_for_enum(tb: &mut TokenBuilder, enu: &Enum, s
             }"
         ),
         default_impl: &ts!("
+            #[no_coverage]
             fn default() -> Self {
                 Self::new("
                 join_ts!(&enu.items, item,
@@ -151,6 +153,7 @@ pub(crate) fn impl_basic_enum_structure(tb: &mut TokenBuilder, enu: &Enum, setti
 
     extend_ts!(tb,
         "impl" BasicEnumStructure "for" enu.ident "{
+            #[no_coverage]
             fn from_item_index(item_index: usize) -> Self {
                 match item_index {"
                 join_ts!(enu.items.iter().enumerate(), (i, item),
@@ -160,7 +163,7 @@ pub(crate) fn impl_basic_enum_structure(tb: &mut TokenBuilder, enu: &Enum, setti
                     _ => unreachable!()
                 }
             }
-        
+            #[no_coverage]
             fn get_item_index(&self) -> usize {
                 match self {"
                 join_ts!(enu.items.iter().enumerate(), (i, item),
@@ -189,7 +192,7 @@ pub(crate) fn impl_default_mutator_for_basic_enum(tb: &mut TokenBuilder, enu: &E
     extend_ts!(tb,
         "impl" cm.DefaultMutator "for " enu.ident " {
             type Mutator = " BasicEnumMutator ";
-        
+            #[no_coverage]
             fn default_mutator() -> Self::Mutator {
                 Self::Mutator::new::<" enu.ident ">()
             }

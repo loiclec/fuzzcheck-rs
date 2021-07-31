@@ -150,7 +150,9 @@ cargo-fuzzcheck {run} target1 {cmin} --{in_corpus} "fuzz-corpus" --{corpus_size}
 
             let target_name = &env_args[start_idx + 1];
 
-            let args = match CommandLineArguments::from_parser(&parser, &env_args[start_idx + 2..] /*, defaults*/) {
+            let args = env_args[start_idx + 2 .. ].into_iter().map(|s| s.as_str()).collect::<Vec<_>>();
+
+            let args = match CommandLineArguments::from_parser(&parser, &args) {
                 Ok(r) => r,
                 Err(e) => {
                     println!("{}", e);

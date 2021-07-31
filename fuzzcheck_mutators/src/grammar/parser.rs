@@ -3,6 +3,7 @@ use std::{ops::Range, rc::Rc};
 use super::ast::AST;
 use super::{grammar::Grammar, list::List};
 
+#[no_coverage]
 pub fn parse_from_grammar(string: &str, grammar: Rc<Grammar>) -> Option<AST> {
     let mut parser = grammar_parser(string, 0, grammar);
     while let Some((ast, idx)) = parser() {
@@ -13,6 +14,7 @@ pub fn parse_from_grammar(string: &str, grammar: Rc<Grammar>) -> Option<AST> {
     None
 }
 
+#[no_coverage]
 fn grammar_parser<'a>(
     string: &'a str,
     idx: usize,
@@ -28,6 +30,7 @@ fn grammar_parser<'a>(
     }
 }
 
+#[no_coverage]
 fn recurse_parser<'a>(
     string: &'a str,
     idx: usize,
@@ -37,6 +40,7 @@ fn recurse_parser<'a>(
     Box::new(move || parser().map(|(ast, idx)| (AST::Box(Box::new(ast)), idx)))
 }
 
+#[no_coverage]
 fn atom_parser<'a>(
     string: &'a str,
     idx: usize,
@@ -63,6 +67,7 @@ fn atom_parser<'a>(
     })
 }
 
+#[no_coverage]
 fn concatenation_parser<'a>(
     string: &'a str,
     idx: usize,
@@ -77,6 +82,7 @@ fn concatenation_parser<'a>(
     })
 }
 
+#[no_coverage]
 fn concatenation_parser_rec<'a>(
     string: &'a str,
     idx: usize,
@@ -135,6 +141,7 @@ fn concatenation_parser_rec<'a>(
     })
 }
 
+#[no_coverage]
 fn repetition_parser<'a>(
     string: &'a str,
     idx: usize,
@@ -150,6 +157,7 @@ fn repetition_parser<'a>(
     })
 }
 
+#[no_coverage]
 fn repetition_parser_rec<'a>(
     string: &'a str,
     idx: usize,
@@ -200,6 +208,7 @@ fn repetition_parser_rec<'a>(
     })
 }
 
+#[no_coverage]
 fn alternation_parser<'a>(
     string: &'a str,
     idx: usize,
@@ -226,7 +235,7 @@ fn alternation_parser<'a>(
     })
 }
 
-// fn parse_end<'a>(string: &'a str, idx: usize) -> Box<dyn 'a + FnMut() -> Option<(AST, usize)>> {
+// #[no_coverage] fn parse_end<'a>(string: &'a str, idx: usize) -> Box<dyn 'a + FnMut() -> Option<(AST, usize)>> {
 //     let mut end = false;
 //     Box::new(move || {
 //         if !end && idx == string.len() {
@@ -245,6 +254,7 @@ mod tests {
     use crate::{alternation, concatenation, grammar::grammar::Grammar, literal, recursive};
 
     #[test]
+    #[no_coverage]
     fn test_atom() {
         let grammar = Grammar::literal('a'..='c');
         for string in ["a", "b", "c", "d"] {
@@ -256,6 +266,7 @@ mod tests {
     }
 
     #[test]
+    #[no_coverage]
     fn test_alternation() {
         let grammar = Grammar::alternation([
             Grammar::literal('a'..='c'),
@@ -270,6 +281,7 @@ mod tests {
         }
     }
     #[test]
+    #[no_coverage]
     fn test_concatenation() {
         let grammar = Grammar::concatenation([
             Grammar::literal('a'..='c'),
@@ -285,6 +297,7 @@ mod tests {
         }
     }
     #[test]
+    #[no_coverage]
     fn test_end() {
         let grammar = Grammar::concatenation([Grammar::literal('a'..='c'), Grammar::literal('d'..='g')]);
         for string in ["a", "ad", "ady", "bfz"] {
@@ -296,6 +309,7 @@ mod tests {
         }
     }
     #[test]
+    #[no_coverage]
     fn test_repetition() {
         let grammar = Grammar::concatenation([Grammar::repetition(
             Grammar::concatenation([Grammar::literal('a'..='c'), Grammar::literal('d'..='g')]),
@@ -311,6 +325,7 @@ mod tests {
     }
 
     #[test]
+    #[no_coverage]
     fn test_recurse() {
         let main_rule = Rc::new_cyclic(|grammar| {
             let letter = Grammar::literal('a'..='z');
@@ -340,6 +355,7 @@ mod tests {
     }
 
     #[test]
+    #[no_coverage]
     fn test_recurse_2() {
         let grammar = recursive! { g in
             concatenation! {
@@ -360,7 +376,7 @@ mod tests {
     }
 
     // #[test]
-    // fn test_recurse_2() {
+    // #[no_coverage] fn test_recurse_2() {
     //     // this one overflows the stack!
     //     // here, as a mitigation, I could set a recursion limit, every time a recursing grammar
     //     // is parsed, the recursion limit goes down to 1
@@ -392,6 +408,7 @@ mod tests {
     // }
 
     #[test]
+    #[no_coverage]
     fn test_complex() {
         let grammar = Grammar::concatenation([Rc::new_cyclic(|rule| {
             let tick = Grammar::literal('\''..='\'');

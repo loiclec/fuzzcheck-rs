@@ -64,6 +64,7 @@ libc_enum! {
 
 impl FromStr for Signal {
     type Err = Error;
+    #[no_coverage]
     fn from_str(s: &str) -> Result<Signal> {
         Ok(match s {
             "SIGHUP" => Signal::SIGHUP,
@@ -127,6 +128,7 @@ impl Signal {
     /// This function is equivalent to `<Signal as AsRef<str>>::as_ref()`,
     /// with difference that returned string is `'static`
     /// and not bound to `self`'s lifetime.
+    #[no_coverage]
     pub fn as_str(self) -> &'static str {
         match self {
             Signal::SIGHUP => "SIGHUP",
@@ -184,12 +186,14 @@ impl Signal {
 }
 
 impl AsRef<str> for Signal {
+    #[no_coverage]
     fn as_ref(&self) -> &str {
         self.as_str()
     }
 }
 
 impl fmt::Display for Signal {
+    #[no_coverage]
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.write_str(self.as_ref())
     }
@@ -243,6 +247,7 @@ pub struct SignalIterator {
 impl Iterator for SignalIterator {
     type Item = Signal;
 
+    #[no_coverage]
     fn next(&mut self) -> Option<Signal> {
         if self.next < SIGNALS.len() {
             let next_signal = SIGNALS[self.next];
@@ -255,7 +260,7 @@ impl Iterator for SignalIterator {
 }
 
 // impl Signal {
-//     pub fn iterator() -> SignalIterator {
+//     #[no_coverage] pub fn iterator() -> SignalIterator {
 //         SignalIterator { next: 0 }
 //     }
 // }
@@ -263,6 +268,7 @@ impl Iterator for SignalIterator {
 impl TryFrom<libc::c_int> for Signal {
     type Error = Error;
 
+    #[no_coverage]
     fn try_from(signum: libc::c_int) -> Result<Signal> {
         if 0 < signum && signum < NSIG {
             Ok(unsafe { mem::transmute(signum) })
@@ -306,6 +312,7 @@ pub struct SigSet {
 }
 
 impl SigSet {
+    #[no_coverage]
     pub fn empty() -> SigSet {
         let mut sigset = mem::MaybeUninit::uninit();
         let _ = unsafe { libc::sigemptyset(sigset.as_mut_ptr()) };
@@ -319,6 +326,7 @@ impl SigSet {
 }
 
 impl AsRef<libc::sigset_t> for SigSet {
+    #[no_coverage]
     fn as_ref(&self) -> &libc::sigset_t {
         &self.sigset
     }
@@ -353,8 +361,10 @@ impl SigAction {
     /// The `SA_SIGINFO` bit in the `flags` argument is ignored (it will be set only if `handler`
     /// is the `SigAction` variant). `mask` specifies other signals to block during execution of
     /// the signal-catching function.
+    #[no_coverage]
     pub fn new(handler: SigHandler, flags: SaFlags, mask: SigSet) -> SigAction {
         #[cfg(target_os = "redox")]
+        #[no_coverage]
         unsafe fn install_sig(p: *mut libc::sigaction, handler: SigHandler) {
             (*p).sa_handler = match handler {
                 SigHandler::SigDfl => libc::SIG_DFL,
@@ -364,6 +374,7 @@ impl SigAction {
         }
 
         #[cfg(not(target_os = "redox"))]
+        #[no_coverage]
         unsafe fn install_sig(p: *mut libc::sigaction, handler: SigHandler) {
             (*p).sa_sigaction = match handler {
                 SigHandler::SigDfl => libc::SIG_DFL,
@@ -403,6 +414,7 @@ impl SigAction {
 /// Signal handlers may be called at any point during execution, which limits what is safe to do in
 /// the body of the signal-catching function. Be certain to only make syscalls that are explicitly
 /// marked safe for signal handlers and only share global data using atomics.
+#[no_coverage]
 pub unsafe fn sigaction(signal: Signal, sigaction: &SigAction) -> Result<SigAction> {
     let mut oldact = mem::MaybeUninit::<libc::sigaction>::uninit();
 

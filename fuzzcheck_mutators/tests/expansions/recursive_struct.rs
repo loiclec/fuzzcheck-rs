@@ -22,7 +22,7 @@ make_mutator! {
 }
 
 #[test]
-fn test_compile() {
+#[no_coverage] fn test_compile() {
     let _m = RecursiveMutator::new(|self_| {
         SMutator::new(<bool as DefaultMutator>::default_mutator(), {
             OptionMutator::new(BoxMutator::new(self_.into()))

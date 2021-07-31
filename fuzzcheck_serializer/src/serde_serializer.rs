@@ -14,6 +14,7 @@ pub struct SerdeSerializer<S> {
 }
 
 impl<S> Default for SerdeSerializer<S> {
+    #[no_coverage]
     fn default() -> Self {
         Self { phantom: PhantomData }
     }
@@ -24,15 +25,19 @@ where
     S: serde::Serialize + for<'e> serde::Deserialize<'e>,
 {
     type Value = S;
+    #[no_coverage]
     fn is_utf8(&self) -> bool {
         true
     }
+    #[no_coverage]
     fn extension(&self) -> &str {
         "json"
     }
+    #[no_coverage]
     fn from_data(&self, data: &[u8]) -> Option<S> {
         serde_json::from_slice(data).ok()
     }
+    #[no_coverage]
     fn to_data(&self, value: &Self::Value) -> Vec<u8> {
         serde_json::to_vec(value).unwrap()
     }

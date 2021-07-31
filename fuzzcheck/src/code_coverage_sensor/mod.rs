@@ -1,208 +1,62 @@
 //! Code coverage analysis
 
-mod hooks;
-
-#[cfg(feature = "ui")]
-use backtrace::BacktraceSymbol;
-
+mod extract_llvm_cov_sections;
+mod leb128;
+mod llvm_coverage;
 use crate::Feature;
-#[cfg(feature = "ui")]
-use std::collections::hash_map::Entry;
-#[cfg(feature = "ui")]
-use std::collections::HashMap;
-use std::convert::TryFrom;
 
-#[cfg(trace_compares)]
-use crate::InstrFeatureWithoutTag;
-
-#[cfg(trace_compares)]
-use crate::data_structures::HBitSet;
-
-use std::mem::MaybeUninit;
-
-#[cfg(trace_compares)]
-type PC = usize;
-
-static mut SHARED_SENSOR: MaybeUninit<CodeCoverageSensor> = MaybeUninit::<CodeCoverageSensor>::uninit();
+use self::{extract_llvm_cov_sections::LLVMCovSections, llvm_coverage::{AllCoverage, get_counters, get_prf_data, read_covmap}};
 
 /// Records the code coverage of the program and converts it into `Feature`s
 /// that the `pool` can understand.
-struct CodeCoverageSensor {
-    eight_bit_counters: &'static mut [u32],
-    #[cfg(feature = "ui")]
-    eight_bit_counters_locations: HashMap<Feature, Vec<BacktraceSymbol>>,
-    // /// pointer to the __sancov_lowest_stack variable
-    // _lowest_stack: &'static mut libc::uintptr_t,
-    // /// value of __sancov_lowest_stack after running an input
-    // lowest_stack: usize,
-    #[cfg(trace_compares)]
-    instr_features: HBitSet,
+pub struct CodeCoverageSensor {
+    pub coverage_counters: AllCoverage,
 }
 
-#[cfg(feature = "ui")]
-pub static mut TRACE_PC_GUARD_IMPL: unsafe fn(*mut u32) = trace_pc_guard_increase_counter;
+impl CodeCoverageSensor {
+    #[no_coverage]
+    pub(crate) fn new() -> Self {
+        let exec = std::env::current_exe().expect("could not read current executable");
+        let LLVMCovSections {
+            covfun,
+            covmap,
+        } = extract_llvm_cov_sections::get_llvm_cov_sections(&exec);
+        let prf_data = unsafe { get_prf_data() };
+        let covmap = read_covmap(&covmap, &mut 0);
+        let covfun = llvm_coverage::read_covfun(&covfun, &mut 0);
+        let covfun = llvm_coverage::process_function_records(covfun);
+        let prf_data = llvm_coverage::read_prf_data(&prf_data, &mut 0);
+        let mut coverage = AllCoverage::new(covmap, covfun, prf_data);
 
-#[cfg(feature = "ui")]
-pub(crate) unsafe fn with_coverage_map<T>(do_thing: impl Fn(&HashMap<Feature, Vec<BacktraceSymbol>>) -> T) -> T {
-    let sensor = SHARED_SENSOR.as_mut_ptr();
-    do_thing(&(*sensor).eight_bit_counters_locations)
-}
-#[cfg(feature = "ui")]
-pub unsafe fn record_location_guard(guard: *mut u32) {
-    let sensor = SHARED_SENSOR.as_mut_ptr();
-    let feature_group =
-        Feature::edge(guard.offset_from((*sensor).eight_bit_counters.as_ptr()) as usize, 1).erasing_payload();
-    match (*sensor).eight_bit_counters_locations.entry(feature_group) {
-        Entry::Occupied(_) => {}
-        Entry::Vacant(entry) => {
-            let bt = backtrace::Backtrace::new();
-            let frames = bt.frames();
-            let coverage_point = frames[2].symbols().to_owned();
-            entry.insert(coverage_point);
+        coverage.filter_function_by_files(
+            |s| s.contains("registry") || s.contains("fuzzcheck") || s.contains("thread/local.rs"),
+            |s| !s.starts_with("/") && s.contains("lib.rs"),
+        );
+        CodeCoverageSensor {
+            coverage_counters: coverage,
         }
     }
-}
-#[cfg(feature = "ui")]
-pub unsafe fn trace_pc_guard_increase_counter(guard: *mut u32) {
-    *guard += 1;
-}
-
-// pub fn lowest_stack() -> usize {
-//     unsafe { (*SHARED_SENSOR.as_ptr()).lowest_stack }
-// }
-
-pub fn start_recording() {
-    // unsafe {
-    //     let sensor = SHARED_SENSOR.as_mut_ptr();
-    //     // (*sensor).lowest_stack = usize::MAX;
-    //     // *(*sensor)._lowest_stack = usize::MAX;
-    // }
-}
-
-pub fn stop_recording() {
-    // unsafe {
-    //     let sensor = SHARED_SENSOR.as_mut_ptr();
-    //     // (*sensor).lowest_stack = *(*sensor)._lowest_stack;
-    // }
-}
-
-/// Runs the closure on all recorded features.
-pub(crate) fn iterate_over_collected_features<F>(mut handle: F)
-where
-    F: FnMut(Feature),
-{
-    let sensor = unsafe { SHARED_SENSOR.as_mut_ptr() };
-
-    // for (i, x) in unsafe { (*sensor).eight_bit_counters.iter().enumerate() } {
-    //     if *x > 0 {
-    //         let f = Feature::edge(i, *x as u16);
-    //         handle(f)
-    //     }
-    // }
-
-    const CHUNK_SIZE: usize = 16;
-    let zero: [u32; CHUNK_SIZE] = [0; CHUNK_SIZE];
-    let length_chunks = unsafe { (*sensor).eight_bit_counters.len() / CHUNK_SIZE };
-
-    for i in 0..length_chunks {
-        let start = i * CHUNK_SIZE;
-        let end = start + CHUNK_SIZE;
-
-        let slice =
-            unsafe { <&[u32; CHUNK_SIZE]>::try_from((*sensor).eight_bit_counters.get_unchecked(start..end)).unwrap() };
-
-        if slice == &zero {
-            continue;
-        } else {
-            for (j, &x) in slice.iter().enumerate() {
-                if x == 0 {
-                    continue;
-                }
-                let f = Feature::edge(start + j, x as u16);
-                handle(f);
+    #[no_coverage]
+    pub(crate) unsafe fn start_recording(&self) {}
+    #[no_coverage]
+    pub(crate) unsafe fn stop_recording(&self) {}
+    #[no_coverage]
+    pub(crate) unsafe fn iterate_over_collected_features<F>(&mut self, mut handle: F)
+    where
+        F: FnMut(Feature),
+    {
+        let CodeCoverageSensor { coverage_counters } = self;
+        coverage_counters.iterate_over_coverage_points(get_counters(), |(index, count)| {
+            handle(Feature::new(index, count));
+        });
+    }
+    #[no_coverage]
+    pub(crate) unsafe fn clear(&mut self) {
+        let slice = get_counters();
+        for c in &self.coverage_counters.counters {
+            for i in c.counters_range.clone() {
+                *slice.get_unchecked_mut(i) = 0;
             }
         }
-    }
-
-    let start_remainder = length_chunks * CHUNK_SIZE;
-    let remainder = unsafe { (*sensor).eight_bit_counters.get_unchecked(start_remainder..) };
-    for (j, &x) in remainder.iter().enumerate() {
-        if x == 0 {
-            continue;
-        }
-        let i = start_remainder + j;
-        let f = Feature::edge(i, x as u16);
-        handle(f);
-    }
-
-    // self.indir_features. ...
-
-    #[cfg(trace_compares)]
-    {
-        unsafe {
-            (*sensor).instr_features.drain(|f| {
-                handle(Feature::from_instr(InstrFeatureWithoutTag(f)));
-            });
-        }
-    }
-}
-
-#[cfg(trace_compares)]
-macro_rules! make_instr_feature_without_tag {
-    ($pc:ident, $arg1:ident, $arg2:ident) => {{
-        (($pc & 0x3F_FFFF) << Feature::id_offset()) | (($arg1 ^ $arg2).count_ones() as usize)
-    }};
-}
-
-// TODO: indir disabled for now
-// impl CodeCoverageSensor {
-//     #[inline]
-//     fn handle_trace_indir(&mut self, caller: PC, callee: PC) {
-//         // let f = Feature::indir(caller, callee);
-//         // self.indir_features.insert(f);
-//     }
-// }
-
-#[cfg(trace_compares)]
-#[inline]
-fn handle_trace_cmp_u8(pc: PC, arg1: u8, arg2: u8) {
-    let f = make_instr_feature_without_tag!(pc, arg1, arg2);
-    let sensor = unsafe { SHARED_SENSOR.as_mut_ptr() };
-    unsafe { (*sensor).instr_features.set(f) };
-}
-#[cfg(trace_compares)]
-#[inline]
-fn handle_trace_cmp_u16(pc: PC, arg1: u16, arg2: u16) {
-    let f = make_instr_feature_without_tag!(pc, arg1, arg2);
-    let sensor = unsafe { SHARED_SENSOR.as_mut_ptr() };
-    unsafe { (*sensor).instr_features.set(f) };
-}
-#[cfg(trace_compares)]
-#[inline]
-fn handle_trace_cmp_u32(pc: PC, arg1: u32, arg2: u32) {
-    let f = make_instr_feature_without_tag!(pc, arg1, arg2);
-    let sensor = unsafe { SHARED_SENSOR.as_mut_ptr() };
-    unsafe { (*sensor).instr_features.set(f) };
-}
-#[cfg(trace_compares)]
-#[inline]
-fn handle_trace_cmp_u64(pc: PC, arg1: u64, arg2: u64) {
-    let f = make_instr_feature_without_tag!(pc, arg1, arg2);
-    let sensor = unsafe { SHARED_SENSOR.as_mut_ptr() };
-    unsafe { (*sensor).instr_features.set(f) };
-}
-
-pub fn clear() {
-    unsafe {
-        let sensor = SHARED_SENSOR.as_mut_ptr();
-
-        for x in (*sensor).eight_bit_counters.iter_mut() {
-            *x = 0;
-        }
-        #[cfg(trace_compares)]
-        {
-            (*sensor).instr_features.drain(|_| {});
-        }
-        // self.indir_features.clean();
     }
 }

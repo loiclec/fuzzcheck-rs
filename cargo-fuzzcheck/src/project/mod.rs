@@ -487,7 +487,6 @@ impl FullConfig {
 
         let CommandLineArguments {
             command,
-            max_nbr_of_runs,
             max_input_cplx,
             timeout,
             corpus_size,
@@ -527,9 +526,6 @@ impl FullConfig {
         }
         if let Some(max_cplx) = max_input_cplx {
             self.max_cplx = *max_cplx;
-        }
-        if let Some(max_nbr_of_runs) = max_nbr_of_runs {
-            self.max_nbr_of_runs = *max_nbr_of_runs;
         }
         if let Some(timeout) = timeout {
             self.timeout = *timeout;
