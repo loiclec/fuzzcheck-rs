@@ -29,11 +29,8 @@ pub fn get_llvm_cov_sections(path: &Path) -> LLVMCovSections {
             }
             assert!(!covfun.is_empty());
             assert!(!covmap.is_empty());
-            LLVMCovSections {
-                    covfun,
-                    covmap,
-                }
-        },
+            LLVMCovSections { covfun, covmap }
+        }
         goblin::Object::PE(_x) => todo!(),
         goblin::Object::Mach(x) => match x {
             goblin::mach::Mach::Fat(_x) => todo!(),
@@ -66,10 +63,7 @@ pub fn get_llvm_cov_sections(path: &Path) -> LLVMCovSections {
                 }
                 assert!(!covfun.is_empty());
                 assert!(!covmap.is_empty());
-                LLVMCovSections {
-                    covfun,
-                    covmap,
-                }
+                LLVMCovSections { covfun, covmap }
             }
         },
         goblin::Object::Archive(_x) => todo!(),

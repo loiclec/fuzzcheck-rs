@@ -15,10 +15,11 @@ use crate::{Feature, FuzzedInput, Mutator, Serializer};
 
 use fuzzcheck_common::{FuzzerEvent, FuzzerStats};
 
-use fuzzcheck_common::arg::{FullCommandLineArguments, FuzzerCommand};
+use fuzzcheck_common::arg::{Arguments, FuzzerCommand};
 use nix::signal;
 
 use std::panic::{catch_unwind, RefUnwindSafe, UnwindSafe};
+use std::path::Path;
 use std::process::exit;
 use std::result::Result;
 
@@ -63,7 +64,7 @@ struct FuzzerState<T: Clone, M: Mutator<T>, S: Serializer<Value = T>> {
     arbitrary_step: M::ArbitraryStep,
     input_idx: FuzzerInputIndex<T, M>,
     stats: FuzzerStats,
-    settings: FullCommandLineArguments,
+    settings: Arguments,
     world: World<S>,
     analysis_cache: AnalysisCache<T, M>,
 }
@@ -178,7 +179,7 @@ where
     S: Serializer<Value = T>,
 {
     #[no_coverage]
-    pub fn new(test: F, mutator: M, settings: FullCommandLineArguments, world: World<S>) -> Self {
+    pub fn new(test: F, mutator: M, settings: Arguments, world: World<S>) -> Self {
         let arbitrary_step = mutator.default_arbitrary_step();
         let sensor = CodeCoverageSensor::new();
         Fuzzer {
@@ -486,7 +487,7 @@ where
     /// The number of inputs to keep is taken from
     /// [`self.settings.corpus_size`](FuzzerSettings::corpus_size)
     #[no_coverage]
-    fn corpus_minifying_loop(&mut self) -> Result<(), std::io::Error> {
+    fn corpus_minifying_loop(&mut self, corpus_size: usize) -> Result<(), std::io::Error> {
         self.state
             .world
             .do_actions(vec![WorldAction::ReportEvent(FuzzerEvent::Start)], &self.state.stats)?;
@@ -498,7 +499,7 @@ where
             &self.state.stats,
         )?;
 
-        while self.state.pool.len() > self.state.settings.corpus_size {
+        while self.state.pool.len() > corpus_size {
             let actions = self.state.pool.remove_lowest_scoring_input();
             self.state.update_stats();
             self.state.world.do_actions(actions, &self.state.stats)?;
@@ -511,11 +512,11 @@ where
     }
 
     #[no_coverage]
-    fn input_minifying_loop(&mut self) -> Result<(), std::io::Error> {
+    fn input_minifying_loop(&mut self, file: &Path) -> Result<(), std::io::Error> {
         self.state
             .world
             .do_actions(vec![WorldAction::ReportEvent(FuzzerEvent::Start)], &self.state.stats)?;
-        let value = self.state.world.read_input_file()?;
+        let value = self.state.world.read_input_file(file)?;
 
         if let Some((cache, mutation_step)) = self.state.mutator.validate_value(&value) {
             let input = FuzzedInput::<T, M>::new(value, cache, mutation_step);
@@ -550,12 +551,7 @@ pub enum TerminationStatus {
 }
 
 #[no_coverage]
-pub fn launch<T, FT, F, M, S>(
-    test: F,
-    mutator: M,
-    serializer: S,
-    args: FullCommandLineArguments,
-) -> Result<(), std::io::Error>
+pub fn launch<T, FT, F, M, S>(test: F, mutator: M, serializer: S, args: Arguments) -> Result<(), std::io::Error>
 where
     FT: ?Sized,
     T: Clone + Borrow<FT>,
@@ -564,16 +560,16 @@ where
     S: Serializer<Value = T>,
     Fuzzer<T, FT, F, M, S>: 'static,
 {
-    let command = args.command;
+    let command = &args.command;
 
-    let mut fuzzer = Fuzzer::new(test, mutator, args.clone(), World::new(serializer, args));
+    let mut fuzzer = Fuzzer::new(test, mutator, args.clone(), World::new(serializer, args.clone()));
     unsafe { fuzzer.state.set_up_signal_handler() };
 
     match command {
         FuzzerCommand::Fuzz => fuzzer.main_loop()?,
-        FuzzerCommand::MinifyInput => fuzzer.input_minifying_loop()?,
-        FuzzerCommand::Read => {
-            let value = fuzzer.state.world.read_input_file()?;
+        FuzzerCommand::MinifyInput { input_file } => fuzzer.input_minifying_loop(&input_file)?,
+        FuzzerCommand::Read { input_file } => {
+            let value = fuzzer.state.world.read_input_file(&input_file)?;
             if let Some((cache, mutation_step)) = fuzzer.state.mutator.validate_value(&value) {
                 fuzzer.state.input_idx = FuzzerInputIndex::Temporary(FuzzedInput::new(value, cache, mutation_step));
                 let input = FuzzerState::<T, M, S>::get_input(&fuzzer.state.input_idx, &fuzzer.state.pool).unwrap();
@@ -590,7 +586,7 @@ where
                 todo!()
             }
         }
-        FuzzerCommand::MinifyCorpus => fuzzer.corpus_minifying_loop()?,
+        FuzzerCommand::MinifyCorpus { corpus_size } => fuzzer.corpus_minifying_loop(*corpus_size)?,
     };
     Ok(())
 }

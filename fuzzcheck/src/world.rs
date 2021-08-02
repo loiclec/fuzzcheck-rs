@@ -2,7 +2,8 @@
 use decent_serde_json_alternative::FromJson;
 #[cfg(feature = "ui")]
 use decent_serde_json_alternative::ToJson;
-use fuzzcheck_common::arg::{FullCommandLineArguments, FuzzerCommand};
+use fuzzcheck_common::arg::Arguments;
+use fuzzcheck_common::arg::FuzzerCommand;
 #[cfg(feature = "ui")]
 use fuzzcheck_common::ipc::{self, MessageUserToFuzzer, TuiMessage, TuiMessageEvent};
 use std::collections::HashMap;
@@ -14,6 +15,7 @@ use std::fs;
 use std::hash::{Hash, Hasher};
 use std::io::{self, Result};
 
+use std::path::Path;
 use std::time::Instant;
 
 use fuzzcheck_common::{FuzzerEvent, FuzzerStats};
@@ -39,7 +41,7 @@ pub(crate) enum WorldAction<T> {
 pub struct World<S: Serializer> {
     #[cfg(feature = "ui")]
     stream: Option<TcpStream>,
-    settings: FullCommandLineArguments,
+    settings: Arguments,
     initial_instant: Instant,
     checkpoint_instant: Instant,
     #[cfg(feature = "ui")]
@@ -51,7 +53,7 @@ pub struct World<S: Serializer> {
 
 impl<S: Serializer> World<S> {
     #[no_coverage]
-    pub fn new(serializer: S, settings: FullCommandLineArguments) -> Self {
+    pub fn new(serializer: S, settings: Arguments) -> Self {
         #[cfg(feature = "ui")]
         let stream = if let Some(socket_address) = settings.socket_address {
             Some(TcpStream::connect(socket_address).unwrap())
@@ -288,21 +290,14 @@ This should never happen, and is probably a bug in fuzzcheck. Sorry :("#
         Ok(inputs)
     }
     #[no_coverage]
-    pub fn read_input_file(&self) -> Result<S::Value> {
-        if let Some(input_file) = &self.settings.input_file {
-            let data = fs::read(input_file)?;
-            if let Some(input) = self.serializer.from_data(&data) {
-                Ok(input)
-            } else {
-                Result::Err(io::Error::new(
-                    io::ErrorKind::Other,
-                    "The file could not be decoded into a valid input.",
-                ))
-            }
+    pub fn read_input_file(&self, file: &Path) -> Result<S::Value> {
+        let data = fs::read(file)?;
+        if let Some(input) = self.serializer.from_data(&data) {
+            Ok(input)
         } else {
             Result::Err(io::Error::new(
                 io::ErrorKind::Other,
-                "No input file was given as argument",
+                "The file could not be decoded into a valid input.",
             ))
         }
     }
@@ -324,7 +319,7 @@ This should never happen, and is probably a bug in fuzzcheck. Sorry :("#
         content.hash(&mut hasher);
         let hash = hasher.finish();
 
-        let name = if let FuzzerCommand::MinifyInput | FuzzerCommand::Read = self.settings.command {
+        let name = if let FuzzerCommand::MinifyInput { .. } | FuzzerCommand::Read { .. } = self.settings.command {
             format!("{:.0}--{:x}", cplx * 100.0, hash)
         } else {
             format!("{:x}", hash)

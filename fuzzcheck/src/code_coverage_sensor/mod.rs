@@ -5,7 +5,10 @@ mod leb128;
 mod llvm_coverage;
 use crate::Feature;
 
-use self::{extract_llvm_cov_sections::LLVMCovSections, llvm_coverage::{AllCoverage, get_counters, get_prf_data, read_covmap}};
+use self::{
+    extract_llvm_cov_sections::LLVMCovSections,
+    llvm_coverage::{get_counters, get_prf_data, read_covmap, AllCoverage},
+};
 
 /// Records the code coverage of the program and converts it into `Feature`s
 /// that the `pool` can understand.
@@ -17,10 +20,7 @@ impl CodeCoverageSensor {
     #[no_coverage]
     pub(crate) fn new() -> Self {
         let exec = std::env::current_exe().expect("could not read current executable");
-        let LLVMCovSections {
-            covfun,
-            covmap,
-        } = extract_llvm_cov_sections::get_llvm_cov_sections(&exec);
+        let LLVMCovSections { covfun, covmap } = extract_llvm_cov_sections::get_llvm_cov_sections(&exec);
         let prf_data = unsafe { get_prf_data() };
         let covmap = read_covmap(&covmap, &mut 0);
         let covfun = llvm_coverage::read_covfun(&covfun, &mut 0);

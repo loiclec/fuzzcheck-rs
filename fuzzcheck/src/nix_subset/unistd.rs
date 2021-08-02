@@ -10,34 +10,40 @@ pub struct Pid(pid_t);
 
 impl Pid {
     /// Creates `Pid` from raw `pid_t`.
-    #[no_coverage] pub fn from_raw(pid: pid_t) -> Self {
+    #[no_coverage]
+    pub fn from_raw(pid: pid_t) -> Self {
         Pid(pid)
     }
 
     /// Returns PID of calling process
-    #[no_coverage] pub fn this() -> Self {
+    #[no_coverage]
+    pub fn this() -> Self {
         getpid()
     }
 
     /// Returns PID of parent of calling process
-    #[no_coverage] pub fn parent() -> Self {
+    #[no_coverage]
+    pub fn parent() -> Self {
         getppid()
     }
 
     /// Get the raw `pid_t` wrapped by `self`.
-    #[no_coverage] pub fn as_raw(self) -> pid_t {
+    #[no_coverage]
+    pub fn as_raw(self) -> pid_t {
         self.0
     }
 }
 
 impl From<Pid> for pid_t {
-    #[no_coverage] fn from(pid: Pid) -> Self {
+    #[no_coverage]
+    fn from(pid: Pid) -> Self {
         pid.0
     }
 }
 
 impl fmt::Display for Pid {
-    #[no_coverage] fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    #[no_coverage]
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         fmt::Display::fmt(&self.0, f)
     }
 }
@@ -48,7 +54,8 @@ impl fmt::Display for Pid {
 /// Since you are running code, there is always a pid to return, so there
 /// is no error case that needs to be handled.
 #[inline]
-#[no_coverage] pub fn getpid() -> Pid {
+#[no_coverage]
+pub fn getpid() -> Pid {
     Pid(unsafe { libc::getpid() })
 }
 
@@ -58,6 +65,7 @@ impl fmt::Display for Pid {
 /// There is always a parent pid to return, so there is no error case that needs
 /// to be handled.
 #[inline]
-#[no_coverage] pub fn getppid() -> Pid {
+#[no_coverage]
+pub fn getppid() -> Pid {
     Pid(unsafe { libc::getppid() }) // no error handling, according to man page: "These functions are always successful."
 }

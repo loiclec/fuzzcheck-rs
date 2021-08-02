@@ -24,8 +24,8 @@ mod pool;
 mod signals_handler;
 
 use fuzzcheck_common::arg::{
-    options_parser, FullCommandLineArguments, COMMAND_FUZZ, COMMAND_MINIFY_CORPUS, COMMAND_MINIFY_INPUT,
-    CORPUS_SIZE_FLAG, INPUT_FILE_FLAG, IN_CORPUS_FLAG,
+    options_parser, Arguments, COMMAND_FUZZ, COMMAND_MINIFY_CORPUS, COMMAND_MINIFY_INPUT, CORPUS_SIZE_FLAG,
+    INPUT_FILE_FLAG, IN_CORPUS_FLAG,
 };
 
 use fuzzcheck_traits::*;
@@ -47,7 +47,7 @@ by the fuzzcheck_mutators crate.
 See the [Serializer] trait for more information. Some basic serializers are
 provided by the fuzzcheck_serializer crate.
 
-* The fourth argument are the command line arguments given to the fuzzer. 
+* The fourth argument are the command line arguments given to the fuzzer.
 
 This function will either:
 
@@ -121,7 +121,7 @@ fuzzcheck {cmin} --{in_corpus} "fuzz-corpus" --{corpus_size} 25
     )
     .as_str();
 
-    let args = match FullCommandLineArguments::from_parser(&parser, &args) {
+    let args = match Arguments::from_parser(&parser, &args) {
         Ok(r) => r,
         Err(e) => {
             println!("{}\n\n{}", e, help);
@@ -158,11 +158,11 @@ impl Feature {
     ///
     /// So that similar numbers have the same hash, and very high
     /// numbers have a greater hash.
-    /// 
-    /// We do this because we don't want to overwhelm the fuzzers. 
+    ///
+    /// We do this because we don't want to overwhelm the fuzzers.
     /// Imagine we have a test case that reached a code block 35_987 times.
     /// We don't want to consider a test case that reaches the same code block
-    /// 35_965 times to be interesting. So instead, we group similar 
+    /// 35_965 times to be interesting. So instead, we group similar
     /// hit counts together.
     #[no_coverage]
     fn score_from_counter(counter: u64) -> u8 {
