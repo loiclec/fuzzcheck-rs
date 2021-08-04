@@ -9,35 +9,46 @@
 #![feature(test)]
 #![feature(no_coverage)]
 #![feature(type_alias_impl_trait)]
+#![feature(generic_associated_types)]
+#![feature(variant_count)]
+#![feature(arc_new_cyclic)]
+#![feature(trivial_bounds)]
+#![allow(clippy::nonstandard_macro_braces)]
+#![allow(clippy::too_many_arguments)]
+
+pub extern crate fastrand;
 
 pub mod builder;
 mod code_coverage_sensor;
 mod data_structures;
 mod fuzzer;
+pub mod mutators;
 mod pool;
+pub mod serializers;
 mod signals_handler;
+mod traits;
 mod world;
 
 #[doc(inline)]
-pub use builder::FuzzerBuilder;
-use fuzzcheck_traits::*;
-
-#[cfg(feature = "mutators")]
-pub use fuzzcheck_mutators;
-
-#[cfg(feature = "mutators")]
-pub use fuzzcheck_mutators::DefaultMutator;
+pub use mutators::DefaultMutator;
+#[doc(inline)]
+pub use traits::Mutator;
+#[doc(inline)]
+pub use traits::Serializer;
 
 #[doc(inline)]
-pub use fuzzcheck_serializer::ByteSerializer;
+pub use builder::FuzzerBuilder;
+
+#[doc(inline)]
+pub use serializers::ByteSerializer;
 
 #[cfg(feature = "serde_json_alternative_serializer")]
 #[doc(inline)]
-pub use fuzzcheck_serializer::JsonSerializer;
+pub use serializers::JsonSerializer;
 
 #[cfg(feature = "serde_json_serializer")]
 #[doc(inline)]
-pub use fuzzcheck_serializer::SerdeSerializer;
+pub use serializers::SerdeSerializer;
 
 /**
  * A unit of code coverage.

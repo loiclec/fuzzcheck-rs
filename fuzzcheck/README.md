@@ -67,7 +67,7 @@ mutator that you can give to fuzzcheck.
 
 ```rust
 use decent_serde_json_alternative::{FromJson, ToJson};
-use fuzzcheck_mutators::DefaultMutator;
+use fuzzcheck::DefaultMutator;
 
 #[derive(Clone, FromJson, ToJson, DefaultMutator)]
 pub enum SampleEnum<T> {

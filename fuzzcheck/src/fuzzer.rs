@@ -10,7 +10,7 @@ use crate::pool::{AnalyzedFeature, Pool, PoolIndex};
 use crate::signals_handler::set_signal_handlers;
 use crate::world::World;
 use crate::world::WorldAction;
-use crate::{Feature, FuzzedInput, Mutator, Serializer};
+use crate::{traits::Mutator, traits::Serializer, Feature, FuzzedInput};
 
 use fuzzcheck_common::{FuzzerEvent, FuzzerStats};
 

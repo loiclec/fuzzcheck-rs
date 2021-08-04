@@ -20,7 +20,7 @@ use std::time::Instant;
 
 use fuzzcheck_common::{FuzzerEvent, FuzzerStats};
 
-use crate::{fuzzer::TerminationStatus, Serializer};
+use crate::{fuzzer::TerminationStatus, traits::Serializer};
 
 pub(crate) enum WorldAction<T> {
     Remove {

@@ -78,7 +78,7 @@ pub fn derive_tuple_structure(item: proc_macro::TokenStream) -> proc_macro::Toke
     }
     ```
     For enums:
-    ```
+    ```ignore
     // somewhere, this type is defined
     #[derive(Clone)]
     pub enum E<T> {
@@ -100,7 +100,7 @@ pub fn derive_tuple_structure(item: proc_macro::TokenStream) -> proc_macro::Toke
     }
     ```
     Create a recursive mutator:
-    ```
+    ```ignore
     #[derive(Clone)]
     pub struct R<T> {
         x: u8,
@@ -197,8 +197,8 @@ fn derive_default_mutator_(mut parser: TokenParser, settings: MakeMutatorSetting
             enums::impl_default_mutator_for_enum(&mut tb, &e, &settings);
         } else if !e.items.is_empty() {
             // no associated data anywhere
-            enums::impl_basic_enum_structure(&mut tb, &e, &settings);
-            enums::impl_default_mutator_for_basic_enum(&mut tb, &e, &settings);
+            enums::impl_basic_enum_structure(&mut tb, &e);
+            enums::impl_default_mutator_for_basic_enum(&mut tb, &e);
         } else {
             extend_ts!(
                 &mut tb,
@@ -235,7 +235,6 @@ struct MakeMutatorSettings {
     name: Option<proc_macro2::Ident>,
     recursive: bool,
     default: bool,
-    fuzzcheck_mutators_crate: proc_macro2::TokenStream,
 }
 impl MakeMutatorSettings {
     // TODO: don't panic like that, add a nice compile error
@@ -244,7 +243,6 @@ impl MakeMutatorSettings {
         let mut name = None;
         let mut recursive = None;
         let mut default = None;
-        let mut fuzzcheck_mutators_crate = None;
         while !parser.is_eot() {
             if let Some(ident) = parser.eat_any_ident() {
                 match ident.to_string().as_ref() {
@@ -282,16 +280,6 @@ impl MakeMutatorSettings {
                             panic!()
                         }
                     }
-                    "fuzzcheck_mutators_crate" => {
-                        if parser.eat_punct(':').is_none() {
-                            panic!()
-                        }
-                        if let Some(ts) = parser.eat_type_path() {
-                            fuzzcheck_mutators_crate = Some(ts);
-                        } else {
-                            panic!()
-                        }
-                    }
                     "type" => {
                         if parser.eat_punct(':').is_none() {
                             panic!()
@@ -302,8 +290,6 @@ impl MakeMutatorSettings {
                                 name,
                                 recursive: recursive.unwrap_or(default_settings.recursive),
                                 default: default.unwrap_or(default_settings.default),
-                                fuzzcheck_mutators_crate: fuzzcheck_mutators_crate
-                                    .unwrap_or(default_settings.fuzzcheck_mutators_crate),
                             },
                             parser,
                         );
@@ -326,7 +312,6 @@ impl Default for MakeMutatorSettings {
             name: None,
             recursive: false,
             default: true,
-            fuzzcheck_mutators_crate: ts!("fuzzcheck_mutators"),
         }
     }
 }
@@ -340,6 +325,7 @@ pub(crate) struct Common {
     Debug: TokenStream,
     PartialEq: TokenStream,
     fastrand_Rng: TokenStream,
+    mutators: TokenStream,
     // fuzzcheck_mutator_traits_Mutator: TokenStream,
     fuzzcheck_traits_Mutator: TokenStream,
     Mi_j: Box<dyn (Fn(usize, usize) -> Ident)>,
@@ -370,39 +356,40 @@ pub(crate) struct Common {
 impl Common {
     #[allow(non_snake_case)]
     fn new(n: usize) -> Self {
-        let fuzzcheck_mutators_crate = ts!("fuzzcheck_mutators");
+        let mutators = ts!("fuzzcheck::mutators");
         let ti = Box::new(|i: usize| ident!("t" i));
         let ti_value = Box::new(|i: usize| ident!("t" i "_value"));
         let Ti = Box::new(|i: usize| ident!("T" i));
-        let TupleMutator = ts!(fuzzcheck_mutators_crate "::tuples::TupleMutator");
+        let TupleMutator = ts!(mutators "::tuples::TupleMutator");
         let Option = ts!("::std::option::Option");
         let some = ts!(Option "::Some");
         let none = ts!(Option "::None");
 
-        let TupleStructure = ts!(fuzzcheck_mutators_crate "::tuples::TupleStructure");
+        let TupleStructure = ts!(mutators "::tuples::TupleStructure");
         let Tuplei = {
-            let fuzzcheck_mutators_crate = fuzzcheck_mutators_crate.clone();
-            Box::new(move |i: usize| ts!(fuzzcheck_mutators_crate "::tuples::" ident!("Tuple" i)))
+            let mutators = mutators.clone();
+            Box::new(move |i: usize| ts!(mutators "::tuples::" ident!("Tuple" i)))
         };
         let TupleNMutator = {
-            let fuzzcheck_mutators_crate = fuzzcheck_mutators_crate.clone();
-            Box::new(move |n: usize| ts!(fuzzcheck_mutators_crate "::tuples::" ident!("Tuple" n "Mutator")))
+            let mutators = mutators.clone();
+            Box::new(move |n: usize| ts!(mutators "::tuples::" ident!("Tuple" n "Mutator")))
         };
 
-        let fuzzcheck_traits_Mutator = ts!("fuzzcheck_traits::Mutator");
+        let fuzzcheck_traits_Mutator = ts!("fuzzcheck::Mutator");
 
-        let fastrand = ts!(fuzzcheck_mutators_crate "::fastrand");
+        let fastrand = ts!("fuzzcheck::fastrand");
         let fastrand_Rng = ts!(fastrand "::Rng");
 
         Self {
-            AlternationMutator: ts!(fuzzcheck_mutators_crate "::alternation::AlternationMutator"),
+            AlternationMutator: ts!(mutators "::alternation::AlternationMutator"),
             Clone: ts!("::std::clone::Clone"),
             Debug: ts!("::std::fmt::Debug"),
             Default: ts!("::std::default::Default"),
             PartialEq: ts!("::std::cmp::PartialEq"),
-            DefaultMutator: ts!(fuzzcheck_mutators_crate "::DefaultMutator"),
+            DefaultMutator: ts!(mutators "::DefaultMutator"),
             fastrand_Rng,
-            // fuzzcheck_mutator_traits_Mutator: ts!(fuzzcheck_mutators_crate fuzzcheck_traits_Mutator),
+            mutators: mutators.clone(),
+            // fuzzcheck_mutator_traits_Mutator: ts!(mutators fuzzcheck_traits_Mutator),
             fuzzcheck_traits_Mutator,
             Mi_j: Box::new(|i, j| ident!("M" i "_" j)),
             Mi: Box::new(|i| ident!("M" i)),
@@ -410,23 +397,23 @@ impl Common {
             None: none,
             Option,
             PhantomData: ts!("::std::marker::PhantomData"),
-            RefTypes: ts!(fuzzcheck_mutators_crate "::tuples::RefTypes"),
+            RefTypes: ts!(mutators "::tuples::RefTypes"),
             Some: some,
             ti,
             ti_value,
             Ti,
             Tuplei,
             TupleMutator,
-            TupleMutatorWrapper: ts!(fuzzcheck_mutators_crate "::tuples::TupleMutatorWrapper"),
+            TupleMutatorWrapper: ts!(mutators "::tuples::TupleMutatorWrapper"),
             TupleN_ident: ident!("Tuple" n),
-            TupleN_path: ts!(fuzzcheck_mutators_crate "::tuples::" ident!("Tuple" n)),
+            TupleN_path: ts!(mutators "::tuples::" ident!("Tuple" n)),
             TupleNMutator,
             TupleNMutator_ident: ident!("Tuple" n "Mutator"),
             TupleStructure,
-            UnitMutator: ts!(fuzzcheck_mutators_crate "::unit::UnitMutator"),
+            UnitMutator: ts!(mutators "::unit::UnitMutator"),
             Vec: ts!("::std::vec::Vec"),
-            VoseAlias: ts!(fuzzcheck_mutators_crate "::vose_alias::VoseAlias"),
-            RecursiveMutator: ts!(fuzzcheck_mutators_crate "::recursive::RecursiveMutator"),
+            VoseAlias: ts!(mutators "::vose_alias::VoseAlias"),
+            RecursiveMutator: ts!(mutators "::recursive::RecursiveMutator"),
             Box: ts!("::std::boxed::Box"),
         }
     }

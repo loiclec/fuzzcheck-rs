@@ -131,7 +131,7 @@ pub(crate) fn impl_default_mutator_for_enum(tb: &mut TokenBuilder, enu: &Enum, s
 }
 
 #[allow(non_snake_case)]
-pub(crate) fn impl_basic_enum_structure(tb: &mut TokenBuilder, enu: &Enum, settings: &MakeMutatorSettings) {
+pub(crate) fn impl_basic_enum_structure(tb: &mut TokenBuilder, enu: &Enum) {
     assert!(
         !enu.items.is_empty()
             && enu
@@ -140,7 +140,9 @@ pub(crate) fn impl_basic_enum_structure(tb: &mut TokenBuilder, enu: &Enum, setti
                 .all(|item| !matches!(&item.data, Some(EnumItemData::Struct(_, fields)) if !fields.is_empty()))
     );
 
-    let BasicEnumStructure = ts!(settings.fuzzcheck_mutators_crate "::enums::BasicEnumStructure");
+    let cm = Common::new(0);
+
+    let BasicEnumStructure = ts!(cm.mutators "::enums::BasicEnumStructure");
 
     let items_init = enu
         .items
@@ -176,7 +178,7 @@ pub(crate) fn impl_basic_enum_structure(tb: &mut TokenBuilder, enu: &Enum, setti
 }
 
 #[allow(non_snake_case)]
-pub(crate) fn impl_default_mutator_for_basic_enum(tb: &mut TokenBuilder, enu: &Enum, settings: &MakeMutatorSettings) {
+pub(crate) fn impl_default_mutator_for_basic_enum(tb: &mut TokenBuilder, enu: &Enum) {
     assert!(
         !enu.items.is_empty()
             && enu
@@ -187,7 +189,7 @@ pub(crate) fn impl_default_mutator_for_basic_enum(tb: &mut TokenBuilder, enu: &E
 
     let cm = Common::new(0);
 
-    let BasicEnumMutator = ts!(settings.fuzzcheck_mutators_crate "::enums::BasicEnumMutator");
+    let BasicEnumMutator = ts!(cm.mutators "::enums::BasicEnumMutator");
 
     extend_ts!(tb,
         "impl" cm.DefaultMutator "for " enu.ident " {

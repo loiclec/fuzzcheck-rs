@@ -1,10 +1,10 @@
 use crate::fuzzer::{self, Fuzzer};
+use crate::traits::{Mutator, Serializer};
 use fuzzcheck_common::arg::Arguments;
 use fuzzcheck_common::arg::{
     options_parser, COMMAND_FUZZ, COMMAND_MINIFY_CORPUS, COMMAND_MINIFY_INPUT, CORPUS_SIZE_FLAG, INPUT_FILE_FLAG,
     IN_CORPUS_FLAG,
 };
-use fuzzcheck_traits::{Mutator, Serializer};
 use std::borrow::Borrow;
 use std::marker::PhantomData;
 use std::result::Result;
@@ -76,9 +76,7 @@ where
     For example, you may write:
     ```
     #![feature(no_coverage)]
-    use fuzzcheck::FuzzerBuilder;
-    use fuzzcheck::fuzzcheck_mutators::DefaultMutator;
-    use fuzzcheck::fuzzcheck_serializer::SerdeSerializer;
+    use fuzzcheck::{FuzzerBuilder, DefaultMutator, SerdeSerializer};
 
     fn my_function(xs: &Option<u16>) -> bool {
         // ..
@@ -195,8 +193,7 @@ where
         Then the given mutator should produces values that can be borrowed as `[u8]`.
         We can write:
         ```
-        use fuzzcheck::FuzzerBuilder;
-        use fuzzcheck_mutators::DefaultMutator;
+        use fuzzcheck::{FuzzerBuilder, DefaultMutator};
         # fn foo(xs: &[u8]) {
         #     // ..
         # }
