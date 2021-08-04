@@ -25,8 +25,19 @@ use fuzzcheck_traits::*;
 #[cfg(feature = "mutators")]
 pub use fuzzcheck_mutators;
 
-#[cfg(any(feature = "serde_json_alternative_serializer", feature = "serde_json_serializer"))]
-pub use fuzzcheck_serializer;
+#[cfg(feature = "mutators")]
+pub use fuzzcheck_mutators::DefaultMutator;
+
+#[doc(inline)]
+pub use fuzzcheck_serializer::ByteSerializer;
+
+#[cfg(feature = "serde_json_alternative_serializer")]
+#[doc(inline)]
+pub use fuzzcheck_serializer::JsonSerializer;
+
+#[cfg(feature = "serde_json_serializer")]
+#[doc(inline)]
+pub use fuzzcheck_serializer::SerdeSerializer;
 
 /**
  * A unit of code coverage.

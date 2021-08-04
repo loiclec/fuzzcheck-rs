@@ -1,6 +1,6 @@
 use crate::either::Either;
-use fuzzcheck_traits::Mutator;
 use crate::recursive::{RecurToMutator, RecursiveMutator};
+use fuzzcheck_traits::Mutator;
 use std::marker::PhantomData;
 
 /**
@@ -9,6 +9,7 @@ use std::marker::PhantomData;
 
     The token should be the UnmutateToken of a mutator.
 */
+#[doc(hidden)] // hide the documentation because it pollutes the documentation of all other types
 pub trait IncrementalMapping<From: Clone, To, M: Mutator<From>> {
     /// The `from_value` was already mutated. The `token` encodes how to unmutate `from_value`. Based on `token` and `from_value`,
     /// this function updates the `to_value`.

@@ -32,7 +32,8 @@ pub fn make_tuple_type_structure(tb: &mut TokenBuilder, nbr_elements: usize) {
     let PhantomData = ts!(cm.PhantomData "<(" type_params ",)>");
 
     extend_ts!(tb,
-        "pub struct" cm.TupleN_ident "<" type_params_static_bound "> {
+        "#[doc(hidden)]
+        pub struct" cm.TupleN_ident "<" type_params_static_bound "> {
             _phantom: " PhantomData ",
         }
         impl<" type_params_static_bound "> " cm.RefTypes " for " cm.TupleN_ident "<" type_params "> {

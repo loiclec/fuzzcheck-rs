@@ -151,6 +151,7 @@ pub(crate) fn make_mutator_type_and_impl(params: CreateWrapperMutatorParams) -> 
         let mut partialeq_where_clause = NameMutator_where_clause.clone();
         partialeq_where_clause.add_clause_items(ts!(InnerType ":" cm.PartialEq));
         ts!(
+            "#[doc(hidden)]"
             visibility "struct" ident!(NameMutator helper_type) NameMutator_generics.removing_eq_type() NameMutator_where_clause "{
             pub inner : " if settings.recursive { ts!(cm.Box "<") } else { ts!("") } InnerType if settings.recursive { ">" } else { "" } ",
             }
