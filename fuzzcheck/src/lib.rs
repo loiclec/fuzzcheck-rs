@@ -16,7 +16,6 @@ pub mod builder;
 mod code_coverage_sensor;
 mod data_structures;
 mod fuzzer;
-mod nix_subset;
 mod pool;
 mod signals_handler;
 mod world;

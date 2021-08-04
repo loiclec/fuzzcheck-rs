@@ -4,11 +4,10 @@
 
 use crate::code_coverage_sensor::CodeCoverageSensor;
 use crate::data_structures::{LargeStepFindIter, SlabKey};
-use crate::nix_subset as nix;
 #[cfg(feature = "ui")]
 use crate::pool::Input;
 use crate::pool::{AnalyzedFeature, Pool, PoolIndex};
-use crate::signals_handler::{set_signal_handlers, set_timer};
+use crate::signals_handler::set_signal_handlers;
 use crate::world::World;
 use crate::world::WorldAction;
 use crate::{Feature, FuzzedInput, Mutator, Serializer};
@@ -16,7 +15,7 @@ use crate::{Feature, FuzzedInput, Mutator, Serializer};
 use fuzzcheck_common::{FuzzerEvent, FuzzerStats};
 
 use fuzzcheck_common::arg::{Arguments, FuzzerCommand};
-use nix::signal;
+use libc::{SIGABRT, SIGALRM, SIGBUS, SIGFPE, SIGINT, SIGSEGV, SIGTERM};
 
 use std::panic::{catch_unwind, RefUnwindSafe, UnwindSafe};
 use std::path::Path;
@@ -24,8 +23,6 @@ use std::process::exit;
 use std::result::Result;
 
 use std::borrow::Borrow;
-
-use std::convert::TryFrom;
 
 enum FuzzerInputIndex<T: Clone, M: Mutator<T>> {
     None,
@@ -105,36 +102,31 @@ where
     }
     #[no_coverage]
     fn receive_signal(&mut self, signal: i32) -> ! {
-        use signal::Signal::{self, *};
-        if let Ok(signal) = Signal::try_from(signal) {
-            self.world
-                .do_actions(
-                    vec![WorldAction::ReportEvent(FuzzerEvent::CaughtSignal(signal as i32))],
-                    &self.stats,
-                )
-                .unwrap();
+        self.world
+            .do_actions(
+                vec![WorldAction::ReportEvent(FuzzerEvent::CaughtSignal(signal as i32))],
+                &self.stats,
+            )
+            .unwrap();
 
-            match signal {
-                SIGABRT | SIGBUS | SIGSEGV | SIGFPE | SIGALRM => {
-                    if let Some(input) = Self::get_input(&self.input_idx, &self.pool) {
-                        let cplx = input.complexity(&self.mutator);
-                        let _ = self.world.save_artifact(&input.value, cplx);
+        match signal {
+            SIGABRT | SIGBUS | SIGSEGV | SIGFPE | SIGALRM => {
+                if let Some(input) = Self::get_input(&self.input_idx, &self.pool) {
+                    let cplx = input.complexity(&self.mutator);
+                    let _ = self.world.save_artifact(&input.value, cplx);
 
-                        exit(TerminationStatus::Crash as i32);
-                    } else {
-                        self.world
-                            .do_actions(vec![WorldAction::ReportEvent(FuzzerEvent::CrashNoInput)], &self.stats)
-                            .unwrap();
-                        //let _ = self.world.report_event(FuzzerEvent::CrashNoInput, Some(self.stats));
+                    exit(TerminationStatus::Crash as i32);
+                } else {
+                    self.world
+                        .do_actions(vec![WorldAction::ReportEvent(FuzzerEvent::CrashNoInput)], &self.stats)
+                        .unwrap();
+                    //let _ = self.world.report_event(FuzzerEvent::CrashNoInput, Some(self.stats));
 
-                        exit(TerminationStatus::Crash as i32);
-                    }
+                    exit(TerminationStatus::Crash as i32);
                 }
-                SIGINT | SIGTERM => self.world.stop(),
-                _ => exit(TerminationStatus::Unknown as i32),
             }
-        } else {
-            exit(TerminationStatus::Unknown as i32)
+            SIGINT | SIGTERM => self.world.stop(),
+            _ => exit(TerminationStatus::Unknown as i32),
         }
     }
     #[no_coverage]
@@ -204,17 +196,12 @@ where
         test: &F,
         mutator: &M,
         input: &FuzzedInput<T, M>,
-        timeout: usize,
         world: &mut World<S>,
         stats: FuzzerStats,
         sensor: &mut CodeCoverageSensor,
     ) -> Result<(), std::io::Error> {
         unsafe {
             sensor.clear();
-        }
-
-        if timeout != 0 {
-            set_timer(timeout);
         }
 
         unsafe {
@@ -229,10 +216,6 @@ where
 
         unsafe {
             sensor.stop_recording();
-        }
-
-        if timeout != 0 {
-            set_timer(0);
         }
 
         if result.is_err() || !result.unwrap() {
@@ -313,7 +296,6 @@ where
                 &self.test,
                 &self.state.mutator,
                 input,
-                self.state.settings.timeout,
                 &mut self.state.world,
                 self.state.stats,
                 &mut self.state.sensor,
@@ -577,7 +559,6 @@ where
                     &fuzzer.test,
                     &fuzzer.state.mutator,
                     input,
-                    fuzzer.state.settings.timeout,
                     &mut fuzzer.state.world,
                     fuzzer.state.stats,
                     &mut fuzzer.state.sensor,
