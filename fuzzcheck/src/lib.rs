@@ -4,32 +4,30 @@
 #![feature(drain_filter)]
 #![feature(never_type)]
 #![feature(is_sorted)]
-#![feature(link_llvm_intrinsics)]
 #![feature(thread_local)]
 #![feature(maybe_uninit_slice)]
 #![feature(test)]
 #![feature(no_coverage)]
+#![feature(type_alias_impl_trait)]
 
 pub extern crate fuzzcheck_traits;
 
-mod nix_subset;
-
+pub mod builder;
 mod code_coverage_sensor;
 mod data_structures;
-
 mod fuzzer;
-mod world;
-
+mod nix_subset;
 mod pool;
 mod signals_handler;
+mod world;
+
+pub use builder::FuzzerBuilder;
 
 use fuzzcheck_common::arg::{
     options_parser, Arguments, COMMAND_FUZZ, COMMAND_MINIFY_CORPUS, COMMAND_MINIFY_INPUT, CORPUS_SIZE_FLAG,
     INPUT_FILE_FLAG, IN_CORPUS_FLAG,
 };
-
 use fuzzcheck_traits::*;
-
 use std::borrow::Borrow;
 
 /** Fuzz-test the given test function, following to the command-line arguments
