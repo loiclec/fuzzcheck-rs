@@ -3,7 +3,6 @@
 #![feature(arc_new_cyclic)]
 #![feature(trivial_bounds)]
 #![feature(no_coverage)]
-//#![feature(min_type_alias_impl_trait)]
 #![allow(clippy::nonstandard_macro_braces)]
 #![allow(clippy::too_many_arguments)]
 /*!
@@ -16,28 +15,7 @@ use fuzzcheck_mutators::DefaultMutator;
 let mutator = <Vec<Vec<Option<Box<u16>>>>>::default_mutator();
 ```
 
-The following mutators are available:
-- [integer mutators](crate::integer) for fuzzing signed and unsigned integers as well as `char`s
-- [`VecMutator`](vector::VecMutator) for vectors, with an optional length constrain. The same sub-mutator
-is used to mutate all elements of the vector.
-- [`FixedLenVecMutator`](fixed_len_vector::FixedLenVecMutator) for vectors with a fixed length.
-A different submutator is used to mutate each element.
-- Default mutators for [`bool`](bool::BoolMutator), [`Option`](option::OptionMutator), [`Box`](boxed::BoxMutator),
-[`Result`](result::ResultMutator)
-- [`UnitMutator`](unit::UnitMutator) for types that have only one possible values,
-such as `()` and single-variant enums
-- [`Either`](either::Either) is the classic `Either` type, but if its type parameters conform to
-[`Mutator<T>`], then so does it.
-- [`RecursiveMutator<M>`](recursive::RecursiveMutator) and [`RecurToMutator<M>`](recursive::RecurToMutator)
-are used to provide mutators for recursive types
-- [`Tuple(N)Mutator`](crate::tuples) and [`TupleMutatorWrapper`](tuples::TupleMutatorWrapper) for tuples
-- [`DictionaryMutator<T,M>`](dictionary::DictionaryMutator) wraps an other mutator and prioritizes certain
-values that are specified manually.
-- [`AlternationMutator<T,M>`](alternation::AlternationMutator) alternates between mutators that are of the same
-type but that produce incompatible values. For example, it is used to provide enum mutators, where
-each submutator can only work with values of a specific enum variant.
-
-Furthermore, the following procedural macros are provided:
+The following procedural macros are provided:
 - [`#[derive(DefaultMutator)]`](fuzzcheck_mutators_derive::DefaultMutator) creates a mutator for
 a non-recursive `struct` or `enum` and makes it its default mutator.
 - [`make_mutator! { .. }`](fuzzcheck_mutators_derive::make_mutator) creates a mutator for an arbitrary
@@ -45,7 +23,7 @@ a non-recursive `struct` or `enum` and makes it its default mutator.
 - [`make_basic_tuple_mutator!(N)`](fuzzcheck_mutators_derive::make_mutator) creates a mutator for tuples of `N`
 elements. For small values of `N`, these mutators are already available in [the `tuples` module](crate::tuples)
 
-Finally, this crate provides [grammar-based string mutators](crate::grammar).
+This crate provides [grammar-based string mutators](crate::grammar).
 */
 
 pub extern crate fastrand;

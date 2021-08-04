@@ -1,11 +1,12 @@
 use fuzzcheck_mutators::boxed::BoxMutator;
 use fuzzcheck_mutators::make_mutator;
 use fuzzcheck_mutators::recursive::RecurToMutator;
-
-use fuzzcheck_mutators::fuzzcheck_traits::Mutator;
 use fuzzcheck_mutators::DefaultMutator;
+use fuzzcheck_traits::Mutator;
+
 #[test]
-#[no_coverage] fn test_compile() {
+#[no_coverage]
+fn test_compile() {
     let m = S::default_mutator();
     let (x, _) = m.random_arbitrary(10.0);
     println!("{:?}", x);
@@ -24,6 +25,6 @@ make_mutator! {
     type:
         enum S {
             A(bool),
-            B(#[field_mutator(BoxMutator<S, RecurToMutator<SMutator<M0_0>>> = { BoxMutator::new(self_.into()) }) ] Box<S>),
+            B(#[field_mutator(BoxMutator<RecurToMutator<SMutator<M0_0>>> = { BoxMutator::new(self_.into()) }) ] Box<S>),
         }
 }

@@ -1,5 +1,5 @@
-use fuzzcheck_mutators::fuzzcheck_traits::Mutator;
 use fuzzcheck_mutators::DefaultMutator;
+use fuzzcheck_traits::Mutator;
 
 #[derive(Clone, Debug, DefaultMutator)]
 pub enum X<T> {
@@ -8,7 +8,8 @@ pub enum X<T> {
 }
 
 #[test]
-#[no_coverage] fn test_compile() {
+#[no_coverage]
+fn test_compile() {
     let m = X::<Vec<u8>>::default_mutator();
     let (value, _cache): (X<Vec<u8>>, _) = m.random_arbitrary(100.0);
 

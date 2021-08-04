@@ -1,4 +1,5 @@
 use fuzzcheck_mutators::DefaultMutator;
+use fuzzcheck_traits::Mutator;
 
 #[derive(Clone, DefaultMutator)]
 pub enum A {
@@ -19,9 +20,9 @@ pub enum Z {
     D(bool),
 }
 
-use fuzzcheck_mutators::fuzzcheck_traits::Mutator;
 #[test]
-#[no_coverage] fn test_compile() {
+#[no_coverage]
+fn test_compile() {
     let m = A::default_mutator();
     let (_alue, _cache): (A, _) = m.random_arbitrary(10.0);
 

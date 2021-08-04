@@ -12,7 +12,7 @@ fn test_vector_mutator() {
     // // todo: test with an unlimited range
 
     let m = VecMutator::new(VecMutator::new(U8Mutator::default(), 0..=usize::MAX), 0..=usize::MAX);
-    fuzzcheck_mutators::testing_utilities::test_mutator(m, 10000.0, 10000.0, false, 200, 200);
+    fuzzcheck_mutators::testing_utilities::test_mutator(m, 100.0, 100.0, false, 10, 200);
 }
 
 #[test]
