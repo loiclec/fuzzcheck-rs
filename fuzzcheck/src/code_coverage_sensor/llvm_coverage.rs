@@ -3,6 +3,33 @@ use std::collections::HashMap;
 use std::{collections::HashSet, convert::TryFrom};
 
 type CovMap = HashMap<[u8; 8], Vec<String>>;
+use object::Object;
+use object::ObjectSection;
+use std::path::Path;
+
+pub struct LLVMCovSections {
+    pub covfun: Vec<u8>,
+    pub covmap: Vec<u8>,
+}
+
+#[no_coverage]
+pub fn get_llvm_cov_sections(path: &Path) -> LLVMCovSections {
+    let bin_data = std::fs::read(path).unwrap();
+    let obj_file = object::File::parse(&*bin_data).unwrap();
+    let covmap = obj_file
+        .section_by_name("__llvm_covmap")
+        .unwrap()
+        .data()
+        .unwrap()
+        .to_vec();
+    let covfun = obj_file
+        .section_by_name("__llvm_covfun")
+        .unwrap()
+        .data()
+        .unwrap()
+        .to_vec();
+    LLVMCovSections { covfun, covmap }
+}
 
 #[no_coverage]
 fn read_counter(counter: usize) -> RawCounter {
