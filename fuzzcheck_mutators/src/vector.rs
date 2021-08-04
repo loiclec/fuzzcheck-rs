@@ -1,6 +1,7 @@
+use crate::vose_alias::VoseAlias;
 use crate::DefaultMutator;
-use crate::{fuzzcheck_traits::Mutator, vose_alias::VoseAlias};
 use fastrand::Rng;
+use fuzzcheck_traits::Mutator;
 
 use std::{
     cmp,
@@ -608,7 +609,7 @@ fn clamp(range: &RangeInclusive<usize>, x: usize) -> usize {
 mod tests {
     use std::iter::repeat;
 
-    use crate::fuzzcheck_traits::Mutator;
+    use fuzzcheck_traits::Mutator;
 
     use crate::integer::U8Mutator;
     use crate::vector::VecMutator;

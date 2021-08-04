@@ -1,4 +1,4 @@
-use crate::fuzzcheck_traits::Mutator;
+use fuzzcheck_traits::Mutator;
 use std::{cmp::Ordering, marker::PhantomData};
 
 pub struct AlternationMutator<T, M>

@@ -1,5 +1,5 @@
-use crate::fuzzcheck_traits::Mutator;
 use crate::DefaultMutator;
+use fuzzcheck_traits::Mutator;
 
 #[derive(Default)]
 pub struct BoxMutator<M> {

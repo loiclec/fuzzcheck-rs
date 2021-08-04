@@ -12,7 +12,7 @@ be used to run structure-aware fuzz tests using the [fuzzcheck](https://github.c
 crate. It also provides the [DefaultMutator] trait, which assigns a default mutator
 to a type:
 ```
-use fuzzcheck_mutator::DefaultMutator;
+use fuzzcheck_mutators::DefaultMutator;
 let mutator = <Vec<Vec<Option<Box<u16>>>>>::default_mutator();
 ```
 
@@ -85,7 +85,7 @@ pub mod vector;
 pub mod vose_alias;
 pub mod wrapper;
 
-use crate::fuzzcheck_traits::Mutator;
+use fuzzcheck_traits::Mutator;
 use std::ops::Range;
 
 pub trait DefaultMutator: Clone {
@@ -141,7 +141,7 @@ pub mod testing_utilities {
     use std::fmt::Debug;
     use std::hash::Hash;
 
-    use crate::fuzzcheck_traits::Mutator;
+    use fuzzcheck_traits::Mutator;
 
     #[no_coverage]
     pub fn test_mutator<T, M>(

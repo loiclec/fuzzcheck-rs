@@ -1,5 +1,5 @@
 use crate::either::Either;
-use crate::fuzzcheck_traits::Mutator;
+use fuzzcheck_traits::Mutator;
 use crate::recursive::{RecurToMutator, RecursiveMutator};
 use std::marker::PhantomData;
 

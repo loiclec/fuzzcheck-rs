@@ -316,7 +316,7 @@ impl Common {
             Box::new(move |n: usize| ts!(fuzzcheck_mutators_crate "::tuples::" ident!("Tuple" n "Mutator")))
         };
 
-        let fuzzcheck_traits_Mutator = ts!("fuzzcheck_mutators::fuzzcheck_traits::Mutator");
+        let fuzzcheck_traits_Mutator = ts!("fuzzcheck_traits::Mutator");
 
         let fastrand = ts!(fuzzcheck_mutators_crate "::fastrand");
         let fastrand_Rng = ts!(fastrand "::Rng");

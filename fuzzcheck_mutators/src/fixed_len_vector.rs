@@ -1,6 +1,6 @@
 use std::marker::PhantomData;
 
-use crate::fuzzcheck_traits::Mutator;
+use fuzzcheck_traits::Mutator;
 use fastrand::Rng;
 
 pub struct FixedLenVecMutator<T, M>
@@ -287,7 +287,7 @@ impl<T: Clone, M: Mutator<T>> Mutator<Vec<T>> for FixedLenVecMutator<T, M> {
 }
 #[cfg(test)]
 mod tests {
-    use crate::fuzzcheck_traits::Mutator;
+    use fuzzcheck_traits::Mutator;
 
     use super::FixedLenVecMutator;
     use crate::integer::U8Mutator;

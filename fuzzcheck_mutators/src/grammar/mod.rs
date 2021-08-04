@@ -68,7 +68,7 @@ macro_rules! concatenation {
     let abc = alternation! {
         literal!('a'),
         literal!('b'),
-        literal!('c'),
+        literal!('c')
     };
     ```
 */
@@ -105,7 +105,7 @@ macro_rules! repetition {
     Creates a recursive grammar.
 
     ```
-    use fuzzcheck_mutators::{recursive, recurse, literal, alternation};
+    use fuzzcheck_mutators::{recursive, recurse, literal, alternation, concatenation};
     // will match the strings "a", "(a)", "((a))", "(((a)))", and so on
     let g = recursive! { g in
         alternation! {
@@ -114,7 +114,7 @@ macro_rules! repetition {
                 recurse!(g),
                 literal!(')')
             },
-            literal('a')
+            literal!('a')
         }
     };
     ```

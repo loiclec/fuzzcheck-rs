@@ -1,4 +1,4 @@
-use crate::fuzzcheck_traits::Mutator;
+use fuzzcheck_traits::Mutator;
 
 pub trait BasicEnumStructure {
     fn from_item_index(item_index: usize) -> Self;

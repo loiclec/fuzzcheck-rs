@@ -62,11 +62,11 @@ used by all fuzzcheck-related crates.
  If you don't want to bother with ordered mutations, that is fine. In that
  case, only implement `random_mutate` and call it from the `ordered_mutate`
  method.
- ```rust
- #[no_coverage] fn random_mutate(&self, value: &mut Value, cache: &mut Self::Cache, max_cplx: f64) -> (Self::UnmutateToken, f64) {
+ ```ignore
+fn random_mutate(&self, value: &mut Value, cache: &mut Self::Cache, max_cplx: f64) -> (Self::UnmutateToken, f64) {
      // ...
  }
-#[no_coverage] fn ordered_mutate(&self, value: &mut Value, cache: &mut Self::Cache, step: &mut Self::MutationStep, max_cplx: f64) -> Option<(Self::UnmutateToken, f64)> {
+fn ordered_mutate(&self, value: &mut Value, cache: &mut Self::Cache, step: &mut Self::MutationStep, max_cplx: f64) -> Option<(Self::UnmutateToken, f64)> {
     Some(self.random_mutate(value, cache, max_cplx))
  }
  ```

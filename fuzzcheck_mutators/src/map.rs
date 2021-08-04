@@ -1,6 +1,6 @@
 use std::marker::PhantomData;
 
-use crate::fuzzcheck_traits::Mutator;
+use fuzzcheck_traits::Mutator;
 
 pub struct MapMutator<From, To, M, Parse, Map>
 where

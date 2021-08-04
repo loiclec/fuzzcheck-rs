@@ -7,7 +7,7 @@ use std::marker::PhantomData;
 use fuzzcheck::fuzzcheck_traits;
 
 /// `SerdeSerializer<T>` uses `serde` and `serde_json` to serialize the test
-/// inputs (of arbitrary type `T: Serializable+ for<'e> Deserializable<'e>`)
+/// inputs (of arbitrary type `T: Serializable + for<'e> Deserializable<'e>`)
 /// to a json file.
 pub struct SerdeSerializer<S> {
     phantom: PhantomData<S>,

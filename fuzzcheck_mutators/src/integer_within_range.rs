@@ -1,7 +1,7 @@
-use crate::fuzzcheck_traits::Mutator;
 use crate::integer::{
     binary_search_arbitrary_u16, binary_search_arbitrary_u32, binary_search_arbitrary_u64, binary_search_arbitrary_u8,
 };
+use fuzzcheck_traits::Mutator;
 use std::ops::Bound;
 use std::ops::RangeBounds;
 

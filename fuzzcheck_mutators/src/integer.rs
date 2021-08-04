@@ -1,5 +1,5 @@
-use crate::fuzzcheck_traits::Mutator;
 use crate::DefaultMutator;
+use fuzzcheck_traits::Mutator;
 
 /*
     These mutators try to achieve multiple things:

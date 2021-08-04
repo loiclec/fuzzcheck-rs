@@ -4,7 +4,7 @@ use crate::boxed::BoxMutator;
 use crate::char::CharWithinRangeMutator;
 use crate::either::Either;
 use crate::fixed_len_vector::{self, FixedLenVecMutator};
-use crate::fuzzcheck_traits::Mutator;
+use fuzzcheck_traits::Mutator;
 use crate::grammar::mutators::{ASTMutator, ASTSingleVariant};
 use crate::incremental_map::IncrementalMapping;
 use crate::recursive::{RecurToMutator, RecursiveMutator};

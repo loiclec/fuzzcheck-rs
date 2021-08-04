@@ -1,6 +1,6 @@
 extern crate self as fuzzcheck_mutators;
 
-use crate::fuzzcheck_traits::Mutator;
+use fuzzcheck_traits::Mutator;
 use crate::map::MapMutator;
 use crate::tuples::TupleMutatorWrapper;
 use crate::tuples::{Tuple2, Tuple2Mutator};

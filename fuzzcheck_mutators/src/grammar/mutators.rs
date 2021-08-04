@@ -7,7 +7,7 @@ use crate::boxed::BoxMutator;
 use crate::char::CharWithinRangeMutator;
 use crate::either::Either;
 use crate::fixed_len_vector::FixedLenVecMutator;
-use crate::fuzzcheck_traits::Mutator;
+use fuzzcheck_traits::Mutator;
 use crate::grammar::ast::{ASTMap, AST};
 use crate::incremental_map::IncrementalMapMutator;
 use crate::recursive::{RecurToMutator, RecursiveMutator};

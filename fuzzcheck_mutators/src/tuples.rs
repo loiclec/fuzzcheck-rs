@@ -1,7 +1,7 @@
 use std::marker::PhantomData;
 
-// use crate::fuzzcheck_traits;
-use crate::fuzzcheck_traits::Mutator;
+// use fuzzcheck_traits;
+use fuzzcheck_traits::Mutator;
 
 pub trait RefTypes {
     type Owned;

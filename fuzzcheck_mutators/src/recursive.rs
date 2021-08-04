@@ -1,4 +1,4 @@
-use crate::fuzzcheck_traits::{Mutator, MutatorWrapper};
+use fuzzcheck_traits::{Mutator, MutatorWrapper};
 use std::rc::{Rc, Weak};
 
 /// The ArbitraryStep that is used for recursive mutators
@@ -17,7 +17,7 @@ impl<AS> Default for RecursingArbitraryStep<AS> {
 A wrapper that allows a mutator to call itself recursively.
 
 For example, it is used to provide mutators for types such as:
-```rust
+```ignore
 struct S {
     content: T,
     // to mutate this field, a mutator must be able to recursively call itself
@@ -27,7 +27,8 @@ struct S {
 `RecursiveMutator` is only the top-level type. It must be used in conjuction
 with [RecurToMutator](crate::recursive::RecurToMutator) at points of recursion.
 For example:
-```rust
+```ignore
+use fuzzcheck_mutators::recursive::RecursiveMutator;
 let s_mutator = RecursiveMutator::new(|mutator| {
     SMutator {
         content_mutator: TMutator::default(),

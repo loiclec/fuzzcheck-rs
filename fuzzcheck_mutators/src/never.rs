@@ -1,4 +1,4 @@
-use crate::fuzzcheck_traits::Mutator;
+use fuzzcheck_traits::Mutator;
 
 use crate::tuples::TupleStructure;
 use crate::{tuples::RefTypes, tuples::TupleMutator};

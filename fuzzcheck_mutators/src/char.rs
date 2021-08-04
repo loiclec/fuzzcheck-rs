@@ -1,4 +1,4 @@
-use crate::fuzzcheck_traits::Mutator;
+use fuzzcheck_traits::Mutator;
 use crate::integer::binary_search_arbitrary_u32;
 use std::ops::{Bound, RangeBounds};
 
