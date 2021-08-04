@@ -180,7 +180,6 @@ fn derive_tuple_structure_(item: proc_macro2::TokenStream) -> proc_macro2::Token
 
 fn derive_default_mutator_(mut parser: TokenParser, settings: MakeMutatorSettings) -> proc_macro2::TokenStream {
     let mut tb = TokenBuilder::new();
-
     if let Some(s) = parser.eat_struct() {
         let nbr_fields = s.struct_fields.len();
         if nbr_fields == 0 {

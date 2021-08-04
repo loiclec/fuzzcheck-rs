@@ -96,14 +96,12 @@ cargo-fuzzcheck target1 {cmin} --{in_corpus} "fuzz-corpus" --{out_corpus} "minim
 
     let r = match args.command {
         FuzzerCommand::Fuzz => {
-            let exec = launch_executable(target_name, &args, &process::Stdio::inherit)
-                .expect("failed to launch fuzz target");
+            let exec =
+                launch_executable(target_name, &args, &process::Stdio::inherit).expect("failed to launch fuzz target");
             exec.wait_with_output().expect("failed to wait on fuzz test process");
             return;
         }
-        FuzzerCommand::MinifyInput { .. } => {
-            input_minify_command(target_name, &args, &process::Stdio::inherit)
-        }
+        FuzzerCommand::MinifyInput { .. } => input_minify_command(target_name, &args, &process::Stdio::inherit),
         FuzzerCommand::Read { .. } => {
             todo!();
         }

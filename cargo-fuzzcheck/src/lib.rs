@@ -12,7 +12,6 @@ pub fn launch_executable(
     args: &Arguments,
     stdio: impl Fn() -> Stdio,
 ) -> std::io::Result<process::Child> {
-
     let args = string_from_args(args);
     let child = Command::new("cargo")
         .env("FUZZCHECK_ARGS", args)
@@ -33,11 +32,7 @@ pub fn launch_executable(
     Ok(child)
 }
 
-pub fn input_minify_command(
-    target_name: &str,
-    args: &Arguments,
-    stdio: &impl Fn() -> Stdio,
-) -> std::io::Result<()> {
+pub fn input_minify_command(target_name: &str, args: &Arguments, stdio: &impl Fn() -> Stdio) -> std::io::Result<()> {
     let mut config = args.clone();
     let file_to_minify = if let FuzzerCommand::MinifyInput { input_file } = config.command {
         input_file
@@ -129,13 +124,13 @@ pub fn string_from_args(args: &Arguments) -> String {
     if let Some(input_file) = input_file {
         s.push_str(&format!("--{} {} ", INPUT_FILE_FLAG, input_file.display()));
     }
-    
+
     let corpus_in_args = args
         .corpus_in
         .as_ref()
         .map(|f| format!("--{} {} ", IN_CORPUS_FLAG, f.display()))
         .unwrap_or_else(|| format!("--{} ", NO_IN_CORPUS_FLAG));
-    
+
     s.push_str(&corpus_in_args);
     s.push_str(" ");
 
@@ -144,7 +139,7 @@ pub fn string_from_args(args: &Arguments) -> String {
         .as_ref()
         .map(|f| format!("--{} {} ", OUT_CORPUS_FLAG, f.display()))
         .unwrap_or_else(|| format!("--{} ", NO_OUT_CORPUS_FLAG));
-    
+
     s.push_str(&corpus_out_args);
     s.push_str(" ");
 
