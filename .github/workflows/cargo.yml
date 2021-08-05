@@ -28,17 +28,3 @@ jobs:
       - uses: actions-rs/cargo@v1
         with:
           command: test
-
-  cargo-fuzzcheck-usage:
-    name: Test basic usage of the cargo fuzzcheck tool
-    runs-on: ${{ matrix.os }}
-    strategy:
-        matrix:
-            os: [ubuntu-latest, macOS-latest]
-    steps:
-      - uses: actions/checkout@master
-      - uses: actions-rs/toolchain@v1
-        with:
-          toolchain: nightly
-          override: true
-      - run: sh ./usage_tests/basic_example.sh
