@@ -1,6 +1,6 @@
 [package]
 name = "fuzzcheck"
-version = "0.6.0"
+version = "0.7.0"
 authors = ["Loïc Lecrenier <loic.lecrenier@me.com>"]
 edition = "2018"
 description = "A coverage-guided, structure-aware fuzzing engine for Rust functions"
@@ -40,7 +40,7 @@ decent-serde-json-alternative  = { version = "0.5.0", optional = true }
 serde = { version = "1.0", optional = true }
 serde_json = { version = "1.0", optional = true }
 
-fuzzcheck_mutators_derive = {path = "../fuzzcheck_mutators_derive", version = "0.6.0" }
+fuzzcheck_mutators_derive = {path = "../fuzzcheck_mutators_derive", version = "0.7.0" }
 
 [lib]
 name = "fuzzcheck"
