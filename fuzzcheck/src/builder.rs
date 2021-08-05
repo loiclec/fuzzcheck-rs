@@ -392,12 +392,7 @@ where
         from that file. It is essentially an allowlist.
 
         By default, the code coverage from all files is included. The “keep” closure has a
-        higher priority than the “exclude” one. For example, to gather coverage for only one
-        specific file, we can write:
-
-        ```ignore
-        builder.observe_files(|_| true, |filepath| filepath == "this_specific_file.rs")
-        ```
+        higher priority than the “exclude” one.
     */
     pub fn observe_files<Exclude, Keep>(
         self,
@@ -431,23 +426,7 @@ where
     Exclude: Fn(&Path) -> bool,
     Keep: Fn(&Path) -> bool,
 {
-    /**
-        Launch the fuzz test!
-
-        This method will either:
-
-        * never return
-            * if the fuzz-test does not find any crash and continuously keeps
-        running
-            * if a test failure or crash is detected
-            * if the command line arguments could not be parsed. It will then print the
-            help section of cargo-fuzzcheck and exit.
-
-        * return `Ok(())` if the maximum number of iterations has been reached
-
-        * return an error if some necessary IO operation could not be performed. You
-        generally do not need to catch or handle the error.
-    */
+    /// Launch the fuzz test!
     pub fn launch(self) {
         #[cfg(fuzzing)]
         self.launch_even_if_not_cfg_fuzzing_is_not_set()
