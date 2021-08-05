@@ -1,7 +1,8 @@
 # fuzzcheck
 
 Fuzzcheck is a structure-aware and coverage-guided fuzzing engine for Rust 
-functions.
+functions. It works on macOS and linux, x86-64 and aarch64. Windows support is 
+[possible, but I need some help to add it](https://github.com/loiclec/fuzzcheck-rs/issues/8).
 
 Given a function `test: (T) -> bool`, you can use fuzzcheck to find a value of
 type `T` that fails the test or leads to a crash.
