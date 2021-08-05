@@ -213,20 +213,29 @@ impl Arguments {
         let command = match args[0] {
             COMMAND_FUZZ => FuzzerCommand::Fuzz,
             COMMAND_READ => {
-                let input_file =
-                    input_file.expect(&format!("An input file must be provided when reading a test case. Use --{}", INPUT_FILE_FLAG));
+                let input_file = input_file.expect(&format!(
+                    "An input file must be provided when reading a test case. Use --{}",
+                    INPUT_FILE_FLAG
+                ));
                 FuzzerCommand::Read { input_file }
             }
             COMMAND_MINIFY_INPUT => {
-                let input_file =
-                    input_file.expect(&format!("An input file must be provided when minifying a test case. Use --{}", INPUT_FILE_FLAG));
+                let input_file = input_file.expect(&format!(
+                    "An input file must be provided when minifying a test case. Use --{}",
+                    INPUT_FILE_FLAG
+                ));
                 FuzzerCommand::MinifyInput { input_file }
             }
             COMMAND_MINIFY_CORPUS => {
-                let corpus_size =
-                    corpus_size.expect(&format!("A corpus size must be provided when minifying a corpus. Use --{}", CORPUS_SIZE_FLAG));
+                let corpus_size = corpus_size.expect(&format!(
+                    "A corpus size must be provided when minifying a corpus. Use --{}",
+                    CORPUS_SIZE_FLAG
+                ));
                 if corpus_in.is_none() {
-                    panic!("An input corpus must be provided when minifying a corpus. Use --{}", IN_CORPUS_FLAG)
+                    panic!(
+                        "An input corpus must be provided when minifying a corpus. Use --{}",
+                        IN_CORPUS_FLAG
+                    )
                 }
                 FuzzerCommand::MinifyCorpus { corpus_size }
             }

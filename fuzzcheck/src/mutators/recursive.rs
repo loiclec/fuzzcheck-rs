@@ -1,4 +1,4 @@
-use crate::{Mutator, traits::MutatorWrapper};
+use crate::{traits::MutatorWrapper, Mutator};
 use std::rc::{Rc, Weak};
 
 /// The ArbitraryStep that is used for recursive mutators
