@@ -15,7 +15,10 @@ pub fn launch_executable(
     let args = string_from_args(args);
     let child = Command::new("cargo")
         .env("FUZZCHECK_ARGS", args)
-        .env("RUSTFLAGS", "-Zinstrument-coverage=except-unused-functions")
+        .env(
+            "RUSTFLAGS",
+            "-Zinstrument-coverage=except-unused-functions --cfg fuzzing",
+        )
         .arg("test")
         .args(["--target", TARGET])
         .arg("--release")

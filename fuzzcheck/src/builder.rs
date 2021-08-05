@@ -7,6 +7,7 @@ use fuzzcheck_common::arg::{
 };
 use std::borrow::Borrow;
 use std::marker::PhantomData;
+use std::path::Path;
 use std::result::Result;
 
 /** A function that can be fuzz-tested.
@@ -147,6 +148,24 @@ where
     mutator: M,
     serializer: S,
     arguments: Arguments,
+    _phantom: PhantomData<(*const T, V)>,
+}
+pub struct FuzzerBuilder5<T, F, M, V, S, Exclude, Keep>
+where
+    T: ?Sized,
+    F: Fn(&T) -> bool,
+    V: Clone + Borrow<T>,
+    M: Mutator<V>,
+    S: Serializer<Value = V>,
+    Exclude: Fn(&Path) -> bool,
+    Keep: Fn(&Path) -> bool,
+{
+    test_function: F,
+    mutator: M,
+    serializer: S,
+    arguments: Arguments,
+    exclude: Exclude,
+    keep: Keep,
     _phantom: PhantomData<(*const T, V)>,
 }
 
@@ -340,6 +359,77 @@ where
     Fuzzer<V, T, F, M, S>: 'static,
 {
     /**
+        Only gather code coverage information from files that are children of the directory from which cargo-fuzzcheck is called.
+    */
+    pub fn observe_only_files_from_current_dir(
+        self,
+    ) -> FuzzerBuilder5<T, F, M, V, S, impl Fn(&Path) -> bool, impl Fn(&Path) -> bool> {
+        FuzzerBuilder5 {
+            test_function: self.test_function,
+            mutator: self.mutator,
+            serializer: self.serializer,
+            arguments: self.arguments,
+            exclude: |_| true,
+            keep: |f| {
+                let prefix = std::env::current_dir().unwrap();
+                f.starts_with(&prefix)
+            },
+            _phantom: PhantomData,
+        }
+    }
+
+    /**
+        Specify the files for which code coverage information influences the fuzzer.
+
+        The first argument is the “exclude” closure, of type `Fn(&Path) -> bool`.
+        It takes the path of a file and returns true if code coverage should be ignored
+        for that file. It is essentially a denylist.
+
+        The second argument is the “keep” closure, of type `Fn(&Path) -> bool`.
+        It takes the path of a file and returns true if code coverage should be gathered
+        from that file. It is essentially an allowlist.
+
+        By default, the code coverage from all files is included. The “keep” closure has a
+        higher priority than the “exclude” one. For example, to gather coverage for only one
+        specific file, we can write:
+
+        ```ignore
+        builder.observe_files(|_| true, |filepath| filepath == "this_specific_file.rs")
+        ```
+    */
+    pub fn observe_files<Exclude, Keep>(
+        self,
+        exclude: Exclude,
+        keep: Keep,
+    ) -> FuzzerBuilder5<T, F, M, V, S, Exclude, Keep>
+    where
+        Exclude: Fn(&Path) -> bool,
+        Keep: Fn(&Path) -> bool,
+    {
+        FuzzerBuilder5 {
+            test_function: self.test_function,
+            mutator: self.mutator,
+            serializer: self.serializer,
+            arguments: self.arguments,
+            exclude,
+            keep,
+            _phantom: PhantomData,
+        }
+    }
+}
+
+impl<T, F, M, V, S, Exclude, Keep> FuzzerBuilder5<T, F, M, V, S, Exclude, Keep>
+where
+    T: ?Sized,
+    F: Fn(&T) -> bool,
+    V: Clone + Borrow<T>,
+    M: Mutator<V>,
+    S: Serializer<Value = V>,
+    Fuzzer<V, T, F, M, S>: 'static,
+    Exclude: Fn(&Path) -> bool,
+    Keep: Fn(&Path) -> bool,
+{
+    /**
         Launch the fuzz test!
 
         This method will either:
@@ -357,14 +447,22 @@ where
         generally do not need to catch or handle the error.
     */
     pub fn launch(self) {
-        let FuzzerBuilder4 {
+        #[cfg(fuzzing)]
+        self.launch_even_if_not_cfg_fuzzing_is_not_set()
+    }
+
+    /// do not use
+    pub fn launch_even_if_not_cfg_fuzzing_is_not_set(self) {
+        let FuzzerBuilder5 {
             test_function,
             mutator,
             serializer,
             arguments,
+            exclude,
+            keep,
             _phantom,
         } = self;
 
-        fuzzer::launch(test_function, mutator, serializer, arguments).unwrap();
+        fuzzer::launch(test_function, mutator, exclude, keep, serializer, arguments).unwrap();
     }
 }

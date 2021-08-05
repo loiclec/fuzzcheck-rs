@@ -2,6 +2,8 @@
 
 mod leb128;
 mod llvm_coverage;
+use std::path::Path;
+
 use crate::Feature;
 
 use self::llvm_coverage::{get_counters, get_prf_data, read_covmap, AllCoverage, LLVMCovSections};
@@ -14,7 +16,11 @@ pub struct CodeCoverageSensor {
 
 impl CodeCoverageSensor {
     #[no_coverage]
-    pub(crate) fn new() -> Self {
+    pub(crate) fn new<E, K>(exclude: E, keep: K) -> Self
+    where
+        E: Fn(&Path) -> bool,
+        K: Fn(&Path) -> bool,
+    {
         let exec = std::env::current_exe().expect("could not read current executable");
         let LLVMCovSections { covfun, covmap } = llvm_coverage::get_llvm_cov_sections(&exec);
         let prf_data = unsafe { get_prf_data() };
@@ -24,10 +30,7 @@ impl CodeCoverageSensor {
         let prf_data = llvm_coverage::read_prf_data(&prf_data, &mut 0);
         let mut coverage = AllCoverage::new(covmap, covfun, prf_data);
 
-        coverage.filter_function_by_files(
-            |s| s.contains("registry") || s.contains("fuzzcheck") || s.contains("thread/local.rs"),
-            |s| !s.starts_with("/") && s.contains("lib.rs"),
-        );
+        coverage.filter_function_by_files(exclude, keep);
         CodeCoverageSensor {
             coverage_counters: coverage,
         }

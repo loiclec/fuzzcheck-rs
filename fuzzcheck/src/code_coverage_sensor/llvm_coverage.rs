@@ -524,8 +524,8 @@ impl AllCoverage {
 impl AllCoverage {
     pub(crate) fn filter_function_by_files<F, G>(&mut self, exclude_f: F, keep_f: G)
     where
-        F: Fn(&str) -> bool,
-        G: Fn(&str) -> bool,
+        F: Fn(&Path) -> bool,
+        G: Fn(&Path) -> bool,
     {
         let AllCoverage { covmap, counters } = self;
         counters.drain_filter(|coverage| {
@@ -533,10 +533,15 @@ impl AllCoverage {
             let filenames = &covmap[&coverage.function_record.header.hash_translation_unit];
             for idx in coverage.function_record.file_id_mapping.filename_indices.iter() {
                 let filename = &filenames[*idx];
-                if keep_f(filename) {
+                let mut filepath = Path::new(filename).to_path_buf();
+                if !filepath.starts_with("/rustc") {
+                    filepath = std::fs::canonicalize(filepath).unwrap();
+                }
+
+                if keep_f(&filepath) {
                     return false;
                 }
-                if exclude_f(filename) {
+                if exclude_f(&filepath) {
                     // if not keep, then bye bye
                     excluded = true;
                 }

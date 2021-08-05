@@ -171,9 +171,8 @@ where
     S: Serializer<Value = T>,
 {
     #[no_coverage]
-    pub fn new(test: F, mutator: M, settings: Arguments, world: World<S>) -> Self {
+    pub fn new(test: F, mutator: M, sensor: CodeCoverageSensor, settings: Arguments, world: World<S>) -> Self {
         let arbitrary_step = mutator.default_arbitrary_step();
-        let sensor = CodeCoverageSensor::new();
         Fuzzer {
             state: FuzzerState {
                 sensor,
@@ -533,7 +532,14 @@ pub enum TerminationStatus {
 }
 
 #[no_coverage]
-pub fn launch<T, FT, F, M, S>(test: F, mutator: M, serializer: S, args: Arguments) -> Result<(), std::io::Error>
+pub fn launch<T, FT, F, M, S, Exclude, Keep>(
+    test: F,
+    mutator: M,
+    sensor_exclude_files: Exclude,
+    sensor_keep_files: Keep,
+    serializer: S,
+    args: Arguments,
+) -> Result<(), std::io::Error>
 where
     FT: ?Sized,
     T: Clone + Borrow<FT>,
@@ -541,10 +547,20 @@ where
     M: Mutator<T>,
     S: Serializer<Value = T>,
     Fuzzer<T, FT, F, M, S>: 'static,
+    Exclude: Fn(&Path) -> bool,
+    Keep: Fn(&Path) -> bool,
 {
     let command = &args.command;
 
-    let mut fuzzer = Fuzzer::new(test, mutator, args.clone(), World::new(serializer, args.clone()));
+    let sensor = CodeCoverageSensor::new(sensor_exclude_files, sensor_keep_files);
+
+    let mut fuzzer = Fuzzer::new(
+        test,
+        mutator,
+        sensor,
+        args.clone(),
+        World::new(serializer, args.clone()),
+    );
     unsafe { fuzzer.state.set_up_signal_handler() };
 
     match command {
