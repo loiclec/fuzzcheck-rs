@@ -1,7 +1,7 @@
 use std::{collections::HashSet, ops::RangeBounds};
 
-use fuzzcheck_mutators::integer_within_range::I8WithinRangeMutator;
-use crate::Mutator;
+use fuzzcheck::mutators::integer_within_range::I8WithinRangeMutator;
+use fuzzcheck::Mutator;
 
 fn test_arbitrary_for_int_range_mutator(range: impl RangeBounds<i8> + IntoIterator<Item = i8> + Clone) {
     let m = I8WithinRangeMutator::new(range.clone());

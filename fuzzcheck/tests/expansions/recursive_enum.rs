@@ -1,8 +1,8 @@
-use crate::Mutator;
+use fuzzcheck::mutators::boxed::BoxMutator;
+use fuzzcheck::mutators::make_mutator;
+use fuzzcheck::mutators::recursive::RecurToMutator;
 use fuzzcheck::DefaultMutator;
-use fuzzcheck_mutators::boxed::BoxMutator;
-use fuzzcheck_mutators::make_mutator;
-use fuzzcheck_mutators::recursive::RecurToMutator;
+use fuzzcheck::Mutator;
 
 #[test]
 #[no_coverage]

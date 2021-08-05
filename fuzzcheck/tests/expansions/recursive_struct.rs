@@ -1,10 +1,10 @@
-use crate::Mutator;
+use fuzzcheck::mutators::bool::BoolMutator;
+use fuzzcheck::mutators::boxed::BoxMutator;
+use fuzzcheck::mutators::make_mutator;
+use fuzzcheck::mutators::option::OptionMutator;
+use fuzzcheck::mutators::recursive::{RecurToMutator, RecursiveMutator};
 use fuzzcheck::DefaultMutator;
-use fuzzcheck_mutators::bool::BoolMutator;
-use fuzzcheck_mutators::boxed::BoxMutator;
-use fuzzcheck_mutators::make_mutator;
-use fuzzcheck_mutators::option::OptionMutator;
-use fuzzcheck_mutators::recursive::{RecurToMutator, RecursiveMutator};
+use fuzzcheck::Mutator;
 
 #[derive(Clone, Debug)]
 struct S {

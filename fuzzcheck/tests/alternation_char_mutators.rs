@@ -1,6 +1,6 @@
 use std::ops::RangeInclusive;
 
-use fuzzcheck_mutators::{
+use fuzzcheck::mutators::{
     alternation::AlternationMutator, char::CharWithinRangeMutator, testing_utilities::test_mutator,
 };
 

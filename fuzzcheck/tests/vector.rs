@@ -1,5 +1,5 @@
-use crate::Mutator;
-use fuzzcheck_mutators::{integer::U8Mutator, vector::VecMutator};
+use fuzzcheck::mutators::{integer::U8Mutator, vector::VecMutator};
+use fuzzcheck::Mutator;
 
 #[test]
 fn test_vector_mutator() {
@@ -12,7 +12,7 @@ fn test_vector_mutator() {
     // // todo: test with an unlimited range
 
     let m = VecMutator::new(VecMutator::new(U8Mutator::default(), 0..=usize::MAX), 0..=usize::MAX);
-    fuzzcheck_mutators::testing_utilities::test_mutator(m, 100.0, 100.0, false, 10, 200);
+    fuzzcheck::mutators::testing_utilities::test_mutator(m, 100.0, 100.0, false, 10, 200);
 }
 
 #[test]

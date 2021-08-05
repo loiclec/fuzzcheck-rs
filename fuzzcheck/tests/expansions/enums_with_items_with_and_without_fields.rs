@@ -1,5 +1,5 @@
-use crate::Mutator;
 use fuzzcheck::DefaultMutator;
+use fuzzcheck::Mutator;
 
 #[derive(Clone, DefaultMutator)]
 pub enum A {

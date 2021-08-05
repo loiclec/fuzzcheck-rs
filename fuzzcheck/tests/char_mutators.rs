@@ -1,5 +1,5 @@
-use fuzzcheck_mutators::char::CharWithinRangeMutator;
-use fuzzcheck_mutators::testing_utilities::*;
+use fuzzcheck::mutators::char::CharWithinRangeMutator;
+use fuzzcheck::mutators::testing_utilities::*;
 
 #[test]
 fn other_test_char_mutator() {
