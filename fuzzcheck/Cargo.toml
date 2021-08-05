@@ -12,7 +12,7 @@ categories = ["development-tools"]
 links = "fuzzcheck_traits"
 
 [build-dependencies]
-cc = "*"
+cc = "1"
 
 [features]
 default = ["serde_json_serializer"]
