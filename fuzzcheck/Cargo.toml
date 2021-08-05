@@ -31,7 +31,7 @@ libc = { version = "0.2", default_features = false  }
 md5 = "0.7"
 object = { version = "0.26", default_features = false, features = ["read"] }
 
-fuzzcheck_common = { path = "../fuzzcheck_common", version = "0.6.0" }
+fuzzcheck_common = { path = "../fuzzcheck_common", version = "0.7.0" }
 
 base64 = { version = "0.13", optional = true }
 json = { version = "0.12", optional = true }
