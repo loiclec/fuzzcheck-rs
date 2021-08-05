@@ -67,12 +67,13 @@ where
 /**
     Use this builder type to construct a fuzz test and launch it.
 
-    A fuzz-test is constructed by passing these four arguments, in order:
+    A fuzz-test is constructed by passing these five arguments, in order:
 
     1. the function to fuzz-test
     2. the mutator that produces the test cases
     3. the serializer to use when saving the interesting test cases to the file system
     4. other fuzzing arguments, which may be produced by `cargo-fuzzcheck`, or specified manually
+    5. the files whose code coverage influece the fuzzer
 
     For example, you may write:
     ```
@@ -88,6 +89,7 @@ where
             .mutator(<Option<u16>>::default_mutator())
             .serializer(SerdeSerializer::default())
             .arguments_from_cargo_fuzzcheck()
+            .observe_only_files_from_current_dir()
             .launch();
     }
     ```

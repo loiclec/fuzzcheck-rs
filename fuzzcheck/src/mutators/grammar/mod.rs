@@ -15,7 +15,7 @@ pub use mutators::grammar_based_string_mutator;
 /**
     Creates a grammar corresponding to a single character within the specfied range or ranges.
     ```
-    use fuzzcheck_mutators::{concatenation, literal};
+    use fuzzcheck::{concatenation, literal};
     let a = literal!('a'); // a single character
     let a_to_z = literal!('a' ..= 'z'); // a character within a range
     let digit_or_space = literal! { ('0'..='9'), (' ') }; // either a digit or a space
@@ -39,7 +39,7 @@ macro_rules! literal {
     Creates a grammar corresponding to a sequence of rules.
 
     ```
-    use fuzzcheck_mutators::{concatenation, literal};
+    use fuzzcheck::{concatenation, literal};
     // will match only the string "abcd"
     let abcd = concatenation! {
         literal!('a'),
@@ -63,7 +63,7 @@ macro_rules! concatenation {
     Creates a grammar corresponding to an alternation of rules.
 
     ```
-    use fuzzcheck_mutators::{alternation, literal};
+    use fuzzcheck::{alternation, literal};
     // will match only the strings "a", "b", and "c"
     let abc = alternation! {
         literal!('a'),
@@ -86,7 +86,7 @@ macro_rules! alternation {
     Creates a grammar corresponding to the repetition of a rule.
 
     ```
-    use fuzzcheck_mutators::{repetition, literal};
+    use fuzzcheck::{repetition, literal};
     // will match only the strings "", "a", and "aa"
     let g = repetition! {
         literal!('a'),
