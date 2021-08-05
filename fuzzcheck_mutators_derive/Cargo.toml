@@ -13,5 +13,5 @@ categories = ["development-tools"]
 proc-macro = true
 
 [dependencies]
-decent-synquote-alternative = { version = "0.3", package = "decent-synquote-alternative" }
+decent-synquote-alternative = { path = "../../decent-synquote-alternative", version = "0.3", package = "decent-synquote-alternative" }
 proc-macro2 = "1.0"

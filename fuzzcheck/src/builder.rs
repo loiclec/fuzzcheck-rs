@@ -356,7 +356,7 @@ where
         * return an error if some necessary IO operation could not be performed. You
         generally do not need to catch or handle the error.
     */
-    pub fn launch(self) -> Result<(), std::io::Error> {
+    pub fn launch(self) {
         let FuzzerBuilder4 {
             test_function,
             mutator,
@@ -365,7 +365,6 @@ where
             _phantom,
         } = self;
 
-        fuzzer::launch(test_function, mutator, serializer, arguments)?;
-        Ok(())
+        fuzzer::launch(test_function, mutator, serializer, arguments).unwrap();
     }
 }
