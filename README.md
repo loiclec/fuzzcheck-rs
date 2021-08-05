@@ -68,7 +68,6 @@ Below is an example of how to use fuzz test. Note:
 don't want to carry the fuzzcheck dependency in normal builds
 2. the `#![cfg_attr(test, feature(no_coverage))]` that is required by fuzzcheck’s procedural macros
 3. the use of `derive(fuzzcheck::DefaultMutator)` to make a custom type fuzzable 
-4. the builder pattern 
 
 ```rust
 // this nightly feature is required by fuzzcheck’s procedural macros
