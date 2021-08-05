@@ -35,7 +35,7 @@ fuzzcheck_common = { path = "../fuzzcheck_common", version = "0.6.0" }
 
 base64 = { version = "0.13", optional = true }
 json = { version = "0.12", optional = true }
-decent-serde-json-alternative  = { path = "../../decent-serde-json-alternative", version = "0.4.0", optional = true }
+decent-serde-json-alternative  = { version = "0.5.0", optional = true }
 
 serde = { version = "1.0", optional = true }
 serde_json = { version = "1.0", optional = true }
