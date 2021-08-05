@@ -29,7 +29,7 @@ pub mod dictionary;
 pub mod either;
 pub mod enums;
 pub mod fixed_len_vector;
-// pub mod grammar;
+pub mod grammar;
 pub mod incremental_map;
 pub mod integer;
 pub mod integer_within_range;
