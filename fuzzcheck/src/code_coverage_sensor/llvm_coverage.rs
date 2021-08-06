@@ -269,19 +269,30 @@ pub fn process_function_records(records: Vec<RawFunctionCounters>) -> Vec<Functi
     all_expressions
 }
 
+#[derive(Debug)]
+pub enum ReadCovMapError {
+    CompressedLengthTooLong,
+    InvalidVersion(i32),
+}
+
 #[no_coverage]
-pub fn read_covmap(covmap: &[u8], idx: &mut usize) -> CovMap {
+/// Reads the contents of the LLVM coverage map, returning an error if this is
+/// not possible.
+pub fn read_covmap(covmap: &[u8], idx: &mut usize) -> Result<CovMap, ReadCovMapError> {
     let mut translation_unit_map = HashMap::new();
     while *idx < covmap.len() {
         let _always_0 = read_i32(covmap, idx);
         let length_encoded_data = read_i32(covmap, idx) as usize;
         let _always_0 = read_i32(covmap, idx);
         let version = read_i32(covmap, idx);
-        assert_eq!(version, 3); // version 4 actually, but encoded as 3
-                                //let _something_undocumented = read_i32(covmap, idx);
+        if version != 3 {
+            return Err(ReadCovMapError::InvalidVersion(version));
+        }
+        // version 4 actually, but encoded as 3
+        //let _something_undocumented = read_i32(covmap, idx);
 
         let encoded_data = &covmap[*idx..*idx + length_encoded_data];
-        let filenames = unsafe { read_list_filenames(encoded_data, &mut 0) };
+        let filenames = read_list_filenames(encoded_data, &mut 0)?;
         let hash_encoded_data = md5::compute(encoded_data);
         let hash_encoded_data = <[u8; 8]>::try_from(&hash_encoded_data[0..8]).unwrap();
 
@@ -295,11 +306,11 @@ pub fn read_covmap(covmap: &[u8], idx: &mut usize) -> CovMap {
         };
         *idx += padding;
     }
-    translation_unit_map
+    Ok(translation_unit_map)
 }
 
 #[no_coverage]
-pub unsafe fn read_list_filenames(slice: &[u8], idx: &mut usize) -> Vec<String> {
+pub fn read_list_filenames(slice: &[u8], idx: &mut usize) -> Result<Vec<String>, ReadCovMapError> {
     let _nbr_filenames = read_leb_usize(slice, idx);
     let _length_uncompressed = read_leb_usize(slice, idx);
     let length_compressed = read_leb_usize(slice, idx);
@@ -311,7 +322,7 @@ pub unsafe fn read_list_filenames(slice: &[u8], idx: &mut usize) -> Vec<String> 
         filenames.push(String::from_utf8(slice[*idx..*idx + len].to_vec()).unwrap());
         *idx += len;
     }
-    filenames
+    Ok(filenames)
 }
 
 extern "C" {

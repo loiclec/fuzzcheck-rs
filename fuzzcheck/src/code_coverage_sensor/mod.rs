@@ -24,7 +24,9 @@ impl CodeCoverageSensor {
         let exec = std::env::current_exe().expect("could not read current executable");
         let LLVMCovSections { covfun, covmap } = llvm_coverage::get_llvm_cov_sections(&exec);
         let prf_data = unsafe { get_prf_data() };
-        let covmap = read_covmap(&covmap, &mut 0);
+
+        let covmap = read_covmap(&covmap, &mut 0).expect("the LLVM covmap provided is not valid");
+
         let covfun = llvm_coverage::read_covfun(&covfun, &mut 0);
         let covfun = llvm_coverage::process_function_records(covfun);
         let prf_data = llvm_coverage::read_prf_data(&prf_data, &mut 0);
