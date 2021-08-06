@@ -12,17 +12,16 @@ use crate::world::World;
 use crate::world::WorldAction;
 use crate::{traits::Mutator, traits::Serializer, Feature, FuzzedInput};
 
+use fuzzcheck_common::arg::{Arguments, FuzzerCommand};
 use fuzzcheck_common::{FuzzerEvent, FuzzerStats};
 
-use fuzzcheck_common::arg::{Arguments, FuzzerCommand};
 use libc::{SIGABRT, SIGALRM, SIGBUS, SIGFPE, SIGINT, SIGSEGV, SIGTERM};
 
+use std::borrow::Borrow;
 use std::panic::{catch_unwind, RefUnwindSafe, UnwindSafe};
 use std::path::Path;
 use std::process::exit;
 use std::result::Result;
-
-use std::borrow::Borrow;
 
 enum FuzzerInputIndex<T: Clone, M: Mutator<T>> {
     None,

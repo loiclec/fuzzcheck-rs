@@ -69,11 +69,12 @@ extern crate fastrand;
 use backtrace::BacktraceSymbol;
 use fastrand::Rng;
 
+use fuzzcheck_common::FuzzerEvent;
+
 use crate::data_structures::{Slab, SlabKey, WeightedIndex};
 use crate::fuzzer::AnalysisResult;
 use crate::world::WorldAction;
 use crate::{Feature, FuzzedInput, Mutator};
-use fuzzcheck_common::FuzzerEvent;
 
 /// Index of an input in the Pool
 pub enum PoolIndex<T: Clone, M: Mutator<T>> {

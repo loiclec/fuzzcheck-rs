@@ -1,10 +1,12 @@
 use crate::fuzzer::{self, Fuzzer};
 use crate::traits::{Mutator, Serializer};
+
 use fuzzcheck_common::arg::Arguments;
 use fuzzcheck_common::arg::{
     options_parser, COMMAND_FUZZ, COMMAND_MINIFY_CORPUS, COMMAND_MINIFY_INPUT, CORPUS_SIZE_FLAG, INPUT_FILE_FLAG,
     IN_CORPUS_FLAG,
 };
+
 use std::borrow::Borrow;
 use std::marker::PhantomData;
 use std::path::Path;

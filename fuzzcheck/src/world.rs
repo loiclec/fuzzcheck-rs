@@ -6,19 +6,17 @@ use fuzzcheck_common::arg::Arguments;
 use fuzzcheck_common::arg::FuzzerCommand;
 #[cfg(feature = "ui")]
 use fuzzcheck_common::ipc::{self, MessageUserToFuzzer, TuiMessage, TuiMessageEvent};
-use std::collections::HashMap;
-#[cfg(feature = "ui")]
-use std::net::TcpStream;
+use fuzzcheck_common::{FuzzerEvent, FuzzerStats};
 
 use std::collections::hash_map::DefaultHasher;
+use std::collections::HashMap;
 use std::fs;
 use std::hash::{Hash, Hasher};
 use std::io::{self, Result};
-
+#[cfg(feature = "ui")]
+use std::net::TcpStream;
 use std::path::Path;
 use std::time::Instant;
-
-use fuzzcheck_common::{FuzzerEvent, FuzzerStats};
 
 use crate::{fuzzer::TerminationStatus, traits::Serializer};
 

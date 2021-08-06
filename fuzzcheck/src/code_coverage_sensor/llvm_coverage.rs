@@ -1,11 +1,14 @@
-use super::leb128;
 use std::collections::HashMap;
+use std::ops::Range;
+use std::path::Path;
 use std::{collections::HashSet, convert::TryFrom};
 
-type CovMap = HashMap<[u8; 8], Vec<String>>;
 use object::Object;
 use object::ObjectSection;
-use std::path::Path;
+
+use super::leb128;
+
+type CovMap = HashMap<[u8; 8], Vec<String>>;
 
 pub struct LLVMCovSections {
     pub covfun: Vec<u8>,
@@ -351,7 +354,6 @@ pub unsafe fn get_prf_data() -> &'static [u8] {
     let len = end.offset_from(start) as usize;
     std::slice::from_raw_parts(start, len)
 }
-use std::ops::Range;
 
 // an expression read in function records (__llvm_covfun section)
 #[derive(Debug)]
