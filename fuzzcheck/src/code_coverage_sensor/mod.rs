@@ -29,7 +29,7 @@ impl CodeCoverageSensor {
 
         let covfun = llvm_coverage::read_covfun(&covfun, &mut 0);
         let covfun = llvm_coverage::process_function_records(covfun);
-        let prf_data = llvm_coverage::read_prf_data(&prf_data, &mut 0);
+        let prf_data = llvm_coverage::read_prf_data(prf_data, &mut 0);
         let mut coverage = AllCoverage::new(covmap, covfun, prf_data);
 
         coverage.filter_function_by_files(exclude, keep);

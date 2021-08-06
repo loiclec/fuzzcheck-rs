@@ -258,7 +258,7 @@ pub fn process_function_records(records: Vec<RawFunctionCounters>) -> Vec<Functi
         let mut expressions = HashSet::<ExpandedExpression>::new();
         for raw_counter in function_counters.counters_list.iter() {
             let mut expanded = ExpandedExpression::default();
-            expanded.push_counter(&raw_counter, Sign::Positive, &function_counters);
+            expanded.push_counter(raw_counter, Sign::Positive, &function_counters);
             expanded.sort();
             expressions.insert(expanded);
         }
@@ -317,7 +317,10 @@ pub fn read_list_filenames(slice: &[u8], idx: &mut usize) -> Result<Vec<String>,
     let _nbr_filenames = read_leb_usize(slice, idx);
     let _length_uncompressed = read_leb_usize(slice, idx);
     let length_compressed = read_leb_usize(slice, idx);
-    assert_eq!(length_compressed, 0);
+
+    if length_compressed != 0 {
+        return Err(ReadCovMapError::CompressedLengthTooLong);
+    }
 
     let mut filenames = Vec::new();
     while *idx < slice.len() {
@@ -436,8 +439,8 @@ impl ExpandedExpression {
     }
     #[no_coverage]
     pub fn sort(&mut self) {
-        self.add_terms.sort();
-        self.sub_terms.sort();
+        self.add_terms.sort_unstable();
+        self.sub_terms.sort_unstable();
     }
 
     #[no_coverage]
@@ -477,7 +480,6 @@ impl AllCoverage {
             let mut function_record = function_records
                 .iter()
                 .find(|&f_r| f_r.header.id == prf_data.function_id)
-                .map(|f_r| f_r)
                 .unwrap()
                 .clone();
 
@@ -560,7 +562,7 @@ impl AllCoverage {
                 }
             }
             // no filenames were kept or excluded
-            return excluded;
+            excluded
         });
     }
 }
