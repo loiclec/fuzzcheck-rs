@@ -372,10 +372,7 @@ where
             serializer: self.serializer,
             arguments: self.arguments,
             exclude: |_| true,
-            keep: |f| {
-                let prefix = std::env::current_dir().unwrap();
-                f.starts_with(&prefix)
-            },
+            keep: |f| f.is_relative(),
             _phantom: PhantomData,
         }
     }
