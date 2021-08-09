@@ -24,8 +24,18 @@ fn grammar_parser<'a>(
         Grammar::Literal(l) => atom_parser(string, idx, l.clone()),
         Grammar::Repetition(g, range) => repetition_parser(string, idx, g.clone(), range.clone()),
         Grammar::Alternation(gs) => alternation_parser(string, idx, Rc::new(List::from_slice(gs))),
-        Grammar::Recurse(grammar) => recurse_parser(string, idx, Rc::new(grammar.upgrade().unwrap().as_ref().clone())),
-        Grammar::Recursive(grammar) => grammar_parser(string, idx, grammar.clone()),
+        Grammar::Recurse(grammar) => recurse_parser(string, idx, grammar.upgrade().unwrap().clone()),
+        Grammar::Recursive(inner_grammar) => {
+            // the grammar might be the only strong reference to the recursive grammar,
+            // and we just deconstructed it, so it might be destroyed
+            // so we clone it and store it in the parser (that is, in the closure)
+            let grammar_long_lived = grammar.clone();
+            let mut inner_parser = grammar_parser(string, idx, inner_grammar.clone());
+            Box::new(move || {
+                let _x = grammar_long_lived.as_ref(); // do anything here, to make sure the closure captures grammar_long_lived
+                inner_parser()
+            })
+        }
         Grammar::Concatenation(gs) => concatenation_parser(string, idx, gs),
     }
 }
@@ -251,7 +261,7 @@ fn alternation_parser<'a>(
 mod tests {
     use std::rc::Rc;
 
-    use crate::{alternation, concatenation, literal, mutators::grammar::Grammar, recursive};
+    use crate::{alternation, concatenation, literal, mutators::grammar::Grammar, recurse, recursive};
 
     #[test]
     #[no_coverage]
@@ -362,12 +372,11 @@ mod tests {
                 literal!('('),
                 alternation! {
                     literal!('a' ..= 'b'),
-                    Grammar::recurse(g)
+                    recurse!(g)
                 },
                 literal!(')')
             }
         };
-
         let string = "(((b)))";
         let mut parser = super::grammar_parser(string, 0, grammar);
         while let Some((ast, _)) = parser() {
