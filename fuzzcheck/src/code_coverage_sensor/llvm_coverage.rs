@@ -1,4 +1,5 @@
 use super::leb128;
+use flate2::Status;
 use object::Object;
 use object::ObjectSection;
 use std::collections::HashMap;
@@ -14,32 +15,42 @@ pub struct LLVMCovSections {
 }
 
 #[no_coverage]
-pub fn get_llvm_cov_sections(path: &Path) -> LLVMCovSections {
-    let bin_data = std::fs::read(path).unwrap();
-    let obj_file = object::File::parse(&*bin_data).unwrap();
+pub fn get_llvm_cov_sections(path: &Path) -> Result<LLVMCovSections, ReadCovMapError> {
+    let bin_data = std::fs::read(path).map_err(|_| ReadCovMapError::CannotReadObjectFile {
+        path: path.to_path_buf(),
+    })?;
+    let obj_file = object::File::parse(&*bin_data).map_err(|_| ReadCovMapError::CannotReadObjectFile {
+        path: path.to_path_buf(),
+    })?;
     let covmap = obj_file
         .section_by_name("__llvm_covmap")
-        .unwrap()
+        .ok_or(ReadCovMapError::CannotFindSection {
+            section: CovMapSection::CovMap,
+        })?
         .data()
         .unwrap()
         .to_vec();
     let covfun = obj_file
         .section_by_name("__llvm_covfun")
-        .unwrap()
+        .ok_or(ReadCovMapError::CannotFindSection {
+            section: CovMapSection::CovFun,
+        })?
         .data()
         .unwrap()
         .to_vec();
     let prf_names = obj_file
         .section_by_name("__llvm_prf_names")
-        .unwrap()
+        .ok_or(ReadCovMapError::CannotFindSection {
+            section: CovMapSection::PrfNames,
+        })?
         .data()
         .unwrap()
         .to_vec();
-    LLVMCovSections {
+    Ok(LLVMCovSections {
         covfun,
         covmap,
         prf_names,
-    }
+    })
 }
 
 #[no_coverage]
@@ -189,7 +200,7 @@ fn read_mapping_regions(
     covfun: &[u8],
     idx: &mut usize,
     filename_indices: &[usize],
-) -> Vec<(RawCounter, MappingRegion)> {
+) -> Result<Vec<(RawCounter, MappingRegion)>, ReadCovMapError> {
     assert!(!covfun.is_empty());
 
     let mut result = Vec::new();
@@ -201,7 +212,7 @@ fn read_mapping_regions(
             let raw_header = read_leb_usize(covfun, idx);
             let header = read_counter(raw_header); //read_leb_usize(covfun, idx)); // counter or pseudo-counter
             match header {
-                RawCounter::Zero => assert_eq!(raw_header, 0),
+                RawCounter::Zero if raw_header != 0 => return Err(ReadCovMapError::PseudoCountersNotSupportedYet),
                 _ => {}
             }
             let delta_line_start = read_leb_usize(covfun, idx);
@@ -224,20 +235,24 @@ fn read_mapping_regions(
         }
     }
 
-    result
+    Ok(result)
 }
 
 #[no_coverage]
-pub fn read_covfun(covfun: &[u8], idx: &mut usize) -> Vec<RawFunctionCounters> {
+pub fn read_covfun(covfun: &[u8], idx: &mut usize) -> Result<Vec<RawFunctionCounters>, ReadCovMapError> {
     let mut results = Vec::new();
     while *idx < covfun.len() {
         let function_record_header = read_first_function_record_fields(covfun, idx);
         let idx_before_encoding_data = *idx;
         let file_id_mapping = read_file_id_mapping(covfun, idx);
         let expressions = read_coverage_expressions(covfun, idx);
-        let counters = read_mapping_regions(covfun, idx, &file_id_mapping.filename_indices);
+        let counters = read_mapping_regions(covfun, idx, &file_id_mapping.filename_indices)?;
 
-        assert!(idx_before_encoding_data + function_record_header.length_encoded_data == *idx);
+        if idx_before_encoding_data + function_record_header.length_encoded_data != *idx {
+            return Err(ReadCovMapError::InconsistentLengthOfEncodedData {
+                section: CovMapSection::CovFun,
+            });
+        }
 
         let padding = if *idx < covfun.len() && *idx % 8 != 0 {
             8 - *idx % 8
@@ -258,7 +273,7 @@ pub fn read_covfun(covfun: &[u8], idx: &mut usize) -> Vec<RawFunctionCounters> {
         });
     }
 
-    results
+    Ok(results)
 }
 
 pub struct PrfData {
@@ -267,7 +282,7 @@ pub struct PrfData {
 }
 
 #[no_coverage]
-pub fn read_prf_data(prf_data: &[u8], idx: &mut usize) -> Vec<PrfData> {
+pub fn read_prf_data(prf_data: &[u8], idx: &mut usize) -> Result<Vec<PrfData>, ReadCovMapError> {
     let mut counts = Vec::new();
     let mut prv_counter_pointer_and_nbr_counters = None;
 
@@ -278,10 +293,10 @@ pub fn read_prf_data(prf_data: &[u8], idx: &mut usize) -> Vec<PrfData> {
         // FuncHash, see InstrProdData.inc line 75
         // Inc->getHash()->getZExtValue()
         let structural_hash = read_u64(prf_data, idx);
-        assert!(
-            structural_hash != 0,
-            "found profile data for a dummy function (i.e. with a structural hash == 0)"
-        );
+        if structural_hash == 0 {
+            return Err(ReadCovMapError::FoundProfileDataForDummyFunction);
+        }
+
         let function_id = FunctionIdentifier {
             name_md5,
             structural_hash,
@@ -295,7 +310,9 @@ pub fn read_prf_data(prf_data: &[u8], idx: &mut usize) -> Vec<PrfData> {
         let nbr_counters = read_u32(prf_data, idx);
 
         if let Some((prv_counter_pointer, nbr_counters)) = prv_counter_pointer_and_nbr_counters {
-            assert_eq!(prv_counter_pointer + 8 * nbr_counters as u64, counter_ptr);
+            if prv_counter_pointer + 8 * nbr_counters as u64 != counter_ptr {
+                return Err(ReadCovMapError::InconsistentCounterPointersAndLengths);
+            }
         }
         prv_counter_pointer_and_nbr_counters = Some((counter_ptr, nbr_counters));
 
@@ -305,50 +322,56 @@ pub fn read_prf_data(prf_data: &[u8], idx: &mut usize) -> Vec<PrfData> {
         });
         // u16 but aligned
         let something_i_dont_know_what = read_i32(prf_data, idx);
-        assert_eq!(
-            something_i_dont_know_what, 0,
-            "Found last field of __llvm_prf_data different than 0.
-            This may not be a problem, but the program is aborted by caution.
-            Could you please file an issue to https://github.com/loiclec/fuzzcheck-rs ?"
-        );
+        if something_i_dont_know_what != 0 {
+            return Err(ReadCovMapError::LastFieldOfPrfDataNotZero);
+        }
     }
 
-    counts
+    Ok(counts)
 }
 
+#[must_use]
 #[no_coverage]
-fn read_func_names(slice: &[u8], names: &mut Vec<String>) {
+fn read_func_names(slice: &[u8], names: &mut Vec<String>) -> Result<(), ReadCovMapError> {
     let slices = slice.split(|&x| x == 0x01);
     for slice in slices {
-        let string = String::from_utf8(slice.to_vec()).expect("could not parse function name in __llvm_prf_names");
+        let string = String::from_utf8(slice.to_vec()).map_err(|_| ReadCovMapError::CannotParseUTF8 {
+            section: CovMapSection::PrfNames,
+        })?;
         names.push(string);
     }
+    Ok(())
 }
 
 #[no_coverage]
-pub fn read_prf_names(slice: &[u8], idx: &mut usize) -> Vec<String> {
+pub fn read_prf_names(slice: &[u8], idx: &mut usize) -> Result<Vec<String>, ReadCovMapError> {
     let mut names = Vec::new();
     while *idx < slice.len() {
         let length_uncompressed = read_leb_usize(slice, idx);
         let length_compressed = read_leb_usize(slice, idx);
         if length_compressed == 0 {
-            read_func_names(&slice[*idx..*idx + length_uncompressed], &mut names);
+            read_func_names(&slice[*idx..*idx + length_uncompressed], &mut names)?;
             *idx += length_uncompressed;
         } else {
             let mut decompressed = Vec::with_capacity(length_uncompressed);
             let mut decompress = flate2::Decompress::new(false);
-            decompress
-                .decompress(
-                    &slice[*idx..*idx + length_compressed],
-                    &mut decompressed,
-                    flate2::FlushDecompress::Finish,
-                )
-                .expect("failed to decompress content of prf_names");
+            let decompress_result = decompress.decompress(
+                &slice[*idx..*idx + length_compressed],
+                &mut decompressed,
+                flate2::FlushDecompress::Finish,
+            );
+            if !matches!(decompress_result, Ok(flate2::Status::StreamEnd)) {
+                return Err(ReadCovMapError::FailedToDecompress {
+                    section: CovMapSection::PrfNames,
+                    decompress_result,
+                });
+            }
+
             *idx += length_compressed;
-            read_func_names(&decompressed, &mut names);
+            read_func_names(&decompressed, &mut names)?;
         }
     }
-    names
+    Ok(names)
 }
 
 #[derive(Clone, Debug)]
@@ -398,9 +421,41 @@ pub fn process_function_records(
 }
 
 #[derive(Debug)]
+pub enum CovMapSection {
+    CovFun,
+    CovMap,
+    PrfData,
+    PrfNames,
+}
+
+#[derive(Debug)]
 pub enum ReadCovMapError {
-    CompressedLengthTooLong,
+    LastFieldOfPrfDataNotZero,
+    InconsistentCounterPointersAndLengths,
+    FoundProfileDataForDummyFunction,
+    InconsistentLengthOfEncodedData {
+        section: CovMapSection,
+    },
+    CannotReadObjectFile {
+        path: PathBuf,
+    },
+    CannotFindSection {
+        section: CovMapSection,
+    },
+    PseudoCountersNotSupportedYet,
+    FailedToDecompress {
+        section: CovMapSection,
+        decompress_result: Result<Status, flate2::DecompressError>,
+    },
+    NumberOfFilenamesDoesNotMatch {
+        actual: usize,
+        expected: usize,
+    },
     InvalidVersion(i32),
+    CannotFindFunctionRecordAssociatedWithPrfData,
+    CannotParseUTF8 {
+        section: CovMapSection,
+    },
 }
 
 #[no_coverage]
@@ -416,10 +471,9 @@ pub fn read_covmap(covmap: &[u8], idx: &mut usize) -> Result<CovMap, ReadCovMapE
         if version != 3 {
             return Err(ReadCovMapError::InvalidVersion(version));
         }
-        assert_eq!(version, 3); // version 4 actually, but encoded as 3
 
         let encoded_data = &covmap[*idx..*idx + length_encoded_data];
-        let filenames = read_list_filenames(encoded_data, &mut 0);
+        let filenames = read_list_filenames(encoded_data, &mut 0)?;
         let hash_encoded_data = md5::compute(encoded_data);
         let hash_encoded_data = <[u8; 8]>::try_from(&hash_encoded_data[0..8]).unwrap();
 
@@ -437,43 +491,55 @@ pub fn read_covmap(covmap: &[u8], idx: &mut usize) -> Result<CovMap, ReadCovMapE
 }
 
 #[no_coverage]
-pub fn read_list_filenames(slice: &[u8], idx: &mut usize) -> Vec<String> {
+pub fn read_list_filenames(slice: &[u8], idx: &mut usize) -> Result<Vec<String>, ReadCovMapError> {
     let nbr_filenames = read_leb_usize(slice, idx);
     let length_uncompressed = read_leb_usize(slice, idx);
     let length_compressed = read_leb_usize(slice, idx);
 
-    fn read_filenames(slice: &[u8], idx: &mut usize) -> Vec<String> {
+    fn read_filenames(slice: &[u8], idx: &mut usize) -> Result<Vec<String>, ReadCovMapError> {
         let mut filenames = Vec::new();
         while *idx < slice.len() {
             let len = read_leb_usize(slice, idx);
-            filenames.push(String::from_utf8(slice[*idx..*idx + len].to_vec()).unwrap());
+            let filename =
+                String::from_utf8(slice[*idx..*idx + len].to_vec()).map_err(|_| ReadCovMapError::CannotParseUTF8 {
+                    section: CovMapSection::CovMap,
+                })?;
+            filenames.push(filename);
             *idx += len;
         }
-        filenames
+        Ok(filenames)
     }
 
     let filenames = if length_compressed == 0 {
-        read_filenames(slice, idx)
+        read_filenames(slice, idx)?
     } else {
         let mut decompressed = Vec::with_capacity(length_uncompressed);
         let mut decompress = flate2::Decompress::new(false);
-        decompress
-            .decompress(
-                &slice[*idx..*idx + length_compressed],
-                &mut decompressed,
-                flate2::FlushDecompress::Finish,
-            )
-            .expect("failed to decompress list of filenames in __llvm_covmap");
+        let decompress_result = decompress.decompress(
+            &slice[*idx..*idx + length_compressed],
+            &mut decompressed,
+            flate2::FlushDecompress::Finish,
+        );
+        if !matches!(decompress_result, Ok(flate2::Status::StreamEnd)) {
+            return Err(ReadCovMapError::FailedToDecompress {
+                section: CovMapSection::CovMap,
+                decompress_result,
+            });
+        }
+
         *idx += length_compressed;
         let mut decompressed_idx = 0;
-        read_filenames(&decompressed, &mut decompressed_idx)
+        read_filenames(&decompressed, &mut decompressed_idx)?
     };
-    assert_eq!(
-        filenames.len(),
-        nbr_filenames,
-        "parsed a different number of filenames than what was expected"
-    );
-    filenames
+
+    if filenames.len() != nbr_filenames {
+        return Err(ReadCovMapError::NumberOfFilenamesDoesNotMatch {
+            actual: filenames.len(),
+            expected: nbr_filenames,
+        });
+    }
+
+    Ok(filenames)
 }
 
 extern "C" {
@@ -622,7 +688,7 @@ impl Coverage {
         function_records: Vec<FunctionRecord>,
         prf_datas: Vec<PrfData>,
         all_counters: &'static mut [u64],
-    ) -> Vec<Self> {
+    ) -> Result<Vec<Self>, ReadCovMapError> {
         let mut start_idx = 0;
         prf_datas
             .iter()
@@ -632,19 +698,19 @@ impl Coverage {
                 let f_r = function_records
                     .iter()
                     .find(|fr| fr.header.id == prf_data.function_id)
-                    .expect("can't find function record associated with a prf_data");
+                    .ok_or(ReadCovMapError::CannotFindFunctionRecordAssociatedWithPrfData)?;
 
                 // keep the trivial expressions in
                 // it's inefficient, but it doesn't really matter, I'll write an optimized version later
 
                 let len = range.len() + f_r.expressions.len();
                 let slice = &mut all_counters[range];
-                Coverage {
+                Ok(Coverage {
                     physical_counters_start: slice.as_mut_ptr(),
                     physical_counters_len: slice.len(),
                     function_record: f_r.clone(),
                     len,
-                }
+                })
             })
             .collect()
     }

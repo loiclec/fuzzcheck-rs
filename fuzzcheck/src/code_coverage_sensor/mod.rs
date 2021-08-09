@@ -29,13 +29,12 @@ impl CodeCoverageSensor {
             covfun,
             covmap,
             prf_names,
-        } = llvm_coverage::get_llvm_cov_sections(&exec);
+        } = llvm_coverage::get_llvm_cov_sections(&exec).expect("could not find all relevant LLVM coverage sections");
         let prf_data = unsafe { get_prf_data() };
-        let covmap = read_covmap(&covmap, &mut 0).expect("the LLVM covmap provided is not valid");
-        let covfun = llvm_coverage::read_covfun(&covfun, &mut 0);
+        let covmap = read_covmap(&covmap, &mut 0).expect("failed to parse LLVM covmap");
+        let covfun = llvm_coverage::read_covfun(&covfun, &mut 0).expect("failed to parse LLVM covfun");
 
-        let prf_names = llvm_coverage::read_prf_names(&prf_names, &mut 0);
-        // println!("{:?}", prf_names);
+        let prf_names = llvm_coverage::read_prf_names(&prf_names, &mut 0).expect("failed to parse LLVM prf_names");
         let mut map = HashMap::new();
         for prf_name in prf_names {
             let name_md5 = md5::compute(prf_name.as_bytes());
@@ -44,9 +43,10 @@ impl CodeCoverageSensor {
         }
 
         let covfun = llvm_coverage::process_function_records(covfun, map, &covmap);
-        let prf_data = llvm_coverage::read_prf_data(prf_data, &mut 0);
+        let prf_data = llvm_coverage::read_prf_data(prf_data, &mut 0).expect("failed to parse LLVM prf_data");
 
-        let mut coverage = unsafe { Coverage::new(covfun, prf_data, get_counters()) };
+        let mut coverage = unsafe { Coverage::new(covfun, prf_data, get_counters()) }
+            .expect("failed to properly link the different LLVM coverage sections");
         Coverage::filter_function_by_files(&mut coverage, exclude, keep);
 
         CodeCoverageSensor {
