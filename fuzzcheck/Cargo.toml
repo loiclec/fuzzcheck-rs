@@ -29,6 +29,7 @@ libc = { version = "0.2", default_features = false  }
 
 md5 = "0.7"
 object = { version = "0.26", default_features = false, features = ["read"] }
+flate2 = { version = "1", default_features = false, features = ["zlib"] }
 
 fuzzcheck_common = { path = "../fuzzcheck_common", version = "0.7.0" }
 

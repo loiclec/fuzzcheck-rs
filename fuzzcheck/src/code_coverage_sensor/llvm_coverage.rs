@@ -1,18 +1,16 @@
-use std::collections::HashMap;
-use std::ops::Range;
-use std::path::Path;
-use std::{collections::HashSet, convert::TryFrom};
-
+use super::leb128;
 use object::Object;
 use object::ObjectSection;
-
-use super::leb128;
+use std::collections::HashMap;
+use std::convert::TryFrom;
+use std::path::{Path, PathBuf};
 
 type CovMap = HashMap<[u8; 8], Vec<String>>;
 
 pub struct LLVMCovSections {
     pub covfun: Vec<u8>,
     pub covmap: Vec<u8>,
+    pub prf_names: Vec<u8>,
 }
 
 #[no_coverage]
@@ -31,7 +29,17 @@ pub fn get_llvm_cov_sections(path: &Path) -> LLVMCovSections {
         .data()
         .unwrap()
         .to_vec();
-    LLVMCovSections { covfun, covmap }
+    let prf_names = obj_file
+        .section_by_name("__llvm_prf_names")
+        .unwrap()
+        .data()
+        .unwrap()
+        .to_vec();
+    LLVMCovSections {
+        covfun,
+        covmap,
+        prf_names,
+    }
 }
 
 #[no_coverage]
@@ -82,6 +90,14 @@ fn read_i64(slice: &[u8], idx: &mut usize) -> i64 {
     x
 }
 #[no_coverage]
+fn read_u64(slice: &[u8], idx: &mut usize) -> u64 {
+    assert!(slice.len() >= 8);
+    let subslice = <[u8; 8]>::try_from(&slice[*idx..*idx + 8]).unwrap();
+    let x = u64::from_le_bytes(subslice);
+    *idx += 8;
+    x
+}
+#[no_coverage]
 fn read_i32(slice: &[u8], idx: &mut usize) -> i32 {
     assert!(slice.len() >= 4);
     let subslice = <[u8; 4]>::try_from(&slice[*idx..*idx + 4]).unwrap();
@@ -89,11 +105,19 @@ fn read_i32(slice: &[u8], idx: &mut usize) -> i32 {
     *idx += 4;
     x
 }
+#[no_coverage]
+fn read_u32(slice: &[u8], idx: &mut usize) -> u32 {
+    assert!(slice.len() >= 4);
+    let subslice = <[u8; 4]>::try_from(&slice[*idx..*idx + 4]).unwrap();
+    let x = u32::from_le_bytes(subslice);
+    *idx += 4;
+    x
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct FunctionIdentifier {
     pub name_md5: i64,
-    pub structural_hash: i64,
+    pub structural_hash: u64,
 }
 
 #[derive(Clone, Debug)]
@@ -107,9 +131,8 @@ pub struct FunctionRecordHeader {
 fn read_first_function_record_fields(covfun: &[u8], idx: &mut usize) -> FunctionRecordHeader {
     let name_md5 = read_i64(covfun, idx);
     let length_encoded_data = read_i32(covfun, idx) as usize;
-    let structural_hash = read_i64(covfun, idx);
+    let structural_hash = read_u64(covfun, idx);
     let hash_translation_unit = <[u8; 8]>::try_from(&covfun[*idx..*idx + 8]).unwrap();
-
     *idx += 8;
     FunctionRecordHeader {
         id: FunctionIdentifier {
@@ -152,19 +175,28 @@ fn read_coverage_expressions(covfun: &[u8], idx: &mut usize) -> Vec<RawExpressio
     result
 }
 
-// pub struct MappingRegion {
-//     pub counter: RawCounter,
-//     pub filename: String,
-// }
+#[derive(Clone, Debug)]
+pub struct MappingRegion {
+    pub filename_index: usize,
+    pub line_start: usize,
+    pub line_end: usize,
+    pub col_start: usize,
+    pub col_end: usize,
+}
 
 #[no_coverage]
-fn read_mapping_regions(covfun: &[u8], idx: &mut usize, files: usize) -> Vec<RawCounter> {
+fn read_mapping_regions(
+    covfun: &[u8],
+    idx: &mut usize,
+    filename_indices: &[usize],
+) -> Vec<(RawCounter, MappingRegion)> {
     assert!(!covfun.is_empty());
 
     let mut result = Vec::new();
 
-    for _ in 0..files {
+    for &filename_index in filename_indices {
         let num_regions = read_leb_usize(covfun, idx);
+        let mut prev_line_end = 0;
         for _ in 0..num_regions {
             let raw_header = read_leb_usize(covfun, idx);
             let header = read_counter(raw_header); //read_leb_usize(covfun, idx)); // counter or pseudo-counter
@@ -172,11 +204,23 @@ fn read_mapping_regions(covfun: &[u8], idx: &mut usize, files: usize) -> Vec<Raw
                 RawCounter::Zero => assert_eq!(raw_header, 0),
                 _ => {}
             }
-            result.push(header);
-            let _delta_line_start = read_leb_usize(covfun, idx);
-            let _column_start = read_leb_usize(covfun, idx);
-            let _num_lines = read_leb_usize(covfun, idx);
-            let _column_end = read_leb_usize(covfun, idx);
+            let delta_line_start = read_leb_usize(covfun, idx);
+            let col_start = read_leb_usize(covfun, idx);
+            let num_lines = read_leb_usize(covfun, idx);
+            let col_end = read_leb_usize(covfun, idx);
+
+            let line_start = prev_line_end + delta_line_start;
+            let line_end = line_start + num_lines;
+            prev_line_end = line_end;
+            let file_region = MappingRegion {
+                filename_index,
+                line_start,
+                line_end,
+                col_start,
+                col_end,
+            };
+
+            result.push((header, file_region));
         }
     }
 
@@ -191,16 +235,9 @@ pub fn read_covfun(covfun: &[u8], idx: &mut usize) -> Vec<RawFunctionCounters> {
         let idx_before_encoding_data = *idx;
         let file_id_mapping = read_file_id_mapping(covfun, idx);
         let expressions = read_coverage_expressions(covfun, idx);
-        let counters = read_mapping_regions(covfun, idx, file_id_mapping.filename_indices.len());
+        let counters = read_mapping_regions(covfun, idx, &file_id_mapping.filename_indices);
 
         assert!(idx_before_encoding_data + function_record_header.length_encoded_data == *idx);
-
-        results.push(RawFunctionCounters {
-            header: function_record_header,
-            file_id_mapping,
-            expression_list: expressions,
-            counters_list: counters,
-        });
 
         let padding = if *idx < covfun.len() && *idx % 8 != 0 {
             8 - *idx % 8
@@ -208,65 +245,153 @@ pub fn read_covfun(covfun: &[u8], idx: &mut usize) -> Vec<RawFunctionCounters> {
             0
         };
         *idx += padding;
+
+        if function_record_header.id.structural_hash == 0 {
+            // dummy function, ignore
+            continue;
+        }
+        results.push(RawFunctionCounters {
+            header: function_record_header,
+            file_id_mapping,
+            expression_list: expressions,
+            counters_list: counters,
+        });
     }
 
     results
 }
 
 pub struct PrfData {
-    function_id: FunctionIdentifier,
+    pub function_id: FunctionIdentifier,
     number_of_counters: usize,
 }
 
 #[no_coverage]
 pub fn read_prf_data(prf_data: &[u8], idx: &mut usize) -> Vec<PrfData> {
-    // I haven't found a reference for prf_data, so we'll guess ...
     let mut counts = Vec::new();
+    let mut prv_counter_pointer_and_nbr_counters = None;
+
     while *idx < prf_data.len() {
+        // NameRef, see InstrProdData.inc line 72
+        // IndexedInstrProf::ComputeHash(getPGOFuncNameVarInitializer(Inc->getName())
         let name_md5 = read_i64(prf_data, idx);
-        let structural_hash = read_i64(prf_data, idx);
+        // FuncHash, see InstrProdData.inc line 75
+        // Inc->getHash()->getZExtValue()
+        let structural_hash = read_u64(prf_data, idx);
+        assert!(
+            structural_hash != 0,
+            "found profile data for a dummy function (i.e. with a structural hash == 0)"
+        );
         let function_id = FunctionIdentifier {
             name_md5,
             structural_hash,
         };
 
-        for _ in 0..6 {
-            let _something_i_dont_know_what = read_i32(prf_data, idx);
+        let counter_ptr = read_u64(prf_data, idx);
+        let _function_ptr = read_u64(prf_data, idx);
+        let _values = read_u64(prf_data, idx);
+
+        // u32 counters
+        let nbr_counters = read_u32(prf_data, idx);
+
+        if let Some((prv_counter_pointer, nbr_counters)) = prv_counter_pointer_and_nbr_counters {
+            assert_eq!(prv_counter_pointer + 8 * nbr_counters as u64, counter_ptr);
         }
-        let nbr_counters = read_i32(prf_data, idx);
+        prv_counter_pointer_and_nbr_counters = Some((counter_ptr, nbr_counters));
+
         counts.push(PrfData {
             function_id,
             number_of_counters: nbr_counters as usize,
         });
-        let _something_i_dont_know_what = read_i32(prf_data, idx);
+        // u16 but aligned
+        let something_i_dont_know_what = read_i32(prf_data, idx);
+        assert_eq!(
+            something_i_dont_know_what, 0,
+            "Found last field of __llvm_prf_data different than 0.
+            This may not be a problem, but the program is aborted by caution.
+            Could you please file an issue to https://github.com/loiclec/fuzzcheck-rs ?"
+        );
     }
 
     counts
 }
 
-#[derive(Clone, Debug)]
-pub struct FunctionRecord {
-    header: FunctionRecordHeader,
-    file_id_mapping: FileIDMapping,
-    expressions: Vec<ExpandedExpression>,
+#[no_coverage]
+fn read_func_names(slice: &[u8], names: &mut Vec<String>) {
+    let slices = slice.split(|&x| x == 0x01);
+    for slice in slices {
+        let string = String::from_utf8(slice.to_vec()).expect("could not parse function name in __llvm_prf_names");
+        names.push(string);
+    }
 }
 
 #[no_coverage]
-pub fn process_function_records(records: Vec<RawFunctionCounters>) -> Vec<FunctionRecord> {
+pub fn read_prf_names(slice: &[u8], idx: &mut usize) -> Vec<String> {
+    let mut names = Vec::new();
+    while *idx < slice.len() {
+        let length_uncompressed = read_leb_usize(slice, idx);
+        let length_compressed = read_leb_usize(slice, idx);
+        if length_compressed == 0 {
+            read_func_names(&slice[*idx..*idx + length_uncompressed], &mut names);
+            *idx += length_uncompressed;
+        } else {
+            let mut decompressed = Vec::with_capacity(length_uncompressed);
+            let mut decompress = flate2::Decompress::new(false);
+            decompress
+                .decompress(
+                    &slice[*idx..*idx + length_compressed],
+                    &mut decompressed,
+                    flate2::FlushDecompress::Finish,
+                )
+                .expect("failed to decompress content of prf_names");
+            *idx += length_compressed;
+            read_func_names(&decompressed, &mut names);
+        }
+    }
+    names
+}
+
+#[derive(Clone, Debug)]
+pub struct FunctionRecord {
+    pub header: FunctionRecordHeader,
+    pub file_id_mapping: FileIDMapping,
+    pub expressions: Vec<(ExpandedExpression, MappingRegion)>,
+    pub name_function: String,
+    pub filenames: Vec<PathBuf>,
+}
+
+#[no_coverage]
+pub fn process_function_records(
+    records: Vec<RawFunctionCounters>,
+    prf_names: HashMap<i64, String>,
+    covmap: &CovMap,
+) -> Vec<FunctionRecord> {
     let mut all_expressions = Vec::new();
     for function_counters in records {
-        let mut expressions = HashSet::<ExpandedExpression>::new();
-        for raw_counter in function_counters.counters_list.iter() {
+        let mut expressions = HashMap::<ExpandedExpression, MappingRegion>::new();
+        for (raw_counter, mapping_region) in function_counters.counters_list.iter() {
             let mut expanded = ExpandedExpression::default();
             expanded.push_counter(raw_counter, Sign::Positive, &function_counters);
-            expanded.sort();
-            expressions.insert(expanded);
+            expanded.sort(); // sort them so that their hash is the same if they are equal
+            expressions.insert(expanded, mapping_region.clone());
         }
+        let name_function = (&prf_names[&function_counters.header.id.name_md5]).clone();
         let expressions = expressions.into_iter().collect::<Vec<_>>();
+
+        let filenames = &covmap[&function_counters.header.hash_translation_unit];
+        let mut filepaths = Vec::new();
+        for idx in function_counters.file_id_mapping.filename_indices.iter() {
+            let filename = &filenames[*idx];
+            let filepath = Path::new(filename).to_path_buf();
+            filepaths.push(filepath);
+        }
+
         all_expressions.push(FunctionRecord {
             header: function_counters.header,
             file_id_mapping: function_counters.file_id_mapping,
             expressions,
+            name_function,
+            filenames: filepaths,
         });
     }
     all_expressions
@@ -291,11 +416,10 @@ pub fn read_covmap(covmap: &[u8], idx: &mut usize) -> Result<CovMap, ReadCovMapE
         if version != 3 {
             return Err(ReadCovMapError::InvalidVersion(version));
         }
-        // version 4 actually, but encoded as 3
-        //let _something_undocumented = read_i32(covmap, idx);
+        assert_eq!(version, 3); // version 4 actually, but encoded as 3
 
         let encoded_data = &covmap[*idx..*idx + length_encoded_data];
-        let filenames = read_list_filenames(encoded_data, &mut 0)?;
+        let filenames = read_list_filenames(encoded_data, &mut 0);
         let hash_encoded_data = md5::compute(encoded_data);
         let hash_encoded_data = <[u8; 8]>::try_from(&hash_encoded_data[0..8]).unwrap();
 
@@ -313,22 +437,43 @@ pub fn read_covmap(covmap: &[u8], idx: &mut usize) -> Result<CovMap, ReadCovMapE
 }
 
 #[no_coverage]
-pub fn read_list_filenames(slice: &[u8], idx: &mut usize) -> Result<Vec<String>, ReadCovMapError> {
-    let _nbr_filenames = read_leb_usize(slice, idx);
-    let _length_uncompressed = read_leb_usize(slice, idx);
+pub fn read_list_filenames(slice: &[u8], idx: &mut usize) -> Vec<String> {
+    let nbr_filenames = read_leb_usize(slice, idx);
+    let length_uncompressed = read_leb_usize(slice, idx);
     let length_compressed = read_leb_usize(slice, idx);
 
-    if length_compressed != 0 {
-        return Err(ReadCovMapError::CompressedLengthTooLong);
+    fn read_filenames(slice: &[u8], idx: &mut usize) -> Vec<String> {
+        let mut filenames = Vec::new();
+        while *idx < slice.len() {
+            let len = read_leb_usize(slice, idx);
+            filenames.push(String::from_utf8(slice[*idx..*idx + len].to_vec()).unwrap());
+            *idx += len;
+        }
+        filenames
     }
 
-    let mut filenames = Vec::new();
-    while *idx < slice.len() {
-        let len = read_leb_usize(slice, idx);
-        filenames.push(String::from_utf8(slice[*idx..*idx + len].to_vec()).unwrap());
-        *idx += len;
-    }
-    Ok(filenames)
+    let filenames = if length_compressed == 0 {
+        read_filenames(slice, idx)
+    } else {
+        let mut decompressed = Vec::with_capacity(length_uncompressed);
+        let mut decompress = flate2::Decompress::new(false);
+        decompress
+            .decompress(
+                &slice[*idx..*idx + length_compressed],
+                &mut decompressed,
+                flate2::FlushDecompress::Finish,
+            )
+            .expect("failed to decompress list of filenames in __llvm_covmap");
+        *idx += length_compressed;
+        let mut decompressed_idx = 0;
+        read_filenames(&decompressed, &mut decompressed_idx)
+    };
+    assert_eq!(
+        filenames.len(),
+        nbr_filenames,
+        "parsed a different number of filenames than what was expected"
+    );
+    filenames
 }
 
 extern "C" {
@@ -384,7 +529,7 @@ pub struct RawFunctionCounters {
     pub header: FunctionRecordHeader,
     pub file_id_mapping: FileIDMapping,
     pub expression_list: Vec<RawExpression>,
-    pub counters_list: Vec<RawCounter>,
+    pub counters_list: Vec<(RawCounter, MappingRegion)>,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Hash)]
@@ -450,113 +595,71 @@ impl ExpandedExpression {
     }
 }
 
+impl FunctionRecord {
+    #[no_coverage]
+    pub fn filter_trivial_expressions(&mut self) -> Vec<(usize, MappingRegion)> {
+        // filtered represent all the (unique) expressions that consist of only one positive term
+        // that term is necessarily a reference to one of the “physical” counters in __llvm_prf_cnts
+        let filtered = self
+            .expressions
+            .drain_filter(|(e, _)| e.add_terms.len() <= 1 && e.sub_terms.is_empty())
+            .filter_map(|(e, mapping_region)| e.add_terms.get(0).map(|c| (*c, mapping_region)))
+            .collect::<Vec<_>>();
+        filtered
+    }
+}
+
 #[derive(Debug)]
-pub struct FunctionCoverage {
+pub struct Coverage {
+    pub physical_counters_start: *mut u64,
+    pub physical_counters_len: usize,
     pub function_record: FunctionRecord,
-    pub counters_range: Range<usize>,
     pub len: usize,
 }
-impl FunctionCoverage {
-    #[no_coverage]
-    pub fn filter_trivial_expressions(&mut self) {
-        self.function_record
-            .expressions
-            .drain_filter(|e| e.add_terms.len() <= 1 && e.sub_terms.is_empty());
+
+impl Coverage {
+    pub fn new(
+        function_records: Vec<FunctionRecord>,
+        prf_datas: Vec<PrfData>,
+        all_counters: &'static mut [u64],
+    ) -> Vec<Self> {
+        let mut start_idx = 0;
+        prf_datas
+            .iter()
+            .map(|prf_data| {
+                let range = start_idx..start_idx + prf_data.number_of_counters;
+                start_idx = range.end;
+                let f_r = function_records
+                    .iter()
+                    .find(|fr| fr.header.id == prf_data.function_id)
+                    .expect("can't find function record associated with a prf_data");
+
+                // keep the trivial expressions in
+                // it's inefficient, but it doesn't really matter, I'll write an optimized version later
+
+                let len = range.len() + f_r.expressions.len();
+                let slice = &mut all_counters[range];
+                Coverage {
+                    physical_counters_start: slice.as_mut_ptr(),
+                    physical_counters_len: slice.len(),
+                    function_record: f_r.clone(),
+                    len,
+                }
+            })
+            .collect()
     }
-}
-#[derive(Debug)]
-pub struct AllCoverage {
-    pub covmap: CovMap,
-    pub counters: Vec<FunctionCoverage>,
-}
-impl AllCoverage {
-    #[no_coverage]
-    pub fn new(covmap: CovMap, function_records: Vec<FunctionRecord>, prf_datas: Vec<PrfData>) -> Self {
-        let mut counters = Vec::new();
-        let mut cur_idx = 0;
-        for prf_data in prf_datas {
-            let range = cur_idx..cur_idx + prf_data.number_of_counters;
-            // now retrieve the list of expressions and adjust their counter indices
-            let mut function_record = function_records
-                .iter()
-                .find(|&f_r| f_r.header.id == prf_data.function_id)
-                .unwrap()
-                .clone();
-
-            let coverage_len = range.len() + function_record.expressions.len();
-            for e in function_record.expressions.iter_mut() {
-                for term in e.add_terms.iter_mut() {
-                    *term += cur_idx;
-                }
-                for term in e.sub_terms.iter_mut() {
-                    *term += cur_idx;
-                }
-            }
-            let mut coverage = FunctionCoverage {
-                function_record,
-                counters_range: range,
-                len: coverage_len,
-            };
-            coverage.filter_trivial_expressions();
-            coverage.len = coverage.counters_range.len() + coverage.function_record.expressions.len();
-
-            counters.push(coverage);
-            cur_idx += prf_data.number_of_counters;
-        }
-        Self { covmap, counters }
-    }
-
-    #[no_coverage]
-    pub fn iterate_over_coverage_points<F>(&mut self, counters: &[u64], mut f: F)
-    where
-        F: FnMut((usize, u64)),
-    {
-        unsafe {
-            let mut index = 0;
-            for coverage in self.counters.iter() {
-                if counters[coverage.counters_range.start] == 0 {
-                    index += coverage.len;
-                    continue;
-                }
-                for c in counters[coverage.counters_range.clone()].iter() {
-                    if *c != 0 {
-                        f((index, *c));
-                    }
-                    index += 1;
-                }
-                for e in coverage.function_record.expressions.iter() {
-                    let count = e.count(counters);
-                    if count != 0 {
-                        f((index, count));
-                    }
-                    index += 1;
-                }
-            }
-        }
-    }
-}
-
-impl AllCoverage {
-    pub(crate) fn filter_function_by_files<F, G>(&mut self, exclude_f: F, keep_f: G)
+    pub(crate) fn filter_function_by_files<F, G>(all_self: &mut Vec<Self>, exclude_f: F, keep_f: G)
     where
         F: Fn(&Path) -> bool,
         G: Fn(&Path) -> bool,
     {
-        let AllCoverage { covmap, counters } = self;
-        counters.drain_filter(|coverage| {
+        all_self.drain_filter(|coverage| {
             let mut excluded = false;
-            let filenames = &covmap[&coverage.function_record.header.hash_translation_unit];
-            for idx in coverage.function_record.file_id_mapping.filename_indices.iter() {
-                let filename = &filenames[*idx];
-                let mut filepath = Path::new(filename).to_path_buf();
-                if !filepath.starts_with("/rustc") {
-                    filepath = std::fs::canonicalize(filepath).unwrap();
-                }
-
-                if keep_f(&filepath) {
+            for filepath in &coverage.function_record.filenames {
+                if keep_f(filepath) {
                     return false;
                 }
-                if exclude_f(&filepath) {
+                if exclude_f(filepath) {
                     // if not keep, then bye bye
                     excluded = true;
                 }
@@ -564,5 +667,28 @@ impl AllCoverage {
             // no filenames were kept or excluded
             excluded
         });
+    }
+    pub fn iterate_over_coverage_points<F>(coverage: &[Self], mut f: F)
+    where
+        F: FnMut((usize, u64)),
+    {
+        unsafe {
+            let mut index = 0;
+            for coverage in coverage.iter() {
+                let slice =
+                    std::slice::from_raw_parts(coverage.physical_counters_start, coverage.physical_counters_len);
+                if slice[0] == 0 {
+                    index += coverage.len;
+                    continue;
+                }
+                for (e, _) in coverage.function_record.expressions.iter() {
+                    let count = e.count(slice);
+                    if count != 0 {
+                        f((index, count));
+                    }
+                    index += 1;
+                }
+            }
+        }
     }
 }
