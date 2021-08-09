@@ -369,7 +369,7 @@ mod tests {
         };
 
         let string = "(((b)))";
-        let mut parser = super::grammar_parser(string, 0, grammar.clone());
+        let mut parser = super::grammar_parser(string, 0, grammar);
         while let Some((ast, _)) = parser() {
             println!("{:?}", ast);
         }

@@ -223,7 +223,7 @@ impl ASTMutator {
                     let m = Self::from_grammar_rec(g.clone(), others);
                     ms.push(m);
                 }
-                return Self::sequence(Either::Left(FixedLenVecMutator::new(ms)));
+                Self::sequence(Either::Left(FixedLenVecMutator::new(ms)))
             }
             Grammar::Repetition(g, range) => Self::sequence(Either::Right(VecMutator::new(
                 Self::from_grammar_rec(g.clone(), others),
@@ -231,7 +231,7 @@ impl ASTMutator {
             ))),
             Grammar::Recurse(g) => {
                 if let Some(m) = others.get(&g.as_ptr()) {
-                    return Self::recur(RecurToMutator::from(m));
+                    Self::recur(RecurToMutator::from(m))
                 } else {
                     panic!()
                 }

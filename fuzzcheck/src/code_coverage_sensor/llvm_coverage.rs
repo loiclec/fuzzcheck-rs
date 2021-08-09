@@ -1,11 +1,14 @@
-use super::leb128;
 use std::collections::HashMap;
+use std::ops::Range;
+use std::path::Path;
 use std::{collections::HashSet, convert::TryFrom};
 
-type CovMap = HashMap<[u8; 8], Vec<String>>;
 use object::Object;
 use object::ObjectSection;
-use std::path::Path;
+
+use super::leb128;
+
+type CovMap = HashMap<[u8; 8], Vec<String>>;
 
 pub struct LLVMCovSections {
     pub covfun: Vec<u8>,
@@ -255,7 +258,7 @@ pub fn process_function_records(records: Vec<RawFunctionCounters>) -> Vec<Functi
         let mut expressions = HashSet::<ExpandedExpression>::new();
         for raw_counter in function_counters.counters_list.iter() {
             let mut expanded = ExpandedExpression::default();
-            expanded.push_counter(&raw_counter, Sign::Positive, &function_counters);
+            expanded.push_counter(raw_counter, Sign::Positive, &function_counters);
             expanded.sort();
             expressions.insert(expanded);
         }
@@ -269,19 +272,30 @@ pub fn process_function_records(records: Vec<RawFunctionCounters>) -> Vec<Functi
     all_expressions
 }
 
+#[derive(Debug)]
+pub enum ReadCovMapError {
+    CompressedLengthTooLong,
+    InvalidVersion(i32),
+}
+
 #[no_coverage]
-pub fn read_covmap(covmap: &[u8], idx: &mut usize) -> CovMap {
+/// Reads the contents of the LLVM coverage map, returning an error if this is
+/// not possible.
+pub fn read_covmap(covmap: &[u8], idx: &mut usize) -> Result<CovMap, ReadCovMapError> {
     let mut translation_unit_map = HashMap::new();
     while *idx < covmap.len() {
         let _always_0 = read_i32(covmap, idx);
         let length_encoded_data = read_i32(covmap, idx) as usize;
         let _always_0 = read_i32(covmap, idx);
         let version = read_i32(covmap, idx);
-        assert_eq!(version, 3); // version 4 actually, but encoded as 3
-                                //let _something_undocumented = read_i32(covmap, idx);
+        if version != 3 {
+            return Err(ReadCovMapError::InvalidVersion(version));
+        }
+        // version 4 actually, but encoded as 3
+        //let _something_undocumented = read_i32(covmap, idx);
 
         let encoded_data = &covmap[*idx..*idx + length_encoded_data];
-        let filenames = unsafe { read_list_filenames(encoded_data, &mut 0) };
+        let filenames = read_list_filenames(encoded_data, &mut 0)?;
         let hash_encoded_data = md5::compute(encoded_data);
         let hash_encoded_data = <[u8; 8]>::try_from(&hash_encoded_data[0..8]).unwrap();
 
@@ -295,15 +309,18 @@ pub fn read_covmap(covmap: &[u8], idx: &mut usize) -> CovMap {
         };
         *idx += padding;
     }
-    translation_unit_map
+    Ok(translation_unit_map)
 }
 
 #[no_coverage]
-pub unsafe fn read_list_filenames(slice: &[u8], idx: &mut usize) -> Vec<String> {
+pub fn read_list_filenames(slice: &[u8], idx: &mut usize) -> Result<Vec<String>, ReadCovMapError> {
     let _nbr_filenames = read_leb_usize(slice, idx);
     let _length_uncompressed = read_leb_usize(slice, idx);
     let length_compressed = read_leb_usize(slice, idx);
-    assert_eq!(length_compressed, 0);
+
+    if length_compressed != 0 {
+        return Err(ReadCovMapError::CompressedLengthTooLong);
+    }
 
     let mut filenames = Vec::new();
     while *idx < slice.len() {
@@ -311,7 +328,7 @@ pub unsafe fn read_list_filenames(slice: &[u8], idx: &mut usize) -> Vec<String> 
         filenames.push(String::from_utf8(slice[*idx..*idx + len].to_vec()).unwrap());
         *idx += len;
     }
-    filenames
+    Ok(filenames)
 }
 
 extern "C" {
@@ -340,7 +357,6 @@ pub unsafe fn get_prf_data() -> &'static [u8] {
     let len = end.offset_from(start) as usize;
     std::slice::from_raw_parts(start, len)
 }
-use std::ops::Range;
 
 // an expression read in function records (__llvm_covfun section)
 #[derive(Debug)]
@@ -423,8 +439,8 @@ impl ExpandedExpression {
     }
     #[no_coverage]
     pub fn sort(&mut self) {
-        self.add_terms.sort();
-        self.sub_terms.sort();
+        self.add_terms.sort_unstable();
+        self.sub_terms.sort_unstable();
     }
 
     #[no_coverage]
@@ -464,7 +480,6 @@ impl AllCoverage {
             let mut function_record = function_records
                 .iter()
                 .find(|&f_r| f_r.header.id == prf_data.function_id)
-                .map(|f_r| f_r)
                 .unwrap()
                 .clone();
 
@@ -547,7 +562,7 @@ impl AllCoverage {
                 }
             }
             // no filenames were kept or excluded
-            return excluded;
+            excluded
         });
     }
 }
