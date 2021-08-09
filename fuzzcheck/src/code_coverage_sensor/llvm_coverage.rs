@@ -8,6 +8,43 @@ use std::path::{Path, PathBuf};
 
 type CovMap = HashMap<[u8; 8], Vec<String>>;
 
+extern "C" {
+    #[no_coverage]
+    pub(crate) fn get_start_instrumentation_counters() -> *mut u64;
+    #[no_coverage]
+    pub(crate) fn get_end_instrumentation_counters() -> *mut u64;
+    #[no_coverage]
+    pub(crate) fn get_start_prf_data() -> *const u8;
+    #[no_coverage]
+    pub(crate) fn get_end_prf_data() -> *const u8;
+    #[no_coverage]
+    pub(crate) fn get_start_prf_names() -> *const u8;
+    #[no_coverage]
+    pub(crate) fn get_end_prf_names() -> *const u8;
+}
+
+#[no_coverage]
+pub unsafe fn get_counters() -> &'static mut [u64] {
+    let start = get_start_instrumentation_counters();
+    let end = get_end_instrumentation_counters();
+    let len = end.offset_from(start) as usize;
+    std::slice::from_raw_parts_mut(start, len)
+}
+#[no_coverage]
+pub unsafe fn get_prf_data() -> &'static [u8] {
+    let start = get_start_prf_data();
+    let end = get_end_prf_data();
+    let len = end.offset_from(start) as usize;
+    std::slice::from_raw_parts(start, len)
+}
+#[no_coverage]
+pub unsafe fn get_prf_names() -> &'static [u8] {
+    let start = get_start_prf_names();
+    let end = get_end_prf_names();
+    let len = end.offset_from(start) as usize;
+    std::slice::from_raw_parts(start, len)
+}
+
 pub struct LLVMCovSections {
     pub covfun: Vec<u8>,
     pub covmap: Vec<u8>,
@@ -38,18 +75,10 @@ pub fn get_llvm_cov_sections(path: &Path) -> Result<LLVMCovSections, ReadCovMapE
         .data()
         .unwrap()
         .to_vec();
-    let prf_names = obj_file
-        .section_by_name("__llvm_prf_names")
-        .ok_or(ReadCovMapError::CannotFindSection {
-            section: CovMapSection::PrfNames,
-        })?
-        .data()
-        .unwrap()
-        .to_vec();
     Ok(LLVMCovSections {
         covfun,
         covmap,
-        prf_names,
+        prf_names: unsafe { get_prf_names() }.to_vec(),
     })
 }
 
@@ -114,6 +143,14 @@ fn read_i32(slice: &[u8], idx: &mut usize) -> i32 {
     let subslice = <[u8; 4]>::try_from(&slice[*idx..*idx + 4]).unwrap();
     let x = i32::from_le_bytes(subslice);
     *idx += 4;
+    x
+}
+#[no_coverage]
+fn read_i16(slice: &[u8], idx: &mut usize) -> i16 {
+    assert!(slice.len() >= 2);
+    let subslice = <[u8; 2]>::try_from(&slice[*idx..*idx + 2]).unwrap();
+    let x = i16::from_le_bytes(subslice);
+    *idx += 2;
     x
 }
 #[no_coverage]
@@ -284,7 +321,7 @@ pub struct PrfData {
 #[no_coverage]
 pub fn read_prf_data(prf_data: &[u8], idx: &mut usize) -> Result<Vec<PrfData>, ReadCovMapError> {
     let mut counts = Vec::new();
-    let mut prv_counter_pointer_and_nbr_counters = None;
+    let mut prv_counter_pointer_and_nbr_counters: Option<(u64, u64)> = None;
 
     while *idx < prf_data.len() {
         // NameRef, see InstrProdData.inc line 72
@@ -293,10 +330,9 @@ pub fn read_prf_data(prf_data: &[u8], idx: &mut usize) -> Result<Vec<PrfData>, R
         // FuncHash, see InstrProdData.inc line 75
         // Inc->getHash()->getZExtValue()
         let structural_hash = read_u64(prf_data, idx);
-        if structural_hash == 0 {
-            return Err(ReadCovMapError::FoundProfileDataForDummyFunction);
-        }
-
+        // if structural_hash == 0 {
+        //     return Err(ReadCovMapError::FoundProfileDataForDummyFunction);
+        // }
         let function_id = FunctionIdentifier {
             name_md5,
             structural_hash,
@@ -304,27 +340,35 @@ pub fn read_prf_data(prf_data: &[u8], idx: &mut usize) -> Result<Vec<PrfData>, R
 
         let counter_ptr = read_u64(prf_data, idx);
         let _function_ptr = read_u64(prf_data, idx);
-        let _values = read_u64(prf_data, idx);
+        let _values = read_u64(prf_data, idx); // values are only used for PGO, not coverage instrumentation
 
         // u32 counters
         let nbr_counters = read_u32(prf_data, idx);
 
-        if let Some((prv_counter_pointer, nbr_counters)) = prv_counter_pointer_and_nbr_counters {
-            if prv_counter_pointer + 8 * nbr_counters as u64 != counter_ptr {
-                return Err(ReadCovMapError::InconsistentCounterPointersAndLengths);
+        if structural_hash == 0 {
+            // it is a dummy function, so it doesn't have counters
+            // 1 counter seems to be the minimum for some reason
+            assert!(nbr_counters <= 1);
+        }
+
+        if let Some((prv_counter_pointer, prv_nbr_counters)) = prv_counter_pointer_and_nbr_counters {
+            if prv_counter_pointer + 8 * prv_nbr_counters != counter_ptr {
+                return Err(ReadCovMapError::InconsistentCounterPointersAndLengths {
+                    prev_pointer: prv_counter_pointer as usize,
+                    length: prv_nbr_counters as usize,
+                    cur_pointer: counter_ptr as usize,
+                });
             }
         }
-        prv_counter_pointer_and_nbr_counters = Some((counter_ptr, nbr_counters));
+        prv_counter_pointer_and_nbr_counters = Some((counter_ptr, nbr_counters as u64));
 
         counts.push(PrfData {
             function_id,
             number_of_counters: nbr_counters as usize,
         });
         // u16 but aligned
-        let something_i_dont_know_what = read_i32(prf_data, idx);
-        if something_i_dont_know_what != 0 {
-            return Err(ReadCovMapError::LastFieldOfPrfDataNotZero);
-        }
+        let _something_i_dont_know_what = read_i16(prf_data, idx); // this is used for PGO only, I think
+        *idx += 4; // alignment
     }
 
     Ok(counts)
@@ -399,6 +443,7 @@ pub fn process_function_records(
             expressions.insert(expanded, mapping_region.clone());
         }
         let name_function = (&prf_names[&function_counters.header.id.name_md5]).clone();
+
         let expressions = expressions.into_iter().collect::<Vec<_>>();
 
         let filenames = &covmap[&function_counters.header.hash_translation_unit];
@@ -430,8 +475,11 @@ pub enum CovMapSection {
 
 #[derive(Debug)]
 pub enum ReadCovMapError {
-    LastFieldOfPrfDataNotZero,
-    InconsistentCounterPointersAndLengths,
+    InconsistentCounterPointersAndLengths {
+        prev_pointer: usize,
+        length: usize,
+        cur_pointer: usize,
+    },
     FoundProfileDataForDummyFunction,
     InconsistentLengthOfEncodedData {
         section: CovMapSection,
@@ -540,33 +588,6 @@ pub fn read_list_filenames(slice: &[u8], idx: &mut usize) -> Result<Vec<String>,
     }
 
     Ok(filenames)
-}
-
-extern "C" {
-    #[no_coverage]
-    pub(crate) fn get_start_instrumentation_counters() -> *mut u64;
-    #[no_coverage]
-    pub(crate) fn get_end_instrumentation_counters() -> *mut u64;
-    #[no_coverage]
-    pub(crate) fn get_start_prf_data() -> *const u8;
-    #[no_coverage]
-    pub(crate) fn get_end_prf_data() -> *const u8;
-
-}
-
-#[no_coverage]
-pub unsafe fn get_counters() -> &'static mut [u64] {
-    let start = get_start_instrumentation_counters();
-    let end = get_end_instrumentation_counters();
-    let len = end.offset_from(start) as usize;
-    std::slice::from_raw_parts_mut(start, len)
-}
-#[no_coverage]
-pub unsafe fn get_prf_data() -> &'static [u8] {
-    let start = get_start_prf_data();
-    let end = get_end_prf_data();
-    let len = end.offset_from(start) as usize;
-    std::slice::from_raw_parts(start, len)
 }
 
 // an expression read in function records (__llvm_covfun section)

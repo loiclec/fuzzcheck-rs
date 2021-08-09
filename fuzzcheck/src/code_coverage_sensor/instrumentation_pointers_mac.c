@@ -27,3 +27,17 @@ char *get_end_prf_data()
 {
     return &PrfDataEnd;
 }
+
+extern char
+    PrfNamesStart __asm("section$start$__DATA$__llvm_prf_names"); // different based on the platform, so double-check it
+extern char
+    PrfNamesEnd __asm("section$end$__DATA$__llvm_prf_names");
+
+char *get_start_prf_names()
+{
+    return &PrfNamesStart;
+}
+char *get_end_prf_names()
+{
+    return &PrfNamesEnd;
+}
