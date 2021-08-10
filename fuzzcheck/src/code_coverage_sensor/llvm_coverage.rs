@@ -765,7 +765,7 @@ impl Coverage {
                 let slice =
                     std::slice::from_raw_parts(coverage.physical_counters_start, coverage.physical_counters_len);
                 if slice[0] == 0 {
-                    index += coverage.len;
+                    index += coverage.function_record.expressions.len();
                     continue;
                 }
                 for (e, _) in coverage.function_record.expressions.iter() {
