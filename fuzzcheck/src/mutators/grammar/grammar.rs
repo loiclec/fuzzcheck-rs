@@ -64,6 +64,8 @@ impl Grammar {
     }
     #[no_coverage]
     pub fn recursive(data_fn: impl Fn(&Weak<Grammar>) -> Rc<Grammar>) -> Rc<Grammar> {
-        Rc::new_cyclic(|g| Grammar::Recursive(data_fn(g)))
+        Rc::new(Grammar::Recursive(Rc::new_cyclic(|g| {
+            Rc::try_unwrap(data_fn(g)).unwrap()
+        })))
     }
 }
