@@ -368,7 +368,7 @@ pub fn read_prf_data(prf_data: &[u8], idx: &mut usize) -> Result<Vec<PrfData>, R
         });
         // u16 but aligned
         let _something_i_dont_know_what = read_i16(prf_data, idx); // this is used for PGO only, I think
-        *idx += 4; // alignment
+        *idx += 2; // alignment
     }
 
     Ok(counts)
