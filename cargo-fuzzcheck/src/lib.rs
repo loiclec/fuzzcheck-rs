@@ -17,9 +17,10 @@ pub fn launch_executable(
         .env("FUZZCHECK_ARGS", args)
         .env(
             "RUSTFLAGS",
-            "-Zinstrument-coverage=except-unused-functions --cfg fuzzing",
+            "-Zinstrument-coverage=except-unused-functions -Zno-profiler-runtime --cfg fuzzing",
         )
         .arg("test")
+        .arg("--lib")
         .args(["--target", TARGET])
         .arg("--release")
         .args(["--target-dir", BUILD_FOLDER])
