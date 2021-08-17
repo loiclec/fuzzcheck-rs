@@ -23,7 +23,11 @@ impl VoseAlias {
         let original_probabilities = probabilities.clone();
         // Step 0: ensure sum of probabilities is equal to 1
         assert!(!probabilities.is_empty());
-        let sum = probabilities.iter().fold(0.0, |sum, p| sum + p);
+        let sum = probabilities.iter().fold(
+            0.0,
+            #[no_coverage]
+            |sum, p| sum + p,
+        );
         #[allow(clippy::float_cmp)]
         if sum != 1.0 {
             // hack, the whole of the extra probability is added to the first element

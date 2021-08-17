@@ -437,7 +437,7 @@ fn impl_mutator_trait(tb: &mut TokenBuilder, nbr_elements: usize) {
                 , separator: ",") "
             ];
             let sum_prob = probabilities.iter().sum::<f64>();
-            probabilities.iter_mut().for_each(|c| *c /= sum_prob);
+            probabilities.iter_mut().for_each(#[no_coverage] |c| *c /= sum_prob);
             let vose_alias = " cm.VoseAlias "::new(probabilities);
 
             let step = Self::MutationStep {"
@@ -540,7 +540,7 @@ fn impl_mutator_trait(tb: &mut TokenBuilder, nbr_elements: usize) {
             if sum == 0.0 {
                 step.vose_alias = " cm.None ";
             }  else {
-                prob.iter_mut().for_each(|c| *c /= sum );
+                prob.iter_mut().for_each(#[no_coverage] |c| *c /= sum );
                 step.vose_alias = " cm.Some "(" cm.VoseAlias "::new(prob));
             }
             " SelfAsTupleMutator "::ordered_mutate(self, value, cache, step, max_cplx)

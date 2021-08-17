@@ -165,7 +165,11 @@ impl Mutator<AST> for ASTMutator {
 pub fn grammar_based_string_mutator(grammar: Rc<Grammar>) -> impl Mutator<String> {
     let grammar_cloned = grammar.clone();
     let parse = move |string: &String| parse_from_grammar(string, grammar_cloned.clone());
-    IncrementalMapMutator::<AST, String, ASTMutator, ASTMap, _>::new(parse, ASTMutator::from_grammar(grammar))
+    IncrementalMapMutator::<AST, String, ASTMutator, ASTMap, _>::new(
+        #[no_coverage]
+        parse,
+        ASTMutator::from_grammar(grammar),
+    )
 }
 
 impl ASTMutator {

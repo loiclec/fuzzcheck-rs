@@ -87,7 +87,10 @@ impl<T: Clone, M: Mutator<T>> Mutator<T> for DictionaryMutator<T, M> {
                     self.ordered_arbitrary(step, max_cplx)
                 }
             }
-            ArbitraryStep::Wrapped(inner_step) => self.m.ordered_arbitrary(inner_step, max_cplx).map(|(v, c)| (v, c)),
+            ArbitraryStep::Wrapped(inner_step) => self.m.ordered_arbitrary(inner_step, max_cplx).map(
+                #[no_coverage]
+                |(v, c)| (v, c),
+            ),
         }
     }
 
@@ -132,9 +135,10 @@ impl<T: Clone, M: Mutator<T>> Mutator<T> for DictionaryMutator<T, M> {
 
             Some((UnmutateToken::Replace(old_value), new_value_cplx))
         } else {
-            self.m
-                .ordered_mutate(value, cache, &mut step.wrapped, max_cplx)
-                .map(|(t, c)| (self::UnmutateToken::Unmutate(t), c))
+            self.m.ordered_mutate(value, cache, &mut step.wrapped, max_cplx).map(
+                #[no_coverage]
+                |(t, c)| (self::UnmutateToken::Unmutate(t), c),
+            )
         }
     }
 

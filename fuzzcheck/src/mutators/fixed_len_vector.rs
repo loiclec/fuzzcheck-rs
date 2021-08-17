@@ -141,7 +141,10 @@ impl<T: Clone, M: Mutator<T>> Mutator<Vec<T>> for FixedLenVecMutator<T, M> {
         let inner: Vec<_> = value
             .iter()
             .zip(self.mutators.iter())
-            .filter_map(|(x, mutator)| mutator.validate_value(x))
+            .filter_map(
+                #[no_coverage]
+                |(x, mutator)| mutator.validate_value(x),
+            )
             .collect();
 
         if inner.len() < value.len() {
@@ -154,11 +157,11 @@ impl<T: Clone, M: Mutator<T>> Mutator<Vec<T>> for FixedLenVecMutator<T, M> {
             inner_caches.push(cache);
             inner_steps.push(step);
         }
-        let sum_cplx = value
-            .iter()
-            .zip(self.mutators.iter())
-            .zip(inner_caches.iter())
-            .fold(0.0, |cplx, ((v, mutator), cache)| cplx + mutator.complexity(v, cache));
+        let sum_cplx = value.iter().zip(self.mutators.iter()).zip(inner_caches.iter()).fold(
+            0.0,
+            #[no_coverage]
+            |cplx, ((v, mutator), cache)| cplx + mutator.complexity(v, cache),
+        );
 
         let cache = VecMutatorCache {
             inner: inner_caches,
@@ -237,7 +240,10 @@ impl<T: Clone, M: Mutator<T>> Mutator<Vec<T>> for FixedLenVecMutator<T, M> {
         let idx = step.element_step % value.len();
         step.element_step += 1;
         self.mutate_element(value, cache, step, idx, current_cplx, spare_cplx)
-            .or_else(|| Some(self.random_mutate(value, cache, max_cplx)))
+            .or_else(
+                #[no_coverage]
+                || Some(self.random_mutate(value, cache, max_cplx)),
+            )
     }
 
     #[no_coverage]

@@ -107,7 +107,14 @@ where
     #[no_coverage]
     fn default_arbitrary_step(&self) -> Self::ArbitraryStep {
         Self::ArbitraryStep {
-            inner: self.mutators.iter().map(|m| m.default_arbitrary_step()).collect(),
+            inner: self
+                .mutators
+                .iter()
+                .map(
+                    #[no_coverage]
+                    |m| m.default_arbitrary_step(),
+                )
+                .collect(),
             indices: (0..self.mutators.len()).collect(),
             idx: 0,
         }

@@ -177,7 +177,11 @@ impl<T: Clone, M: Mutator<T>> VecMutator<T, M> {
         let removed_cplx = value[start_idx..end_idx]
             .iter()
             .zip(cache.inner[start_idx..end_idx].iter())
-            .fold(0.0, |cplx, (v, c)| cplx + self.m.complexity(v, c));
+            .fold(
+                0.0,
+                #[no_coverage]
+                |cplx, (v, c)| cplx + self.m.complexity(v, c),
+            );
         let removed_elements = value.drain(start_idx..end_idx).collect();
 
         Some((
@@ -345,7 +349,13 @@ impl<T: Clone, M: Mutator<T>> Mutator<Vec<T>> for VecMutator<T, M> {
 
     #[no_coverage]
     fn validate_value(&self, value: &Vec<T>) -> Option<(Self::Cache, Self::MutationStep)> {
-        let inner: Vec<_> = value.iter().filter_map(|x| self.m.validate_value(x)).collect();
+        let inner: Vec<_> = value
+            .iter()
+            .filter_map(
+                #[no_coverage]
+                |x| self.m.validate_value(x),
+            )
+            .collect();
 
         if inner.len() < value.len() {
             return None;
@@ -361,7 +371,10 @@ impl<T: Clone, M: Mutator<T>> Mutator<Vec<T>> for VecMutator<T, M> {
         let cplxs = value
             .iter()
             .zip(inner_caches.iter())
-            .map(|(v, c)| self.m.complexity(v, c))
+            .map(
+                #[no_coverage]
+                |(v, c)| self.m.complexity(v, c),
+            )
             .collect::<Vec<_>>();
 
         let sum_cplx = cplxs.iter().fold(0.0, |sum_cplx, c| sum_cplx + c);
@@ -369,7 +382,10 @@ impl<T: Clone, M: Mutator<T>> Mutator<Vec<T>> for VecMutator<T, M> {
         let alias = if !inner_caches.is_empty() {
             let mut probabilities = cplxs.into_iter().map(|c| 10. + c).collect::<Vec<_>>();
             let sum_prob = probabilities.iter().sum::<f64>();
-            probabilities.iter_mut().for_each(|c| *c /= sum_prob);
+            probabilities.iter_mut().for_each(
+                #[no_coverage]
+                |c| *c /= sum_prob,
+            );
             Some(VoseAlias::new(probabilities))
         } else {
             None
@@ -499,7 +515,10 @@ impl<T: Clone, M: Mutator<T>> Mutator<Vec<T>> for VecMutator<T, M> {
                     if sum == 0.0 {
                         step.alias = None;
                     } else {
-                        prob.iter_mut().for_each(|c| *c /= sum);
+                        prob.iter_mut().for_each(
+                            #[no_coverage]
+                            |c| *c /= sum,
+                        );
                         step.alias = Some(VoseAlias::new(prob));
                     }
 
@@ -545,7 +564,10 @@ impl<T: Clone, M: Mutator<T>> Mutator<Vec<T>> for VecMutator<T, M> {
                 10..=14 => self.use_dictionary(value, cache, spare_cplx),
                 _ => None,
             }
-            .unwrap_or_else(|| self.random_mutate(value, cache, max_cplx))
+            .unwrap_or_else(
+                #[no_coverage]
+                || self.random_mutate(value, cache, max_cplx),
+            )
         } else {
             // element mutation
             // we know value is not empty, therefore the alias is Some

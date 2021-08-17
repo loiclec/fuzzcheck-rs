@@ -16,7 +16,6 @@ macro_rules! impl_int_mutator_constrained {
         }
         impl $name_mutator {
             #[no_coverage]
-            #[no_coverage]
             pub fn new<RB: RangeBounds<$name>>(range: RB) -> Self {
                 let start = match range.start_bound() {
                     Bound::Included(b) => *b,

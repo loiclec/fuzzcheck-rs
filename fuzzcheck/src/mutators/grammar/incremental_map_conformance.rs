@@ -39,7 +39,10 @@ where
                 let start_index = self
                     .children
                     .get(idx.wrapping_sub(1))
-                    .map(|c| c.start_index + c.len)
+                    .map(
+                        #[no_coverage]
+                        |c| c.start_index + c.len,
+                    )
                     .unwrap_or(*self.start_index);
 
                 let v = &from_value[*idx];
@@ -61,7 +64,10 @@ where
                 let mut start_index = self
                     .children
                     .get(idx.wrapping_sub(1))
-                    .map(|c| c.start_index + c.len)
+                    .map(
+                        #[no_coverage]
+                        |c| c.start_index + c.len,
+                    )
                     .unwrap_or(*self.start_index);
                 let original_start_index = start_index;
                 let mut total_len = 0;
@@ -104,7 +110,13 @@ where
             UnmutateVecToken::InsertMany(idx, xs) => {
                 let (start_idx, len) = {
                     let cs = &self.children[*idx..*idx + xs.len()];
-                    let start_index = cs.first().map(|c| c.start_index).unwrap_or(*self.start_index);
+                    let start_index = cs
+                        .first()
+                        .map(
+                            #[no_coverage]
+                            |c| c.start_index,
+                        )
+                        .unwrap_or(*self.start_index);
                     let mut len = 0;
                     for c in cs {
                         len += c.len;
@@ -164,7 +176,13 @@ where
             UnmutateVecToken::RemoveMany(range) => {
                 let (start_idx, len) = {
                     let cs = &self.children[range.clone()];
-                    let start_index = cs.first().map(|c| c.start_index).unwrap_or(*self.start_index);
+                    let start_index = cs
+                        .first()
+                        .map(
+                            #[no_coverage]
+                            |c| c.start_index,
+                        )
+                        .unwrap_or(*self.start_index);
                     let mut len = 0;
                     for c in cs {
                         len += c.len;
@@ -183,7 +201,10 @@ where
                 let start_index = self
                     .children
                     .get(idx.wrapping_sub(1))
-                    .map(|c| c.start_index + c.len)
+                    .map(
+                        #[no_coverage]
+                        |c| c.start_index + c.len,
+                    )
                     .unwrap_or(*self.start_index);
 
                 // I need to add the value v[idx] to s and c and update the following indices
@@ -203,7 +224,10 @@ where
                 let mut start_index = self
                     .children
                     .get(idx.wrapping_sub(1))
-                    .map(|c| c.start_index + c.len)
+                    .map(
+                        #[no_coverage]
+                        |c| c.start_index + c.len,
+                    )
                     .unwrap_or(*self.start_index);
                 let original_start_index = start_index;
                 let mut total_len = 0;
