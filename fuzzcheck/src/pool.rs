@@ -397,7 +397,13 @@ impl<T: Clone, M: Mutator<T>> Pool<T, M> {
         to_delete.sort();
         to_delete.dedup();
 
-        let deleted_values: Vec<_> = to_delete.iter().map(|&key| key.key).collect();
+        let deleted_values: Vec<_> = to_delete
+            .iter()
+            .map(
+                #[no_coverage]
+                |&key| key.key,
+            )
+            .collect();
 
         self.delete_elements(to_delete, element_key);
 
@@ -407,7 +413,11 @@ impl<T: Clone, M: Mutator<T>> Pool<T, M> {
         while let Some(&&next_feature) = new_features_iter.peek() {
             let feature_for_iter_idx = self
                 .features
-                .binary_search_by_key(&next_feature, |f| f.feature)
+                .binary_search_by_key(
+                    &next_feature,
+                    #[no_coverage]
+                    |f| f.feature,
+                )
                 .unwrap();
             let feature_for_iter = &self.features[feature_for_iter_idx];
             let group = {
@@ -440,7 +450,11 @@ impl<T: Clone, M: Mutator<T>> Pool<T, M> {
             while let Some(&&next_feature) = new_features_iter.peek() {
                 let feature_for_iter_idx = self
                     .features
-                    .binary_search_by_key(&next_feature, |f| f.feature)
+                    .binary_search_by_key(
+                        &next_feature,
+                        #[no_coverage]
+                        |f| f.feature,
+                    )
                     .unwrap();
                 let feature_for_iter = &self.features[feature_for_iter_idx];
 
@@ -532,7 +546,14 @@ impl<T: Clone, M: Mutator<T>> Pool<T, M> {
             for &f_key in &all_features {
                 let analyzed_f = &mut self.slab_features[f_key];
 
-                let idx_to_delete_key = analyzed_f.inputs.iter().position(|&x| x == to_delete_key).unwrap();
+                let idx_to_delete_key = analyzed_f
+                    .inputs
+                    .iter()
+                    .position(
+                        #[no_coverage]
+                        |&x| x == to_delete_key,
+                    )
+                    .unwrap();
                 analyzed_f.inputs.swap_remove(idx_to_delete_key);
 
                 let group = &self.slab_feature_groups[analyzed_f.group_key];
@@ -592,7 +613,14 @@ impl<T: Clone, M: Mutator<T>> Pool<T, M> {
 
         for &f_key in &all_features {
             let analyzed_f = &mut self.slab_features[f_key];
-            let idx_to_delete_key = analyzed_f.inputs.iter().position(|&x| x == to_delete_key).unwrap();
+            let idx_to_delete_key = analyzed_f
+                .inputs
+                .iter()
+                .position(
+                    #[no_coverage]
+                    |&x| x == to_delete_key,
+                )
+                .unwrap();
             analyzed_f.inputs.swap_remove(idx_to_delete_key); // this updates new multiplicity
         }
 
@@ -624,7 +652,11 @@ impl<T: Clone, M: Mutator<T>> Pool<T, M> {
             // 2. remove the feature from the list and the slab
             let idx_f = self
                 .features
-                .binary_search_by_key(&analyzed_f.feature, |f| f.feature)
+                .binary_search_by_key(
+                    &analyzed_f.feature,
+                    #[no_coverage]
+                    |f| f.feature,
+                )
                 .unwrap();
             self.features.remove(idx_f);
 
@@ -643,7 +675,11 @@ impl<T: Clone, M: Mutator<T>> Pool<T, M> {
 
             let group_index = self
                 .feature_groups
-                .binary_search_by_key(&id, |g| slab_feature_groups[*g].id)
+                .binary_search_by_key(
+                    &id,
+                    #[no_coverage]
+                    |g| slab_feature_groups[*g].id,
+                )
                 .unwrap();
             for group_key in self.feature_groups[group_index + 1..].iter_mut() {
                 let group = &mut self.slab_feature_groups[*group_key];
@@ -680,7 +716,10 @@ impl<T: Clone, M: Mutator<T>> Pool<T, M> {
         let pick_key = self
             .inputs
             .iter()
-            .min_by(|&&k1, &&k2| slab[k1].score.partial_cmp(&slab[k2].score).unwrap_or(Ordering::Less))
+            .min_by(
+                #[no_coverage]
+                |&&k1, &&k2| slab[k1].score.partial_cmp(&slab[k2].score).unwrap_or(Ordering::Less),
+            )
             .copied()
             .unwrap();
 
@@ -705,14 +744,17 @@ impl<T: Clone, M: Mutator<T>> Pool<T, M> {
         new_feature_for_iter: AnalyzedFeatureRef<T, M>,
     ) -> SlabKey<FeatureGroup> {
         // TODO: CHANGE THIS, too slow
-        let insertion_idx = sorted_insert(features, new_feature_for_iter, |other_f| {
-            new_feature_for_iter.feature < other_f.feature
-        });
+        let insertion_idx = sorted_insert(
+            features,
+            new_feature_for_iter,
+            #[no_coverage]
+            |other_f| new_feature_for_iter.feature < other_f.feature,
+        );
 
         let group_of_new_feature = new_feature_for_iter.feature.group_id();
 
         let (group_index, group_key) = // group ids correspond to feature ids, and are sorted in the same way, so we can use binary search
-            match feature_groups.binary_search_by_key(&group_of_new_feature, |g| slab_feature_groups[*g].id) {
+            match feature_groups.binary_search_by_key(&group_of_new_feature, #[no_coverage] |g| slab_feature_groups[*g].id) {
                 Ok(group_idx) => {
                     let group_key = feature_groups[group_idx];
                     let group = &mut slab_feature_groups[group_key];
@@ -778,18 +820,32 @@ impl<T: Clone, M: Mutator<T>> Pool<T, M> {
         self.cumulative_weights = self
             .inputs
             .iter()
-            .map(|&key| &slab[key])
-            .scan(0.0, |state, x| {
-                *state += x.score;
-                Some(*state)
-            })
+            .map(
+                #[no_coverage]
+                |&key| &slab[key],
+            )
+            .scan(
+                0.0,
+                #[no_coverage]
+                |state, x| {
+                    *state += x.score;
+                    Some(*state)
+                },
+            )
             .collect();
 
         self.average_complexity = self
             .inputs
             .iter()
-            .map(|&key| &slab[key])
-            .fold(0.0, |c, x| c + x.complexity)
+            .map(
+                #[no_coverage]
+                |&key| &slab[key],
+            )
+            .fold(
+                0.0,
+                #[no_coverage]
+                |c, x| c + x.complexity,
+            )
             / self.inputs.len() as f64;
     }
 
@@ -799,7 +855,14 @@ impl<T: Clone, M: Mutator<T>> Pool<T, M> {
         match idx {
             PoolIndex::Normal(key) => &self.slab_inputs[key].data,
             PoolIndex::Favored => self.favored_input.as_ref().unwrap(),
-            PoolIndex::LowestStack => self.lowest_stack_input.as_ref().map(|x| &x.input).unwrap(),
+            PoolIndex::LowestStack => self
+                .lowest_stack_input
+                .as_ref()
+                .map(
+                    #[no_coverage]
+                    |x| &x.input,
+                )
+                .unwrap(),
         }
     }
     /// Get the input at the given index along with its complexity and the number of mutations tried on this input
@@ -808,7 +871,14 @@ impl<T: Clone, M: Mutator<T>> Pool<T, M> {
         match idx {
             PoolIndex::Normal(key) => &mut self.slab_inputs[key].data,
             PoolIndex::Favored => self.favored_input.as_mut().unwrap(),
-            PoolIndex::LowestStack => self.lowest_stack_input.as_mut().map(|x| &mut x.input).unwrap(),
+            PoolIndex::LowestStack => self
+                .lowest_stack_input
+                .as_mut()
+                .map(
+                    #[no_coverage]
+                    |x| &mut x.input,
+                )
+                .unwrap(),
         }
     }
 
@@ -819,7 +889,10 @@ impl<T: Clone, M: Mutator<T>> Pool<T, M> {
         generation: usize,
     ) -> Option<&'_ mut FuzzedInput<T, M>> {
         match idx {
-            PoolIndex::Normal(key) => self.slab_inputs.get_mut(key).map(|input| &mut input.data),
+            PoolIndex::Normal(key) => self.slab_inputs.get_mut(key).map(
+                #[no_coverage]
+                |input| &mut input.data,
+            ),
             PoolIndex::Favored => Some(self.get(idx)),
             PoolIndex::LowestStack => {
                 if let Some(lsi) = self.lowest_stack_input.as_mut() {
@@ -871,18 +944,27 @@ impl<T: Clone, M: Mutator<T>> Pool<T, M> {
         }
         let coverage: Vec<_> = coverage
             .iter()
-            .map(|(_, symbols)| {
-                symbols
-                    .iter()
-                    .map(|symbol| {
-                        (
-                            symbol.filename().map(|p| p.to_str().unwrap().to_owned()),
-                            symbol.lineno(),
-                            symbol.colno(),
+            .map(
+                #[no_coverage]
+                |(_, symbols)| {
+                    symbols
+                        .iter()
+                        .map(
+                            #[no_coverage]
+                            |symbol| {
+                                (
+                                    symbol.filename().map(
+                                        #[no_coverage]
+                                        |p| p.to_str().unwrap().to_owned(),
+                                    ),
+                                    symbol.lineno(),
+                                    symbol.colno(),
+                                )
+                            },
                         )
-                    })
-                    .collect()
-            })
+                        .collect()
+                },
+            )
             .collect();
         WorldAction::ReportCoverage {
             input: input.data.value.clone(),
