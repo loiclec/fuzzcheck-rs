@@ -57,7 +57,7 @@ pub use serializers::SerdeSerializer;
  * The upper 32 bits are the index of the code coverage counter and the
  * lower 32 bits contain its hit count.
  */
-#[derive(Debug, Clone, Copy, Eq, Hash)]
+#[derive(Debug, Clone, Copy, Eq)]
 struct Feature(u64);
 
 impl PartialEq for Feature {
