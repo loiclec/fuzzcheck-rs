@@ -674,12 +674,6 @@ impl ExpandedExpression {
         self.add_terms.sort_unstable();
         self.sub_terms.sort_unstable();
     }
-
-    #[no_coverage]
-    pub unsafe fn count(&self, counters: &[u64]) -> u64 {
-        self.add_terms.iter().map(|t| counters[*t]).sum::<u64>()
-            - self.sub_terms.iter().map(|t| counters[*t]).sum::<u64>()
-    }
 }
 
 impl FunctionRecord {
@@ -696,20 +690,62 @@ impl FunctionRecord {
     }
 }
 
-#[derive(Debug)]
+pub struct OptimisedExpandedExpression {
+    add_terms: Vec<*const u64>,
+    sub_terms: Vec<*const u64>,
+}
+impl OptimisedExpandedExpression {
+    fn compute(&self) -> u64 {
+        unsafe {
+            let mut result = 0;
+            for &add_term in self.add_terms.iter() {
+                result += *add_term;
+            }
+            for &sub_term in self.sub_terms.iter() {
+                result -= *sub_term;
+            }
+            result
+        }
+    }
+}
+
+impl ExpandedExpression {
+    fn optimized(&self, counters: &[u64]) -> OptimisedExpandedExpression {
+        assert!(
+            self.add_terms.len() > 1 || !self.sub_terms.is_empty(),
+            "{} {}",
+            self.add_terms.len(),
+            self.sub_terms.len()
+        );
+        let mut add_terms = Vec::new();
+        let mut sub_terms = Vec::new();
+        for &add_term in &self.add_terms {
+            add_terms.push(&counters[add_term] as *const _);
+        }
+        for &sub_term in &self.sub_terms {
+            sub_terms.push(&counters[sub_term] as *const _);
+        }
+        add_terms.sort_unstable();
+        sub_terms.sort_unstable();
+        OptimisedExpandedExpression { add_terms, sub_terms }
+    }
+}
+
 pub struct Coverage {
-    pub physical_counters_start: *mut u64,
-    pub physical_counters_len: usize,
     pub function_record: FunctionRecord,
-    pub len: usize,
+    pub start_counters: *mut u64,
+    pub counters_len: usize,
+    pub single_counters: Vec<*mut u64>,
+    pub expression_counters: Vec<OptimisedExpandedExpression>,
 }
 
 impl Coverage {
+    #[no_coverage]
     pub fn new(
         function_records: Vec<FunctionRecord>,
         prf_datas: Vec<PrfData>,
         all_counters: &'static mut [u64],
-    ) -> Result<Vec<Self>, ReadCovMapError> {
+    ) -> Result<Vec<Coverage>, ReadCovMapError> {
         let mut start_idx = 0;
         prf_datas
             .iter()
@@ -721,20 +757,37 @@ impl Coverage {
                     .find(|fr| fr.header.id == prf_data.function_id)
                     .ok_or(ReadCovMapError::CannotFindFunctionRecordAssociatedWithPrfData)?;
 
-                // keep the trivial expressions in
-                // it's inefficient, but it doesn't really matter, I'll write an optimized version later
-
-                let len = range.len() + f_r.expressions.len();
                 let slice = &mut all_counters[range];
+                let mut single_counters = Vec::new();
+                let mut expression_counters = Vec::new();
+
+                for (e, _) in f_r.expressions.iter() {
+                    if e.add_terms.is_empty() && e.sub_terms.is_empty() {
+                        continue;
+                    } else if e.add_terms.len() == 1 && e.sub_terms.is_empty() {
+                        single_counters.push(&mut slice[e.add_terms[0]] as *mut _);
+                    } else if e.add_terms.len() > 0 {
+                        expression_counters.push(e.optimized(slice));
+                    } else {
+                        panic!(
+                            "An expression contains only sub terms\nAdd terms: {:?}\nSub terms: {:?}",
+                            e.add_terms, e.sub_terms
+                        );
+                    }
+                }
+
+                single_counters.sort();
                 Ok(Coverage {
-                    physical_counters_start: slice.as_mut_ptr(),
-                    physical_counters_len: slice.len(),
                     function_record: f_r.clone(),
-                    len,
+                    start_counters: slice.as_mut_ptr(),
+                    counters_len: slice.len(),
+                    single_counters,
+                    expression_counters,
                 })
             })
             .collect()
     }
+    #[no_coverage]
     pub(crate) fn filter_function_by_files<F, G>(all_self: &mut Vec<Self>, exclude_f: F, keep_f: G)
     where
         F: Fn(&Path) -> bool,
@@ -747,14 +800,13 @@ impl Coverage {
                     return false;
                 }
                 if exclude_f(filepath) {
-                    // if not keep, then bye bye
                     excluded = true;
                 }
             }
-            // no filenames were kept or excluded
             excluded
         });
     }
+    #[no_coverage]
     pub fn iterate_over_coverage_points<F>(coverage: &[Self], mut f: F)
     where
         F: FnMut((usize, u64)),
@@ -762,16 +814,20 @@ impl Coverage {
         unsafe {
             let mut index = 0;
             for coverage in coverage.iter() {
-                let slice =
-                    std::slice::from_raw_parts(coverage.physical_counters_start, coverage.physical_counters_len);
-                if slice[0] == 0 {
-                    index += coverage.function_record.expressions.len();
+                if *coverage.single_counters[0] == 0 {
+                    index += coverage.single_counters.len() + coverage.expression_counters.len();
                     continue;
                 }
-                for (e, _) in coverage.function_record.expressions.iter() {
-                    let count = e.count(slice);
-                    if count != 0 {
-                        f((index, count));
+                for &single in &coverage.single_counters {
+                    if *single != 0 {
+                        f((index, *single));
+                    }
+                    index += 1;
+                }
+                for exp in &coverage.expression_counters {
+                    let computed = exp.compute();
+                    if computed != 0 {
+                        f((index, computed));
                     }
                     index += 1;
                 }

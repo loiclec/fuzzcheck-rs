@@ -2,19 +2,17 @@
 
 mod leb128;
 mod llvm_coverage;
+use crate::Feature;
 use std::collections::HashMap;
 use std::convert::TryFrom;
 use std::path::Path;
 
-use crate::code_coverage_sensor::llvm_coverage::Coverage;
-use crate::Feature;
-
-use self::llvm_coverage::{get_counters, get_prf_data, read_covmap, LLVMCovSections};
+use self::llvm_coverage::{get_counters, get_prf_data, read_covmap, Coverage, LLVMCovSections};
 
 /// Records the code coverage of the program and converts it into `Feature`s
 /// that the `pool` can understand.
 pub struct CodeCoverageSensor {
-    pub coverage_counters: Vec<Coverage>,
+    pub coverage: Vec<Coverage>,
 }
 
 impl CodeCoverageSensor {
@@ -49,9 +47,7 @@ impl CodeCoverageSensor {
             .expect("failed to properly link the different LLVM coverage sections");
         Coverage::filter_function_by_files(&mut coverage, exclude, keep);
 
-        CodeCoverageSensor {
-            coverage_counters: coverage,
-        }
+        CodeCoverageSensor { coverage }
     }
     #[no_coverage]
     pub(crate) unsafe fn start_recording(&self) {}
@@ -62,17 +58,20 @@ impl CodeCoverageSensor {
     where
         F: FnMut(Feature),
     {
-        let CodeCoverageSensor { coverage_counters } = self;
-        Coverage::iterate_over_coverage_points(&coverage_counters, |(index, count)| {
-            handle(Feature::new(index, count));
-        });
+        let CodeCoverageSensor { coverage } = self;
+        Coverage::iterate_over_coverage_points(
+            &coverage,
+            #[no_coverage]
+            |(index, count)| {
+                handle(Feature::new(index, count));
+            },
+        );
     }
     #[no_coverage]
     pub(crate) unsafe fn clear(&mut self) {
-        for coverage in &self.coverage_counters {
-            let slice =
-                std::slice::from_raw_parts_mut(coverage.physical_counters_start, coverage.physical_counters_len);
-            for c in slice {
+        for coverage in &self.coverage {
+            let slice = std::slice::from_raw_parts_mut(coverage.start_counters, coverage.counters_len);
+            for c in slice.iter_mut() {
                 *c = 0;
             }
         }
