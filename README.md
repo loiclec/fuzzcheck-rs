@@ -48,7 +48,7 @@ executable will make it easier to run fuzzcheck.
 cargo install cargo-fuzzcheck
 ```
 
-In you `Cargo.toml` file, add `fuzzcheck` as a dev dependency:
+In your `Cargo.toml` file, add `fuzzcheck` as a dev dependency:
 ```toml
 [dev-dependencies]
 fuzzcheck = "0.7"
