@@ -29,20 +29,6 @@ enum FuzzerInputIndex<T: Clone, M: Mutator<T>> {
     Pool(PoolIndex<T, M>),
 }
 
-struct AnalysisCache<T: Clone, M: Mutator<T>> {
-    existing_features: Vec<SlabKey<AnalyzedFeature<T, M>>>,
-    new_features: Vec<Feature>,
-}
-impl<T: Clone, M: Mutator<T>> Default for AnalysisCache<T, M> {
-    #[no_coverage]
-    fn default() -> Self {
-        Self {
-            existing_features: Vec::new(),
-            new_features: Vec::new(),
-        }
-    }
-}
-
 pub(crate) struct AnalysisResult<T: Clone, M: Mutator<T>> {
     // will be left empty if the input is not interesting
     pub existing_features: Vec<SlabKey<AnalyzedFeature<T, M>>>,
@@ -62,7 +48,6 @@ struct FuzzerState<T: Clone, M: Mutator<T>, S: Serializer<Value = T>> {
     stats: FuzzerStats,
     settings: Arguments,
     world: World<S>,
-    analysis_cache: AnalysisCache<T, M>,
 }
 
 impl<T: Clone, M: Mutator<T>, S: Serializer<Value = T>> FuzzerState<T, M, S> {
@@ -182,7 +167,6 @@ where
                 stats: FuzzerStats::new(),
                 settings,
                 world,
-                analysis_cache: AnalysisCache::default(),
             },
             test,
             phantom: std::marker::PhantomData,
@@ -218,9 +202,6 @@ where
 
         if result.is_err() || !result.unwrap() {
             world.do_actions(vec![WorldAction::ReportEvent(FuzzerEvent::TestFailure)], &stats)?;
-            //world.report_event(FuzzerEvent::TestFailure, Some(stats));
-            let mut features: Vec<Feature> = Vec::new();
-            unsafe { sensor.iterate_over_collected_features(|f| features.push(f)) };
             world.save_artifact(&input.value, input.complexity(mutator))?;
             exit(TerminationStatus::TestFailure as i32);
         }
@@ -234,52 +215,61 @@ where
 
         let slab_features = &self.state.pool.slab_features;
 
-        let mut step_iter = LargeStepFindIter::new(&self.state.pool.features);
-
-        let existing_features = &mut self.state.analysis_cache.existing_features;
-        let new_features = &mut self.state.analysis_cache.new_features;
-
         unsafe {
-            self.state.sensor.iterate_over_collected_features(|feature| {
-                if let Some(f_for_iter) = step_iter.find(|feature_for_iter| feature_for_iter.feature.cmp(&feature)) {
-                    if f_for_iter.feature == feature {
-                        existing_features.push(f_for_iter.key);
-                        let f = &slab_features[f_for_iter.key];
-                        if cur_input_cplx < f.least_complexity {
+            let mut step_iter = LargeStepFindIter::new(&self.state.pool.features);
+
+            self.state.sensor.iterate_over_collected_features(
+                #[no_coverage]
+                |feature| {
+                    if let Some(f_for_iter) = step_iter.find(
+                        #[no_coverage]
+                        |feature_for_iter| feature_for_iter.feature.cmp(&feature),
+                    ) {
+                        if f_for_iter.feature == feature {
+                            let f = &slab_features[f_for_iter.key];
+                            if cur_input_cplx < f.least_complexity {
+                                best_input_for_a_feature = true;
+                            }
+                        } else {
                             best_input_for_a_feature = true;
                         }
                     } else {
-                        best_input_for_a_feature = true;
-                        new_features.push(feature);
+                        best_input_for_a_feature = true; // the feature goes at the end of the pool, and it is new
                     }
-                } else {
-                    best_input_for_a_feature = true; // the feature goes at the end of the pool, and it is new
-                    new_features.push(feature);
-                }
-            });
+                },
+            );
         }
-        // let lowest_stack = code_coverage_sensor::lowest_stack();
-        let result = if best_input_for_a_feature {
-            Some(AnalysisResult {
-                existing_features: existing_features.clone(),
-                new_features: new_features.clone(),
-                // _lowest_stack: lowest_stack,
-            })
-            /*} else if lowest_stack < self.state.pool.lowest_stack() {
+        if best_input_for_a_feature {
+            let mut existing_features = Vec::new();
+            let mut new_features = Vec::new();
+            let mut step_iter = LargeStepFindIter::new(&self.state.pool.features);
+
+            unsafe {
+                self.state.sensor.iterate_over_collected_features(
+                    #[no_coverage]
+                    |feature| {
+                        if let Some(f_for_iter) = step_iter.find(
+                            #[no_coverage]
+                            |feature_for_iter| feature_for_iter.feature.cmp(&feature),
+                        ) {
+                            if f_for_iter.feature == feature {
+                                existing_features.push(f_for_iter.key);
+                            } else {
+                                new_features.push(feature);
+                            }
+                        } else {
+                            new_features.push(feature);
+                        }
+                    },
+                );
                 Some(AnalysisResult {
-                    existing_features: vec![],
-                    new_features: vec![],
-                    _lowest_stack: lowest_stack,
+                    existing_features,
+                    new_features,
                 })
-            } */
+            }
         } else {
             None
-        };
-
-        existing_features.clear();
-        new_features.clear();
-
-        result
+        }
     }
 
     #[no_coverage]
