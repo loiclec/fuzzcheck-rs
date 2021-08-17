@@ -183,9 +183,56 @@ pub struct AnalyzedFeatureRef<T: Clone, M: Mutator<T>> {
     Another way to put it is that a group identifier is equal to the first
     feature that could belong to that group (the one with a payload of 0).
 */
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug)]
+#[derive(Clone, Copy, Eq, Debug)]
 struct FeatureGroupId {
     id: Feature,
+}
+impl PartialEq for FeatureGroupId {
+    #[inline(always)]
+    #[no_coverage]
+    fn eq(&self, other: &Self) -> bool {
+        self.id.eq(&other.id)
+    }
+    #[inline(always)]
+    #[no_coverage]
+    fn ne(&self, other: &Self) -> bool {
+        self.id.ne(&other.id)
+    }
+}
+impl PartialOrd for FeatureGroupId {
+    #[inline(always)]
+    #[no_coverage]
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        self.id.partial_cmp(&other.id)
+    }
+    #[inline(always)]
+    #[no_coverage]
+    fn lt(&self, other: &Self) -> bool {
+        self.id.lt(&other.id)
+    }
+    #[inline(always)]
+    #[no_coverage]
+    fn le(&self, other: &Self) -> bool {
+        self.id.le(&other.id)
+    }
+    #[inline(always)]
+    #[no_coverage]
+    fn gt(&self, other: &Self) -> bool {
+        self.id.gt(&other.id)
+    }
+    #[inline(always)]
+    #[no_coverage]
+    fn ge(&self, other: &Self) -> bool {
+        self.id.ge(&other.id)
+    }
+}
+impl Ord for FeatureGroupId {
+    #[inline(always)]
+    #[no_coverage]
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.id.cmp(&other.id)
+    }
+    // I don't write the other methods, I don't think they are used here
 }
 
 impl Feature {
