@@ -57,10 +57,89 @@ pub use serializers::SerdeSerializer;
  * The upper 32 bits are the index of the code coverage counter and the
  * lower 32 bits contain its hit count.
  */
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone, Copy, Eq, Hash)]
 struct Feature(u64);
 
+impl PartialEq for Feature {
+    #[inline(always)]
+    #[no_coverage]
+    fn eq(&self, other: &Self) -> bool {
+        self.0 == other.0
+    }
+    #[inline(always)]
+    #[no_coverage]
+    fn ne(&self, other: &Self) -> bool {
+        self.0 != other.0
+    }
+}
+impl PartialOrd for Feature {
+    #[inline(always)]
+    #[no_coverage]
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        self.0.partial_cmp(&other.0)
+    }
+    #[inline(always)]
+    #[no_coverage]
+    fn lt(&self, other: &Self) -> bool {
+        self.0.lt(&other.0)
+    }
+    #[inline(always)]
+    #[no_coverage]
+    fn le(&self, other: &Self) -> bool {
+        self.0.le(&other.0)
+    }
+    #[inline(always)]
+    #[no_coverage]
+    fn gt(&self, other: &Self) -> bool {
+        self.0.gt(&other.0)
+    }
+    #[inline(always)]
+    #[no_coverage]
+    fn ge(&self, other: &Self) -> bool {
+        self.0.ge(&other.0)
+    }
+}
+impl Ord for Feature {
+    #[inline(always)]
+    #[no_coverage]
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.0.cmp(&other.0)
+    }
+    #[inline(always)]
+    #[no_coverage]
+    fn max(self, other: Self) -> Self
+    where
+        Self: Sized,
+    {
+        Feature(std::cmp::max(self.0, other.0))
+    }
+    #[inline(always)]
+    #[no_coverage]
+    fn min(self, other: Self) -> Self
+    where
+        Self: Sized,
+    {
+        Feature(std::cmp::min(self.0, other.0))
+    }
+    #[inline(always)]
+    #[no_coverage]
+    fn clamp(self, min: Self, max: Self) -> Self
+    where
+        Self: Sized,
+    {
+        assert!(min <= max);
+        if self < min {
+            min
+        } else if self > max {
+            max
+        } else {
+            self
+        }
+    }
+}
+
 impl Feature {
+    #[inline(always)]
     #[no_coverage]
     fn new(index: usize, counter: u64) -> Feature {
         let index = index as u64;
