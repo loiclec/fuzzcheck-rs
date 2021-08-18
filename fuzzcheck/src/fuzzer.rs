@@ -18,6 +18,7 @@ use fuzzcheck_common::{FuzzerEvent, FuzzerStats};
 use libc::{SIGABRT, SIGALRM, SIGBUS, SIGFPE, SIGINT, SIGSEGV, SIGTERM};
 
 use std::borrow::Borrow;
+use std::ops::Range;
 use std::panic::{catch_unwind, RefUnwindSafe, UnwindSafe};
 use std::path::Path;
 use std::process::exit;
@@ -218,26 +219,18 @@ where
         unsafe {
             // let mut step_iter = LargeStepFindIter::new(&self.state.pool.features);
             for i in 0..self.state.sensor.coverage.len() {
-                let mut features = self
-                    .state
-                    .pool
-                    .features
-                    .get_unchecked(
-                        self.state
-                            .pool
-                            .features_range_for_coverage_index
-                            .get_unchecked(i)
-                            .clone(),
-                    )
-                    .iter()
-                    .peekable();
+                let Range { start, end } = self.state.pool.features_range_for_coverage_index.get_unchecked(i);
+                let features = &self.state.pool.features;
+                let mut idx = *start;
+                let end = *end;
                 self.state.sensor.iterate_over_collected_features(
                     i,
                     #[no_coverage]
                     |feature| loop {
-                        if let Some(f_iter) = features.peek() {
+                        if idx < end {
+                            let f_iter = features.get_unchecked(idx);
                             if f_iter.feature < feature {
-                                let _ = features.next();
+                                idx += 1;
                                 continue;
                             } else if f_iter.feature == feature {
                                 let f = &slab_features[f_iter.key];
@@ -263,26 +256,18 @@ where
 
             unsafe {
                 for i in 0..self.state.sensor.coverage.len() {
-                    let mut features = self
-                        .state
-                        .pool
-                        .features
-                        .get_unchecked(
-                            self.state
-                                .pool
-                                .features_range_for_coverage_index
-                                .get_unchecked(i)
-                                .clone(),
-                        )
-                        .iter()
-                        .peekable();
+                    let Range { start, end } = self.state.pool.features_range_for_coverage_index.get_unchecked(i);
+                    let features = &self.state.pool.features;
+                    let mut idx = *start;
+                    let end = *end;
                     self.state.sensor.iterate_over_collected_features(
                         i,
                         #[no_coverage]
                         |feature| loop {
-                            if let Some(f_iter) = features.peek() {
+                            if idx < end {
+                                let f_iter = features.get_unchecked(idx);
                                 if f_iter.feature < feature {
-                                    let _ = features.next();
+                                    idx += 1;
                                     continue;
                                 } else if f_iter.feature == feature {
                                     existing_features.push(f_iter.key);
