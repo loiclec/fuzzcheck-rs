@@ -57,6 +57,7 @@ pub use serializers::SerdeSerializer;
  * The upper 32 bits are the index of the code coverage counter and the
  * lower 32 bits contain its hit count.
  */
+
 #[derive(Debug, Clone, Copy, Eq)]
 struct Feature(u64);
 
@@ -167,10 +168,8 @@ impl Feature {
     fn score_from_counter(counter: u64) -> u8 {
         if counter <= 3 {
             counter as u8
-        } else if counter != core::u64::MAX {
-            (64 - counter.leading_zeros() + 1) as u8
         } else {
-            64
+            (64 - counter.leading_zeros() + 1) as u8
         }
     }
 }
