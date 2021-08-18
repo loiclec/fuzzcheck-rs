@@ -327,10 +327,6 @@ impl<T: Clone, M: Mutator<T>> Pool<T, M> {
         *self.cumulative_weights.last().unwrap_or(&0.0)
     }
 
-    // #[no_coverage] pub fn lowest_stack(&self) -> usize {
-    //     self.lowest_stack_input.as_ref().map_or(usize::MAX, |x| x.stack_depth)
-    // }
-
     #[allow(clippy::too_many_lines, clippy::type_complexity)]
     #[no_coverage]
     pub(crate) fn add(
@@ -338,31 +334,13 @@ impl<T: Clone, M: Mutator<T>> Pool<T, M> {
         data: FuzzedInput<T, M>,
         complexity: f64,
         result: AnalysisResult<T, M>,
-        _generation: usize,
     ) -> (Vec<WorldAction<T>>, Option<SlabKey<Input<T, M>>>) {
         let AnalysisResult {
             existing_features,
             new_features,
-            // _lowest_stack: _,
         } = result;
 
         let mut actions: Vec<WorldAction<T>> = Vec::new();
-
-        // TODO: reenable stack tracing
-        // if lowest_stack < self.lowest_stack() {
-        //     let new = LowestStackInput {
-        //         input: data.clone(),
-        //         stack_depth: lowest_stack,
-        //         generation,
-        //     };
-        //     let old = self.lowest_stack_input.replace(new);
-
-        //     actions.push(WorldAction::Add(data.value.clone()));
-        //     if let Some(old) = old {
-        //         actions.push(WorldAction::Remove(old.input.value))
-        //     }
-        //     actions.push(WorldAction::ReportEvent(FuzzerEvent::ReplaceLowestStack(lowest_stack)));
-        // }
 
         if existing_features.is_empty() && new_features.is_empty() {
             return (actions, None);
@@ -398,19 +376,9 @@ impl<T: Clone, M: Mutator<T>> Pool<T, M> {
 
             for input_key in &feature.inputs {
                 let affected_element = &mut self.slab_inputs[*input_key];
-                if affected_element.complexity >= complexity {
-                    // add (element, feature_key) to list [(Element, [Feature])]
-                    // binary search element there, then add feature to the end of it
-
-                    // TODO: change this!
-                    // instead, make list of elements to remove feature_key from
-                    // and then process them all at once?
-                    // and also for each element in this list a list of features to delete
-                    affected_element.least_complex_for_features.remove(feature_key);
-                    if affected_element.least_complex_for_features.is_empty() {
-                        // then this will only be called once by element
-                        to_delete.push(*input_key);
-                    }
+                affected_element.least_complex_for_features.remove(feature_key);
+                if affected_element.least_complex_for_features.is_empty() {
+                    to_delete.push(*input_key);
                 }
             }
             let element = &mut self.slab_inputs[element_key];
@@ -796,7 +764,6 @@ impl<T: Clone, M: Mutator<T>> Pool<T, M> {
         slab_feature_groups: &mut Slab<FeatureGroup>,
         new_feature_for_iter: AnalyzedFeatureRef<T, M>,
     ) -> SlabKey<FeatureGroup> {
-        // TODO: CHANGE THIS, too slow
         let insertion_idx = sorted_insert(
             features,
             new_feature_for_iter,
@@ -1204,7 +1171,6 @@ fn score_for_group_size(size: usize) -> f64 {
     } else {
         2.0
     }
-    // 1.0
 }
 
 // ===============================================================
@@ -1383,7 +1349,7 @@ mod tests {
                     // _lowest_stack: 0,
                 };
                 // println!("adding input of cplx {:.2} with new features {:?} and existing features {:?}", cplx1, new_features_1, existing_features_1);
-                let _ = pool.add(mock(cplx1), cplx1, analysis_result, 0);
+                let _ = pool.add(mock(cplx1), cplx1, analysis_result);
                 // pool.print_recap();
                 pool.sanity_check();
                 assert!(

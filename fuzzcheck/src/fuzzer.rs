@@ -229,13 +229,15 @@ where
                             .get_unchecked(i)
                             .clone(),
                     )
-                    .iter();
+                    .iter()
+                    .peekable();
                 self.state.sensor.iterate_over_collected_features(
                     i,
                     #[no_coverage]
                     |feature| loop {
-                        if let Some(f_iter) = features.next() {
+                        if let Some(f_iter) = features.peek() {
                             if f_iter.feature < feature {
+                                let _ = features.next();
                                 continue;
                             } else if f_iter.feature == feature {
                                 let f = &slab_features[f_iter.key];
@@ -258,7 +260,6 @@ where
         if best_input_for_a_feature {
             let mut existing_features = Vec::new();
             let mut new_features = Vec::new();
-            // let mut step_iter = LargeStepFindIter::new(&self.state.pool.features);
 
             unsafe {
                 for i in 0..self.state.sensor.coverage.len() {
@@ -273,13 +274,15 @@ where
                                 .get_unchecked(i)
                                 .clone(),
                         )
-                        .iter();
+                        .iter()
+                        .peekable();
                     self.state.sensor.iterate_over_collected_features(
                         i,
                         #[no_coverage]
                         |feature| loop {
-                            if let Some(f_iter) = features.next() {
+                            if let Some(f_iter) = features.peek() {
                                 if f_iter.feature < feature {
+                                    let _ = features.next();
                                     continue;
                                 } else if f_iter.feature == feature {
                                     existing_features.push(f_iter.key);
@@ -330,10 +333,7 @@ where
                 let input_cloned = FuzzerState::<T, M, S>::get_input(&self.state.input_idx, &self.state.pool)
                     .unwrap()
                     .new_source(&self.state.mutator);
-                let (actions, new_input_key) =
-                    self.state
-                        .pool
-                        .add(input_cloned, cplx, result, self.state.stats.total_number_of_runs);
+                let (actions, new_input_key) = self.state.pool.add(input_cloned, cplx, result);
                 self.state
                     .pool
                     .update_feature_ranges_for_coverage(&self.state.sensor.index_ranges);

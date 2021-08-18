@@ -165,6 +165,7 @@ impl Feature {
     /// We don't want to consider a test case that reaches the same code block
     /// 35_965 times to be interesting. So instead, we group similar
     /// hit counts together.
+    #[inline(always)]
     #[no_coverage]
     fn score_from_counter(counter: u64) -> u8 {
         if counter <= 3 {
