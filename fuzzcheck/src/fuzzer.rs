@@ -3,7 +3,7 @@
 //! test inputs.
 
 use crate::code_coverage_sensor::CodeCoverageSensor;
-use crate::data_structures::{LargeStepFindIter, SlabKey};
+use crate::data_structures::SlabKey;
 #[cfg(feature = "ui")]
 use crate::pool::Input;
 use crate::pool::{AnalyzedFeature, Pool, PoolIndex};
@@ -78,7 +78,7 @@ where
 
         self.stats.pool_size = self.pool.len();
         self.stats.score = self.pool.score();
-        self.stats.avg_cplx = self.pool.average_complexity;
+        self.stats.avg_cplx = self.pool.average_complexity as f64;
         if microseconds > 1_000_000 {
             self.world.set_checkpoint_instant();
             self.stats.number_of_runs_since_last_reset_time = self.stats.total_number_of_runs;
@@ -216,52 +216,85 @@ where
         let slab_features = &self.state.pool.slab_features;
 
         unsafe {
-            let mut step_iter = LargeStepFindIter::new(&self.state.pool.features);
-
-            self.state.sensor.iterate_over_collected_features(
-                #[no_coverage]
-                |feature| {
-                    if let Some(f_for_iter) = step_iter.find(
-                        #[no_coverage]
-                        |feature_for_iter| feature_for_iter.feature.cmp(&feature),
-                    ) {
-                        if f_for_iter.feature == feature {
-                            let f = &slab_features[f_for_iter.key];
-                            if cur_input_cplx < f.least_complexity {
+            // let mut step_iter = LargeStepFindIter::new(&self.state.pool.features);
+            for i in 0..self.state.sensor.coverage.len() {
+                let mut features = self
+                    .state
+                    .pool
+                    .features
+                    .get_unchecked(
+                        self.state
+                            .pool
+                            .features_range_for_coverage_index
+                            .get_unchecked(i)
+                            .clone(),
+                    )
+                    .iter();
+                self.state.sensor.iterate_over_collected_features(
+                    i,
+                    #[no_coverage]
+                    |feature| loop {
+                        if let Some(f_iter) = features.next() {
+                            if f_iter.feature < feature {
+                                continue;
+                            } else if f_iter.feature == feature {
+                                let f = &slab_features[f_iter.key];
+                                if cur_input_cplx < f.least_complexity {
+                                    best_input_for_a_feature = true;
+                                }
+                                break;
+                            } else {
                                 best_input_for_a_feature = true;
+                                break;
                             }
                         } else {
                             best_input_for_a_feature = true;
+                            break;
                         }
-                    } else {
-                        best_input_for_a_feature = true; // the feature goes at the end of the pool, and it is new
-                    }
-                },
-            );
+                    },
+                );
+            }
         }
         if best_input_for_a_feature {
             let mut existing_features = Vec::new();
             let mut new_features = Vec::new();
-            let mut step_iter = LargeStepFindIter::new(&self.state.pool.features);
+            // let mut step_iter = LargeStepFindIter::new(&self.state.pool.features);
 
             unsafe {
-                self.state.sensor.iterate_over_collected_features(
-                    #[no_coverage]
-                    |feature| {
-                        if let Some(f_for_iter) = step_iter.find(
-                            #[no_coverage]
-                            |feature_for_iter| feature_for_iter.feature.cmp(&feature),
-                        ) {
-                            if f_for_iter.feature == feature {
-                                existing_features.push(f_for_iter.key);
+                for i in 0..self.state.sensor.coverage.len() {
+                    let mut features = self
+                        .state
+                        .pool
+                        .features
+                        .get_unchecked(
+                            self.state
+                                .pool
+                                .features_range_for_coverage_index
+                                .get_unchecked(i)
+                                .clone(),
+                        )
+                        .iter();
+                    self.state.sensor.iterate_over_collected_features(
+                        i,
+                        #[no_coverage]
+                        |feature| loop {
+                            if let Some(f_iter) = features.next() {
+                                if f_iter.feature < feature {
+                                    continue;
+                                } else if f_iter.feature == feature {
+                                    existing_features.push(f_iter.key);
+                                    break;
+                                } else {
+                                    new_features.push(feature);
+                                    break;
+                                }
                             } else {
                                 new_features.push(feature);
+                                break;
                             }
-                        } else {
-                            new_features.push(feature);
-                        }
-                    },
-                );
+                        },
+                    );
+                }
                 Some(AnalysisResult {
                     existing_features,
                     new_features,
@@ -301,6 +334,9 @@ where
                     self.state
                         .pool
                         .add(input_cloned, cplx, result, self.state.stats.total_number_of_runs);
+                self.state
+                    .pool
+                    .update_feature_ranges_for_coverage(&self.state.sensor.index_ranges);
                 self.state.update_stats();
                 self.state.world.do_actions(actions, &self.state.stats)?;
                 new_input_key
@@ -551,7 +587,10 @@ where
         World::new(serializer, args.clone()),
     );
     unsafe { fuzzer.state.set_up_signal_handler() };
-
+    fuzzer
+        .state
+        .pool
+        .update_feature_ranges_for_coverage(&fuzzer.state.sensor.index_ranges);
     match command {
         FuzzerCommand::Fuzz => fuzzer.main_loop()?,
         FuzzerCommand::MinifyInput { input_file } => fuzzer.input_minifying_loop(input_file)?,

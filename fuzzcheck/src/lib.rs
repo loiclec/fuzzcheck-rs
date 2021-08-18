@@ -59,6 +59,7 @@ pub use serializers::SerdeSerializer;
  */
 
 #[derive(Debug, Clone, Copy, Eq)]
+#[repr(transparent)]
 struct Feature(u64);
 
 impl PartialEq for Feature {
@@ -146,7 +147,7 @@ impl Feature {
         let index = index as u64;
         let counter = Self::score_from_counter(counter) as u64;
 
-        Feature(index << 8 | counter)
+        Feature((index << 8) | counter)
     }
 
     #[no_coverage]

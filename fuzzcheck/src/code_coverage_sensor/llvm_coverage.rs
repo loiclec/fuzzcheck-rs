@@ -695,7 +695,7 @@ pub struct OptimisedExpandedExpression {
     sub_terms: Vec<*const u64>,
 }
 impl OptimisedExpandedExpression {
-    fn compute(&self) -> u64 {
+    pub fn compute(&self) -> u64 {
         unsafe {
             let mut result = 0;
             for &add_term in self.add_terms.iter() {
@@ -805,33 +805,5 @@ impl Coverage {
             }
             excluded
         });
-    }
-    #[no_coverage]
-    pub fn iterate_over_coverage_points<F>(coverage: &[Self], mut f: F)
-    where
-        F: FnMut((usize, u64)),
-    {
-        unsafe {
-            let mut index = 0;
-            for coverage in coverage.iter() {
-                if *coverage.single_counters[0] == 0 {
-                    index += coverage.single_counters.len() + coverage.expression_counters.len();
-                    continue;
-                }
-                for &single in &coverage.single_counters {
-                    if *single != 0 {
-                        f((index, *single));
-                    }
-                    index += 1;
-                }
-                for exp in &coverage.expression_counters {
-                    let computed = exp.compute();
-                    if computed != 0 {
-                        f((index, computed));
-                    }
-                    index += 1;
-                }
-            }
-        }
     }
 }

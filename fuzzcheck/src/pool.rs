@@ -62,7 +62,7 @@ use std::collections::BTreeSet;
 #[cfg(feature = "ui")]
 use std::collections::HashMap;
 use std::fmt;
-use std::ops::Range;
+use std::ops::{Range, RangeInclusive};
 
 extern crate fastrand;
 #[cfg(feature = "ui")]
@@ -285,6 +285,9 @@ pub struct Pool<T: Clone, M: Mutator<T>> {
 
     pub average_complexity: f64,
     cumulative_weights: Vec<f64>,
+
+    pub features_range_for_coverage_index: Vec<Range<usize>>,
+
     rng: Rng,
 }
 
@@ -307,6 +310,9 @@ impl<T: Clone, M: Mutator<T>> Pool<T, M> {
 
             average_complexity: 0.0,
             cumulative_weights: Vec::default(),
+
+            features_range_for_coverage_index: Vec::default(),
+
             rng,
         }
     }
@@ -972,6 +978,25 @@ impl<T: Clone, M: Mutator<T>> Pool<T, M> {
         self.update_stats()
     }
 
+    pub fn update_feature_ranges_for_coverage(&mut self, indexes: &[RangeInclusive<usize>]) {
+        let mut idx = self.features.len();
+        self.features_range_for_coverage_index.clear();
+        for index_range in indexes.iter().rev() {
+            let first_feature = Feature::new(*index_range.start(), 0);
+            // let last_feature = Feature::new(*index_range.end(), 0);
+
+            if let Some(first_index) = self.features[..idx].iter().rposition(|&f| f.feature < first_feature) {
+                self.features_range_for_coverage_index.push(first_index + 1..idx);
+                idx = first_index + 1;
+            } else {
+                // TODO
+                self.features_range_for_coverage_index.push(0..idx);
+                idx = 0;
+            }
+        }
+        self.features_range_for_coverage_index.reverse();
+    }
+
     // TODO: this has been broken after the rewrite, but we still want that functionality
     // it will work even better now, but it needs to be rewritten
     #[cfg(feature = "ui")]
@@ -1171,8 +1196,8 @@ where
 
 #[no_coverage]
 fn score_for_group_size(size: usize) -> f64 {
-    const SCORES: [f64; 16] = [
-        1.0, 1.1, 1.2, 1.3, 1.4, 1.5, 1.55, 1.6, 1.65, 1.7, 1.75, 1.8, 1.85, 1.9, 1.95, 2.0,
+    const SCORES: [f64; 17] = [
+        0.0, 1.0, 1.1, 1.2, 1.3, 1.4, 1.5, 1.55, 1.6, 1.65, 1.7, 1.75, 1.8, 1.85, 1.9, 1.95, 2.0,
     ];
     if size < 16 {
         SCORES[size]

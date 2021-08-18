@@ -3,9 +3,9 @@
 mod leb128;
 mod llvm_coverage;
 use crate::Feature;
-use std::collections::HashMap;
 use std::convert::TryFrom;
 use std::path::Path;
+use std::{collections::HashMap, ops::RangeInclusive};
 
 use self::llvm_coverage::{get_counters, get_prf_data, read_covmap, Coverage, LLVMCovSections};
 
@@ -13,6 +13,7 @@ use self::llvm_coverage::{get_counters, get_prf_data, read_covmap, Coverage, LLV
 /// that the `pool` can understand.
 pub struct CodeCoverageSensor {
     pub coverage: Vec<Coverage>,
+    pub index_ranges: Vec<RangeInclusive<usize>>,
 }
 
 impl CodeCoverageSensor {
@@ -45,27 +46,53 @@ impl CodeCoverageSensor {
 
         let mut coverage = unsafe { Coverage::new(covfun, prf_data, get_counters()) }
             .expect("failed to properly link the different LLVM coverage sections");
+        coverage.drain_filter(|coverage| coverage.single_counters.len() + coverage.expression_counters.len() <= 1);
         Coverage::filter_function_by_files(&mut coverage, exclude, keep);
 
-        CodeCoverageSensor { coverage }
+        let mut index_ranges = Vec::new();
+
+        let mut index = 0;
+        for coverage in coverage.iter() {
+            let next_index = index + coverage.single_counters.len() + coverage.expression_counters.len();
+            index_ranges.push(index..=next_index - 1);
+            index = next_index;
+        }
+        assert_eq!(coverage.len(), index_ranges.len());
+        CodeCoverageSensor { coverage, index_ranges }
     }
     #[no_coverage]
     pub(crate) unsafe fn start_recording(&self) {}
     #[no_coverage]
     pub(crate) unsafe fn stop_recording(&self) {}
     #[no_coverage]
-    pub(crate) unsafe fn iterate_over_collected_features<F>(&mut self, mut handle: F)
+    pub(crate) unsafe fn iterate_over_collected_features<F>(&mut self, coverage_index: usize, mut handle: F)
     where
         F: FnMut(Feature),
     {
-        let CodeCoverageSensor { coverage } = self;
-        Coverage::iterate_over_coverage_points(
-            &coverage,
-            #[no_coverage]
-            |(index, count)| {
-                handle(Feature::new(index, count));
-            },
-        );
+        let CodeCoverageSensor { coverage, index_ranges } = self;
+        let coverage = coverage.get_unchecked(coverage_index);
+        let mut index = *index_ranges.get_unchecked(coverage_index).start();
+
+        let single = *coverage.single_counters.get_unchecked(0);
+        if *single == 0 {
+            return;
+        } else {
+            handle(Feature::new(index, *single));
+        }
+        index += 1;
+        for &single in coverage.single_counters.iter().skip(1) {
+            if *single != 0 {
+                handle(Feature::new(index, *single));
+            }
+            index += 1;
+        }
+        for exp in &coverage.expression_counters {
+            let computed = exp.compute();
+            if computed != 0 {
+                handle(Feature::new(index, computed));
+            }
+            index += 1;
+        }
     }
     #[no_coverage]
     pub(crate) unsafe fn clear(&mut self) {
