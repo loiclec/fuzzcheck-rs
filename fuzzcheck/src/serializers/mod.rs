@@ -11,6 +11,8 @@
 
 #[cfg(feature = "serde_json_serializer")]
 mod serde_serializer;
+use std::{marker::PhantomData, str::FromStr};
+
 #[cfg(feature = "serde_json_serializer")]
 pub use serde_serializer::SerdeSerializer;
 
@@ -22,6 +24,8 @@ pub use decent_serde_json_alternative;
 pub use json;
 #[cfg(feature = "serde_json_alternative_serializer")]
 pub use json_serializer::JsonSerializer;
+
+use crate::Serializer;
 
 /**
 A Serializer for Vec<u8> that simply copies the bytes from/to the files.
@@ -66,5 +70,47 @@ impl crate::traits::Serializer for ByteSerializer {
     #[no_coverage]
     fn to_data(&self, value: &Self::Value) -> Vec<u8> {
         value.clone()
+    }
+}
+
+pub struct StringSerializer<StringType>
+where
+    StringType: ToString + FromStr,
+{
+    pub extension: &'static str,
+    _phantom: PhantomData<StringType>,
+}
+impl<StringType> StringSerializer<StringType>
+where
+    StringType: ToString + FromStr,
+{
+    pub fn new(extension: &'static str) -> Self {
+        Self {
+            extension,
+            _phantom: PhantomData,
+        }
+    }
+}
+impl<StringType> Serializer for StringSerializer<StringType>
+where
+    StringType: ToString + FromStr,
+{
+    type Value = StringType;
+    fn is_utf8(&self) -> bool {
+        true
+    }
+
+    fn extension(&self) -> &str {
+        self.extension
+    }
+
+    fn from_data(&self, data: &[u8]) -> Option<Self::Value> {
+        let string = String::from_utf8(data.to_vec()).ok()?;
+        let value = Self::Value::from_str(&string).ok()?;
+        Some(value)
+    }
+
+    fn to_data(&self, value: &Self::Value) -> Vec<u8> {
+        value.to_string().into_bytes()
     }
 }
