@@ -45,8 +45,8 @@ impl VoseAlias {
         let size = probabilities.len();
         let mut small = Vec::new();
         let mut large = Vec::new();
-        let mut alias: Vec<usize> = std::iter::repeat(0).take(size).collect();
-        let mut prob: Vec<f64> = std::iter::repeat(0.0).take(size).collect();
+        let mut alias: Vec<usize> = vec![0; size];
+        let mut prob: Vec<f64> = vec![0.0; size];
 
         // Step 3 and 4
         for (i, p) in probabilities.iter_mut().enumerate() {

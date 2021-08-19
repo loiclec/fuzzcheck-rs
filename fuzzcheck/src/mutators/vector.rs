@@ -642,8 +642,8 @@ mod tests {
         let m = VecMutator::<u8, U8Mutator>::new(U8Mutator::default(), range.clone());
         let mut step = false;
 
-        let mut lengths: Vec<_> = repeat(0).take(11).collect();
-        let mut cplxs: Vec<_> = repeat(0).take(81).collect();
+        let mut lengths = vec![0; 11];
+        let mut cplxs = vec![0; 81];
 
         for _ in 0..100000 {
             let (x, cplx) = m.ordered_arbitrary(&mut step, 800.0).unwrap();
@@ -662,8 +662,8 @@ mod tests {
         let m = VecMutator::<u8, U8Mutator>::new(U8Mutator::default(), range.clone());
         let mut step = false;
 
-        let mut lengths: Vec<_> = repeat(0).take(11).collect();
-        let mut cplxs: Vec<_> = repeat(0).take(81).collect();
+        let mut lengths = vec![0; 11];
+        let mut cplxs = vec![0; 81];
 
         for _ in 0..100000 {
             let (x, cplx) = m.ordered_arbitrary(&mut step, 800.0).unwrap();

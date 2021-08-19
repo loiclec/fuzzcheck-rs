@@ -397,7 +397,7 @@ pub fn read_prf_names(slice: &[u8], idx: &mut usize) -> Result<Vec<String>, Read
             read_func_names(&slice[*idx..*idx + length_uncompressed], &mut names)?;
             *idx += length_uncompressed;
         } else {
-            let mut decompressed = std::iter::repeat(0).take(length_uncompressed).collect::<Vec<_>>();
+            let mut decompressed = vec![0; length_uncompressed];
             let mut decompress = flate2::Decompress::new(true);
             let decompress_result = decompress.decompress(
                 &slice[*idx..*idx + length_compressed],
@@ -561,7 +561,7 @@ pub fn read_list_filenames(slice: &[u8], idx: &mut usize) -> Result<Vec<String>,
     let filenames = if length_compressed == 0 {
         read_filenames(slice, idx)?
     } else {
-        let mut decompressed = std::iter::repeat(0).take(length_uncompressed).collect::<Vec<_>>();
+        let mut decompressed = vec![0; length_uncompressed];
         let mut decompress = flate2::Decompress::new(true);
         let decompress_result = decompress.decompress(
             &slice[*idx..*idx + length_compressed],

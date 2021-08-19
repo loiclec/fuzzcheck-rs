@@ -21,7 +21,7 @@ where
 {
     #[no_coverage]
     pub fn new_with_repeated_mutator(mutator: M, len: usize) -> Self {
-        Self::new(std::iter::repeat(mutator).take(len).collect())
+        Self::new(vec![mutator; len])
     }
 }
 
