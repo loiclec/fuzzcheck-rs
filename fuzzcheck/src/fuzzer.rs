@@ -177,8 +177,8 @@ where
     #[no_coverage]
     fn test_input(
         test: &F,
-        mutator: &M,
         input: &FuzzedInput<T, M>,
+        cplx: f64,
         world: &mut World<S>,
         stats: FuzzerStats,
         sensor: &mut CodeCoverageSensor,
@@ -203,7 +203,7 @@ where
 
         if result.is_err() || !result.unwrap() {
             world.do_actions(vec![WorldAction::ReportEvent(FuzzerEvent::TestFailure)], &stats)?;
-            world.save_artifact(&input.value, input.complexity(mutator))?;
+            world.save_artifact(&input.value, cplx)?;
             exit(TerminationStatus::TestFailure as i32);
         }
 
@@ -303,8 +303,8 @@ where
 
             Self::test_input(
                 &self.test,
-                &self.state.mutator,
                 input,
+                cplx,
                 &mut self.state.world,
                 self.state.stats,
                 &mut self.state.sensor,
@@ -584,10 +584,11 @@ where
             if let Some((cache, mutation_step)) = fuzzer.state.mutator.validate_value(&value) {
                 fuzzer.state.input_idx = FuzzerInputIndex::Temporary(FuzzedInput::new(value, cache, mutation_step));
                 let input = FuzzerState::<T, M, S>::get_input(&fuzzer.state.input_idx, &fuzzer.state.pool).unwrap();
+                let cplx = input.complexity(&fuzzer.state.mutator);
                 Fuzzer::<T, FT, F, M, S>::test_input(
                     &fuzzer.test,
-                    &fuzzer.state.mutator,
                     input,
+                    cplx,
                     &mut fuzzer.state.world,
                     fuzzer.state.stats,
                     &mut fuzzer.state.sensor,
