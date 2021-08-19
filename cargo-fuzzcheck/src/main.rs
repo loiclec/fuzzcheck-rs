@@ -4,7 +4,15 @@ use fuzzcheck_common::arg::*;
 use std::{process, string::String};
 
 fn main() {
-    let parser = options_parser();
+    let mut parser = options_parser();
+    parser.opt(
+        "",
+        "cargo_args",
+        "additional arguments to pass to cargo",
+        "",
+        getopts::HasArg::Yes,
+        getopts::Occur::Optional,
+    );
 
     let env_args: Vec<String> = std::env::args().collect();
 
@@ -84,6 +92,16 @@ cargo-fuzzcheck target1 {cmin} --{in_corpus} "fuzz-corpus" --{out_corpus} "minim
         .map(|s| s.as_str())
         .collect::<Vec<_>>();
 
+    let parsed = parser.parse(args.clone());
+    let cargo_args: Option<String> = if let Ok(parsed) = parsed {
+        parsed.opt_get("cargo_args").unwrap()
+    } else {
+        None
+    };
+    let cargo_args = cargo_args
+        .map(|x| x.split_ascii_whitespace().map(|s| s.to_string()).collect::<Vec<_>>())
+        .unwrap_or(vec![]);
+
     let args = match Arguments::from_parser(&parser, &args) {
         Ok(r) => r,
         Err(e) => {
@@ -96,18 +114,22 @@ cargo-fuzzcheck target1 {cmin} --{in_corpus} "fuzz-corpus" --{out_corpus} "minim
 
     let r = match args.command {
         FuzzerCommand::Fuzz => {
-            let exec =
-                launch_executable(target_name, &args, &process::Stdio::inherit).expect("failed to launch fuzz target");
+            let exec = launch_executable(target_name, &args, &cargo_args, &process::Stdio::inherit)
+                .expect("failed to launch fuzz target");
             exec.wait_with_output().expect("failed to wait on fuzz test process");
             return;
         }
-        FuzzerCommand::MinifyInput { .. } => input_minify_command(target_name, &args, &process::Stdio::inherit),
+        FuzzerCommand::MinifyInput { .. } => {
+            input_minify_command(target_name, &args, &cargo_args, &process::Stdio::inherit)
+        }
         FuzzerCommand::Read { .. } => {
             todo!();
         }
-        FuzzerCommand::MinifyCorpus { .. } => launch_executable(target_name, &args, process::Stdio::inherit)
-            .and_then(|child| child.wait_with_output().map_err(|err| err.into()))
-            .map(|_| ()),
+        FuzzerCommand::MinifyCorpus { .. } => {
+            launch_executable(target_name, &args, &cargo_args, process::Stdio::inherit)
+                .and_then(|child| child.wait_with_output().map_err(|err| err.into()))
+                .map(|_| ())
+        }
     };
     if let Err(e) = r {
         println!("{}", e);

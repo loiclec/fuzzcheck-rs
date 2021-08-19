@@ -10,6 +10,7 @@ const BUILD_FOLDER: &str = "target/fuzzcheck";
 pub fn launch_executable(
     target_name: &str,
     args: &Arguments,
+    cargo_args: &[String],
     stdio: impl Fn() -> Stdio,
 ) -> std::io::Result<process::Child> {
     let args = string_from_args(args);
@@ -20,7 +21,7 @@ pub fn launch_executable(
             "-Zinstrument-coverage=except-unused-functions -Zno-profiler-runtime --cfg fuzzing",
         )
         .arg("test")
-        .arg("--lib")
+        .args(cargo_args)
         .args(["--target", TARGET])
         .arg("--release")
         .args(["--target-dir", BUILD_FOLDER])
@@ -36,7 +37,12 @@ pub fn launch_executable(
     Ok(child)
 }
 
-pub fn input_minify_command(target_name: &str, args: &Arguments, stdio: &impl Fn() -> Stdio) -> std::io::Result<()> {
+pub fn input_minify_command(
+    target_name: &str,
+    args: &Arguments,
+    cargo_args: &[String],
+    stdio: &impl Fn() -> Stdio,
+) -> std::io::Result<()> {
     let mut config = args.clone();
     let file_to_minify = if let FuzzerCommand::MinifyInput { input_file } = config.command {
         input_file
@@ -78,7 +84,7 @@ pub fn input_minify_command(target_name: &str, args: &Arguments, stdio: &impl Fn
         input_file: simplest.clone(),
     };
 
-    let child = launch_executable(target_name, &config, stdio)?;
+    let child = launch_executable(target_name, &config, cargo_args, stdio)?;
     let o = child.wait_with_output()?;
 
     assert!(!o.status.success());
@@ -94,7 +100,7 @@ pub fn input_minify_command(target_name: &str, args: &Arguments, stdio: &impl Fn
         config.command = FuzzerCommand::MinifyInput {
             input_file: simplest.clone(),
         };
-        let mut c = launch_executable(target_name, &config, Stdio::inherit)?;
+        let mut c = launch_executable(target_name, &config, cargo_args, Stdio::inherit)?;
         c.wait()?;
     }
 }

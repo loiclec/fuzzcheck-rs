@@ -10,6 +10,9 @@ license = "MIT"
 keywords = ["fuzzing", "test"]
 categories = ["development-tools"]
 
+[dependencies.getopts]
+version = "0.2"
+
 [dependencies.fuzzcheck_common]
 path = "../fuzzcheck_common"
 version = "0.7.0"
