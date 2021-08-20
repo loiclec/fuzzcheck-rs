@@ -34,10 +34,6 @@ pub(crate) struct AnalysisResult<T: Clone, M: Mutator<T>> {
     // will be left empty if the input is not interesting
     pub existing_features: Vec<SlabKey<AnalyzedFeature<T, M>>>,
     pub new_features: Vec<Feature>,
-    // always contains the value of the lowest stack,
-    // will need to check if it is lower than the other
-    // inputs in the pool
-    // pub _lowest_stack: usize,
 }
 
 struct FuzzerState<T: Clone, M: Mutator<T>, S: Serializer<Value = T>> {
@@ -380,11 +376,7 @@ where
                 }
 
                 // Retrieving the input may fail because the input may have been deleted
-                if let Some(input) = self
-                    .state
-                    .pool
-                    .retrieve_source_input_for_unmutate(idx, self.state.stats.total_number_of_runs)
-                {
+                if let Some(input) = self.state.pool.retrieve_source_input_for_unmutate(idx) {
                     input.unmutate(&self.state.mutator, unmutate_token);
                 }
 

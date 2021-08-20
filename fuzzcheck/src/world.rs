@@ -230,9 +230,6 @@ This should never happen, and is probably a bug in fuzzcheck. Sorry :("#
             FuzzerEvent::Replace(count) => {
                 print!("RPLC {}\t", count);
             }
-            FuzzerEvent::ReplaceLowestStack(stack) => {
-                println!("STACK {}", stack);
-            }
         };
         if let Some(stats) = stats {
             print!("{}\t", stats.total_number_of_runs);

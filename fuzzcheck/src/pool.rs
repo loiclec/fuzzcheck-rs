@@ -80,7 +80,6 @@ use crate::{Feature, FuzzedInput, Mutator};
 pub enum PoolIndex<T: Clone, M: Mutator<T>> {
     Normal(SlabKey<Input<T, M>>),
     Favored,
-    LowestStack,
 }
 
 impl<T: Clone, M: Mutator<T>> Clone for PoolIndex<T, M> {
@@ -89,7 +88,6 @@ impl<T: Clone, M: Mutator<T>> Clone for PoolIndex<T, M> {
         match self {
             PoolIndex::Normal(idx) => PoolIndex::Normal(*idx),
             PoolIndex::Favored => PoolIndex::Favored,
-            PoolIndex::LowestStack => PoolIndex::LowestStack,
         }
     }
 }
@@ -264,12 +262,6 @@ impl FeatureGroup {
     }
 }
 
-pub struct LowestStackInput<T: Clone, M: Mutator<T>> {
-    input: FuzzedInput<T, M>,
-    // stack_depth: usize,
-    generation: usize,
-}
-
 pub struct Pool<T: Clone, M: Mutator<T>> {
     pub features: Vec<AnalyzedFeatureRef<T, M>>,
     pub slab_features: Slab<AnalyzedFeature<T, M>>,
@@ -281,7 +273,6 @@ pub struct Pool<T: Clone, M: Mutator<T>> {
     slab_inputs: Slab<Input<T, M>>,
 
     favored_input: Option<FuzzedInput<T, M>>,
-    lowest_stack_input: Option<LowestStackInput<T, M>>,
 
     pub average_complexity: f64,
     cumulative_weights: Vec<f64>,
@@ -306,7 +297,6 @@ impl<T: Clone, M: Mutator<T>> Pool<T, M> {
             slab_inputs: Slab::new(),
 
             favored_input: None,
-            lowest_stack_input: None,
 
             average_complexity: 0.0,
             cumulative_weights: Vec::default(),
@@ -814,8 +804,6 @@ impl<T: Clone, M: Mutator<T>> Pool<T, M> {
     pub fn random_index(&mut self) -> Option<PoolIndex<T, M>> {
         if self.favored_input.is_some() && (self.rng.u8(0..4) == 0 || self.inputs.is_empty()) {
             Some(PoolIndex::Favored)
-        } else if self.lowest_stack_input.is_some() && self.rng.u8(0..10) == 0 {
-            Some(PoolIndex::LowestStack)
         } else if self.cumulative_weights.last().unwrap_or(&0.0) > &0.0 {
             let dist = WeightedIndex {
                 cumulative_weights: &self.cumulative_weights,
@@ -875,14 +863,6 @@ impl<T: Clone, M: Mutator<T>> Pool<T, M> {
         match idx {
             PoolIndex::Normal(key) => &self.slab_inputs[key].data,
             PoolIndex::Favored => self.favored_input.as_ref().unwrap(),
-            PoolIndex::LowestStack => self
-                .lowest_stack_input
-                .as_ref()
-                .map(
-                    #[no_coverage]
-                    |x| &x.input,
-                )
-                .unwrap(),
         }
     }
     /// Get the input at the given index along with its complexity and the number of mutations tried on this input
@@ -891,14 +871,6 @@ impl<T: Clone, M: Mutator<T>> Pool<T, M> {
         match idx {
             PoolIndex::Normal(key) => &mut self.slab_inputs[key].data,
             PoolIndex::Favored => self.favored_input.as_mut().unwrap(),
-            PoolIndex::LowestStack => self
-                .lowest_stack_input
-                .as_mut()
-                .map(
-                    #[no_coverage]
-                    |x| &mut x.input,
-                )
-                .unwrap(),
         }
     }
 
@@ -906,7 +878,6 @@ impl<T: Clone, M: Mutator<T>> Pool<T, M> {
     pub(crate) fn retrieve_source_input_for_unmutate(
         &mut self,
         idx: PoolIndex<T, M>,
-        generation: usize,
     ) -> Option<&'_ mut FuzzedInput<T, M>> {
         match idx {
             PoolIndex::Normal(key) => self.slab_inputs.get_mut(key).map(
@@ -914,17 +885,6 @@ impl<T: Clone, M: Mutator<T>> Pool<T, M> {
                 |input| &mut input.data,
             ),
             PoolIndex::Favored => Some(self.get(idx)),
-            PoolIndex::LowestStack => {
-                if let Some(lsi) = self.lowest_stack_input.as_mut() {
-                    if lsi.generation < generation {
-                        Some(&mut lsi.input)
-                    } else {
-                        None
-                    }
-                } else {
-                    None
-                }
-            }
         }
     }
 
@@ -937,9 +897,6 @@ impl<T: Clone, M: Mutator<T>> Pool<T, M> {
             }
             PoolIndex::Favored => {
                 self.favored_input = None;
-            }
-            PoolIndex::LowestStack => {
-                self.lowest_stack_input = None;
             }
         }
         self.update_stats()
@@ -1346,7 +1303,6 @@ mod tests {
                 let analysis_result = AnalysisResult {
                     existing_features: existing_features_1,
                     new_features: new_features_1,
-                    // _lowest_stack: 0,
                 };
                 // println!("adding input of cplx {:.2} with new features {:?} and existing features {:?}", cplx1, new_features_1, existing_features_1);
                 let _ = pool.add(mock(cplx1), cplx1, analysis_result);

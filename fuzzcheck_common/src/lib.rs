@@ -45,7 +45,6 @@ pub enum FuzzerEvent {
     Done,
     New,
     Replace(usize),
-    ReplaceLowestStack(usize),
     Remove,
     DidReadCorpus,
     CaughtSignal(i32),
