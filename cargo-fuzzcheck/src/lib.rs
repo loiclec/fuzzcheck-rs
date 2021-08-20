@@ -18,7 +18,7 @@ pub fn launch_executable(
         .env("FUZZCHECK_ARGS", args)
         .env(
             "RUSTFLAGS",
-            "-Zinstrument-coverage=except-unused-functions -Zno-profiler-runtime --cfg fuzzing",
+            "-Zinstrument-coverage=except-unused-functions -Zno-profiler-runtime --cfg fuzzing -Ctarget-cpu=native",
         )
         .arg("test")
         .args(cargo_args)
