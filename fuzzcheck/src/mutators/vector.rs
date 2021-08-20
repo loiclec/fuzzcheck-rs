@@ -629,8 +629,6 @@ fn clamp(range: &RangeInclusive<usize>, x: usize) -> usize {
 
 #[cfg(test)]
 mod tests {
-    use std::iter::repeat;
-
     use crate::Mutator;
 
     use crate::mutators::integer::U8Mutator;

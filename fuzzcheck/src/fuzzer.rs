@@ -84,6 +84,7 @@ where
             self.world.set_checkpoint_instant();
             self.stats.number_of_runs_since_last_reset_time = self.stats.total_number_of_runs;
         }
+        self.stats.percent_coverage = self.pool.feature_groups.len() as f64 / self.sensor.max_count() as f64;
     }
     #[no_coverage]
     fn receive_signal(&mut self, signal: i32) -> ! {

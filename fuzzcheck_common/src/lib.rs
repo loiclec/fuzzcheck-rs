@@ -16,6 +16,7 @@ pub struct FuzzerStats {
     pub pool_size: usize,
     pub exec_per_s: usize,
     pub avg_cplx: f64,
+    pub percent_coverage: f64,
 }
 
 impl FuzzerStats {
@@ -28,6 +29,7 @@ impl FuzzerStats {
             pool_size: 0,
             exec_per_s: 0,
             avg_cplx: 0.0,
+            percent_coverage: 0.0,
         }
     }
 }

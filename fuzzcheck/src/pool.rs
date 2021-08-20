@@ -274,7 +274,7 @@ pub struct Pool<T: Clone, M: Mutator<T>> {
     pub features: Vec<AnalyzedFeatureRef<T, M>>,
     pub slab_features: Slab<AnalyzedFeature<T, M>>,
 
-    feature_groups: Vec<SlabKey<FeatureGroup>>,
+    pub feature_groups: Vec<SlabKey<FeatureGroup>>,
     pub slab_feature_groups: Slab<FeatureGroup>,
 
     inputs: Vec<SlabKey<Input<T, M>>>,

@@ -103,4 +103,13 @@ impl CodeCoverageSensor {
             }
         }
     }
+
+    #[no_coverage]
+    pub(crate) fn max_count(&self) -> usize {
+        let mut sum = 0;
+        for r in &self.index_ranges {
+            sum += r.end() - r.start() + 1;
+        }
+        sum
+    }
 }

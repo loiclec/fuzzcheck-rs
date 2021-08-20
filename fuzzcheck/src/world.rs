@@ -237,6 +237,7 @@ This should never happen, and is probably a bug in fuzzcheck. Sorry :("#
         if let Some(stats) = stats {
             print!("{}\t", stats.total_number_of_runs);
             print!("score: {:.2}\t", stats.score);
+            print!("cov: {:.3}%\t", stats.percent_coverage * 100.0);
             print!("pool: {}\t", stats.pool_size);
             print!("exec/s: {}\t", stats.exec_per_s);
             print!("cplx: {:.2}\t", stats.avg_cplx);
