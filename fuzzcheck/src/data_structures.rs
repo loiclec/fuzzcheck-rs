@@ -5,6 +5,7 @@ extern crate fastrand;
 use std::cmp::Ordering;
 use std::cmp::PartialOrd;
 
+use std::hash::Hash;
 use std::ops::Index;
 use std::ops::IndexMut;
 use std::ops::Range;
@@ -19,16 +20,6 @@ pub struct SlabKey<T> {
 }
 
 impl<T> SlabKey<T> {
-    #[cfg(not(test))]
-    #[no_coverage]
-    fn new(key: usize) -> Self {
-        Self {
-            key,
-            phantom: std::marker::PhantomData,
-        }
-    }
-
-    #[cfg(test)]
     #[no_coverage]
     pub fn new(key: usize) -> Self {
         Self {
@@ -75,6 +66,13 @@ impl<T> Ord for SlabKey<T> {
         self.key.cmp(&other.key)
     }
 }
+
+impl<T> Hash for SlabKey<T> {
+    #[no_coverage]
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.key.hash(state);
+    }
+}
 /**
  * Pre-allocated storage for a uniform data type.
  *
@@ -94,6 +92,25 @@ impl<T> Slab<T> {
         }
     }
     #[no_coverage]
+    pub fn len(&self) -> usize {
+        self.storage.len() - self.available_slots.len()
+    }
+    #[no_coverage]
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+    #[no_coverage]
+    pub fn get_nth_key(&self, n: usize) -> SlabKey<T> {
+        let mut idx = n;
+        for &i in &self.available_slots {
+            if i <= idx {
+                idx += 1;
+            }
+        }
+        SlabKey::new(idx)
+    }
+
+    #[no_coverage]
     pub fn insert(&mut self, x: T) -> SlabKey<T> {
         if let Some(&slot) = self.available_slots.last() {
             self.available_slots.pop();
@@ -107,6 +124,7 @@ impl<T> Slab<T> {
     #[no_coverage]
     pub fn remove(&mut self, key: SlabKey<T>) {
         self.available_slots.push(key.key);
+        self.available_slots.sort();
     }
     #[no_coverage]
     pub fn next_key(&self) -> SlabKey<T> {
@@ -138,6 +156,16 @@ impl<T> IndexMut<SlabKey<T>> for Slab<T> {
     #[no_coverage]
     fn index_mut(&mut self, key: SlabKey<T>) -> &mut Self::Output {
         unsafe { self.storage.get_unchecked_mut(key.key) }
+    }
+}
+
+impl<T> Slab<T> {
+    #[no_coverage]
+    pub fn keys(&self) -> impl Iterator<Item = SlabKey<T>> + '_ {
+        (0..self.storage.len())
+            .into_iter()
+            .filter(move |i| !self.available_slots.contains(i))
+            .map(|raw_key| SlabKey::new(raw_key))
     }
 }
 

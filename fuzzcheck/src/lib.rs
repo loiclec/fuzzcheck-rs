@@ -60,7 +60,7 @@ pub use serializers::SerdeSerializer;
  * lower 32 bits contain its hit count.
  */
 
-#[derive(Debug, Clone, Copy, Eq)]
+#[derive(Debug, Clone, Copy, Eq, Hash)]
 #[repr(transparent)]
 struct Feature(u64);
 

@@ -315,10 +315,11 @@ where
                 let input_cloned = FuzzerState::<T, M, S>::get_input(&self.state.input_idx, &self.state.pool)
                     .unwrap()
                     .new_source(&self.state.mutator);
-                let (actions, new_input_key) = self.state.pool.add(input_cloned, cplx, result);
-                self.state
-                    .pool
-                    .update_feature_ranges_for_coverage(&self.state.sensor.index_ranges);
+                let (actions, new_input_key) =
+                    self.state
+                        .pool
+                        .add(input_cloned, cplx, result, &self.state.sensor.index_ranges);
+
                 self.state.update_stats();
                 self.state.world.do_actions(actions, &self.state.stats)?;
                 new_input_key
