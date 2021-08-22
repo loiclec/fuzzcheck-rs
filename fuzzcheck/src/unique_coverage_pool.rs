@@ -53,56 +53,36 @@
 //! Now imagine the feature f4 appears in 3 different inputs. Each input will
 //! thus gain ((group.score() / 5) / 3) from having the feature f4.
 
+use crate::coverage_sensor_and_pool::AnalysisResult;
+use crate::data_structures::{Slab, SlabKey, WeightedIndex};
+use crate::sensor_and_pool::{Pool, TestCase};
+use crate::Feature;
+use ahash::{AHashMap, AHashSet};
+use fastrand::Rng;
 use std::cmp::Ordering;
-#[cfg(feature = "ui")]
-use std::collections::HashMap;
-use std::collections::{BTreeSet, HashMap, HashSet};
 use std::fmt;
+use std::hash::Hash;
 use std::ops::{Range, RangeInclusive};
 
-extern crate fastrand;
-#[cfg(feature = "ui")]
-use backtrace::BacktraceSymbol;
-use fastrand::Rng;
-
-use fuzzcheck_common::FuzzerEvent;
-
-use crate::data_structures::{Slab, SlabKey, WeightedIndex};
-use crate::fuzzer::AnalysisResult;
-use crate::world::WorldAction;
-use crate::{Feature, FuzzedInput, Mutator};
-
-/// Index of an input in the Pool
-pub enum PoolIndex<T: Clone, M: Mutator<T>> {
-    Normal(SlabKey<Input<T, M>>),
-    Favored,
+pub struct UniqueCoveragePoolEvent<T> {
+    pub added_key: Option<SlabKey<Input<T>>>,
+    pub removed_keys: Vec<SlabKey<Input<T>>>,
 }
-
-impl<T: Clone, M: Mutator<T>> Clone for PoolIndex<T, M> {
-    #[no_coverage]
-    fn clone(&self) -> Self {
-        match self {
-            PoolIndex::Normal(idx) => PoolIndex::Normal(*idx),
-            PoolIndex::Favored => PoolIndex::Favored,
-        }
-    }
-}
-impl<T: Clone, M: Mutator<T>> Copy for PoolIndex<T, M> {}
 
 /**
  * An element stored in the pool, containing its value, cache, mutation step,
  * as well as analysed code coverage and computed score.
 */
-pub struct Input<T: Clone, M: Mutator<T>> {
+pub struct Input<T> {
     /// The keys of the features for which there are no simpler inputs in the
     /// pool reaching the feature.
-    least_complex_for_features: BTreeSet<SlabKey<AnalyzedFeature<T, M>>>,
+    least_complex_for_features: AHashSet<SlabKey<AnalyzedFeature<T>>>,
     /// Holds the key of each [FeatureInPool] associated with this input.
-    all_features: Vec<SlabKey<AnalyzedFeature<T, M>>>,
+    all_features: Vec<SlabKey<AnalyzedFeature<T>>>,
     /// The computed score of the input
     pub score: f64,
     /// Data associated with the input: value, cache, and mutation step
-    data: FuzzedInput<T, M>,
+    data: T,
     /// Cached complexity of the value.
     ///
     /// It should always be equal to [mutator.complexity(&self.data.value, &self.data.cache)](Mutator::complexity)
@@ -116,26 +96,26 @@ pub struct Input<T: Clone, M: Mutator<T>> {
     the list of inputs hitting this feature, as well as a reference to the
     least complex of these inputs.
 */
-pub struct AnalyzedFeature<T: Clone, M: Mutator<T>> {
-    pub key: SlabKey<AnalyzedFeature<T, M>>,
+pub struct AnalyzedFeature<T> {
+    pub key: SlabKey<AnalyzedFeature<T>>,
     pub(crate) feature: Feature,
-    inputs: Vec<SlabKey<Input<T, M>>>,
-    pub least_complex_input: SlabKey<Input<T, M>>,
+    inputs: Vec<SlabKey<Input<T>>>,
+    pub least_complex_input: SlabKey<Input<T>>,
     pub least_complexity: f64,
     pub score: f64,
 }
 
-impl<T: Clone, M: Mutator<T>> AnalyzedFeature<T, M> {
+impl<T: TestCase> AnalyzedFeature<T> {
     #[no_coverage]
     fn new(
         key: SlabKey<Self>,
         feature: Feature,
-        group: &FeatureGroup<T, M>,
-        inputs: Vec<SlabKey<Input<T, M>>>,
-        least_complex_input: SlabKey<Input<T, M>>,
+        group: &FeatureGroup<T>,
+        inputs: Vec<SlabKey<Input<T>>>,
+        least_complex_input: SlabKey<Input<T>>,
         least_complexity: f64,
     ) -> Self {
-        let score = Pool::<T, M>::score_of_feature(group.size(), inputs.len());
+        let score = UniqueCoveragePool::<T>::score_of_feature(group.size(), inputs.len());
         Self {
             key,
             feature,
@@ -154,8 +134,8 @@ impl<T: Clone, M: Mutator<T>> AnalyzedFeature<T, M> {
     a copy of the feature, we can avoid indexing the slab and accessing the feature
     which saves time.
 */
-pub struct AnalyzedFeatureRef<T: Clone, M: Mutator<T>> {
-    pub key: SlabKey<AnalyzedFeature<T, M>>,
+pub struct AnalyzedFeatureRef<T> {
+    pub key: SlabKey<AnalyzedFeature<T>>,
     pub(crate) feature: Feature,
 }
 
@@ -234,16 +214,17 @@ impl Feature {
     }
 }
 
-pub struct FeatureGroup<T: Clone, M: Mutator<T>> {
-    features: HashSet<SlabKey<AnalyzedFeature<T, M>>>,
+pub struct FeatureGroup<T> {
+    features: AHashSet<SlabKey<AnalyzedFeature<T>>>,
 }
-impl<T: Clone, M: Mutator<T>> FeatureGroup<T, M> {
+impl<T> FeatureGroup<T> {
     #[no_coverage]
     pub fn size(&self) -> usize {
         self.features.len()
     }
 }
-impl<T: Clone, M: Mutator<T>> Default for FeatureGroup<T, M> {
+impl<T> Default for FeatureGroup<T> {
+    #[no_coverage]
     fn default() -> Self {
         Self {
             features: Default::default(),
@@ -251,15 +232,13 @@ impl<T: Clone, M: Mutator<T>> Default for FeatureGroup<T, M> {
     }
 }
 
-pub struct Pool<T: Clone, M: Mutator<T>> {
-    pub features: Vec<AnalyzedFeatureRef<T, M>>,
-    pub slab_features: Slab<AnalyzedFeature<T, M>>,
+pub struct UniqueCoveragePool<T: TestCase> {
+    pub features: Vec<AnalyzedFeatureRef<T>>,
+    pub slab_features: Slab<AnalyzedFeature<T>>,
 
-    pub feature_groups: HashMap<FeatureGroupId, FeatureGroup<T, M>>,
+    pub feature_groups: AHashMap<FeatureGroupId, FeatureGroup<T>>,
 
-    slab_inputs: Slab<Input<T, M>>,
-
-    favored_input: Option<FuzzedInput<T, M>>,
+    slab_inputs: Slab<Input<T>>,
 
     pub average_complexity: f64,
     cumulative_weights: Vec<f64>,
@@ -269,20 +248,18 @@ pub struct Pool<T: Clone, M: Mutator<T>> {
     rng: Rng,
 }
 
-impl<T: Clone, M: Mutator<T>> Pool<T, M> {
+impl<T: TestCase> UniqueCoveragePool<T> {
     #[no_coverage]
-    pub fn default() -> Self {
+    pub fn new(sensor_index_ranges: &[RangeInclusive<usize>]) -> Self {
         let rng = fastrand::Rng::new();
-        Pool {
+        let mut pool = UniqueCoveragePool {
             features: Vec::new(),
             slab_features: Slab::new(),
 
-            feature_groups: HashMap::new(),
+            feature_groups: AHashMap::with_hasher(ahash::RandomState::with_seeds(0, 0, 0, 0)),
 
             // inputs: Vec::default(),
             slab_inputs: Slab::new(),
-
-            favored_input: None,
 
             average_complexity: 0.0,
             cumulative_weights: Vec::default(),
@@ -290,12 +267,9 @@ impl<T: Clone, M: Mutator<T>> Pool<T, M> {
             features_range_for_coverage_index: Vec::default(),
 
             rng,
-        }
-    }
-
-    #[no_coverage]
-    pub(crate) fn add_favored_input(&mut self, data: FuzzedInput<T, M>) {
-        self.favored_input = Some(data);
+        };
+        pool.update_feature_ranges_for_coverage(sensor_index_ranges);
+        pool
     }
 
     #[no_coverage]
@@ -307,38 +281,31 @@ impl<T: Clone, M: Mutator<T>> Pool<T, M> {
     #[no_coverage]
     pub(crate) fn add(
         &mut self,
-        data: FuzzedInput<T, M>,
+        data: T,
         complexity: f64,
-        result: AnalysisResult<T, M>,
+        result: AnalysisResult<T>,
         sensor_index_ranges: &[RangeInclusive<usize>],
-    ) -> (Vec<WorldAction<T>>, Option<SlabKey<Input<T, M>>>) {
+    ) -> (Option<UniqueCoveragePoolEvent<T>>, Option<SlabKey<Input<T>>>) {
         let AnalysisResult {
             existing_features,
             new_features,
         } = result;
 
-        let mut actions: Vec<WorldAction<T>> = Vec::new();
-
         if existing_features.is_empty() && new_features.is_empty() {
-            return (actions, None);
+            return (None, None);
         }
 
-        let element_key: SlabKey<Input<T, M>> = {
-            let element = Input {
-                least_complex_for_features: BTreeSet::default(),
-                all_features: vec![],
-                score: 0.0,
-                data,
-                complexity,
-                // idx_in_pool: self.inputs.len(),
-            };
-            let i_key = self.slab_inputs.insert(element);
-            // self.inputs.push(i_key);
-
-            i_key
+        let element = Input {
+            least_complex_for_features: AHashSet::with_hasher(ahash::RandomState::with_seeds(0, 0, 0, 0)),
+            all_features: vec![],
+            score: 0.0,
+            data,
+            complexity,
         };
+        let element_key = self.slab_inputs.insert(element);
 
-        let mut to_delete: HashSet<SlabKey<Input<T, M>>> = HashSet::new();
+        let mut to_delete: AHashSet<SlabKey<Input<T>>> =
+            AHashSet::with_hasher(ahash::RandomState::with_seeds(0, 0, 0, 0));
 
         // 1. Update the `element.least_complex_for_features` fields of the elements affected
         // by a change in the `least_complexity` of the features in `existing_features`.
@@ -373,7 +340,7 @@ impl<T: Clone, M: Mutator<T>> Pool<T, M> {
             feature.inputs.push(element_key);
         }
 
-        let mut affected_groups = HashSet::new();
+        let mut affected_groups = AHashSet::with_hasher(ahash::RandomState::with_seeds(0, 0, 0, 0));
 
         // Now add in the new features
         let element = &mut self.slab_inputs[element_key];
@@ -400,7 +367,7 @@ impl<T: Clone, M: Mutator<T>> Pool<T, M> {
             affected_groups.insert(group_id);
         }
 
-        let mut affected_features = HashSet::<SlabKey<AnalyzedFeature<T, M>>>::new();
+        let mut affected_features = AHashSet::<SlabKey<AnalyzedFeature<T>>>::new();
         for group_id in &affected_groups {
             let group = &self.feature_groups[&group_id];
             for feature_key in &group.features {
@@ -412,7 +379,7 @@ impl<T: Clone, M: Mutator<T>> Pool<T, M> {
             .iter()
             .map(
                 #[no_coverage]
-                |&key| key.key,
+                |&key| key,
             )
             .collect();
 
@@ -447,59 +414,35 @@ impl<T: Clone, M: Mutator<T>> Pool<T, M> {
             element.score += feature_score;
         }
 
-        let value = element.data.value.clone();
+        let event = UniqueCoveragePoolEvent {
+            added_key: Some(element_key),
+            removed_keys: deleted_values,
+        };
 
-        if deleted_values.is_empty() {
-            actions.push(WorldAction::ReportEvent(FuzzerEvent::New));
-        } else {
-            actions.push(WorldAction::ReportEvent(FuzzerEvent::Replace(deleted_values.len())));
-        }
-
-        for key in deleted_values {
-            actions.push(WorldAction::Remove { key });
-        }
-        actions.push(WorldAction::Add {
-            content: value,
-            key: element_key.key,
-        });
         self.update_stats();
         self.update_feature_ranges_for_coverage(sensor_index_ranges);
 
         // self.sanity_check();
 
-        (actions, Some(element_key))
+        (Some(event), Some(element_key))
     }
 
     #[no_coverage]
     pub fn delete_elements(
         &mut self,
-        to_delete: HashSet<SlabKey<Input<T, M>>>,
-        affected_group: &mut HashSet<FeatureGroupId>, // for now we assume that no feature is removed, which is incorrect for corpus reduction
-        affected_features: &mut HashSet<SlabKey<AnalyzedFeature<T, M>>>,
+        to_delete: AHashSet<SlabKey<Input<T>>>,
+        affected_group: &mut AHashSet<FeatureGroupId>, // for now we assume that no feature is removed, which is incorrect for corpus reduction
+        affected_features: &mut AHashSet<SlabKey<AnalyzedFeature<T>>>,
         may_remove_feature: bool,
     ) {
         for &to_delete_key in &to_delete {
-            // let to_swap_idx = self.inputs.len() - 1;
-            // let to_swap_key = *self.inputs.last().unwrap();
-            // println!("will delete input with key {}", to_delete_key);
-            // let to_delete_idx = self.slab_inputs[to_delete_key].idx_in_pool;
-
-            // let to_swap_el = &mut self.slab_inputs[to_swap_key];
-            // to_swap_el.idx_in_pool = to_delete_idx;
-
-            // self.inputs.swap(to_delete_idx, to_swap_idx);
-            // self.inputs.pop();
-
             let to_delete_el = &self.slab_inputs[to_delete_key];
-            // to_delete_el.idx_in_pool = to_swap_idx; // not necessary, element will be deleted
 
             for f in &to_delete_el.all_features {
                 affected_features.insert(*f);
             }
-            // TODO: not ideal to clone all features
-            let all_features = to_delete_el.all_features.clone();
 
-            for &f_key in &all_features {
+            for &f_key in &to_delete_el.all_features {
                 let analyzed_f = &mut self.slab_features[f_key];
 
                 let idx_to_delete_key = analyzed_f
@@ -511,13 +454,11 @@ impl<T: Clone, M: Mutator<T>> Pool<T, M> {
                     )
                     .unwrap();
                 analyzed_f.inputs.swap_remove(idx_to_delete_key);
-                // for now we assume that no feature is removed, which is incorrect for corpus reduction
-                // let group = &self.feature_groups[&analyzed_f.feature.group_id()];
             }
 
             if may_remove_feature {
                 // iter through all features and, if they have no corresponding inputs, remove them from the pool
-                for &f_key in &all_features {
+                for &f_key in &to_delete_el.all_features {
                     let analyzed_f = &self.slab_features[f_key];
                     if !analyzed_f.inputs.is_empty() {
                         continue;
@@ -549,7 +490,7 @@ impl<T: Clone, M: Mutator<T>> Pool<T, M> {
         }
     }
     #[no_coverage]
-    pub(crate) fn remove_lowest_scoring_input(&mut self) -> Vec<WorldAction<T>> {
+    pub(crate) fn remove_lowest_scoring_input(&mut self) -> Option<UniqueCoveragePoolEvent<T>> {
         let slab = &self.slab_inputs;
         let pick_key = self
             .slab_inputs
@@ -559,10 +500,10 @@ impl<T: Clone, M: Mutator<T>> Pool<T, M> {
                 |&k1, &k2| slab[k1].score.partial_cmp(&slab[k2].score).unwrap_or(Ordering::Less),
             )
             .unwrap();
-        let mut to_delete = HashSet::new();
+        let mut to_delete = AHashSet::with_hasher(ahash::RandomState::with_seeds(0, 0, 0, 0));
         to_delete.insert(pick_key);
-        let mut affected_groups = HashSet::new();
-        let mut affected_features = HashSet::new();
+        let mut affected_groups = AHashSet::with_hasher(ahash::RandomState::with_seeds(0, 0, 0, 0));
+        let mut affected_features = AHashSet::with_hasher(ahash::RandomState::with_seeds(0, 0, 0, 0));
         self.delete_elements(to_delete, &mut affected_groups, &mut affected_features, true);
 
         for group_id in affected_groups {
@@ -586,41 +527,19 @@ impl<T: Clone, M: Mutator<T>> Pool<T, M> {
             }
         }
 
-        let actions = vec![
-            WorldAction::ReportEvent(FuzzerEvent::Remove),
-            WorldAction::Remove { key: pick_key.key },
-        ];
+        let event = UniqueCoveragePoolEvent {
+            added_key: None,
+            removed_keys: vec![pick_key],
+        };
 
         self.update_stats();
 
-        actions
+        Some(event)
     }
 
     #[no_coverage]
     pub fn score_of_feature(group_size: usize, exact_feature_multiplicity: usize) -> f64 {
         score_for_group_size(group_size) / (group_size as f64 * exact_feature_multiplicity as f64)
-    }
-
-    /// Returns the index of an interesting input in the pool
-    #[no_coverage]
-    pub fn random_index(&mut self) -> Option<PoolIndex<T, M>> {
-        if self.favored_input.is_some() && (self.rng.u8(0..4) == 0 || self.slab_inputs.is_empty()) {
-            Some(PoolIndex::Favored)
-        } else if self.cumulative_weights.last().unwrap_or(&0.0) > &0.0 {
-            let dist = WeightedIndex {
-                cumulative_weights: &self.cumulative_weights,
-            };
-            let x = dist.sample(&self.rng);
-            let key = self.slab_inputs.get_nth_key(x);
-            Some(PoolIndex::Normal(key))
-        } else {
-            None
-        }
-    }
-
-    #[no_coverage]
-    pub fn len(&self) -> usize {
-        self.slab_inputs.len()
     }
 
     /// Update global statistics of the pool following a change in its content
@@ -659,51 +578,7 @@ impl<T: Clone, M: Mutator<T>> Pool<T, M> {
             / self.slab_inputs.len() as f64;
     }
 
-    /// Get the input at the given index along with its complexity and the number of mutations tried on this input
     #[no_coverage]
-    pub(crate) fn get_ref(&self, idx: PoolIndex<T, M>) -> &'_ FuzzedInput<T, M> {
-        match idx {
-            PoolIndex::Normal(key) => &self.slab_inputs[key].data,
-            PoolIndex::Favored => self.favored_input.as_ref().unwrap(),
-        }
-    }
-    /// Get the input at the given index along with its complexity and the number of mutations tried on this input
-    #[no_coverage]
-    pub(crate) fn get(&mut self, idx: PoolIndex<T, M>) -> &'_ mut FuzzedInput<T, M> {
-        match idx {
-            PoolIndex::Normal(key) => &mut self.slab_inputs[key].data,
-            PoolIndex::Favored => self.favored_input.as_mut().unwrap(),
-        }
-    }
-
-    #[no_coverage]
-    pub(crate) fn retrieve_source_input_for_unmutate(
-        &mut self,
-        idx: PoolIndex<T, M>,
-    ) -> Option<&'_ mut FuzzedInput<T, M>> {
-        match idx {
-            PoolIndex::Normal(key) => self.slab_inputs.get_mut(key).map(
-                #[no_coverage]
-                |input| &mut input.data,
-            ),
-            PoolIndex::Favored => Some(self.get(idx)),
-        }
-    }
-
-    #[no_coverage]
-    pub(crate) fn mark_input_as_dead_end(&mut self, idx: PoolIndex<T, M>) {
-        match idx {
-            PoolIndex::Normal(key) => {
-                let input = &mut self.slab_inputs[key];
-                input.score = 0.0;
-            }
-            PoolIndex::Favored => {
-                self.favored_input = None;
-            }
-        }
-        self.update_stats()
-    }
-
     pub fn update_feature_ranges_for_coverage(&mut self, indexes: &[RangeInclusive<usize>]) {
         let mut idx = self.features.len();
         self.features_range_for_coverage_index.clear();
@@ -721,53 +596,6 @@ impl<T: Clone, M: Mutator<T>> Pool<T, M> {
             }
         }
         self.features_range_for_coverage_index.reverse();
-    }
-
-    // TODO: this has been broken after the rewrite, but we still want that functionality
-    // it will work even better now, but it needs to be rewritten
-    #[cfg(feature = "ui")]
-    #[no_coverage]
-    pub(crate) fn send_coverage_information_for_input(
-        &self,
-        key: SlabKey<Input<T, M>>,
-        coverage_map: &HashMap<Feature, Vec<BacktraceSymbol>>,
-    ) -> WorldAction<T> {
-        let input = &self.slab_inputs[key];
-        let mut coverage = HashMap::new();
-
-        for feature_key in &input.all_features {
-            let feature = &self.slab_features[*feature_key];
-            let feature_group = feature.feature.erasing_payload();
-            coverage.insert(feature_group, coverage_map[&feature_group].clone());
-        }
-        let coverage: Vec<_> = coverage
-            .iter()
-            .map(
-                #[no_coverage]
-                |(_, symbols)| {
-                    symbols
-                        .iter()
-                        .map(
-                            #[no_coverage]
-                            |symbol| {
-                                (
-                                    symbol.filename().map(
-                                        #[no_coverage]
-                                        |p| p.to_str().unwrap().to_owned(),
-                                    ),
-                                    symbol.lineno(),
-                                    symbol.colno(),
-                                )
-                            },
-                        )
-                        .collect()
-                },
-            )
-            .collect();
-        WorldAction::ReportCoverage {
-            input: input.data.value.clone(),
-            coverage_map: coverage,
-        }
     }
 
     #[cfg(test)]
@@ -868,6 +696,65 @@ impl<T: Clone, M: Mutator<T>> Pool<T, M> {
     }
 }
 
+impl<T: TestCase> Pool for UniqueCoveragePool<T> {
+    type TestCase = T;
+    type Index = SlabKey<Input<T>>;
+
+    #[no_coverage]
+    fn len(&self) -> usize {
+        self.slab_inputs.len()
+    }
+
+    #[no_coverage]
+    fn get_random_index(&self) -> Option<Self::Index> {
+        if self.cumulative_weights.last().unwrap_or(&0.0) > &0.0 {
+            let dist = WeightedIndex {
+                cumulative_weights: &self.cumulative_weights,
+            };
+            let x = dist.sample(&self.rng);
+            let key = self.slab_inputs.get_nth_key(x);
+            Some(key)
+        } else {
+            None
+        }
+    }
+
+    #[no_coverage]
+    fn get(&self, idx: Self::Index) -> &Self::TestCase {
+        &self.slab_inputs[idx].data
+    }
+
+    #[no_coverage]
+    fn get_mut(&mut self, idx: Self::Index) -> &mut Self::TestCase {
+        &mut self.slab_inputs[idx].data
+    }
+
+    #[no_coverage]
+    fn retrieve_after_processing(&mut self, idx: Self::Index, generation: usize) -> Option<&mut Self::TestCase> {
+        if let Some(input) = self.slab_inputs.get_mut(idx) {
+            assert!(
+                input.data.generation() == generation,
+                "{} {}",
+                input.data.generation(),
+                generation
+            );
+            if input.data.generation() == generation {
+                Some(&mut input.data)
+            } else {
+                None
+            }
+        } else {
+            None
+        }
+    }
+    #[no_coverage]
+    fn mark_test_case_as_dead_end(&mut self, idx: SlabKey<Input<T>>) {
+        let input = &mut self.slab_inputs[idx];
+        input.score = 0.0;
+        self.update_stats()
+    }
+}
+
 /// Add the element in the correct place in the sorted vector
 #[no_coverage]
 fn sorted_insert<T, F>(vec: &mut Vec<T>, element: T, is_before: F) -> usize
@@ -901,7 +788,7 @@ fn score_for_group_size(size: usize) -> f64 {
 // ==================== Trait implementations ====================
 // ===============================================================
 
-impl<T: Clone, M: Mutator<T>> Clone for AnalyzedFeature<T, M> {
+impl<T> Clone for AnalyzedFeature<T> {
     #[no_coverage]
     fn clone(&self) -> Self {
         Self {
@@ -914,7 +801,7 @@ impl<T: Clone, M: Mutator<T>> Clone for AnalyzedFeature<T, M> {
         }
     }
 }
-impl<T: Clone, M: Mutator<T>> PartialEq for AnalyzedFeature<T, M> {
+impl<T> PartialEq for AnalyzedFeature<T> {
     #[no_coverage]
     fn eq(&self, other: &Self) -> bool {
         self.key == other.key
@@ -924,7 +811,7 @@ impl<T: Clone, M: Mutator<T>> PartialEq for AnalyzedFeature<T, M> {
             && self.least_complexity == other.least_complexity
     }
 }
-impl<T: Clone, M: Mutator<T>> fmt::Debug for AnalyzedFeature<T, M> {
+impl<T> fmt::Debug for AnalyzedFeature<T> {
     #[no_coverage]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
@@ -934,27 +821,27 @@ impl<T: Clone, M: Mutator<T>> fmt::Debug for AnalyzedFeature<T, M> {
         )
     }
 }
-impl<T: Clone, M: Mutator<T>> PartialEq for AnalyzedFeatureRef<T, M> {
+impl<T> PartialEq for AnalyzedFeatureRef<T> {
     #[no_coverage]
     fn eq(&self, other: &Self) -> bool {
         self.feature == other.feature
     }
 }
-impl<T: Clone, M: Mutator<T>> Eq for AnalyzedFeatureRef<T, M> {}
-impl<T: Clone, M: Mutator<T>> PartialOrd for AnalyzedFeatureRef<T, M> {
+impl<T> Eq for AnalyzedFeatureRef<T> {}
+impl<T> PartialOrd for AnalyzedFeatureRef<T> {
     #[no_coverage]
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         self.feature.partial_cmp(&other.feature)
     }
 }
-impl<T: Clone, M: Mutator<T>> Ord for AnalyzedFeatureRef<T, M> {
+impl<T> Ord for AnalyzedFeatureRef<T> {
     #[no_coverage]
     fn cmp(&self, other: &Self) -> Ordering {
         self.feature.cmp(&other.feature)
     }
 }
 
-impl<T: Clone, M: Mutator<T>> Clone for AnalyzedFeatureRef<T, M> {
+impl<T> Clone for AnalyzedFeatureRef<T> {
     #[no_coverage]
     fn clone(&self) -> Self {
         Self {
@@ -964,15 +851,18 @@ impl<T: Clone, M: Mutator<T>> Clone for AnalyzedFeatureRef<T, M> {
     }
 }
 
-impl<T: Clone, M: Mutator<T>> Copy for AnalyzedFeatureRef<T, M> {}
+impl<T> Copy for AnalyzedFeatureRef<T> {}
 
 #[cfg(test)]
 mod tests {
+    use crate::Mutator;
+
     use super::*;
+    use std::collections::BTreeSet;
 
     #[no_coverage]
-    fn mock(cplx: f64) -> FuzzedInput<f64, VoidMutator> {
-        FuzzedInput::new(cplx, (), ())
+    fn mock(cplx: f64) -> f64 {
+        cplx
     }
 
     #[no_coverage]
@@ -980,7 +870,14 @@ mod tests {
         Feature::new(index, intensity as u64)
     }
 
-    type FK = SlabKey<AnalyzedFeature<f64, VoidMutator>>;
+    type FK = SlabKey<AnalyzedFeature<f64>>;
+
+    impl TestCase for f64 {
+        #[no_coverage]
+        fn generation(&self) -> usize {
+            0
+        }
+    }
 
     #[test]
     #[no_coverage]
@@ -998,7 +895,7 @@ mod tests {
             let mut new_features = BTreeSet::from_iter(list_features.iter());
             let mut added_features: Vec<FK> = vec![];
 
-            let mut pool = Pool::<f64, VoidMutator>::default();
+            let mut pool = UniqueCoveragePool::<f64>::new(&[]);
 
             for i in 0..fastrand::usize(0..100) {
                 let nbr_new_features = if new_features.is_empty() {
@@ -1090,31 +987,6 @@ mod tests {
             }
         }
     }
-
-    // #[test]
-    // #[no_coverage] fn test_features() {
-    //     let x1 = Feature::edge(37, 3);
-    //     assert_eq!(x1.score(), 1.0);
-    //     println!("{:.x}", x1.0);
-
-    //     let x2 = Feature::edge(std::usize::MAX, 255);
-    //     assert_eq!(x2.score(), 1.0);
-    //     println!("{:.x}", x2.0);
-
-    //     assert!(x1 < x2);
-
-    //     let y1 = Feature::instruction(56, 89, 88);
-    //     assert_eq!(y1.score(), 0.1);
-    //     println!("{:.x}", y1.0);
-
-    //     assert!(y1 > x1);
-
-    //     let y2 = Feature::instruction(76, 89, 88);
-    //     assert_eq!(y2.score(), 0.1);
-    //     println!("{:.x}", y2.0);
-
-    //     assert!(y2 > y1);
-    // }
 
     #[derive(Clone, Copy, Debug)]
     pub struct VoidMutator {}

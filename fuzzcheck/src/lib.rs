@@ -18,19 +18,27 @@
 
 pub extern crate fastrand;
 
+mod and_sensor_and_pool;
 pub mod builder;
 mod code_coverage_sensor;
+mod coverage_sensor_and_pool;
 mod data_structures;
 mod fuzzer;
+mod input_minify_pool;
+mod maximize_pool;
 pub mod mutators;
-mod pool;
+mod noop_sensor;
+mod sensor_and_pool;
 pub mod serializers;
 mod signals_handler;
 mod traits;
+mod unique_coverage_pool;
+mod unit_pool;
 mod world;
 
 #[doc(inline)]
 pub use mutators::DefaultMutator;
+use sensor_and_pool::TestCase;
 #[doc(inline)]
 pub use traits::Mutator;
 #[doc(inline)]
@@ -182,26 +190,33 @@ impl Feature {
  * A struct that stores the value, cache, and mutation step of an input.
  * It is used for convenience.
  */
-struct FuzzedInput<T: Clone, Mut: Mutator<T>> {
+pub struct FuzzedInput<T: Clone, Mut: Mutator<T>> {
     pub value: T,
     pub cache: Mut::Cache,
     pub mutation_step: Mut::MutationStep,
+    pub generation: usize,
 }
-
+impl<T: Clone, Mut: Mutator<T>> TestCase for FuzzedInput<T, Mut> {
+    #[no_coverage]
+    fn generation(&self) -> usize {
+        self.generation
+    }
+}
 impl<T: Clone, Mut: Mutator<T>> FuzzedInput<T, Mut> {
     #[no_coverage]
-    pub fn new(value: T, cache: Mut::Cache, mutation_step: Mut::MutationStep) -> Self {
+    pub fn new(value: T, cache: Mut::Cache, mutation_step: Mut::MutationStep, generation: usize) -> Self {
         Self {
             value,
             cache,
             mutation_step,
+            generation,
         }
     }
 
     #[no_coverage]
     pub fn new_source(&self, m: &Mut) -> Self {
         let (cache, mutation_step) = m.validate_value(&self.value).unwrap();
-        Self::new(self.value.clone(), cache, mutation_step)
+        Self::new(self.value.clone(), cache, mutation_step, self.generation + 1)
     }
 
     #[no_coverage]

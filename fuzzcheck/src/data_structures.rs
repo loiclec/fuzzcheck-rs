@@ -4,13 +4,11 @@ extern crate fastrand;
 
 use std::cmp::Ordering;
 use std::cmp::PartialOrd;
-
+use std::fmt;
 use std::hash::Hash;
 use std::ops::Index;
 use std::ops::IndexMut;
 use std::ops::Range;
-
-use std::fmt;
 
 // ========= Slab ============
 
@@ -147,12 +145,14 @@ impl<T> Slab<T> {
 
 impl<T> Index<SlabKey<T>> for Slab<T> {
     type Output = T;
+    #[inline(always)]
     #[no_coverage]
     fn index(&self, key: SlabKey<T>) -> &Self::Output {
         unsafe { self.storage.get_unchecked(key.key) }
     }
 }
 impl<T> IndexMut<SlabKey<T>> for Slab<T> {
+    #[inline(always)]
     #[no_coverage]
     fn index_mut(&mut self, key: SlabKey<T>) -> &mut Self::Output {
         unsafe { self.storage.get_unchecked_mut(key.key) }

@@ -1,79 +1,39 @@
-#[cfg(feature = "ui")]
-use decent_serde_json_alternative::FromJson;
-#[cfg(feature = "ui")]
-use decent_serde_json_alternative::ToJson;
+use crate::sensor_and_pool::CorpusDelta;
+use crate::sensor_and_pool::EmptyStats;
+use crate::{fuzzer::TerminationStatus, traits::Serializer};
 use fuzzcheck_common::arg::Arguments;
 use fuzzcheck_common::arg::FuzzerCommand;
-#[cfg(feature = "ui")]
-use fuzzcheck_common::ipc::{self, MessageUserToFuzzer, TuiMessage, TuiMessageEvent};
 use fuzzcheck_common::{FuzzerEvent, FuzzerStats};
-
 use std::collections::hash_map::DefaultHasher;
 use std::collections::HashMap;
+use std::fmt::Display;
 use std::fs;
 use std::hash::{Hash, Hasher};
 use std::io::{self, Result};
-#[cfg(feature = "ui")]
-use std::net::TcpStream;
 use std::path::Path;
 use std::time::Instant;
 
-use crate::{fuzzer::TerminationStatus, traits::Serializer};
-
-pub(crate) enum WorldAction<T> {
-    Remove {
-        key: usize,
-    },
-    Add {
-        content: T,
-        key: usize,
-    },
-    ReportEvent(FuzzerEvent),
-    #[cfg(feature = "ui")]
-    ReportCoverage {
-        input: T,
-        coverage_map: Vec<Vec<(Option<String>, Option<u32>, Option<u32>)>>,
-    },
-}
-
-pub struct World<S: Serializer> {
-    #[cfg(feature = "ui")]
-    stream: Option<TcpStream>,
+pub struct World<S: Serializer, CorpusKey: Hash + Eq> {
     settings: Arguments,
     initial_instant: Instant,
     checkpoint_instant: Instant,
-    #[cfg(feature = "ui")]
-    pause_at_next_event: bool,
     pub serializer: S,
     /// keeps track of the hash of each input in the corpus, indexed by the Pool key
-    pub corpus: HashMap<usize, String>,
+    pub corpus: HashMap<CorpusKey, String>,
 }
 
-impl<S: Serializer> World<S> {
+impl<S: Serializer, CorpusKey: Hash + Eq> World<S, CorpusKey> {
     #[no_coverage]
     pub fn new(serializer: S, settings: Arguments) -> Self {
-        #[cfg(feature = "ui")]
-        let stream = if let Some(socket_address) = settings.socket_address {
-            Some(TcpStream::connect(socket_address).unwrap())
-        } else {
-            None
-        };
-        #[cfg(feature = "ui")]
-        let pause_at_next_event = stream.is_some();
         Self {
-            #[cfg(feature = "ui")]
-            stream,
             settings,
             initial_instant: std::time::Instant::now(),
             checkpoint_instant: std::time::Instant::now(),
-            #[cfg(feature = "ui")]
-            pause_at_next_event,
             serializer,
             corpus: HashMap::new(),
         }
     }
 
-    #[cfg(not(feature = "ui"))]
     #[no_coverage]
     fn hash_and_string_of_input(&self, input: &S::Value) -> (String, Vec<u8>) {
         let input = self.serializer.to_data(input);
@@ -84,66 +44,20 @@ impl<S: Serializer> World<S> {
         (hash, input)
     }
 
-    #[cfg(feature = "ui")]
     #[no_coverage]
-    fn hash_and_string_of_input(&self, input: &S::Value) -> (String, Vec<u8>) {
-        let input = self.serializer.to_data(&input);
-        let mut hasher = DefaultHasher::new();
-        input.hash(&mut hasher);
-        let hash = hasher.finish();
-        let hash = format!("{:x}", hash);
-        let input = if self.serializer.is_utf8() {
-            String::from_utf8_lossy(&input).to_string()
-        } else {
-            base64::encode(&input)
+    pub(crate) fn update_corpus(&mut self, delta: CorpusDelta<S::Value, CorpusKey>) -> Result<()> {
+        let CorpusDelta { add, remove } = delta;
+        if let Some((content, key)) = add {
+            let (hash, input) = self.hash_and_string_of_input(&content);
+            let old = self.corpus.insert(key, hash.clone());
+            assert!(old.is_none());
+            self.add_to_output_corpus(hash.clone(), input.clone())?;
         }
-        .into_bytes();
-        (hash, input)
-    }
+        for to_remove_key in remove {
+            let hash = self.corpus.remove(&to_remove_key).unwrap();
+            self.remove_from_output_corpus(hash.clone())?;
+        }
 
-    #[allow(unused_variables)]
-    #[no_coverage]
-    pub(crate) fn do_actions(&mut self, actions: Vec<WorldAction<S::Value>>, stats: &FuzzerStats) -> Result<()> {
-        for a in actions {
-            let message = match a {
-                WorldAction::Add { content, key } => {
-                    let (hash, input) = self.hash_and_string_of_input(&content);
-                    let old = self.corpus.insert(key, hash.clone());
-                    assert!(old.is_none());
-                    self.add_to_output_corpus(hash.clone(), input.clone())?;
-                    #[cfg(feature = "ui")]
-                    TuiMessage::AddInput {
-                        hash,
-                        input: String::from_utf8_lossy(&input).to_string(),
-                    }
-                }
-                WorldAction::Remove { key } => {
-                    let hash = self.corpus.remove(&key).unwrap();
-                    self.remove_from_output_corpus(hash.clone())?;
-                    #[cfg(feature = "ui")]
-                    TuiMessage::RemoveInput { hash }
-                }
-                WorldAction::ReportEvent(event) => {
-                    #[allow(clippy::clone_on_copy)]
-                    self.report_event(event.clone(), Some(*stats));
-                    #[cfg(feature = "ui")]
-                    TuiMessage::ReportEvent(TuiMessageEvent {
-                        event,
-                        stats: *stats,
-                        time_ms: self.elapsed_time_since_start() / 1000,
-                    })
-                }
-                #[cfg(feature = "ui")]
-                WorldAction::ReportCoverage { input, coverage_map } => self.report_coverage(&input, coverage_map),
-            };
-
-            #[cfg(feature = "ui")]
-            self.write_to_stream(&message);
-        }
-        #[cfg(feature = "ui")]
-        if self.pause_at_next_event {
-            self.pause_until_unpause_message();
-        }
         Ok(())
     }
 
@@ -178,7 +92,11 @@ impl<S: Serializer> World<S> {
     }
 
     #[no_coverage]
-    fn report_event(&self, event: FuzzerEvent, stats: Option<FuzzerStats>) {
+    pub(crate) fn report_event<PoolStats: Display>(
+        &self,
+        event: FuzzerEvent,
+        stats: Option<(&FuzzerStats, &PoolStats)>,
+    ) {
         // println uses a lock, which may mess up the signal handling
         match event {
             FuzzerEvent::Start => {
@@ -217,7 +135,7 @@ This should never happen, and is probably a bug in fuzzcheck. Sorry :("#
                 return;
             }
             FuzzerEvent::New => print!("NEW\t"),
-            FuzzerEvent::Remove => print!("REMOVE\t"),
+            FuzzerEvent::Remove(count) => print!("REMOVE {}\t", count),
             FuzzerEvent::DidReadCorpus => {
                 println!("FINISHED READING CORPUS");
                 return;
@@ -230,14 +148,13 @@ This should never happen, and is probably a bug in fuzzcheck. Sorry :("#
             FuzzerEvent::Replace(count) => {
                 print!("RPLC {}\t", count);
             }
+            FuzzerEvent::None => return,
         };
-        if let Some(stats) = stats {
-            print!("{}\t", stats.total_number_of_runs);
-            print!("score: {:.2}\t", stats.score);
-            print!("cov: {:.3}%\t", stats.percent_coverage * 100.0);
-            print!("pool: {}\t", stats.pool_size);
-            print!("exec/s: {}\t", stats.exec_per_s);
-            print!("cplx: {:.2}\t", stats.avg_cplx);
+        if let Some((fuzzer_stats, pool_stats)) = stats {
+            print!("{}\t", fuzzer_stats.total_number_of_runs);
+            print!("{}\t", pool_stats);
+            print!("exec/s: {}\t", fuzzer_stats.exec_per_s);
+
             println!();
         }
     }
@@ -250,10 +167,10 @@ This should never happen, and is probably a bug in fuzzcheck. Sorry :("#
     pub fn set_checkpoint_instant(&mut self) {
         self.checkpoint_instant = Instant::now();
     }
-    #[no_coverage]
-    pub fn elapsed_time_since_start(&self) -> usize {
-        self.initial_instant.elapsed().as_micros() as usize
-    }
+    // #[no_coverage]
+    // pub fn elapsed_time_since_start(&self) -> usize {
+    //     self.initial_instant.elapsed().as_micros() as usize
+    // }
     #[no_coverage]
     pub fn elapsed_time_since_last_checkpoint(&self) -> usize {
         self.checkpoint_instant.elapsed().as_micros() as usize
@@ -325,105 +242,12 @@ This should never happen, and is probably a bug in fuzzcheck. Sorry :("#
         println!("Saving at {:?}", path);
         fs::write(path, &content)?;
 
-        #[cfg(feature = "ui")]
-        {
-            let message = TuiMessage::SaveArtifact {
-                hash: name,
-                input: String::from_utf8_lossy(&content).to_string(),
-            };
-            self.write_to_stream(&message);
-        }
         Result::Ok(())
-    }
-
-    #[cfg(feature = "ui")]
-    #[no_coverage]
-    pub fn report_coverage(
-        &mut self,
-        input: &S::Value,
-        coverage: Vec<Vec<(Option<String>, Option<u32>, Option<u32>)>>,
-    ) -> TuiMessage {
-        let (hash_input, _) = self.hash_and_string_of_input(input);
-        TuiMessage::ReportCoverage { hash_input, coverage }
-    }
-
-    #[cfg(feature = "ui")]
-    #[no_coverage]
-    pub fn read_message_from_user(&mut self, blocking: bool) -> Option<MessageUserToFuzzer> {
-        if let Some(stream) = &mut self.stream {
-            let _ = stream.set_nonblocking(blocking);
-            let received = ipc::read(stream);
-            let _ = stream.set_nonblocking(false);
-            let received = received?;
-            let parsed_json = json::parse(&received).ok()?;
-            let message = MessageUserToFuzzer::from_json(&parsed_json)?;
-            Some(message)
-        } else {
-            None
-        }
-    }
-
-    #[cfg(feature = "ui")]
-    #[no_coverage]
-    fn write_to_stream(&mut self, message: &TuiMessage) {
-        if let Some(stream) = &mut self.stream {
-            ipc::write(stream, &message.to_json().to_string());
-        }
-    }
-
-    #[no_coverage]
-    pub fn pause_until_unpause_message(&mut self) {
-        #[cfg(feature = "ui")]
-        {
-            let start_pause = Instant::now();
-
-            self.write_to_stream(&TuiMessage::Paused);
-            'waiting_loop: loop {
-                match self.read_message_from_user(false) {
-                    Some(MessageUserToFuzzer::UnPause) => {
-                        self.pause_at_next_event = false;
-                        self.write_to_stream(&TuiMessage::UnPaused);
-                        break 'waiting_loop;
-                    }
-                    Some(MessageUserToFuzzer::Pause) => continue 'waiting_loop,
-                    Some(MessageUserToFuzzer::Stop) => self.stop(),
-                    Some(MessageUserToFuzzer::UnPauseUntilNextEvent) => {
-                        self.pause_at_next_event = true;
-                        self.write_to_stream(&TuiMessage::UnPaused);
-                        break 'waiting_loop;
-                    }
-                    None => {
-                        todo!() //break 'waiting_loop
-                    }
-                }
-            }
-            let time_paused = start_pause.elapsed();
-            self.checkpoint_instant = self.checkpoint_instant.checked_add(time_paused).unwrap();
-            self.initial_instant = self.initial_instant.checked_add(time_paused).unwrap();
-        }
-    }
-
-    #[no_coverage]
-    pub fn handle_user_message(&mut self) {
-        #[cfg(feature = "ui")]
-        {
-            match self.read_message_from_user(true) {
-                Some(MessageUserToFuzzer::Pause) => {
-                    self.pause_until_unpause_message();
-                }
-                Some(MessageUserToFuzzer::UnPause) => {}
-                Some(MessageUserToFuzzer::UnPauseUntilNextEvent) => {}
-                Some(MessageUserToFuzzer::Stop) => self.stop(),
-                None => {}
-            }
-        }
     }
 
     #[no_coverage]
     pub fn stop(&mut self) -> ! {
-        #[cfg(feature = "ui")]
-        self.write_to_stream(&TuiMessage::Stopped);
-        self.report_event(FuzzerEvent::Stop, None);
+        self.report_event::<EmptyStats>(FuzzerEvent::Stop, None);
         std::process::exit(TerminationStatus::Success as i32);
     }
 }

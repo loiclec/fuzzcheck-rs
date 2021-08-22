@@ -9,9 +9,6 @@ license = "MIT"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
-[features]
-ui = ["json", "decent-serde-json-alternative"]
-
 [dependencies]
 getopts = "0.2"
 

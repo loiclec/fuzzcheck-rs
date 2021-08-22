@@ -1,5 +1,7 @@
+use crate::coverage_sensor_and_pool::CodeCoverageSensorAndPool;
 use crate::fuzzer::{self, Fuzzer};
 use crate::traits::{Mutator, Serializer};
+use crate::FuzzedInput;
 
 use fuzzcheck_common::arg::Arguments;
 use fuzzcheck_common::arg::{
@@ -36,7 +38,7 @@ where
     F: Fn(&T) -> bool,
 {
     type NormalizedFunction = Self;
-
+    #[no_coverage]
     fn test_function(self) -> Self::NormalizedFunction {
         self
     }
@@ -46,7 +48,7 @@ where
     F: Fn(&T),
 {
     type NormalizedFunction = impl Fn(&T) -> bool;
-
+    #[no_coverage]
     fn test_function(self) -> Self::NormalizedFunction {
         move |x| {
             self(x);
@@ -60,7 +62,7 @@ where
     F: Fn(&T) -> Result<E, S>,
 {
     type NormalizedFunction = impl Fn(&T) -> bool;
-
+    #[no_coverage]
     fn test_function(self) -> Self::NormalizedFunction {
         move |x| self(x).is_ok()
     }
@@ -183,6 +185,7 @@ impl FuzzerBuilder {
         2. `Fn(&T) -> Bool` : the fuzzer will report a failure when the output is `false`
         3. `Fn(&T) -> Result<_,_>` : the fuzzer will report a failure when the output is `Err(..)`
     */
+    #[no_coverage]
     pub fn test<T, F, TestFunctionKind>(test_function: F) -> FuzzerBuilder1<T, F::NormalizedFunction>
     where
         T: ?Sized,
@@ -229,6 +232,7 @@ where
         }
         ```
     */
+    #[no_coverage]
     pub fn mutator<M, V>(self, mutator: M) -> FuzzerBuilder2<T, F, M, V>
     where
         V: Clone + Borrow<T>,
@@ -261,6 +265,7 @@ where
             .serializer(SerdeSerializer::default())
         ```
     */
+    #[no_coverage]
     pub fn serializer<S>(self, serializer: S) -> FuzzerBuilder3<T, F, M, V, S>
     where
         S: Serializer<Value = V>,
@@ -284,6 +289,7 @@ where
     /**
         Use the arguments provided to cargo-fuzzcheck when launching this test.
     */
+    #[no_coverage]
     pub fn arguments_from_cargo_fuzzcheck(self) -> FuzzerBuilder4<T, F, M, V, S> {
         let parser = options_parser();
         let mut help = format!(
@@ -360,11 +366,12 @@ where
     V: Clone + Borrow<T>,
     M: Mutator<V>,
     S: Serializer<Value = V>,
-    Fuzzer<V, T, F, M, S>: 'static,
+    Fuzzer<V, T, F, M, S, CodeCoverageSensorAndPool<FuzzedInput<V, M>>>: 'static,
 {
     /**
         Only gather code coverage information from files that are children of the directory from which cargo-fuzzcheck is called.
     */
+    #[no_coverage]
     pub fn observe_only_files_from_current_dir(
         self,
     ) -> FuzzerBuilder5<T, F, M, V, S, impl Fn(&Path) -> bool, impl Fn(&Path) -> bool> {
@@ -393,6 +400,7 @@ where
         By default, the code coverage from all files is included. The “keep” closure has a
         higher priority than the “exclude” one.
     */
+    #[no_coverage]
     pub fn observe_files<Exclude, Keep>(
         self,
         exclude: Exclude,
@@ -421,18 +429,20 @@ where
     V: Clone + Borrow<T>,
     M: Mutator<V>,
     S: Serializer<Value = V>,
-    Fuzzer<V, T, F, M, S>: 'static,
+    Fuzzer<V, T, F, M, S, CodeCoverageSensorAndPool<FuzzedInput<V, M>>>: 'static,
     Exclude: Fn(&Path) -> bool,
     Keep: Fn(&Path) -> bool,
 {
     /// Launch the fuzz test!
+    #[no_coverage]
     pub fn launch(self) {
         #[cfg(fuzzing)]
-        self.launch_even_if_not_cfg_fuzzing_is_not_set()
+        self.launch_even_if_cfg_fuzzing_is_not_set()
     }
 
     /// do not use
-    pub fn launch_even_if_not_cfg_fuzzing_is_not_set(self) {
+    #[no_coverage]
+    pub fn launch_even_if_cfg_fuzzing_is_not_set(self) {
         let FuzzerBuilder5 {
             test_function,
             mutator,
