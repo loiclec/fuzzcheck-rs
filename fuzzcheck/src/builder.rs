@@ -453,6 +453,6 @@ where
             _phantom,
         } = self;
 
-        fuzzer::launch(test_function, mutator, exclude, keep, serializer, arguments).unwrap();
+        fuzzer::launch(test_function, mutator, &exclude, &keep, serializer, arguments).unwrap();
     }
 }

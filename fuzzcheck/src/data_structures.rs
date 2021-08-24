@@ -5,6 +5,7 @@ extern crate fastrand;
 use std::cmp::Ordering;
 use std::cmp::PartialOrd;
 use std::fmt;
+use std::fmt::Debug;
 use std::hash::Hash;
 use std::ops::Index;
 use std::ops::IndexMut;
@@ -76,9 +77,20 @@ impl<T> Hash for SlabKey<T> {
  *
  * An alternative implementation of the `Slab` type by the popular crate `slab`.
  */
+
 pub struct Slab<T> {
     storage: Vec<T>,
     available_slots: Vec<usize>,
+}
+
+impl<T: Debug> Debug for Slab<T> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let storage = self.keys().map(|k| &self[k]).collect::<Vec<_>>();
+        f.debug_struct("Slab")
+            .field("storage", &storage)
+            .field("available_slots", &self.available_slots.len())
+            .finish()
+    }
 }
 
 impl<T> Slab<T> {
@@ -197,7 +209,7 @@ impl<'a> WeightedIndex<'a> {
             return 0;
         }
 
-        let range = *self.cumulative_weights.first().unwrap()..*self.cumulative_weights.last().unwrap();
+        let range = 0.0..*self.cumulative_weights.last().unwrap();
         let chosen_weight = gen_f64(rng, range);
         // Find the first item which has a weight *higher* than the chosen weight.
         self.cumulative_weights

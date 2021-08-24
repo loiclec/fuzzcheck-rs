@@ -137,27 +137,30 @@ impl<T: TestCase> CodeCoverageSensorAndPool<T> {
                 sensor.iterate_over_collected_features(
                     i,
                     #[no_coverage]
-                    |collected_feature| loop {
-                        if idx < end {
-                            let AnalyzedFeatureRef {
-                                feature: pool_feature,
-                                key,
-                            } = *features.get_unchecked(idx);
-                            if pool_feature < collected_feature {
-                                idx += 1;
-                                continue;
-                            } else if pool_feature == collected_feature {
-                                if cur_input_cplx < pool_slab_features[key].least_complexity {
+                    |index, counter| {
+                        let collected_feature = Feature::new(index, counter);
+                        loop {
+                            if idx < end {
+                                let AnalyzedFeatureRef {
+                                    feature: pool_feature,
+                                    key,
+                                } = *features.get_unchecked(idx);
+                                if pool_feature < collected_feature {
+                                    idx += 1;
+                                    continue;
+                                } else if pool_feature == collected_feature {
+                                    if cur_input_cplx < pool_slab_features[key].least_complexity {
+                                        best_input_for_a_feature = true;
+                                    }
+                                    break;
+                                } else {
                                     best_input_for_a_feature = true;
+                                    break;
                                 }
-                                break;
                             } else {
                                 best_input_for_a_feature = true;
                                 break;
                             }
-                        } else {
-                            best_input_for_a_feature = true;
-                            break;
                         }
                     },
                 );
@@ -176,22 +179,25 @@ impl<T: TestCase> CodeCoverageSensorAndPool<T> {
                     sensor.iterate_over_collected_features(
                         i,
                         #[no_coverage]
-                        |feature| loop {
-                            if idx < end {
-                                let f_iter = features.get_unchecked(idx);
-                                if f_iter.feature < feature {
-                                    idx += 1;
-                                    continue;
-                                } else if f_iter.feature == feature {
-                                    existing_features.push(f_iter.key);
-                                    break;
+                        |index, counter| {
+                            let feature = Feature::new(index, counter);
+                            loop {
+                                if idx < end {
+                                    let f_iter = features.get_unchecked(idx);
+                                    if f_iter.feature < feature {
+                                        idx += 1;
+                                        continue;
+                                    } else if f_iter.feature == feature {
+                                        existing_features.push(f_iter.key);
+                                        break;
+                                    } else {
+                                        new_features.push(feature);
+                                        break;
+                                    }
                                 } else {
                                     new_features.push(feature);
                                     break;
                                 }
-                            } else {
-                                new_features.push(feature);
-                                break;
                             }
                         },
                     );

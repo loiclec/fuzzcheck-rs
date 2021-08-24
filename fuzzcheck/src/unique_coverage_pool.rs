@@ -54,7 +54,8 @@
 //! thus gain ((group.score() / 5) / 3) from having the feature f4.
 
 use crate::coverage_sensor_and_pool::AnalysisResult;
-use crate::data_structures::{Slab, SlabKey, WeightedIndex};
+use crate::data_structures::{Slab, SlabKey};
+use crate::fenwick_tree::FenwickTree;
 use crate::sensor_and_pool::{Pool, TestCase};
 use crate::Feature;
 use ahash::{AHashMap, AHashSet};
@@ -87,6 +88,8 @@ pub struct Input<T> {
     ///
     /// It should always be equal to [mutator.complexity(&self.data.value, &self.data.cache)](Mutator::complexity)
     complexity: f64,
+
+    number_times_chosen: usize,
 }
 
 /**
@@ -241,7 +244,8 @@ pub struct UniqueCoveragePool<T: TestCase> {
     slab_inputs: Slab<Input<T>>,
 
     pub average_complexity: f64,
-    cumulative_weights: Vec<f64>,
+    pub total_score: f64,
+    pub ranked_inputs: FenwickTree,
 
     pub features_range_for_coverage_index: Vec<Range<usize>>,
 
@@ -262,7 +266,8 @@ impl<T: TestCase> UniqueCoveragePool<T> {
             slab_inputs: Slab::new(),
 
             average_complexity: 0.0,
-            cumulative_weights: Vec::default(),
+            total_score: 0.0,
+            ranked_inputs: FenwickTree::new(vec![]),
 
             features_range_for_coverage_index: Vec::default(),
 
@@ -274,7 +279,7 @@ impl<T: TestCase> UniqueCoveragePool<T> {
 
     #[no_coverage]
     pub fn score(&self) -> f64 {
-        *self.cumulative_weights.last().unwrap_or(&0.0)
+        self.total_score
     }
 
     #[allow(clippy::too_many_lines, clippy::type_complexity)]
@@ -301,6 +306,7 @@ impl<T: TestCase> UniqueCoveragePool<T> {
             score: 0.0,
             data,
             complexity,
+            number_times_chosen: 1,
         };
         let element_key = self.slab_inputs.insert(element);
 
@@ -546,22 +552,28 @@ impl<T: TestCase> UniqueCoveragePool<T> {
     #[no_coverage]
     fn update_stats(&mut self) {
         let slab = &self.slab_inputs;
-        self.cumulative_weights = self
+
+        let ranked_inputs = self
             .slab_inputs
             .keys()
             .map(
                 #[no_coverage]
-                |key| &slab[key],
-            )
-            .scan(
-                0.0,
-                #[no_coverage]
-                |state, x| {
-                    *state += x.score;
-                    Some(*state)
+                |key| {
+                    let input = &slab[key];
+                    input.score / (input.number_times_chosen as f64)
                 },
             )
             .collect();
+        self.ranked_inputs = FenwickTree::new(ranked_inputs);
+
+        self.total_score = self
+            .slab_inputs
+            .keys()
+            .map(
+                #[no_coverage]
+                |key| slab[key].score,
+            )
+            .sum();
 
         self.average_complexity = self
             .slab_inputs
@@ -706,17 +718,34 @@ impl<T: TestCase> Pool for UniqueCoveragePool<T> {
     }
 
     #[no_coverage]
-    fn get_random_index(&self) -> Option<Self::Index> {
-        if self.cumulative_weights.last().unwrap_or(&0.0) > &0.0 {
-            let dist = WeightedIndex {
-                cumulative_weights: &self.cumulative_weights,
-            };
-            let x = dist.sample(&self.rng);
-            let key = self.slab_inputs.get_nth_key(x);
-            Some(key)
-        } else {
-            None
+    fn get_random_index(&mut self) -> Option<Self::Index> {
+        if self.ranked_inputs.len() == 0 {
+            return None;
         }
+        let most = self.ranked_inputs.prefix_sum(self.ranked_inputs.len() - 1);
+        let chosen_weight = gen_f64(&self.rng, 0.0..most);
+
+        // Find the first item which has a weight *higher* than the chosen weight.
+        let choice = binary_search(self.ranked_inputs.len(), |idx| {
+            if self.ranked_inputs.prefix_sum(idx) <= chosen_weight {
+                Ordering::Less
+            } else {
+                Ordering::Greater
+            }
+        })
+        .unwrap_err();
+
+        let key = self.slab_inputs.get_nth_key(choice);
+
+        let input = &mut self.slab_inputs[key];
+        let old_rank = input.score / (input.number_times_chosen as f64);
+        input.number_times_chosen += 1;
+        let new_rank = input.score / (input.number_times_chosen as f64);
+
+        let delta = new_rank - old_rank;
+        self.ranked_inputs.update(choice, delta);
+
+        Some(key)
     }
 
     #[no_coverage]
@@ -732,12 +761,6 @@ impl<T: TestCase> Pool for UniqueCoveragePool<T> {
     #[no_coverage]
     fn retrieve_after_processing(&mut self, idx: Self::Index, generation: usize) -> Option<&mut Self::TestCase> {
         if let Some(input) = self.slab_inputs.get_mut(idx) {
-            assert!(
-                input.data.generation() == generation,
-                "{} {}",
-                input.data.generation(),
-                generation
-            );
             if input.data.generation() == generation {
                 Some(&mut input.data)
             } else {
@@ -755,6 +778,33 @@ impl<T: TestCase> Pool for UniqueCoveragePool<T> {
     }
 }
 
+#[inline]
+pub fn binary_search<F>(mut size: usize, mut f: F) -> Result<usize, usize>
+where
+    F: FnMut(usize) -> Ordering,
+{
+    let mut left = 0;
+    let mut right = size;
+    while left < right {
+        let mid = left + size / 2;
+        let cmp = f(mid);
+        if cmp == Ordering::Less {
+            left = mid + 1;
+        } else if cmp == Ordering::Greater {
+            right = mid;
+        } else {
+            return Ok(mid);
+        }
+        size = right - left;
+    }
+    Err(left)
+}
+
+#[inline(always)]
+#[no_coverage]
+fn gen_f64(rng: &fastrand::Rng, range: Range<f64>) -> f64 {
+    range.start + rng.f64() * (range.end - range.start)
+}
 /// Add the element in the correct place in the sorted vector
 #[no_coverage]
 fn sorted_insert<T, F>(vec: &mut Vec<T>, element: T, is_before: F) -> usize

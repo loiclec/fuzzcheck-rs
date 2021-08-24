@@ -3,7 +3,6 @@
 mod leb128;
 mod llvm_coverage;
 use crate::sensor_and_pool::Sensor;
-use crate::Feature;
 use std::convert::TryFrom;
 use std::path::Path;
 use std::{collections::HashMap, ops::RangeInclusive};
@@ -76,7 +75,7 @@ impl CodeCoverageSensor {
     #[no_coverage]
     pub(crate) unsafe fn iterate_over_collected_features<F>(&mut self, coverage_index: usize, mut handle: F)
     where
-        F: FnMut(Feature),
+        F: FnMut(usize, u64),
     {
         let CodeCoverageSensor {
             coverage, index_ranges, ..
@@ -88,12 +87,12 @@ impl CodeCoverageSensor {
         if *single == 0 {
             return;
         } else {
-            handle(Feature::new(index, *single));
+            handle(index, *single);
         }
         index += 1;
         for &single in coverage.single_counters.iter().skip(1) {
             if *single != 0 {
-                handle(Feature::new(index, *single));
+                handle(index, *single);
             }
             index += 1;
         }
@@ -103,7 +102,7 @@ impl CodeCoverageSensor {
 
         for &expr in &coverage.computed_expressions {
             if expr != 0 {
-                handle(Feature::new(index, expr));
+                handle(index, expr);
             }
             index += 1;
         }

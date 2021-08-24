@@ -31,7 +31,7 @@ where
         1
     }
     #[no_coverage]
-    fn get_random_index(&self) -> Option<Self::Index> {
+    fn get_random_index(&mut self) -> Option<Self::Index> {
         if self.dead_end {
             None
         } else {

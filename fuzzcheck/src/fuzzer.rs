@@ -6,6 +6,7 @@ use crate::and_sensor_and_pool::{AndPool, AndSensor, AndSensorAndPool};
 use crate::code_coverage_sensor::CodeCoverageSensor;
 use crate::coverage_sensor_and_pool::CodeCoverageSensorAndPool;
 use crate::input_minify_pool::InputMinifySensorAndPool;
+use crate::maximize_pool::{CounterMaximizingPool, MaximizingCoverageSensorAndPool};
 use crate::mutators::either::Either;
 use crate::noop_sensor::NoopSensor;
 use crate::sensor_and_pool::{EmptyStats, Pool, Sensor, SensorAndPool};
@@ -408,8 +409,8 @@ pub enum TerminationStatus {
 pub fn launch<T, FT, F, M, S, Exclude, Keep>(
     test: F,
     mutator: M,
-    sensor_exclude_files: Exclude,
-    sensor_keep_files: Keep,
+    sensor_exclude_files: &Exclude,
+    sensor_keep_files: &Keep,
     serializer: S,
     mut args: Arguments,
 ) -> Result<(), std::io::Error>
@@ -429,8 +430,36 @@ where
 
     match command {
         FuzzerCommand::Fuzz => {
+            /*
             let pool = UniqueCoveragePool::new(&sensor.index_ranges);
             let mut fuzzer = Fuzzer::<_, _, _, _, _, CodeCoverageSensorAndPool<FuzzedInput<T, M>>>::new(
+                test,
+                mutator,
+                sensor,
+                pool,
+                args.clone(),
+                World::new(serializer, args.clone()),
+            );
+            */
+            let pool1 = CounterMaximizingPool::new(sensor.count_instrumented);
+            let pool2 = UniqueCoveragePool::new(&sensor.index_ranges);
+            let pool = AndPool {
+                p1: pool1,
+                p2: pool2,
+                percent_choose_first: 10,
+                rng: fastrand::Rng::new(),
+            };
+            let sensor2 = CodeCoverageSensor::new(sensor_exclude_files, sensor_keep_files);
+
+            let sensor = AndSensor {
+                s1: sensor,
+                s2: sensor2,
+            };
+            type SP<T, M> = AndSensorAndPool<
+                MaximizingCoverageSensorAndPool<FuzzedInput<T, M>>,
+                CodeCoverageSensorAndPool<FuzzedInput<T, M>>,
+            >;
+            let mut fuzzer = Fuzzer::<_, _, _, _, _, SP<T, M>>::new(
                 test,
                 mutator,
                 sensor,

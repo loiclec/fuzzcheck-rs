@@ -70,7 +70,7 @@ pub trait Pool {
 
     fn len(&self) -> usize;
 
-    fn get_random_index(&self) -> Option<Self::Index>;
+    fn get_random_index(&mut self) -> Option<Self::Index>;
     fn get(&self, idx: Self::Index) -> &Self::TestCase;
     fn get_mut(&mut self, idx: Self::Index) -> &mut Self::TestCase;
 

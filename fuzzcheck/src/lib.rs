@@ -23,6 +23,7 @@ pub mod builder;
 mod code_coverage_sensor;
 mod coverage_sensor_and_pool;
 mod data_structures;
+mod fenwick_tree;
 mod fuzzer;
 mod input_minify_pool;
 mod maximize_pool;
@@ -178,11 +179,11 @@ impl Feature {
     #[inline(always)]
     #[no_coverage]
     fn score_from_counter(counter: u64) -> u8 {
-        if counter <= 3 {
-            counter as u8
-        } else {
-            (64 - counter.leading_zeros() + 1) as u8
-        }
+        1 // if counter <= 3 {
+          //     counter as u8
+          // } else {
+          //     (64 - counter.leading_zeros() + 1) as u8
+          // }
     }
 }
 
