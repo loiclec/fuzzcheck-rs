@@ -1,6 +1,6 @@
 use std::{
     fmt::{Debug, Display},
-    marker::PhantomData,
+    path::PathBuf,
 };
 
 use ahash::AHashSet;
@@ -9,7 +9,7 @@ use crate::{
     code_coverage_sensor::CodeCoverageSensor,
     data_structures::{Slab, SlabKey, WeightedIndex},
     mutators::either::Either,
-    sensor_and_pool::{CorpusDelta, Pool, SensorAndPool, TestCase},
+    sensor_and_pool::{CompatibleWithSensor, CorpusDelta, EmptyStats, Pool, Sensor, TestCase},
 };
 
 #[derive(Clone, Default)]
@@ -21,12 +21,6 @@ impl Display for Stats {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "p2: {}\ttotal_count:{}\t", self.size, self.total_counts)
     }
-}
-
-#[derive(Debug)]
-pub(crate) struct CounterMaximizingPoolEvent<T> {
-    added_key: Option<SlabKey<Input<T>>>,
-    removed_keys: Vec<SlabKey<Input<T>>>,
 }
 
 #[derive(Debug)]
@@ -79,6 +73,11 @@ impl<T> CounterMaximizingPool<T> {
 impl<T: TestCase> Pool for CounterMaximizingPool<T> {
     type TestCase = T;
     type Index = SlabKey<Input<T>>;
+    type Stats = EmptyStats;
+
+    fn stats(&self) -> Self::Stats {
+        todo!()
+    }
 
     fn len(&self) -> usize {
         self.inputs.len()
@@ -122,7 +121,15 @@ impl<T: TestCase> Pool for CounterMaximizingPool<T> {
     }
 }
 impl<T: TestCase> CounterMaximizingPool<T> {
-    fn add(&mut self, input: T, cplx: f64, highest_for_counters: Vec<(usize, u64)>) -> CounterMaximizingPoolEvent<T> {
+    fn add(
+        &mut self,
+        input: T,
+        cplx: f64,
+        highest_for_counters: Vec<(usize, u64)>,
+    ) -> (
+        CorpusDelta<&<Self as Pool>::TestCase, <Self as Pool>::Index>,
+        <Self as Pool>::Stats,
+    ) {
         let input = Input {
             best_for_counters: highest_for_counters.iter().map(|x| x.0).collect(),
             cplx,
@@ -130,10 +137,9 @@ impl<T: TestCase> CounterMaximizingPool<T> {
             score: highest_for_counters.len() as f64,
         };
         let input_key = self.inputs.insert(input);
-        let mut event = CounterMaximizingPoolEvent {
-            added_key: Some(input_key),
-            removed_keys: vec![],
-        };
+
+        let mut removed_keys = vec![];
+
         for &(counter, intensity) in &highest_for_counters {
             assert!(
                 self.highest_counts[counter] < intensity
@@ -149,18 +155,27 @@ impl<T: TestCase> CounterMaximizingPool<T> {
                 assert!(was_present_in_set);
                 previous_best.score = previous_best.best_for_counters.len() as f64;
                 if previous_best.best_for_counters.is_empty() {
-                    event.removed_keys.push(*previous_best_key);
+                    removed_keys.push(*previous_best_key);
                 }
                 *previous_best_key = input_key;
             } else {
                 *previous_best_key = Some(input_key);
             }
         }
-        for &removed_key in &event.removed_keys {
+        for &removed_key in &removed_keys {
             self.inputs.remove(removed_key);
         }
+
         self.update_stats();
-        event
+        let stats = self.stats();
+        (
+            CorpusDelta {
+                path: PathBuf::new(),
+                add: Some((&self.inputs[input_key].data, input_key)),
+                remove: removed_keys,
+            },
+            stats,
+        )
     }
 
     fn update_stats(&mut self) {
@@ -186,81 +201,52 @@ impl<T: TestCase> CounterMaximizingPool<T> {
     }
 }
 
-pub(crate) struct MaximizingCoverageSensorAndPool<T> {
-    _phantom: PhantomData<T>,
-}
-impl<T: TestCase> SensorAndPool for MaximizingCoverageSensorAndPool<T> {
-    type Sensor = CodeCoverageSensor;
-    type Pool = CounterMaximizingPool<T>;
-    type TestCase = T;
-    type Event = CounterMaximizingPoolEvent<T>;
-    type Stats = Stats;
-
+impl<T: TestCase> CompatibleWithSensor<CodeCoverageSensor> for CounterMaximizingPool<T> {
     fn process(
-        sensor: &mut Self::Sensor,
-        pool: &mut Self::Pool,
-        stats: &mut Self::Stats,
-        get_input_ref: Either<<Self::Pool as Pool>::Index, &Self::TestCase>,
+        &mut self,
+        sensor: &mut CodeCoverageSensor,
+        get_input_ref: Either<Self::Index, &Self::TestCase>,
         clone_input: &impl Fn(&Self::TestCase) -> Self::TestCase,
         complexity: f64,
-        mut event_handler: impl FnMut(
-            CorpusDelta<&Self::TestCase, <Self::Pool as Pool>::Index>,
-            &Self::Stats,
-        ) -> Result<(), std::io::Error>,
+        mut event_handler: impl FnMut(CorpusDelta<&Self::TestCase, Self::Index>, Self::Stats) -> Result<(), std::io::Error>,
     ) -> Result<(), std::io::Error> {
         let mut new_highest = vec![];
-        unsafe {
-            for i in 0..sensor.coverage.len() {
-                sensor.iterate_over_collected_features(
-                    i,
-                    #[no_coverage]
-                    |index, counter| {
-                        let pool_counter = pool.highest_counts[index];
-                        if pool_counter < counter {
+
+        sensor.iterate_over_observations(
+            #[no_coverage]
+            &mut |(index, counter)| {
+                let pool_counter = self.highest_counts[index];
+                if pool_counter < counter {
+                    new_highest.push((index, counter));
+                } else if pool_counter == counter {
+                    if let Some(candidate_key) = self.best_input_for_counter[index] {
+                        if self.inputs[candidate_key].cplx > complexity {
                             new_highest.push((index, counter));
-                        } else if pool_counter == counter {
-                            if let Some(candidate_key) = pool.best_input_for_counter[index] {
-                                if pool.inputs[candidate_key].cplx > complexity {
-                                    new_highest.push((index, counter));
-                                }
-                            } else {
-                            }
                         }
-                    },
-                );
-            }
-        }
+                    } else {
+                    }
+                }
+            },
+        );
+
         if !new_highest.is_empty() {
             let input = match get_input_ref {
-                Either::Left(key) => clone_input(&pool.inputs[key].data),
+                Either::Left(key) => clone_input(&self.inputs[key].data),
                 Either::Right(input) => clone_input(input),
             };
-            let event = pool.add(input, complexity, new_highest);
-            let delta = Self::get_corpus_delta_from_event(pool, event);
-            *stats = pool.stats.clone();
+            let (delta, stats) = self.add(input, complexity, new_highest);
             event_handler(delta, stats)?;
         }
         Ok(())
     }
 
     fn minify(
-        sensor: &mut Self::Sensor,
-        pool: &mut Self::Pool,
-        stats: &mut Self::Stats,
+        &mut self,
+        sensor: &mut CodeCoverageSensor,
         target_len: usize,
-        event_handler: impl FnMut(CorpusDelta<&Self::TestCase, <Self::Pool as Pool>::Index>, &Self::Stats),
-    ) {
+        event_handler: impl FnMut(CorpusDelta<&Self::TestCase, Self::Index>, Self::Stats) -> Result<(), std::io::Error>,
+    ) -> Result<(), std::io::Error> {
         todo!()
-    }
-
-    fn get_corpus_delta_from_event<'a>(
-        pool: &'a Self::Pool,
-        event: Self::Event,
-    ) -> CorpusDelta<&'a Self::TestCase, <Self::Pool as Pool>::Index> {
-        CorpusDelta {
-            add: event.added_key.map(|key| (&pool.inputs[key].data, key)),
-            remove: event.removed_keys,
-        }
     }
 }
 
@@ -279,14 +265,14 @@ mod tests {
         let index = pool.get_random_index();
         println!("{:?}", index);
 
-        let event = pool.add(1.2, 1.21, vec![(1, 2)]);
+        let event = pool.add(1.2, 1.21, vec![(1, 2)]).0;
         println!("event: {:?}", event);
         println!("pool: {:?}", pool);
         let index = pool.get_random_index();
         println!("{:?}", index);
 
         // replace
-        let event = pool.add(1.1, 1.11, vec![(1, 2)]);
+        let event = pool.add(1.1, 1.11, vec![(1, 2)]).0;
         println!("event: {:?}", event);
         println!("pool: {:?}", pool);
         let index = pool.get_random_index();
@@ -299,14 +285,14 @@ mod tests {
 
         let _ = pool.add(1.2, 1.21, vec![(1, 4)]);
         let _ = pool.add(2.2, 2.21, vec![(2, 2)]);
-        let event = pool.add(3.2, 3.21, vec![(3, 2)]);
+        let event = pool.add(3.2, 3.21, vec![(3, 2)]).0;
         println!("event: {:?}", event);
         println!("pool: {:?}", pool);
         let index = pool.get_random_index();
         println!("{:?}", index);
 
         // replace
-        let event = pool.add(1.1, 1.11, vec![(2, 3), (3, 3)]);
+        let event = pool.add(1.1, 1.11, vec![(2, 3), (3, 3)]).0;
         println!("event: {:?}", event);
         println!("pool: {:?}", pool);
 
@@ -318,7 +304,7 @@ mod tests {
         println!("{:?}", map);
 
         // replace
-        let event = pool.add(4.1, 4.41, vec![(0, 3), (3, 4), (4, 1)]);
+        let event = pool.add(4.1, 4.41, vec![(0, 3), (3, 4), (4, 1)]).0;
         println!("event: {:?}", event);
         println!("pool: {:?}", pool);
 
@@ -330,7 +316,7 @@ mod tests {
         println!("{:?}", map);
 
         // replace
-        let event = pool.add(0.1, 0.11, vec![(0, 3), (3, 4), (4, 1), (1, 7), (2, 8)]);
+        let event = pool.add(0.1, 0.11, vec![(0, 3), (3, 4), (4, 1), (1, 7), (2, 8)]).0;
         println!("event: {:?}", event);
         println!("pool: {:?}", pool);
 
@@ -342,7 +328,7 @@ mod tests {
         println!("{:?}", map);
 
         // replace
-        let event = pool.add(1.5, 1.51, vec![(0, 10)]);
+        let event = pool.add(1.5, 1.51, vec![(0, 10)]).0;
         println!("event: {:?}", event);
         println!("pool: {:?}", pool);
 

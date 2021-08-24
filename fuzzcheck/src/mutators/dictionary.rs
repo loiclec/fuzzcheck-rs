@@ -26,6 +26,7 @@ impl<T: Clone, M: Mutator<T>> DictionaryMutator<T, M> {
     }
 }
 
+#[derive(Clone)]
 pub struct MutationStep<T> {
     idx: usize,
     wrapped: T,
@@ -42,6 +43,7 @@ pub enum UnmutateToken<T: Clone, M: Mutator<T>> {
     Unmutate(M::UnmutateToken),
 }
 
+#[derive(Clone)]
 pub enum ArbitraryStep<T> {
     Dictionary(usize),
     Wrapped(T),

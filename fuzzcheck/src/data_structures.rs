@@ -105,10 +105,10 @@ impl<T> Slab<T> {
     pub fn len(&self) -> usize {
         self.storage.len() - self.available_slots.len()
     }
-    #[no_coverage]
-    pub fn is_empty(&self) -> bool {
-        self.len() == 0
-    }
+    // #[no_coverage]
+    // pub fn is_empty(&self) -> bool {
+    //     self.len() == 0
+    // }
     #[no_coverage]
     pub fn get_nth_key(&self, n: usize) -> SlabKey<T> {
         let mut idx = n;
@@ -136,14 +136,14 @@ impl<T> Slab<T> {
         self.available_slots.push(key.key);
         self.available_slots.sort();
     }
-    #[no_coverage]
-    pub fn next_key(&self) -> SlabKey<T> {
-        if let Some(&slot) = self.available_slots.last() {
-            SlabKey::new(slot)
-        } else {
-            SlabKey::new(self.storage.len())
-        }
-    }
+    // #[no_coverage]
+    // pub fn next_key(&self) -> SlabKey<T> {
+    //     if let Some(&slot) = self.available_slots.last() {
+    //         SlabKey::new(slot)
+    //     } else {
+    //         SlabKey::new(self.storage.len())
+    //     }
+    // }
     #[no_coverage]
     pub fn get_mut(&mut self, key: SlabKey<T>) -> Option<&mut T> {
         // O(n) but in practice very fast because there will be almost no available slots

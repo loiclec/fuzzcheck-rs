@@ -127,11 +127,11 @@ needed.
 **/
 pub trait Mutator<Value: Clone> {
     /// Accompanies each value to help compute its complexity and mutate it efficiently.
-    type Cache;
+    type Cache: Clone;
     /// Contains information about what mutations have already been tried.
-    type MutationStep;
+    type MutationStep: Clone;
     /// Contains information about what arbitrary values have already been generated.
-    type ArbitraryStep;
+    type ArbitraryStep: Clone;
     /// Describes how to reverse a mutation
     type UnmutateToken;
 

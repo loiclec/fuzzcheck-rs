@@ -2,14 +2,12 @@
 //!to the [Pool] and uses an evolutionary algorithm using [Mutator] to find new interesting
 //! test inputs.
 
-use crate::and_sensor_and_pool::{AndPool, AndSensor, AndSensorAndPool};
+use crate::and_sensor_and_pool::{AndPool, AndSensor};
 use crate::code_coverage_sensor::CodeCoverageSensor;
-use crate::coverage_sensor_and_pool::CodeCoverageSensorAndPool;
-use crate::input_minify_pool::InputMinifySensorAndPool;
-use crate::maximize_pool::{CounterMaximizingPool, MaximizingCoverageSensorAndPool};
+// use crate::maximize_pool::CounterMaximizingPool;
 use crate::mutators::either::Either;
 use crate::noop_sensor::NoopSensor;
-use crate::sensor_and_pool::{EmptyStats, Pool, Sensor, SensorAndPool};
+use crate::sensor_and_pool::{CompatibleWithSensor, EmptyStats, Pool, Sensor};
 use crate::signals_handler::set_signal_handlers;
 use crate::traits::{Mutator, Serializer};
 use crate::unique_coverage_pool::UniqueCoveragePool;
@@ -32,30 +30,35 @@ enum FuzzerInputIndex<T, PoolIndex> {
     Pool(PoolIndex),
 }
 
-struct FuzzerState<T: Clone, M: Mutator<T>, S: Serializer<Value = T>, SP: SensorAndPool<TestCase = FuzzedInput<T, M>>> {
+struct FuzzerState<T: Clone, M: Mutator<T>, S: Serializer<Value = T>, Sens: Sensor, P: Pool>
+where
+    P: CompatibleWithSensor<Sens>,
+{
     mutator: M,
-    sensor: SP::Sensor,
-    pool: SP::Pool,
+    sensor: Sens,
+    pool: P,
     /// The step given to the mutator when the fuzzer wants to create a new arbitrary test case
     arbitrary_step: M::ArbitraryStep,
     /// The index of the test case that is being tested
-    input_idx: FuzzerInputIndex<FuzzedInput<T, M>, <SP::Pool as Pool>::Index>,
+    input_idx: FuzzerInputIndex<FuzzedInput<T, M>, P::Index>,
     /// Various statistics about the fuzzer run
     fuzzer_stats: FuzzerStats,
-    sensor_and_pool_stats: SP::Stats,
+    sensor_and_pool_stats: P::Stats,
 
     settings: Arguments,
     /// The world handles effects
-    world: World<S, <SP::Pool as Pool>::Index>,
+    world: World<S, P::Index>,
 }
 
-impl<T: Clone, M: Mutator<T>, S: Serializer<Value = T>, SP: SensorAndPool<TestCase = FuzzedInput<T, M>>>
-    FuzzerState<T, M, S, SP>
+impl<T: Clone, M: Mutator<T>, S: Serializer<Value = T>, Sens: Sensor, P: Pool<TestCase = FuzzedInput<T, M>>>
+    FuzzerState<T, M, S, Sens, P>
+where
+    P: CompatibleWithSensor<Sens>,
 {
     #[no_coverage]
     fn get_input<'a>(
-        fuzzer_input_idx: &'a FuzzerInputIndex<FuzzedInput<T, M>, <SP::Pool as Pool>::Index>,
-        pool: &'a SP::Pool,
+        fuzzer_input_idx: &'a FuzzerInputIndex<FuzzedInput<T, M>, P::Index>,
+        pool: &'a P,
     ) -> Option<&'a FuzzedInput<T, M>> {
         match fuzzer_input_idx {
             FuzzerInputIndex::None => None,
@@ -78,9 +81,10 @@ fn update_fuzzer_stats<B: Serializer, C: Hash + Eq>(stats: &mut FuzzerStats, wor
     }
 }
 
-impl<T: Clone, M: Mutator<T>, S: Serializer<Value = T>, SP: SensorAndPool<TestCase = FuzzedInput<T, M>>>
-    FuzzerState<T, M, S, SP>
+impl<T: Clone, M: Mutator<T>, S: Serializer<Value = T>, Sens: Sensor, P: Pool<TestCase = FuzzedInput<T, M>>>
+    FuzzerState<T, M, S, Sens, P>
 where
+    P: CompatibleWithSensor<Sens>,
     Self: 'static,
 {
     #[no_coverage]
@@ -128,40 +132,38 @@ where
     }
 }
 
-pub struct Fuzzer<T, FT, F, M, S, SP>
+pub struct Fuzzer<T, FT, F, M, S, Sens, P>
 where
     FT: ?Sized,
     T: Clone + Borrow<FT>,
     F: Fn(&FT) -> bool,
     M: Mutator<T>,
     S: Serializer<Value = T>,
-    SP: SensorAndPool<TestCase = FuzzedInput<T, M>>,
+    Sens: Sensor,
+    P: Pool,
+    P: CompatibleWithSensor<Sens>,
     Self: 'static,
 {
-    state: FuzzerState<T, M, S, SP>,
+    state: FuzzerState<T, M, S, Sens, P>,
     test: F,
     phantom: std::marker::PhantomData<FT>,
 }
 
-impl<T, FT, F, M, S, SP> Fuzzer<T, FT, F, M, S, SP>
+impl<T, FT, F, M, S, Sens, P> Fuzzer<T, FT, F, M, S, Sens, P>
 where
     FT: ?Sized,
     T: Clone + Borrow<FT>,
     F: Fn(&FT) -> bool,
     M: Mutator<T>,
     S: Serializer<Value = T>,
-    SP: SensorAndPool<TestCase = FuzzedInput<T, M>>,
-    SP::Stats: Default,
+    Sens: Sensor,
+    P: Pool<TestCase = FuzzedInput<T, M>>,
+    P: CompatibleWithSensor<Sens>,
+    Self: 'static,
+    P::Stats: Default,
 {
     #[no_coverage]
-    fn new(
-        test: F,
-        mutator: M,
-        sensor: SP::Sensor,
-        pool: SP::Pool,
-        settings: Arguments,
-        world: World<S, <SP::Pool as Pool>::Index>,
-    ) -> Self {
+    fn new(test: F, mutator: M, sensor: Sens, pool: P, settings: Arguments, world: World<S, P::Index>) -> Self {
         let arbitrary_step = mutator.default_arbitrary_step();
         Fuzzer {
             state: FuzzerState {
@@ -199,7 +201,7 @@ where
         } = self;
 
         // we have verified in the caller function that there is an input
-        let input = FuzzerState::<T, M, S, SP>::get_input(input_idx, pool).unwrap();
+        let input = FuzzerState::<T, M, S, Sens, P>::get_input(input_idx, pool).unwrap();
 
         sensor.start_recording();
         let cell = NotUnwindSafe { value: test };
@@ -224,10 +226,8 @@ where
         };
         let clone_input = |input: &FuzzedInput<T, M>| input.new_source(mutator);
 
-        SP::process(
+        pool.process(
             sensor,
-            pool,
-            sensor_and_pool_stats,
             get_input,
             &clone_input,
             cplx,
@@ -372,20 +372,18 @@ where
             ..
         } = &mut self.state;
 
-        world.report_event(FuzzerEvent::DidReadCorpus, Some((fuzzer_stats, sensor_and_pool_stats)));
-
-        SP::minify(
-            sensor,
-            pool,
-            sensor_and_pool_stats,
-            corpus_size,
-            |corpus_delta, sensor_and_pool_stats| {
-                let corpus_delta = corpus_delta.convert(|x| x.value.clone());
-                let event = corpus_delta.fuzzer_event();
-                world.update_corpus(corpus_delta).unwrap();
-                world.report_event(event, Some((fuzzer_stats, sensor_and_pool_stats)));
-            },
+        world.report_event(
+            FuzzerEvent::DidReadCorpus,
+            Some((fuzzer_stats, sensor_and_pool_stats.clone())),
         );
+
+        pool.minify(sensor, corpus_size, |corpus_delta, sensor_and_pool_stats| {
+            let corpus_delta = corpus_delta.convert(|x| x.value.clone());
+            let event = corpus_delta.fuzzer_event();
+            world.update_corpus(corpus_delta)?;
+            world.report_event(event, Some((fuzzer_stats, sensor_and_pool_stats)));
+            Ok(())
+        })?;
         world.report_event(FuzzerEvent::Done, Some((fuzzer_stats, sensor_and_pool_stats)));
         Ok(())
     }
@@ -420,7 +418,7 @@ where
     F: Fn(&FT) -> bool,
     M: Mutator<T>,
     S: Serializer<Value = T>,
-    Fuzzer<T, FT, F, M, S, CodeCoverageSensorAndPool<FuzzedInput<T, M>>>: 'static,
+    Fuzzer<T, FT, F, M, S, CodeCoverageSensor, UniqueCoveragePool<FuzzedInput<T, M>>>: 'static,
     Exclude: Fn(&Path) -> bool,
     Keep: Fn(&Path) -> bool,
 {
@@ -430,9 +428,8 @@ where
 
     match command {
         FuzzerCommand::Fuzz => {
-            /*
-            let pool = UniqueCoveragePool::new(&sensor.index_ranges);
-            let mut fuzzer = Fuzzer::<_, _, _, _, _, CodeCoverageSensorAndPool<FuzzedInput<T, M>>>::new(
+            let pool = UniqueCoveragePool::new(sensor.count_instrumented * 64);
+            let mut fuzzer = Fuzzer::<_, _, _, _, _, _, _>::new(
                 test,
                 mutator,
                 sensor,
@@ -440,33 +437,33 @@ where
                 args.clone(),
                 World::new(serializer, args.clone()),
             );
-            */
-            let pool1 = CounterMaximizingPool::new(sensor.count_instrumented);
-            let pool2 = UniqueCoveragePool::new(&sensor.index_ranges);
-            let pool = AndPool {
-                p1: pool1,
-                p2: pool2,
-                percent_choose_first: 10,
-                rng: fastrand::Rng::new(),
-            };
-            let sensor2 = CodeCoverageSensor::new(sensor_exclude_files, sensor_keep_files);
 
-            let sensor = AndSensor {
-                s1: sensor,
-                s2: sensor2,
-            };
-            type SP<T, M> = AndSensorAndPool<
-                MaximizingCoverageSensorAndPool<FuzzedInput<T, M>>,
-                CodeCoverageSensorAndPool<FuzzedInput<T, M>>,
-            >;
-            let mut fuzzer = Fuzzer::<_, _, _, _, _, SP<T, M>>::new(
-                test,
-                mutator,
-                sensor,
-                pool,
-                args.clone(),
-                World::new(serializer, args.clone()),
-            );
+            // let pool1 = CounterMaximizingPool::new(sensor.count_instrumented);
+            // let pool2 = UniqueCoveragePool::new(sensor.count_instrumented * 64); // TODO: reduce nbr of possible values from score_from_counter
+            // let pool = AndPool {
+            //     p1: pool1,
+            //     p2: pool2,
+            //     percent_choose_first: 10,
+            //     rng: fastrand::Rng::new(),
+            // };
+            // let sensor2 = CodeCoverageSensor::new(sensor_exclude_files, sensor_keep_files);
+
+            // let sensor = AndSensor {
+            //     s1: sensor,
+            //     s2: sensor2,
+            // };
+            // type SP<T, M> = AndSensorAndPool<
+            //     MaximizingCoverageSensorAndPool<FuzzedInput<T, M>>,
+            //     CodeCoverageSensorAndPool<FuzzedInput<T, M>>,
+            // >;
+            // let mut fuzzer = Fuzzer::<_, _, _, _, _, SP<T, M>>::new(
+            //     test,
+            //     mutator,
+            //     sensor,
+            //     pool,
+            //     args.clone(),
+            //     World::new(serializer, args.clone()),
+            // );
 
             unsafe { fuzzer.state.set_up_signal_handler() };
 
@@ -478,20 +475,17 @@ where
             if let Some((cache, mutation_step)) = mutator.validate_value(&value) {
                 args.max_input_cplx = mutator.complexity(&value, &cache) - 0.01;
 
-                type SP<T, M> =
-                    AndSensorAndPool<CodeCoverageSensorAndPool<FuzzedInput<T, M>>, InputMinifySensorAndPool<T, M>>;
                 let sensor = AndSensor {
                     s1: sensor,
                     s2: NoopSensor,
                 };
                 let pool = AndPool {
-                    p1: UniqueCoveragePool::new(&sensor.s1.index_ranges),
+                    p1: UniqueCoveragePool::new(sensor.s1.count_instrumented * 64), // TODO
                     p2: UnitPool::new(FuzzedInput::new(value, cache, mutation_step, 0)),
                     percent_choose_first: 97,
                     rng: fastrand::Rng::new(),
                 };
-                let mut fuzzer =
-                    Fuzzer::<_, _, _, _, _, SP<T, M>>::new(test, mutator, sensor, pool, args.clone(), world);
+                let mut fuzzer = Fuzzer::<_, _, _, _, _, _, _>::new(test, mutator, sensor, pool, args.clone(), world);
 
                 unsafe { fuzzer.state.set_up_signal_handler() };
 
@@ -524,8 +518,8 @@ where
             }
         }
         FuzzerCommand::MinifyCorpus { corpus_size } => {
-            let pool = UniqueCoveragePool::new(&sensor.index_ranges);
-            let mut fuzzer = Fuzzer::<_, _, _, _, _, CodeCoverageSensorAndPool<FuzzedInput<T, M>>>::new(
+            let pool = UniqueCoveragePool::new(sensor.count_instrumented * 64);
+            let mut fuzzer = Fuzzer::<_, _, _, _, _, _, _>::new(
                 test,
                 mutator,
                 sensor,

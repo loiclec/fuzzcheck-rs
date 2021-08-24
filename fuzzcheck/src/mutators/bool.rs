@@ -14,6 +14,7 @@ impl DefaultMutator for bool {
     }
 }
 
+#[derive(Clone, Copy)]
 pub enum ArbitraryStep {
     Never = 0,
     Once = 1,

@@ -64,130 +64,6 @@ pub use serializers::JsonSerializer;
 pub use serializers::SerdeSerializer;
 
 /**
- * A unit of code coverage.
- * The upper 32 bits are the index of the code coverage counter and the
- * lower 32 bits contain its hit count.
- */
-
-#[derive(Debug, Clone, Copy, Eq, Hash)]
-#[repr(transparent)]
-struct Feature(u64);
-
-impl PartialEq for Feature {
-    #[inline(always)]
-    #[no_coverage]
-    fn eq(&self, other: &Self) -> bool {
-        self.0 == other.0
-    }
-    #[inline(always)]
-    #[no_coverage]
-    fn ne(&self, other: &Self) -> bool {
-        self.0 != other.0
-    }
-}
-impl PartialOrd for Feature {
-    #[inline(always)]
-    #[no_coverage]
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        self.0.partial_cmp(&other.0)
-    }
-    #[inline(always)]
-    #[no_coverage]
-    fn lt(&self, other: &Self) -> bool {
-        self.0.lt(&other.0)
-    }
-    #[inline(always)]
-    #[no_coverage]
-    fn le(&self, other: &Self) -> bool {
-        self.0.le(&other.0)
-    }
-    #[inline(always)]
-    #[no_coverage]
-    fn gt(&self, other: &Self) -> bool {
-        self.0.gt(&other.0)
-    }
-    #[inline(always)]
-    #[no_coverage]
-    fn ge(&self, other: &Self) -> bool {
-        self.0.ge(&other.0)
-    }
-}
-impl Ord for Feature {
-    #[inline(always)]
-    #[no_coverage]
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.0.cmp(&other.0)
-    }
-    #[inline(always)]
-    #[no_coverage]
-    fn max(self, other: Self) -> Self
-    where
-        Self: Sized,
-    {
-        Feature(std::cmp::max(self.0, other.0))
-    }
-    #[inline(always)]
-    #[no_coverage]
-    fn min(self, other: Self) -> Self
-    where
-        Self: Sized,
-    {
-        Feature(std::cmp::min(self.0, other.0))
-    }
-    #[inline(always)]
-    #[no_coverage]
-    fn clamp(self, min: Self, max: Self) -> Self
-    where
-        Self: Sized,
-    {
-        assert!(min <= max);
-        if self < min {
-            min
-        } else if self > max {
-            max
-        } else {
-            self
-        }
-    }
-}
-
-impl Feature {
-    #[inline(always)]
-    #[no_coverage]
-    fn new(index: usize, counter: u64) -> Feature {
-        let index = index as u64;
-        let counter = Self::score_from_counter(counter) as u64;
-
-        Feature((index << 8) | counter)
-    }
-
-    #[no_coverage]
-    fn erasing_payload(self) -> Self {
-        Feature(self.0 & 0xFFFF_FFFF_FFFF_FF00)
-    }
-
-    /// “Hash” a u64 into a number between 0 and 64.
-    ///
-    /// So that similar numbers have the same hash, and very high
-    /// numbers have a greater hash.
-    ///
-    /// We do this because we don't want to overwhelm the fuzzers.
-    /// Imagine we have a test case that reached a code block 35_987 times.
-    /// We don't want to consider a test case that reaches the same code block
-    /// 35_965 times to be interesting. So instead, we group similar
-    /// hit counts together.
-    #[inline(always)]
-    #[no_coverage]
-    fn score_from_counter(counter: u64) -> u8 {
-        1 // if counter <= 3 {
-          //     counter as u8
-          // } else {
-          //     (64 - counter.leading_zeros() + 1) as u8
-          // }
-    }
-}
-
-/**
  * A struct that stores the value, cache, and mutation step of an input.
  * It is used for convenience.
  */
@@ -196,6 +72,16 @@ pub struct FuzzedInput<T: Clone, Mut: Mutator<T>> {
     pub cache: Mut::Cache,
     pub mutation_step: Mut::MutationStep,
     pub generation: usize,
+}
+impl<T: Clone, Mut: Mutator<T>> Clone for FuzzedInput<T, Mut> {
+    fn clone(&self) -> Self {
+        Self {
+            value: self.value.clone(),
+            cache: self.cache.clone(),
+            mutation_step: self.mutation_step.clone(),
+            generation: self.generation.clone(),
+        }
+    }
 }
 impl<T: Clone, Mut: Mutator<T>> TestCase for FuzzedInput<T, Mut> {
     #[no_coverage]

@@ -42,6 +42,18 @@ where
     from_value: From,
     from_cache: M::Cache,
 }
+impl<From, M> Clone for Cache<From, M>
+where
+    From: Clone,
+    M: Mutator<From>,
+{
+    fn clone(&self) -> Self {
+        Self {
+            from_value: self.from_value.clone(),
+            from_cache: self.from_cache.clone(),
+        }
+    }
+}
 
 impl<From, To, M, Parse, Map> Mutator<To> for MapMutator<From, To, M, Parse, Map>
 where

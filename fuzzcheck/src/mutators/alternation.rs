@@ -44,12 +44,14 @@ where
     }
 }
 
+#[derive(Clone)]
 pub struct ArbitraryStep<AS> {
     inner: Vec<AS>,
     indices: Vec<usize>,
     idx: usize,
 }
 
+#[derive(Clone)]
 pub struct MutationStep<MS, AS> {
     inner: MS,
     arbitrary: AS,

@@ -1,6 +1,7 @@
-use crate::coverage_sensor_and_pool::CodeCoverageSensorAndPool;
+use crate::code_coverage_sensor::CodeCoverageSensor;
 use crate::fuzzer::{self, Fuzzer};
 use crate::traits::{Mutator, Serializer};
+use crate::unique_coverage_pool::UniqueCoveragePool;
 use crate::FuzzedInput;
 
 use fuzzcheck_common::arg::Arguments;
@@ -366,7 +367,7 @@ where
     V: Clone + Borrow<T>,
     M: Mutator<V>,
     S: Serializer<Value = V>,
-    Fuzzer<V, T, F, M, S, CodeCoverageSensorAndPool<FuzzedInput<V, M>>>: 'static,
+    Fuzzer<V, T, F, M, S, CodeCoverageSensor, UniqueCoveragePool<FuzzedInput<V, M>>>: 'static,
 {
     /**
         Only gather code coverage information from files that are children of the directory from which cargo-fuzzcheck is called.
@@ -429,7 +430,7 @@ where
     V: Clone + Borrow<T>,
     M: Mutator<V>,
     S: Serializer<Value = V>,
-    Fuzzer<V, T, F, M, S, CodeCoverageSensorAndPool<FuzzedInput<V, M>>>: 'static,
+    Fuzzer<V, T, F, M, S, CodeCoverageSensor, UniqueCoveragePool<FuzzedInput<V, M>>>: 'static,
     Exclude: Fn(&Path) -> bool,
     Keep: Fn(&Path) -> bool,
 {

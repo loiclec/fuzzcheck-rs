@@ -3,19 +3,23 @@ pub struct FenwickTree {
 }
 
 #[inline(always)]
+#[no_coverage]
 fn least_significant_bit(i: usize) -> usize {
     i & (1_usize.wrapping_add(!i))
 }
 #[inline(always)]
+#[no_coverage]
 fn get_parent(i: usize) -> usize {
     i - least_significant_bit(i)
 }
 #[inline(always)]
+#[no_coverage]
 fn get_next(i: usize) -> usize {
     i + least_significant_bit(i)
 }
 
 impl FenwickTree {
+    #[no_coverage]
     pub fn new(mut xs: Vec<f64>) -> Self {
         let mut i = 1;
         while i < xs.len() {
@@ -27,9 +31,11 @@ impl FenwickTree {
         }
         Self { storage: xs }
     }
+    #[no_coverage]
     pub fn len(&self) -> usize {
         self.storage.len()
     }
+    #[no_coverage]
     pub fn prefix_sum(&self, mut idx: usize) -> f64 {
         assert!(!self.storage.is_empty());
         let mut sum = self.storage[0];
@@ -39,6 +45,7 @@ impl FenwickTree {
         }
         sum
     }
+    #[no_coverage]
     pub fn update(&mut self, mut idx: usize, delta: f64) {
         if idx == 0 {
             self.storage[idx] += delta;
@@ -76,6 +83,7 @@ unsigned int rank_query(int value) {
 mod tests {
     use super::FenwickTree;
 
+    #[no_coverage]
     #[test]
     fn test_basic_1() {
         let cumulative_probabilities = vec![2.0, 4.0, 1.0, 0.0, 1.2];

@@ -3,9 +3,9 @@
 mod leb128;
 mod llvm_coverage;
 use crate::sensor_and_pool::Sensor;
+use std::collections::HashMap;
 use std::convert::TryFrom;
 use std::path::Path;
-use std::{collections::HashMap, ops::RangeInclusive};
 
 use self::llvm_coverage::{get_counters, get_prf_data, read_covmap, Coverage, LLVMCovSections};
 
@@ -13,7 +13,7 @@ use self::llvm_coverage::{get_counters, get_prf_data, read_covmap, Coverage, LLV
 /// that the `pool` can understand.
 pub struct CodeCoverageSensor {
     pub coverage: Vec<Coverage>,
-    pub index_ranges: Vec<RangeInclusive<usize>>,
+    // pub index_ranges: Vec<RangeInclusive<usize>>,
     pub count_instrumented: usize,
 }
 
@@ -50,63 +50,16 @@ impl CodeCoverageSensor {
         coverage.drain_filter(|coverage| coverage.single_counters.len() + coverage.expression_counters.len() <= 1);
         Coverage::filter_function_by_files(&mut coverage, exclude, keep);
 
-        let mut index_ranges = Vec::new();
-
-        let mut index = 0;
+        let mut count_instrumented = 0;
         for coverage in coverage.iter() {
-            let next_index = index + coverage.single_counters.len() + coverage.expression_counters.len();
-            index_ranges.push(index..=next_index - 1);
-            index = next_index;
+            count_instrumented += coverage.single_counters.len() + coverage.expression_counters.len();
         }
-        assert_eq!(coverage.len(), index_ranges.len());
-        let count_instrumented = {
-            let mut sum = 0;
-            for r in &index_ranges {
-                sum += r.end() - r.start() + 1;
-            }
-            sum
-        };
         CodeCoverageSensor {
             coverage,
-            index_ranges,
             count_instrumented,
         }
     }
-    #[no_coverage]
-    pub(crate) unsafe fn iterate_over_collected_features<F>(&mut self, coverage_index: usize, mut handle: F)
-    where
-        F: FnMut(usize, u64),
-    {
-        let CodeCoverageSensor {
-            coverage, index_ranges, ..
-        } = self;
-        let coverage = coverage.get_unchecked_mut(coverage_index);
-        let mut index = *index_ranges.get_unchecked(coverage_index).start();
 
-        let single = *coverage.single_counters.get_unchecked(0);
-        if *single == 0 {
-            return;
-        } else {
-            handle(index, *single);
-        }
-        index += 1;
-        for &single in coverage.single_counters.iter().skip(1) {
-            if *single != 0 {
-                handle(index, *single);
-            }
-            index += 1;
-        }
-        if coverage.computed_expressions.is_empty() {
-            coverage.compute_expressions();
-        }
-
-        for &expr in &coverage.computed_expressions {
-            if expr != 0 {
-                handle(index, expr);
-            }
-            index += 1;
-        }
-    }
     #[no_coverage]
     unsafe fn clear(&mut self) {
         for coverage in &mut self.coverage {
@@ -114,11 +67,12 @@ impl CodeCoverageSensor {
             for c in slice.iter_mut() {
                 *c = 0;
             }
-            coverage.computed_expressions.clear();
         }
     }
 }
 impl Sensor for CodeCoverageSensor {
+    type ObservationHandler<'a> = &'a mut dyn FnMut((usize, u64));
+
     #[no_coverage]
     fn start_recording(&mut self) {
         unsafe {
@@ -127,4 +81,36 @@ impl Sensor for CodeCoverageSensor {
     }
     #[no_coverage]
     fn stop_recording(&mut self) {}
+
+    #[no_coverage]
+    fn iterate_over_observations(&mut self, handler: Self::ObservationHandler<'_>) {
+        unsafe {
+            let CodeCoverageSensor { coverage, .. } = self;
+            let mut index = 0;
+            for coverage in coverage {
+                let single = *coverage.single_counters.get_unchecked(0);
+                if *single == 0 {
+                    // that happens kind of a lot? not sure it is worth simplifying
+                    index += coverage.single_counters.len() + coverage.expression_counters.len();
+                    continue;
+                } else {
+                    handler((index, *single));
+                }
+                index += 1;
+                for &single in coverage.single_counters.iter().skip(1) {
+                    if *single != 0 {
+                        handler((index, *single));
+                    }
+                    index += 1;
+                }
+                for expr in &coverage.expression_counters {
+                    let computed = expr.compute();
+                    if computed != 0 {
+                        handler((index, computed));
+                    }
+                    index += 1;
+                }
+            }
+        }
+    }
 }

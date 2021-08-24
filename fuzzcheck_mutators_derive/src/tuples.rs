@@ -299,11 +299,13 @@ fn declare_tuple_mutator_helper_types(tb: &mut TokenBuilder, nbr_elements: usize
             "cplx : f64,
             vose_alias : " cm.VoseAlias "
         }
+        #[derive(" cm.Clone ", " cm.Debug ")]
         pub enum InnerMutationStep {"
             join_ts!(0..nbr_elements, i,
                 Ti(i)
             , separator: ",")
         "}
+        #[derive(" cm.Clone ", " cm.Debug ")]
         pub struct MutationStep < " tuple_type_params " > {"
             join_ts!(0..nbr_elements, i,
                 ti(i) ":" Ti(i) ","
@@ -311,6 +313,7 @@ fn declare_tuple_mutator_helper_types(tb: &mut TokenBuilder, nbr_elements: usize
             "inner : " cm.Vec " < InnerMutationStep > ,
             vose_alias : Option<" cm.VoseAlias ">
         }
+        #[derive(" cm.Clone ", " cm.Debug ")]
         pub struct ArbitraryStep < " tuple_type_params " > {"
             join_ts!(0..nbr_elements, i,
                 ti(i) ":" Ti(i)

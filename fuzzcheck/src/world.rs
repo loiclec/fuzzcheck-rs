@@ -46,44 +46,44 @@ impl<S: Serializer, CorpusKey: Hash + Eq> World<S, CorpusKey> {
 
     #[no_coverage]
     pub(crate) fn update_corpus(&mut self, delta: CorpusDelta<S::Value, CorpusKey>) -> Result<()> {
-        let CorpusDelta { add, remove } = delta;
+        let CorpusDelta { path, add, remove } = delta;
         if let Some((content, key)) = add {
             let (hash, input) = self.hash_and_string_of_input(&content);
             let old = self.corpus.insert(key, hash.clone());
             assert!(old.is_none());
-            self.add_to_output_corpus(hash.clone(), input.clone())?;
+            self.add_to_output_corpus(&path, hash.clone(), input.clone())?;
         }
         for to_remove_key in remove {
             let hash = self.corpus.remove(&to_remove_key).unwrap();
-            self.remove_from_output_corpus(hash.clone())?;
+            self.remove_from_output_corpus(&path, hash.clone())?;
         }
 
         Ok(())
     }
 
     #[no_coverage]
-    pub fn add_to_output_corpus(&self, name: String, content: Vec<u8>) -> Result<()> {
+    pub fn add_to_output_corpus(&self, path: &Path, name: String, content: Vec<u8>) -> Result<()> {
         if self.settings.corpus_out.is_none() {
             return Ok(());
         }
-        let corpus = self.settings.corpus_out.as_ref().unwrap().as_path();
+        let folder = self.settings.corpus_out.as_ref().unwrap().join(path);
 
-        if !corpus.is_dir() {
-            std::fs::create_dir_all(corpus)?;
+        if !folder.is_dir() {
+            std::fs::create_dir_all(&folder)?;
         }
 
-        let path = corpus.join(name).with_extension(self.serializer.extension());
+        let path = folder.join(name).with_extension(self.serializer.extension());
         fs::write(path, content)?;
 
         Ok(())
     }
 
     #[no_coverage]
-    pub fn remove_from_output_corpus(&self, name: String) -> Result<()> {
+    pub fn remove_from_output_corpus(&self, path: &Path, name: String) -> Result<()> {
         if self.settings.corpus_out.is_none() {
             return Ok(());
         }
-        let corpus = self.settings.corpus_out.as_ref().unwrap().as_path();
+        let corpus = self.settings.corpus_out.as_ref().unwrap().as_path().join(path);
 
         let path = corpus.join(name).with_extension(self.serializer.extension());
         let _ = fs::remove_file(path);
@@ -95,7 +95,7 @@ impl<S: Serializer, CorpusKey: Hash + Eq> World<S, CorpusKey> {
     pub(crate) fn report_event<PoolStats: Display>(
         &self,
         event: FuzzerEvent,
-        stats: Option<(&FuzzerStats, &PoolStats)>,
+        stats: Option<(&FuzzerStats, PoolStats)>,
     ) {
         // println uses a lock, which may mess up the signal handling
         match event {

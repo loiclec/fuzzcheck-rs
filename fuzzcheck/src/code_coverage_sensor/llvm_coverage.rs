@@ -739,17 +739,17 @@ pub struct Coverage {
     pub counters_len: usize,
     pub single_counters: Vec<*mut u64>,
     pub expression_counters: Vec<OptimisedExpandedExpression>,
-    pub(crate) computed_expressions: Vec<u64>,
+    // pub(crate) computed_expressions: Vec<u64>,
 }
 
-impl Coverage {
-    #[no_coverage]
-    pub(crate) fn compute_expressions(&mut self) {
-        for expr_counter in &self.expression_counters {
-            self.computed_expressions.push(expr_counter.compute());
-        }
-    }
-}
+// impl Coverage {
+//     #[no_coverage]
+//     pub(crate) fn compute_expressions(&mut self) {
+//         for expr_counter in &self.expression_counters {
+//             self.computed_expressions.push(expr_counter.compute());
+//         }
+//     }
+// }
 
 impl Coverage {
     #[no_coverage]
@@ -787,7 +787,7 @@ impl Coverage {
                         );
                     }
                 }
-                let nbr_expressions = expression_counters.len();
+                // let nbr_expressions = expression_counters.len();
                 single_counters.sort();
                 Ok(Coverage {
                     function_record: f_r.clone(),
@@ -795,7 +795,7 @@ impl Coverage {
                     counters_len: slice.len(),
                     single_counters,
                     expression_counters,
-                    computed_expressions: Vec::with_capacity(nbr_expressions),
+                    // computed_expressions: Vec::with_capacity(nbr_expressions),
                 })
             })
             .collect()

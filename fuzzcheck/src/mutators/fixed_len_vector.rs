@@ -47,6 +47,7 @@ where
     }
 }
 
+#[derive(Clone)]
 pub struct MutationStep<S> {
     inner: Vec<S>,
     element_step: usize,

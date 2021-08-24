@@ -1,5 +1,5 @@
 use fuzzcheck_common::FuzzerEvent;
-use std::{fmt::Display, hash::Hash};
+use std::{fmt::Display, hash::Hash, path::PathBuf};
 
 use crate::mutators::either::Either;
 
@@ -12,24 +12,18 @@ impl Display for EmptyStats {
     }
 }
 
+#[derive(Debug)]
 pub struct CorpusDelta<T, Idx> {
+    pub path: PathBuf,
     pub add: Option<(T, Idx)>,
     pub remove: Vec<Idx>,
-}
-impl<T, Idx> Default for CorpusDelta<T, Idx> {
-    #[no_coverage]
-    fn default() -> Self {
-        Self {
-            add: Default::default(),
-            remove: Default::default(),
-        }
-    }
 }
 
 impl<T, Idx> CorpusDelta<T, Idx> {
     #[no_coverage]
     pub fn convert<U>(self, convert_f: impl FnOnce(T) -> U) -> CorpusDelta<U, Idx> {
         CorpusDelta {
+            path: self.path,
             add: self.add.map(
                 #[no_coverage]
                 |(x, idx)| (convert_f(x), idx),
@@ -55,20 +49,25 @@ impl<T, Idx> CorpusDelta<T, Idx> {
     }
 }
 
-pub trait TestCase {
+pub trait TestCase: Clone {
     fn generation(&self) -> usize;
 }
 
 pub trait Sensor {
+    type ObservationHandler<'a>;
     fn start_recording(&mut self);
     fn stop_recording(&mut self);
+
+    fn iterate_over_observations(&mut self, handler: Self::ObservationHandler<'_>);
 }
 
 pub trait Pool {
     type TestCase: TestCase;
     type Index: Hash + Eq + Clone + Copy;
+    type Stats: Default + Display + Clone;
 
     fn len(&self) -> usize;
+    fn stats(&self) -> Self::Stats;
 
     fn get_random_index(&mut self) -> Option<Self::Index>;
     fn get(&self, idx: Self::Index) -> &Self::TestCase;
@@ -78,37 +77,20 @@ pub trait Pool {
     fn mark_test_case_as_dead_end(&mut self, idx: Self::Index);
 }
 
-pub trait SensorAndPool {
-    type Sensor: Sensor;
-    type Pool: Pool<TestCase = Self::TestCase>;
-
-    type TestCase: TestCase;
-    type Event;
-    type Stats: Default + Display + Clone;
-
+pub trait CompatibleWithSensor<S: Sensor>: Pool {
     fn process(
-        sensor: &mut Self::Sensor,
-        pool: &mut Self::Pool,
-        stats: &mut Self::Stats,
-        get_input_ref: Either<<Self::Pool as Pool>::Index, &Self::TestCase>,
+        &mut self,
+        sensor: &mut S,
+        get_input_ref: Either<Self::Index, &Self::TestCase>,
         clone_input: &impl Fn(&Self::TestCase) -> Self::TestCase,
         complexity: f64,
-        event_handler: impl FnMut(
-            CorpusDelta<&Self::TestCase, <Self::Pool as Pool>::Index>,
-            &Self::Stats,
-        ) -> Result<(), std::io::Error>,
+        event_handler: impl FnMut(CorpusDelta<&Self::TestCase, Self::Index>, Self::Stats) -> Result<(), std::io::Error>,
     ) -> Result<(), std::io::Error>;
 
     fn minify(
-        sensor: &mut Self::Sensor,
-        pool: &mut Self::Pool,
-        stats: &mut Self::Stats,
+        &mut self,
+        sensor: &mut S,
         target_len: usize,
-        event_handler: impl FnMut(CorpusDelta<&Self::TestCase, <Self::Pool as Pool>::Index>, &Self::Stats),
-    );
-
-    fn get_corpus_delta_from_event<'a>(
-        pool: &'a Self::Pool,
-        event: Self::Event,
-    ) -> CorpusDelta<&'a Self::TestCase, <Self::Pool as Pool>::Index>;
+        event_handler: impl FnMut(CorpusDelta<&Self::TestCase, Self::Index>, Self::Stats) -> Result<(), std::io::Error>,
+    ) -> Result<(), std::io::Error>;
 }

@@ -61,6 +61,7 @@ type InnerASTMutator = Either<
 pub struct ASTMutator {
     pub inner: Box<InnerASTMutator>,
 }
+#[derive(Clone)]
 pub struct ASTMutatorCache {
     pub inner: Box<<InnerASTMutator as Mutator<AST>>::Cache>,
 }
@@ -70,6 +71,7 @@ impl ASTMutatorCache {
         Self { inner: Box::new(inner) }
     }
 }
+#[derive(Clone)]
 pub struct ASTMutatorMutationStep {
     pub inner: Box<<InnerASTMutator as Mutator<AST>>::MutationStep>,
 }
@@ -79,6 +81,7 @@ impl ASTMutatorMutationStep {
         Self { inner: Box::new(inner) }
     }
 }
+#[derive(Clone)]
 pub struct ASTMutatorArbitraryStep {
     pub inner: Box<<InnerASTMutator as Mutator<AST>>::ArbitraryStep>,
 }

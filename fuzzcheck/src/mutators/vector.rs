@@ -64,6 +64,7 @@ where
     }
 }
 
+#[derive(Clone)]
 pub struct MutationStep<S> {
     inner: Vec<S>,
     alias: Option<VoseAlias>,

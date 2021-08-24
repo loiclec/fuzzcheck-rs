@@ -21,9 +21,9 @@ where
     TupleKind: RefTypes,
     T: TupleStructure<TupleKind>,
 {
-    type Cache;
-    type MutationStep;
-    type ArbitraryStep;
+    type Cache: Clone;
+    type MutationStep: Clone;
+    type ArbitraryStep: Clone;
     type UnmutateToken;
 
     fn default_arbitrary_step(&self) -> Self::ArbitraryStep;

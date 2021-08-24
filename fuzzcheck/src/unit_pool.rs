@@ -1,4 +1,7 @@
-use crate::{sensor_and_pool::Pool, FuzzedInput, Mutator};
+use crate::{
+    sensor_and_pool::{EmptyStats, Pool},
+    FuzzedInput, Mutator,
+};
 
 pub struct UnitPool<T, M>
 where
@@ -26,6 +29,12 @@ where
 {
     type TestCase = FuzzedInput<T, M>;
     type Index = ();
+    type Stats = EmptyStats;
+
+    fn stats(&self) -> Self::Stats {
+        EmptyStats
+    }
+
     #[no_coverage]
     fn len(&self) -> usize {
         1

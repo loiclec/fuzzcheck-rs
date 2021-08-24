@@ -1,89 +1,9 @@
-use std::fmt::Display;
-use std::marker::PhantomData;
-use std::ops::Range;
-
-use crate::code_coverage_sensor::CodeCoverageSensor;
-use crate::data_structures::SlabKey;
+use crate::and_sensor_and_pool::{AndPool, AndStats};
 use crate::mutators::either::Either;
-use crate::sensor_and_pool::{CorpusDelta, Pool, SensorAndPool, TestCase};
-use crate::unique_coverage_pool::{AnalyzedFeature, AnalyzedFeatureRef, UniqueCoveragePool, UniqueCoveragePoolEvent};
-use crate::Feature;
-
-pub struct CodeCoverageSensorAndPool<T> {
-    _phantom: PhantomData<T>,
-}
-
-impl<T: TestCase> SensorAndPool for CodeCoverageSensorAndPool<T> {
-    type Sensor = CodeCoverageSensor;
-    type Pool = UniqueCoveragePool<T>;
-    type TestCase = T;
-    type Event = UniqueCoveragePoolEvent<T>;
-    type Stats = FuzzerStats;
-
-    #[no_coverage]
-    fn process(
-        sensor: &mut Self::Sensor,
-        pool: &mut Self::Pool,
-        stats: &mut Self::Stats,
-        get_input_ref: Either<<Self::Pool as Pool>::Index, &Self::TestCase>,
-        clone_input: &impl Fn(&Self::TestCase) -> Self::TestCase,
-        complexity: f64,
-        mut event_handler: impl FnMut(
-            CorpusDelta<&Self::TestCase, <Self::Pool as Pool>::Index>,
-            &Self::Stats,
-        ) -> Result<(), std::io::Error>,
-    ) -> Result<(), std::io::Error> {
-        if let Some(result) = Self::analyze(sensor, pool, complexity) {
-            let input_cloned = {
-                let input_ref = match get_input_ref {
-                    Either::Left(idx) => pool.get(idx),
-                    Either::Right(input_ref) => input_ref,
-                };
-                clone_input(input_ref)
-            };
-            if let (Some(event), _) = pool.add(input_cloned, complexity, result, &sensor.index_ranges) {
-                Self::update_stats(stats, pool, sensor);
-                let corpus_delta = Self::get_corpus_delta_from_event(pool, event);
-                event_handler(corpus_delta, stats)?;
-            }
-        }
-        Ok(())
-    }
-    #[no_coverage]
-    fn minify(
-        sensor: &mut Self::Sensor,
-        pool: &mut Self::Pool,
-        stats: &mut Self::Stats,
-        target_len: usize,
-        mut event_handler: impl FnMut(CorpusDelta<&Self::TestCase, <Self::Pool as Pool>::Index>, &Self::Stats),
-    ) {
-        while pool.len() > target_len {
-            let event = pool.remove_lowest_scoring_input();
-            if let Some(event) = event {
-                Self::update_stats(stats, pool, sensor);
-                let corpus_delta = Self::get_corpus_delta_from_event(pool, event);
-                event_handler(corpus_delta, stats);
-            } else {
-                break;
-            }
-        }
-    }
-    #[no_coverage]
-    fn get_corpus_delta_from_event<'a>(
-        pool: &'a Self::Pool,
-        event: Self::Event,
-    ) -> CorpusDelta<&'a Self::TestCase, <Self::Pool as Pool>::Index> {
-        let UniqueCoveragePoolEvent {
-            added_key,
-            removed_keys,
-        } = event;
-
-        CorpusDelta {
-            add: added_key.map(|key| (pool.get(key), key)),
-            remove: removed_keys,
-        }
-    }
-}
+use crate::sensor_and_pool::{CompatibleWithSensor, CorpusDelta, Pool, Sensor, TestCase};
+use crate::unique_coverage_pool::FeatureIdx;
+use crate::unique_coverage_pool::{AnalyzedFeatureRef, UniqueCoveragePool};
+use std::fmt::Display;
 
 #[derive(Clone, Copy, Default)]
 pub struct FuzzerStats {
@@ -106,109 +26,215 @@ impl Display for FuzzerStats {
     }
 }
 
-pub(crate) struct AnalysisResult<T> {
-    pub existing_features: Vec<SlabKey<AnalyzedFeature<T>>>,
-    pub new_features: Vec<Feature>,
+#[derive(Default)]
+pub struct UniqueCoveragePoolObservationState {
+    is_interesting: bool,
+    analysis_result: AnalysisResult,
+}
+#[derive(Default)]
+pub struct AnalysisResult {
+    pub(crate) existing_features: Vec<FeatureIdx>,
+    pub(crate) new_features: Vec<FeatureIdx>,
 }
 
-impl<T: TestCase> CodeCoverageSensorAndPool<T> {
+// could this be the CompatibleWithSensor trait?
+pub trait HandleCoveragePointFromCodeCoverageSensor: Pool {
+    type Observation;
+    type ObservationState: Default;
+
+    fn observe(&mut self, observation: &Self::Observation, input_complexity: f64, state: &mut Self::ObservationState);
+    fn finish_observing(&mut self, state: &mut Self::ObservationState);
+    fn is_interesting(&self, observation_state: &Self::ObservationState) -> bool;
+    fn add(
+        &mut self,
+        data: Self::TestCase,
+        complexity: f64,
+        observation_state: Self::ObservationState,
+        event_handler: impl FnMut(CorpusDelta<&Self::TestCase, Self::Index>, Self::Stats) -> Result<(), std::io::Error>,
+    ) -> Result<(), std::io::Error>;
+}
+
+impl<T: TestCase> HandleCoveragePointFromCodeCoverageSensor for UniqueCoveragePool<T> {
+    type Observation = (usize, u64);
+    type ObservationState = UniqueCoveragePoolObservationState;
+
     #[no_coverage]
-    fn update_stats(stats: &mut FuzzerStats, pool: &mut UniqueCoveragePool<T>, sensor: &mut CodeCoverageSensor) {
-        stats.pool_size = pool.len();
-        stats.score = pool.score();
-        stats.avg_cplx = pool.average_complexity as f64;
-        stats.percent_coverage = pool.feature_groups.len() as f64 / sensor.count_instrumented as f64;
-    }
-    #[no_coverage]
-    fn analyze(
-        sensor: &mut CodeCoverageSensor,
-        pool: &mut UniqueCoveragePool<T>,
-        cur_input_cplx: f64,
-    ) -> Option<AnalysisResult<T>> {
-        let mut best_input_for_a_feature = false;
-
-        let pool_slab_features = &pool.slab_features;
-
-        unsafe {
-            for i in 0..sensor.coverage.len() {
-                let Range { start, end } = pool.features_range_for_coverage_index.get_unchecked(i).clone();
-                let features = &pool.features;
-                let mut idx = start;
-                sensor.iterate_over_collected_features(
-                    i,
-                    #[no_coverage]
-                    |index, counter| {
-                        let collected_feature = Feature::new(index, counter);
-                        loop {
-                            if idx < end {
-                                let AnalyzedFeatureRef {
-                                    feature: pool_feature,
-                                    key,
-                                } = *features.get_unchecked(idx);
-                                if pool_feature < collected_feature {
-                                    idx += 1;
-                                    continue;
-                                } else if pool_feature == collected_feature {
-                                    if cur_input_cplx < pool_slab_features[key].least_complexity {
-                                        best_input_for_a_feature = true;
-                                    }
-                                    break;
-                                } else {
-                                    best_input_for_a_feature = true;
-                                    break;
-                                }
-                            } else {
-                                best_input_for_a_feature = true;
-                                break;
-                            }
-                        }
-                    },
-                );
-            }
-        }
-        if best_input_for_a_feature {
-            let mut existing_features = Vec::new();
-            let mut new_features = Vec::new();
-
-            unsafe {
-                for i in 0..sensor.coverage.len() {
-                    let Range { start, end } = pool.features_range_for_coverage_index.get_unchecked(i);
-                    let features = &pool.features;
-                    let mut idx = *start;
-                    let end = *end;
-                    sensor.iterate_over_collected_features(
-                        i,
-                        #[no_coverage]
-                        |index, counter| {
-                            let feature = Feature::new(index, counter);
-                            loop {
-                                if idx < end {
-                                    let f_iter = features.get_unchecked(idx);
-                                    if f_iter.feature < feature {
-                                        idx += 1;
-                                        continue;
-                                    } else if f_iter.feature == feature {
-                                        existing_features.push(f_iter.key);
-                                        break;
-                                    } else {
-                                        new_features.push(feature);
-                                        break;
-                                    }
-                                } else {
-                                    new_features.push(feature);
-                                    break;
-                                }
-                            }
-                        },
-                    );
-                }
-                Some(AnalysisResult {
-                    existing_features,
-                    new_features,
-                })
+    fn observe(
+        &mut self,
+        &(index, counter): &Self::Observation,
+        input_complexity: f64,
+        state: &mut Self::ObservationState,
+    ) {
+        let feature_index = FeatureIdx::new(index, counter);
+        let AnalyzedFeatureRef { least_complexity } = unsafe { self.features.get_unchecked(feature_index.0) };
+        if let Some(prev_least_complexity) = least_complexity {
+            self.existing_features.push(feature_index);
+            if input_complexity < *prev_least_complexity {
+                state.is_interesting = true;
             }
         } else {
-            None
+            self.new_features.push(feature_index);
+            state.is_interesting = true;
         }
+    }
+    #[no_coverage]
+    fn finish_observing(&mut self, state: &mut Self::ObservationState) {
+        if state.is_interesting {
+            state.analysis_result.new_features = self.new_features.clone();
+            state.analysis_result.existing_features = self.existing_features.clone();
+        }
+        self.new_features.clear();
+        self.existing_features.clear();
+    }
+    #[no_coverage]
+    fn is_interesting(&self, observation_state: &Self::ObservationState) -> bool {
+        observation_state.is_interesting
+    }
+    #[no_coverage]
+    fn add(
+        &mut self,
+        data: Self::TestCase,
+        complexity: f64,
+        observation_state: Self::ObservationState,
+        mut event_handler: impl FnMut(CorpusDelta<&Self::TestCase, Self::Index>, Self::Stats) -> Result<(), std::io::Error>,
+    ) -> Result<(), std::io::Error> {
+        let result = observation_state.analysis_result;
+        let delta = self.add(data, complexity, result);
+        if let Some((delta, stats)) = delta {
+            event_handler(delta, stats)?;
+        }
+        Ok(())
+    }
+}
+
+impl<P1, P2> HandleCoveragePointFromCodeCoverageSensor for AndPool<P1, P2>
+where
+    P1: HandleCoveragePointFromCodeCoverageSensor,
+    P2: HandleCoveragePointFromCodeCoverageSensor<Observation = P1::Observation, TestCase = P1::TestCase>,
+{
+    type Observation = P1::Observation;
+    type ObservationState = (P1::ObservationState, P2::ObservationState);
+    #[no_coverage]
+    fn observe(&mut self, observation: &Self::Observation, input_complexity: f64, state: &mut Self::ObservationState) {
+        self.p1.observe(observation, input_complexity, &mut state.0);
+        self.p2.observe(observation, input_complexity, &mut state.1);
+    }
+    #[no_coverage]
+    fn is_interesting(&self, observation_state: &Self::ObservationState) -> bool {
+        self.p1.is_interesting(&observation_state.0) || self.p2.is_interesting(&observation_state.1)
+    }
+    #[no_coverage]
+    fn finish_observing(&mut self, state: &mut Self::ObservationState) {
+        self.p1.finish_observing(&mut state.0);
+        self.p2.finish_observing(&mut state.1);
+    }
+    #[no_coverage]
+    fn add(
+        &mut self,
+        data: Self::TestCase,
+        complexity: f64,
+        observation_state: Self::ObservationState,
+        mut event_handler: impl FnMut(CorpusDelta<&Self::TestCase, Self::Index>, Self::Stats) -> Result<(), std::io::Error>,
+    ) -> Result<(), std::io::Error> {
+        let AndStats { stats1, stats2 } = self.stats();
+        let (o1, o2) = observation_state;
+        if self.p1.is_interesting(&o1) {
+            self.p1.add(
+                data.clone(),
+                complexity,
+                o1,
+                #[no_coverage]
+                |delta, stats1| {
+                    let mut delta = Self::lift_corpus_delta_1(delta);
+                    delta.path.push("a");
+                    event_handler(
+                        delta,
+                        AndStats {
+                            stats1,
+                            stats2: stats2.clone(),
+                        },
+                    )?;
+                    Ok(())
+                },
+            )?;
+        }
+        if self.p2.is_interesting(&o2) {
+            self.p2.add(
+                data,
+                complexity,
+                o2,
+                #[no_coverage]
+                |delta, stats2| {
+                    let mut delta = Self::lift_corpus_delta_2(delta);
+                    delta.path.push("b");
+                    event_handler(
+                        delta,
+                        AndStats {
+                            stats1: stats1.clone(),
+                            stats2,
+                        },
+                    )?;
+                    Ok(())
+                },
+            )?;
+        }
+        Ok(())
+    }
+}
+
+impl<S, P> CompatibleWithSensor<S> for P
+where
+    S: for<'a> Sensor<ObservationHandler<'a> = &'a mut dyn FnMut(P::Observation)>,
+    P: HandleCoveragePointFromCodeCoverageSensor,
+{
+    #[no_coverage]
+    fn process(
+        &mut self,
+        sensor: &mut S,
+        get_input_ref: Either<Self::Index, &Self::TestCase>,
+        clone_input: &impl Fn(&Self::TestCase) -> Self::TestCase,
+        complexity: f64,
+        mut event_handler: impl FnMut(CorpusDelta<&Self::TestCase, Self::Index>, Self::Stats) -> Result<(), std::io::Error>,
+    ) -> Result<(), std::io::Error> {
+        let mut observation_state = <Self as HandleCoveragePointFromCodeCoverageSensor>::ObservationState::default();
+        sensor.iterate_over_observations(
+            #[no_coverage]
+            &mut |o| {
+                self.observe(&o, complexity, &mut observation_state);
+            },
+        );
+        self.finish_observing(&mut observation_state);
+        if self.is_interesting(&observation_state) {
+            let input_cloned = {
+                let input_ref = match get_input_ref {
+                    Either::Left(idx) => self.get(idx),
+                    Either::Right(input_ref) => input_ref,
+                };
+                clone_input(input_ref)
+            };
+            self.add(
+                input_cloned,
+                complexity,
+                observation_state,
+                #[no_coverage]
+                |delta, stats| {
+                    event_handler(delta, stats)?;
+                    Ok(())
+                },
+            )?;
+        }
+
+        Ok(())
+    }
+
+    // TODO: minify shouldn't depend on the sensor, should only be part of the pool
+    #[no_coverage]
+    fn minify(
+        &mut self,
+        sensor: &mut S,
+        target_len: usize,
+        event_handler: impl FnMut(CorpusDelta<&Self::TestCase, Self::Index>, Self::Stats) -> Result<(), std::io::Error>,
+    ) -> Result<(), std::io::Error> {
+        todo!()
     }
 }

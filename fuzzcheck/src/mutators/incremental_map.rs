@@ -31,6 +31,22 @@ where
     map: Map,
     _phantom: PhantomData<(M, To, Map)>,
 }
+impl<From, To, M, Map> Clone for Cache<From, To, M, Map>
+where
+    From: Clone,
+    To: Clone + std::convert::From<From>,
+    M: Mutator<From>,
+    Map: IncrementalMapping<From, To, M> + for<'a> std::convert::From<&'a From> + Clone,
+{
+    fn clone(&self) -> Self {
+        Self {
+            from_value: self.from_value.clone(),
+            from_cache: self.from_cache.clone(),
+            map: self.map.clone(),
+            _phantom: self._phantom.clone(),
+        }
+    }
+}
 
 pub struct IncrementalMapMutator<From, To, M, Map, Parse>
 where
@@ -67,7 +83,7 @@ where
     From: Clone,
     To: Clone + std::convert::From<From>,
     M: Mutator<From>,
-    Map: IncrementalMapping<From, To, M> + for<'a> std::convert::From<&'a From>,
+    Map: IncrementalMapping<From, To, M> + for<'a> std::convert::From<&'a From> + Clone,
     Parse: Fn(&To) -> Option<From>,
 {
     type Cache = Cache<From, To, M, Map>;

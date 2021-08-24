@@ -1,8 +1,8 @@
-use std::{fmt::Display, marker::PhantomData};
+use std::fmt::Display;
 
 use crate::{
     mutators::either::Either,
-    sensor_and_pool::{CorpusDelta, Pool, Sensor, SensorAndPool},
+    sensor_and_pool::{CompatibleWithSensor, CorpusDelta, Pool, Sensor},
 };
 
 pub struct AndPool<P1, P2>
@@ -24,9 +24,17 @@ where
 {
     type TestCase = P1::TestCase;
     type Index = Either<P1::Index, P2::Index>;
+    type Stats = AndStats<P1::Stats, P2::Stats>;
+
     #[no_coverage]
     fn len(&self) -> usize {
         self.p1.len() + self.p2.len()
+    }
+    fn stats(&self) -> Self::Stats {
+        AndStats {
+            stats1: self.p1.stats(),
+            stats2: self.p2.stats(),
+        }
     }
     #[no_coverage]
     fn get_random_index(&mut self) -> Option<Self::Index> {
@@ -87,6 +95,8 @@ where
     S1: Sensor,
     S2: Sensor,
 {
+    type ObservationHandler<'a> = (S1::ObservationHandler<'a>, S2::ObservationHandler<'a>);
+
     #[no_coverage]
     fn start_recording(&mut self) {
         self.s1.start_recording();
@@ -96,6 +106,11 @@ where
     fn stop_recording(&mut self) {
         self.s1.stop_recording();
         self.s2.stop_recording();
+    }
+    #[no_coverage]
+    fn iterate_over_observations(&mut self, handler: Self::ObservationHandler<'_>) {
+        self.s1.iterate_over_observations(handler.0);
+        self.s2.iterate_over_observations(handler.1);
     }
 }
 
@@ -111,40 +126,34 @@ impl<S1: Display, S2: Display> Display for AndStats<S1, S2> {
     }
 }
 
-pub struct AndSensorAndPool<SP1, SP2>
+// pub struct AndSensorAndPool<SP1, SP2>
+// where
+//     SP1: SensorAndPool,
+//     SP2: SensorAndPool<TestCase = SP1::TestCase>,
+// {
+//     _phantom: PhantomData<(SP1, SP2)>,
+// }
+impl<S1, S2, P1, P2> CompatibleWithSensor<AndSensor<S1, S2>> for AndPool<P1, P2>
 where
-    SP1: SensorAndPool,
-    SP2: SensorAndPool<TestCase = SP1::TestCase>,
+    S1: Sensor,
+    S2: Sensor,
+    P1: Pool,
+    P2: Pool<TestCase = P1::TestCase>,
+    P1: CompatibleWithSensor<S1>,
+    P2: CompatibleWithSensor<S2>,
 {
-    _phantom: PhantomData<(SP1, SP2)>,
-}
-impl<SP1, SP2> SensorAndPool for AndSensorAndPool<SP1, SP2>
-where
-    SP1: SensorAndPool,
-    SP2: SensorAndPool<TestCase = SP1::TestCase>,
-{
-    type Sensor = AndSensor<SP1::Sensor, SP2::Sensor>;
-    type Pool = AndPool<SP1::Pool, SP2::Pool>;
-    type TestCase = SP1::TestCase;
-    type Event = Either<SP1::Event, SP2::Event>;
-    type Stats = AndStats<SP1::Stats, SP2::Stats>;
-
     #[no_coverage]
     fn process(
-        sensor: &mut Self::Sensor,
-        pool: &mut Self::Pool,
-        stats: &mut Self::Stats,
-        get_input_ref: Either<<Self::Pool as Pool>::Index, &Self::TestCase>,
+        &mut self,
+        sensor: &mut AndSensor<S1, S2>,
+        get_input_ref: Either<Self::Index, &Self::TestCase>,
         clone_input: &impl Fn(&Self::TestCase) -> Self::TestCase,
         complexity: f64,
-        mut event_handler: impl FnMut(
-            CorpusDelta<&Self::TestCase, <Self::Pool as Pool>::Index>,
-            &Self::Stats,
-        ) -> Result<(), std::io::Error>,
+        mut event_handler: impl FnMut(CorpusDelta<&Self::TestCase, Self::Index>, Self::Stats) -> Result<(), std::io::Error>,
     ) -> Result<(), std::io::Error> {
         {
-            let AndPool { p1, p2, .. } = pool;
-            let AndStats { stats2, .. } = stats;
+            let AndStats { stats2, .. } = self.stats();
+            let AndPool { p1, p2, .. } = self;
 
             let get_input_1 = match get_input_ref {
                 Either::Left(Either::Right(idx)) => Either::Right(p2.get(idx)),
@@ -152,10 +161,8 @@ where
                 Either::Right(input_ref) => Either::Right(input_ref),
             };
 
-            SP1::process(
+            p1.process(
                 &mut sensor.s1,
-                p1,
-                &mut stats.stats1,
                 get_input_1,
                 clone_input,
                 complexity,
@@ -163,8 +170,8 @@ where
                 |corpus_delta, stats1| {
                     event_handler(
                         Self::lift_corpus_delta_1(corpus_delta),
-                        &AndStats {
-                            stats1: stats1.clone(),
+                        AndStats {
+                            stats1,
                             stats2: stats2.clone(),
                         },
                     )
@@ -172,8 +179,8 @@ where
             )?;
         }
         {
-            let AndPool { p1, p2, .. } = pool;
-            let AndStats { stats1, .. } = stats;
+            let AndStats { stats1, .. } = self.stats();
+            let AndPool { p1, p2, .. } = self;
 
             let get_input_2 = match get_input_ref {
                 Either::Left(Either::Left(idx)) => Either::Right(p1.get(idx)),
@@ -181,10 +188,8 @@ where
                 Either::Right(input_ref) => Either::Right(input_ref),
             };
 
-            SP2::process(
+            p2.process(
                 &mut sensor.s2,
-                p2,
-                &mut stats.stats2,
                 get_input_2,
                 clone_input,
                 complexity,
@@ -192,9 +197,9 @@ where
                 |corpus_delta, stats2| {
                     event_handler(
                         Self::lift_corpus_delta_2(corpus_delta),
-                        &AndStats {
+                        AndStats {
                             stats1: stats1.clone(),
-                            stats2: stats2.clone(),
+                            stats2,
                         },
                     )
                 },
@@ -204,74 +209,59 @@ where
     }
     #[no_coverage]
     fn minify(
-        sensor: &mut Self::Sensor,
-        pool: &mut Self::Pool,
-        stats: &mut Self::Stats,
+        &mut self,
+        sensor: &mut AndSensor<S1, S2>,
         target_len: usize,
-        mut event_handler: impl FnMut(CorpusDelta<&Self::TestCase, <Self::Pool as Pool>::Index>, &Self::Stats),
-    ) {
+        mut event_handler: impl FnMut(CorpusDelta<&Self::TestCase, Self::Index>, Self::Stats) -> Result<(), std::io::Error>,
+    ) -> Result<(), std::io::Error> {
         {
-            let AndStats { stats1, stats2 } = stats;
-
-            SP1::minify(
+            let AndStats { stats2, .. } = self.stats();
+            self.p1.minify(
                 &mut sensor.s1,
-                &mut pool.p1,
-                stats1,
                 target_len,
                 #[no_coverage]
                 |corpus_delta, stats1| {
                     event_handler(
                         Self::lift_corpus_delta_1(corpus_delta),
-                        &AndStats {
-                            stats1: stats1.clone(),
+                        AndStats {
+                            stats1,
                             stats2: stats2.clone(),
                         },
                     )
                 },
-            )
+            )?;
         }
         {
-            let AndStats { stats1, stats2 } = stats;
+            let AndStats { stats1, .. } = self.stats();
 
-            SP2::minify(
+            self.p2.minify(
                 &mut sensor.s2,
-                &mut pool.p2,
-                stats2,
                 target_len,
                 #[no_coverage]
                 |corpus_delta, stats2| {
                     event_handler(
                         Self::lift_corpus_delta_2(corpus_delta),
-                        &AndStats {
+                        AndStats {
                             stats1: stats1.clone(),
-                            stats2: stats2.clone(),
+                            stats2,
                         },
                     )
                 },
             )
         }
     }
-    #[no_coverage]
-    fn get_corpus_delta_from_event(
-        pool: &Self::Pool,
-        event: Self::Event,
-    ) -> CorpusDelta<&Self::TestCase, <Self::Pool as Pool>::Index> {
-        match event {
-            Either::Left(event) => Self::lift_corpus_delta_1(SP1::get_corpus_delta_from_event(&pool.p1, event)),
-            Either::Right(event) => Self::lift_corpus_delta_2(SP2::get_corpus_delta_from_event(&pool.p2, event)),
-        }
-    }
 }
-impl<SP1, SP2> AndSensorAndPool<SP1, SP2>
+impl<P1, P2> AndPool<P1, P2>
 where
-    SP1: SensorAndPool,
-    SP2: SensorAndPool<TestCase = SP1::TestCase>,
+    P1: Pool,
+    P2: Pool<TestCase = P1::TestCase>,
 {
     #[no_coverage]
-    fn lift_corpus_delta_1(
-        corpus_delta: CorpusDelta<&SP1::TestCase, <SP1::Pool as Pool>::Index>,
-    ) -> CorpusDelta<&<Self as SensorAndPool>::TestCase, <<Self as SensorAndPool>::Pool as Pool>::Index> {
+    pub(crate) fn lift_corpus_delta_1(
+        corpus_delta: CorpusDelta<&P1::TestCase, P1::Index>,
+    ) -> CorpusDelta<&<Self as Pool>::TestCase, <Self as Pool>::Index> {
         CorpusDelta {
+            path: corpus_delta.path,
             add: corpus_delta.add.map(
                 #[no_coverage]
                 |(content, idx)| (content, Either::Left(idx)),
@@ -287,10 +277,11 @@ where
         }
     }
     #[no_coverage]
-    fn lift_corpus_delta_2(
-        corpus_delta: CorpusDelta<&SP2::TestCase, <SP2::Pool as Pool>::Index>,
-    ) -> CorpusDelta<&<Self as SensorAndPool>::TestCase, <<Self as SensorAndPool>::Pool as Pool>::Index> {
+    pub(crate) fn lift_corpus_delta_2(
+        corpus_delta: CorpusDelta<&P2::TestCase, P2::Index>,
+    ) -> CorpusDelta<&<Self as Pool>::TestCase, <Self as Pool>::Index> {
         CorpusDelta {
+            path: corpus_delta.path,
             add: corpus_delta.add.map(
                 #[no_coverage]
                 |(content, idx)| (content, Either::Right(idx)),
