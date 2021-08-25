@@ -137,19 +137,11 @@ pub(crate) fn make_mutator_type_and_impl(params: CreateWrapperMutatorParams) -> 
     let NameMutatorArbitraryStep = ident!(NameMutator "ArbitraryStep");
     let NameMutatorUnmutateToken = ident!(NameMutator "UnmutateToken");
 
-    let helper_type = |helper_type: &str| {
+    let helper_type = |helper_type: &str, conformances: bool| {
         let InnerType = ts!(
             "<" InnerMutator " as " cm.fuzzcheck_traits_Mutator "<" type_ident type_generics.removing_bounds_and_eq_type() "> >::" helper_type
         );
 
-        let mut clone_where_clause = NameMutator_where_clause.clone();
-        clone_where_clause.add_clause_items(ts!(InnerType ":" cm.Clone));
-
-        let mut debug_where_clause = NameMutator_where_clause.clone();
-        debug_where_clause.add_clause_items(ts!(InnerType ":" cm.Debug));
-
-        let mut partialeq_where_clause = NameMutator_where_clause.clone();
-        partialeq_where_clause.add_clause_items(ts!(InnerType ":" cm.PartialEq));
         ts!(
             "#[doc(hidden)]"
             visibility "struct" ident!(NameMutator helper_type) NameMutator_generics.removing_eq_type() NameMutator_where_clause "{
@@ -164,26 +156,39 @@ pub(crate) fn make_mutator_type_and_impl(params: CreateWrapperMutatorParams) -> 
                         "
                     }"
                 "}
+            }"
+            if conformances {
+                let clone_where_clause = NameMutator_where_clause.clone();
+                let mut debug_where_clause = NameMutator_where_clause.clone();
+                debug_where_clause.add_clause_items(ts!(InnerType ":" cm.Debug));
+
+                let mut partialeq_where_clause = NameMutator_where_clause.clone();
+                partialeq_where_clause.add_clause_items(ts!(InnerType ":" cm.PartialEq));
+                ts!(
+                    "impl" NameMutator_generics.removing_eq_type() cm.Clone "for" ident!(NameMutator helper_type) NameMutator_generics.removing_bounds_and_eq_type() clone_where_clause "{
+                        #[no_coverage]
+                        fn clone(&self) -> Self {
+                            Self::new(self.inner " if settings.recursive { ".as_ref()" } else { "" } ".clone())
+                        }
+                    }
+                    impl" NameMutator_generics.removing_eq_type() cm.Debug "for" ident!(NameMutator helper_type) NameMutator_generics.removing_bounds_and_eq_type() debug_where_clause "{
+                        #[no_coverage]
+                        fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::result::Result<(), ::std::fmt::Error> {
+                            self.inner.fmt(f)
+                        }
+                    }
+                    impl" NameMutator_generics.removing_eq_type() cm.PartialEq "for" ident!(NameMutator helper_type) NameMutator_generics.removing_bounds_and_eq_type() partialeq_where_clause "{
+                        #[no_coverage]
+                        fn eq(&self, other: &Self) -> bool {
+                            self.inner.eq(&other.inner)
+                        }
+                    }
+                    "
+                )
+            } else {
+                ts!()
             }
-            impl" NameMutator_generics.removing_eq_type() cm.Clone "for" ident!(NameMutator helper_type) NameMutator_generics.removing_bounds_and_eq_type() clone_where_clause "{
-                #[no_coverage]
-                fn clone(&self) -> Self {
-                    Self::new(self.inner " if settings.recursive { ".as_ref()" } else { "" } ".clone())
-                }
-            }
-            impl" NameMutator_generics.removing_eq_type() cm.Debug "for" ident!(NameMutator helper_type) NameMutator_generics.removing_bounds_and_eq_type() debug_where_clause "{
-                #[no_coverage]
-                fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::result::Result<(), ::std::fmt::Error> {
-                    self.inner.fmt(f)
-                }
-            }
-            impl" NameMutator_generics.removing_eq_type() cm.PartialEq "for" ident!(NameMutator helper_type) NameMutator_generics.removing_bounds_and_eq_type() partialeq_where_clause "{
-                #[no_coverage]
-                fn eq(&self, other: &Self) -> bool {
-                    self.inner.eq(&other.inner)
-                }
-            }
-            ")
+        )
     };
 
     let InnerMutator_as_Mutator = ts!("<" InnerMutator "as" cm.fuzzcheck_traits_Mutator "<" type_ident type_generics.removing_bounds_and_eq_type() "> >" );
@@ -193,10 +198,10 @@ pub(crate) fn make_mutator_type_and_impl(params: CreateWrapperMutatorParams) -> 
     "{
         pub mutator:" InnerMutator "
     }"
-    helper_type("Cache")
-    helper_type("MutationStep")
-    helper_type("ArbitraryStep")
-    helper_type("UnmutateToken")
+    helper_type("Cache", true)
+    helper_type("MutationStep", true)
+    helper_type("ArbitraryStep", true)
+    helper_type("UnmutateToken", false)
 
     "impl " NameMutator_generics NameMutator NameMutator_generics.removing_bounds_and_eq_type() NameMutator_where_clause "
     {"
