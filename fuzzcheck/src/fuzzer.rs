@@ -4,7 +4,7 @@
 
 use crate::and_sensor_and_pool::{AndPool, AndSensor};
 use crate::code_coverage_sensor::CodeCoverageSensor;
-// use crate::maximize_pool::CounterMaximizingPool;
+use crate::maximize_pool::CounterMaximizingPool;
 use crate::mutators::either::Either;
 use crate::noop_sensor::NoopSensor;
 use crate::sensor_and_pool::{CompatibleWithSensor, EmptyStats, Pool, Sensor};
@@ -290,8 +290,7 @@ where
         let mut inputs: Vec<FuzzedInput<T, M>> = self
             .state
             .world
-            .read_input_corpus()
-            .unwrap_or_default()
+            .read_input_corpus()?
             .into_iter()
             .filter_map(|value| {
                 if let Some((cache, mutation_step)) = self.state.mutator.validate_value(&value) {
@@ -428,8 +427,22 @@ where
 
     match command {
         FuzzerCommand::Fuzz => {
-            let pool = UniqueCoveragePool::new(sensor.count_instrumented * 64);
-            let mut fuzzer = Fuzzer::<_, _, _, _, _, _, _>::new(
+            let pool1 = CounterMaximizingPool::new("max_hits", sensor.count_instrumented);
+            let pool2 = UniqueCoveragePool::new("uniq_cov", sensor.count_instrumented * 64); // TODO: reduce nbr of possible values from score_from_counter
+            let pool = AndPool {
+                p1: pool1,
+                p2: pool2,
+                percent_choose_first: 10,
+                rng: fastrand::Rng::new(),
+            };
+            let sensor2 = CodeCoverageSensor::new(sensor_exclude_files, sensor_keep_files);
+
+            let sensor = AndSensor {
+                s1: sensor,
+                s2: sensor2,
+            };
+
+            let mut fuzzer = Fuzzer::new(
                 test,
                 mutator,
                 sensor,
@@ -437,33 +450,6 @@ where
                 args.clone(),
                 World::new(serializer, args.clone()),
             );
-
-            // let pool1 = CounterMaximizingPool::new(sensor.count_instrumented);
-            // let pool2 = UniqueCoveragePool::new(sensor.count_instrumented * 64); // TODO: reduce nbr of possible values from score_from_counter
-            // let pool = AndPool {
-            //     p1: pool1,
-            //     p2: pool2,
-            //     percent_choose_first: 10,
-            //     rng: fastrand::Rng::new(),
-            // };
-            // let sensor2 = CodeCoverageSensor::new(sensor_exclude_files, sensor_keep_files);
-
-            // let sensor = AndSensor {
-            //     s1: sensor,
-            //     s2: sensor2,
-            // };
-            // type SP<T, M> = AndSensorAndPool<
-            //     MaximizingCoverageSensorAndPool<FuzzedInput<T, M>>,
-            //     CodeCoverageSensorAndPool<FuzzedInput<T, M>>,
-            // >;
-            // let mut fuzzer = Fuzzer::<_, _, _, _, _, SP<T, M>>::new(
-            //     test,
-            //     mutator,
-            //     sensor,
-            //     pool,
-            //     args.clone(),
-            //     World::new(serializer, args.clone()),
-            // );
 
             unsafe { fuzzer.state.set_up_signal_handler() };
 
@@ -480,7 +466,7 @@ where
                     s2: NoopSensor,
                 };
                 let pool = AndPool {
-                    p1: UniqueCoveragePool::new(sensor.s1.count_instrumented * 64), // TODO
+                    p1: UniqueCoveragePool::new("uniq_cov", sensor.s1.count_instrumented * 64), // TODO
                     p2: UnitPool::new(FuzzedInput::new(value, cache, mutation_step, 0)),
                     percent_choose_first: 97,
                     rng: fastrand::Rng::new(),
@@ -518,7 +504,7 @@ where
             }
         }
         FuzzerCommand::MinifyCorpus { corpus_size } => {
-            let pool = UniqueCoveragePool::new(sensor.count_instrumented * 64);
+            let pool = UniqueCoveragePool::new("uniq_cov", sensor.count_instrumented * 64);
             let mut fuzzer = Fuzzer::<_, _, _, _, _, _, _>::new(
                 test,
                 mutator,

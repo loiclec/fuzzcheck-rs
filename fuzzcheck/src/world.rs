@@ -4,6 +4,7 @@ use crate::{fuzzer::TerminationStatus, traits::Serializer};
 use fuzzcheck_common::arg::Arguments;
 use fuzzcheck_common::arg::FuzzerCommand;
 use fuzzcheck_common::{FuzzerEvent, FuzzerStats};
+use core::panic;
 use std::collections::hash_map::DefaultHasher;
 use std::collections::HashMap;
 use std::fmt::Display;
@@ -182,26 +183,32 @@ This should never happen, and is probably a bug in fuzzcheck. Sorry :("#
             return Result::Ok(vec![]);
         }
         let corpus = self.settings.corpus_in.as_ref().unwrap().as_path();
-
+        let mut values = vec![];
+        self.read_input_corpus_rec(corpus, &mut values)?;
+        Ok(values)
+    }
+    fn read_input_corpus_rec(&self, corpus: &Path, values: &mut Vec<S::Value>) -> Result<()> {
         if !corpus.is_dir() {
             return Result::Err(io::Error::new(
                 io::ErrorKind::Other,
                 "The corpus path is not a directory.",
             ));
         }
-        let mut inputs: Vec<S::Value> = Vec::new();
         for entry in fs::read_dir(corpus)? {
             let entry = entry?;
-            if entry.path().is_dir() {
-                continue;
-            }
-            let data = fs::read(entry.path())?;
-            if let Some(i) = self.serializer.from_data(&data) {
-                inputs.push(i);
-            }
+            let path = entry.path();
+            if path.is_dir() {
+                self.read_input_corpus_rec(&path, values)?;
+            } else {
+                let data = fs::read(path)?;
+                if let Some(i) = self.serializer.from_data(&data) {
+                    values.push(i);
+                }
+            } 
         }
-        Ok(inputs)
-    }
+        Ok(())
+    } 
+
     #[no_coverage]
     pub fn read_input_file(&self, file: &Path) -> Result<S::Value> {
         let data = fs::read(file)?;

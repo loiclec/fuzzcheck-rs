@@ -62,7 +62,7 @@ use fastrand::Rng;
 use std::cmp::Ordering;
 use std::hash::Hash;
 use std::ops::Range;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 /**
  * A unit of code coverage.
@@ -244,6 +244,8 @@ impl Default for FeatureGroup {
 }
 
 pub struct UniqueCoveragePool<T: TestCase> {
+    pub name: String,
+
     pub features: Vec<AnalyzedFeatureRef>,
 
     pub slab_features: AHashMap<FeatureIdx, AnalyzedFeature<T>>,
@@ -264,8 +266,9 @@ pub struct UniqueCoveragePool<T: TestCase> {
 
 impl<T: TestCase> UniqueCoveragePool<T> {
     #[no_coverage]
-    pub fn new(nbr_features: usize) -> Self {
+    pub fn new(name: &str, nbr_features: usize) -> Self {
         UniqueCoveragePool {
+            name: name.to_string(),
             features: vec![AnalyzedFeatureRef { least_complexity: None }; nbr_features],
             slab_features: AHashMap::with_hasher(ahash::RandomState::with_seeds(0, 0, 0, 0)),
 
@@ -439,7 +442,7 @@ impl<T: TestCase> UniqueCoveragePool<T> {
         let stats = self.stats();
         Some((
             CorpusDelta {
-                path: PathBuf::new(),
+                path: Path::new(&self.name).to_path_buf(),
                 add: Some((&self.slab_inputs[element_key].data, element_key)),
                 remove: deleted_values,
             },
@@ -546,7 +549,7 @@ impl<T: TestCase> UniqueCoveragePool<T> {
         let stats = self.stats();
 
         let delta = CorpusDelta {
-            path: PathBuf::new(),
+            path: Path::new(&self.name).to_path_buf(),
             add: None,
             remove: vec![pick_key],
         };
@@ -863,7 +866,7 @@ mod tests {
             let mut new_features: AHashSet<_, ahash::RandomState> = AHashSet::from_iter(list_features.iter());
             let mut added_features: Vec<FeatureIdx> = vec![];
 
-            let mut pool = UniqueCoveragePool::<f64>::new(1024);
+            let mut pool = UniqueCoveragePool::<f64>::new("cov", 1024);
 
             for i in 0..fastrand::usize(0..100) {
                 let nbr_new_features = if new_features.is_empty() {
