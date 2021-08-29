@@ -18,35 +18,27 @@
 
 pub extern crate fastrand;
 
-mod and_sensor_and_pool;
-mod artifacts_pool;
 pub mod builder;
 mod code_coverage_sensor;
-mod coverage_sensor_and_pool;
 mod data_structures;
 mod fenwick_tree;
 mod fuzzer;
-mod input_minify_pool;
-mod maximize_pool;
 pub mod mutators;
-mod noop_sensor;
-mod sensor_and_pool;
+pub mod sensors_and_pools;
 pub mod serializers;
 mod signals_handler;
 mod traits;
-mod unique_coverage_pool;
-mod unit_pool;
 mod world;
 
 #[doc(inline)]
 pub use mutators::DefaultMutator;
-use sensor_and_pool::TestCase;
 #[doc(inline)]
 pub use traits::Mutator;
 #[doc(inline)]
 pub use traits::MutatorWrapper;
 #[doc(inline)]
 pub use traits::Serializer;
+use traits::TestCase;
 
 #[doc(inline)]
 pub use builder::FuzzerBuilder;

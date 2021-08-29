@@ -2,8 +2,10 @@ use std::fmt::Display;
 
 use crate::{
     mutators::either::Either,
-    sensor_and_pool::{CompatibleWithSensor, CorpusDelta, Pool, Sensor},
+    traits::{CompatibleWithSensor, CorpusDelta, Pool, Sensor},
 };
+
+use super::compatible_with_iterator_sensor::CompatibleWithIteratorSensor;
 
 pub struct AndPool<P1, P2>
 where
@@ -126,13 +128,6 @@ impl<S1: Display, S2: Display> Display for AndStats<S1, S2> {
     }
 }
 
-// pub struct AndSensorAndPool<SP1, SP2>
-// where
-//     SP1: SensorAndPool,
-//     SP2: SensorAndPool<TestCase = SP1::TestCase>,
-// {
-//     _phantom: PhantomData<(SP1, SP2)>,
-// }
 impl<S1, S2, P1, P2> CompatibleWithSensor<AndSensor<S1, S2>> for AndPool<P1, P2>
 where
     S1: Sensor,
@@ -295,5 +290,79 @@ where
                 )
                 .collect(),
         }
+    }
+}
+
+impl<P1, P2> CompatibleWithIteratorSensor for AndPool<P1, P2>
+where
+    P1: CompatibleWithIteratorSensor,
+    P2: CompatibleWithIteratorSensor<Observation = P1::Observation, TestCase = P1::TestCase>,
+{
+    type Observation = P1::Observation;
+    type ObservationState = (P1::ObservationState, P2::ObservationState);
+    #[no_coverage]
+    fn observe(&mut self, observation: &Self::Observation, input_complexity: f64, state: &mut Self::ObservationState) {
+        self.p1.observe(observation, input_complexity, &mut state.0);
+        self.p2.observe(observation, input_complexity, &mut state.1);
+    }
+    #[no_coverage]
+    fn is_interesting(&self, observation_state: &Self::ObservationState, input_complexity: f64) -> bool {
+        self.p1.is_interesting(&observation_state.0, input_complexity)
+            || self.p2.is_interesting(&observation_state.1, input_complexity)
+    }
+    #[no_coverage]
+    fn finish_observing(&mut self, state: &mut Self::ObservationState, input_complexity: f64) {
+        self.p1.finish_observing(&mut state.0, input_complexity);
+        self.p2.finish_observing(&mut state.1, input_complexity);
+    }
+    #[no_coverage]
+    fn add(
+        &mut self,
+        data: Self::TestCase,
+        complexity: f64,
+        observation_state: Self::ObservationState,
+        mut event_handler: impl FnMut(CorpusDelta<&Self::TestCase, Self::Index>, Self::Stats) -> Result<(), std::io::Error>,
+    ) -> Result<(), std::io::Error> {
+        let AndStats { stats1, stats2 } = self.stats();
+        let (o1, o2) = observation_state;
+        if self.p1.is_interesting(&o1, complexity) {
+            self.p1.add(
+                data.clone(),
+                complexity,
+                o1,
+                #[no_coverage]
+                |delta, stats1| {
+                    let delta = Self::lift_corpus_delta_1(delta);
+                    event_handler(
+                        delta,
+                        AndStats {
+                            stats1,
+                            stats2: stats2.clone(),
+                        },
+                    )?;
+                    Ok(())
+                },
+            )?;
+        }
+        if self.p2.is_interesting(&o2, complexity) {
+            self.p2.add(
+                data,
+                complexity,
+                o2,
+                #[no_coverage]
+                |delta, stats2| {
+                    let delta = Self::lift_corpus_delta_2(delta);
+                    event_handler(
+                        delta,
+                        AndStats {
+                            stats1: stats1.clone(),
+                            stats2,
+                        },
+                    )?;
+                    Ok(())
+                },
+            )?;
+        }
+        Ok(())
     }
 }

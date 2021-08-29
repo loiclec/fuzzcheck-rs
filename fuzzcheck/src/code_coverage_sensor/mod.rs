@@ -2,7 +2,7 @@
 
 mod leb128;
 mod llvm_coverage;
-use crate::sensor_and_pool::Sensor;
+use crate::traits::Sensor;
 use std::collections::HashMap;
 use std::convert::TryFrom;
 use std::path::Path;

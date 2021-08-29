@@ -1,7 +1,9 @@
 use crate::code_coverage_sensor::CodeCoverageSensor;
 use crate::fuzzer::{self, Fuzzer};
-use crate::traits::{Mutator, Serializer};
-use crate::unique_coverage_pool::UniqueCoveragePool;
+use crate::sensors_and_pools::noop_sensor::NoopSensor;
+use crate::sensors_and_pools::unique_coverage_pool::UniqueCoveragePool;
+use crate::sensors_and_pools::unit_pool::UnitPool;
+use crate::traits::{CompatibleWithSensor, Mutator, Pool, Sensor, Serializer};
 use crate::FuzzedInput;
 
 use fuzzcheck_common::arg::Arguments;
@@ -173,6 +175,29 @@ where
     arguments: Arguments,
     exclude: Exclude,
     keep: Keep,
+    _phantom: PhantomData<(*const T, V)>,
+}
+pub struct FuzzerBuilder6<T, F, M, V, S, Exclude, Keep, Sens, P>
+where
+    T: ?Sized,
+    F: Fn(&T) -> bool,
+    V: Clone + Borrow<T>,
+    M: Mutator<V>,
+    S: Serializer<Value = V>,
+    Exclude: Fn(&Path) -> bool,
+    Keep: Fn(&Path) -> bool,
+    Sens: Sensor,
+    P: Pool + CompatibleWithSensor<Sens>,
+{
+    test_function: F,
+    mutator: M,
+    serializer: S,
+    arguments: Arguments,
+    exclude: Exclude,
+    keep: Keep,
+    sensor: Sens,
+    pool: P,
+    frequency: u8,
     _phantom: PhantomData<(*const T, V)>,
 }
 
@@ -434,6 +459,29 @@ where
     Exclude: Fn(&Path) -> bool,
     Keep: Fn(&Path) -> bool,
 {
+    pub fn additional_sensor_and_pool<Sens: Sensor, P: Pool>(
+        self,
+        sensor: Sens,
+        pool: P,
+        frequency: u8,
+    ) -> FuzzerBuilder6<T, F, M, V, S, Exclude, Keep, Sens, P>
+    where
+        P: CompatibleWithSensor<Sens>,
+    {
+        FuzzerBuilder6 {
+            test_function: self.test_function,
+            mutator: self.mutator,
+            serializer: self.serializer,
+            arguments: self.arguments,
+            exclude: self.exclude,
+            keep: self.keep,
+            sensor,
+            pool,
+            frequency,
+            _phantom: PhantomData,
+        }
+    }
+
     /// Launch the fuzz test!
     #[no_coverage]
     pub fn launch(self) {
@@ -454,6 +502,63 @@ where
             _phantom,
         } = self;
 
-        fuzzer::launch(test_function, mutator, &exclude, &keep, serializer, arguments).unwrap();
+        fuzzer::launch(
+            test_function,
+            mutator,
+            &exclude,
+            &keep,
+            serializer,
+            arguments,
+            Option::<(NoopSensor, UnitPool<V, M>, _)>::None,
+        )
+        .unwrap();
+    }
+}
+impl<T, F, M, V, S, Exclude, Keep, Sens, P> FuzzerBuilder6<T, F, M, V, S, Exclude, Keep, Sens, P>
+where
+    T: ?Sized,
+    F: Fn(&T) -> bool,
+    V: Clone + Borrow<T>,
+    M: Mutator<V>,
+    S: Serializer<Value = V>,
+    Fuzzer<V, T, F, M, S, CodeCoverageSensor, UniqueCoveragePool<FuzzedInput<V, M>>>: 'static,
+    Exclude: Fn(&Path) -> bool,
+    Keep: Fn(&Path) -> bool,
+    Sens: Sensor + 'static,
+    P: Pool<TestCase = FuzzedInput<V, M>> + CompatibleWithSensor<Sens> + 'static,
+{
+    /// Launch the fuzz test!
+    #[no_coverage]
+    pub fn launch(self) {
+        #[cfg(fuzzing)]
+        self.launch_even_if_cfg_fuzzing_is_not_set()
+    }
+
+    /// do not use
+    #[no_coverage]
+    pub fn launch_even_if_cfg_fuzzing_is_not_set(self) {
+        let FuzzerBuilder6 {
+            test_function,
+            mutator,
+            serializer,
+            arguments,
+            exclude,
+            keep,
+            sensor,
+            pool,
+            frequency,
+            _phantom,
+        } = self;
+
+        fuzzer::launch(
+            test_function,
+            mutator,
+            &exclude,
+            &keep,
+            serializer,
+            arguments,
+            Some((sensor, pool, frequency)),
+        )
+        .unwrap();
     }
 }

@@ -53,13 +53,14 @@
 //! Now imagine the feature f4 appears in 3 different inputs. Each input will
 //! thus gain ((group.score() / 5) / 3) from having the feature f4.
 
-use crate::coverage_sensor_and_pool::{AnalysisResult, FuzzerStats};
+use super::compatible_with_iterator_sensor::CompatibleWithIteratorSensor;
 use crate::data_structures::{Slab, SlabKey};
 use crate::fenwick_tree::FenwickTree;
-use crate::sensor_and_pool::{CorpusDelta, Pool, TestCase};
+use crate::traits::{CorpusDelta, Pool, TestCase};
 use ahash::{AHashMap, AHashSet};
 use fastrand::Rng;
 use std::cmp::Ordering;
+use std::fmt::Display;
 use std::hash::Hash;
 use std::ops::Range;
 use std::path::Path;
@@ -693,11 +694,11 @@ impl<T: TestCase> UniqueCoveragePool<T> {
 impl<T: TestCase> Pool for UniqueCoveragePool<T> {
     type TestCase = T;
     type Index = SlabKey<Input<T>>;
-    type Stats = FuzzerStats;
+    type Stats = UniqueCoveragePoolStats;
 
     #[no_coverage]
     fn stats(&self) -> Self::Stats {
-        FuzzerStats {
+        UniqueCoveragePoolStats {
             score: self.score(),
             pool_size: self.slab_inputs.len(),
             avg_cplx: self.average_complexity,
@@ -825,6 +826,91 @@ impl<T> Clone for AnalyzedFeature<T> {
             least_complexity: self.least_complexity,
             score: self.score,
         }
+    }
+}
+
+#[derive(Clone, Copy, Default)]
+pub struct UniqueCoveragePoolStats {
+    pub score: f64,
+    pub pool_size: usize,
+    pub avg_cplx: f64,
+    pub percent_coverage: f64,
+}
+impl Display for UniqueCoveragePoolStats {
+    #[no_coverage]
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "score: {:.2}\tcov:{:.2}%\tpool:{}\tcplx:{:.2}",
+            self.score,
+            self.percent_coverage * 100.0,
+            self.pool_size,
+            self.avg_cplx
+        )
+    }
+}
+
+#[derive(Default)]
+pub struct UniqueCoveragePoolObservationState {
+    is_interesting: bool,
+    analysis_result: AnalysisResult,
+}
+#[derive(Default)]
+pub struct AnalysisResult {
+    pub(crate) existing_features: Vec<FeatureIdx>,
+    pub(crate) new_features: Vec<FeatureIdx>,
+}
+
+impl<T: TestCase> CompatibleWithIteratorSensor for UniqueCoveragePool<T> {
+    type Observation = (usize, u64);
+    type ObservationState = UniqueCoveragePoolObservationState;
+
+    #[no_coverage]
+    fn observe(
+        &mut self,
+        &(index, counter): &Self::Observation,
+        input_complexity: f64,
+        state: &mut Self::ObservationState,
+    ) {
+        let feature_index = FeatureIdx::new(index, counter);
+        let AnalyzedFeatureRef { least_complexity } = unsafe { self.features.get_unchecked(feature_index.0) };
+        if let Some(prev_least_complexity) = least_complexity {
+            self.existing_features.push(feature_index);
+            if input_complexity < *prev_least_complexity {
+                state.is_interesting = true;
+            }
+        } else {
+            self.new_features.push(feature_index);
+            state.is_interesting = true;
+        }
+    }
+    #[no_coverage]
+    fn finish_observing(&mut self, state: &mut Self::ObservationState, _input_complexity: f64) {
+        if state.is_interesting {
+            state.analysis_result.new_features = self.new_features.clone();
+            state.analysis_result.existing_features = self.existing_features.clone();
+        }
+        self.new_features.clear();
+        self.existing_features.clear();
+    }
+    #[no_coverage]
+    fn is_interesting(&self, observation_state: &Self::ObservationState, input_complexity: f64) -> bool {
+        observation_state.is_interesting
+    }
+    #[no_coverage]
+    fn add(
+        &mut self,
+        data: Self::TestCase,
+        complexity: f64,
+        observation_state: Self::ObservationState,
+        mut event_handler: impl FnMut(CorpusDelta<&Self::TestCase, Self::Index>, Self::Stats) -> Result<(), std::io::Error>,
+    ) -> Result<(), std::io::Error> {
+        let result = observation_state.analysis_result;
+        let delta = self.add(data, complexity, result);
+        if let Some((delta, stats)) = delta {
+            event_handler(delta, stats)?;
+        }
+        Ok(())
     }
 }
 

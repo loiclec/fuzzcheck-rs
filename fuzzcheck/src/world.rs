@@ -1,5 +1,5 @@
-use crate::sensor_and_pool::CorpusDelta;
-use crate::sensor_and_pool::EmptyStats;
+use crate::traits::CorpusDelta;
+use crate::traits::EmptyStats;
 use crate::{fuzzer::TerminationStatus, traits::Serializer};
 use fuzzcheck_common::arg::Arguments;
 use fuzzcheck_common::arg::FuzzerCommand;
@@ -47,15 +47,16 @@ impl<S: Serializer, CorpusKey: Hash + Eq> World<S, CorpusKey> {
     #[no_coverage]
     pub(crate) fn update_corpus(&mut self, delta: CorpusDelta<S::Value, CorpusKey>) -> Result<()> {
         let CorpusDelta { path, add, remove } = delta;
+        for to_remove_key in remove {
+            let hash = self.corpus.remove(&to_remove_key).unwrap();
+            self.remove_from_output_corpus(&path, hash.clone())?;
+        }
+
         if let Some((content, key)) = add {
             let (hash, input) = self.hash_and_string_of_input(&content);
             let old = self.corpus.insert(key, hash.clone());
             assert!(old.is_none());
             self.add_to_output_corpus(&path, hash.clone(), input.clone())?;
-        }
-        for to_remove_key in remove {
-            let hash = self.corpus.remove(&to_remove_key).unwrap();
-            self.remove_from_output_corpus(&path, hash.clone())?;
         }
 
         Ok(())

@@ -1,5 +1,5 @@
 use crate::mutators::either::Either;
-use crate::sensor_and_pool::{CompatibleWithSensor, CorpusDelta, Pool, Sensor, TestCase};
+use crate::traits::{CompatibleWithSensor, CorpusDelta, Pool, Sensor, TestCase};
 use std::fmt::Display;
 use std::path::PathBuf;
 
@@ -20,6 +20,7 @@ pub(crate) struct TestFailureSensor {
 impl Sensor for TestFailureSensor {
     type ObservationHandler<'a> = &'a mut Option<TestFailure>;
 
+    #[no_coverage]
     fn start_recording(&mut self) {
         self.error = None;
         unsafe {
@@ -27,12 +28,14 @@ impl Sensor for TestFailureSensor {
         }
     }
 
+    #[no_coverage]
     fn stop_recording(&mut self) {
         unsafe {
             self.error = TEST_FAILURE.clone();
         }
     }
 
+    #[no_coverage]
     fn iterate_over_observations(&mut self, handler: Self::ObservationHandler<'_>) {
         *handler = std::mem::take(&mut self.error);
     }
@@ -41,6 +44,7 @@ impl Sensor for TestFailureSensor {
 #[derive(Clone, Copy, Default)]
 pub(crate) struct Stats {}
 impl Display for Stats {
+    #[no_coverage]
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "")
     }
@@ -70,7 +74,8 @@ pub(crate) struct ArtifactsPool<T> {
 }
 
 impl<T> ArtifactsPool<T> {
-    pub(crate) fn new(name: &str, size: usize) -> Self {
+    #[no_coverage]
+    pub(crate) fn new(name: &str) -> Self {
         Self {
             name: name.to_string(),
             inputs: vec![],
@@ -85,14 +90,17 @@ impl<T: TestCase> Pool for ArtifactsPool<T> {
     type Index = (usize, usize, usize);
     type Stats = Stats;
 
+    #[no_coverage]
     fn stats(&self) -> Self::Stats {
         self.stats
     }
 
+    #[no_coverage]
     fn len(&self) -> usize {
         self.inputs.len()
     }
 
+    #[no_coverage]
     fn get_random_index(&mut self) -> Option<Self::Index> {
         if self.inputs.is_empty() {
             return None;
@@ -105,14 +113,17 @@ impl<T: TestCase> Pool for ArtifactsPool<T> {
         Some((error_choice, complexity_choice, input_choice))
     }
 
+    #[no_coverage]
     fn get(&self, idx: Self::Index) -> &Self::TestCase {
         &self.inputs[idx.0].inputs[idx.1].inputs[idx.2].data
     }
 
+    #[no_coverage]
     fn get_mut(&mut self, idx: Self::Index) -> &mut Self::TestCase {
         &mut self.inputs[idx.0].inputs[idx.1].inputs[idx.2].data
     }
 
+    #[no_coverage]
     fn retrieve_after_processing(&mut self, idx: Self::Index, generation: usize) -> Option<&mut Self::TestCase> {
         if let Some(input) = self.inputs[idx.0]
             .inputs
@@ -130,6 +141,7 @@ impl<T: TestCase> Pool for ArtifactsPool<T> {
         }
     }
 
+    #[no_coverage]
     fn mark_test_case_as_dead_end(&mut self, idx: Self::Index) {
         self.inputs[idx.0].inputs[idx.1].inputs.remove(idx.2);
         // self.update_stats();
@@ -139,6 +151,7 @@ impl<T> CompatibleWithSensor<TestFailureSensor> for ArtifactsPool<T>
 where
     T: TestCase,
 {
+    #[no_coverage]
     fn process(
         &mut self,
         sensor: &mut TestFailureSensor,
@@ -241,6 +254,7 @@ where
         Ok(())
     }
 
+    #[no_coverage]
     fn minify(
         &mut self,
         sensor: &mut TestFailureSensor,

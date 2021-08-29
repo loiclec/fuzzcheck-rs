@@ -1,4 +1,4 @@
-use crate::sensor_and_pool::Sensor;
+use crate::traits::Sensor;
 
 pub struct NoopSensor;
 

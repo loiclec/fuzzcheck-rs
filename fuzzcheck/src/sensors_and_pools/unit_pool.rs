@@ -1,7 +1,6 @@
-use crate::{
-    sensor_and_pool::{EmptyStats, Pool},
-    FuzzedInput, Mutator,
-};
+use crate::mutators::either::Either;
+use crate::traits::{CompatibleWithSensor, CorpusDelta, EmptyStats, Pool, Sensor};
+use crate::{FuzzedInput, Mutator};
 
 pub struct UnitPool<T, M>
 where
@@ -62,5 +61,32 @@ where
     #[no_coverage]
     fn mark_test_case_as_dead_end(&mut self, _idx: Self::Index) {
         self.dead_end = true
+    }
+}
+
+impl<T, M, S: Sensor> CompatibleWithSensor<S> for UnitPool<T, M>
+where
+    T: Clone,
+    M: Mutator<T>,
+{
+    #[no_coverage]
+    fn process(
+        &mut self,
+        _sensor: &mut S,
+        _get_input_ref: Either<Self::Index, &Self::TestCase>,
+        _clone_input: &impl Fn(&Self::TestCase) -> Self::TestCase,
+        _complexity: f64,
+        _event_handler: impl FnMut(CorpusDelta<&Self::TestCase, Self::Index>, Self::Stats) -> Result<(), std::io::Error>,
+    ) -> Result<(), std::io::Error> {
+        Ok(())
+    }
+    #[no_coverage]
+    fn minify(
+        &mut self,
+        _sensor: &mut S,
+        _target_len: usize,
+        _event_handler: impl FnMut(CorpusDelta<&Self::TestCase, Self::Index>, Self::Stats) -> Result<(), std::io::Error>,
+    ) -> Result<(), std::io::Error> {
+        Ok(())
     }
 }

@@ -1,30 +1,31 @@
-use crate::coverage_sensor_and_pool::HandleCoveragePointFromCodeCoverageSensor;
 use crate::data_structures::{Slab, SlabKey, WeightedIndex};
-use crate::sensor_and_pool::{CorpusDelta, Pool, TestCase};
+use crate::sensors_and_pools::compatible_with_iterator_sensor::CompatibleWithIteratorSensor;
+use crate::traits::{CorpusDelta, Pool, TestCase};
 use ahash::AHashSet;
 use std::fmt::{Debug, Display};
 use std::path::Path;
 
 #[derive(Clone, Copy, Default)]
-pub(crate) struct Stats {
+pub struct Stats {
     size: usize,
     total_counts: u64,
 }
 impl Display for Stats {
+    #[no_coverage]
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "p2: {}\ttotal_count:{}\t", self.size, self.total_counts)
     }
 }
 
 #[derive(Debug)]
-pub(crate) struct Input<T> {
+pub struct Input<T> {
     best_for_counters: AHashSet<usize>,
     cplx: f64,
     data: T,
     score: f64,
 }
 
-pub(crate) struct CounterMaximizingPool<T> {
+pub struct CounterMaximizingPool<T> {
     name: String,
     complexities: Vec<f64>,
     highest_counts: Vec<u64>,
@@ -36,6 +37,7 @@ pub(crate) struct CounterMaximizingPool<T> {
     rng: fastrand::Rng,
 }
 impl<T: Debug> Debug for CounterMaximizingPool<T> {
+    #[no_coverage]
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("CounterMaximizingPool")
             .field("complexities", &self.complexities)
@@ -48,7 +50,8 @@ impl<T: Debug> Debug for CounterMaximizingPool<T> {
 }
 
 impl<T> CounterMaximizingPool<T> {
-    pub(crate) fn new(name: &str, size: usize) -> Self {
+    #[no_coverage]
+    pub fn new(name: &str, size: usize) -> Self {
         Self {
             name: name.to_string(),
             complexities: vec![0.0; size],
@@ -70,14 +73,17 @@ impl<T: TestCase> Pool for CounterMaximizingPool<T> {
     type Index = SlabKey<Input<T>>;
     type Stats = Stats;
 
+    #[no_coverage]
     fn stats(&self) -> Self::Stats {
         self.stats
     }
 
+    #[no_coverage]
     fn len(&self) -> usize {
         self.inputs.len()
     }
 
+    #[no_coverage]
     fn get_random_index(&mut self) -> Option<Self::Index> {
         if self.cumulative_score_inputs.last().unwrap_or(&0.0) > &0.0 {
             let weighted_index = WeightedIndex {
@@ -90,14 +96,17 @@ impl<T: TestCase> Pool for CounterMaximizingPool<T> {
         }
     }
 
+    #[no_coverage]
     fn get(&self, idx: Self::Index) -> &Self::TestCase {
         &self.inputs[idx].data
     }
 
+    #[no_coverage]
     fn get_mut(&mut self, idx: Self::Index) -> &mut Self::TestCase {
         &mut self.inputs[idx].data
     }
 
+    #[no_coverage]
     fn retrieve_after_processing(&mut self, idx: Self::Index, generation: usize) -> Option<&mut Self::TestCase> {
         if let Some(input) = self.inputs.get_mut(idx) {
             if input.data.generation() == generation {
@@ -110,12 +119,14 @@ impl<T: TestCase> Pool for CounterMaximizingPool<T> {
         }
     }
 
+    #[no_coverage]
     fn mark_test_case_as_dead_end(&mut self, idx: Self::Index) {
         self.inputs[idx].score = 0.0;
         self.update_stats();
     }
 }
 impl<T: TestCase> CounterMaximizingPool<T> {
+    #[no_coverage]
     fn update_stats(&mut self) {
         let inputs = &self.inputs;
         self.cumulative_score_inputs = self
@@ -139,10 +150,11 @@ impl<T: TestCase> CounterMaximizingPool<T> {
     }
 }
 
-impl<T: TestCase> HandleCoveragePointFromCodeCoverageSensor for CounterMaximizingPool<T> {
+impl<T: TestCase> CompatibleWithIteratorSensor for CounterMaximizingPool<T> {
     type Observation = (usize, u64);
     type ObservationState = Vec<(usize, u64)>;
 
+    #[no_coverage]
     fn observe(
         &mut self,
         &(index, counter): &Self::Observation,
@@ -162,12 +174,15 @@ impl<T: TestCase> HandleCoveragePointFromCodeCoverageSensor for CounterMaximizin
         }
     }
 
-    fn finish_observing(&mut self, _state: &mut Self::ObservationState) {}
+    #[no_coverage]
+    fn finish_observing(&mut self, _state: &mut Self::ObservationState, _input_complexity: f64) {}
 
-    fn is_interesting(&self, observation_state: &Self::ObservationState) -> bool {
+    #[no_coverage]
+    fn is_interesting(&self, observation_state: &Self::ObservationState, _input_complexity: f64) -> bool {
         !observation_state.is_empty()
     }
 
+    #[no_coverage]
     fn add(
         &mut self,
         data: Self::TestCase,
@@ -233,8 +248,8 @@ mod tests {
     use std::collections::HashMap;
 
     use super::CounterMaximizingPool;
-    use crate::coverage_sensor_and_pool::HandleCoveragePointFromCodeCoverageSensor;
-    use crate::sensor_and_pool::Pool;
+    use crate::sensors_and_pools::compatible_with_iterator_sensor::CompatibleWithIteratorSensor;
+    use crate::traits::Pool;
 
     #[test]
     fn test_basic_pool_1() {
