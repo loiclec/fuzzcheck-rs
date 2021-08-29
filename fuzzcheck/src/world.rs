@@ -4,7 +4,6 @@ use crate::{fuzzer::TerminationStatus, traits::Serializer};
 use fuzzcheck_common::arg::Arguments;
 use fuzzcheck_common::arg::FuzzerCommand;
 use fuzzcheck_common::{FuzzerEvent, FuzzerStats};
-use core::panic;
 use std::collections::hash_map::DefaultHasher;
 use std::collections::HashMap;
 use std::fmt::Display;
@@ -204,10 +203,10 @@ This should never happen, and is probably a bug in fuzzcheck. Sorry :("#
                 if let Some(i) = self.serializer.from_data(&data) {
                     values.push(i);
                 }
-            } 
+            }
         }
         Ok(())
-    } 
+    }
 
     #[no_coverage]
     pub fn read_input_file(&self, file: &Path) -> Result<S::Value> {

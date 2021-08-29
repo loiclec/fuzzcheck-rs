@@ -19,6 +19,7 @@
 pub extern crate fastrand;
 
 mod and_sensor_and_pool;
+mod artifacts_pool;
 pub mod builder;
 mod code_coverage_sensor;
 mod coverage_sensor_and_pool;

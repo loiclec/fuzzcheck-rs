@@ -3,6 +3,7 @@
 //! test inputs.
 
 use crate::and_sensor_and_pool::{AndPool, AndSensor};
+use crate::artifacts_pool::{ArtifactsPool, TestFailure, TestFailureSensor, TEST_FAILURE};
 use crate::code_coverage_sensor::CodeCoverageSensor;
 use crate::maximize_pool::CounterMaximizingPool;
 use crate::mutators::either::Either;
@@ -18,7 +19,8 @@ use fuzzcheck_common::arg::{Arguments, FuzzerCommand};
 use fuzzcheck_common::{FuzzerEvent, FuzzerStats};
 use libc::{SIGABRT, SIGALRM, SIGBUS, SIGFPE, SIGINT, SIGSEGV, SIGTERM};
 use std::borrow::Borrow;
-use std::hash::Hash;
+use std::collections::hash_map::DefaultHasher;
+use std::hash::{Hash, Hasher};
 use std::panic::{catch_unwind, RefUnwindSafe, UnwindSafe};
 use std::path::Path;
 use std::process::exit;
@@ -209,13 +211,17 @@ where
             value: input.value.borrow(),
         };
         let result = catch_unwind(|| (cell.value)(input_cell.value));
-        sensor.stop_recording();
-
-        if result.is_err() || !result.unwrap() {
-            world.report_event(FuzzerEvent::TestFailure, Some((fuzzer_stats, sensor_and_pool_stats)));
-            world.save_artifact(&input.value, cplx)?;
-            exit(TerminationStatus::TestFailure as i32);
+        match result {
+            Ok(false) => unsafe {
+                TEST_FAILURE = Some(TestFailure {
+                    display: "test function returned false".to_string(),
+                    id: 0,
+                });
+            },
+            Err(_) => {}
+            Ok(true) => {}
         }
+        sensor.stop_recording();
 
         fuzzer_stats.total_number_of_runs += 1;
 
@@ -424,22 +430,47 @@ where
     let command = &args.command;
 
     let sensor = CodeCoverageSensor::new(sensor_exclude_files, sensor_keep_files);
+    // let prev_hook = std::panic::take_hook();
+    std::panic::set_hook(Box::new(move |panic_info| {
+        // println!("{}", panic_info);
+        // prev_hook(panic_info);
+        // set the static variable value to panic_info or its displayed version
+        let mut hasher = DefaultHasher::new();
+        panic_info.location().hash(&mut hasher);
+        unsafe {
+            TEST_FAILURE = Some(TestFailure {
+                display: format!("{}", panic_info),
+                id: hasher.finish(),
+            });
+        }
+    }));
 
     match command {
         FuzzerCommand::Fuzz => {
             let pool1 = CounterMaximizingPool::new("max_hits", sensor.count_instrumented);
             let pool2 = UniqueCoveragePool::new("uniq_cov", sensor.count_instrumented * 64); // TODO: reduce nbr of possible values from score_from_counter
+            let pool3 = ArtifactsPool::new("artifacts_corpus", 8);
             let pool = AndPool {
                 p1: pool1,
                 p2: pool2,
                 percent_choose_first: 10,
                 rng: fastrand::Rng::new(),
             };
+            let pool = AndPool {
+                p1: pool,
+                p2: pool3,
+                percent_choose_first: 99,
+                rng: fastrand::Rng::new(),
+            };
             let sensor2 = CodeCoverageSensor::new(sensor_exclude_files, sensor_keep_files);
-
+            let sensor3 = TestFailureSensor::default();
             let sensor = AndSensor {
                 s1: sensor,
                 s2: sensor2,
+            };
+            let sensor = AndSensor {
+                s1: sensor,
+                s2: sensor3,
             };
 
             let mut fuzzer = Fuzzer::new(

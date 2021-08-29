@@ -62,7 +62,7 @@ use fastrand::Rng;
 use std::cmp::Ordering;
 use std::hash::Hash;
 use std::ops::Range;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 /**
  * A unit of code coverage.

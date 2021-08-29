@@ -1,8 +1,9 @@
-use std::{fmt::{Debug, Display}, path::{Path, PathBuf}};
-
+use crate::coverage_sensor_and_pool::HandleCoveragePointFromCodeCoverageSensor;
+use crate::data_structures::{Slab, SlabKey, WeightedIndex};
+use crate::sensor_and_pool::{CorpusDelta, Pool, TestCase};
 use ahash::AHashSet;
-
-use crate::{coverage_sensor_and_pool::HandleCoveragePointFromCodeCoverageSensor, data_structures::{Slab, SlabKey, WeightedIndex}, mutators::either::Either, sensor_and_pool::{CompatibleWithSensor, CorpusDelta, EmptyStats, Pool, Sensor, TestCase}};
+use std::fmt::{Debug, Display};
+use std::path::Path;
 
 #[derive(Clone, Copy, Default)]
 pub(crate) struct Stats {
@@ -140,10 +141,15 @@ impl<T: TestCase> CounterMaximizingPool<T> {
 
 impl<T: TestCase> HandleCoveragePointFromCodeCoverageSensor for CounterMaximizingPool<T> {
     type Observation = (usize, u64);
-    type ObservationState = Vec<(usize, u64)>; 
+    type ObservationState = Vec<(usize, u64)>;
 
-    fn observe(&mut self, &(index, counter): &Self::Observation, input_complexity: f64, state: &mut Self::ObservationState) {
-         let pool_counter = self.highest_counts[index];
+    fn observe(
+        &mut self,
+        &(index, counter): &Self::Observation,
+        input_complexity: f64,
+        state: &mut Self::ObservationState,
+    ) {
+        let pool_counter = self.highest_counts[index];
         if pool_counter < counter {
             state.push((index, counter));
         } else if pool_counter == counter {
@@ -153,12 +159,10 @@ impl<T: TestCase> HandleCoveragePointFromCodeCoverageSensor for CounterMaximizin
                 }
             } else {
             }
-        }    
+        }
     }
 
-    fn finish_observing(&mut self, state: &mut Self::ObservationState) {
-        
-    }
+    fn finish_observing(&mut self, _state: &mut Self::ObservationState) {}
 
     fn is_interesting(&self, observation_state: &Self::ObservationState) -> bool {
         !observation_state.is_empty()
@@ -224,37 +228,37 @@ impl<T: TestCase> HandleCoveragePointFromCodeCoverageSensor for CounterMaximizin
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use std::collections::HashMap;
 
-    use crate::sensor_and_pool::{CorpusDelta, Pool};
-use crate::coverage_sensor_and_pool::HandleCoveragePointFromCodeCoverageSensor;
     use super::CounterMaximizingPool;
+    use crate::coverage_sensor_and_pool::HandleCoveragePointFromCodeCoverageSensor;
+    use crate::sensor_and_pool::Pool;
 
     #[test]
     fn test_basic_pool_1() {
-
         let mut pool = CounterMaximizingPool::<f64>::new("a", 5);
         println!("{:?}", pool);
         let index = pool.get_random_index();
         println!("{:?}", index);
 
-        pool.add(1.2, 1.21, vec![(1, 2)], |event, stats| {
+        pool.add(1.2, 1.21, vec![(1, 2)], |event, _stats| {
             println!("event: {:?}", event);
             Ok(())
-        });
+        })
+        .unwrap();
         println!("pool: {:?}", pool);
         let index = pool.get_random_index();
         println!("{:?}", index);
 
         // replace
-        pool.add(1.1, 1.11, vec![(1, 2)], |event, stats| {
+        pool.add(1.1, 1.11, vec![(1, 2)], |event, _stats| {
             println!("event: {:?}", event);
             Ok(())
-        });
-        
+        })
+        .unwrap();
+
         println!("pool: {:?}", pool);
         let index = pool.get_random_index();
         println!("{:?}", index);
@@ -264,21 +268,23 @@ use crate::coverage_sensor_and_pool::HandleCoveragePointFromCodeCoverageSensor;
     fn test_basic_pool_2() {
         let mut pool = CounterMaximizingPool::<f64>::new("b", 5);
 
-        let _ = pool.add(1.2, 1.21, vec![(1, 4)], |_,_| Ok(()));
-        let _ = pool.add(2.2, 2.21, vec![(2, 2)], |_,_| Ok(()));
-        pool.add(3.2, 3.21, vec![(3, 2)], |event, stats| {
+        let _ = pool.add(1.2, 1.21, vec![(1, 4)], |_, _| Ok(()));
+        let _ = pool.add(2.2, 2.21, vec![(2, 2)], |_, _| Ok(()));
+        pool.add(3.2, 3.21, vec![(3, 2)], |event, _stats| {
             println!("event: {:?}", event);
             Ok(())
-        });
+        })
+        .unwrap();
         println!("pool: {:?}", pool);
         let index = pool.get_random_index();
         println!("{:?}", index);
 
         // replace
-        pool.add(1.1, 1.11, vec![(2, 3), (3, 3)], |event, stats| {
+        pool.add(1.1, 1.11, vec![(2, 3), (3, 3)], |event, _stats| {
             println!("event: {:?}", event);
             Ok(())
-        });
+        })
+        .unwrap();
         println!("pool: {:?}", pool);
 
         let mut map = HashMap::new();
@@ -289,10 +295,11 @@ use crate::coverage_sensor_and_pool::HandleCoveragePointFromCodeCoverageSensor;
         println!("{:?}", map);
 
         // replace
-        pool.add(4.1, 4.41, vec![(0, 3), (3, 4), (4, 1)], |event, stats| {
+        pool.add(4.1, 4.41, vec![(0, 3), (3, 4), (4, 1)], |event, _stats| {
             println!("event: {:?}", event);
             Ok(())
-        });
+        })
+        .unwrap();
         println!("pool: {:?}", pool);
 
         let mut map = HashMap::new();
@@ -303,10 +310,16 @@ use crate::coverage_sensor_and_pool::HandleCoveragePointFromCodeCoverageSensor;
         println!("{:?}", map);
 
         // replace
-        pool.add(0.1, 0.11, vec![(0, 3), (3, 4), (4, 1), (1, 7), (2, 8)], |event, stats| {
-            println!("event: {:?}", event);
-            Ok(())
-        });
+        pool.add(
+            0.1,
+            0.11,
+            vec![(0, 3), (3, 4), (4, 1), (1, 7), (2, 8)],
+            |event, _stats| {
+                println!("event: {:?}", event);
+                Ok(())
+            },
+        )
+        .unwrap();
         println!("pool: {:?}", pool);
 
         let mut map = HashMap::new();
@@ -317,10 +330,11 @@ use crate::coverage_sensor_and_pool::HandleCoveragePointFromCodeCoverageSensor;
         println!("{:?}", map);
 
         // replace
-        pool.add(1.5, 1.51, vec![(0, 10)], |event, stats| {
+        pool.add(1.5, 1.51, vec![(0, 10)], |event, _stats| {
             println!("event: {:?}", event);
             Ok(())
-        });
+        })
+        .unwrap();
 
         println!("pool: {:?}", pool);
 
