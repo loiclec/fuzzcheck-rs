@@ -82,6 +82,46 @@ where
             Either::Right(idx) => self.p2.mark_test_case_as_dead_end(idx),
         }
     }
+    #[no_coverage]
+    fn minify(
+        &mut self,
+        target_len: usize,
+        mut event_handler: impl FnMut(CorpusDelta<&Self::TestCase, Self::Index>, Self::Stats) -> Result<(), std::io::Error>,
+    ) -> Result<(), std::io::Error> {
+        {
+            let AndStats { stats2, .. } = self.stats();
+            self.p1.minify(
+                target_len,
+                #[no_coverage]
+                |corpus_delta, stats1| {
+                    event_handler(
+                        Self::lift_corpus_delta_1(corpus_delta),
+                        AndStats {
+                            stats1,
+                            stats2: stats2.clone(),
+                        },
+                    )
+                },
+            )?;
+        }
+        {
+            let AndStats { stats1, .. } = self.stats();
+
+            self.p2.minify(
+                target_len,
+                #[no_coverage]
+                |corpus_delta, stats2| {
+                    event_handler(
+                        Self::lift_corpus_delta_2(corpus_delta),
+                        AndStats {
+                            stats1: stats1.clone(),
+                            stats2,
+                        },
+                    )
+                },
+            )
+        }
+    }
 }
 
 pub struct AndSensor<S1, S2>
@@ -201,49 +241,6 @@ where
             )?
         }
         Ok(())
-    }
-    #[no_coverage]
-    fn minify(
-        &mut self,
-        sensor: &mut AndSensor<S1, S2>,
-        target_len: usize,
-        mut event_handler: impl FnMut(CorpusDelta<&Self::TestCase, Self::Index>, Self::Stats) -> Result<(), std::io::Error>,
-    ) -> Result<(), std::io::Error> {
-        {
-            let AndStats { stats2, .. } = self.stats();
-            self.p1.minify(
-                &mut sensor.s1,
-                target_len,
-                #[no_coverage]
-                |corpus_delta, stats1| {
-                    event_handler(
-                        Self::lift_corpus_delta_1(corpus_delta),
-                        AndStats {
-                            stats1,
-                            stats2: stats2.clone(),
-                        },
-                    )
-                },
-            )?;
-        }
-        {
-            let AndStats { stats1, .. } = self.stats();
-
-            self.p2.minify(
-                &mut sensor.s2,
-                target_len,
-                #[no_coverage]
-                |corpus_delta, stats2| {
-                    event_handler(
-                        Self::lift_corpus_delta_2(corpus_delta),
-                        AndStats {
-                            stats1: stats1.clone(),
-                            stats2,
-                        },
-                    )
-                },
-            )
-        }
     }
 }
 impl<P1, P2> AndPool<P1, P2>

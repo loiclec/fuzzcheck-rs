@@ -129,6 +129,7 @@ impl FeatureIdx {
     #[inline(always)]
     #[no_coverage]
     fn score_from_counter(counter: u64) -> u8 {
+        // TODO: currently experimenting with not having feature groups
         1 // if counter <= 3 {
           //     counter as u8
           // } else {
@@ -770,6 +771,17 @@ impl<T: TestCase> Pool for UniqueCoveragePool<T> {
         input.score = 0.0;
         self.update_self_stats()
     }
+    #[no_coverage]
+    fn minify(&mut self, target_len: usize, mut event_handler: impl FnMut(CorpusDelta<&Self::TestCase, Self::Index>, Self::Stats) -> Result<(), std::io::Error>) -> Result<(), std::io::Error> {
+        while self.len() > target_len {
+            if let Some((delta, stats)) = self.remove_lowest_scoring_input() {
+                event_handler(delta, stats)?;
+            } else {
+                break
+            }
+        }
+        Ok(())
+    }
 }
 
 #[inline]
@@ -894,7 +906,7 @@ impl<T: TestCase> CompatibleWithIteratorSensor for UniqueCoveragePool<T> {
         self.existing_features.clear();
     }
     #[no_coverage]
-    fn is_interesting(&self, observation_state: &Self::ObservationState, input_complexity: f64) -> bool {
+    fn is_interesting(&self, observation_state: &Self::ObservationState, _input_complexity: f64) -> bool {
         observation_state.is_interesting
     }
     #[no_coverage]

@@ -145,6 +145,16 @@ impl<T: TestCase> Pool for ArtifactsPool<T> {
     fn mark_test_case_as_dead_end(&mut self, idx: Self::Index) {
         self.inputs[idx.0].inputs[idx.1].inputs.remove(idx.2);
         // self.update_stats();
+    }    
+
+    #[no_coverage]
+    fn minify(
+        &mut self,
+        _target_len: usize,
+        _event_handler: impl FnMut(CorpusDelta<&Self::TestCase, Self::Index>, Self::Stats) -> Result<(), std::io::Error>,
+    ) -> Result<(), std::io::Error> {
+        // TODO
+        Ok(())
     }
 }
 impl<T> CompatibleWithSensor<TestFailureSensor> for ArtifactsPool<T>
@@ -252,15 +262,5 @@ where
             }
         }
         Ok(())
-    }
-
-    #[no_coverage]
-    fn minify(
-        &mut self,
-        sensor: &mut TestFailureSensor,
-        target_len: usize,
-        event_handler: impl FnMut(CorpusDelta<&Self::TestCase, Self::Index>, Self::Stats) -> Result<(), std::io::Error>,
-    ) -> Result<(), std::io::Error> {
-        todo!()
     }
 }

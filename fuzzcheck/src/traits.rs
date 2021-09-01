@@ -377,6 +377,12 @@ pub trait Pool {
 
     fn retrieve_after_processing(&mut self, idx: Self::Index, generation: usize) -> Option<&mut Self::TestCase>;
     fn mark_test_case_as_dead_end(&mut self, idx: Self::Index);
+
+    fn minify(
+        &mut self,
+        target_len: usize,
+        event_handler: impl FnMut(CorpusDelta<&Self::TestCase, Self::Index>, Self::Stats) -> Result<(), std::io::Error>,
+    ) -> Result<(), std::io::Error>;
 }
 
 pub trait CompatibleWithSensor<S: Sensor>: Pool {
@@ -386,13 +392,6 @@ pub trait CompatibleWithSensor<S: Sensor>: Pool {
         get_input_ref: Either<Self::Index, &Self::TestCase>,
         clone_input: &impl Fn(&Self::TestCase) -> Self::TestCase,
         complexity: f64,
-        event_handler: impl FnMut(CorpusDelta<&Self::TestCase, Self::Index>, Self::Stats) -> Result<(), std::io::Error>,
-    ) -> Result<(), std::io::Error>;
-
-    fn minify(
-        &mut self,
-        sensor: &mut S,
-        target_len: usize,
         event_handler: impl FnMut(CorpusDelta<&Self::TestCase, Self::Index>, Self::Stats) -> Result<(), std::io::Error>,
     ) -> Result<(), std::io::Error>;
 }

@@ -62,6 +62,10 @@ where
     fn mark_test_case_as_dead_end(&mut self, _idx: Self::Index) {
         self.dead_end = true
     }
+    #[no_coverage]
+    fn minify(&mut self, _target_len: usize, _event_handler: impl FnMut(CorpusDelta<&Self::TestCase, Self::Index>, Self::Stats) -> Result<(), std::io::Error>) -> Result<(), std::io::Error> {
+        Ok(())
+    }
 }
 
 impl<T, M, S: Sensor> CompatibleWithSensor<S> for UnitPool<T, M>
@@ -76,15 +80,6 @@ where
         _get_input_ref: Either<Self::Index, &Self::TestCase>,
         _clone_input: &impl Fn(&Self::TestCase) -> Self::TestCase,
         _complexity: f64,
-        _event_handler: impl FnMut(CorpusDelta<&Self::TestCase, Self::Index>, Self::Stats) -> Result<(), std::io::Error>,
-    ) -> Result<(), std::io::Error> {
-        Ok(())
-    }
-    #[no_coverage]
-    fn minify(
-        &mut self,
-        _sensor: &mut S,
-        _target_len: usize,
         _event_handler: impl FnMut(CorpusDelta<&Self::TestCase, Self::Index>, Self::Stats) -> Result<(), std::io::Error>,
     ) -> Result<(), std::io::Error> {
         Ok(())

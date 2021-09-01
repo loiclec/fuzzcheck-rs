@@ -197,7 +197,6 @@ where
                     pool,
                     input_idx,
                     fuzzer_stats,
-                    sensor_and_pool_stats,
                     world,
                     ..
                 },
@@ -372,7 +371,6 @@ where
         self.process_initial_inputs()?;
 
         let FuzzerState {
-            sensor,
             pool,
             fuzzer_stats,
             sensor_and_pool_stats,
@@ -385,7 +383,7 @@ where
             Some((fuzzer_stats, sensor_and_pool_stats.clone())),
         );
 
-        pool.minify(sensor, corpus_size, |corpus_delta, sensor_and_pool_stats| {
+        pool.minify(corpus_size, |corpus_delta, sensor_and_pool_stats| {
             let corpus_delta = corpus_delta.convert(|x| x.value.clone());
             let event = corpus_delta.fuzzer_event();
             world.update_corpus(corpus_delta)?;

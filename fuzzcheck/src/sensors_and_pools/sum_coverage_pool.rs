@@ -50,15 +50,15 @@ impl<T: TestCase, Strategy> Pool for AggregateCoveragePool<T, Strategy> {
         }
     }
 
-    fn get(&self, idx: Self::Index) -> &Self::TestCase {
+    fn get(&self, _idx: Self::Index) -> &Self::TestCase {
         &self.current_best.as_ref().unwrap().1.data
     }
 
-    fn get_mut(&mut self, idx: Self::Index) -> &mut Self::TestCase {
+    fn get_mut(&mut self, _idx: Self::Index) -> &mut Self::TestCase {
         &mut self.current_best.as_mut().unwrap().1.data
     }
 
-    fn retrieve_after_processing(&mut self, idx: Self::Index, generation: usize) -> Option<&mut Self::TestCase> {
+    fn retrieve_after_processing(&mut self, _idx: Self::Index, generation: usize) -> Option<&mut Self::TestCase> {
         if self.current_best.as_ref().unwrap().1.data.generation() == generation {
             Some(&mut self.current_best.as_mut().unwrap().1.data)
         } else {
@@ -66,19 +66,23 @@ impl<T: TestCase, Strategy> Pool for AggregateCoveragePool<T, Strategy> {
         }
     }
 
-    fn mark_test_case_as_dead_end(&mut self, idx: Self::Index) {
+    fn mark_test_case_as_dead_end(&mut self, _idx: Self::Index) {
         self.current_best = None;
+    }
+    fn minify(&mut self, _target_len: usize, _event_handler: impl FnMut(CorpusDelta<&Self::TestCase, Self::Index>, Self::Stats) -> Result<(), std::io::Error>) -> Result<(), std::io::Error> {
+        // nothing to do
+        Ok(())
     }
 }
 impl<T: TestCase> CompatibleWithIteratorSensor for AggregateCoveragePool<T, SumCounterValues> {
     type Observation = (usize, u64);
     type ObservationState = u64;
 
-    fn observe(&mut self, observation: &Self::Observation, input_complexity: f64, state: &mut Self::ObservationState) {
+    fn observe(&mut self, observation: &Self::Observation, _input_complexity: f64, state: &mut Self::ObservationState) {
         *state += observation.1;
     }
 
-    fn finish_observing(&mut self, state: &mut Self::ObservationState, input_complexity: f64) {}
+    fn finish_observing(&mut self, _state: &mut Self::ObservationState, _input_complexity: f64) {}
 
     fn is_interesting(&self, observation_state: &Self::ObservationState, input_complexity: f64) -> bool {
         if let Some((counter, cur_input)) = &self.current_best {
@@ -113,7 +117,6 @@ impl<T: TestCase> CompatibleWithIteratorSensor for AggregateCoveragePool<T, SumC
                 vec![Unit]
             },
         };
-        println!("adding!");
         event_handler(delta, self.stats())?;
         let new = Input { data, complexity };
         self.current_best = Some((observation_state, new));
@@ -125,11 +128,11 @@ impl<T: TestCase> CompatibleWithIteratorSensor for AggregateCoveragePool<T, Coun
     type Observation = (usize, u64);
     type ObservationState = u64;
 
-    fn observe(&mut self, observation: &Self::Observation, input_complexity: f64, state: &mut Self::ObservationState) {
+    fn observe(&mut self, _observation: &Self::Observation, _input_complexity: f64, state: &mut Self::ObservationState) {
         *state += 1;
     }
 
-    fn finish_observing(&mut self, state: &mut Self::ObservationState, input_complexity: f64) {}
+    fn finish_observing(&mut self, _state: &mut Self::ObservationState, _input_complexity: f64) {}
 
     fn is_interesting(&self, observation_state: &Self::ObservationState, input_complexity: f64) -> bool {
         if let Some((counter, cur_input)) = &self.current_best {

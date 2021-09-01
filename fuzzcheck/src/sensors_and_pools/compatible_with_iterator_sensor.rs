@@ -63,15 +63,4 @@ where
 
         Ok(())
     }
-
-    // TODO: minify shouldn't depend on the sensor, should only be part of the pool
-    #[no_coverage]
-    fn minify(
-        &mut self,
-        sensor: &mut S,
-        target_len: usize,
-        event_handler: impl FnMut(CorpusDelta<&Self::TestCase, Self::Index>, Self::Stats) -> Result<(), std::io::Error>,
-    ) -> Result<(), std::io::Error> {
-        todo!()
-    }
 }
