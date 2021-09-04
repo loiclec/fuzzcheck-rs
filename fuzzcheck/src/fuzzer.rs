@@ -214,6 +214,17 @@ where
 
         // we have verified in the caller function that there is an input
         let input = FuzzerState::<T, M, S, Sens, P>::get_input(input_idx, pool).unwrap();
+        
+        std::panic::set_hook(Box::new(move |panic_info| {
+            let mut hasher = DefaultHasher::new();
+            panic_info.location().hash(&mut hasher);
+            unsafe {
+                TEST_FAILURE = Some(TestFailure {
+                    display: format!("{}", panic_info),
+                    id: hasher.finish(),
+                });
+            }
+        }));
 
         sensor.start_recording();
         let cell = NotUnwindSafe { value: test };
@@ -221,6 +232,8 @@ where
             value: input.value.borrow(),
         };
         let result = catch_unwind(|| (cell.value)(input_cell.value));
+        sensor.stop_recording();
+        let _ = std::panic::take_hook();
         match result {
             Ok(false) => unsafe {
                 TEST_FAILURE = Some(TestFailure {
@@ -240,7 +253,6 @@ where
             }
             Ok(true) => {}
         }
-        sensor.stop_recording();
 
         fuzzer_stats.total_number_of_runs += 1;
 
@@ -272,41 +284,43 @@ where
     #[no_coverage]
     fn process_next_input(&mut self) -> Result<(), ReasonForStopping<T>> {
         let pool = &mut self.state.pool;
-        if let Some(idx) = pool.get_random_index() {
-            self.state.input_idx = FuzzerInputIndex::Pool(idx);
-            let input = pool.get_mut(idx);
-            let generation = input.generation;
-            if let Some((unmutate_token, cplx)) =
-                input.mutate(&mut self.state.mutator, self.state.settings.max_input_cplx)
-            {
+        loop {
+            if let Some(idx) = pool.get_random_index() {
+                self.state.input_idx = FuzzerInputIndex::Pool(idx);
+                let input = pool.get_mut(idx);
+                let generation = input.generation;
+                if let Some((unmutate_token, cplx)) =
+                    input.mutate(&mut self.state.mutator, self.state.settings.max_input_cplx)
+                {
+                    if cplx < self.state.settings.max_input_cplx {
+                        self.test_and_process_input(cplx)?;
+                    }
+                    let pool = &mut self.state.pool;
+                    // Retrieving the input may fail because the input may have been deleted
+                    if let Some(input) = pool.retrieve_after_processing(idx, generation) {
+                        input.unmutate(&self.state.mutator, unmutate_token);
+                    }
+
+                    break Ok(())
+                } else {
+                    pool.mark_test_case_as_dead_end(idx);
+                    continue;
+                }
+            } else if let Some((input, cplx)) = self.state.arbitrary_input() {
+                self.state.input_idx = FuzzerInputIndex::Temporary(input);
+
                 if cplx < self.state.settings.max_input_cplx {
                     self.test_and_process_input(cplx)?;
                 }
-                let pool = &mut self.state.pool;
-                // Retrieving the input may fail because the input may have been deleted
-                if let Some(input) = pool.retrieve_after_processing(idx, generation) {
-                    input.unmutate(&self.state.mutator, unmutate_token);
-                }
 
-                Ok(())
+                break Ok(())
             } else {
-                pool.mark_test_case_as_dead_end(idx);
-                self.process_next_input()
+                self.state.world.report_event(
+                    FuzzerEvent::End,
+                    Some((&self.state.fuzzer_stats, &self.state.pool.stats())),
+                );
+                break Err(ReasonForStopping::ExhaustedPossibleMutations)
             }
-        } else if let Some((input, cplx)) = self.state.arbitrary_input() {
-            self.state.input_idx = FuzzerInputIndex::Temporary(input);
-
-            if cplx < self.state.settings.max_input_cplx {
-                self.test_and_process_input(cplx)?;
-            }
-
-            Ok(())
-        } else {
-            self.state.world.report_event(
-                FuzzerEvent::End,
-                Some((&self.state.fuzzer_stats, &self.state.pool.stats())),
-            );
-            Err(ReasonForStopping::ExhaustedPossibleMutations)
         }
     }
 
@@ -452,18 +466,6 @@ where
     P: Pool<TestCase = FuzzedInput<T, M>> + CompatibleWithSensor<Sens> + 'static,
 {
     let command = &args.command;
-
-    std::panic::set_hook(Box::new(move |panic_info| {
-        let mut hasher = DefaultHasher::new();
-        panic_info.location().hash(&mut hasher);
-        unsafe {
-            TEST_FAILURE = Some(TestFailure {
-                display: format!("{}", panic_info),
-                id: hasher.finish(),
-            });
-        }
-    }));
-
     let result = match command {
         FuzzerCommand::Fuzz => {
             let mut fuzzer = Fuzzer::new(
@@ -500,6 +502,7 @@ where
                 fuzzer.main_loop()?
             } else {
                 // TODO: send a better error message saying some inputs in the corpus cannot be read
+                // TODO: there should be an option to ignore invalid values 
                 println!("A value in the input corpus is invalid.");
                 Ok(())
             }

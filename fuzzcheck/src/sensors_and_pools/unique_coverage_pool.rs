@@ -129,7 +129,7 @@ impl FeatureIdx {
     /// hit counts together.
     #[inline(always)]
     #[no_coverage]
-    fn score_from_counter(counter: u64) -> u8 {
+    fn score_from_counter(_counter: u64) -> u8 {
         // TODO: currently experimenting with not having feature groups
         1 // if counter <= 3 {
           //     counter as u8
@@ -720,6 +720,9 @@ impl<T: TestCase> Pool for UniqueCoveragePool<T> {
             return None;
         }
         let most = self.ranked_inputs.prefix_sum(self.ranked_inputs.len() - 1);
+        if most <= 0.0 {
+            return None;
+        }
         let chosen_weight = gen_f64(&self.rng, 0.0..most);
 
         // Find the first item which has a weight *higher* than the chosen weight.
@@ -741,7 +744,6 @@ impl<T: TestCase> Pool for UniqueCoveragePool<T> {
 
         let delta = new_rank - old_rank;
         self.ranked_inputs.update(choice, delta);
-
         Some(key)
     }
 

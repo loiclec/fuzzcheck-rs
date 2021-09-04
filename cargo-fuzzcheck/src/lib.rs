@@ -59,6 +59,7 @@ pub fn input_minify_command(
 
     let _ = std::fs::create_dir(&artifacts_folder);
     config.artifacts_folder = Some(artifacts_folder.clone());
+    config.stop_after_first_failure = true;
 
     fn simplest_input_file(folder: &Path) -> Option<PathBuf> {
         let files_with_complexity = std::fs::read_dir(folder)
@@ -88,12 +89,6 @@ pub fn input_minify_command(
     let o = child.wait_with_output()?;
 
     assert!(!o.status.success());
-
-    // hjhjb.minifyd/hshs.parent() != hjhjb.minifyd/ -> copy hshs to hjhjb.minifyd/hshs
-    //let destination = artifacts_folder.join(arguments.input_file.file_name());
-    // if arguments.input_file.unwrap().parent() != Some(artifacts_folder.as_path()) {
-    //     std::fs::copy(arguments.input_file, artifacts_folder.to_owned() + arguments.input_file);
-    // }
 
     loop {
         simplest = simplest_input_file(&artifacts_folder).unwrap_or_else(|| simplest.clone());

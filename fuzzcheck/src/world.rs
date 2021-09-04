@@ -56,8 +56,7 @@ impl<S: Serializer, CorpusKey: Hash + Eq> World<S, CorpusKey> {
 
         if let Some((content, key)) = add {
             let (hash, input) = self.hash_and_string_of_input(&content);
-            let old = self.corpus.insert(key, hash.clone());
-            assert!(old.is_none());
+            let _old = self.corpus.insert(key, hash.clone());
             self.add_to_output_corpus(&path, hash.clone(), input.clone())?;
         }
 

@@ -34,7 +34,7 @@ pub struct CounterMaximizingPool<T> {
     highest_counts: Vec<u64>,
     inputs: Slab<Input<T>>,
     best_input_for_counter: Vec<Option<SlabKey<Input<T>>>>,
-    // also use a fenwwick tree here?
+    // also use a fenwick tree here?
     cumulative_score_inputs: Vec<f64>,
     stats: Stats,
     rng: fastrand::Rng,
@@ -128,9 +128,9 @@ impl<T: TestCase> Pool for CounterMaximizingPool<T> {
         self.inputs[idx].score = 0.0;
         self.update_stats();
     }
-    fn minify(&mut self, target_len: usize, event_handler: impl FnMut(CorpusDelta<&Self::TestCase, Self::Index>, Self::Stats) -> Result<(), std::io::Error>) -> Result<(), std::io::Error> {
-        // only keep the `target_len` highest-scoring inputs?
-        todo!()
+    fn minify(&mut self, _target_len: usize, _event_handler: impl FnMut(CorpusDelta<&Self::TestCase, Self::Index>, Self::Stats) -> Result<(), std::io::Error>) -> Result<(), std::io::Error> {
+        // TODO: only keep the `target_len` highest-scoring inputs?
+        Ok(())
     }
 }
 impl<T: TestCase> CounterMaximizingPool<T> {

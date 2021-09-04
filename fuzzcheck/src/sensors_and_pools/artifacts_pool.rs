@@ -116,6 +116,9 @@ impl<T: TestCase> Pool for ArtifactsPool<T> {
         let list_for_error = &self.inputs[error_choice];
         let complexity_choice = list_for_error.inputs.len() - 1;
         let least_complexity = &list_for_error.inputs[complexity_choice];
+        if least_complexity.inputs.is_empty() {
+            return None;
+        }
         let input_choice = self.rng.usize(0..least_complexity.inputs.len());
         Some((error_choice, complexity_choice, input_choice))
     }
@@ -151,7 +154,7 @@ impl<T: TestCase> Pool for ArtifactsPool<T> {
     #[no_coverage]
     fn mark_test_case_as_dead_end(&mut self, idx: Self::Index) {
         self.inputs[idx.0].inputs[idx.1].inputs.remove(idx.2);
-    }    
+    }
 
     #[no_coverage]
     fn minify(

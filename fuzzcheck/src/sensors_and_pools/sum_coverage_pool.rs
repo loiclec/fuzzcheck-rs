@@ -18,6 +18,7 @@ pub struct Input<T: Clone> {
 pub struct AggregateCoveragePool<T: Clone, Strategy> {
     name: String,
     current_best: Option<(u64, Input<T>)>,
+    current_best_dead_end: bool,
     _phantom: PhantomData<Strategy>,
 }
 impl<T: TestCase, Strategy> AggregateCoveragePool<T, Strategy> {
@@ -25,6 +26,7 @@ impl<T: TestCase, Strategy> AggregateCoveragePool<T, Strategy> {
         Self {
             name: name.to_string(),
             current_best: None,
+            current_best_dead_end: false,
             _phantom: PhantomData,
         }
     }
@@ -43,7 +45,7 @@ impl<T: TestCase, Strategy> Pool for AggregateCoveragePool<T, Strategy> {
     }
 
     fn get_random_index(&mut self) -> Option<Self::Index> {
-        if self.current_best.is_some() {
+        if self.current_best.is_some() && !self.current_best_dead_end {
             Some(Unit)
         } else {
             None
@@ -67,7 +69,7 @@ impl<T: TestCase, Strategy> Pool for AggregateCoveragePool<T, Strategy> {
     }
 
     fn mark_test_case_as_dead_end(&mut self, _idx: Self::Index) {
-        self.current_best = None;
+        self.current_best_dead_end = true;
     }
     fn minify(&mut self, _target_len: usize, _event_handler: impl FnMut(CorpusDelta<&Self::TestCase, Self::Index>, Self::Stats) -> Result<(), std::io::Error>) -> Result<(), std::io::Error> {
         // nothing to do
