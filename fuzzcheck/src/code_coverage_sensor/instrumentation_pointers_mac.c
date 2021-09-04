@@ -1,4 +1,4 @@
-extern int __llvm_profile_runtime = 0;
+int __llvm_profile_runtime = 0;
 
 extern unsigned long int
     CountersStart __asm("section$start$__DATA$__llvm_prf_cnts"); // different based on the platform, so double-check it

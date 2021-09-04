@@ -1,4 +1,4 @@
-extern int __llvm_profile_runtime = 0;
+int __llvm_profile_runtime = 0;
 
 extern unsigned long int __start___llvm_prf_cnts;
 extern unsigned long int __stop___llvm_prf_cnts;
