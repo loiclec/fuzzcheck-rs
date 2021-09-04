@@ -1,10 +1,10 @@
 extern crate cargo_fuzzcheck;
 use cargo_fuzzcheck::*;
 use fuzzcheck_common::arg::*;
-use std::path::PathBuf;
-use std::string::String;
-use std::process;
 use std::error::Error;
+use std::path::PathBuf;
+use std::process;
+use std::string::String;
 
 const CARGO_ARGS_FLAG: &str = "cargo-args";
 
@@ -35,7 +35,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     if is_help_string(&target_name) {
         println!("{}", help(&parser));
-        return Ok(())
+        return Ok(());
     }
 
     let string_args = env_args[start_idx + 1..]
@@ -57,12 +57,12 @@ fn main() -> Result<(), Box<dyn Error>> {
                 "Both a fuzz target and a command must be given to cargo fuzzcheck. You specified the fuzz target as \"{}\", but no command was given.",
                 target_name
             )
-        )))
+        )));
     }
 
     if is_help_string(&string_args[0]) {
         println!("{}", help(&parser));
-        return Ok(())
+        return Ok(());
     }
 
     let mut args = match Arguments::from_parser(&parser, &string_args) {
@@ -109,4 +109,3 @@ fn main() -> Result<(), Box<dyn Error>> {
 fn is_help_string(s: &str) -> bool {
     matches!(s, "--help" | "-help" | "-h" | "help")
 }
-

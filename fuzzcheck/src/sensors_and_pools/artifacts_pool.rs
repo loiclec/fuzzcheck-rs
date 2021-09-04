@@ -1,8 +1,8 @@
 use crate::mutators::either::Either;
 use crate::traits::{CompatibleWithSensor, CorpusDelta, Pool, Sensor, TestCase};
+use owo_colors::OwoColorize;
 use std::fmt::Display;
 use std::path::PathBuf;
-use owo_colors::OwoColorize;
 
 const NBR_ARTIFACTS_PER_ERROR_AND_CPLX: usize = 8;
 

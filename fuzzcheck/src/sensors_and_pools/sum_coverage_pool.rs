@@ -71,7 +71,11 @@ impl<T: TestCase, Strategy> Pool for AggregateCoveragePool<T, Strategy> {
     fn mark_test_case_as_dead_end(&mut self, _idx: Self::Index) {
         self.current_best_dead_end = true;
     }
-    fn minify(&mut self, _target_len: usize, _event_handler: impl FnMut(CorpusDelta<&Self::TestCase, Self::Index>, Self::Stats) -> Result<(), std::io::Error>) -> Result<(), std::io::Error> {
+    fn minify(
+        &mut self,
+        _target_len: usize,
+        _event_handler: impl FnMut(CorpusDelta<&Self::TestCase, Self::Index>, Self::Stats) -> Result<(), std::io::Error>,
+    ) -> Result<(), std::io::Error> {
         // nothing to do
         Ok(())
     }
@@ -130,7 +134,12 @@ impl<T: TestCase> CompatibleWithIteratorSensor for AggregateCoveragePool<T, Coun
     type Observation = (usize, u64);
     type ObservationState = u64;
 
-    fn observe(&mut self, _observation: &Self::Observation, _input_complexity: f64, state: &mut Self::ObservationState) {
+    fn observe(
+        &mut self,
+        _observation: &Self::Observation,
+        _input_complexity: f64,
+        state: &mut Self::ObservationState,
+    ) {
         *state += 1;
     }
 

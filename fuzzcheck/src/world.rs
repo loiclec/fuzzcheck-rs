@@ -4,6 +4,7 @@ use crate::{fuzzer::TerminationStatus, traits::Serializer};
 use fuzzcheck_common::arg::Arguments;
 use fuzzcheck_common::arg::FuzzerCommand;
 use fuzzcheck_common::{FuzzerEvent, FuzzerStats};
+use owo_colors::OwoColorize;
 use std::collections::hash_map::DefaultHasher;
 use std::collections::HashMap;
 use std::fmt::Display;
@@ -13,7 +14,6 @@ use std::io::{self, Result};
 use std::path::Path;
 use std::time::Duration;
 use std::time::Instant;
-use owo_colors::OwoColorize;
 
 pub struct World<S: Serializer, CorpusKey: Hash + Eq> {
     settings: Arguments,
@@ -190,7 +190,7 @@ This should never happen, and is probably a bug in fuzzcheck. Sorry :("#
     }
     fn read_input_corpus_rec(&self, corpus: &Path, values: &mut Vec<S::Value>) -> Result<()> {
         if !corpus.exists() {
-            return Ok(())
+            return Ok(());
         }
         if !corpus.is_dir() {
             return Result::Err(io::Error::new(

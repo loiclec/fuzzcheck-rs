@@ -16,7 +16,11 @@ pub struct Stats {
 impl Display for Stats {
     #[no_coverage]
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", format!("{}(size: {}  sum: {})", self.name, self.size, self.total_counts).bright_purple())
+        write!(
+            f,
+            "{}",
+            format!("{}(size: {}  sum: {})", self.name, self.size, self.total_counts).bright_purple()
+        )
     }
 }
 
@@ -128,7 +132,11 @@ impl<T: TestCase> Pool for CounterMaximizingPool<T> {
         self.inputs[idx].score = 0.0;
         self.update_stats();
     }
-    fn minify(&mut self, _target_len: usize, _event_handler: impl FnMut(CorpusDelta<&Self::TestCase, Self::Index>, Self::Stats) -> Result<(), std::io::Error>) -> Result<(), std::io::Error> {
+    fn minify(
+        &mut self,
+        _target_len: usize,
+        _event_handler: impl FnMut(CorpusDelta<&Self::TestCase, Self::Index>, Self::Stats) -> Result<(), std::io::Error>,
+    ) -> Result<(), std::io::Error> {
         // TODO: only keep the `target_len` highest-scoring inputs?
         Ok(())
     }

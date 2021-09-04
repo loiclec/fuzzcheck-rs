@@ -63,7 +63,11 @@ where
         self.dead_end = true
     }
     #[no_coverage]
-    fn minify(&mut self, _target_len: usize, _event_handler: impl FnMut(CorpusDelta<&Self::TestCase, Self::Index>, Self::Stats) -> Result<(), std::io::Error>) -> Result<(), std::io::Error> {
+    fn minify(
+        &mut self,
+        _target_len: usize,
+        _event_handler: impl FnMut(CorpusDelta<&Self::TestCase, Self::Index>, Self::Stats) -> Result<(), std::io::Error>,
+    ) -> Result<(), std::io::Error> {
         Ok(())
     }
 }

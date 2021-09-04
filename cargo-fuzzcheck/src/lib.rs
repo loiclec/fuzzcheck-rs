@@ -158,7 +158,7 @@ pub fn string_from_args(args: &Arguments) -> String {
 
     s.push_str(&format!("--{} {} ", MAX_INPUT_CPLX_FLAG, args.max_input_cplx as usize));
     s.push_str(&format!("--{} {} ", MAX_DURATION_FLAG, args.maximum_duration.as_secs()));
-    s.push_str(&format!("--{} {} ", MAX_ITERATIONS_FLAG, args.maximum_iterations ));
+    s.push_str(&format!("--{} {} ", MAX_ITERATIONS_FLAG, args.maximum_iterations));
     if args.stop_after_first_failure {
         s.push_str(&format!("--{} ", STOP_AFTER_FIRST_FAILURE_FLAG));
     }

@@ -5,7 +5,7 @@
 use crate::code_coverage_sensor::CodeCoverageSensor;
 use crate::mutators::either::Either;
 use crate::sensors_and_pools::and_sensor_and_pool::{AndPool, AndSensor};
-use crate::sensors_and_pools::artifacts_pool::{ArtifactsPool, TEST_FAILURE, TestFailure, TestFailureSensor};
+use crate::sensors_and_pools::artifacts_pool::{ArtifactsPool, TestFailure, TestFailureSensor, TEST_FAILURE};
 use crate::sensors_and_pools::noop_sensor::NoopSensor;
 use crate::sensors_and_pools::unique_coverage_pool::UniqueCoveragePool;
 use crate::sensors_and_pools::unit_pool::UnitPool;
@@ -30,7 +30,7 @@ pub enum ReasonForStopping<T> {
     MaximumDuration,
     ExhaustedPossibleMutations,
     TestFailure(T),
-    IOError(std::io::Error)
+    IOError(std::io::Error),
 }
 
 impl<T> From<std::io::Error> for ReasonForStopping<T> {
@@ -214,7 +214,7 @@ where
 
         // we have verified in the caller function that there is an input
         let input = FuzzerState::<T, M, S, Sens, P>::get_input(input_idx, pool).unwrap();
-        
+
         std::panic::set_hook(Box::new(move |panic_info| {
             let mut hasher = DefaultHasher::new();
             panic_info.location().hash(&mut hasher);
@@ -241,14 +241,14 @@ where
                     id: 0,
                 });
                 if self.state.settings.stop_after_first_failure {
-                    return Err(ReasonForStopping::TestFailure(input.value.clone()))
+                    return Err(ReasonForStopping::TestFailure(input.value.clone()));
                 }
             },
             Err(_) => {
                 // the panic handler already changed the value of TEST_FAILURE
                 // so we don't need to do anything
                 if self.state.settings.stop_after_first_failure {
-                    return Err(ReasonForStopping::TestFailure(input.value.clone()))
+                    return Err(ReasonForStopping::TestFailure(input.value.clone()));
                 }
             }
             Ok(true) => {}
@@ -263,20 +263,14 @@ where
         };
         let clone_input = |input: &FuzzedInput<T, M>| input.new_source(mutator);
 
-        pool.process(
-            sensor,
-            get_input,
-            &clone_input,
-            cplx,
-            |corpus_delta, pool_stats| {
-                let corpus_delta = corpus_delta.convert(|x| x.value.clone());
-                update_fuzzer_stats(fuzzer_stats, world);
-                let event = corpus_delta.fuzzer_event();
-                world.update_corpus(corpus_delta)?;
-                world.report_event(event, Some((fuzzer_stats, pool_stats)));
-                Ok(())
-            },
-        )?;
+        pool.process(sensor, get_input, &clone_input, cplx, |corpus_delta, pool_stats| {
+            let corpus_delta = corpus_delta.convert(|x| x.value.clone());
+            update_fuzzer_stats(fuzzer_stats, world);
+            let event = corpus_delta.fuzzer_event();
+            world.update_corpus(corpus_delta)?;
+            world.report_event(event, Some((fuzzer_stats, pool_stats)));
+            Ok(())
+        })?;
 
         Ok(())
     }
@@ -301,7 +295,7 @@ where
                         input.unmutate(&self.state.mutator, unmutate_token);
                     }
 
-                    break Ok(())
+                    break Ok(());
                 } else {
                     pool.mark_test_case_as_dead_end(idx);
                     continue;
@@ -313,13 +307,13 @@ where
                     self.test_and_process_input(cplx)?;
                 }
 
-                break Ok(())
+                break Ok(());
             } else {
                 self.state.world.report_event(
                     FuzzerEvent::End,
                     Some((&self.state.fuzzer_stats, &self.state.pool.stats())),
                 );
-                break Err(ReasonForStopping::ExhaustedPossibleMutations)
+                break Err(ReasonForStopping::ExhaustedPossibleMutations);
             }
         }
     }
@@ -378,10 +372,10 @@ where
         loop {
             let duration_since_beginning = self.state.world.elapsed_time_since_start();
             if duration_since_beginning > self.state.settings.maximum_duration {
-                return Err(ReasonForStopping::MaximumDuration)
+                return Err(ReasonForStopping::MaximumDuration);
             }
             if self.state.fuzzer_stats.total_number_of_runs >= self.state.settings.maximum_iterations {
-                return Err(ReasonForStopping::MaximumIterations)
+                return Err(ReasonForStopping::MaximumIterations);
             }
             self.process_next_input()?;
             if self.state.fuzzer_stats.total_number_of_runs >= next_milestone {
@@ -415,10 +409,7 @@ where
             ..
         } = &mut self.state;
 
-        world.report_event(
-            FuzzerEvent::DidReadCorpus,
-            Some((fuzzer_stats, pool.stats().clone())),
-        );
+        world.report_event(FuzzerEvent::DidReadCorpus, Some((fuzzer_stats, pool.stats().clone())));
 
         pool.minify(corpus_size, |corpus_delta, pool_stats| {
             let corpus_delta = corpus_delta.convert(|x| x.value.clone());
@@ -514,7 +505,7 @@ where
                 fuzzer.main_loop()?
             } else {
                 // TODO: send a better error message saying some inputs in the corpus cannot be read
-                // TODO: there should be an option to ignore invalid values 
+                // TODO: there should be an option to ignore invalid values
                 println!("A value in the input corpus is invalid.");
                 Ok(())
             }

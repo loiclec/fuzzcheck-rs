@@ -1,5 +1,11 @@
 use getopts::{Fail, Options};
-use std::{error::Error, fmt::{Debug, Display}, net::{SocketAddr, ToSocketAddrs}, path::PathBuf, time::Duration};
+use std::{
+    error::Error,
+    fmt::{Debug, Display},
+    net::{SocketAddr, ToSocketAddrs},
+    path::PathBuf,
+    time::Duration,
+};
 
 pub const MAX_INPUT_CPLX_FLAG: &str = "max-cplx";
 pub const INPUT_FILE_FLAG: &str = "input-file";
@@ -16,12 +22,10 @@ pub const MAX_DURATION_FLAG: &str = "max-duration";
 pub const MAX_ITERATIONS_FLAG: &str = "max-iterations";
 pub const STOP_AFTER_FIRST_FAILURE_FLAG: &str = "stop-after-first-failure";
 
-
 pub const COMMAND_FUZZ: &str = "fuzz";
 pub const COMMAND_MINIFY_INPUT: &str = "tmin";
 pub const COMMAND_MINIFY_CORPUS: &str = "cmin";
 pub const COMMAND_READ: &str = "read";
-
 
 #[derive(Clone)]
 pub struct DefaultArguments {
@@ -30,9 +34,7 @@ pub struct DefaultArguments {
 impl Default for DefaultArguments {
     #[no_coverage]
     fn default() -> Self {
-        Self {
-            max_input_cplx: 4096.0,
-        }
+        Self { max_input_cplx: 4096.0 }
     }
 }
 
@@ -70,9 +72,18 @@ pub fn options_parser() -> Options {
     let defaults = DefaultArguments::default();
 
     options.long_only(true);
-    options.optopt("", MAX_DURATION_FLAG, "maximum duration of the fuzz test, in seconds", "N");
+    options.optopt(
+        "",
+        MAX_DURATION_FLAG,
+        "maximum duration of the fuzz test, in seconds",
+        "N",
+    );
     options.optopt("", MAX_ITERATIONS_FLAG, "maximum number of iterations", "N");
-    options.optflag("", STOP_AFTER_FIRST_FAILURE_FLAG, "stop the fuzzer after the first test failure is found");
+    options.optflag(
+        "",
+        STOP_AFTER_FIRST_FAILURE_FLAG,
+        "stop the fuzzer after the first test failure is found",
+    );
 
     options.optopt("", IN_CORPUS_FLAG, "folder for the input corpus", "PATH");
     options.optflag(
@@ -135,7 +146,9 @@ impl Arguments {
         let matches = options.parse(args)?;
 
         if args.is_empty() {
-            return Err(ArgumentsError::Validation("A command must be given to cargo fuzzcheck.".to_string()));
+            return Err(ArgumentsError::Validation(
+                "A command must be given to cargo fuzzcheck.".to_string(),
+            ));
         }
 
         if matches.opt_present("help") {
@@ -230,10 +243,16 @@ impl Arguments {
         };
 
         let maximum_duration = {
-            let seconds = matches.opt_str(MAX_DURATION_FLAG).and_then(|x| x.parse::<u64>().ok()).unwrap_or(u64::MAX);
+            let seconds = matches
+                .opt_str(MAX_DURATION_FLAG)
+                .and_then(|x| x.parse::<u64>().ok())
+                .unwrap_or(u64::MAX);
             Duration::new(seconds, 0)
         };
-        let maximum_iterations = matches.opt_str(MAX_ITERATIONS_FLAG).and_then(|x| x.parse::<usize>().ok()).unwrap_or(usize::MAX);
+        let maximum_iterations = matches
+            .opt_str(MAX_ITERATIONS_FLAG)
+            .and_then(|x| x.parse::<usize>().ok())
+            .unwrap_or(usize::MAX);
         let stop_after_first_failure = matches.opt_present(STOP_AFTER_FIRST_FAILURE_FLAG);
 
         let defaults = DefaultArguments::default();
@@ -272,9 +291,7 @@ impl Arguments {
     }
 }
 
-
 pub fn help(parser: &Options) -> String {
-
     let mut help = format!(
         r##"
 USAGE:
@@ -342,10 +359,10 @@ cargo-fuzzcheck target1 {cmin} --{in_corpus} "fuzz-corpus" --{out_corpus} "minim
         corpus_size = CORPUS_SIZE_FLAG,
         max_cplx = MAX_INPUT_CPLX_FLAG,
         out_corpus = OUT_CORPUS_FLAG,
-    ).as_str();
+    )
+    .as_str();
     help
 }
-
 
 pub enum ArgumentsError {
     NoArgumentsGiven(Options),
@@ -364,26 +381,32 @@ impl Display for ArgumentsError {
         match self {
             ArgumentsError::NoArgumentsGiven(parser) => {
                 write!(f, "No arguments were given.\nHelp:\n{}", help(parser))
-            },
+            }
             ArgumentsError::Parsing(e) => {
-                write!(f, "{}
+                write!(
+                    f,
+                    "{}
 To display the help, run: 
-    cargo fuzzcheck --help", e)
-            },
+    cargo fuzzcheck --help",
+                    e
+                )
+            }
             ArgumentsError::Validation(e) => {
-                write!(f, 
-                "{} 
+                write!(
+                    f,
+                    "{} 
 To display the help, run: 
-    cargo fuzzcheck --help"
-                , e)
-            },
+    cargo fuzzcheck --help",
+                    e
+                )
+            }
             ArgumentsError::WantsHelp => {
                 write!(f, "Help requested.")
-            },
+            }
         }
     }
 }
-impl Error for ArgumentsError { }
+impl Error for ArgumentsError {}
 
 impl From<Fail> for ArgumentsError {
     fn from(e: Fail) -> Self {

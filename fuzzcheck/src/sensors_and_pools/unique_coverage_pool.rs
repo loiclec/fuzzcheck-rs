@@ -59,12 +59,12 @@ use crate::fenwick_tree::FenwickTree;
 use crate::traits::{CorpusDelta, Pool, TestCase};
 use ahash::{AHashMap, AHashSet};
 use fastrand::Rng;
+use owo_colors::OwoColorize;
 use std::cmp::Ordering;
 use std::fmt::Display;
 use std::hash::Hash;
 use std::ops::Range;
 use std::path::Path;
-use owo_colors::OwoColorize;
 
 /**
  * A unit of code coverage.
@@ -112,9 +112,7 @@ impl FeatureIdx {
     #[inline(always)]
     #[no_coverage]
     fn group_id(self) -> FeatureGroupId {
-        FeatureGroupId {
-            id: Self(self.0),
-        }
+        FeatureGroupId { id: Self(self.0) }
     }
 }
 
@@ -749,12 +747,16 @@ impl<T: TestCase> Pool for UniqueCoveragePool<T> {
         self.update_self_stats()
     }
     #[no_coverage]
-    fn minify(&mut self, target_len: usize, mut event_handler: impl FnMut(CorpusDelta<&Self::TestCase, Self::Index>, Self::Stats) -> Result<(), std::io::Error>) -> Result<(), std::io::Error> {
+    fn minify(
+        &mut self,
+        target_len: usize,
+        mut event_handler: impl FnMut(CorpusDelta<&Self::TestCase, Self::Index>, Self::Stats) -> Result<(), std::io::Error>,
+    ) -> Result<(), std::io::Error> {
         while self.len() > target_len {
             if let Some((delta, stats)) = self.remove_lowest_scoring_input() {
                 event_handler(delta, stats)?;
             } else {
-                break
+                break;
             }
         }
         Ok(())
@@ -832,13 +834,16 @@ impl Display for UniqueCoveragePoolStats {
         write!(
             f,
             "{}",
-            format!("{}(score: {:.2}  cov: {:.2}%  count: {}  avg_cplx: {:.2})",
-            self.name,
-            self.score,
-            self.percent_coverage * 100.0,
-            self.pool_size,
-            self.avg_cplx
-        ).bright_green())
+            format!(
+                "{}(score: {:.2}  cov: {:.2}%  count: {}  avg_cplx: {:.2})",
+                self.name,
+                self.score,
+                self.percent_coverage * 100.0,
+                self.pool_size,
+                self.avg_cplx
+            )
+            .bright_green()
+        )
     }
 }
 

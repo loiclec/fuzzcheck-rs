@@ -1,18 +1,16 @@
 use crate::code_coverage_sensor::CodeCoverageSensor;
 use crate::fuzzer::{Fuzzer, ReasonForStopping};
-use crate::sensors_and_pools::and_sensor_and_pool::{AndPool, AndSensor};
-use crate::sensors_and_pools::artifacts_pool::{ArtifactsPool, TestFailureSensor};
+use crate::sensors_and_pools::and_sensor_and_pool::AndPool;
 use crate::sensors_and_pools::maximize_pool::CounterMaximizingPool;
-use crate::sensors_and_pools::sum_coverage_pool::{AggregateCoveragePool, CountNumberOfDifferentCounters, SumCounterValues};
 use crate::sensors_and_pools::unique_coverage_pool::UniqueCoveragePool;
 use crate::traits::{CompatibleWithSensor, Mutator, Pool, Sensor, Serializer};
 use crate::{DefaultMutator, FuzzedInput, SerdeSerializer};
 
-use fuzzcheck_common::arg::{Arguments, FuzzerCommand};
 use fuzzcheck_common::arg::{
     options_parser, COMMAND_FUZZ, COMMAND_MINIFY_CORPUS, COMMAND_MINIFY_INPUT, CORPUS_SIZE_FLAG, INPUT_FILE_FLAG,
     IN_CORPUS_FLAG,
 };
+use fuzzcheck_common::arg::{Arguments, FuzzerCommand};
 use std::borrow::Borrow;
 use std::marker::PhantomData;
 use std::path::Path;
@@ -129,7 +127,7 @@ where
     M: Mutator<V>,
     S: Serializer<Value = V>,
     Sens: Sensor,
-    P: Pool<TestCase = FuzzedInput<V, M>> + CompatibleWithSensor<Sens>
+    P: Pool<TestCase = FuzzedInput<V, M>> + CompatibleWithSensor<Sens>,
 {
     test_function: F,
     mutator: M,
@@ -146,7 +144,7 @@ where
     M: Mutator<V>,
     S: Serializer<Value = V>,
     Sens: Sensor,
-    P: Pool<TestCase = FuzzedInput<V, M>> + CompatibleWithSensor<Sens>
+    P: Pool<TestCase = FuzzedInput<V, M>> + CompatibleWithSensor<Sens>,
 {
     test_function: F,
     mutator: M,
@@ -178,15 +176,26 @@ where
     }
 }
 
-#[cfg(feature="serde_json_serializer")]
+#[cfg(feature = "serde_json_serializer")]
 impl<T, F> FuzzerBuilder1<T, F>
 where
     T: ?Sized + ToOwned + 'static,
     T::Owned: Clone + serde::Serialize + for<'e> serde::Deserialize<'e> + DefaultMutator,
-    <T::Owned as DefaultMutator>::Mutator : 'static,
+    <T::Owned as DefaultMutator>::Mutator: 'static,
     F: Fn(&T) -> bool + 'static,
 {
-    pub fn default_options(self) -> FuzzerBuilder6<T, F, <T::Owned as DefaultMutator>::Mutator, T::Owned, SerdeSerializer<T::Owned>, CodeCoverageSensor, impl Pool<TestCase = FuzzedInput<T::Owned, <T::Owned as DefaultMutator>::Mutator>> + CompatibleWithSensor<CodeCoverageSensor>> {
+    pub fn default_options(
+        self,
+    ) -> FuzzerBuilder6<
+        T,
+        F,
+        <T::Owned as DefaultMutator>::Mutator,
+        T::Owned,
+        SerdeSerializer<T::Owned>,
+        CodeCoverageSensor,
+        impl Pool<TestCase = FuzzedInput<T::Owned, <T::Owned as DefaultMutator>::Mutator>>
+            + CompatibleWithSensor<CodeCoverageSensor>,
+    > {
         self.mutator(<T::Owned as DefaultMutator>::default_mutator())
             .serializer(SerdeSerializer::default())
             .default_sensor()
@@ -294,7 +303,7 @@ where
         }
     }
     pub fn sensor<Sens: Sensor>(self, sensor: Sens) -> FuzzerBuilder4<T, F, M, V, S, Sens> {
-         FuzzerBuilder4 {
+        FuzzerBuilder4 {
             test_function: self.test_function,
             mutator: self.mutator,
             serializer: self.serializer,
@@ -313,7 +322,17 @@ where
     S: Serializer<Value = V>,
 {
     #[no_coverage]
-    pub fn default_pool(self) -> FuzzerBuilder5<T, F, M, V, S, CodeCoverageSensor, impl Pool<TestCase = FuzzedInput<V,M>> + CompatibleWithSensor<CodeCoverageSensor>> {
+    pub fn default_pool(
+        self,
+    ) -> FuzzerBuilder5<
+        T,
+        F,
+        M,
+        V,
+        S,
+        CodeCoverageSensor,
+        impl Pool<TestCase = FuzzedInput<V, M>> + CompatibleWithSensor<CodeCoverageSensor>,
+    > {
         let count_instrumented = self.sensor.count_instrumented;
 
         let pool = UniqueCoveragePool::new("uniq_cov", count_instrumented);
@@ -361,7 +380,10 @@ where
     Sens: Sensor,
 {
     #[no_coverage]
-    pub fn pool<P>(self, pool: P) -> FuzzerBuilder5<T, F, M, V, S, Sens, P> where P: Pool<TestCase = FuzzedInput<V, M>> + CompatibleWithSensor<Sens> {
+    pub fn pool<P>(self, pool: P) -> FuzzerBuilder5<T, F, M, V, S, Sens, P>
+    where
+        P: Pool<TestCase = FuzzedInput<V, M>> + CompatibleWithSensor<Sens>,
+    {
         FuzzerBuilder5 {
             test_function: self.test_function,
             mutator: self.mutator,
@@ -381,7 +403,7 @@ where
     M: Mutator<V>,
     S: Serializer<Value = V>,
     Sens: Sensor,
-    P: Pool<TestCase = FuzzedInput<V, M>> + CompatibleWithSensor<Sens>
+    P: Pool<TestCase = FuzzedInput<V, M>> + CompatibleWithSensor<Sens>,
 {
     #[no_coverage]
     pub fn arguments(self, arguments: Arguments) -> FuzzerBuilder6<T, F, M, V, S, Sens, P> {
@@ -499,7 +521,7 @@ where
     }
     pub fn maximum_complexity(self, max_input_cplx: f64) -> Self {
         let mut x = self;
-        x.arguments.max_input_cplx = max_input_cplx;        
+        x.arguments.max_input_cplx = max_input_cplx;
         x
     }
     pub fn stop_after_iterations(self, number_of_iterations: usize) -> Self {
@@ -517,14 +539,14 @@ where
         x.arguments.stop_after_first_failure = stop_after_first_test_failure;
         x
     }
-     /// Launch the fuzz test!
+    /// Launch the fuzz test!
     #[no_coverage]
     pub fn launch(self) -> Result<(), ReasonForStopping<V>> {
         #[cfg(fuzzing)]
         self.launch_even_if_cfg_fuzzing_is_not_set()?;
         Ok(())
     }
-    
+
     /// do not use
     #[no_coverage]
     pub fn launch_even_if_cfg_fuzzing_is_not_set(self) -> Result<(), ReasonForStopping<V>> {
@@ -532,19 +554,12 @@ where
             test_function,
             mutator,
             serializer,
-            pool, 
+            pool,
             sensor,
             arguments,
             _phantom,
         } = self;
 
-        crate::fuzzer::launch(
-            test_function,
-            mutator,
-            serializer,
-            sensor,
-            pool,
-            arguments,
-        )
+        crate::fuzzer::launch(test_function, mutator, serializer, sensor, pool, arguments)
     }
 }
