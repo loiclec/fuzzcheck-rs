@@ -86,7 +86,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                 args.corpus_out = Some(PathBuf::new().join(format!("fuzz/corpus/{}", target_name)));
             }
             if args.artifacts_folder.is_none() && matches.opt_present(NO_ARTIFACTS_FLAG) == false {
-                args.artifacts_folder = Some(PathBuf::new().join(format!("fuzz/corpus/{}", target_name)));
+                args.artifacts_folder = Some(PathBuf::new().join(format!("fuzz/artifacts/{}", target_name)));
             }
             let exec = launch_executable(target_name, &args, &cargo_args, &process::Stdio::inherit)?;
             exec.wait_with_output()?;

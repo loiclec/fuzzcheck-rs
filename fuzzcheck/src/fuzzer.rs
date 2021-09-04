@@ -234,24 +234,24 @@ where
         let result = catch_unwind(|| (cell.value)(input_cell.value));
         sensor.stop_recording();
         let _ = std::panic::take_hook();
-        match result {
+        let test_failure = match result {
             Ok(false) => unsafe {
                 TEST_FAILURE = Some(TestFailure {
                     display: "test function returned false".to_string(),
                     id: 0,
                 });
-                if self.state.settings.stop_after_first_failure {
-                    return Err(ReasonForStopping::TestFailure(input.value.clone()));
-                }
+                true
             },
             Err(_) => {
                 // the panic handler already changed the value of TEST_FAILURE
                 // so we don't need to do anything
-                if self.state.settings.stop_after_first_failure {
-                    return Err(ReasonForStopping::TestFailure(input.value.clone()));
-                }
+                true
             }
-            Ok(true) => {}
+            Ok(true) => { false }
+        };
+        if test_failure && self.state.settings.stop_after_first_failure {
+            self.state.world.save_artifact(&input.value, cplx)?;
+            return Err(ReasonForStopping::TestFailure(input.value.clone()));
         }
 
         fuzzer_stats.total_number_of_runs += 1;

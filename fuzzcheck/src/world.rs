@@ -250,7 +250,7 @@ This should never happen, and is probably a bug in fuzzcheck. Sorry :("#
         };
 
         let path = artifacts_folder.join(&name).with_extension(self.serializer.extension());
-        println!("Saving at {:?}", path);
+        println!("Failing test case found. Saving at {:?}", path);
         fs::write(path, &content)?;
 
         Result::Ok(())
