@@ -12,6 +12,12 @@ mod parser;
 pub use grammar::Grammar;
 pub use mutators::grammar_based_string_mutator;
 
+pub use ast::AST;
+pub use mutators::ASTMutator;
+
+#[cfg(feature = "serde_json_serializer")]
+pub use ast::ASTSerializer;
+
 /**
     Creates a grammar corresponding to a single character within the specfied range or ranges.
     ```

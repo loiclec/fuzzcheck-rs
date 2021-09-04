@@ -2,6 +2,7 @@ use crate::code_coverage_sensor::CodeCoverageSensor;
 use crate::fuzzer::{Fuzzer, ReasonForStopping};
 use crate::sensors_and_pools::and_sensor_and_pool::AndPool;
 use crate::sensors_and_pools::maximize_pool::CounterMaximizingPool;
+use crate::sensors_and_pools::sum_coverage_pool::{AggregateCoveragePool, CountNumberOfDifferentCounters, SumCounterValues};
 use crate::sensors_and_pools::unique_coverage_pool::UniqueCoveragePool;
 use crate::traits::{CompatibleWithSensor, Mutator, Pool, Sensor, Serializer};
 use crate::{DefaultMutator, FuzzedInput, SerdeSerializer};
@@ -184,6 +185,7 @@ where
     <T::Owned as DefaultMutator>::Mutator: 'static,
     F: Fn(&T) -> bool + 'static,
 {
+    #[no_coverage]
     pub fn default_options(
         self,
     ) -> FuzzerBuilder6<
@@ -302,6 +304,7 @@ where
             _phantom: PhantomData,
         }
     }
+    #[no_coverage]
     pub fn sensor<Sens: Sensor>(self, sensor: Sens) -> FuzzerBuilder4<T, F, M, V, S, Sens> {
         FuzzerBuilder4 {
             test_function: self.test_function,
@@ -338,26 +341,26 @@ where
         let pool = UniqueCoveragePool::new("uniq_cov", count_instrumented);
         let pool2 = CounterMaximizingPool::new("max_hits", count_instrumented);
 
-        // let pool4 = AggregateCoveragePool::<_, SumCounterValues>::new("sum_counters");
-        // let pool5 = AggregateCoveragePool::<_, CountNumberOfDifferentCounters>::new("count_differents_counters");
+        let pool4 = AggregateCoveragePool::<_, SumCounterValues>::new("sum_counters");
+        let pool5 = AggregateCoveragePool::<_, CountNumberOfDifferentCounters>::new("count_differents_counters");
         let pool = AndPool {
             p1: pool2,
             p2: pool,
             ratio_choose_first: 15,
             rng: fastrand::Rng::new(),
         };
-        // let pool = AndPool {
-        //     p1: pool,
-        //     p2: pool4,
-        //     percent_choose_first: 99,
-        //     rng: fastrand::Rng::new(),
-        // };
-        // let pool = AndPool {
-        //     p1: pool,
-        //     p2: pool5,
-        //     percent_choose_first: 99,
-        //     rng: fastrand::Rng::new(),
-        // };
+        let pool = AndPool {
+            p1: pool,
+            p2: pool4,
+            ratio_choose_first: 250,
+            rng: fastrand::Rng::new(),
+        };
+        let pool = AndPool {
+            p1: pool,
+            p2: pool5,
+            ratio_choose_first: 250,
+            rng: fastrand::Rng::new(),
+        };
 
         FuzzerBuilder5 {
             test_function: self.test_function,
@@ -499,41 +502,49 @@ where
     P: Pool<TestCase = FuzzedInput<V, M>> + CompatibleWithSensor<Sens>,
     Fuzzer<V, T, F, M, S, Sens, P>: 'static,
 {
+    #[no_coverage]
     pub fn command(self, command: FuzzerCommand) -> Self {
         let mut x = self;
         x.arguments.command = command;
         x
     }
+    #[no_coverage]
     pub fn in_corpus(self, path: Option<&Path>) -> Self {
         let mut x = self;
         x.arguments.corpus_in = path.map(Path::to_path_buf);
         x
     }
+    #[no_coverage]
     pub fn out_corpus(self, path: Option<&Path>) -> Self {
         let mut x = self;
         x.arguments.corpus_out = path.map(Path::to_path_buf);
         x
     }
+    #[no_coverage]
     pub fn artifacts_folder(self, path: Option<&Path>) -> Self {
         let mut x = self;
         x.arguments.artifacts_folder = path.map(Path::to_path_buf);
         x
     }
+    #[no_coverage]
     pub fn maximum_complexity(self, max_input_cplx: f64) -> Self {
         let mut x = self;
         x.arguments.max_input_cplx = max_input_cplx;
         x
     }
+    #[no_coverage]
     pub fn stop_after_iterations(self, number_of_iterations: usize) -> Self {
         let mut x = self;
         x.arguments.maximum_iterations = number_of_iterations;
         x
     }
+    #[no_coverage]
     pub fn stop_after_duration(self, duration: Duration) -> Self {
         let mut x = self;
         x.arguments.maximum_duration = duration;
         x
     }
+    #[no_coverage]
     pub fn stop_after_first_test_failure(self, stop_after_first_test_failure: bool) -> Self {
         let mut x = self;
         x.arguments.stop_after_first_failure = stop_after_first_test_failure;

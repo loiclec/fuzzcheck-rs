@@ -1,11 +1,56 @@
 extern crate self as fuzzcheck;
 
+#[cfg(feature = "serde_json_serializer")]
+use serde::{Serialize, Deserialize};
+
+use crate::Serializer;
+
 /// An abstract syntax tree.
+#[cfg_attr(feature = "serde_json_serializer", derive(Serialize, Deserialize))]
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum AST {
     Token(char),
     Sequence(Vec<AST>),
     Box(Box<AST>),
+}
+
+#[cfg(feature = "serde_json_serializer")]
+#[derive(Serialize, Deserialize)]
+struct SerializedAST {
+    ast: AST,
+    string: String,
+}
+
+#[cfg(feature = "serde_json_serializer")]
+pub struct ASTSerializer;
+#[cfg(feature = "serde_json_serializer")]
+impl Serializer for ASTSerializer {
+    type Value = AST;
+
+    #[no_coverage]
+    fn is_utf8(&self) -> bool {
+        true
+    }
+
+    #[no_coverage]
+    fn extension(&self) -> &str {
+        ".json"
+    }
+
+    #[no_coverage]
+    fn from_data(&self, data: &[u8]) -> Option<Self::Value> {
+        serde_json::from_slice::<SerializedAST>(data).ok().map(|x| x.ast)
+    }
+
+    #[no_coverage]
+    fn to_data(&self, value: &Self::Value) -> Vec<u8> {
+        let (string, _) = value.generate_string();
+        let ser_ast = SerializedAST {
+            ast: value.clone(),
+            string
+        };
+        serde_json::to_vec_pretty(&ser_ast).unwrap()
+    }
 }
 
 /// Like an abstract syntax tree, but augmented with the string indices that correspond to each node
