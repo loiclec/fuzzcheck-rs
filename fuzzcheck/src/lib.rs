@@ -31,6 +31,8 @@ mod traits;
 mod world;
 
 #[doc(inline)]
+pub use fuzzer::ReasonForStopping;
+#[doc(inline)]
 pub use mutators::DefaultMutator;
 #[doc(inline)]
 pub use traits::Mutator;
@@ -41,7 +43,7 @@ pub use traits::Serializer;
 use traits::TestCase;
 
 #[doc(inline)]
-pub use builder::FuzzerBuilder;
+pub use builder::fuzz_test;
 
 #[doc(inline)]
 pub use serializers::ByteSerializer;

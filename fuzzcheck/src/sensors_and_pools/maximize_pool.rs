@@ -2,18 +2,21 @@ use crate::data_structures::{Slab, SlabKey, WeightedIndex};
 use crate::sensors_and_pools::compatible_with_iterator_sensor::CompatibleWithIteratorSensor;
 use crate::traits::{CorpusDelta, Pool, TestCase};
 use ahash::AHashSet;
+use owo_colors::OwoColorize;
 use std::fmt::{Debug, Display};
 use std::path::Path;
 
-#[derive(Clone, Copy, Default)]
+#[derive(Clone, Default)]
 pub struct Stats {
+    name: String,
     size: usize,
     total_counts: u64,
 }
+
 impl Display for Stats {
     #[no_coverage]
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "p2: {}\ttotal_count:{}\t", self.size, self.total_counts)
+        write!(f, "{}", format!("{}(size: {}  sum: {})", self.name, self.size, self.total_counts).bright_purple())
     }
 }
 
@@ -60,6 +63,7 @@ impl<T> CounterMaximizingPool<T> {
             best_input_for_counter: vec![None; size],
             cumulative_score_inputs: vec![],
             stats: Stats {
+                name: name.to_string(),
                 size: 0,
                 total_counts: 0,
             },
@@ -75,7 +79,7 @@ impl<T: TestCase> Pool for CounterMaximizingPool<T> {
 
     #[no_coverage]
     fn stats(&self) -> Self::Stats {
-        self.stats
+        self.stats.clone()
     }
 
     #[no_coverage]

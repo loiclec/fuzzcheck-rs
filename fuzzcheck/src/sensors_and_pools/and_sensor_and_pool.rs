@@ -164,7 +164,7 @@ pub struct AndStats<S1: Display, S2: Display> {
 impl<S1: Display, S2: Display> Display for AndStats<S1, S2> {
     #[no_coverage]
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}\t{}", self.stats1, self.stats2)
+        write!(f, "{} {}", self.stats1, self.stats2)
     }
 }
 

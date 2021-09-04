@@ -11,7 +11,9 @@ use std::fs;
 use std::hash::{Hash, Hasher};
 use std::io::{self, Result};
 use std::path::Path;
+use std::time::Duration;
 use std::time::Instant;
+use owo_colors::OwoColorize;
 
 pub struct World<S: Serializer, CorpusKey: Hash + Eq> {
     settings: Arguments,
@@ -101,11 +103,11 @@ impl<S: Serializer, CorpusKey: Hash + Eq> World<S, CorpusKey> {
         // println uses a lock, which may mess up the signal handling
         match event {
             FuzzerEvent::Start => {
-                println!("START");
+                println!("{}", "START".yellow());
                 return;
             }
             FuzzerEvent::Pulse => {
-                println!("PULSE");
+                print!("{}\t", "PULSE".yellow());
             }
             FuzzerEvent::Stop => {
                 println!("\n======================== STOPPED ========================");
@@ -132,13 +134,13 @@ This should never happen, and is probably a bug in fuzzcheck. Sorry :("#
                 return;
             }
             FuzzerEvent::Done => {
-                println!("DONE");
+                println!("{}", "DONE".yellow());
                 return;
             }
-            FuzzerEvent::New => print!("NEW\t"),
-            FuzzerEvent::Remove(count) => print!("REMOVE {}\t", count),
+            FuzzerEvent::New => print!("{}\t", "NEW".yellow()),
+            FuzzerEvent::Remove(count) => print!("{} {}\t", "REMOVE".yellow(), count.yellow()),
             FuzzerEvent::DidReadCorpus => {
-                println!("FINISHED READING CORPUS");
+                println!("{}", "FINISHED READING CORPUS".yellow());
                 return;
             }
             FuzzerEvent::CaughtSignal(signal) => println!("\n================ SIGNAL {} ================", signal),
@@ -147,14 +149,14 @@ This should never happen, and is probably a bug in fuzzcheck. Sorry :("#
                 println!("\n================ TEST FAILED ================");
             }
             FuzzerEvent::Replace(count) => {
-                print!("RPLC {}\t", count);
+                print!("{} {}\t", "RPLC".yellow(), count.yellow());
             }
             FuzzerEvent::None => return,
         };
         if let Some((fuzzer_stats, pool_stats)) = stats {
-            print!("{}\t", fuzzer_stats.total_number_of_runs);
-            print!("{}\t", pool_stats);
-            print!("exec/s: {}\t", fuzzer_stats.exec_per_s);
+            print!("{} ", fuzzer_stats.total_number_of_runs.yellow());
+            print!("{} ", pool_stats.yellow());
+            print!("{} {}", "iter/s:".yellow(), fuzzer_stats.exec_per_s.yellow());
 
             println!();
         }
@@ -168,10 +170,10 @@ This should never happen, and is probably a bug in fuzzcheck. Sorry :("#
     pub fn set_checkpoint_instant(&mut self) {
         self.checkpoint_instant = Instant::now();
     }
-    // #[no_coverage]
-    // pub fn elapsed_time_since_start(&self) -> usize {
-    //     self.initial_instant.elapsed().as_micros() as usize
-    // }
+    #[no_coverage]
+    pub fn elapsed_time_since_start(&self) -> Duration {
+        self.initial_instant.elapsed()
+    }
     #[no_coverage]
     pub fn elapsed_time_since_last_checkpoint(&self) -> usize {
         self.checkpoint_instant.elapsed().as_micros() as usize
@@ -188,6 +190,9 @@ This should never happen, and is probably a bug in fuzzcheck. Sorry :("#
         Ok(values)
     }
     fn read_input_corpus_rec(&self, corpus: &Path, values: &mut Vec<S::Value>) -> Result<()> {
+        if !corpus.exists() {
+            return Ok(())
+        }
         if !corpus.is_dir() {
             return Result::Err(io::Error::new(
                 io::ErrorKind::Other,

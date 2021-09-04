@@ -2,19 +2,20 @@ use crate::mutators::either::Either;
 use crate::traits::{CompatibleWithSensor, CorpusDelta, Pool, Sensor, TestCase};
 use std::fmt::Display;
 use std::path::PathBuf;
+use owo_colors::OwoColorize;
 
 const NBR_ARTIFACTS_PER_ERROR_AND_CPLX: usize = 8;
 
 pub(crate) static mut TEST_FAILURE: Option<TestFailure> = None;
 
 #[derive(Debug, Clone)]
-pub(crate) struct TestFailure {
+pub struct TestFailure {
     pub display: String,
     pub id: u64,
 }
 
 #[derive(Default)]
-pub(crate) struct TestFailureSensor {
+pub struct TestFailureSensor {
     error: Option<TestFailure>,
 }
 impl Sensor for TestFailureSensor {
@@ -42,11 +43,17 @@ impl Sensor for TestFailureSensor {
 }
 
 #[derive(Clone, Copy, Default)]
-pub(crate) struct Stats {}
+pub(crate) struct Stats {
+    count: usize,
+}
 impl Display for Stats {
     #[no_coverage]
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "")
+        if self.count == 0 {
+            write!(f, "{}", format!("artifacts(count: {})", self.count))
+        } else {
+            write!(f, "{}", format!("artifacts(count: {})", self.count).red())
+        }
     }
 }
 
@@ -69,7 +76,6 @@ struct ArtifactListForError<T> {
 pub(crate) struct ArtifactsPool<T> {
     name: String,
     inputs: Vec<ArftifactList<T>>,
-    stats: Stats,
     rng: fastrand::Rng,
 }
 
@@ -79,7 +85,6 @@ impl<T> ArtifactsPool<T> {
         Self {
             name: name.to_string(),
             inputs: vec![],
-            stats: Stats {},
             rng: fastrand::Rng::new(),
         }
     }
@@ -92,7 +97,9 @@ impl<T: TestCase> Pool for ArtifactsPool<T> {
 
     #[no_coverage]
     fn stats(&self) -> Self::Stats {
-        self.stats
+        Stats {
+            count: self.inputs.len(),
+        }
     }
 
     #[no_coverage]
@@ -144,7 +151,6 @@ impl<T: TestCase> Pool for ArtifactsPool<T> {
     #[no_coverage]
     fn mark_test_case_as_dead_end(&mut self, idx: Self::Index) {
         self.inputs[idx.0].inputs[idx.1].inputs.remove(idx.2);
-        // self.update_stats();
     }    
 
     #[no_coverage]
@@ -258,7 +264,7 @@ where
                     add: Some((data, new_index)),
                     remove: vec![],
                 };
-                event_handler(delta, self.stats)?;
+                event_handler(delta, self.stats())?;
             }
         }
         Ok(())

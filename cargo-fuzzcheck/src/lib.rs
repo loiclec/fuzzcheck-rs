@@ -18,7 +18,7 @@ pub fn launch_executable(
         .env("FUZZCHECK_ARGS", args)
         .env(
             "RUSTFLAGS",
-            "-Zinstrument-coverage=except-unused-functions -Zno-profiler-runtime --cfg fuzzing -Ctarget-cpu=native",
+            "-Zinstrument-coverage=except-unused-functions -Zno-profiler-runtime --cfg fuzzing -Ctarget-cpu=native -Ccodegen-units=1",
         )
         .arg("test")
         .args(cargo_args)
@@ -162,8 +162,11 @@ pub fn string_from_args(args: &Arguments) -> String {
     s.push_str(" ");
 
     s.push_str(&format!("--{} {} ", MAX_INPUT_CPLX_FLAG, args.max_input_cplx as usize));
-
-    s.push_str(&format!("--{} {} ", TIMEOUT_FLAG, args.timeout));
+    s.push_str(&format!("--{} {} ", MAX_DURATION_FLAG, args.maximum_duration.as_secs()));
+    s.push_str(&format!("--{} {} ", MAX_ITERATIONS_FLAG, args.maximum_iterations ));
+    if args.stop_after_first_failure {
+        s.push_str(&format!("--{} ", STOP_AFTER_FIRST_FAILURE_FLAG));
+    }
 
     if let Some(socket_address) = args.socket_address {
         s.push_str(&format!("--{} {} ", SOCK_ADDR_FLAG, socket_address,));

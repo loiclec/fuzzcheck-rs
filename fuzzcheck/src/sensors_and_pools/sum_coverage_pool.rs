@@ -167,7 +167,6 @@ impl<T: TestCase> CompatibleWithIteratorSensor for AggregateCoveragePool<T, Coun
                 vec![Unit]
             },
         };
-        println!("adding!");
         event_handler(delta, self.stats())?;
         let new = Input { data, complexity };
         self.current_best = Some((observation_state, new));

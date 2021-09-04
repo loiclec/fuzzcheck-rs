@@ -64,6 +64,7 @@ use std::fmt::Display;
 use std::hash::Hash;
 use std::ops::Range;
 use std::path::Path;
+use owo_colors::OwoColorize;
 
 /**
  * A unit of code coverage.
@@ -700,6 +701,7 @@ impl<T: TestCase> Pool for UniqueCoveragePool<T> {
     #[no_coverage]
     fn stats(&self) -> Self::Stats {
         UniqueCoveragePoolStats {
+            name: self.name.clone(),
             score: self.score(),
             pool_size: self.slab_inputs.len(),
             avg_cplx: self.average_complexity,
@@ -841,8 +843,9 @@ impl<T> Clone for AnalyzedFeature<T> {
     }
 }
 
-#[derive(Clone, Copy, Default)]
+#[derive(Clone, Default)]
 pub struct UniqueCoveragePoolStats {
+    pub name: String,
     pub score: f64,
     pub pool_size: usize,
     pub avg_cplx: f64,
@@ -853,12 +856,14 @@ impl Display for UniqueCoveragePoolStats {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "score: {:.2}\tcov:{:.2}%\tpool:{}\tcplx:{:.2}",
+            "{}",
+            format!("{}(score: {:.2}  cov: {:.2}%  count: {}  avg_cplx: {:.2})",
+            self.name,
             self.score,
             self.percent_coverage * 100.0,
             self.pool_size,
             self.avg_cplx
-        )
+        ).bright_green())
     }
 }
 

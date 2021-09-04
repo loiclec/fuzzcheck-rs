@@ -5,12 +5,8 @@
 use crate::code_coverage_sensor::CodeCoverageSensor;
 use crate::mutators::either::Either;
 use crate::sensors_and_pools::and_sensor_and_pool::{AndPool, AndSensor};
-use crate::sensors_and_pools::artifacts_pool::{ArtifactsPool, TestFailure, TestFailureSensor, TEST_FAILURE};
-use crate::sensors_and_pools::maximize_pool::CounterMaximizingPool;
+use crate::sensors_and_pools::artifacts_pool::{TestFailure, TEST_FAILURE};
 use crate::sensors_and_pools::noop_sensor::NoopSensor;
-use crate::sensors_and_pools::sum_coverage_pool::{
-    AggregateCoveragePool, CountNumberOfDifferentCounters, SumCounterValues,
-};
 use crate::sensors_and_pools::unique_coverage_pool::UniqueCoveragePool;
 use crate::sensors_and_pools::unit_pool::UnitPool;
 use crate::signals_handler::set_signal_handlers;
@@ -25,9 +21,23 @@ use std::borrow::Borrow;
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 use std::panic::{catch_unwind, RefUnwindSafe, UnwindSafe};
-use std::path::Path;
 use std::process::exit;
 use std::result::Result;
+
+#[derive(Debug)]
+pub enum ReasonForStopping<T> {
+    MaximumIterations,
+    MaximumDuration,
+    ExhaustedPossibleMutations,
+    TestFailure(T),
+    IOError(std::io::Error)
+}
+
+impl<T> From<std::io::Error> for ReasonForStopping<T> {
+    fn from(e: std::io::Error) -> Self {
+        Self::IOError(e)
+    }
+}
 
 enum FuzzerInputIndex<T, PoolIndex> {
     None,
@@ -48,7 +58,6 @@ where
     input_idx: FuzzerInputIndex<FuzzedInput<T, M>, P::Index>,
     /// Various statistics about the fuzzer run
     fuzzer_stats: FuzzerStats,
-    sensor_and_pool_stats: P::Stats,
 
     settings: Arguments,
     /// The world handles effects
@@ -96,7 +105,7 @@ where
     fn receive_signal(&mut self, signal: i32) -> ! {
         self.world.report_event(
             FuzzerEvent::CaughtSignal(signal as i32),
-            Some((&self.fuzzer_stats, &self.sensor_and_pool_stats)),
+            Some((&self.fuzzer_stats, &self.pool.stats())),
         );
 
         match signal {
@@ -109,7 +118,7 @@ where
                 } else {
                     self.world.report_event(
                         FuzzerEvent::CrashNoInput,
-                        Some((&self.fuzzer_stats, &self.sensor_and_pool_stats)),
+                        Some((&self.fuzzer_stats, &self.pool.stats())),
                     );
                     exit(TerminationStatus::Crash as i32);
                 }
@@ -178,7 +187,6 @@ where
                 arbitrary_step,
                 input_idx: FuzzerInputIndex::None,
                 fuzzer_stats: FuzzerStats::default(),
-                sensor_and_pool_stats: <_>::default(),
                 settings,
                 world,
             },
@@ -188,7 +196,7 @@ where
     }
 
     #[no_coverage]
-    fn test_and_process_input(&mut self, cplx: f64) -> Result<(), std::io::Error> {
+    fn test_and_process_input(&mut self, cplx: f64) -> Result<(), ReasonForStopping<T>> {
         let Fuzzer {
             state:
                 FuzzerState {
@@ -219,8 +227,17 @@ where
                     display: "test function returned false".to_string(),
                     id: 0,
                 });
+                if self.state.settings.stop_after_first_failure {
+                    return Err(ReasonForStopping::TestFailure(input.value.clone()))
+                }
             },
-            Err(_) => {}
+            Err(_) => {
+                // the panic handler already changed the value of TEST_FAILURE
+                // so we don't need to do anything
+                if self.state.settings.stop_after_first_failure {
+                    return Err(ReasonForStopping::TestFailure(input.value.clone()))
+                }
+            }
             Ok(true) => {}
         }
         sensor.stop_recording();
@@ -239,12 +256,12 @@ where
             get_input,
             &clone_input,
             cplx,
-            |corpus_delta, sensor_and_pool_stats| {
+            |corpus_delta, pool_stats| {
                 let corpus_delta = corpus_delta.convert(|x| x.value.clone());
                 update_fuzzer_stats(fuzzer_stats, world);
                 let event = corpus_delta.fuzzer_event();
                 world.update_corpus(corpus_delta)?;
-                world.report_event(event, Some((fuzzer_stats, sensor_and_pool_stats)));
+                world.report_event(event, Some((fuzzer_stats, pool_stats)));
                 Ok(())
             },
         )?;
@@ -253,7 +270,7 @@ where
     }
 
     #[no_coverage]
-    fn process_next_inputs(&mut self) -> Result<(), std::io::Error> {
+    fn process_next_input(&mut self) -> Result<(), ReasonForStopping<T>> {
         let pool = &mut self.state.pool;
         if let Some(idx) = pool.get_random_index() {
             self.state.input_idx = FuzzerInputIndex::Pool(idx);
@@ -274,7 +291,7 @@ where
                 Ok(())
             } else {
                 pool.mark_test_case_as_dead_end(idx);
-                self.process_next_inputs()
+                self.process_next_input()
             }
         } else if let Some((input, cplx)) = self.state.arbitrary_input() {
             self.state.input_idx = FuzzerInputIndex::Temporary(input);
@@ -287,14 +304,14 @@ where
         } else {
             self.state.world.report_event(
                 FuzzerEvent::End,
-                Some((&self.state.fuzzer_stats, &self.state.sensor_and_pool_stats)),
+                Some((&self.state.fuzzer_stats, &self.state.pool.stats())),
             );
-            exit(TerminationStatus::Success as i32);
+            Err(ReasonForStopping::ExhaustedPossibleMutations)
         }
     }
 
     #[no_coverage]
-    fn process_initial_inputs(&mut self) -> Result<(), std::io::Error> {
+    fn process_initial_inputs(&mut self) -> Result<(), ReasonForStopping<T>> {
         let mut inputs: Vec<FuzzedInput<T, M>> = self
             .state
             .world
@@ -320,7 +337,6 @@ where
         inputs.drain_filter(|i| i.complexity(&self.state.mutator) > self.state.settings.max_input_cplx);
         assert!(!inputs.is_empty());
 
-        self.state.world.set_start_instant();
         self.state.world.set_checkpoint_instant();
         for input in inputs {
             let cplx = input.complexity(&self.state.mutator);
@@ -332,25 +348,33 @@ where
     }
 
     #[no_coverage]
-    fn main_loop(&mut self) -> Result<!, std::io::Error> {
+    fn main_loop(&mut self) -> Result<!, ReasonForStopping<T>> {
         self.state.world.report_event(
             FuzzerEvent::Start,
-            Some((&self.state.fuzzer_stats, &self.state.sensor_and_pool_stats)),
+            Some((&self.state.fuzzer_stats, &self.state.pool.stats())),
         );
         self.process_initial_inputs()?;
         self.state.world.report_event(
             FuzzerEvent::DidReadCorpus,
-            Some((&self.state.fuzzer_stats, &self.state.sensor_and_pool_stats)),
+            Some((&self.state.fuzzer_stats, &self.state.pool.stats())),
         );
 
+        self.state.world.set_start_instant();
         let mut next_milestone = (self.state.fuzzer_stats.total_number_of_runs + 100_000) * 2;
         loop {
-            self.process_next_inputs()?;
+            let duration_since_beginning = self.state.world.elapsed_time_since_start();
+            if duration_since_beginning > self.state.settings.maximum_duration {
+                return Err(ReasonForStopping::MaximumDuration)
+            }
+            if self.state.fuzzer_stats.total_number_of_runs >= self.state.settings.maximum_iterations {
+                return Err(ReasonForStopping::MaximumIterations)
+            }
+            self.process_next_input()?;
             if self.state.fuzzer_stats.total_number_of_runs >= next_milestone {
                 update_fuzzer_stats(&mut self.state.fuzzer_stats, &mut self.state.world);
                 self.state.world.report_event(
                     FuzzerEvent::Pulse,
-                    Some((&self.state.fuzzer_stats, &self.state.sensor_and_pool_stats)),
+                    Some((&self.state.fuzzer_stats, &self.state.pool.stats())),
                 );
                 next_milestone = self.state.fuzzer_stats.total_number_of_runs * 2;
             }
@@ -363,34 +387,33 @@ where
     /// The number of inputs to keep is taken from
     /// [`self.settings.corpus_size`](FuzzerSettings::corpus_size)
     #[no_coverage]
-    fn corpus_minifying_loop(&mut self, corpus_size: usize) -> Result<(), std::io::Error> {
+    fn corpus_minifying_loop(&mut self, corpus_size: usize) -> Result<(), ReasonForStopping<T>> {
         self.state.world.report_event(
             FuzzerEvent::Start,
-            Some((&self.state.fuzzer_stats, &self.state.sensor_and_pool_stats)),
+            Some((&self.state.fuzzer_stats, &self.state.pool.stats())),
         );
         self.process_initial_inputs()?;
 
         let FuzzerState {
             pool,
             fuzzer_stats,
-            sensor_and_pool_stats,
             world,
             ..
         } = &mut self.state;
 
         world.report_event(
             FuzzerEvent::DidReadCorpus,
-            Some((fuzzer_stats, sensor_and_pool_stats.clone())),
+            Some((fuzzer_stats, pool.stats().clone())),
         );
 
-        pool.minify(corpus_size, |corpus_delta, sensor_and_pool_stats| {
+        pool.minify(corpus_size, |corpus_delta, pool_stats| {
             let corpus_delta = corpus_delta.convert(|x| x.value.clone());
             let event = corpus_delta.fuzzer_event();
             world.update_corpus(corpus_delta)?;
-            world.report_event(event, Some((fuzzer_stats, sensor_and_pool_stats)));
+            world.report_event(event, Some((fuzzer_stats, pool_stats)));
             Ok(())
         })?;
-        world.report_event(FuzzerEvent::Done, Some((fuzzer_stats, sensor_and_pool_stats)));
+        world.report_event(FuzzerEvent::Done, Some((fuzzer_stats, pool.stats())));
         Ok(())
     }
 }
@@ -410,15 +433,14 @@ pub enum TerminationStatus {
 }
 
 #[no_coverage]
-pub fn launch<T, FT, F, M, S, Exclude, Keep, Sens, P>(
+pub fn launch<T, FT, F, M, S, Sens, P>(
     test: F,
     mutator: M,
-    sensor_exclude_files: &Exclude,
-    sensor_keep_files: &Keep,
     serializer: S,
+    sensor: Sens,
+    pool: P,
     mut args: Arguments,
-    sensor_and_pool: Option<(Sens, P, u8)>,
-) -> Result<(), std::io::Error>
+) -> Result<(), ReasonForStopping<T>>
 where
     FT: ?Sized,
     T: Clone + Borrow<FT>,
@@ -426,17 +448,12 @@ where
     M: Mutator<T>,
     S: Serializer<Value = T>,
     Fuzzer<T, FT, F, M, S, CodeCoverageSensor, UniqueCoveragePool<FuzzedInput<T, M>>>: 'static,
-    Exclude: Fn(&Path) -> bool,
-    Keep: Fn(&Path) -> bool,
     Sens: Sensor + 'static,
     P: Pool<TestCase = FuzzedInput<T, M>> + CompatibleWithSensor<Sens> + 'static,
 {
     let command = &args.command;
 
-    // maybe don't change the panic hook nor install an artifacts pool unless there is an output corpus?
-    let sensor = CodeCoverageSensor::new(sensor_exclude_files, sensor_keep_files);
     std::panic::set_hook(Box::new(move |panic_info| {
-        println!("{}", panic_info);
         let mut hasher = DefaultHasher::new();
         panic_info.location().hash(&mut hasher);
         unsafe {
@@ -447,83 +464,18 @@ where
         }
     }));
 
-    match command {
+    let result = match command {
         FuzzerCommand::Fuzz => {
-            let pool = UniqueCoveragePool::new("uniq_cov", sensor.count_instrumented * 64); // TODO: reduce nbr of possible values from score_from_counter
-            let pool2 = CounterMaximizingPool::new("max_hits", sensor.count_instrumented);
-            let pool3 = ArtifactsPool::new("artifacts");
-            let pool4 = AggregateCoveragePool::<_, SumCounterValues>::new("sum_counters");
-            let pool5 = AggregateCoveragePool::<_, CountNumberOfDifferentCounters>::new("count_differents_counters");
-            let pool = AndPool {
-                p1: pool2,
-                p2: pool,
-                percent_choose_first: 10,
-                rng: fastrand::Rng::new(),
-            };
-            let pool = AndPool {
-                p1: pool,
-                p2: pool4,
-                percent_choose_first: 99,
-                rng: fastrand::Rng::new(),
-            };
-            let pool = AndPool {
-                p1: pool,
-                p2: pool5,
-                percent_choose_first: 99,
-                rng: fastrand::Rng::new(),
-            };
-            let pool = AndPool {
-                p1: pool,
-                p2: pool3,
-                percent_choose_first: 99,
-                rng: fastrand::Rng::new(),
-            };
-
-            let sensor3 = TestFailureSensor::default();
-
-            let sensor = AndSensor {
-                s1: sensor,
-                s2: sensor3,
-            };
-
-            if let Some((add_sensor, add_pool, frequency)) = sensor_and_pool {
-                let sensor = AndSensor {
-                    s1: add_sensor,
-                    s2: sensor,
-                };
-                let pool = AndPool {
-                    p1: add_pool,
-                    p2: pool,
-                    percent_choose_first: frequency as usize,
-                    rng: fastrand::Rng::new(),
-                };
-
-                let mut fuzzer = Fuzzer::new(
-                    test,
-                    mutator,
-                    sensor,
-                    pool,
-                    args.clone(),
-                    World::new(serializer, args.clone()),
-                );
-
-                unsafe { fuzzer.state.set_up_signal_handler() };
-
-                fuzzer.main_loop()?;
-            } else {
-                let mut fuzzer = Fuzzer::new(
-                    test,
-                    mutator,
-                    sensor,
-                    pool,
-                    args.clone(),
-                    World::new(serializer, args.clone()),
-                );
-
-                unsafe { fuzzer.state.set_up_signal_handler() };
-
-                fuzzer.main_loop()?;
-            }
+            let mut fuzzer = Fuzzer::new(
+                test,
+                mutator,
+                sensor,
+                pool,
+                args.clone(),
+                World::new(serializer, args.clone()),
+            );
+            unsafe { fuzzer.state.set_up_signal_handler() };
+            fuzzer.main_loop()?
         }
         FuzzerCommand::MinifyInput { input_file } => {
             let world = World::new(serializer, args.clone());
@@ -536,7 +488,7 @@ where
                     s2: NoopSensor,
                 };
                 let pool = AndPool {
-                    p1: UniqueCoveragePool::new("uniq_cov", sensor.s1.count_instrumented * 64), // TODO
+                    p1: pool,
                     p2: UnitPool::new(FuzzedInput::new(value, cache, mutation_step, 0)),
                     percent_choose_first: 97,
                     rng: fastrand::Rng::new(),
@@ -545,9 +497,11 @@ where
 
                 unsafe { fuzzer.state.set_up_signal_handler() };
 
-                fuzzer.main_loop()?;
+                fuzzer.main_loop()?
             } else {
-                panic!()
+                // TODO: send a better error message saying some inputs in the corpus cannot be read
+                println!("A value in the input corpus is invalid.");
+                Ok(())
             }
         }
         FuzzerCommand::Read { input_file } => {
@@ -567,14 +521,19 @@ where
                 if result.is_err() || !result.unwrap() {
                     world.report_event::<EmptyStats>(FuzzerEvent::TestFailure, None);
                     world.save_artifact(&input.value, cplx)?;
+                    // in this case we really want to exit with a non-zero termination status here
+                    // because the Read command is only used by the input minify command from cargo-fuzzcheck
+                    // which checks that a crash happens by looking at the exit code
+                    // so we don't want to handle any error
                     exit(TerminationStatus::TestFailure as i32);
                 }
             } else {
-                todo!()
+                // TODO: send a better error message saying some inputs in the corpus cannot be read
+                println!("A value in the input corpus is invalid.");
             }
+            Ok(())
         }
         FuzzerCommand::MinifyCorpus { corpus_size } => {
-            let pool = UniqueCoveragePool::new("uniq_cov", sensor.count_instrumented * 64);
             let mut fuzzer = Fuzzer::<_, _, _, _, _, _, _>::new(
                 test,
                 mutator,
@@ -586,8 +545,11 @@ where
             // fuzzer.sensor_and_pool.update
             unsafe { fuzzer.state.set_up_signal_handler() };
 
-            fuzzer.corpus_minifying_loop(*corpus_size)?;
+            fuzzer.corpus_minifying_loop(*corpus_size)
         }
     };
-    Ok(())
+
+    let _ = std::panic::take_hook();
+
+    result
 }
