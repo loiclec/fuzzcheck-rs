@@ -223,7 +223,7 @@ where
         ```
         Then the given mutator should produces values that can be borrowed as `[u8]`.
         We can write:
-        ```
+        ```ignore
         use fuzzcheck::{FuzzerBuilder, DefaultMutator};
         # fn foo(xs: &[u8]) {
         #     // ..
