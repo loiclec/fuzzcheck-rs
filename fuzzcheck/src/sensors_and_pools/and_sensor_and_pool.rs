@@ -15,7 +15,7 @@ where
     pub p1: P1,
     pub p2: P2,
 
-    pub percent_choose_first: usize,
+    pub ratio_choose_first: usize,
     pub rng: fastrand::Rng,
 }
 
@@ -40,7 +40,7 @@ where
     }
     #[no_coverage]
     fn get_random_index(&mut self) -> Option<Self::Index> {
-        if self.rng.usize(0..100) < self.percent_choose_first {
+        if self.rng.usize(..) <= self.ratio_choose_first {
             if let Some(idx) = self.p1.get_random_index().map(Either::Left) {
                 Some(idx)
             } else {

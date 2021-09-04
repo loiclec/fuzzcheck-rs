@@ -5,7 +5,7 @@
 use crate::code_coverage_sensor::CodeCoverageSensor;
 use crate::mutators::either::Either;
 use crate::sensors_and_pools::and_sensor_and_pool::{AndPool, AndSensor};
-use crate::sensors_and_pools::artifacts_pool::{TestFailure, TEST_FAILURE};
+use crate::sensors_and_pools::artifacts_pool::{ArtifactsPool, TEST_FAILURE, TestFailure, TestFailureSensor};
 use crate::sensors_and_pools::noop_sensor::NoopSensor;
 use crate::sensors_and_pools::unique_coverage_pool::UniqueCoveragePool;
 use crate::sensors_and_pools::unit_pool::UnitPool;
@@ -468,6 +468,18 @@ where
     let command = &args.command;
     let result = match command {
         FuzzerCommand::Fuzz => {
+            let test_failure = TestFailureSensor::default();
+            let sensor = AndSensor {
+                s1: sensor,
+                s2: test_failure,
+            };
+            let artifacts_pool = ArtifactsPool::new("artifacts");
+            let pool = AndPool {
+                p1: pool,
+                p2: artifacts_pool,
+                ratio_choose_first: 254,
+                rng: fastrand::Rng::new(),
+            };
             let mut fuzzer = Fuzzer::new(
                 test,
                 mutator,
@@ -492,7 +504,7 @@ where
                 let pool = AndPool {
                     p1: pool,
                     p2: UnitPool::new(FuzzedInput::new(value, cache, mutation_step, 0)),
-                    percent_choose_first: 97,
+                    ratio_choose_first: 240,
                     rng: fastrand::Rng::new(),
                 };
                 let mut fuzzer = Fuzzer::<_, _, _, _, _, _, _>::new(test, mutator, sensor, pool, args.clone(), world);

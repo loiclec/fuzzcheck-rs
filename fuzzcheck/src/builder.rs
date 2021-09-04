@@ -186,7 +186,7 @@ where
     <T::Owned as DefaultMutator>::Mutator : 'static,
     F: Fn(&T) -> bool + 'static,
 {
-    pub fn default_options(self) -> FuzzerBuilder6<T, F, <T::Owned as DefaultMutator>::Mutator, T::Owned, SerdeSerializer<T::Owned>, AndSensor<CodeCoverageSensor, TestFailureSensor>, impl Pool<TestCase = FuzzedInput<T::Owned, <T::Owned as DefaultMutator>::Mutator>> + CompatibleWithSensor<AndSensor<CodeCoverageSensor, TestFailureSensor>>> {
+    pub fn default_options(self) -> FuzzerBuilder6<T, F, <T::Owned as DefaultMutator>::Mutator, T::Owned, SerdeSerializer<T::Owned>, CodeCoverageSensor, impl Pool<TestCase = FuzzedInput<T::Owned, <T::Owned as DefaultMutator>::Mutator>> + CompatibleWithSensor<CodeCoverageSensor>> {
         self.mutator(<T::Owned as DefaultMutator>::default_mutator())
             .serializer(SerdeSerializer::default())
             .default_sensor()
@@ -283,13 +283,8 @@ where
     S: Serializer<Value = V>,
 {
     #[no_coverage]
-    pub fn default_sensor(self) -> FuzzerBuilder4<T, F, M, V, S, AndSensor<CodeCoverageSensor, TestFailureSensor>> {
-        let codecov = CodeCoverageSensor::new(|_| true, |f| f.is_relative());
-        let test_failure = TestFailureSensor::default();
-        let sensor = AndSensor {
-            s1: codecov,
-            s2: test_failure,
-        };
+    pub fn default_sensor(self) -> FuzzerBuilder4<T, F, M, V, S, CodeCoverageSensor> {
+        let sensor = CodeCoverageSensor::new(|_| true, |f| f.is_relative());
         FuzzerBuilder4 {
             test_function: self.test_function,
             mutator: self.mutator,
@@ -309,7 +304,7 @@ where
     }
 }
 
-impl<T, F, M, V, S> FuzzerBuilder4<T, F, M, V, S, AndSensor<CodeCoverageSensor, TestFailureSensor>>
+impl<T, F, M, V, S> FuzzerBuilder4<T, F, M, V, S, CodeCoverageSensor>
 where
     T: ?Sized,
     F: Fn(&T) -> bool,
@@ -318,39 +313,33 @@ where
     S: Serializer<Value = V>,
 {
     #[no_coverage]
-    pub fn default_pool(self) -> FuzzerBuilder5<T, F, M, V, S, AndSensor<CodeCoverageSensor, TestFailureSensor>, impl Pool<TestCase = FuzzedInput<V,M>> + CompatibleWithSensor<AndSensor<CodeCoverageSensor, TestFailureSensor>>> {
-        let count_instrumented = self.sensor.s1.count_instrumented;
+    pub fn default_pool(self) -> FuzzerBuilder5<T, F, M, V, S, CodeCoverageSensor, impl Pool<TestCase = FuzzedInput<V,M>> + CompatibleWithSensor<CodeCoverageSensor>> {
+        let count_instrumented = self.sensor.count_instrumented;
         let nbr_features = count_instrumented * 64; // TODO: change that once the size of feature groups is decided
 
         let pool = UniqueCoveragePool::new("uniq_cov", nbr_features); // TODO: reduce nbr of possible values from score_from_counter
         let pool2 = CounterMaximizingPool::new("max_hits", count_instrumented);
-        let pool3 = ArtifactsPool::new("artifacts");
-        let pool4 = AggregateCoveragePool::<_, SumCounterValues>::new("sum_counters");
-        let pool5 = AggregateCoveragePool::<_, CountNumberOfDifferentCounters>::new("count_differents_counters");
+
+        // let pool4 = AggregateCoveragePool::<_, SumCounterValues>::new("sum_counters");
+        // let pool5 = AggregateCoveragePool::<_, CountNumberOfDifferentCounters>::new("count_differents_counters");
         let pool = AndPool {
             p1: pool2,
             p2: pool,
-            percent_choose_first: 10,
+            ratio_choose_first: 15,
             rng: fastrand::Rng::new(),
         };
-        let pool = AndPool {
-            p1: pool,
-            p2: pool4,
-            percent_choose_first: 99,
-            rng: fastrand::Rng::new(),
-        };
-        let pool = AndPool {
-            p1: pool,
-            p2: pool5,
-            percent_choose_first: 99,
-            rng: fastrand::Rng::new(),
-        };
-        let pool = AndPool {
-            p1: pool,
-            p2: pool3,
-            percent_choose_first: 99,
-            rng: fastrand::Rng::new(),
-        };
+        // let pool = AndPool {
+        //     p1: pool,
+        //     p2: pool4,
+        //     percent_choose_first: 99,
+        //     rng: fastrand::Rng::new(),
+        // };
+        // let pool = AndPool {
+        //     p1: pool,
+        //     p2: pool5,
+        //     percent_choose_first: 99,
+        //     rng: fastrand::Rng::new(),
+        // };
 
         FuzzerBuilder5 {
             test_function: self.test_function,
