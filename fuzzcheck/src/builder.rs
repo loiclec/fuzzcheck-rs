@@ -315,9 +315,8 @@ where
     #[no_coverage]
     pub fn default_pool(self) -> FuzzerBuilder5<T, F, M, V, S, CodeCoverageSensor, impl Pool<TestCase = FuzzedInput<V,M>> + CompatibleWithSensor<CodeCoverageSensor>> {
         let count_instrumented = self.sensor.count_instrumented;
-        let nbr_features = count_instrumented * 64; // TODO: change that once the size of feature groups is decided
 
-        let pool = UniqueCoveragePool::new("uniq_cov", nbr_features); // TODO: reduce nbr of possible values from score_from_counter
+        let pool = UniqueCoveragePool::new("uniq_cov", count_instrumented);
         let pool2 = CounterMaximizingPool::new("max_hits", count_instrumented);
 
         // let pool4 = AggregateCoveragePool::<_, SumCounterValues>::new("sum_counters");

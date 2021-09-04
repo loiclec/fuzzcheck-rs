@@ -105,37 +105,16 @@ impl Eq for FeatureIdx {}
 impl FeatureIdx {
     #[inline(always)]
     #[no_coverage]
-    pub(crate) fn new(index: usize, counter: u64) -> Self {
-        Self(index * 64 + Self::score_from_counter(counter) as usize)
+    pub(crate) fn new(index: usize) -> Self {
+        Self(index)
     }
 
     #[inline(always)]
     #[no_coverage]
     fn group_id(self) -> FeatureGroupId {
         FeatureGroupId {
-            id: Self(self.0 & 0xFFFF_FFFF_FFFF_FFC0),
+            id: Self(self.0),
         }
-    }
-
-    /// “Hash” a u64 into a number between 0 and 64.
-    ///
-    /// So that similar numbers have the same hash, and very high
-    /// numbers have a greater hash.
-    ///
-    /// We do this because we don't want to overwhelm the fuzzers.
-    /// Imagine we have a test case that reached a code block 35_987 times.
-    /// We don't want to consider a test case that reaches the same code block
-    /// 35_965 times to be interesting. So instead, we group similar
-    /// hit counts together.
-    #[inline(always)]
-    #[no_coverage]
-    fn score_from_counter(_counter: u64) -> u8 {
-        // TODO: currently experimenting with not having feature groups
-        1 // if counter <= 3 {
-          //     counter as u8
-          // } else {
-          //     (64 - counter.leading_zeros() + 1) as u8
-          // }
     }
 }
 
@@ -350,12 +329,9 @@ impl<T: TestCase> UniqueCoveragePool<T> {
 
             element.least_complex_for_features.insert(*feature_key);
             feature.least_complex_input = element_key;
-            // TODO:should also be updated in self.features
-            // like so?:
             self.features[feature_key.0] = AnalyzedFeatureRef {
                 least_complexity: Some(complexity),
             };
-            // TODO: or maybe only in self.features? so the following line wouldn't be necessary
             feature.least_complexity = complexity;
         }
 
@@ -372,8 +348,6 @@ impl<T: TestCase> UniqueCoveragePool<T> {
         // Now add in the new features
         let element = &mut self.slab_inputs[element_key];
         for &f in new_features.iter() {
-            // let f_key = self.slab_features.next_key();
-            // TODO: rename
             let new_feature_for_iter = AnalyzedFeatureRef {
                 least_complexity: Some(complexity),
             };
@@ -430,7 +404,6 @@ impl<T: TestCase> UniqueCoveragePool<T> {
         }
 
         let element = &mut self.slab_inputs[element_key];
-        // TODO: test if this is necessary
         element.score = 0.0;
         for f_key in &element.all_features {
             let analyzed_feature = self.slab_features.get_mut(f_key).unwrap();
@@ -705,7 +678,7 @@ impl<T: TestCase> Pool for UniqueCoveragePool<T> {
             score: self.score(),
             pool_size: self.slab_inputs.len(),
             avg_cplx: self.average_complexity,
-            percent_coverage: self.feature_groups.len() as f64 / ((self.features.len() as f64) / 64.),
+            percent_coverage: self.feature_groups.len() as f64 / (self.features.len() as f64),
         }
     }
 
@@ -887,11 +860,11 @@ impl<T: TestCase> CompatibleWithIteratorSensor for UniqueCoveragePool<T> {
     #[no_coverage]
     fn observe(
         &mut self,
-        &(index, counter): &Self::Observation,
+        &(index, _counter): &Self::Observation,
         input_complexity: f64,
         state: &mut Self::ObservationState,
     ) {
-        let feature_index = FeatureIdx::new(index, counter);
+        let feature_index = FeatureIdx::new(index);
         let AnalyzedFeatureRef { least_complexity } = unsafe { self.features.get_unchecked(feature_index.0) };
         if let Some(prev_least_complexity) = least_complexity {
             self.existing_features.push(feature_index);
