@@ -697,14 +697,7 @@ impl<T: TestCase> Pool for UniqueCoveragePool<T> {
         let chosen_weight = gen_f64(&self.rng, 0.0..most);
 
         // Find the first item which has a weight *higher* than the chosen weight.
-        let choice = binary_search(self.ranked_inputs.len(), |idx| {
-            if self.ranked_inputs.prefix_sum(idx) <= chosen_weight {
-                Ordering::Less
-            } else {
-                Ordering::Greater
-            }
-        })
-        .unwrap_err();
+        let choice = self.ranked_inputs.first_index_past_prefix_sum(chosen_weight);
 
         let key = self.slab_inputs.get_nth_key(choice);
 
@@ -763,28 +756,6 @@ impl<T: TestCase> Pool for UniqueCoveragePool<T> {
     }
 }
 
-#[inline]
-pub fn binary_search<F>(mut size: usize, mut f: F) -> Result<usize, usize>
-where
-    F: FnMut(usize) -> Ordering,
-{
-    let mut left = 0;
-    let mut right = size;
-    while left < right {
-        let mid = left + size / 2;
-        let cmp = f(mid);
-        if cmp == Ordering::Less {
-            left = mid + 1;
-        } else if cmp == Ordering::Greater {
-            right = mid;
-        } else {
-            return Ok(mid);
-        }
-        size = right - left;
-    }
-    Err(left)
-}
-
 #[inline(always)]
 #[no_coverage]
 fn gen_f64(rng: &fastrand::Rng, range: Range<f64>) -> f64 {
@@ -835,11 +806,10 @@ impl Display for UniqueCoveragePoolStats {
             f,
             "{}",
             format!(
-                "{}(score: {:.2}  cov: {:.2}%  count: {}  avg_cplx: {:.2})",
+                "{}({} cov: {:.2}% cplx: {:.2})",
                 self.name,
-                self.score,
-                self.percent_coverage * 100.0,
                 self.pool_size,
+                self.percent_coverage * 100.0,
                 self.avg_cplx
             )
             .bright_green()

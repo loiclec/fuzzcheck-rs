@@ -19,7 +19,7 @@ impl Display for Stats {
         write!(
             f,
             "{}",
-            format!("{}(size: {}  sum: {})", self.name, self.size, self.total_counts).bright_purple()
+            format!("{}({} sum: {})", self.name, self.size, self.total_counts).bright_purple()
         )
     }
 }

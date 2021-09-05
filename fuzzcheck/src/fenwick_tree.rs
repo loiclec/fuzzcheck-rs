@@ -1,3 +1,5 @@
+use std::cmp::Ordering;
+
 pub struct FenwickTree {
     storage: Vec<f64>,
 }
@@ -56,6 +58,40 @@ impl FenwickTree {
             idx = get_next(idx);
         }
     }
+    // Find the first item which has a prefix sum *higher* than the chosen weight.
+    #[no_coverage]
+    pub fn first_index_past_prefix_sum(&self, chosen_weight: f64) -> usize {
+        binary_search(self.len(), |idx| {
+            if self.prefix_sum(idx) <= chosen_weight {
+                Ordering::Less
+            } else {
+                Ordering::Greater
+            }
+        })
+        .unwrap_err()
+    }
+}
+
+#[no_coverage]
+pub fn binary_search<F>(mut size: usize, mut f: F) -> Result<usize, usize>
+where
+    F: FnMut(usize) -> Ordering,
+{
+    let mut left = 0;
+    let mut right = size;
+    while left < right {
+        let mid = left + size / 2;
+        let cmp = f(mid);
+        if cmp == Ordering::Less {
+            left = mid + 1;
+        } else if cmp == Ordering::Greater {
+            right = mid;
+        } else {
+            return Ok(mid);
+        }
+        size = right - left;
+    }
+    Err(left)
 }
 
 /*
