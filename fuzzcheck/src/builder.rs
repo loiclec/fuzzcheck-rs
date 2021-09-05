@@ -348,19 +348,19 @@ where
         let pool = AndPool {
             p1: pool2,
             p2: pool,
-            ratio_choose_first: 10,
+            ratio_choose_first: 1,
             rng: fastrand::Rng::new(),
         };
         let pool = AndPool {
             p1: pool,
             p2: pool4,
-            ratio_choose_first: 255,
+            ratio_choose_first: 254,
             rng: fastrand::Rng::new(),
         };
         let pool = AndPool {
             p1: pool,
             p2: pool5,
-            ratio_choose_first: 255,
+            ratio_choose_first: 254,
             rng: fastrand::Rng::new(),
         };
 
