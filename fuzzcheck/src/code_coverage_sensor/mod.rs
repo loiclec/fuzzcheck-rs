@@ -19,7 +19,11 @@ pub struct CodeCoverageSensor {
 
 impl CodeCoverageSensor {
     #[no_coverage]
-    pub(crate) fn new<E, K>(exclude: E, keep: K) -> Self
+    pub fn observing_only_files_from_current_dir() -> Self {
+        Self::new(|_| true, |f| f.is_relative())
+    }
+    #[no_coverage]
+    pub fn new<E, K>(exclude: E, keep: K) -> Self
     where
         E: Fn(&Path) -> bool,
         K: Fn(&Path) -> bool,

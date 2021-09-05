@@ -2,7 +2,9 @@ use crate::code_coverage_sensor::CodeCoverageSensor;
 use crate::fuzzer::{Fuzzer, ReasonForStopping};
 use crate::sensors_and_pools::and_sensor_and_pool::AndPool;
 use crate::sensors_and_pools::maximize_pool::CounterMaximizingPool;
-use crate::sensors_and_pools::sum_coverage_pool::{AggregateCoveragePool, CountNumberOfDifferentCounters, SumCounterValues};
+use crate::sensors_and_pools::sum_coverage_pool::{
+    AggregateCoveragePool, CountNumberOfDifferentCounters, SumCounterValues,
+};
 use crate::sensors_and_pools::unique_coverage_pool::UniqueCoveragePool;
 use crate::traits::{CompatibleWithSensor, Mutator, Pool, Sensor, Serializer};
 use crate::{DefaultMutator, FuzzedInput, SerdeSerializer};
@@ -295,7 +297,7 @@ where
 {
     #[no_coverage]
     pub fn default_sensor(self) -> FuzzerBuilder4<T, F, M, V, S, CodeCoverageSensor> {
-        let sensor = CodeCoverageSensor::new(|_| true, |f| f.is_relative());
+        let sensor = CodeCoverageSensor::observing_only_files_from_current_dir();
         FuzzerBuilder4 {
             test_function: self.test_function,
             mutator: self.mutator,

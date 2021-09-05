@@ -6,4 +6,6 @@ pub mod maximize_pool;
 pub mod noop_sensor;
 pub mod sum_coverage_pool;
 pub mod unique_coverage_pool;
+pub mod unique_values_pool;
 pub mod unit_pool;
+pub use crate::code_coverage_sensor::CodeCoverageSensor;
