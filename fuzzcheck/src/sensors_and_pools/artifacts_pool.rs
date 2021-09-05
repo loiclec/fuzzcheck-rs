@@ -50,9 +50,9 @@ impl Display for Stats {
     #[no_coverage]
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         if self.count == 0 {
-            write!(f, "{}", format!("artifacts(count: {})", self.count))
+            write!(f, "{}", format!("artifacts({})", self.count))
         } else {
-            write!(f, "{}", format!("artifacts(count: {})", self.count).red())
+            write!(f, "{}", format!("artifacts({})", self.count).red())
         }
     }
 }
