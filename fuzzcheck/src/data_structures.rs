@@ -150,7 +150,7 @@ impl<T> Slab<T> {
         if self.available_slots.contains(&key.key) {
             None
         } else {
-            Some(unsafe { self.storage.get_unchecked_mut(key.key) })
+            Some(&mut self.storage[key.key])
         }
     }
 }
@@ -160,14 +160,14 @@ impl<T> Index<SlabKey<T>> for Slab<T> {
     #[inline(always)]
     #[no_coverage]
     fn index(&self, key: SlabKey<T>) -> &Self::Output {
-        unsafe { self.storage.get_unchecked(key.key) }
+        &self.storage[key.key]
     }
 }
 impl<T> IndexMut<SlabKey<T>> for Slab<T> {
     #[inline(always)]
     #[no_coverage]
     fn index_mut(&mut self, key: SlabKey<T>) -> &mut Self::Output {
-        unsafe { self.storage.get_unchecked_mut(key.key) }
+        &mut self.storage[key.key]
     }
 }
 
