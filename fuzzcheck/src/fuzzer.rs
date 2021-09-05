@@ -232,7 +232,6 @@ where
             value: input.value.borrow(),
         };
         let result = catch_unwind(|| (cell.value)(input_cell.value));
-        sensor.stop_recording();
         let _ = std::panic::take_hook();
         let test_failure = match result {
             Ok(false) => unsafe {
@@ -249,6 +248,7 @@ where
             }
             Ok(true) => { false }
         };
+        sensor.stop_recording();
         if test_failure && self.state.settings.stop_after_first_failure {
             self.state.world.save_artifact(&input.value, cplx)?;
             return Err(ReasonForStopping::TestFailure(input.value.clone()));
