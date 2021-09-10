@@ -246,7 +246,7 @@ where
                 // so we don't need to do anything
                 true
             }
-            Ok(true) => { false }
+            Ok(true) => false,
         };
         sensor.stop_recording();
         if test_failure && self.state.settings.stop_after_first_failure {
@@ -465,12 +465,7 @@ where
                 s2: test_failure,
             };
             let artifacts_pool = ArtifactsPool::new("artifacts");
-            let pool = AndPool {
-                p1: pool,
-                p2: artifacts_pool,
-                ratio_choose_first: 254,
-                rng: fastrand::Rng::new(),
-            };
+            let pool = AndPool::new(pool, artifacts_pool, 254);
             let mut fuzzer = Fuzzer::new(
                 test,
                 mutator,
@@ -492,12 +487,8 @@ where
                     s1: sensor,
                     s2: NoopSensor,
                 };
-                let pool = AndPool {
-                    p1: pool,
-                    p2: UnitPool::new(FuzzedInput::new(value, cache, mutation_step, 0)),
-                    ratio_choose_first: 240,
-                    rng: fastrand::Rng::new(),
-                };
+                let unit_pool = UnitPool::new(FuzzedInput::new(value, cache, mutation_step, 0));
+                let pool = AndPool::new(pool, unit_pool, 240);
                 let mut fuzzer = Fuzzer::<_, _, _, _, _, _, _>::new(test, mutator, sensor, pool, args.clone(), world);
 
                 unsafe { fuzzer.state.set_up_signal_handler() };

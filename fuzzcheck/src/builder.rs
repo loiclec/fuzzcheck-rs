@@ -345,24 +345,10 @@ where
 
         let pool4 = AggregateCoveragePool::<_, SumCounterValues>::new("sum_counters");
         let pool5 = AggregateCoveragePool::<_, CountNumberOfDifferentCounters>::new("count_differents_counters");
-        let pool = AndPool {
-            p1: pool2,
-            p2: pool,
-            ratio_choose_first: 1,
-            rng: fastrand::Rng::new(),
-        };
-        let pool = AndPool {
-            p1: pool,
-            p2: pool4,
-            ratio_choose_first: 254,
-            rng: fastrand::Rng::new(),
-        };
-        let pool = AndPool {
-            p1: pool,
-            p2: pool5,
-            ratio_choose_first: 254,
-            rng: fastrand::Rng::new(),
-        };
+
+        let pool = AndPool::new(pool2, pool, 1);
+        let pool = AndPool::new(pool, pool4, 254);
+        let pool = AndPool::new(pool, pool5, 254);
 
         FuzzerBuilder5 {
             test_function: self.test_function,

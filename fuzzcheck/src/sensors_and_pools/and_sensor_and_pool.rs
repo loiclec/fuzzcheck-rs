@@ -19,6 +19,20 @@ where
     pub rng: fastrand::Rng,
 }
 
+impl<P1, P2> AndPool<P1, P2>
+where
+    P1: Pool,
+    P2: Pool<TestCase = P1::TestCase>,
+{
+    pub fn new(p1: P1, p2: P2, ratio_choose_first: u8) -> Self {
+        Self {
+            p1,
+            p2,
+            ratio_choose_first,
+            rng: fastrand::Rng::new(),
+        }
+    }
+}
 impl<P1, P2> Pool for AndPool<P1, P2>
 where
     P1: Pool,
