@@ -6,7 +6,7 @@ use crate::sensors_and_pools::sum_coverage_pool::{
     AggregateCoveragePool, CountNumberOfDifferentCounters, SumCounterValues,
 };
 use crate::sensors_and_pools::unique_coverage_pool::UniqueCoveragePool;
-use crate::traits::{CompatibleWithSensor, Mutator, Pool, Sensor, Serializer};
+use crate::traits::{CompatibleWithSensor, Mutator, Pool, Sensor, Serializer, TestCase};
 use crate::{DefaultMutator, FuzzedInput, SerdeSerializer};
 
 use fuzzcheck_common::arg::{
@@ -318,6 +318,31 @@ where
     }
 }
 
+pub fn default_sensor_and_pool<T: TestCase>() -> (
+    CodeCoverageSensor,
+    impl CompatibleWithSensor<CodeCoverageSensor, TestCase = T>,
+) {
+    let sensor = CodeCoverageSensor::observing_only_files_from_current_dir();
+    let pool = defaul_pool_for_code_coverage_sensor(&sensor);
+    (sensor, pool)
+}
+
+fn defaul_pool_for_code_coverage_sensor<T: TestCase>(
+    sensor: &CodeCoverageSensor,
+) -> impl CompatibleWithSensor<CodeCoverageSensor, TestCase = T> {
+    let count_instrumented = sensor.count_instrumented;
+    let pool = UniqueCoveragePool::new("uniq_cov", count_instrumented);
+    let pool2 = CounterMaximizingPool::new("high_cov_hits", count_instrumented);
+
+    let pool4 = AggregateCoveragePool::<_, SumCounterValues>::new("highest_aggregate_cov_hits");
+    let pool5 = AggregateCoveragePool::<_, CountNumberOfDifferentCounters>::new("most_diverse_cov");
+
+    let pool = AndPool::new(pool2, pool, 1);
+    let pool = AndPool::new(pool, pool4, 254);
+    let pool = AndPool::new(pool, pool5, 254);
+    pool
+}
+
 impl<T, F, M, V, S> FuzzerBuilder4<T, F, M, V, S, CodeCoverageSensor>
 where
     T: ?Sized,
@@ -338,18 +363,7 @@ where
         CodeCoverageSensor,
         impl Pool<TestCase = FuzzedInput<V, M>> + CompatibleWithSensor<CodeCoverageSensor>,
     > {
-        let count_instrumented = self.sensor.count_instrumented;
-
-        let pool = UniqueCoveragePool::new("uniq_cov", count_instrumented);
-        let pool2 = CounterMaximizingPool::new("max_hits", count_instrumented);
-
-        let pool4 = AggregateCoveragePool::<_, SumCounterValues>::new("sum_counters");
-        let pool5 = AggregateCoveragePool::<_, CountNumberOfDifferentCounters>::new("count_differents_counters");
-
-        let pool = AndPool::new(pool2, pool, 1);
-        let pool = AndPool::new(pool, pool4, 254);
-        let pool = AndPool::new(pool, pool5, 254);
-
+        let pool = defaul_pool_for_code_coverage_sensor(&self.sensor);
         FuzzerBuilder5 {
             test_function: self.test_function,
             mutator: self.mutator,

@@ -31,6 +31,8 @@ mod traits;
 mod world;
 
 #[doc(inline)]
+pub use builder::default_sensor_and_pool;
+#[doc(inline)]
 pub use fuzzer::ReasonForStopping;
 #[doc(inline)]
 pub use mutators::DefaultMutator;

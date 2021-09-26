@@ -307,7 +307,7 @@ FUZZ_TEST:
     mod tests {{
         #[test]
         fn fuzz_test_1() {{
-            fuzzcheck::test(some_function_to_test)
+            fuzzcheck::fuzz_test(some_function_to_test)
                 .default_options()
                 .launch();
         }}

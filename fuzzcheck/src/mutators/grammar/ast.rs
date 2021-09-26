@@ -1,9 +1,11 @@
 extern crate self as fuzzcheck;
 
 #[cfg(feature = "serde_json_serializer")]
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
-use crate::Serializer;
+use crate::{mutators::map::MapMutator, Mutator};
+
+use super::ASTMutator;
 
 /// An abstract syntax tree.
 #[cfg_attr(feature = "serde_json_serializer", derive(Serialize, Deserialize))]
@@ -13,43 +15,14 @@ pub enum AST {
     Sequence(Vec<AST>),
     Box(Box<AST>),
 }
-
-#[cfg(feature = "serde_json_serializer")]
-#[derive(Serialize, Deserialize)]
-struct SerializedAST {
-    ast: AST,
-    string: String,
-}
-
-#[cfg(feature = "serde_json_serializer")]
-pub struct ASTSerializer;
-#[cfg(feature = "serde_json_serializer")]
-impl Serializer for ASTSerializer {
-    type Value = AST;
-
-    #[no_coverage]
-    fn is_utf8(&self) -> bool {
-        true
-    }
-
-    #[no_coverage]
-    fn extension(&self) -> &str {
-        ".json"
-    }
-
-    #[no_coverage]
-    fn from_data(&self, data: &[u8]) -> Option<Self::Value> {
-        serde_json::from_slice::<SerializedAST>(data).ok().map(|x| x.ast)
-    }
-
-    #[no_coverage]
-    fn to_data(&self, value: &Self::Value) -> Vec<u8> {
-        let (string, _) = value.generate_string();
-        let ser_ast = SerializedAST {
-            ast: value.clone(),
-            string
-        };
-        serde_json::to_vec_pretty(&ser_ast).unwrap()
+impl ASTMutator {
+    /// Wrap the mutator in a
+    pub fn with_string(self) -> impl Mutator<(AST, String)> {
+        MapMutator::new(
+            self,
+            |x: &(AST, String)| Some(x.0.clone()),
+            |ast| (ast.clone(), ast.generate_string().0),
+        )
     }
 }
 

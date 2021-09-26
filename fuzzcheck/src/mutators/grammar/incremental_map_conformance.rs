@@ -11,6 +11,133 @@ use crate::mutators::tuples::Tuple1Mutator;
 use crate::mutators::vector::{UnmutateVecToken, VecMutator};
 use crate::mutators::Mutator;
 
+impl<'a> ASTMappingSequence<'a> {
+    #[no_coverage]
+    fn mutate_value_from_element_token<M>(
+        &mut self,
+        from_value: &Vec<AST>,
+        to_value: &mut String,
+        element_idx: usize,
+        element_token: &M::UnmutateToken,
+    ) where
+        M: Mutator<AST>,
+        ASTMap: IncrementalMapping<AST, String, M>,
+    {
+        let v = &from_value[element_idx];
+        let child = &mut self.children[element_idx];
+        let old_len = child.len;
+        child.mutate_value_from_token(v, to_value, element_token);
+        let diff_len = child.len.wrapping_sub(old_len);
+        for child in &mut self.children[element_idx + 1..] {
+            child.start_index = child.start_index.wrapping_add(diff_len);
+        }
+        *self.len = self.len.wrapping_add(diff_len);
+    }
+    #[no_coverage]
+    fn mutate_value_from_insertion_token(
+        &mut self,
+        _from_value: &Vec<AST>,
+        to_value: &mut String,
+        insertion_idx: usize,
+    ) {
+        let (start_idx, len) = {
+            let c = &self.children[insertion_idx];
+            (c.start_index, c.len)
+        };
+        to_value.replace_range(start_idx..start_idx + len, "");
+        self.children.remove(insertion_idx);
+
+        for child in &mut self.children[insertion_idx..] {
+            child.start_index -= len;
+        }
+        *self.len -= len;
+    }
+    #[no_coverage]
+    fn mutate_value_from_removal_token(&mut self, from_value: &Vec<AST>, to_value: &mut String, removal_idx: usize) {
+        let start_index = self
+            .children
+            .get(removal_idx.wrapping_sub(1))
+            .map(
+                #[no_coverage]
+                |c| c.start_index + c.len,
+            )
+            .unwrap_or(*self.start_index);
+
+        let v = &from_value[removal_idx];
+        let (new_s, new_c) = v.generate_string_starting_at_idx(start_index);
+        let len = new_c.len;
+
+        self.children.insert(removal_idx, new_c);
+        to_value.insert_str(start_index, &new_s);
+        for child in &mut self.children[removal_idx + 1..] {
+            child.start_index += len;
+        }
+        *self.len += len;
+    }
+    #[no_coverage]
+    fn unmutate_value_from_element_token<M>(
+        &mut self,
+        to_value: &mut String,
+        element_idx: usize,
+        element_token: &M::UnmutateToken,
+    ) where
+        M: Mutator<AST>,
+        ASTMap: IncrementalMapping<AST, String, M>,
+    {
+        let child = &mut self.children[element_idx];
+        let old_len = child.len;
+        child.unmutate_value_from_token(to_value, element_token);
+        let diff_len = child.len.wrapping_sub(old_len);
+        for child in &mut self.children[element_idx + 1..] {
+            child.start_index = child.start_index.wrapping_add(diff_len);
+        }
+        *self.len = self.len.wrapping_add(diff_len);
+    }
+    #[no_coverage]
+    fn unmutate_value_from_insertion_token(
+        &mut self,
+        to_value: &mut String,
+        insertion_idx: usize,
+        insert_element: &AST,
+    ) {
+        let start_index = self
+            .children
+            .get(insertion_idx.wrapping_sub(1))
+            .map(
+                #[no_coverage]
+                |c| c.start_index + c.len,
+            )
+            .unwrap_or(*self.start_index);
+
+        // I need to add the value v[insertion_idx] to s and c and update the following indices
+        let (new_s, new_c) = insert_element.generate_string_starting_at_idx(start_index);
+        let len = new_c.len;
+        // adjust len of whole mapping
+        // and indices of things following them
+        *self.len += len;
+        self.children.insert(insertion_idx, new_c);
+        to_value.insert_str(start_index, &new_s);
+
+        for child in &mut self.children[insertion_idx + 1..] {
+            child.start_index += len;
+        }
+    }
+    #[no_coverage]
+    fn unmutate_value_from_removal_token(&mut self, to_value: &mut String, removal_idx: usize) {
+        let (start_idx, len) = {
+            let c = &self.children[removal_idx];
+            (c.start_index, c.len)
+        };
+        to_value.replace_range(start_idx..start_idx + len, "");
+        self.children.remove(removal_idx);
+
+        for child in &mut self.children[removal_idx..] {
+            child.start_index -= len;
+        }
+        *self.len -= len;
+    }
+}
+
 impl<'a, M> IncrementalMapping<Vec<AST>, String, VecMutator<AST, M>> for ASTMappingSequence<'a>
 where
     M: Mutator<AST>,
@@ -25,36 +152,26 @@ where
     ) {
         match token {
             UnmutateVecToken::Element(idx, t) => {
-                let v = &from_value[*idx];
-                let child = &mut self.children[*idx];
-                let old_len = child.len;
-                child.mutate_value_from_token(v, to_value, t);
-                let diff_len = child.len.wrapping_sub(old_len);
-                for child in &mut self.children[idx + 1..] {
-                    child.start_index = child.start_index.wrapping_add(diff_len);
+                self.mutate_value_from_element_token(from_value, to_value, *idx, t);
+            }
+            UnmutateVecToken::Elements(tokens) => {
+                for (idx, t) in tokens {
+                    self.mutate_value_from_element_token(from_value, to_value, *idx, t);
                 }
-                *self.len = self.len.wrapping_add(diff_len);
             }
             UnmutateVecToken::Remove(idx) => {
-                let start_index = self
-                    .children
-                    .get(idx.wrapping_sub(1))
-                    .map(
-                        #[no_coverage]
-                        |c| c.start_index + c.len,
-                    )
-                    .unwrap_or(*self.start_index);
-
-                let v = &from_value[*idx];
-                let (new_s, new_c) = v.generate_string_starting_at_idx(start_index);
-                let len = new_c.len;
-
-                self.children.insert(*idx, new_c);
-                to_value.insert_str(start_index, &new_s);
-                for child in &mut self.children[idx + 1..] {
-                    child.start_index += len;
-                }
-                *self.len += len;
+                self.mutate_value_from_removal_token(from_value, to_value, *idx);
+            }
+            UnmutateVecToken::Insert(idx, _) => {
+                self.mutate_value_from_insertion_token(from_value, to_value, *idx);
+            }
+            UnmutateVecToken::RemoveAndInsert {
+                remove,
+                insert_idx,
+                insert_element: _,
+            } => {
+                self.mutate_value_from_insertion_token(from_value, to_value, *insert_idx);
+                self.mutate_value_from_removal_token(from_value, to_value, *remove);
             }
             UnmutateVecToken::RemoveMany(range) => {
                 // I need to add the value v[idx] to s and c and update the following indices
@@ -94,19 +211,7 @@ where
                 }
                 *self.len += total_len;
             }
-            UnmutateVecToken::Insert(idx, _) => {
-                let (start_idx, len) = {
-                    let c = &self.children[*idx];
-                    (c.start_index, c.len)
-                };
-                to_value.replace_range(start_idx..start_idx + len, "");
-                self.children.remove(*idx);
 
-                for child in &mut self.children[*idx..] {
-                    child.start_index -= len;
-                }
-                *self.len -= len;
-            }
             UnmutateVecToken::InsertMany(idx, xs) => {
                 let (start_idx, len) = {
                     let cs = &self.children[*idx..*idx + xs.len()];
@@ -143,6 +248,30 @@ where
                 to_value.replace_range(*self.start_index..*self.start_index + *self.len, &new_s);
                 *self.len = start_index - original_start_idx;
             }
+            UnmutateVecToken::Swap(a, b) => {
+                if a == b {
+                    return;
+                }
+                let (former, latter) = if a > b { (b, a) } else { (a, b) };
+                let range_former = {
+                    let child = &self.children[*former];
+                    let start = child.start_index;
+                    let end = start + child.len;
+                    start..end
+                };
+                let range_latter = {
+                    let child = &self.children[*latter];
+                    let start = child.start_index;
+                    let end = start + child.len;
+                    start..end
+                };
+                assert!(range_former.end <= range_latter.start);
+                let str1 = to_value[range_former.clone()].to_string();
+                let str2 = to_value[range_latter.clone()].to_string();
+                to_value.replace_range(range_former, &str2);
+                to_value.replace_range(range_latter, &str1);
+                self.children.swap(*a, *b);
+            }
             UnmutateVecToken::Nothing => {}
         }
     }
@@ -151,28 +280,20 @@ where
     fn unmutate_value_from_token(&mut self, to_value: &mut String, token: &UnmutateVecToken<AST, M>) {
         match token {
             UnmutateVecToken::Element(idx, t) => {
-                let child = &mut self.children[*idx];
-                let old_len = child.len;
-                child.unmutate_value_from_token(to_value, t);
-                let diff_len = child.len.wrapping_sub(old_len);
-                for child in &mut self.children[idx + 1..] {
-                    child.start_index = child.start_index.wrapping_add(diff_len);
+                self.unmutate_value_from_element_token(to_value, *idx, t);
+            }
+            UnmutateVecToken::Elements(tokens) => {
+                for (idx, t) in tokens {
+                    self.unmutate_value_from_element_token(to_value, *idx, t);
                 }
-                *self.len = self.len.wrapping_add(diff_len);
             }
             UnmutateVecToken::Remove(idx) => {
-                let (start_idx, len) = {
-                    let c = &self.children[*idx];
-                    (c.start_index, c.len)
-                };
-                to_value.replace_range(start_idx..start_idx + len, "");
-                self.children.remove(*idx);
-
-                for child in &mut self.children[*idx..] {
-                    child.start_index -= len;
-                }
-                *self.len -= len;
+                self.unmutate_value_from_removal_token(to_value, *idx);
             }
+            UnmutateVecToken::Insert(idx, x) => {
+                self.unmutate_value_from_insertion_token(to_value, *idx, x);
+            }
+
             UnmutateVecToken::RemoveMany(range) => {
                 let (start_idx, len) = {
                     let cs = &self.children[range.clone()];
@@ -197,28 +318,13 @@ where
                 }
                 *self.len -= len;
             }
-            UnmutateVecToken::Insert(idx, x) => {
-                let start_index = self
-                    .children
-                    .get(idx.wrapping_sub(1))
-                    .map(
-                        #[no_coverage]
-                        |c| c.start_index + c.len,
-                    )
-                    .unwrap_or(*self.start_index);
-
-                // I need to add the value v[idx] to s and c and update the following indices
-                let (new_s, new_c) = x.generate_string_starting_at_idx(start_index);
-                let len = new_c.len;
-                // adjust len of whole mapping
-                // and indices of things following them
-                *self.len += len;
-                self.children.insert(*idx, new_c);
-                to_value.insert_str(start_index, &new_s);
-
-                for child in &mut self.children[idx + 1..] {
-                    child.start_index += len;
-                }
+            UnmutateVecToken::RemoveAndInsert {
+                remove,
+                insert_idx,
+                insert_element,
+            } => {
+                self.unmutate_value_from_removal_token(to_value, *remove);
+                self.unmutate_value_from_insertion_token(to_value, *insert_idx, insert_element);
             }
             UnmutateVecToken::InsertMany(idx, xs) => {
                 let mut start_index = self
@@ -263,6 +369,30 @@ where
                 }
                 to_value.replace_range(*self.start_index..*self.start_index + *self.len, &new_s);
                 *self.len = start_index - original_start_idx;
+            }
+            UnmutateVecToken::Swap(a, b) => {
+                if a == b {
+                    return;
+                }
+                let (former, latter) = if a > b { (b, a) } else { (a, b) };
+                let range_former = {
+                    let child = &self.children[*former];
+                    let start = child.start_index;
+                    let end = start + child.len;
+                    start..end
+                };
+                let range_latter = {
+                    let child = &self.children[*latter];
+                    let start = child.start_index;
+                    let end = start + child.len;
+                    start..end
+                };
+                assert!(range_former.end <= range_latter.start);
+                let str1 = to_value[range_former.clone()].to_string();
+                let str2 = to_value[range_latter.clone()].to_string();
+                to_value.replace_range(range_former, &str2);
+                to_value.replace_range(range_latter, &str1);
+                self.children.swap(*a, *b);
             }
             UnmutateVecToken::Nothing => {}
         }

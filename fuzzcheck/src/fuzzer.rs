@@ -16,7 +16,7 @@ use crate::world::World;
 use crate::FuzzedInput;
 use fuzzcheck_common::arg::{Arguments, FuzzerCommand};
 use fuzzcheck_common::{FuzzerEvent, FuzzerStats};
-use libc::{SIGABRT, SIGALRM, SIGBUS, SIGFPE, SIGINT, SIGSEGV, SIGTERM};
+use libc::{SIGABRT, SIGALRM, SIGBUS, SIGFPE, SIGINT, SIGSEGV, SIGTERM, SIGTRAP};
 use std::borrow::Borrow;
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
@@ -109,7 +109,7 @@ where
         );
 
         match signal {
-            SIGABRT | SIGBUS | SIGSEGV | SIGFPE | SIGALRM => {
+            SIGABRT | SIGBUS | SIGSEGV | SIGFPE | SIGALRM | SIGTRAP => {
                 if let Some(input) = Self::get_input(&self.input_idx, &self.pool) {
                     let cplx = input.complexity(&self.mutator);
                     let _ = self.world.save_artifact(&input.value, cplx);

@@ -78,12 +78,19 @@ pub struct VecMutatorCache<C> {
 }
 
 pub enum UnmutateVecToken<T: Clone, M: Mutator<T>> {
+    Elements(Vec<(usize, M::UnmutateToken)>),
     Element(usize, M::UnmutateToken),
     Remove(usize),
     RemoveMany(Range<usize>),
     Insert(usize, T),
     InsertMany(usize, Vec<T>),
     Replace(Vec<T>),
+    Swap(usize, usize),
+    RemoveAndInsert {
+        remove: usize,
+        insert_idx: usize,
+        insert_element: T,
+    },
     Nothing,
 }
 
@@ -116,7 +123,88 @@ impl<T: Clone, M: Mutator<T>> VecMutator<T, M> {
             None
         }
     }
+    #[no_coverage]
+    fn mutate_many_elements(
+        &self,
+        value: &mut Vec<T>,
+        cache: &mut VecMutatorCache<M::Cache>,
+        mut spare_cplx: f64,
+    ) -> Option<(UnmutateVecToken<T, M>, f64)> {
+        if value.len() < 2 {
+            return None;
+        }
+        // select disjoint indices here, minimum 2 and maximum 4
+        let nbr_indices = self.rng.usize(2..=cmp::max(2, value.len() - 1));
+        let mut shuffled_indices: Vec<_> = (0..value.len()).collect();
+        self.rng.shuffle(&mut shuffled_indices);
 
+        let mut tokens = vec![];
+
+        let mut new_cplx = self.complexity(value, cache);
+        for &idx in &shuffled_indices[..nbr_indices] {
+            let el = &mut value[idx];
+            let el_cache = &mut cache.inner[idx];
+
+            let old_el_cplx = self.m.complexity(el, el_cache);
+            let (token, new_el_cplx) = self.m.random_mutate(el, el_cache, spare_cplx + old_el_cplx);
+            let diff_cplx = new_el_cplx - old_el_cplx;
+            new_cplx += diff_cplx;
+            spare_cplx -= diff_cplx;
+            tokens.push((idx, token));
+        }
+
+        Some((UnmutateVecToken::Elements(tokens), new_cplx))
+    }
+    #[no_coverage]
+    fn remove_and_insert_element(
+        &self,
+        value: &mut Vec<T>,
+        cache: &mut VecMutatorCache<M::Cache>,
+        spare_cplx: f64,
+    ) -> Option<(UnmutateVecToken<T, M>, f64)> {
+        if value.len() < 2 {
+            return None;
+        }
+        let old_cplx = self.complexity(value, cache);
+
+        let removal_idx = self.rng.usize(0..value.len());
+        let removed_el = value.remove(removal_idx);
+        let removed_el_cplx = self.m.complexity(&removed_el, &cache.inner[removal_idx]);
+
+        let insertion_idx = self.rng.usize(0..=value.len());
+        let (inserted_el, inserted_el_cplx) = self.m.random_arbitrary(spare_cplx + removed_el_cplx);
+        value.insert(insertion_idx, inserted_el);
+
+        let cplx = old_cplx - removed_el_cplx + inserted_el_cplx;
+
+        let token = UnmutateVecToken::RemoveAndInsert {
+            remove: insertion_idx,
+            insert_idx: removal_idx,
+            insert_element: removed_el,
+        };
+        Some((token, cplx))
+    }
+    #[no_coverage]
+    fn swap_elements(
+        &self,
+        value: &mut Vec<T>,
+        cache: &mut VecMutatorCache<M::Cache>,
+    ) -> Option<(UnmutateVecToken<T, M>, f64)> {
+        if value.len() < 2 {
+            return None;
+        }
+        loop {
+            let a = self.rng.usize(0..value.len());
+            let b = self.rng.usize(0..value.len());
+            if a != b {
+                value.swap(a, b);
+                return Some((
+                    UnmutateVecToken::Swap(a, b),
+                    self.complexity_from_inner(cache.sum_cplx, value.len()),
+                ));
+            }
+        }
+    }
     #[no_coverage]
     fn insert_element(
         &self,
@@ -449,6 +537,7 @@ impl<T: Clone, M: Mutator<T>> Mutator<Vec<T>> for VecMutator<T, M> {
         if max_cplx > mutator_max_cplx {
             max_cplx = mutator_max_cplx;
         }
+
         let min_cplx = self.min_complexity();
         if max_cplx <= min_cplx || self.rng.u8(..) == 0 {
             // return the least complex value possible
@@ -495,12 +584,24 @@ impl<T: Clone, M: Mutator<T>> Mutator<Vec<T>> for VecMutator<T, M> {
 
         let token = if value.is_empty() || step.alias.is_none() || self.rng.usize(0..10) == 0 {
             // vector mutation
-            match self.rng.usize(0..if value.is_empty() { 5 } else { 15 }) {
+            let end = if value.is_empty() {
+                5
+            } else if self.dictionary.is_empty() {
+                10
+            } else if value.len() < 2 {
+                15
+            } else {
+                18
+            };
+            match self.rng.usize(0..end) {
                 0..=3 => self.insert_element(value, cache, spare_cplx),
                 4 => self.insert_repeated_elements(value, cache, spare_cplx),
                 5..=8 => self.remove_element(value, cache),
                 9 => self.remove_many_elements(value, cache),
                 10..=14 => self.use_dictionary(value, cache, spare_cplx),
+                15 => self.swap_elements(value, cache),
+                16 => self.mutate_many_elements(value, cache, spare_cplx),
+                17 => self.remove_and_insert_element(value, cache, spare_cplx),
                 _ => unreachable!(),
             }
         } else {
@@ -557,12 +658,24 @@ impl<T: Clone, M: Mutator<T>> Mutator<Vec<T>> for VecMutator<T, M> {
 
         if value.is_empty() || self.rng.usize(0..10) == 0 {
             // vector mutation
-            match self.rng.usize(0..if value.is_empty() { 5 } else { 15 }) {
+            let end = if value.is_empty() {
+                5
+            } else if self.dictionary.is_empty() {
+                10
+            } else if value.len() < 2 {
+                15
+            } else {
+                18
+            };
+            match self.rng.usize(0..end) {
                 0..=3 => self.insert_element(value, cache, spare_cplx),
                 4 => self.insert_repeated_elements(value, cache, spare_cplx),
                 5..=8 => self.remove_element(value, cache),
                 9 => self.remove_many_elements(value, cache),
                 10..=14 => self.use_dictionary(value, cache, spare_cplx),
+                15 => self.swap_elements(value, cache),
+                16 => self.mutate_many_elements(value, cache, spare_cplx),
+                17 => self.remove_and_insert_element(value, cache, spare_cplx),
                 _ => None,
             }
             .unwrap_or_else(
@@ -596,11 +709,25 @@ impl<T: Clone, M: Mutator<T>> Mutator<Vec<T>> for VecMutator<T, M> {
                 let el = &mut value[idx];
                 self.m.unmutate(el, &mut cache.inner[idx], inner_t);
             }
+            UnmutateVecToken::Elements(tokens) => {
+                for (idx, inner_t) in tokens {
+                    let el = &mut value[idx];
+                    self.m.unmutate(el, &mut cache.inner[idx], inner_t);
+                }
+            }
             UnmutateVecToken::Insert(idx, el) => {
                 value.insert(idx, el);
             }
             UnmutateVecToken::Remove(idx) => {
                 value.remove(idx);
+            }
+            UnmutateVecToken::RemoveAndInsert {
+                remove,
+                insert_idx,
+                insert_element,
+            } => {
+                value.remove(remove);
+                value.insert(insert_idx, insert_element);
             }
             UnmutateVecToken::Replace(new_value) => {
                 let _ = std::mem::replace(value, new_value);
@@ -610,6 +737,9 @@ impl<T: Clone, M: Mutator<T>> Mutator<Vec<T>> for VecMutator<T, M> {
             }
             UnmutateVecToken::RemoveMany(range) => {
                 value.drain(range);
+            }
+            UnmutateVecToken::Swap(a, b) => {
+                value.swap(a, b);
             }
             UnmutateVecToken::Nothing => {}
         }
@@ -675,42 +805,3 @@ mod tests {
         println!("{:?}", cplxs);
     }
 }
-// // ========== WeightedIndex ===========
-// /// Generate a random f64 within the given range
-// /// The start and end of the range must be finite
-// /// This is a very naive implementation
-//
-// #[no_coverage] fn gen_f64(rng: &fastrand::Rng, range: Range<f64>) -> f64 {
-//     range.start + rng.f64() * (range.end - range.start)
-// }
-// /**
-//  * A distribution using weighted sampling to pick a discretely selected item.
-//  *
-//  * An alternative implementation of the same type by the `rand` crate.
-//  */
-// #[derive(Debug, Clone)]
-// pub struct WeightedIndex<'a> {
-//     pub cumulative_weights: &'a Vec<f64>,
-// }
-
-// impl<'a> WeightedIndex<'a> {
-//     #[no_coverage]pub fn sample(&self, rng: &fastrand::Rng) -> usize {
-//         assert!(!self.cumulative_weights.is_empty());
-//         if self.cumulative_weights.len() == 1 {
-//             return 0;
-//         }
-
-//         let range = *self.cumulative_weights.first().unwrap()..*self.cumulative_weights.last().unwrap();
-//         let chosen_weight = gen_f64(rng, range);
-//         // Find the first item which has a weight *higher* than the chosen weight.
-//         self.cumulative_weights
-//             .binary_search_by(|w| {
-//                 if *w <= chosen_weight {
-//                     Ordering::Less
-//                 } else {
-//                     Ordering::Greater
-//                 }
-//             })
-//             .unwrap_err()
-//     }
-// }
