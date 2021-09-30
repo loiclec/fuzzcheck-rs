@@ -24,7 +24,6 @@ impl Display for Stats {
 #[derive(Debug)]
 pub struct Input<T> {
     best_for_values: AHashSet<(usize, u64)>,
-    cplx: f64,
     data: T,
     score: f64,
     number_times_chosen: usize,
@@ -210,7 +209,6 @@ impl<T: TestCase> CompatibleWithIteratorSensor for UniqueValuesPool<T> {
         let input = data;
         let input = Input {
             best_for_values: new_observations.iter().copied().collect(),
-            cplx,
             data: input,
             score: new_observations.len() as f64,
             number_times_chosen: 1,

@@ -59,7 +59,6 @@ impl Display for Stats {
 
 #[derive(Clone)]
 pub(crate) struct Input<T> {
-    generation: usize,
     data: T,
 }
 
@@ -221,10 +220,7 @@ where
                     }
                     Either::Right(x) => clone_input(x),
                 };
-                let input = Input {
-                    generation: 0,
-                    data: data,
-                };
+                let input = Input { data: data };
                 let mut path = PathBuf::new();
                 path.push(&self.name);
                 path.push(format!("{}", error.id));
