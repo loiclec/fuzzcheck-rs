@@ -51,7 +51,7 @@ cargo install cargo-fuzzcheck
 In your `Cargo.toml` file, add `fuzzcheck` as a dev dependency:
 ```toml
 [dev-dependencies]
-fuzzcheck = "0.7"
+fuzzcheck = "0.8"
 ```
 
 Then, we need a way to serialize values. By default, fuzzcheck uses `serde_json` for that purpose (but it can be changed). 
@@ -72,6 +72,8 @@ don't want to carry the fuzzcheck dependency in normal builds
 ```rust
 // this nightly feature is required by fuzzcheck’s procedural macros
 #![cfg_attr(test, feature(no_coverage))]
+
+use serde::{Deserialize, Serialize};
 
 // The DefaultMutator macro creates a mutator for a custom type
 // The mutator is accessible via SampleStruct::<T, U>::default_mutator()
@@ -111,26 +113,29 @@ fn should_not_crash(xs: &[SampleStruct<u8, SampleEnum>]) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use fuzzcheck::{FuzzerBuilder, DefaultMutator, SerdeSerializer};
+    use fuzzcheck::{DefaultMutator, SerdeSerializer};
     #[test]
     fn test_function_shouldn_t_crash() {
-        FuzzerBuilder::test(should_not_crash) // first give the function to test
-            // second, the mutator to generate the function’s inputs
-            .mutator(<Vec<SampleStruct<u8, SampleEnum>>>::default_mutator()) 
-            // third, the serializer, which we chose to be based on serde
-            .serializer(SerdeSerializer::default())
-            // fourth, we take the rest of the arguments from the cargo-fuzzcheck tool
-            .arguments_from_cargo_fuzzcheck()
-            // finally, tell the fuzzer the files for which code coverage is recorded
-            .observe_only_files_from_current_dir()
-            // we're now ready to launch the fuzzer!
-            .launch()
-            //
-            // note 1: all these arguments must be given in this specific order
-            // the code won't compile otherwise
-            //
-            // note 2: if this test is run with cargo test, it will simply do nothing
-            //
+        let _ = fuzzcheck::fuzz_test(should_not_crash) // the test function to fuzz
+            .mutator(Vec::<SampleStruct<u8, SampleEnum>>::default_mutator()) // the mutator to generate values of &[SampleStruct<u8, SampleEnum>]
+            .serializer(SerdeSerializer::default()) // save the test cases to the file system using serde
+            .default_sensor() // gather observations using the default sensor (i.e. recording code coverage)
+            .default_pool() // process observations using the default pool
+            .arguments_from_cargo_fuzzcheck() // take arguments from the cargo-fuzzcheck command line tool
+            .stop_after_first_test_failure(true) // stop the fuzzer as soon as a test failure is found
+            .launch();
+            /*
+             note 1: all these arguments must be given in this specific order
+             the code won't compile otherwise
+            
+             note 2: if this test is run with cargo test, it will simply do nothing
+            
+             note 3: you can also write:
+             let _ = fuzzcheck::fuzz_test(should_not_crash)
+                    .default_options()
+                    .stop_after_first_test_failure(true)
+                    .launch();
+          */
     }
 }
 ```
@@ -140,8 +145,7 @@ We can now use `cargo-fuzzcheck` to launch the test, using Rust nightly:
 rustup override set nightly
 # first argument is the *exact* path to the test function
 # second argument is the action to perform. In this case, "fuzz"
-# --artifacts specifies the folder within which to save the failing test cases
-cargo fuzzcheck tests::test_function_shouldn_t_crash fuzz --artifacts fuzz/artifacts
+cargo fuzzcheck tests::test_function_shouldn_t_crash fuzz
 ```
 
 This starts a loop that will stop when a failing test has been found.
@@ -163,13 +167,11 @@ in the pool
 
 When a failing test has been found, the following is printed:
 ```
-================ TEST FAILED ================
-13024   score: 20.90    pool: 7 exec/s: 1412576 cplx: 41.29
-Saving at "fuzz/artifacts/59886edc1de2dcc1.json"
+Failing test case found. Saving at "fuzz/artifacts/tests::test_function_shouldn_t_crash/59886edc1de2dcc1.json"
 ```
 
 Here, the path to the artifact file is 
-`fuzz/artifacts/59886edc1de2dcc1.json`. 
+`fuzz/artifacts/tests::test_function_shouldn_t_crash/59886edc1de2dcc1.json`. 
 It contains the JSON-encoded input that failed the test.
 
 ```json
@@ -195,11 +197,6 @@ It contains the JSON-encoded input that failed the test.
   ..
 ]
 ```
-
-Moreover, the fuzzer can maintain a copy of its input pool in the file system
-by passing the argument `--out-corpus <folder path>`. Fuzzing corpora 
-are useful to kick-start a fuzzing process by providing a list of known 
-interesting inputs through the option `--in-corpus <folder path>`.
 
 ## Minifying failing test inputs
 
