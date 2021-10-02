@@ -1,6 +1,7 @@
+use crate::fuzzer::PoolStorageIndex;
+use crate::fuzzer::TerminationStatus;
 use crate::traits::CorpusDelta;
 use crate::traits::EmptyStats;
-use crate::{fuzzer::TerminationStatus, traits::Serializer};
 use fuzzcheck_common::arg::Arguments;
 use fuzzcheck_common::arg::FuzzerCommand;
 use fuzzcheck_common::{FuzzerEvent, FuzzerStats};
@@ -12,59 +13,65 @@ use std::fs;
 use std::hash::{Hash, Hasher};
 use std::io::{self, Result};
 use std::path::Path;
+use std::path::PathBuf;
 use std::time::Duration;
 use std::time::Instant;
 
-pub struct World<S: Serializer, CorpusKey: Hash + Eq> {
+pub struct World {
     settings: Arguments,
     initial_instant: Instant,
     checkpoint_instant: Instant,
-    pub serializer: S,
     /// keeps track of the hash of each input in the corpus, indexed by the Pool key
-    pub corpus: HashMap<CorpusKey, String>,
+    pub corpus: HashMap<(PathBuf, PoolStorageIndex), String>,
 }
 
-impl<S: Serializer, CorpusKey: Hash + Eq> World<S, CorpusKey> {
+impl World {
     #[no_coverage]
-    pub fn new(serializer: S, settings: Arguments) -> Self {
+    pub fn new(settings: Arguments) -> Self {
         Self {
             settings,
             initial_instant: std::time::Instant::now(),
             checkpoint_instant: std::time::Instant::now(),
-            serializer,
             corpus: HashMap::new(),
         }
     }
 
     #[no_coverage]
-    fn hash_and_string_of_input(&self, input: &S::Value) -> (String, Vec<u8>) {
-        let input = self.serializer.to_data(input);
+    fn hash(&self, input: &[u8]) -> String {
         let mut hasher = DefaultHasher::new();
         input.hash(&mut hasher);
         let hash = hasher.finish();
         let hash = format!("{:x}", hash);
-        (hash, input)
+        hash
     }
 
     #[no_coverage]
-    pub(crate) fn update_corpus(&mut self, delta: CorpusDelta<S::Value, CorpusKey>) -> Result<()> {
-        let CorpusDelta { path, add, remove } = delta;
-        for to_remove_key in remove {
-            let hash = self.corpus.remove(&to_remove_key).unwrap();
-            self.remove_from_output_corpus(&path, hash.clone())?;
-        }
+    pub(crate) fn update_corpus(
+        &mut self,
+        idx: PoolStorageIndex,
+        content: Vec<u8>,
+        deltas: &[CorpusDelta],
+        extension: &str,
+    ) -> Result<()> {
+        for delta in deltas {
+            let CorpusDelta { path, add, remove } = delta;
+            for to_remove_key in remove {
+                let hash = self.corpus.remove(&(path.to_path_buf(), *to_remove_key)).unwrap();
+                self.remove_from_output_corpus(&path, hash.clone(), extension)?;
+            }
 
-        if let Some((content, key)) = add {
-            let (hash, input) = self.hash_and_string_of_input(&content);
-            let _old = self.corpus.insert(key, hash.clone());
-            self.add_to_output_corpus(&path, hash.clone(), input.clone())?;
+            if *add {
+                let hash = self.hash(&content);
+                let _old = self.corpus.insert((path.to_path_buf(), idx), hash.clone());
+                self.add_to_output_corpus(&path, hash.clone(), content.clone(), extension)?;
+            }
         }
 
         Ok(())
     }
 
     #[no_coverage]
-    pub fn add_to_output_corpus(&self, path: &Path, name: String, content: Vec<u8>) -> Result<()> {
+    pub fn add_to_output_corpus(&self, path: &Path, name: String, content: Vec<u8>, extension: &str) -> Result<()> {
         if self.settings.corpus_out.is_none() {
             return Ok(());
         }
@@ -74,20 +81,20 @@ impl<S: Serializer, CorpusKey: Hash + Eq> World<S, CorpusKey> {
             std::fs::create_dir_all(&folder)?;
         }
 
-        let path = folder.join(name).with_extension(self.serializer.extension());
+        let path = folder.join(name).with_extension(extension);
         fs::write(path, content)?;
 
         Ok(())
     }
 
     #[no_coverage]
-    pub fn remove_from_output_corpus(&self, path: &Path, name: String) -> Result<()> {
+    pub fn remove_from_output_corpus(&self, path: &Path, name: String, extension: &str) -> Result<()> {
         if self.settings.corpus_out.is_none() {
             return Ok(());
         }
         let corpus = self.settings.corpus_out.as_ref().unwrap().as_path().join(path);
 
-        let path = corpus.join(name).with_extension(self.serializer.extension());
+        let path = corpus.join(name).with_extension(extension);
         let _ = fs::remove_file(path);
 
         Ok(())
@@ -136,8 +143,6 @@ This should never happen, and is probably a bug in fuzzcheck. Sorry :("#
                 println!("{}", "DONE".yellow());
                 return;
             }
-            FuzzerEvent::New => print!("{}\t", "NEW".yellow()),
-            FuzzerEvent::Remove(count) => print!("{} {}\t", "REMOVE".yellow(), count.yellow()),
             FuzzerEvent::DidReadCorpus => {
                 println!("{}", "FINISHED READING CORPUS".yellow());
                 return;
@@ -147,8 +152,18 @@ This should never happen, and is probably a bug in fuzzcheck. Sorry :("#
             FuzzerEvent::TestFailure => {
                 println!("\n================ TEST FAILED ================");
             }
-            FuzzerEvent::Replace(count) => {
-                print!("{} {}\t", "RPLC".yellow(), count.yellow());
+            FuzzerEvent::Replace(add, sub) => {
+                if add != 0 {
+                    print!("+{} ", add.yellow());
+                } else {
+                    print!("   ");
+                }
+                if sub != 0 {
+                    print!("-{}", add.yellow());
+                } else {
+                    print!("  ");
+                }
+                print!("\t");
             }
             FuzzerEvent::None => return,
         };
@@ -179,7 +194,7 @@ This should never happen, and is probably a bug in fuzzcheck. Sorry :("#
     }
 
     #[no_coverage]
-    pub fn read_input_corpus(&self) -> Result<Vec<S::Value>> {
+    pub fn read_input_corpus(&self) -> Result<Vec<Vec<u8>>> {
         if self.settings.corpus_in.is_none() {
             return Result::Ok(vec![]);
         }
@@ -188,7 +203,7 @@ This should never happen, and is probably a bug in fuzzcheck. Sorry :("#
         self.read_input_corpus_rec(corpus, &mut values)?;
         Ok(values)
     }
-    fn read_input_corpus_rec(&self, corpus: &Path, values: &mut Vec<S::Value>) -> Result<()> {
+    fn read_input_corpus_rec(&self, corpus: &Path, values: &mut Vec<Vec<u8>>) -> Result<()> {
         if !corpus.exists() {
             return Ok(());
         }
@@ -205,29 +220,20 @@ This should never happen, and is probably a bug in fuzzcheck. Sorry :("#
                 self.read_input_corpus_rec(&path, values)?;
             } else {
                 let data = fs::read(path)?;
-                if let Some(i) = self.serializer.from_data(&data) {
-                    values.push(i);
-                }
+                values.push(data);
             }
         }
         Ok(())
     }
 
     #[no_coverage]
-    pub fn read_input_file(&self, file: &Path) -> Result<S::Value> {
+    pub fn read_input_file(&self, file: &Path) -> Result<Vec<u8>> {
         let data = fs::read(file)?;
-        if let Some(input) = self.serializer.from_data(&data) {
-            Ok(input)
-        } else {
-            Result::Err(io::Error::new(
-                io::ErrorKind::Other,
-                "The file could not be decoded into a valid input.",
-            ))
-        }
+        Ok(data)
     }
 
     #[no_coverage]
-    pub fn save_artifact(&mut self, input: &S::Value, cplx: f64) -> Result<()> {
+    pub fn save_artifact(&mut self, content: Vec<u8>, cplx: f64, extension: &str) -> Result<()> {
         let artifacts_folder = self.settings.artifacts_folder.as_ref();
         if artifacts_folder.is_none() {
             return Ok(());
@@ -239,7 +245,6 @@ This should never happen, and is probably a bug in fuzzcheck. Sorry :("#
         }
 
         let mut hasher = DefaultHasher::new();
-        let content = self.serializer.to_data(input);
         content.hash(&mut hasher);
         let hash = hasher.finish();
 
@@ -249,7 +254,7 @@ This should never happen, and is probably a bug in fuzzcheck. Sorry :("#
             format!("{:x}", hash)
         };
 
-        let path = artifacts_folder.join(&name).with_extension(self.serializer.extension());
+        let path = artifacts_folder.join(&name).with_extension(extension);
         println!("Failing test case found. Saving at {:?}", path);
         fs::write(path, &content)?;
 

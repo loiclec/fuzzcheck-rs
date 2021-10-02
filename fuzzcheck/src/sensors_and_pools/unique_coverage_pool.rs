@@ -56,7 +56,8 @@
 use super::compatible_with_iterator_sensor::CompatibleWithIteratorSensor;
 use crate::data_structures::{Slab, SlabKey};
 use crate::fenwick_tree::FenwickTree;
-use crate::traits::{CorpusDelta, Pool, TestCase};
+use crate::fuzzer::PoolStorageIndex;
+use crate::traits::{CorpusDelta, Pool};
 use ahash::{AHashMap, AHashSet};
 use fastrand::Rng;
 use owo_colors::OwoColorize;
@@ -120,7 +121,7 @@ impl FeatureIdx {
  * An element stored in the pool, containing its value, cache, mutation step,
  * as well as analysed code coverage and computed score.
 */
-pub struct Input<T> {
+pub struct Input {
     /// The keys of the features for which there are no simpler inputs in the
     /// pool reaching the feature.
     least_complex_for_features: AHashSet<FeatureIdx>,
@@ -129,7 +130,7 @@ pub struct Input<T> {
     /// The computed score of the input
     pub score: f64,
     /// Data associated with the input: value, cache, and mutation step
-    data: T,
+    data: PoolStorageIndex,
     /// Cached complexity of the value.
     ///
     /// It should always be equal to [mutator.complexity(&self.data.value, &self.data.cache)](Mutator::complexity)
@@ -145,24 +146,24 @@ pub struct Input<T> {
     the list of inputs hitting this feature, as well as a reference to the
     least complex of these inputs.
 */
-pub struct AnalyzedFeature<T> {
+pub struct AnalyzedFeature {
     pub key: FeatureIdx,
-    inputs: Vec<SlabKey<Input<T>>>,
-    pub least_complex_input: SlabKey<Input<T>>,
+    inputs: Vec<SlabKey<Input>>,
+    pub least_complex_input: SlabKey<Input>,
     pub least_complexity: f64,
     pub score: f64,
 }
 
-impl<T: TestCase> AnalyzedFeature<T> {
+impl AnalyzedFeature {
     #[no_coverage]
     fn new(
         key: FeatureIdx,
         group: &FeatureGroup,
-        inputs: Vec<SlabKey<Input<T>>>,
-        least_complex_input: SlabKey<Input<T>>,
+        inputs: Vec<SlabKey<Input>>,
+        least_complex_input: SlabKey<Input>,
         least_complexity: f64,
     ) -> Self {
-        let score = UniqueCoveragePool::<T>::score_of_feature(group.size(), inputs.len());
+        let score = UniqueCoveragePool::score_of_feature(group.size(), inputs.len());
         Self {
             key,
             inputs,
@@ -223,16 +224,16 @@ impl Default for FeatureGroup {
     }
 }
 
-pub struct UniqueCoveragePool<T: TestCase> {
+pub struct UniqueCoveragePool {
     pub name: String,
 
     pub features: Vec<AnalyzedFeatureRef>,
 
-    pub slab_features: AHashMap<FeatureIdx, AnalyzedFeature<T>>,
+    pub slab_features: AHashMap<FeatureIdx, AnalyzedFeature>,
 
     pub feature_groups: AHashMap<FeatureGroupId, FeatureGroup>,
 
-    slab_inputs: Slab<Input<T>>,
+    slab_inputs: Slab<Input>,
 
     pub average_complexity: f64,
     pub total_score: f64,
@@ -244,7 +245,7 @@ pub struct UniqueCoveragePool<T: TestCase> {
     pub new_features: Vec<FeatureIdx>,
 }
 
-impl<T: TestCase> UniqueCoveragePool<T> {
+impl UniqueCoveragePool {
     #[no_coverage]
     pub fn new(name: &str, nbr_features: usize) -> Self {
         UniqueCoveragePool {
@@ -276,13 +277,10 @@ impl<T: TestCase> UniqueCoveragePool<T> {
     #[no_coverage]
     pub(crate) fn add(
         &mut self,
-        data: T,
+        data: PoolStorageIndex,
         complexity: f64,
         result: AnalysisResult,
-    ) -> Option<(
-        CorpusDelta<&<Self as Pool>::TestCase, <Self as Pool>::Index>,
-        <Self as Pool>::Stats,
-    )> {
+    ) -> Option<(CorpusDelta, <Self as Pool>::Stats)> {
         let AnalysisResult {
             existing_features,
             new_features,
@@ -302,8 +300,7 @@ impl<T: TestCase> UniqueCoveragePool<T> {
         };
         let element_key = self.slab_inputs.insert(element);
 
-        let mut to_delete: AHashSet<SlabKey<Input<T>>> =
-            AHashSet::with_hasher(ahash::RandomState::with_seeds(0, 0, 0, 0));
+        let mut to_delete: AHashSet<SlabKey<Input>> = AHashSet::with_hasher(ahash::RandomState::with_seeds(0, 0, 0, 0));
 
         // 1. Update the `element.least_complex_for_features` fields of the elements affected
         // by a change in the `least_complexity` of the features in `existing_features`.
@@ -379,6 +376,10 @@ impl<T: TestCase> UniqueCoveragePool<T> {
                 |&key| key,
             )
             .collect();
+        let deleted_pool_storage_indices = deleted_values
+            .iter()
+            .map(|key| self.slab_inputs[*key].data)
+            .collect::<Vec<_>>();
 
         self.delete_elements(to_delete, &mut affected_groups, &mut affected_features, false);
 
@@ -417,8 +418,8 @@ impl<T: TestCase> UniqueCoveragePool<T> {
         Some((
             CorpusDelta {
                 path: Path::new(&self.name).to_path_buf(),
-                add: Some((&self.slab_inputs[element_key].data, element_key)),
-                remove: deleted_values,
+                add: true,
+                remove: deleted_pool_storage_indices,
             },
             stats,
         ))
@@ -427,7 +428,7 @@ impl<T: TestCase> UniqueCoveragePool<T> {
     #[no_coverage]
     pub fn delete_elements(
         &mut self,
-        to_delete: AHashSet<SlabKey<Input<T>>>,
+        to_delete: AHashSet<SlabKey<Input>>,
         affected_group: &mut AHashSet<FeatureGroupId>, // for now we assume that no feature is removed, which is incorrect for corpus reduction
         affected_features: &mut AHashSet<FeatureIdx>,
         may_remove_feature: bool,
@@ -478,12 +479,7 @@ impl<T: TestCase> UniqueCoveragePool<T> {
         }
     }
     #[no_coverage]
-    pub(crate) fn remove_lowest_scoring_input(
-        &mut self,
-    ) -> Option<(
-        CorpusDelta<&<Self as Pool>::TestCase, <Self as Pool>::Index>,
-        <Self as Pool>::Stats,
-    )> {
+    pub(crate) fn remove_lowest_scoring_input(&mut self) -> Option<(CorpusDelta, <Self as Pool>::Stats)> {
         let slab = &self.slab_inputs;
         let pick_key = self
             .slab_inputs
@@ -497,6 +493,11 @@ impl<T: TestCase> UniqueCoveragePool<T> {
         to_delete.insert(pick_key);
         let mut affected_groups = AHashSet::with_hasher(ahash::RandomState::with_seeds(0, 0, 0, 0));
         let mut affected_features = AHashSet::with_hasher(ahash::RandomState::with_seeds(0, 0, 0, 0));
+
+        let to_delete_pool_storage = to_delete
+            .iter()
+            .map(|key| self.slab_inputs[*key].data)
+            .collect::<Vec<_>>();
         self.delete_elements(to_delete, &mut affected_groups, &mut affected_features, true);
 
         for group_id in affected_groups {
@@ -524,8 +525,8 @@ impl<T: TestCase> UniqueCoveragePool<T> {
 
         let delta = CorpusDelta {
             path: Path::new(&self.name).to_path_buf(),
-            add: None,
-            remove: vec![pick_key],
+            add: false,
+            remove: to_delete_pool_storage,
         };
 
         Some((delta, stats))
@@ -664,9 +665,7 @@ impl<T: TestCase> UniqueCoveragePool<T> {
     }
 }
 
-impl<T: TestCase> Pool for UniqueCoveragePool<T> {
-    type TestCase = T;
-    type Index = SlabKey<Input<T>>;
+impl Pool for UniqueCoveragePool {
     type Stats = UniqueCoveragePoolStats;
 
     #[no_coverage]
@@ -686,7 +685,7 @@ impl<T: TestCase> Pool for UniqueCoveragePool<T> {
     }
 
     #[no_coverage]
-    fn get_random_index(&mut self) -> Option<Self::Index> {
+    fn get_random_index(&mut self) -> Option<PoolStorageIndex> {
         if self.ranked_inputs.len() == 0 {
             return None;
         }
@@ -708,42 +707,25 @@ impl<T: TestCase> Pool for UniqueCoveragePool<T> {
 
         let delta = new_rank - old_rank;
         self.ranked_inputs.update(choice, delta);
-        Some(key)
+        Some(input.data)
     }
 
     #[no_coverage]
-    fn get(&self, idx: Self::Index) -> &Self::TestCase {
-        &self.slab_inputs[idx].data
-    }
-
-    #[no_coverage]
-    fn get_mut(&mut self, idx: Self::Index) -> &mut Self::TestCase {
-        &mut self.slab_inputs[idx].data
-    }
-
-    #[no_coverage]
-    fn retrieve_after_processing(&mut self, idx: Self::Index, generation: usize) -> Option<&mut Self::TestCase> {
-        if let Some(input) = self.slab_inputs.get_mut(idx) {
-            if input.data.generation() == generation {
-                Some(&mut input.data)
-            } else {
-                None
+    fn mark_test_case_as_dead_end(&mut self, idx: PoolStorageIndex) {
+        for input_key in self.slab_inputs.keys() {
+            let input = &mut self.slab_inputs[input_key];
+            if input.data == idx {
+                input.score = 0.0;
+                break;
             }
-        } else {
-            None
         }
-    }
-    #[no_coverage]
-    fn mark_test_case_as_dead_end(&mut self, idx: SlabKey<Input<T>>) {
-        let input = &mut self.slab_inputs[idx];
-        input.score = 0.0;
         self.update_self_stats()
     }
     #[no_coverage]
     fn minify(
         &mut self,
         target_len: usize,
-        mut event_handler: impl FnMut(CorpusDelta<&Self::TestCase, Self::Index>, Self::Stats) -> Result<(), std::io::Error>,
+        mut event_handler: impl FnMut(CorpusDelta, Self::Stats) -> Result<(), std::io::Error>,
     ) -> Result<(), std::io::Error> {
         while self.len() > target_len {
             if let Some((delta, stats)) = self.remove_lowest_scoring_input() {
@@ -778,7 +760,7 @@ fn score_for_group_size(size: usize) -> f64 {
 // ==================== Trait implementations ====================
 // ===============================================================
 
-impl<T> Clone for AnalyzedFeature<T> {
+impl Clone for AnalyzedFeature {
     #[no_coverage]
     fn clone(&self) -> Self {
         Self {
@@ -828,7 +810,7 @@ pub struct AnalysisResult {
     pub(crate) new_features: Vec<FeatureIdx>,
 }
 
-impl<T: TestCase> CompatibleWithIteratorSensor for UniqueCoveragePool<T> {
+impl CompatibleWithIteratorSensor for UniqueCoveragePool {
     type Observation = (usize, u64);
     type ObservationState = UniqueCoveragePoolObservationState;
 
@@ -867,17 +849,12 @@ impl<T: TestCase> CompatibleWithIteratorSensor for UniqueCoveragePool<T> {
     #[no_coverage]
     fn add(
         &mut self,
-        data: Self::TestCase,
+        data: PoolStorageIndex,
         complexity: f64,
         observation_state: Self::ObservationState,
-        mut event_handler: impl FnMut(CorpusDelta<&Self::TestCase, Self::Index>, Self::Stats) -> Result<(), std::io::Error>,
-    ) -> Result<(), std::io::Error> {
+    ) -> Vec<CorpusDelta> {
         let result = observation_state.analysis_result;
-        let delta = self.add(data, complexity, result);
-        if let Some((delta, stats)) = delta {
-            event_handler(delta, stats)?;
-        }
-        Ok(())
+        self.add(data, complexity, result).map(|x| x.0).into_iter().collect()
     }
 }
 
@@ -887,20 +864,8 @@ mod tests {
     use crate::Mutator;
 
     #[no_coverage]
-    fn mock(cplx: f64) -> f64 {
-        cplx
-    }
-
-    #[no_coverage]
     fn edge_f(index: usize, intensity: u16) -> FeatureIdx {
         FeatureIdx(index * 64 + intensity as usize)
-    }
-
-    impl TestCase for f64 {
-        #[no_coverage]
-        fn generation(&self) -> usize {
-            0
-        }
     }
 
     #[test]
@@ -919,7 +884,7 @@ mod tests {
             let mut new_features: AHashSet<_, ahash::RandomState> = AHashSet::from_iter(list_features.iter());
             let mut added_features: Vec<FeatureIdx> = vec![];
 
-            let mut pool = UniqueCoveragePool::<f64>::new("cov", 1024);
+            let mut pool = UniqueCoveragePool::new("cov", 1024);
 
             for i in 0..fastrand::usize(0..100) {
                 let nbr_new_features = if new_features.is_empty() {
@@ -984,7 +949,7 @@ mod tests {
                     new_features: new_features_1,
                 };
                 // println!("adding input of cplx {:.2} with new features {:?} and existing features {:?}", cplx1, new_features_1, existing_features_1);
-                let _ = pool.add(mock(cplx1), cplx1, analysis_result);
+                let _ = pool.add(PoolStorageIndex::mock(0), cplx1, analysis_result);
                 // pool.print_recap();
                 pool.sanity_check();
                 assert!(

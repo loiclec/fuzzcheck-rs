@@ -6,8 +6,8 @@ use crate::sensors_and_pools::sum_coverage_pool::{
     AggregateCoveragePool, CountNumberOfDifferentCounters, SumCounterValues,
 };
 use crate::sensors_and_pools::unique_coverage_pool::UniqueCoveragePool;
-use crate::traits::{CompatibleWithSensor, Mutator, Pool, Sensor, Serializer, TestCase};
-use crate::{DefaultMutator, FuzzedInput, SerdeSerializer};
+use crate::traits::{CompatibleWithSensor, Mutator, Pool, Sensor, Serializer};
+use crate::{DefaultMutator, SerdeSerializer};
 
 use fuzzcheck_common::arg::{
     options_parser, COMMAND_FUZZ, COMMAND_MINIFY_CORPUS, COMMAND_MINIFY_INPUT, CORPUS_SIZE_FLAG, INPUT_FILE_FLAG,
@@ -130,7 +130,7 @@ where
     M: Mutator<V>,
     S: Serializer<Value = V>,
     Sens: Sensor,
-    P: Pool<TestCase = FuzzedInput<V, M>> + CompatibleWithSensor<Sens>,
+    P: Pool + CompatibleWithSensor<Sens>,
 {
     test_function: F,
     mutator: M,
@@ -147,7 +147,7 @@ where
     M: Mutator<V>,
     S: Serializer<Value = V>,
     Sens: Sensor,
-    P: Pool<TestCase = FuzzedInput<V, M>> + CompatibleWithSensor<Sens>,
+    P: Pool + CompatibleWithSensor<Sens>,
 {
     test_function: F,
     mutator: M,
@@ -197,8 +197,7 @@ where
         T::Owned,
         SerdeSerializer<T::Owned>,
         CodeCoverageSensor,
-        impl Pool<TestCase = FuzzedInput<T::Owned, <T::Owned as DefaultMutator>::Mutator>>
-            + CompatibleWithSensor<CodeCoverageSensor>,
+        impl Pool + CompatibleWithSensor<CodeCoverageSensor>,
     > {
         self.mutator(<T::Owned as DefaultMutator>::default_mutator())
             .serializer(SerdeSerializer::default())
@@ -318,24 +317,19 @@ where
     }
 }
 
-pub fn default_sensor_and_pool<T: TestCase>() -> (
-    CodeCoverageSensor,
-    impl CompatibleWithSensor<CodeCoverageSensor, TestCase = T>,
-) {
+pub fn default_sensor_and_pool() -> (CodeCoverageSensor, impl CompatibleWithSensor<CodeCoverageSensor>) {
     let sensor = CodeCoverageSensor::observing_only_files_from_current_dir();
     let pool = defaul_pool_for_code_coverage_sensor(&sensor);
     (sensor, pool)
 }
 
-fn defaul_pool_for_code_coverage_sensor<T: TestCase>(
-    sensor: &CodeCoverageSensor,
-) -> impl CompatibleWithSensor<CodeCoverageSensor, TestCase = T> {
+fn defaul_pool_for_code_coverage_sensor(sensor: &CodeCoverageSensor) -> impl CompatibleWithSensor<CodeCoverageSensor> {
     let count_instrumented = sensor.count_instrumented;
     let pool = UniqueCoveragePool::new("uniq_cov", count_instrumented);
     let pool2 = CounterMaximizingPool::new("high_cov_hits", count_instrumented);
 
-    let pool4 = AggregateCoveragePool::<_, SumCounterValues>::new("highest_aggregate_cov_hits");
-    let pool5 = AggregateCoveragePool::<_, CountNumberOfDifferentCounters>::new("most_diverse_cov");
+    let pool4 = AggregateCoveragePool::<SumCounterValues>::new("highest_aggregate_cov_hits");
+    let pool5 = AggregateCoveragePool::<CountNumberOfDifferentCounters>::new("most_diverse_cov");
 
     let pool = AndPool::new(pool2, pool, 1);
     let pool = AndPool::new(pool, pool4, 254);
@@ -354,15 +348,7 @@ where
     #[no_coverage]
     pub fn default_pool(
         self,
-    ) -> FuzzerBuilder5<
-        T,
-        F,
-        M,
-        V,
-        S,
-        CodeCoverageSensor,
-        impl Pool<TestCase = FuzzedInput<V, M>> + CompatibleWithSensor<CodeCoverageSensor>,
-    > {
+    ) -> FuzzerBuilder5<T, F, M, V, S, CodeCoverageSensor, impl Pool + CompatibleWithSensor<CodeCoverageSensor>> {
         let pool = defaul_pool_for_code_coverage_sensor(&self.sensor);
         FuzzerBuilder5 {
             test_function: self.test_function,
@@ -387,7 +373,7 @@ where
     #[no_coverage]
     pub fn pool<P>(self, pool: P) -> FuzzerBuilder5<T, F, M, V, S, Sens, P>
     where
-        P: Pool<TestCase = FuzzedInput<V, M>> + CompatibleWithSensor<Sens>,
+        P: Pool + CompatibleWithSensor<Sens>,
     {
         FuzzerBuilder5 {
             test_function: self.test_function,
@@ -408,7 +394,7 @@ where
     M: Mutator<V>,
     S: Serializer<Value = V>,
     Sens: Sensor,
-    P: Pool<TestCase = FuzzedInput<V, M>> + CompatibleWithSensor<Sens>,
+    P: Pool + CompatibleWithSensor<Sens>,
 {
     #[no_coverage]
     pub fn arguments(self, arguments: Arguments) -> FuzzerBuilder6<T, F, M, V, S, Sens, P> {
@@ -501,7 +487,7 @@ where
     M: Mutator<V>,
     S: Serializer<Value = V>,
     Sens: Sensor,
-    P: Pool<TestCase = FuzzedInput<V, M>> + CompatibleWithSensor<Sens>,
+    P: Pool + CompatibleWithSensor<Sens>,
     Fuzzer<V, T, F, M, S, Sens, P>: 'static,
 {
     #[no_coverage]

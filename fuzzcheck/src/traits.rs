@@ -3,12 +3,10 @@ The fuzzcheck_traits crate defines the `Mutator` and `Serializer` traits
 used by all fuzzcheck-related crates.
 */
 
+use crate::fuzzer::PoolStorageIndex;
 use fuzzcheck_common::FuzzerEvent;
 use std::fmt::Display;
-use std::hash::Hash;
 use std::path::PathBuf;
-
-use crate::mutators::either::Either;
 
 /**
  A [Mutator] is an object capable of mutating a value for the purpose of
@@ -315,44 +313,31 @@ impl Display for EmptyStats {
 }
 
 #[derive(Debug)]
-pub struct CorpusDelta<T, Idx> {
+pub struct CorpusDelta {
     pub path: PathBuf,
-    pub add: Option<(T, Idx)>,
-    pub remove: Vec<Idx>,
+    pub add: bool,
+    pub remove: Vec<PoolStorageIndex>,
 }
 
-impl<T, Idx> CorpusDelta<T, Idx> {
+// TODO: this should operate on a vec of corpus delta
+impl CorpusDelta {
     #[no_coverage]
-    pub fn convert<U>(self, convert_f: impl FnOnce(T) -> U) -> CorpusDelta<U, Idx> {
-        CorpusDelta {
-            path: self.path,
-            add: self.add.map(
-                #[no_coverage]
-                |(x, idx)| (convert_f(x), idx),
-            ),
-            remove: self.remove,
-        }
-    }
-    #[no_coverage]
-    pub fn fuzzer_event(&self) -> FuzzerEvent {
-        if self.add.is_some() {
-            if self.remove.is_empty() {
-                FuzzerEvent::New
-            } else {
-                FuzzerEvent::Replace(self.remove.len())
+    pub fn fuzzer_event(deltas: &[CorpusDelta]) -> FuzzerEvent {
+        let mut add = 0;
+        let mut remove = 0;
+        for delta in deltas {
+            if delta.add {
+                add += 1;
             }
+            remove += delta.remove.len();
+        }
+
+        if add == 0 && remove == 0 {
+            FuzzerEvent::None
         } else {
-            if self.remove.is_empty() {
-                FuzzerEvent::None
-            } else {
-                FuzzerEvent::Remove(self.remove.len())
-            }
+            FuzzerEvent::Replace(add, remove)
         }
     }
-}
-
-pub trait TestCase: Clone {
-    fn generation(&self) -> usize;
 }
 
 pub trait Sensor {
@@ -364,34 +349,22 @@ pub trait Sensor {
 }
 
 pub trait Pool {
-    type TestCase: TestCase;
-    type Index: Hash + Eq + Clone + Copy;
     type Stats: Default + Display + Clone;
 
     fn len(&self) -> usize;
     fn stats(&self) -> Self::Stats;
 
-    fn get_random_index(&mut self) -> Option<Self::Index>;
-    fn get(&self, idx: Self::Index) -> &Self::TestCase;
-    fn get_mut(&mut self, idx: Self::Index) -> &mut Self::TestCase;
+    fn get_random_index(&mut self) -> Option<PoolStorageIndex>;
 
-    fn retrieve_after_processing(&mut self, idx: Self::Index, generation: usize) -> Option<&mut Self::TestCase>;
-    fn mark_test_case_as_dead_end(&mut self, idx: Self::Index);
+    fn mark_test_case_as_dead_end(&mut self, idx: PoolStorageIndex);
 
     fn minify(
         &mut self,
         target_len: usize,
-        event_handler: impl FnMut(CorpusDelta<&Self::TestCase, Self::Index>, Self::Stats) -> Result<(), std::io::Error>,
+        event_handler: impl FnMut(CorpusDelta, Self::Stats) -> Result<(), std::io::Error>,
     ) -> Result<(), std::io::Error>;
 }
 
 pub trait CompatibleWithSensor<S: Sensor>: Pool {
-    fn process(
-        &mut self,
-        sensor: &mut S,
-        get_input_ref: Either<Self::Index, &Self::TestCase>,
-        clone_input: &impl Fn(&Self::TestCase) -> Self::TestCase,
-        complexity: f64,
-        event_handler: impl FnMut(CorpusDelta<&Self::TestCase, Self::Index>, Self::Stats) -> Result<(), std::io::Error>,
-    ) -> Result<(), std::io::Error>;
+    fn process(&mut self, input_id: PoolStorageIndex, sensor: &mut S, complexity: f64) -> Vec<CorpusDelta>;
 }

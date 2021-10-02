@@ -1,5 +1,5 @@
-use crate::mutators::either::Either;
-use crate::traits::{CompatibleWithSensor, CorpusDelta, Pool, Sensor, TestCase};
+use crate::fuzzer::PoolStorageIndex;
+use crate::traits::{CompatibleWithSensor, CorpusDelta, Pool, Sensor};
 use owo_colors::OwoColorize;
 use std::fmt::Display;
 use std::path::PathBuf;
@@ -57,28 +57,23 @@ impl Display for Stats {
     }
 }
 
-#[derive(Clone)]
-pub(crate) struct Input<T> {
-    data: T,
-}
-
-struct ArftifactList<T> {
+struct ArftifactList {
     error: TestFailure,
-    inputs: Vec<ArtifactListForError<T>>,
+    inputs: Vec<ArtifactListForError>,
 }
 
-struct ArtifactListForError<T> {
+struct ArtifactListForError {
     cplx: f64,
-    inputs: Vec<Input<T>>,
+    inputs: Vec<PoolStorageIndex>,
 }
 
-pub(crate) struct ArtifactsPool<T> {
+pub(crate) struct ArtifactsPool {
     name: String,
-    inputs: Vec<ArftifactList<T>>,
+    inputs: Vec<ArftifactList>,
     rng: fastrand::Rng,
 }
 
-impl<T> ArtifactsPool<T> {
+impl ArtifactsPool {
     #[no_coverage]
     pub(crate) fn new(name: &str) -> Self {
         Self {
@@ -89,9 +84,7 @@ impl<T> ArtifactsPool<T> {
     }
 }
 
-impl<T: TestCase> Pool for ArtifactsPool<T> {
-    type TestCase = T;
-    type Index = (usize, usize, usize);
+impl Pool for ArtifactsPool {
     type Stats = Stats;
 
     #[no_coverage]
@@ -107,7 +100,7 @@ impl<T: TestCase> Pool for ArtifactsPool<T> {
     }
 
     #[no_coverage]
-    fn get_random_index(&mut self) -> Option<Self::Index> {
+    fn get_random_index(&mut self) -> Option<PoolStorageIndex> {
         if self.inputs.is_empty() {
             return None;
         }
@@ -119,65 +112,38 @@ impl<T: TestCase> Pool for ArtifactsPool<T> {
             return None;
         }
         let input_choice = self.rng.usize(0..least_complexity.inputs.len());
-        Some((error_choice, complexity_choice, input_choice))
+        Some(least_complexity.inputs[input_choice])
     }
 
     #[no_coverage]
-    fn get(&self, idx: Self::Index) -> &Self::TestCase {
-        &self.inputs[idx.0].inputs[idx.1].inputs[idx.2].data
-    }
-
-    #[no_coverage]
-    fn get_mut(&mut self, idx: Self::Index) -> &mut Self::TestCase {
-        &mut self.inputs[idx.0].inputs[idx.1].inputs[idx.2].data
-    }
-
-    #[no_coverage]
-    fn retrieve_after_processing(&mut self, idx: Self::Index, generation: usize) -> Option<&mut Self::TestCase> {
-        if let Some(input) = self.inputs[idx.0]
-            .inputs
-            .get_mut(idx.1)
-            .map(|inputs| inputs.inputs.get_mut(idx.2))
-            .flatten()
-        {
-            if input.data.generation() == generation {
-                Some(&mut input.data)
-            } else {
-                None
+    fn mark_test_case_as_dead_end(&mut self, idx: PoolStorageIndex) {
+        for x in self.inputs.iter_mut() {
+            for x in x.inputs.iter_mut() {
+                if let Some(i) = x.inputs.iter().position(|&x| x == idx) {
+                    x.inputs.remove(i);
+                }
             }
-        } else {
-            None
         }
-    }
-
-    #[no_coverage]
-    fn mark_test_case_as_dead_end(&mut self, idx: Self::Index) {
-        self.inputs[idx.0].inputs[idx.1].inputs.remove(idx.2);
     }
 
     #[no_coverage]
     fn minify(
         &mut self,
         _target_len: usize,
-        _event_handler: impl FnMut(CorpusDelta<&Self::TestCase, Self::Index>, Self::Stats) -> Result<(), std::io::Error>,
+        _event_handler: impl FnMut(CorpusDelta, Self::Stats) -> Result<(), std::io::Error>,
     ) -> Result<(), std::io::Error> {
         // TODO
         Ok(())
     }
 }
-impl<T> CompatibleWithSensor<TestFailureSensor> for ArtifactsPool<T>
-where
-    T: TestCase,
-{
+impl CompatibleWithSensor<TestFailureSensor> for ArtifactsPool {
     #[no_coverage]
     fn process(
         &mut self,
+        input_idx: PoolStorageIndex,
         sensor: &mut TestFailureSensor,
-        get_input_ref: crate::mutators::either::Either<Self::Index, &Self::TestCase>,
-        clone_input: &impl Fn(&Self::TestCase) -> Self::TestCase,
         complexity: f64,
-        mut event_handler: impl FnMut(CorpusDelta<&Self::TestCase, Self::Index>, Self::Stats) -> Result<(), std::io::Error>,
-    ) -> Result<(), std::io::Error> {
+    ) -> Vec<CorpusDelta> {
         let mut error = None;
         sensor.iterate_over_observations(&mut error);
 
@@ -213,59 +179,43 @@ where
                 is_interesting = Some(PositionOfNewInput::NewError);
             }
             if let Some(position) = is_interesting {
-                let data = match get_input_ref {
-                    Either::Left(x) => {
-                        let input = &self.inputs[x.0].inputs[x.1].inputs[x.2].data;
-                        clone_input(input)
-                    }
-                    Either::Right(x) => clone_input(x),
-                };
-                let input = Input { data: data };
                 let mut path = PathBuf::new();
                 path.push(&self.name);
                 path.push(format!("{}", error.id));
                 path.push(format!("{:.4}", complexity));
 
-                let new_index = match position {
+                match position {
                     PositionOfNewInput::NewError => {
                         self.inputs.push(ArftifactList {
                             error,
                             inputs: vec![ArtifactListForError {
                                 cplx: complexity,
-                                inputs: vec![input],
+                                inputs: vec![input_idx],
                             }],
                         });
-
-                        (self.inputs.len() - 1, 0, 0)
                     }
                     PositionOfNewInput::ExistingErrorNewCplx(error_idx) => {
                         // TODO: handle event
                         self.inputs[error_idx].inputs.push(ArtifactListForError {
                             cplx: complexity,
-                            inputs: vec![input],
+                            inputs: vec![input_idx],
                         });
-                        (error_idx, self.inputs[error_idx].inputs.len() - 1, 0)
                     }
                     PositionOfNewInput::ExistingErrorAndCplx(error_idx) => {
                         // NOTE: the complexity must be the last one
                         // TODO: handle event
-                        self.inputs[error_idx].inputs.last_mut().unwrap().inputs.push(input);
-                        (
-                            error_idx,
-                            self.inputs[error_idx].inputs.len() - 1,
-                            self.inputs[error_idx].inputs.last().unwrap().inputs.len() - 1,
-                        )
+                        self.inputs[error_idx].inputs.last_mut().unwrap().inputs.push(input_idx);
                     }
                 };
-                let data = self.get(new_index);
+
                 let delta = CorpusDelta {
                     path,
-                    add: Some((data, new_index)),
+                    add: true,
                     remove: vec![],
                 };
-                event_handler(delta, self.stats())?;
+                return vec![delta];
             }
         }
-        Ok(())
+        vec![]
     }
 }

@@ -42,7 +42,6 @@ pub use traits::Mutator;
 pub use traits::MutatorWrapper;
 #[doc(inline)]
 pub use traits::Serializer;
-use traits::TestCase;
 
 #[doc(inline)]
 pub use builder::fuzz_test;
@@ -80,12 +79,7 @@ impl<T: Clone, Mut: Mutator<T>> Clone for FuzzedInput<T, Mut> {
         }
     }
 }
-impl<T: Clone, Mut: Mutator<T>> TestCase for FuzzedInput<T, Mut> {
-    #[no_coverage]
-    fn generation(&self) -> usize {
-        self.generation
-    }
-}
+
 impl<T: Clone, Mut: Mutator<T>> FuzzedInput<T, Mut> {
     #[no_coverage]
     pub fn new(value: T, cache: Mut::Cache, mutation_step: Mut::MutationStep, generation: usize) -> Self {

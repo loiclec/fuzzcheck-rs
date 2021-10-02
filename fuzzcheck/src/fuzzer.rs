@@ -3,14 +3,14 @@
 //! test inputs.
 
 use crate::code_coverage_sensor::CodeCoverageSensor;
-use crate::mutators::either::Either;
+use crate::data_structures::RcSlab;
 use crate::sensors_and_pools::and_sensor_and_pool::{AndPool, AndSensor};
 use crate::sensors_and_pools::artifacts_pool::{ArtifactsPool, TestFailure, TestFailureSensor, TEST_FAILURE};
 use crate::sensors_and_pools::noop_sensor::NoopSensor;
 use crate::sensors_and_pools::unique_coverage_pool::UniqueCoveragePool;
 use crate::sensors_and_pools::unit_pool::UnitPool;
 use crate::signals_handler::set_signal_handlers;
-use crate::traits::{CompatibleWithSensor, EmptyStats, Pool, Sensor};
+use crate::traits::{CompatibleWithSensor, CorpusDelta, EmptyStats, Pool, Sensor};
 use crate::traits::{Mutator, Serializer};
 use crate::world::World;
 use crate::FuzzedInput;
@@ -39,10 +39,20 @@ impl<T> From<std::io::Error> for ReasonForStopping<T> {
     }
 }
 
-enum FuzzerInputIndex<T, PoolIndex> {
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct PoolStorageIndex(usize);
+
+#[cfg(test)]
+impl PoolStorageIndex {
+    pub fn mock(idx: usize) -> Self {
+        Self(idx)
+    }
+}
+
+enum FuzzerInputIndex<T> {
     None,
     Temporary(T),
-    Pool(PoolIndex),
+    Pool(PoolStorageIndex),
 }
 
 struct FuzzerState<T: Clone, M: Mutator<T>, S: Serializer<Value = T>, Sens: Sensor, P: Pool>
@@ -51,39 +61,40 @@ where
 {
     mutator: M,
     sensor: Sens,
+    pool_storage: RcSlab<FuzzedInput<T, M>>,
     pool: P,
     /// The step given to the mutator when the fuzzer wants to create a new arbitrary test case
     arbitrary_step: M::ArbitraryStep,
     /// The index of the test case that is being tested
-    input_idx: FuzzerInputIndex<FuzzedInput<T, M>, P::Index>,
+    input_idx: FuzzerInputIndex<FuzzedInput<T, M>>,
     /// Various statistics about the fuzzer run
     fuzzer_stats: FuzzerStats,
 
     settings: Arguments,
     /// The world handles effects
-    world: World<S, P::Index>,
+    serializer: S,
+    world: World,
 }
 
-impl<T: Clone, M: Mutator<T>, S: Serializer<Value = T>, Sens: Sensor, P: Pool<TestCase = FuzzedInput<T, M>>>
-    FuzzerState<T, M, S, Sens, P>
+impl<T: Clone, M: Mutator<T>, S: Serializer<Value = T>, Sens: Sensor, P: Pool> FuzzerState<T, M, S, Sens, P>
 where
     P: CompatibleWithSensor<Sens>,
 {
     #[no_coverage]
     fn get_input<'a>(
-        fuzzer_input_idx: &'a FuzzerInputIndex<FuzzedInput<T, M>, P::Index>,
-        pool: &'a P,
+        fuzzer_input_idx: &'a FuzzerInputIndex<FuzzedInput<T, M>>,
+        pool_storage: &'a RcSlab<FuzzedInput<T, M>>,
     ) -> Option<&'a FuzzedInput<T, M>> {
         match fuzzer_input_idx {
             FuzzerInputIndex::None => None,
             FuzzerInputIndex::Temporary(input) => Some(input),
-            FuzzerInputIndex::Pool(idx) => Some(pool.get(*idx)),
+            FuzzerInputIndex::Pool(idx) => Some(&pool_storage[idx.0]),
         }
     }
 }
 
 #[no_coverage]
-fn update_fuzzer_stats<B: Serializer, C: Hash + Eq>(stats: &mut FuzzerStats, world: &mut World<B, C>) {
+fn update_fuzzer_stats(stats: &mut FuzzerStats, world: &mut World) {
     let microseconds = world.elapsed_time_since_last_checkpoint();
     let nbr_runs = stats.total_number_of_runs - stats.number_of_runs_since_last_reset_time;
     let nbr_runs_times_million = nbr_runs * 1_000_000;
@@ -95,8 +106,7 @@ fn update_fuzzer_stats<B: Serializer, C: Hash + Eq>(stats: &mut FuzzerStats, wor
     }
 }
 
-impl<T: Clone, M: Mutator<T>, S: Serializer<Value = T>, Sens: Sensor, P: Pool<TestCase = FuzzedInput<T, M>>>
-    FuzzerState<T, M, S, Sens, P>
+impl<T: Clone, M: Mutator<T>, S: Serializer<Value = T>, Sens: Sensor, P: Pool> FuzzerState<T, M, S, Sens, P>
 where
     P: CompatibleWithSensor<Sens>,
     Self: 'static,
@@ -110,9 +120,10 @@ where
 
         match signal {
             SIGABRT | SIGBUS | SIGSEGV | SIGFPE | SIGALRM | SIGTRAP => {
-                if let Some(input) = Self::get_input(&self.input_idx, &self.pool) {
+                if let Some(input) = Self::get_input(&self.input_idx, &self.pool_storage) {
                     let cplx = input.complexity(&self.mutator);
-                    let _ = self.world.save_artifact(&input.value, cplx);
+                    let content = self.serializer.to_data(&input.value);
+                    let _ = self.world.save_artifact(content, cplx, self.serializer.extension());
 
                     exit(TerminationStatus::Crash as i32);
                 } else {
@@ -171,23 +182,25 @@ where
     M: Mutator<T>,
     S: Serializer<Value = T>,
     Sens: Sensor,
-    P: Pool<TestCase = FuzzedInput<T, M>>,
+    P: Pool,
     P: CompatibleWithSensor<Sens>,
     Self: 'static,
     P::Stats: Default,
 {
     #[no_coverage]
-    fn new(test: F, mutator: M, sensor: Sens, pool: P, settings: Arguments, world: World<S, P::Index>) -> Self {
+    fn new(test: F, mutator: M, serializer: S, sensor: Sens, pool: P, settings: Arguments, world: World) -> Self {
         let arbitrary_step = mutator.default_arbitrary_step();
         Fuzzer {
             state: FuzzerState {
                 sensor,
+                pool_storage: RcSlab::new(),
                 pool,
                 mutator,
                 arbitrary_step,
                 input_idx: FuzzerInputIndex::None,
                 fuzzer_stats: FuzzerStats::default(),
                 settings,
+                serializer,
                 world,
             },
             test,
@@ -202,9 +215,11 @@ where
                 FuzzerState {
                     mutator,
                     sensor,
+                    pool_storage,
                     pool,
                     input_idx,
                     fuzzer_stats,
+                    serializer,
                     world,
                     ..
                 },
@@ -213,7 +228,7 @@ where
         } = self;
 
         // we have verified in the caller function that there is an input
-        let input = FuzzerState::<T, M, S, Sens, P>::get_input(input_idx, pool).unwrap();
+        let input = FuzzerState::<T, M, S, Sens, P>::get_input(input_idx, pool_storage).unwrap();
 
         std::panic::set_hook(Box::new(move |panic_info| {
             let mut hasher = DefaultHasher::new();
@@ -250,49 +265,71 @@ where
         };
         sensor.stop_recording();
         if test_failure && self.state.settings.stop_after_first_failure {
-            self.state.world.save_artifact(&input.value, cplx)?;
+            let serialized_input = serializer.to_data(&input.value);
+            self.state
+                .world
+                .save_artifact(serialized_input, cplx, serializer.extension())?;
             return Err(ReasonForStopping::TestFailure(input.value.clone()));
         }
 
         fuzzer_stats.total_number_of_runs += 1;
 
-        let get_input = match &input_idx {
-            FuzzerInputIndex::None => unreachable!(),
-            FuzzerInputIndex::Temporary(input) => Either::Right(input),
-            FuzzerInputIndex::Pool(idx) => Either::Left(*idx),
-        };
-        let clone_input = |input: &FuzzedInput<T, M>| input.new_source(mutator);
+        let input_id = PoolStorageIndex(pool_storage.next_slot());
 
-        pool.process(sensor, get_input, &clone_input, cplx, |corpus_delta, pool_stats| {
-            let corpus_delta = corpus_delta.convert(|x| x.value.clone());
+        let deltas = pool.process(input_id, sensor, cplx);
+
+        if !deltas.is_empty() {
+            let add_ref_count = deltas
+                .iter()
+                .fold(0, |acc, delta| if delta.add { acc + 1 } else { acc });
             update_fuzzer_stats(fuzzer_stats, world);
-            let event = corpus_delta.fuzzer_event();
-            world.update_corpus(corpus_delta)?;
-            world.report_event(event, Some((fuzzer_stats, pool_stats)));
-            Ok(())
-        })?;
+            let event = CorpusDelta::fuzzer_event(&deltas);
+            let content = if add_ref_count > 0 {
+                serializer.to_data(&input.value)
+            } else {
+                vec![]
+            };
+            world.update_corpus(input_id, content, &deltas, serializer.extension())?;
+            world.report_event(event, Some((fuzzer_stats, pool.stats())));
+            if add_ref_count > 0 {
+                let new_input = input.new_source(mutator);
+                pool_storage.insert(new_input, add_ref_count);
+            }
+            for delta in deltas {
+                for r in delta.remove {
+                    pool_storage.remove(r.0);
+                }
+            }
+        }
 
         Ok(())
     }
 
     #[no_coverage]
     fn process_next_input(&mut self) -> Result<(), ReasonForStopping<T>> {
-        let pool = &mut self.state.pool;
+        let FuzzerState {
+            pool_storage,
+            pool,
+            input_idx,
+            mutator,
+            settings,
+            ..
+        } = &mut self.state;
         loop {
             if let Some(idx) = pool.get_random_index() {
-                self.state.input_idx = FuzzerInputIndex::Pool(idx);
-                let input = pool.get_mut(idx);
+                *input_idx = FuzzerInputIndex::Pool(idx);
+                let input = &mut pool_storage[idx.0];
                 let generation = input.generation;
-                if let Some((unmutate_token, cplx)) =
-                    input.mutate(&mut self.state.mutator, self.state.settings.max_input_cplx)
-                {
+                if let Some((unmutate_token, cplx)) = input.mutate(mutator, settings.max_input_cplx) {
                     if cplx < self.state.settings.max_input_cplx {
                         self.test_and_process_input(cplx)?;
                     }
-                    let pool = &mut self.state.pool;
+
                     // Retrieving the input may fail because the input may have been deleted
-                    if let Some(input) = pool.retrieve_after_processing(idx, generation) {
-                        input.unmutate(&self.state.mutator, unmutate_token);
+                    if let Some(input) = self.state.pool_storage.get_mut(idx.0) {
+                        if input.generation == generation {
+                            input.unmutate(&self.state.mutator, unmutate_token);
+                        }
                     }
 
                     break Ok(());
@@ -326,11 +363,9 @@ where
             .read_input_corpus()?
             .into_iter()
             .filter_map(|value| {
-                if let Some((cache, mutation_step)) = self.state.mutator.validate_value(&value) {
-                    Some(FuzzedInput::new(value, cache, mutation_step, 0))
-                } else {
-                    None
-                }
+                let value = self.state.serializer.from_data(&value)?;
+                let (cache, mutation_step) = self.state.mutator.validate_value(&value)?;
+                Some(FuzzedInput::new(value, cache, mutation_step, 0))
             })
             .collect();
 
@@ -405,6 +440,7 @@ where
         let FuzzerState {
             pool,
             fuzzer_stats,
+            serializer,
             world,
             ..
         } = &mut self.state;
@@ -412,9 +448,9 @@ where
         world.report_event(FuzzerEvent::DidReadCorpus, Some((fuzzer_stats, pool.stats().clone())));
 
         pool.minify(corpus_size, |corpus_delta, pool_stats| {
-            let corpus_delta = corpus_delta.convert(|x| x.value.clone());
-            let event = corpus_delta.fuzzer_event();
-            world.update_corpus(corpus_delta)?;
+            let deltas = vec![corpus_delta];
+            let event = CorpusDelta::fuzzer_event(&deltas);
+            world.update_corpus(PoolStorageIndex(0), vec![], &deltas, serializer.extension())?;
             world.report_event(event, Some((fuzzer_stats, pool_stats)));
             Ok(())
         })?;
@@ -452,34 +488,53 @@ where
     F: Fn(&FT) -> bool,
     M: Mutator<T>,
     S: Serializer<Value = T>,
-    Fuzzer<T, FT, F, M, S, CodeCoverageSensor, UniqueCoveragePool<FuzzedInput<T, M>>>: 'static,
+    Fuzzer<T, FT, F, M, S, CodeCoverageSensor, UniqueCoveragePool>: 'static,
     Sens: Sensor + 'static,
-    P: Pool<TestCase = FuzzedInput<T, M>> + CompatibleWithSensor<Sens> + 'static,
+    P: Pool + CompatibleWithSensor<Sens> + 'static,
 {
     let command = &args.command;
     let result = match command {
         FuzzerCommand::Fuzz => {
-            let test_failure = TestFailureSensor::default();
-            let sensor = AndSensor {
-                s1: sensor,
-                s2: test_failure,
-            };
-            let artifacts_pool = ArtifactsPool::new("artifacts");
-            let pool = AndPool::new(pool, artifacts_pool, 254);
-            let mut fuzzer = Fuzzer::new(
-                test,
-                mutator,
-                sensor,
-                pool,
-                args.clone(),
-                World::new(serializer, args.clone()),
-            );
-            unsafe { fuzzer.state.set_up_signal_handler() };
-            fuzzer.main_loop()?
+            if !args.stop_after_first_failure {
+                let test_failure = TestFailureSensor::default();
+                let sensor = AndSensor {
+                    s1: sensor,
+                    s2: test_failure,
+                };
+                let artifacts_pool = ArtifactsPool::new("artifacts");
+                let pool = AndPool::new(pool, artifacts_pool, 254);
+                let mut fuzzer = Fuzzer::new(
+                    test,
+                    mutator,
+                    serializer,
+                    sensor,
+                    pool,
+                    args.clone(),
+                    World::new(args.clone()),
+                );
+                unsafe { fuzzer.state.set_up_signal_handler() };
+                fuzzer.main_loop()?
+            } else {
+                let mut fuzzer = Fuzzer::new(
+                    test,
+                    mutator,
+                    serializer,
+                    sensor,
+                    pool,
+                    args.clone(),
+                    World::new(args.clone()),
+                );
+                unsafe { fuzzer.state.set_up_signal_handler() };
+                fuzzer.main_loop()?
+            }
         }
         FuzzerCommand::MinifyInput { input_file } => {
-            let world = World::new(serializer, args.clone());
+            let world = World::new(args.clone());
             let value = world.read_input_file(input_file)?;
+            let value = serializer.from_data(&value).ok_or(std::io::Error::new(
+                std::io::ErrorKind::Other,
+                "The file could not be decoded into a valid input.",
+            ))?;
             if let Some((cache, mutation_step)) = mutator.validate_value(&value) {
                 args.max_input_cplx = mutator.complexity(&value, &cache) - 0.01;
 
@@ -487,9 +542,14 @@ where
                     s1: sensor,
                     s2: NoopSensor,
                 };
-                let unit_pool = UnitPool::new(FuzzedInput::new(value, cache, mutation_step, 0));
+
+                let unit_pool = UnitPool::new(PoolStorageIndex(0));
                 let pool = AndPool::new(pool, unit_pool, 240);
-                let mut fuzzer = Fuzzer::<_, _, _, _, _, _, _>::new(test, mutator, sensor, pool, args.clone(), world);
+                let mut fuzzer = Fuzzer::new(test, mutator, serializer, sensor, pool, args.clone(), world);
+                fuzzer
+                    .state
+                    .pool_storage
+                    .insert(FuzzedInput::new(value, cache, mutation_step, 0), 1);
 
                 unsafe { fuzzer.state.set_up_signal_handler() };
 
@@ -503,8 +563,12 @@ where
         }
         FuzzerCommand::Read { input_file } => {
             // no signal handlers are installed, but that should be ok as the exit code won't be 0
-            let mut world = World::<_, ()>::new(serializer, args.clone());
+            let mut world = World::new(args.clone());
             let value = world.read_input_file(input_file)?;
+            let value = serializer.from_data(&value).ok_or(std::io::Error::new(
+                std::io::ErrorKind::Other,
+                "The file could not be decoded into a valid input.",
+            ))?;
             if let Some((cache, mutation_step)) = mutator.validate_value(&value) {
                 let input = FuzzedInput::new(value, cache, mutation_step, 0);
                 let cplx = input.complexity(&mutator);
@@ -517,7 +581,8 @@ where
 
                 if result.is_err() || !result.unwrap() {
                     world.report_event::<EmptyStats>(FuzzerEvent::TestFailure, None);
-                    world.save_artifact(&input.value, cplx)?;
+                    let content = serializer.to_data(&input.value);
+                    world.save_artifact(content, cplx, serializer.extension())?;
                     // in this case we really want to exit with a non-zero termination status here
                     // because the Read command is only used by the input minify command from cargo-fuzzcheck
                     // which checks that a crash happens by looking at the exit code
@@ -531,13 +596,14 @@ where
             Ok(())
         }
         FuzzerCommand::MinifyCorpus { corpus_size } => {
-            let mut fuzzer = Fuzzer::<_, _, _, _, _, _, _>::new(
+            let mut fuzzer = Fuzzer::new(
                 test,
                 mutator,
+                serializer,
                 sensor,
                 pool,
                 args.clone(),
-                World::new(serializer, args.clone()),
+                World::new(args.clone()),
             );
             // fuzzer.sensor_and_pool.update
             unsafe { fuzzer.state.set_up_signal_handler() };

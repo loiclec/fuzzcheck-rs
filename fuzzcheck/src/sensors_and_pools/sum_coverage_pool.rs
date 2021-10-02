@@ -1,6 +1,9 @@
 use std::{marker::PhantomData, path::PathBuf};
 
-use crate::traits::{CorpusDelta, EmptyStats, Pool, TestCase};
+use crate::{
+    fuzzer::PoolStorageIndex,
+    traits::{CorpusDelta, EmptyStats, Pool},
+};
 
 use super::compatible_with_iterator_sensor::CompatibleWithIteratorSensor;
 
@@ -10,18 +13,17 @@ pub struct CountNumberOfDifferentCounters;
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Unit;
 
-#[derive(Clone)]
-pub struct Input<T: Clone> {
-    data: T,
+pub struct Input {
+    input_idx: PoolStorageIndex,
     complexity: f64,
 }
-pub struct AggregateCoveragePool<T: Clone, Strategy> {
+pub struct AggregateCoveragePool<Strategy> {
     name: String,
-    current_best: Option<(u64, Input<T>)>,
+    current_best: Option<(u64, Input)>,
     current_best_dead_end: bool,
     _phantom: PhantomData<Strategy>,
 }
-impl<T: TestCase, Strategy> AggregateCoveragePool<T, Strategy> {
+impl<Strategy> AggregateCoveragePool<Strategy> {
     pub fn new(name: &str) -> Self {
         Self {
             name: name.to_string(),
@@ -31,9 +33,7 @@ impl<T: TestCase, Strategy> AggregateCoveragePool<T, Strategy> {
         }
     }
 }
-impl<T: TestCase, Strategy> Pool for AggregateCoveragePool<T, Strategy> {
-    type TestCase = T;
-    type Index = Unit;
+impl<Strategy> Pool for AggregateCoveragePool<Strategy> {
     type Stats = EmptyStats;
 
     fn len(&self) -> usize {
@@ -44,43 +44,28 @@ impl<T: TestCase, Strategy> Pool for AggregateCoveragePool<T, Strategy> {
         EmptyStats
     }
 
-    fn get_random_index(&mut self) -> Option<Self::Index> {
-        if self.current_best.is_some() && !self.current_best_dead_end {
-            Some(Unit)
-        } else {
-            None
+    fn get_random_index(&mut self) -> Option<PoolStorageIndex> {
+        if let Some(best) = &self.current_best {
+            if !self.current_best_dead_end {
+                return Some(best.1.input_idx);
+            }
         }
+        None
     }
 
-    fn get(&self, _idx: Self::Index) -> &Self::TestCase {
-        &self.current_best.as_ref().unwrap().1.data
-    }
-
-    fn get_mut(&mut self, _idx: Self::Index) -> &mut Self::TestCase {
-        &mut self.current_best.as_mut().unwrap().1.data
-    }
-
-    fn retrieve_after_processing(&mut self, _idx: Self::Index, generation: usize) -> Option<&mut Self::TestCase> {
-        if self.current_best.as_ref().unwrap().1.data.generation() == generation {
-            Some(&mut self.current_best.as_mut().unwrap().1.data)
-        } else {
-            None
-        }
-    }
-
-    fn mark_test_case_as_dead_end(&mut self, _idx: Self::Index) {
+    fn mark_test_case_as_dead_end(&mut self, _idx: PoolStorageIndex) {
         self.current_best_dead_end = true;
     }
     fn minify(
         &mut self,
         _target_len: usize,
-        _event_handler: impl FnMut(CorpusDelta<&Self::TestCase, Self::Index>, Self::Stats) -> Result<(), std::io::Error>,
+        _event_handler: impl FnMut(CorpusDelta, Self::Stats) -> Result<(), std::io::Error>,
     ) -> Result<(), std::io::Error> {
         // nothing to do
         Ok(())
     }
 }
-impl<T: TestCase> CompatibleWithIteratorSensor for AggregateCoveragePool<T, SumCounterValues> {
+impl CompatibleWithIteratorSensor for AggregateCoveragePool<SumCounterValues> {
     type Observation = (usize, u64);
     type ObservationState = u64;
 
@@ -106,31 +91,26 @@ impl<T: TestCase> CompatibleWithIteratorSensor for AggregateCoveragePool<T, SumC
 
     fn add(
         &mut self,
-        data: Self::TestCase,
+        input_idx: PoolStorageIndex,
         complexity: f64,
         observation_state: Self::ObservationState,
-        mut event_handler: impl FnMut(
-            crate::traits::CorpusDelta<&Self::TestCase, Self::Index>,
-            Self::Stats,
-        ) -> Result<(), std::io::Error>,
-    ) -> Result<(), std::io::Error> {
+    ) -> Vec<CorpusDelta> {
         let delta = CorpusDelta {
             path: PathBuf::new().join(&self.name),
-            add: Some((&data, Unit)),
-            remove: if self.current_best.is_none() {
-                vec![]
+            add: true,
+            remove: if let Some(best) = &self.current_best {
+                vec![best.1.input_idx]
             } else {
-                vec![Unit]
+                vec![]
             },
         };
-        event_handler(delta, self.stats())?;
-        let new = Input { data, complexity };
+        let new = Input { input_idx, complexity };
         self.current_best = Some((observation_state, new));
-        Ok(())
+        vec![delta]
     }
 }
 
-impl<T: TestCase> CompatibleWithIteratorSensor for AggregateCoveragePool<T, CountNumberOfDifferentCounters> {
+impl CompatibleWithIteratorSensor for AggregateCoveragePool<CountNumberOfDifferentCounters> {
     type Observation = (usize, u64);
     type ObservationState = u64;
 
@@ -161,26 +141,21 @@ impl<T: TestCase> CompatibleWithIteratorSensor for AggregateCoveragePool<T, Coun
 
     fn add(
         &mut self,
-        data: Self::TestCase,
+        input_idx: PoolStorageIndex,
         complexity: f64,
         observation_state: Self::ObservationState,
-        mut event_handler: impl FnMut(
-            crate::traits::CorpusDelta<&Self::TestCase, Self::Index>,
-            Self::Stats,
-        ) -> Result<(), std::io::Error>,
-    ) -> Result<(), std::io::Error> {
+    ) -> Vec<CorpusDelta> {
         let delta = CorpusDelta {
             path: PathBuf::new().join(&self.name),
-            add: Some((&data, Unit)),
-            remove: if self.current_best.is_none() {
-                vec![]
+            add: true,
+            remove: if let Some(best) = &self.current_best {
+                vec![best.1.input_idx]
             } else {
-                vec![Unit]
+                vec![]
             },
         };
-        event_handler(delta, self.stats())?;
-        let new = Input { data, complexity };
+        let new = Input { input_idx, complexity };
         self.current_best = Some((observation_state, new));
-        Ok(())
+        vec![delta]
     }
 }

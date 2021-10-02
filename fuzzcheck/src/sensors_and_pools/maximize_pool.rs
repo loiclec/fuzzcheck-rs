@@ -1,6 +1,7 @@
 use crate::data_structures::{Slab, SlabKey, WeightedIndex};
+use crate::fuzzer::PoolStorageIndex;
 use crate::sensors_and_pools::compatible_with_iterator_sensor::CompatibleWithIteratorSensor;
-use crate::traits::{CorpusDelta, Pool, TestCase};
+use crate::traits::{CorpusDelta, Pool};
 use ahash::AHashSet;
 use owo_colors::OwoColorize;
 use std::fmt::{Debug, Display};
@@ -25,25 +26,25 @@ impl Display for Stats {
 }
 
 #[derive(Debug)]
-pub struct Input<T> {
+pub struct Input {
     best_for_counters: AHashSet<usize>,
     cplx: f64,
-    data: T,
+    idx: PoolStorageIndex,
     score: f64,
 }
 
-pub struct CounterMaximizingPool<T> {
+pub struct CounterMaximizingPool {
     name: String,
     complexities: Vec<f64>,
     highest_counts: Vec<u64>,
-    inputs: Slab<Input<T>>,
-    best_input_for_counter: Vec<Option<SlabKey<Input<T>>>>,
+    inputs: Slab<Input>,
+    best_input_for_counter: Vec<Option<SlabKey<Input>>>,
     // also use a fenwick tree here?
     cumulative_score_inputs: Vec<f64>,
     stats: Stats,
     rng: fastrand::Rng,
 }
-impl<T: Debug> Debug for CounterMaximizingPool<T> {
+impl Debug for CounterMaximizingPool {
     #[no_coverage]
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("CounterMaximizingPool")
@@ -56,7 +57,7 @@ impl<T: Debug> Debug for CounterMaximizingPool<T> {
     }
 }
 
-impl<T> CounterMaximizingPool<T> {
+impl CounterMaximizingPool {
     #[no_coverage]
     pub fn new(name: &str, size: usize) -> Self {
         Self {
@@ -76,9 +77,7 @@ impl<T> CounterMaximizingPool<T> {
     }
 }
 
-impl<T: TestCase> Pool for CounterMaximizingPool<T> {
-    type TestCase = T;
-    type Index = SlabKey<Input<T>>;
+impl Pool for CounterMaximizingPool {
     type Stats = Stats;
 
     #[no_coverage]
@@ -92,56 +91,40 @@ impl<T: TestCase> Pool for CounterMaximizingPool<T> {
     }
 
     #[no_coverage]
-    fn get_random_index(&mut self) -> Option<Self::Index> {
+    fn get_random_index(&mut self) -> Option<PoolStorageIndex> {
         if self.cumulative_score_inputs.last().unwrap_or(&0.0) > &0.0 {
             let weighted_index = WeightedIndex {
                 cumulative_weights: &self.cumulative_score_inputs,
             };
             let index = weighted_index.sample(&self.rng);
-            Some(self.inputs.get_nth_key(index))
+            let key = self.inputs.get_nth_key(index);
+            Some(self.inputs[key].idx)
         } else {
             None
         }
     }
 
     #[no_coverage]
-    fn get(&self, idx: Self::Index) -> &Self::TestCase {
-        &self.inputs[idx].data
-    }
-
-    #[no_coverage]
-    fn get_mut(&mut self, idx: Self::Index) -> &mut Self::TestCase {
-        &mut self.inputs[idx].data
-    }
-
-    #[no_coverage]
-    fn retrieve_after_processing(&mut self, idx: Self::Index, generation: usize) -> Option<&mut Self::TestCase> {
-        if let Some(input) = self.inputs.get_mut(idx) {
-            if input.data.generation() == generation {
-                Some(&mut input.data)
-            } else {
-                None
+    fn mark_test_case_as_dead_end(&mut self, idx: PoolStorageIndex) {
+        for k in self.inputs.keys() {
+            let input = &mut self.inputs[k];
+            if input.idx == idx {
+                input.score = 0.0;
+                break;
             }
-        } else {
-            None
         }
-    }
-
-    #[no_coverage]
-    fn mark_test_case_as_dead_end(&mut self, idx: Self::Index) {
-        self.inputs[idx].score = 0.0;
         self.update_stats();
     }
     fn minify(
         &mut self,
         _target_len: usize,
-        _event_handler: impl FnMut(CorpusDelta<&Self::TestCase, Self::Index>, Self::Stats) -> Result<(), std::io::Error>,
+        _event_handler: impl FnMut(CorpusDelta, Self::Stats) -> Result<(), std::io::Error>,
     ) -> Result<(), std::io::Error> {
         // TODO: only keep the `target_len` highest-scoring inputs?
         Ok(())
     }
 }
-impl<T: TestCase> CounterMaximizingPool<T> {
+impl CounterMaximizingPool {
     #[no_coverage]
     fn update_stats(&mut self) {
         let inputs = &self.inputs;
@@ -166,7 +149,7 @@ impl<T: TestCase> CounterMaximizingPool<T> {
     }
 }
 
-impl<T: TestCase> CompatibleWithIteratorSensor for CounterMaximizingPool<T> {
+impl CompatibleWithIteratorSensor for CounterMaximizingPool {
     type Observation = (usize, u64);
     type ObservationState = Vec<(usize, u64)>;
 
@@ -201,18 +184,16 @@ impl<T: TestCase> CompatibleWithIteratorSensor for CounterMaximizingPool<T> {
     #[no_coverage]
     fn add(
         &mut self,
-        data: Self::TestCase,
+        input_idx: PoolStorageIndex,
         complexity: f64,
         observation_state: Self::ObservationState,
-        mut event_handler: impl FnMut(CorpusDelta<&Self::TestCase, Self::Index>, Self::Stats) -> Result<(), std::io::Error>,
-    ) -> Result<(), std::io::Error> {
+    ) -> Vec<CorpusDelta> {
         let highest_for_counters = observation_state;
         let cplx = complexity;
-        let input = data;
         let input = Input {
             best_for_counters: highest_for_counters.iter().map(|x| x.0).collect(),
             cplx,
-            data: input,
+            idx: input_idx,
             score: highest_for_counters.len() as f64,
         };
         let input_key = self.inputs.insert(input);
@@ -241,21 +222,19 @@ impl<T: TestCase> CompatibleWithIteratorSensor for CounterMaximizingPool<T> {
                 *previous_best_key = Some(input_key);
             }
         }
+        let mut removed_idxs = vec![];
         for &removed_key in &removed_keys {
+            removed_idxs.push(self.inputs[removed_key].idx);
             self.inputs.remove(removed_key);
         }
 
         self.update_stats();
-        let stats = self.stats();
-        event_handler(
-            CorpusDelta {
-                path: Path::new(&self.name).to_path_buf(),
-                add: Some((&self.inputs[input_key].data, input_key)),
-                remove: removed_keys,
-            },
-            stats,
-        )?;
-        Ok(())
+
+        vec![CorpusDelta {
+            path: Path::new(&self.name).to_path_buf(),
+            add: true,
+            remove: removed_idxs,
+        }]
     }
 }
 
@@ -264,31 +243,24 @@ mod tests {
     use std::collections::HashMap;
 
     use super::CounterMaximizingPool;
+    use crate::fuzzer::PoolStorageIndex;
     use crate::sensors_and_pools::compatible_with_iterator_sensor::CompatibleWithIteratorSensor;
     use crate::traits::Pool;
 
     #[test]
     fn test_basic_pool_1() {
-        let mut pool = CounterMaximizingPool::<f64>::new("a", 5);
+        let mut pool = CounterMaximizingPool::new("a", 5);
         println!("{:?}", pool);
         let index = pool.get_random_index();
         println!("{:?}", index);
 
-        pool.add(1.2, 1.21, vec![(1, 2)], |event, _stats| {
-            println!("event: {:?}", event);
-            Ok(())
-        })
-        .unwrap();
+        println!("event: {:?}", pool.add(PoolStorageIndex::mock(0), 1.21, vec![(1, 2)]));
         println!("pool: {:?}", pool);
         let index = pool.get_random_index();
         println!("{:?}", index);
 
         // replace
-        pool.add(1.1, 1.11, vec![(1, 2)], |event, _stats| {
-            println!("event: {:?}", event);
-            Ok(())
-        })
-        .unwrap();
+        println!("event: {:?}", pool.add(PoolStorageIndex::mock(0), 1.11, vec![(1, 2)]));
 
         println!("pool: {:?}", pool);
         let index = pool.get_random_index();
@@ -297,25 +269,20 @@ mod tests {
 
     #[test]
     fn test_basic_pool_2() {
-        let mut pool = CounterMaximizingPool::<f64>::new("b", 5);
+        let mut pool = CounterMaximizingPool::new("b", 5);
 
-        let _ = pool.add(1.2, 1.21, vec![(1, 4)], |_, _| Ok(()));
-        let _ = pool.add(2.2, 2.21, vec![(2, 2)], |_, _| Ok(()));
-        pool.add(3.2, 3.21, vec![(3, 2)], |event, _stats| {
-            println!("event: {:?}", event);
-            Ok(())
-        })
-        .unwrap();
+        let _ = pool.add(PoolStorageIndex::mock(0), 1.21, vec![(1, 4)]);
+        let _ = pool.add(PoolStorageIndex::mock(1), 2.21, vec![(2, 2)]);
+        println!("event: {:?}", pool.add(PoolStorageIndex::mock(2), 3.21, vec![(3, 2)]));
         println!("pool: {:?}", pool);
         let index = pool.get_random_index();
         println!("{:?}", index);
 
         // replace
-        pool.add(1.1, 1.11, vec![(2, 3), (3, 3)], |event, _stats| {
-            println!("event: {:?}", event);
-            Ok(())
-        })
-        .unwrap();
+        println!(
+            "event: {:?}",
+            pool.add(PoolStorageIndex::mock(3), 1.11, vec![(2, 3), (3, 3)])
+        );
         println!("pool: {:?}", pool);
 
         let mut map = HashMap::new();
@@ -326,11 +293,10 @@ mod tests {
         println!("{:?}", map);
 
         // replace
-        pool.add(4.1, 4.41, vec![(0, 3), (3, 4), (4, 1)], |event, _stats| {
-            println!("event: {:?}", event);
-            Ok(())
-        })
-        .unwrap();
+        println!(
+            "event: {:?}",
+            pool.add(PoolStorageIndex::mock(5), 4.41, vec![(0, 3), (3, 4), (4, 1)])
+        );
         println!("pool: {:?}", pool);
 
         let mut map = HashMap::new();
@@ -341,16 +307,14 @@ mod tests {
         println!("{:?}", map);
 
         // replace
-        pool.add(
-            0.1,
-            0.11,
-            vec![(0, 3), (3, 4), (4, 1), (1, 7), (2, 8)],
-            |event, _stats| {
-                println!("event: {:?}", event);
-                Ok(())
-            },
-        )
-        .unwrap();
+        println!(
+            "event: {:?}",
+            pool.add(
+                PoolStorageIndex::mock(6),
+                0.11,
+                vec![(0, 3), (3, 4), (4, 1), (1, 7), (2, 8)]
+            )
+        );
         println!("pool: {:?}", pool);
 
         let mut map = HashMap::new();
@@ -361,12 +325,7 @@ mod tests {
         println!("{:?}", map);
 
         // replace
-        pool.add(1.5, 1.51, vec![(0, 10)], |event, _stats| {
-            println!("event: {:?}", event);
-            Ok(())
-        })
-        .unwrap();
-
+        println!("event: {:?}", pool.add(PoolStorageIndex::mock(7), 1.51, vec![(0, 10)]));
         println!("pool: {:?}", pool);
 
         let mut map = HashMap::new();

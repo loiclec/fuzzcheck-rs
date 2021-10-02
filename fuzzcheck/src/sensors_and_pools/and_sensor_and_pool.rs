@@ -1,7 +1,7 @@
 use std::fmt::Display;
 
 use crate::{
-    mutators::either::Either,
+    fuzzer::PoolStorageIndex,
     traits::{CompatibleWithSensor, CorpusDelta, Pool, Sensor},
 };
 
@@ -10,7 +10,7 @@ use super::compatible_with_iterator_sensor::CompatibleWithIteratorSensor;
 pub struct AndPool<P1, P2>
 where
     P1: Pool,
-    P2: Pool<TestCase = P1::TestCase>,
+    P2: Pool,
 {
     pub p1: P1,
     pub p2: P2,
@@ -22,7 +22,7 @@ where
 impl<P1, P2> AndPool<P1, P2>
 where
     P1: Pool,
-    P2: Pool<TestCase = P1::TestCase>,
+    P2: Pool,
 {
     pub fn new(p1: P1, p2: P2, ratio_choose_first: u8) -> Self {
         Self {
@@ -36,10 +36,8 @@ where
 impl<P1, P2> Pool for AndPool<P1, P2>
 where
     P1: Pool,
-    P2: Pool<TestCase = P1::TestCase>,
+    P2: Pool,
 {
-    type TestCase = P1::TestCase;
-    type Index = Either<P1::Index, P2::Index>;
     type Stats = AndStats<P1::Stats, P2::Stats>;
 
     #[no_coverage]
@@ -53,54 +51,32 @@ where
         }
     }
     #[no_coverage]
-    fn get_random_index(&mut self) -> Option<Self::Index> {
+    fn get_random_index(&mut self) -> Option<PoolStorageIndex> {
         if self.rng.u8(..) <= self.ratio_choose_first {
-            if let Some(idx) = self.p1.get_random_index().map(Either::Left) {
+            if let Some(idx) = self.p1.get_random_index() {
                 Some(idx)
             } else {
-                self.p2.get_random_index().map(Either::Right)
+                self.p2.get_random_index()
             }
         } else {
-            if let Some(idx) = self.p2.get_random_index().map(Either::Right) {
+            if let Some(idx) = self.p2.get_random_index() {
                 Some(idx)
             } else {
-                self.p1.get_random_index().map(Either::Left)
+                self.p1.get_random_index()
             }
         }
     }
+
     #[no_coverage]
-    fn get(&self, idx: Self::Index) -> &Self::TestCase {
-        match idx {
-            Either::Left(idx) => self.p1.get(idx),
-            Either::Right(idx) => self.p2.get(idx),
-        }
-    }
-    #[no_coverage]
-    fn get_mut(&mut self, idx: Self::Index) -> &mut Self::TestCase {
-        match idx {
-            Either::Left(idx) => self.p1.get_mut(idx),
-            Either::Right(idx) => self.p2.get_mut(idx),
-        }
-    }
-    #[no_coverage]
-    fn retrieve_after_processing(&mut self, idx: Self::Index, generation: usize) -> Option<&mut Self::TestCase> {
-        match idx {
-            Either::Left(idx) => self.p1.retrieve_after_processing(idx, generation),
-            Either::Right(idx) => self.p2.retrieve_after_processing(idx, generation),
-        }
-    }
-    #[no_coverage]
-    fn mark_test_case_as_dead_end(&mut self, idx: Self::Index) {
-        match idx {
-            Either::Left(idx) => self.p1.mark_test_case_as_dead_end(idx),
-            Either::Right(idx) => self.p2.mark_test_case_as_dead_end(idx),
-        }
+    fn mark_test_case_as_dead_end(&mut self, idx: PoolStorageIndex) {
+        self.p1.mark_test_case_as_dead_end(idx);
+        self.p2.mark_test_case_as_dead_end(idx);
     }
     #[no_coverage]
     fn minify(
         &mut self,
         target_len: usize,
-        mut event_handler: impl FnMut(CorpusDelta<&Self::TestCase, Self::Index>, Self::Stats) -> Result<(), std::io::Error>,
+        mut event_handler: impl FnMut(CorpusDelta, Self::Stats) -> Result<(), std::io::Error>,
     ) -> Result<(), std::io::Error> {
         {
             let AndStats { stats2, .. } = self.stats();
@@ -109,7 +85,7 @@ where
                 #[no_coverage]
                 |corpus_delta, stats1| {
                     event_handler(
-                        Self::lift_corpus_delta_1(corpus_delta),
+                        corpus_delta,
                         AndStats {
                             stats1,
                             stats2: stats2.clone(),
@@ -126,7 +102,7 @@ where
                 #[no_coverage]
                 |corpus_delta, stats2| {
                     event_handler(
-                        Self::lift_corpus_delta_2(corpus_delta),
+                        corpus_delta,
                         AndStats {
                             stats1: stats1.clone(),
                             stats2,
@@ -187,127 +163,28 @@ where
     S1: Sensor,
     S2: Sensor,
     P1: Pool,
-    P2: Pool<TestCase = P1::TestCase>,
+    P2: Pool,
     P1: CompatibleWithSensor<S1>,
     P2: CompatibleWithSensor<S2>,
 {
     #[no_coverage]
     fn process(
         &mut self,
+        input_id: PoolStorageIndex,
         sensor: &mut AndSensor<S1, S2>,
-        get_input_ref: Either<Self::Index, &Self::TestCase>,
-        clone_input: &impl Fn(&Self::TestCase) -> Self::TestCase,
         complexity: f64,
-        mut event_handler: impl FnMut(CorpusDelta<&Self::TestCase, Self::Index>, Self::Stats) -> Result<(), std::io::Error>,
-    ) -> Result<(), std::io::Error> {
-        {
-            let AndStats { stats2, .. } = self.stats();
-            let AndPool { p1, p2, .. } = self;
-
-            let get_input_1 = match get_input_ref {
-                Either::Left(Either::Right(idx)) => Either::Right(p2.get(idx)),
-                Either::Left(Either::Left(idx)) => Either::Left(idx),
-                Either::Right(input_ref) => Either::Right(input_ref),
-            };
-
-            p1.process(
-                &mut sensor.s1,
-                get_input_1,
-                clone_input,
-                complexity,
-                #[no_coverage]
-                |corpus_delta, stats1| {
-                    event_handler(
-                        Self::lift_corpus_delta_1(corpus_delta),
-                        AndStats {
-                            stats1,
-                            stats2: stats2.clone(),
-                        },
-                    )
-                },
-            )?;
-        }
-        {
-            let AndStats { stats1, .. } = self.stats();
-            let AndPool { p1, p2, .. } = self;
-
-            let get_input_2 = match get_input_ref {
-                Either::Left(Either::Left(idx)) => Either::Right(p1.get(idx)),
-                Either::Left(Either::Right(idx)) => Either::Left(idx),
-                Either::Right(input_ref) => Either::Right(input_ref),
-            };
-
-            p2.process(
-                &mut sensor.s2,
-                get_input_2,
-                clone_input,
-                complexity,
-                #[no_coverage]
-                |corpus_delta, stats2| {
-                    event_handler(
-                        Self::lift_corpus_delta_2(corpus_delta),
-                        AndStats {
-                            stats1: stats1.clone(),
-                            stats2,
-                        },
-                    )
-                },
-            )?
-        }
-        Ok(())
-    }
-}
-impl<P1, P2> AndPool<P1, P2>
-where
-    P1: Pool,
-    P2: Pool<TestCase = P1::TestCase>,
-{
-    #[no_coverage]
-    pub(crate) fn lift_corpus_delta_1(
-        corpus_delta: CorpusDelta<&P1::TestCase, P1::Index>,
-    ) -> CorpusDelta<&<Self as Pool>::TestCase, <Self as Pool>::Index> {
-        CorpusDelta {
-            path: corpus_delta.path,
-            add: corpus_delta.add.map(
-                #[no_coverage]
-                |(content, idx)| (content, Either::Left(idx)),
-            ),
-            remove: corpus_delta
-                .remove
-                .into_iter()
-                .map(
-                    #[no_coverage]
-                    |idx| Either::Left(idx),
-                )
-                .collect(),
-        }
-    }
-    #[no_coverage]
-    pub(crate) fn lift_corpus_delta_2(
-        corpus_delta: CorpusDelta<&P2::TestCase, P2::Index>,
-    ) -> CorpusDelta<&<Self as Pool>::TestCase, <Self as Pool>::Index> {
-        CorpusDelta {
-            path: corpus_delta.path,
-            add: corpus_delta.add.map(
-                #[no_coverage]
-                |(content, idx)| (content, Either::Right(idx)),
-            ),
-            remove: corpus_delta
-                .remove
-                .into_iter()
-                .map(
-                    #[no_coverage]
-                    |idx| Either::Right(idx),
-                )
-                .collect(),
-        }
+    ) -> Vec<CorpusDelta> {
+        let AndPool { p1, p2, .. } = self;
+        let mut deltas = p1.process(input_id, &mut sensor.s1, complexity);
+        deltas.extend(p2.process(input_id, &mut sensor.s2, complexity));
+        deltas
     }
 }
 
 impl<P1, P2> CompatibleWithIteratorSensor for AndPool<P1, P2>
 where
     P1: CompatibleWithIteratorSensor,
-    P2: CompatibleWithIteratorSensor<Observation = P1::Observation, TestCase = P1::TestCase>,
+    P2: CompatibleWithIteratorSensor<Observation = P1::Observation>,
 {
     type Observation = P1::Observation;
     type ObservationState = (P1::ObservationState, P2::ObservationState);
@@ -329,51 +206,18 @@ where
     #[no_coverage]
     fn add(
         &mut self,
-        data: Self::TestCase,
+        input_id: PoolStorageIndex,
         complexity: f64,
         observation_state: Self::ObservationState,
-        mut event_handler: impl FnMut(CorpusDelta<&Self::TestCase, Self::Index>, Self::Stats) -> Result<(), std::io::Error>,
-    ) -> Result<(), std::io::Error> {
-        let AndStats { stats1, stats2 } = self.stats();
+    ) -> Vec<CorpusDelta> {
         let (o1, o2) = observation_state;
+        let mut deltas = vec![];
         if self.p1.is_interesting(&o1, complexity) {
-            self.p1.add(
-                data.clone(),
-                complexity,
-                o1,
-                #[no_coverage]
-                |delta, stats1| {
-                    let delta = Self::lift_corpus_delta_1(delta);
-                    event_handler(
-                        delta,
-                        AndStats {
-                            stats1,
-                            stats2: stats2.clone(),
-                        },
-                    )?;
-                    Ok(())
-                },
-            )?;
+            deltas.extend(self.p1.add(input_id, complexity, o1));
         }
         if self.p2.is_interesting(&o2, complexity) {
-            self.p2.add(
-                data,
-                complexity,
-                o2,
-                #[no_coverage]
-                |delta, stats2| {
-                    let delta = Self::lift_corpus_delta_2(delta);
-                    event_handler(
-                        delta,
-                        AndStats {
-                            stats1: stats1.clone(),
-                            stats2,
-                        },
-                    )?;
-                    Ok(())
-                },
-            )?;
+            deltas.extend(self.p2.add(input_id, complexity, o2));
         }
-        Ok(())
+        deltas
     }
 }

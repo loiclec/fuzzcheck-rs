@@ -1,5 +1,5 @@
 use crate::{
-    mutators::either::Either,
+    fuzzer::PoolStorageIndex,
     traits::{CompatibleWithSensor, CorpusDelta, Pool, Sensor},
 };
 
@@ -12,11 +12,10 @@ pub trait CompatibleWithIteratorSensor: Pool {
     fn is_interesting(&self, observation_state: &Self::ObservationState, input_complexity: f64) -> bool;
     fn add(
         &mut self,
-        data: Self::TestCase,
+        data: PoolStorageIndex,
         complexity: f64,
         observation_state: Self::ObservationState,
-        event_handler: impl FnMut(CorpusDelta<&Self::TestCase, Self::Index>, Self::Stats) -> Result<(), std::io::Error>,
-    ) -> Result<(), std::io::Error>;
+    ) -> Vec<CorpusDelta>;
 }
 
 impl<S, P> CompatibleWithSensor<S> for P
@@ -25,14 +24,7 @@ where
     P: CompatibleWithIteratorSensor,
 {
     #[no_coverage]
-    fn process(
-        &mut self,
-        sensor: &mut S,
-        get_input_ref: Either<Self::Index, &Self::TestCase>,
-        clone_input: &impl Fn(&Self::TestCase) -> Self::TestCase,
-        complexity: f64,
-        mut event_handler: impl FnMut(CorpusDelta<&Self::TestCase, Self::Index>, Self::Stats) -> Result<(), std::io::Error>,
-    ) -> Result<(), std::io::Error> {
+    fn process(&mut self, input_id: PoolStorageIndex, sensor: &mut S, complexity: f64) -> Vec<CorpusDelta> {
         let mut observation_state = <Self as CompatibleWithIteratorSensor>::ObservationState::default();
         sensor.iterate_over_observations(
             #[no_coverage]
@@ -42,25 +34,9 @@ where
         );
         self.finish_observing(&mut observation_state, complexity);
         if self.is_interesting(&observation_state, complexity) {
-            let input_cloned = {
-                let input_ref = match get_input_ref {
-                    Either::Left(idx) => self.get(idx),
-                    Either::Right(input_ref) => input_ref,
-                };
-                clone_input(input_ref)
-            };
-            self.add(
-                input_cloned,
-                complexity,
-                observation_state,
-                #[no_coverage]
-                |delta, stats| {
-                    event_handler(delta, stats)?;
-                    Ok(())
-                },
-            )?;
+            self.add(input_id, complexity, observation_state)
+        } else {
+            vec![]
         }
-
-        Ok(())
     }
 }
