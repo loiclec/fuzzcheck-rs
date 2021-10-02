@@ -27,7 +27,7 @@ Using this trait, we can convert other types of functions to `Fn(&T) -> bool`
 automatically. For example, a function `fn foo(x: &u8) -> Result<T, E>` can be
 wrapped in a closure that returns `true` iff `foo(x)` is `Ok(..)`.
 */
-pub trait FuzzTestFunction<T: ?Sized, ImplId> {
+pub trait FuzzTestFunction<T, FT: ?Sized, ImplId> {
     type NormalizedFunction: for<'a> Fn(&'a T) -> bool;
     fn test_function(self) -> Self::NormalizedFunction;
 }
@@ -39,123 +39,117 @@ pub enum ReturnVoid {}
 /// Marker type for a function of type `Fn(&T) -> Result<V, E>`
 pub enum ReturnResult {}
 
-impl<T: ?Sized, F> FuzzTestFunction<T, ReturnBool> for F
+impl<T, FT: ?Sized, F> FuzzTestFunction<T, FT, ReturnBool> for F
 where
-    F: Fn(&T) -> bool,
+    T: Borrow<FT>,
+    F: Fn(&FT) -> bool,
 {
-    type NormalizedFunction = Self;
+    type NormalizedFunction = impl Fn(&T) -> bool;
     #[no_coverage]
     fn test_function(self) -> Self::NormalizedFunction {
-        self
+        move |x| (self)(x.borrow())
     }
 }
-impl<T: ?Sized, F> FuzzTestFunction<T, ReturnVoid> for F
+impl<T, FT: ?Sized, F> FuzzTestFunction<T, FT, ReturnVoid> for F
 where
-    F: Fn(&T),
+    T: Borrow<FT>,
+    F: Fn(&FT),
 {
     type NormalizedFunction = impl Fn(&T) -> bool;
     #[no_coverage]
     fn test_function(self) -> Self::NormalizedFunction {
         move |x| {
-            self(x);
+            self(x.borrow());
             true
         }
     }
 }
 
-impl<T: ?Sized, F, S, E> FuzzTestFunction<T, ReturnResult> for F
+impl<T, FT: ?Sized, F, S, E> FuzzTestFunction<T, FT, ReturnResult> for F
 where
-    F: Fn(&T) -> Result<E, S>,
+    T: Borrow<FT>,
+    F: Fn(&FT) -> Result<E, S>,
 {
     type NormalizedFunction = impl Fn(&T) -> bool;
     #[no_coverage]
     fn test_function(self) -> Self::NormalizedFunction {
-        move |x| self(x).is_ok()
+        move |x| self(x.borrow()).is_ok()
     }
 }
 pub struct FuzzerBuilder1<T, F>
 where
     T: ?Sized,
-    F: Fn(&T) -> bool,
+    F: Fn(&T) -> bool + 'static,
 {
     test_function: F,
-    _phantom: PhantomData<T>,
+    _phantom: PhantomData<*const T>,
 }
 
-pub struct FuzzerBuilder2<T, F, M, V>
+pub struct FuzzerBuilder2<F, M, V>
 where
-    T: ?Sized,
-    F: Fn(&T) -> bool,
-    V: Clone + Borrow<T>,
+    F: Fn(&V) -> bool + 'static,
+    V: Clone,
     M: Mutator<V>,
 {
     test_function: F,
     mutator: M,
-    _phantom: PhantomData<(*const T, V)>,
+    _phantom: PhantomData<*const V>,
 }
 
-pub struct FuzzerBuilder3<T, F, M, V, S>
+pub struct FuzzerBuilder3<F, M, V>
 where
-    T: ?Sized,
-    F: Fn(&T) -> bool,
-    V: Clone + Borrow<T>,
+    F: Fn(&V) -> bool + 'static,
+    V: Clone,
     M: Mutator<V>,
-    S: Serializer<Value = V>,
 {
     test_function: F,
     mutator: M,
-    serializer: S,
-    _phantom: PhantomData<(*const T, V)>,
+    serializer: Box<dyn Serializer<Value = V>>,
+    _phantom: PhantomData<*const V>,
 }
-pub struct FuzzerBuilder4<T, F, M, V, S, Sens>
+pub struct FuzzerBuilder4<F, M, V, Sens>
 where
-    T: ?Sized,
-    F: Fn(&T) -> bool,
-    V: Clone + Borrow<T>,
+    F: Fn(&V) -> bool + 'static,
+    V: Clone,
     M: Mutator<V>,
-    S: Serializer<Value = V>,
     Sens: Sensor,
 {
     test_function: F,
     mutator: M,
-    serializer: S,
+    serializer: Box<dyn Serializer<Value = V>>,
     sensor: Sens,
-    _phantom: PhantomData<(*const T, V)>,
+    _phantom: PhantomData<*const V>,
 }
-pub struct FuzzerBuilder5<T, F, M, V, S, Sens, P>
+pub struct FuzzerBuilder5<F, M, V, Sens, P>
 where
-    T: ?Sized,
-    F: Fn(&T) -> bool,
-    V: Clone + Borrow<T>,
+    F: Fn(&V) -> bool + 'static,
+    V: Clone,
     M: Mutator<V>,
-    S: Serializer<Value = V>,
     Sens: Sensor,
     P: Pool + CompatibleWithSensor<Sens>,
 {
     test_function: F,
     mutator: M,
-    serializer: S,
+    serializer: Box<dyn Serializer<Value = V>>,
     sensor: Sens,
     pool: P,
-    _phantom: PhantomData<(*const T, V)>,
+    _phantom: PhantomData<*const V>,
 }
-pub struct FuzzerBuilder6<T, F, M, V, S, Sens, P>
+pub struct FuzzerBuilder6<F, M, V, Sens, P>
 where
-    T: ?Sized,
-    F: Fn(&T) -> bool,
-    V: Clone + Borrow<T>,
+    F: Fn(&V) -> bool + 'static,
+    V: Clone,
     M: Mutator<V>,
-    S: Serializer<Value = V>,
     Sens: Sensor,
     P: Pool + CompatibleWithSensor<Sens>,
 {
     test_function: F,
     mutator: M,
-    serializer: S,
+    serializer: Box<dyn Serializer<Value = V>>,
     sensor: Sens,
     pool: P,
     arguments: Arguments,
-    _phantom: PhantomData<(*const T, V)>,
+    _phantom: PhantomData<*const V>,
 }
 
 /**
@@ -168,10 +162,11 @@ where
     3. `Fn(&T) -> Result<_,_>` : the fuzzer will report a failure when the output is `Err(..)`
 */
 #[no_coverage]
-pub fn fuzz_test<T, F, TestFunctionKind>(test_function: F) -> FuzzerBuilder1<T, F::NormalizedFunction>
+pub fn fuzz_test<T, F, TestFunctionKind>(test_function: F) -> FuzzerBuilder1<T::Owned, F::NormalizedFunction>
 where
-    T: ?Sized,
-    F: FuzzTestFunction<T, TestFunctionKind>,
+    T: ?Sized + ToOwned + 'static,
+    T::Owned: Clone,
+    F: FuzzTestFunction<T::Owned, T, TestFunctionKind>,
 {
     FuzzerBuilder1 {
         test_function: test_function.test_function(),
@@ -185,17 +180,16 @@ where
     T: ?Sized + ToOwned + 'static,
     T::Owned: Clone + serde::Serialize + for<'e> serde::Deserialize<'e> + DefaultMutator,
     <T::Owned as DefaultMutator>::Mutator: 'static,
-    F: Fn(&T) -> bool + 'static,
+    F: Fn(&T) -> bool,
+    F: FuzzTestFunction<T::Owned, T, ReturnBool>,
 {
     #[no_coverage]
     pub fn default_options(
         self,
     ) -> FuzzerBuilder6<
-        T,
-        F,
+        F::NormalizedFunction,
         <T::Owned as DefaultMutator>::Mutator,
         T::Owned,
-        SerdeSerializer<T::Owned>,
         CodeCoverageSensor,
         impl Pool + CompatibleWithSensor<CodeCoverageSensor>,
     > {
@@ -241,24 +235,24 @@ where
         ```
     */
     #[no_coverage]
-    pub fn mutator<M, V>(self, mutator: M) -> FuzzerBuilder2<T, F, M, V>
+    pub fn mutator<M, V>(self, mutator: M) -> FuzzerBuilder2<F::NormalizedFunction, M, V>
     where
         V: Clone + Borrow<T>,
+        F: FuzzTestFunction<V, T, ReturnBool>,
         M: Mutator<V>,
     {
         FuzzerBuilder2 {
-            test_function: self.test_function,
+            test_function: self.test_function.test_function(),
             mutator,
             _phantom: PhantomData,
         }
     }
 }
 
-impl<T, F, M, V> FuzzerBuilder2<T, F, M, V>
+impl<F, M, V> FuzzerBuilder2<F, M, V>
 where
-    T: ?Sized,
-    F: Fn(&T) -> bool,
-    V: Clone + Borrow<T>,
+    F: Fn(&V) -> bool,
+    V: Clone,
     M: Mutator<V>,
 {
     /**
@@ -274,28 +268,26 @@ where
         ```
     */
     #[no_coverage]
-    pub fn serializer<S>(self, serializer: S) -> FuzzerBuilder3<T, F, M, V, S>
+    pub fn serializer<S>(self, serializer: S) -> FuzzerBuilder3<F, M, V>
     where
-        S: Serializer<Value = V>,
+        S: Serializer<Value = V> + 'static,
     {
         FuzzerBuilder3 {
             test_function: self.test_function,
             mutator: self.mutator,
-            serializer,
+            serializer: Box::new(serializer),
             _phantom: PhantomData,
         }
     }
 }
-impl<T, F, M, V, S> FuzzerBuilder3<T, F, M, V, S>
+impl<F, M, V> FuzzerBuilder3<F, M, V>
 where
-    T: ?Sized,
-    F: Fn(&T) -> bool,
-    V: Clone + Borrow<T>,
+    F: Fn(&V) -> bool,
+    V: Clone,
     M: Mutator<V>,
-    S: Serializer<Value = V>,
 {
     #[no_coverage]
-    pub fn default_sensor(self) -> FuzzerBuilder4<T, F, M, V, S, CodeCoverageSensor> {
+    pub fn default_sensor(self) -> FuzzerBuilder4<F, M, V, CodeCoverageSensor> {
         let sensor = CodeCoverageSensor::observing_only_files_from_current_dir();
         FuzzerBuilder4 {
             test_function: self.test_function,
@@ -306,7 +298,7 @@ where
         }
     }
     #[no_coverage]
-    pub fn sensor<Sens: Sensor>(self, sensor: Sens) -> FuzzerBuilder4<T, F, M, V, S, Sens> {
+    pub fn sensor<Sens: Sensor>(self, sensor: Sens) -> FuzzerBuilder4<F, M, V, Sens> {
         FuzzerBuilder4 {
             test_function: self.test_function,
             mutator: self.mutator,
@@ -337,18 +329,16 @@ fn defaul_pool_for_code_coverage_sensor(sensor: &CodeCoverageSensor) -> impl Com
     pool
 }
 
-impl<T, F, M, V, S> FuzzerBuilder4<T, F, M, V, S, CodeCoverageSensor>
+impl<F, M, V> FuzzerBuilder4<F, M, V, CodeCoverageSensor>
 where
-    T: ?Sized,
-    F: Fn(&T) -> bool,
-    V: Clone + Borrow<T>,
+    F: Fn(&V) -> bool,
+    V: Clone,
     M: Mutator<V>,
-    S: Serializer<Value = V>,
 {
     #[no_coverage]
     pub fn default_pool(
         self,
-    ) -> FuzzerBuilder5<T, F, M, V, S, CodeCoverageSensor, impl Pool + CompatibleWithSensor<CodeCoverageSensor>> {
+    ) -> FuzzerBuilder5<F, M, V, CodeCoverageSensor, impl Pool + CompatibleWithSensor<CodeCoverageSensor>> {
         let pool = defaul_pool_for_code_coverage_sensor(&self.sensor);
         FuzzerBuilder5 {
             test_function: self.test_function,
@@ -361,17 +351,15 @@ where
     }
 }
 
-impl<T, F, M, V, S, Sens> FuzzerBuilder4<T, F, M, V, S, Sens>
+impl<F, M, V, Sens> FuzzerBuilder4<F, M, V, Sens>
 where
-    T: ?Sized,
-    F: Fn(&T) -> bool,
-    V: Clone + Borrow<T>,
+    F: Fn(&V) -> bool,
+    V: Clone,
     M: Mutator<V>,
-    S: Serializer<Value = V>,
     Sens: Sensor,
 {
     #[no_coverage]
-    pub fn pool<P>(self, pool: P) -> FuzzerBuilder5<T, F, M, V, S, Sens, P>
+    pub fn pool<P>(self, pool: P) -> FuzzerBuilder5<F, M, V, Sens, P>
     where
         P: Pool + CompatibleWithSensor<Sens>,
     {
@@ -386,18 +374,16 @@ where
     }
 }
 
-impl<T, F, M, V, S, Sens, P> FuzzerBuilder5<T, F, M, V, S, Sens, P>
+impl<F, M, V, Sens, P> FuzzerBuilder5<F, M, V, Sens, P>
 where
-    T: ?Sized,
-    F: Fn(&T) -> bool,
-    V: Clone + Borrow<T>,
+    F: Fn(&V) -> bool,
+    V: Clone,
     M: Mutator<V>,
-    S: Serializer<Value = V>,
     Sens: Sensor,
     P: Pool + CompatibleWithSensor<Sens>,
 {
     #[no_coverage]
-    pub fn arguments(self, arguments: Arguments) -> FuzzerBuilder6<T, F, M, V, S, Sens, P> {
+    pub fn arguments(self, arguments: Arguments) -> FuzzerBuilder6<F, M, V, Sens, P> {
         FuzzerBuilder6 {
             test_function: self.test_function,
             mutator: self.mutator,
@@ -409,7 +395,7 @@ where
         }
     }
     #[no_coverage]
-    pub fn arguments_from_cargo_fuzzcheck(self) -> FuzzerBuilder6<T, F, M, V, S, Sens, P> {
+    pub fn arguments_from_cargo_fuzzcheck(self) -> FuzzerBuilder6<F, M, V, Sens, P> {
         let parser = options_parser();
         let mut help = format!(
             r#""
@@ -479,16 +465,14 @@ fuzzcheck {cmin} --{in_corpus} "fuzz-corpus" --{corpus_size} 25
     }
 }
 
-impl<T, F, M, V, S, Sens, P> FuzzerBuilder6<T, F, M, V, S, Sens, P>
+impl<F, M, V, Sens, P> FuzzerBuilder6<F, M, V, Sens, P>
 where
-    T: ?Sized,
-    F: Fn(&T) -> bool,
-    V: Clone + Borrow<T>,
+    F: Fn(&V) -> bool + 'static,
+    V: Clone,
     M: Mutator<V>,
-    S: Serializer<Value = V>,
     Sens: Sensor,
     P: Pool + CompatibleWithSensor<Sens>,
-    Fuzzer<V, T, F, M, S, Sens, P>: 'static,
+    Fuzzer<V, M, Sens, P>: 'static,
 {
     #[no_coverage]
     pub fn command(self, command: FuzzerCommand) -> Self {
@@ -559,6 +543,6 @@ where
             _phantom,
         } = self;
 
-        crate::fuzzer::launch(test_function, mutator, serializer, sensor, pool, arguments)
+        crate::fuzzer::launch(Box::new(test_function), mutator, serializer, sensor, pool, arguments)
     }
 }

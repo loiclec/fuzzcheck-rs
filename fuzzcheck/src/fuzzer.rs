@@ -55,7 +55,7 @@ enum FuzzerInputIndex<T> {
     Pool(PoolStorageIndex),
 }
 
-struct FuzzerState<T: Clone, M: Mutator<T>, S: Serializer<Value = T>, Sens: Sensor, P: Pool>
+struct FuzzerState<T: Clone, M: Mutator<T>, Sens: Sensor, P: Pool>
 where
     P: CompatibleWithSensor<Sens>,
 {
@@ -71,12 +71,12 @@ where
     fuzzer_stats: FuzzerStats,
 
     settings: Arguments,
+    serializer: Box<dyn Serializer<Value = T>>,
     /// The world handles effects
-    serializer: S,
     world: World,
 }
 
-impl<T: Clone, M: Mutator<T>, S: Serializer<Value = T>, Sens: Sensor, P: Pool> FuzzerState<T, M, S, Sens, P>
+impl<T: Clone, M: Mutator<T>, Sens: Sensor, P: Pool> FuzzerState<T, M, Sens, P>
 where
     P: CompatibleWithSensor<Sens>,
 {
@@ -106,7 +106,7 @@ fn update_fuzzer_stats(stats: &mut FuzzerStats, world: &mut World) {
     }
 }
 
-impl<T: Clone, M: Mutator<T>, S: Serializer<Value = T>, Sens: Sensor, P: Pool> FuzzerState<T, M, S, Sens, P>
+impl<T: Clone, M: Mutator<T>, Sens: Sensor, P: Pool> FuzzerState<T, M, Sens, P>
 where
     P: CompatibleWithSensor<Sens>,
     Self: 'static,
@@ -157,30 +157,23 @@ where
     }
 }
 
-pub struct Fuzzer<T, FT, F, M, S, Sens, P>
+pub struct Fuzzer<T, M, Sens, P>
 where
-    FT: ?Sized,
-    T: Clone + Borrow<FT>,
-    F: Fn(&FT) -> bool,
+    T: Clone,
     M: Mutator<T>,
-    S: Serializer<Value = T>,
     Sens: Sensor,
     P: Pool,
     P: CompatibleWithSensor<Sens>,
     Self: 'static,
 {
-    state: FuzzerState<T, M, S, Sens, P>,
-    test: F,
-    phantom: std::marker::PhantomData<FT>,
+    state: FuzzerState<T, M, Sens, P>,
+    test: Box<dyn Fn(&T) -> bool>,
 }
 
-impl<T, FT, F, M, S, Sens, P> Fuzzer<T, FT, F, M, S, Sens, P>
+impl<T, M, Sens, P> Fuzzer<T, M, Sens, P>
 where
-    FT: ?Sized,
-    T: Clone + Borrow<FT>,
-    F: Fn(&FT) -> bool,
+    T: Clone,
     M: Mutator<T>,
-    S: Serializer<Value = T>,
     Sens: Sensor,
     P: Pool,
     P: CompatibleWithSensor<Sens>,
@@ -188,7 +181,15 @@ where
     P::Stats: Default,
 {
     #[no_coverage]
-    fn new(test: F, mutator: M, serializer: S, sensor: Sens, pool: P, settings: Arguments, world: World) -> Self {
+    fn new(
+        test: Box<dyn Fn(&T) -> bool>,
+        mutator: M,
+        serializer: Box<dyn Serializer<Value = T>>,
+        sensor: Sens,
+        pool: P,
+        settings: Arguments,
+        world: World,
+    ) -> Self {
         let arbitrary_step = mutator.default_arbitrary_step();
         Fuzzer {
             state: FuzzerState {
@@ -204,7 +205,6 @@ where
                 world,
             },
             test,
-            phantom: std::marker::PhantomData,
         }
     }
 
@@ -228,7 +228,7 @@ where
         } = self;
 
         // we have verified in the caller function that there is an input
-        let input = FuzzerState::<T, M, S, Sens, P>::get_input(input_idx, pool_storage).unwrap();
+        let input = FuzzerState::<T, M, Sens, P>::get_input(input_idx, pool_storage).unwrap();
 
         std::panic::set_hook(Box::new(move |panic_info| {
             let mut hasher = DefaultHasher::new();
@@ -474,21 +474,18 @@ pub enum TerminationStatus {
 }
 
 #[no_coverage]
-pub fn launch<T, FT, F, M, S, Sens, P>(
-    test: F,
+pub fn launch<T, M, Sens, P>(
+    test: Box<dyn Fn(&T) -> bool>,
     mutator: M,
-    serializer: S,
+    serializer: Box<dyn Serializer<Value = T>>,
     sensor: Sens,
     pool: P,
     mut args: Arguments,
 ) -> Result<(), ReasonForStopping<T>>
 where
-    FT: ?Sized,
-    T: Clone + Borrow<FT>,
-    F: Fn(&FT) -> bool,
+    T: Clone,
     M: Mutator<T>,
-    S: Serializer<Value = T>,
-    Fuzzer<T, FT, F, M, S, CodeCoverageSensor, UniqueCoveragePool>: 'static,
+    Fuzzer<T, M, CodeCoverageSensor, UniqueCoveragePool>: 'static,
     Sens: Sensor + 'static,
     P: Pool + CompatibleWithSensor<Sens> + 'static,
 {
