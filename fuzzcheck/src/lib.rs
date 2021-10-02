@@ -3,16 +3,11 @@
 
 #![feature(drain_filter)]
 #![feature(never_type)]
-#![feature(is_sorted)]
-#![feature(thread_local)]
-#![feature(maybe_uninit_slice)]
-#![feature(test)]
 #![feature(no_coverage)]
 #![feature(type_alias_impl_trait)]
 #![feature(generic_associated_types)]
 #![feature(variant_count)]
 #![feature(arc_new_cyclic)]
-#![feature(trivial_bounds)]
 #![allow(clippy::nonstandard_macro_braces)]
 #![allow(clippy::too_many_arguments)]
 
