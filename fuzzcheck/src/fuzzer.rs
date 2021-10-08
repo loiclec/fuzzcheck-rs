@@ -13,7 +13,7 @@ use crate::signals_handler::set_signal_handlers;
 use crate::traits::{CompatibleWithSensor, CorpusDelta, EmptyStats, Pool, Sensor};
 use crate::traits::{Mutator, Serializer};
 use crate::world::World;
-use crate::FuzzedInput;
+use crate::{CSVField, FuzzedInput, ToCSVFields};
 use fuzzcheck_common::arg::{Arguments, FuzzerCommand};
 use fuzzcheck_common::{FuzzerEvent, FuzzerStats};
 use libc::{SIGABRT, SIGALRM, SIGBUS, SIGFPE, SIGINT, SIGSEGV, SIGTERM, SIGTRAP};
@@ -178,7 +178,6 @@ where
     P: Pool,
     P: CompatibleWithSensor<Sens>,
     Self: 'static,
-    P::Stats: Default,
 {
     #[no_coverage]
     fn new(
@@ -290,7 +289,7 @@ where
                 vec![]
             };
             world.update_corpus(input_id, content, &deltas, serializer.extension())?;
-            world.report_event(event, Some((fuzzer_stats, pool.stats())));
+            world.report_event(event, Some((fuzzer_stats, &pool.stats())));
             if add_ref_count > 0 {
                 let new_input = input.new_source(mutator);
                 pool_storage.insert(new_input, add_ref_count);
@@ -402,7 +401,7 @@ where
             Some((&self.state.fuzzer_stats, &self.state.pool.stats())),
         );
 
-        self.state.world.set_start_instant();
+        self.state.world.set_checkpoint_instant();
         let mut next_milestone = (self.state.fuzzer_stats.total_number_of_runs + 100_000) * 2;
         loop {
             let duration_since_beginning = self.state.world.elapsed_time_since_start();
@@ -445,16 +444,16 @@ where
             ..
         } = &mut self.state;
 
-        world.report_event(FuzzerEvent::DidReadCorpus, Some((fuzzer_stats, pool.stats().clone())));
+        world.report_event(FuzzerEvent::DidReadCorpus, Some((fuzzer_stats, &pool.stats())));
 
         pool.minify(corpus_size, |corpus_delta, pool_stats| {
             let deltas = vec![corpus_delta];
             let event = CorpusDelta::fuzzer_event(&deltas);
             world.update_corpus(PoolStorageIndex(0), vec![], &deltas, serializer.extension())?;
-            world.report_event(event, Some((fuzzer_stats, pool_stats)));
+            world.report_event(event, Some((fuzzer_stats, &pool_stats)));
             Ok(())
         })?;
-        world.report_event(FuzzerEvent::Done, Some((fuzzer_stats, pool.stats())));
+        world.report_event(FuzzerEvent::Done, Some((fuzzer_stats, &pool.stats())));
         Ok(())
     }
 }
@@ -507,8 +506,13 @@ where
                     sensor,
                     pool,
                     args.clone(),
-                    World::new(args.clone()),
+                    World::new(args.clone())?,
                 );
+
+                let mut stats_headers = vec![CSVField::String("time".to_string())];
+                stats_headers.extend(fuzzer.state.fuzzer_stats.csv_headers());
+                stats_headers.extend(fuzzer.state.pool.stats().csv_headers());
+                fuzzer.state.world.append_stats_file(&stats_headers)?;
                 unsafe { fuzzer.state.set_up_signal_handler() };
                 fuzzer.main_loop()?
             } else {
@@ -519,14 +523,18 @@ where
                     sensor,
                     pool,
                     args.clone(),
-                    World::new(args.clone()),
+                    World::new(args.clone())?,
                 );
                 unsafe { fuzzer.state.set_up_signal_handler() };
+                fuzzer
+                    .state
+                    .world
+                    .append_stats_file(&fuzzer.state.pool.stats().csv_headers())?;
                 fuzzer.main_loop()?
             }
         }
         FuzzerCommand::MinifyInput { input_file } => {
-            let world = World::new(args.clone());
+            let world = World::new(args.clone())?;
             let value = world.read_input_file(input_file)?;
             let value = serializer.from_data(&value).ok_or(std::io::Error::new(
                 std::io::ErrorKind::Other,
@@ -560,7 +568,7 @@ where
         }
         FuzzerCommand::Read { input_file } => {
             // no signal handlers are installed, but that should be ok as the exit code won't be 0
-            let mut world = World::new(args.clone());
+            let mut world = World::new(args.clone())?;
             let value = world.read_input_file(input_file)?;
             let value = serializer.from_data(&value).ok_or(std::io::Error::new(
                 std::io::ErrorKind::Other,
@@ -600,7 +608,7 @@ where
                 sensor,
                 pool,
                 args.clone(),
-                World::new(args.clone()),
+                World::new(args.clone())?,
             );
             // fuzzer.sensor_and_pool.update
             unsafe { fuzzer.state.set_up_signal_handler() };

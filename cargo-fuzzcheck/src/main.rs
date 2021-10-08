@@ -80,13 +80,16 @@ fn main() -> Result<(), Box<dyn Error>> {
     match args.command {
         FuzzerCommand::Fuzz => {
             if args.corpus_in.is_none() && matches.opt_present(NO_IN_CORPUS_FLAG) == false {
-                args.corpus_in = Some(PathBuf::new().join(format!("fuzz/corpus/{}", target_name)));
+                args.corpus_in = Some(PathBuf::new().join(format!("fuzz/{}/corpus", target_name)));
             }
             if args.corpus_out.is_none() && matches.opt_present(NO_OUT_CORPUS_FLAG) == false {
-                args.corpus_out = Some(PathBuf::new().join(format!("fuzz/corpus/{}", target_name)));
+                args.corpus_out = Some(PathBuf::new().join(format!("fuzz/{}/corpus", target_name)));
             }
             if args.artifacts_folder.is_none() && matches.opt_present(NO_ARTIFACTS_FLAG) == false {
-                args.artifacts_folder = Some(PathBuf::new().join(format!("fuzz/artifacts/{}", target_name)));
+                args.artifacts_folder = Some(PathBuf::new().join(format!("fuzz/{}/artifacts", target_name)));
+            }
+            if args.stats_folder.is_none() && matches.opt_present(NO_STATS_FLAG) == false {
+                args.stats_folder = Some(PathBuf::new().join(format!("fuzz/{}/stats", target_name)));
             }
             let exec = launch_executable(target_name, &args, &cargo_args, &process::Stdio::inherit)?;
             exec.wait_with_output()?;

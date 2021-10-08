@@ -15,6 +15,8 @@ pub const OUT_CORPUS_FLAG: &str = "out-corpus";
 pub const NO_OUT_CORPUS_FLAG: &str = "no-out-corpus";
 pub const ARTIFACTS_FLAG: &str = "artifacts";
 pub const NO_ARTIFACTS_FLAG: &str = "no-artifacts";
+pub const STATS_FLAG: &str = "stats";
+pub const NO_STATS_FLAG: &str = "no-stats";
 pub const CORPUS_SIZE_FLAG: &str = "corpus-size";
 pub const SOCK_ADDR_FLAG: &str = "socket-address";
 
@@ -61,6 +63,7 @@ pub struct Arguments {
     pub corpus_in: Option<PathBuf>,
     pub corpus_out: Option<PathBuf>,
     pub artifacts_folder: Option<PathBuf>,
+    pub stats_folder: Option<PathBuf>,
     pub socket_address: Option<SocketAddr>,
 }
 
@@ -114,6 +117,12 @@ pub fn options_parser() -> Options {
             artifacts = ARTIFACTS_FLAG
         )
         .as_str(),
+    );
+    options.optopt("", STATS_FLAG, "folder where the statistics will be written", "PATH");
+    options.optflag(
+        "",
+        NO_STATS_FLAG,
+        format!("do not save statistics, overrides --{stats}", stats = STATS_FLAG).as_str(),
     );
     options.optopt("", INPUT_FILE_FLAG, "file containing a JSON-encoded input", "PATH");
     options.optopt("", CORPUS_SIZE_FLAG, "target size of the corpus", "N");
@@ -197,6 +206,14 @@ impl Arguments {
             None
         };
 
+        let stats_folder: Option<PathBuf> = matches.opt_str(STATS_FLAG).and_then(|x| x.parse::<PathBuf>().ok());
+
+        let no_stats = if matches.opt_present(NO_STATS_FLAG) {
+            Some(())
+        } else {
+            None
+        };
+
         let socket_address = matches.opt_str(SOCK_ADDR_FLAG).and_then(|x| {
             if let Ok(mut addrs) = x.to_socket_addrs() {
                 addrs.next()
@@ -274,6 +291,7 @@ impl Arguments {
         } else {
             artifacts_folder.clone()
         };
+        let stats_folder: Option<PathBuf> = if no_stats.is_some() { None } else { stats_folder.clone() };
 
         let socket_address = socket_address;
 
@@ -286,6 +304,7 @@ impl Arguments {
             corpus_in,
             corpus_out,
             artifacts_folder,
+            stats_folder,
             socket_address,
         })
     }

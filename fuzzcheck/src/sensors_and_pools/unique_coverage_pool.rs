@@ -58,6 +58,7 @@ use crate::data_structures::{Slab, SlabKey};
 use crate::fenwick_tree::FenwickTree;
 use crate::fuzzer::PoolStorageIndex;
 use crate::traits::{CorpusDelta, Pool};
+use crate::{CSVField, ToCSVFields};
 use ahash::{AHashMap, AHashSet};
 use fastrand::Rng;
 use owo_colors::OwoColorize;
@@ -773,7 +774,7 @@ impl Clone for AnalyzedFeature {
     }
 }
 
-#[derive(Clone, Default)]
+#[derive(Clone)]
 pub struct UniqueCoveragePoolStats {
     pub name: String,
     pub score: f64,
@@ -796,6 +797,23 @@ impl Display for UniqueCoveragePoolStats {
             )
             .bright_green()
         )
+    }
+}
+impl ToCSVFields for UniqueCoveragePoolStats {
+    fn csv_headers(&self) -> Vec<CSVField> {
+        vec![
+            CSVField::String(format!("{}-size", self.name)),
+            CSVField::String(format!("{}-percent-coverage", self.name)),
+            CSVField::String(format!("{}-avg-cplx", self.name)),
+        ]
+    }
+
+    fn to_csv_record(&self) -> Vec<CSVField> {
+        vec![
+            CSVField::Integer(self.pool_size as isize),
+            CSVField::Float(self.percent_coverage),
+            CSVField::Float(self.avg_cplx),
+        ]
     }
 }
 

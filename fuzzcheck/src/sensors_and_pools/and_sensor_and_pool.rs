@@ -3,6 +3,7 @@ use std::fmt::Display;
 use crate::{
     fuzzer::PoolStorageIndex,
     traits::{CompatibleWithSensor, CorpusDelta, Pool, Sensor},
+    CSVField, ToCSVFields,
 };
 
 use super::compatible_with_iterator_sensor::CompatibleWithIteratorSensor;
@@ -146,7 +147,7 @@ where
     }
 }
 
-#[derive(Default, Clone)]
+#[derive(Clone)]
 pub struct AndStats<S1: Display, S2: Display> {
     pub stats1: S1,
     pub stats2: S2,
@@ -219,5 +220,24 @@ where
             deltas.extend(self.p2.add(input_id, complexity, o2));
         }
         deltas
+    }
+}
+impl<S1, S2> ToCSVFields for AndStats<S1, S2>
+where
+    S1: Display,
+    S2: Display,
+    S1: ToCSVFields,
+    S2: ToCSVFields,
+{
+    fn csv_headers(&self) -> Vec<CSVField> {
+        let mut h = self.stats1.csv_headers();
+        h.extend(self.stats2.csv_headers());
+        h
+    }
+
+    fn to_csv_record(&self) -> Vec<CSVField> {
+        let mut h = self.stats1.to_csv_record();
+        h.extend(self.stats2.to_csv_record());
+        h
     }
 }

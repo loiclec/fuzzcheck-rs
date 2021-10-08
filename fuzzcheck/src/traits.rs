@@ -303,12 +303,21 @@ impl<M> MutatorWrapper for Box<M> {
     }
 }
 
-#[derive(Default, Clone, Copy)]
+#[derive(Clone, Copy)]
 pub struct EmptyStats;
 impl Display for EmptyStats {
     #[no_coverage]
     fn fmt(&self, _f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         Ok(())
+    }
+}
+impl ToCSVFields for EmptyStats {
+    fn csv_headers(&self) -> Vec<CSVField> {
+        vec![]
+    }
+
+    fn to_csv_record(&self) -> Vec<CSVField> {
+        vec![]
     }
 }
 
@@ -348,8 +357,40 @@ pub trait Sensor {
     fn iterate_over_observations(&mut self, handler: Self::ObservationHandler<'_>);
 }
 
+pub enum CSVField {
+    Integer(isize),
+    Float(f64),
+    String(String),
+}
+impl CSVField {
+    pub fn to_bytes(fields: &[CSVField]) -> Vec<u8> {
+        let mut bytes = vec![];
+        for field in fields {
+            match field {
+                CSVField::Integer(n) => {
+                    bytes.extend(format!("{}", n).as_bytes());
+                }
+                CSVField::Float(f) => {
+                    bytes.extend(format!("{:.4}", f).as_bytes());
+                }
+                CSVField::String(s) => {
+                    bytes.extend(format!("{:?}", s).as_bytes());
+                }
+            }
+            bytes.extend(b",");
+        }
+        bytes.extend(b"\n");
+        bytes
+    }
+}
+
+pub trait ToCSVFields {
+    fn csv_headers(&self) -> Vec<CSVField>;
+    fn to_csv_record(&self) -> Vec<CSVField>;
+}
+
 pub trait Pool {
-    type Stats: Default + Display + Clone;
+    type Stats: Display + ToCSVFields + Clone;
 
     fn len(&self) -> usize;
     fn stats(&self) -> Self::Stats;

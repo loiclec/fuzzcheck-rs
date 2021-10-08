@@ -1,5 +1,6 @@
 use crate::fuzzer::PoolStorageIndex;
 use crate::traits::{CompatibleWithSensor, CorpusDelta, Pool, Sensor};
+use crate::{CSVField, ToCSVFields};
 use owo_colors::OwoColorize;
 use std::fmt::Display;
 use std::path::PathBuf;
@@ -42,7 +43,7 @@ impl Sensor for TestFailureSensor {
     }
 }
 
-#[derive(Clone, Copy, Default)]
+#[derive(Clone, Copy)]
 pub(crate) struct Stats {
     count: usize,
 }
@@ -54,6 +55,15 @@ impl Display for Stats {
         } else {
             write!(f, "{}", format!("artifacts({})", self.count).red())
         }
+    }
+}
+impl ToCSVFields for Stats {
+    fn csv_headers(&self) -> Vec<CSVField> {
+        vec![CSVField::String("artifacts_count".to_string())]
+    }
+
+    fn to_csv_record(&self) -> Vec<CSVField> {
+        vec![CSVField::Integer(self.count as isize)]
     }
 }
 

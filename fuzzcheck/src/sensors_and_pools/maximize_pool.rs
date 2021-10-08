@@ -2,12 +2,13 @@ use crate::data_structures::{Slab, SlabKey, WeightedIndex};
 use crate::fuzzer::PoolStorageIndex;
 use crate::sensors_and_pools::compatible_with_iterator_sensor::CompatibleWithIteratorSensor;
 use crate::traits::{CorpusDelta, Pool};
+use crate::{CSVField, ToCSVFields};
 use ahash::AHashSet;
 use owo_colors::OwoColorize;
 use std::fmt::{Debug, Display};
 use std::path::Path;
 
-#[derive(Clone, Default)]
+#[derive(Clone)]
 pub struct Stats {
     name: String,
     size: usize,
@@ -22,6 +23,21 @@ impl Display for Stats {
             "{}",
             format!("{}({} sum: {})", self.name, self.size, self.total_counts).bright_purple()
         )
+    }
+}
+impl ToCSVFields for Stats {
+    fn csv_headers(&self) -> Vec<CSVField> {
+        vec![
+            CSVField::String(format!("{}-count", self.name)),
+            CSVField::String(format!("{}-sum", self.name)),
+        ]
+    }
+
+    fn to_csv_record(&self) -> Vec<CSVField> {
+        vec![
+            CSVField::Integer(self.size as isize),
+            CSVField::Integer(self.total_counts as isize),
+        ]
     }
 }
 

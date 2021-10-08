@@ -2,20 +2,43 @@ use crate::fuzzer::PoolStorageIndex;
 use crate::fuzzer::TerminationStatus;
 use crate::traits::CorpusDelta;
 use crate::traits::EmptyStats;
+use crate::CSVField;
+use crate::ToCSVFields;
 use fuzzcheck_common::arg::Arguments;
 use fuzzcheck_common::arg::FuzzerCommand;
 use fuzzcheck_common::{FuzzerEvent, FuzzerStats};
 use owo_colors::OwoColorize;
+use std::cell::RefCell;
 use std::collections::hash_map::DefaultHasher;
 use std::collections::HashMap;
 use std::fmt::Display;
 use std::fs;
+use std::fs::File;
+use std::fs::OpenOptions;
 use std::hash::{Hash, Hasher};
+use std::io::Write;
 use std::io::{self, Result};
 use std::path::Path;
 use std::path::PathBuf;
 use std::time::Duration;
 use std::time::Instant;
+use std::time::SystemTime;
+
+impl ToCSVFields for FuzzerStats {
+    fn csv_headers(&self) -> Vec<CSVField> {
+        vec![
+            CSVField::String("nbr_iter".to_string()),
+            CSVField::String("iter/s".to_string()),
+        ]
+    }
+
+    fn to_csv_record(&self) -> Vec<CSVField> {
+        vec![
+            CSVField::Integer(self.total_number_of_runs as isize),
+            CSVField::Integer(self.exec_per_s as isize),
+        ]
+    }
+}
 
 pub struct World {
     settings: Arguments,
@@ -23,17 +46,30 @@ pub struct World {
     checkpoint_instant: Instant,
     /// keeps track of the hash of each input in the corpus, indexed by the Pool key
     pub corpus: HashMap<(PathBuf, PoolStorageIndex), String>,
+    pub stats: Option<RefCell<File>>,
 }
 
 impl World {
     #[no_coverage]
-    pub fn new(settings: Arguments) -> Self {
-        Self {
+    pub fn new(settings: Arguments) -> Result<Self> {
+        let stats = if let Some(stats_folder) = &settings.stats_folder {
+            let now = SystemTime::now();
+            let duration_since_epoch = now.duration_since(SystemTime::UNIX_EPOCH).unwrap();
+            let name = format!("{}", duration_since_epoch.as_millis());
+            std::fs::create_dir_all(stats_folder)?;
+            let path = stats_folder.join(name).with_extension("csv");
+            let file = OpenOptions::new().create_new(true).append(true).open(path)?;
+            Some(RefCell::new(file))
+        } else {
+            None
+        };
+        Ok(Self {
             settings,
             initial_instant: std::time::Instant::now(),
             checkpoint_instant: std::time::Instant::now(),
             corpus: HashMap::new(),
-        }
+            stats,
+        })
     }
 
     #[no_coverage]
@@ -43,6 +79,15 @@ impl World {
         let hash = hasher.finish();
         let hash = format!("{:x}", hash);
         hash
+    }
+
+    #[no_coverage]
+    pub fn append_stats_file(&self, fields: &[CSVField]) -> Result<()> {
+        if let Some(stats) = &self.stats {
+            let mut stats = stats.try_borrow_mut().unwrap();
+            stats.write(&CSVField::to_bytes(fields))?;
+        }
+        Ok(())
     }
 
     #[no_coverage]
@@ -101,10 +146,10 @@ impl World {
     }
 
     #[no_coverage]
-    pub(crate) fn report_event<PoolStats: Display>(
+    pub(crate) fn report_event<PoolStats: Display + ToCSVFields>(
         &self,
         event: FuzzerEvent,
-        stats: Option<(&FuzzerStats, PoolStats)>,
+        stats: Option<(&FuzzerStats, &PoolStats)>,
     ) {
         // println uses a lock, which may mess up the signal handling
         match event {
@@ -173,6 +218,12 @@ This should never happen, and is probably a bug in fuzzcheck. Sorry :("#
             print!("{} {}", "iter/s:".yellow(), fuzzer_stats.exec_per_s.yellow());
 
             println!();
+            let time_since_start = self.initial_instant.elapsed();
+            let mut stats_fields = vec![CSVField::Integer(time_since_start.as_millis() as isize)];
+            stats_fields.extend(fuzzer_stats.to_csv_record());
+            stats_fields.extend(pool_stats.to_csv_record());
+            self.append_stats_file(&stats_fields)
+                .expect("cannot write to stats file");
         }
     }
 

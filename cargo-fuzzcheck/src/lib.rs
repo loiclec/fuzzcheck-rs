@@ -156,6 +156,14 @@ pub fn string_from_args(args: &Arguments) -> String {
     s.push_str(&artifacts_args);
     s.push_str(" ");
 
+    let stats_args = args
+        .stats_folder
+        .as_ref()
+        .map(|f| format!("--{} {} ", STATS_FLAG, f.display()))
+        .unwrap_or_else(|| format!("--{} ", NO_STATS_FLAG));
+    s.push_str(&stats_args);
+    s.push_str(" ");
+
     s.push_str(&format!("--{} {} ", MAX_INPUT_CPLX_FLAG, args.max_input_cplx as usize));
     s.push_str(&format!("--{} {} ", MAX_DURATION_FLAG, args.maximum_duration.as_secs()));
     s.push_str(&format!("--{} {} ", MAX_ITERATIONS_FLAG, args.maximum_iterations));

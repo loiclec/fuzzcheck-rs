@@ -37,6 +37,8 @@ pub use traits::Mutator;
 pub use traits::MutatorWrapper;
 #[doc(inline)]
 pub use traits::Serializer;
+#[doc(inline)]
+pub use traits::{CSVField, ToCSVFields};
 
 #[doc(inline)]
 pub use builder::fuzz_test;
