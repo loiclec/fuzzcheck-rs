@@ -22,8 +22,11 @@ pub mod mutators;
 pub mod sensors_and_pools;
 pub mod serializers;
 mod signals_handler;
+mod split_string;
 mod traits;
 mod world;
+
+pub(crate) use split_string::split_string_by_whitespace;
 
 #[doc(inline)]
 pub use builder::default_sensor_and_pool;

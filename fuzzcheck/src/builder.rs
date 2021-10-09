@@ -7,7 +7,7 @@ use crate::sensors_and_pools::sum_coverage_pool::{
 };
 use crate::sensors_and_pools::unique_coverage_pool::UniqueCoveragePool;
 use crate::traits::{CompatibleWithSensor, Mutator, Pool, Sensor, Serializer};
-use crate::{DefaultMutator, SerdeSerializer};
+use crate::{split_string_by_whitespace, DefaultMutator, SerdeSerializer};
 
 use fuzzcheck_common::arg::{
     options_parser, COMMAND_FUZZ, COMMAND_MINIFY_CORPUS, COMMAND_MINIFY_INPUT, CORPUS_SIZE_FLAG, INPUT_FILE_FLAG,
@@ -445,7 +445,7 @@ fuzzcheck {cmin} --{in_corpus} "fuzz-corpus" --{corpus_size} 25
         .as_str();
 
         let arguments = std::env::var("FUZZCHECK_ARGS").unwrap();
-        let arguments = arguments.split_ascii_whitespace().collect::<Vec<_>>();
+        let arguments = split_string_by_whitespace(&arguments);
         let arguments = match Arguments::from_parser(&parser, &arguments) {
             Ok(r) => r,
             Err(e) => {
