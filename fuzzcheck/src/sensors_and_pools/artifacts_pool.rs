@@ -58,10 +58,11 @@ impl Display for Stats {
     }
 }
 impl ToCSVFields for Stats {
+    #[no_coverage]
     fn csv_headers(&self) -> Vec<CSVField> {
         vec![CSVField::String("artifacts_count".to_string())]
     }
-
+    #[no_coverage]
     fn to_csv_record(&self) -> Vec<CSVField> {
         vec![CSVField::Integer(self.count as isize)]
     }
@@ -129,7 +130,10 @@ impl Pool for ArtifactsPool {
     fn mark_test_case_as_dead_end(&mut self, idx: PoolStorageIndex) {
         for x in self.inputs.iter_mut() {
             for x in x.inputs.iter_mut() {
-                if let Some(i) = x.inputs.iter().position(|&x| x == idx) {
+                if let Some(i) = x.inputs.iter().position(
+                    #[no_coverage]
+                    |&x| x == idx,
+                ) {
                     x.inputs.remove(i);
                 }
             }
@@ -165,7 +169,10 @@ impl CompatibleWithSensor<TestFailureSensor> for ArtifactsPool {
 
         let mut is_interesting = None;
         if let Some(error) = error {
-            if let Some(list_index) = self.inputs.iter().position(|xs| xs.error.id == error.id) {
+            if let Some(list_index) = self.inputs.iter().position(
+                #[no_coverage]
+                |xs| xs.error.id == error.id,
+            ) {
                 let list = &self.inputs[list_index];
                 if let Some(least_complex) = list.inputs.last() {
                     if least_complex.cplx > complexity {
@@ -175,7 +182,10 @@ impl CompatibleWithSensor<TestFailureSensor> for ArtifactsPool {
                             && self
                                 .inputs
                                 .iter()
-                                .position(|xs| xs.error.display == error.display)
+                                .position(
+                                    #[no_coverage]
+                                    |xs| xs.error.display == error.display,
+                                )
                                 .is_none()
                         {
                             is_interesting = Some(PositionOfNewInput::ExistingErrorAndCplx(list_index));

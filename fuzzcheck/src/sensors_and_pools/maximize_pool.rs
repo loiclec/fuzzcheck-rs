@@ -29,13 +29,14 @@ impl Display for Stats {
     }
 }
 impl ToCSVFields for Stats {
+    #[no_coverage]
     fn csv_headers(&self) -> Vec<CSVField> {
         vec![
             CSVField::String(format!("{}-count", self.name)),
             CSVField::String(format!("{}-sum", self.name)),
         ]
     }
-
+    #[no_coverage]
     fn to_csv_record(&self) -> Vec<CSVField> {
         vec![
             CSVField::Integer(self.size as isize),
@@ -148,6 +149,7 @@ impl Pool for CounterMaximizingPool {
         }
         self.update_stats();
     }
+    #[no_coverage]
     fn minify(
         &mut self,
         _target_len: usize,
@@ -222,7 +224,13 @@ impl CompatibleWithIteratorSensor for CounterMaximizingPool {
         let highest_for_counters = observation_state;
         let cplx = complexity;
         let input = Input {
-            best_for_counters: highest_for_counters.iter().map(|x| x.0).collect(),
+            best_for_counters: highest_for_counters
+                .iter()
+                .map(
+                    #[no_coverage]
+                    |x| x.0,
+                )
+                .collect(),
             cplx,
             idx: input_idx,
             score: highest_for_counters.len() as f64,

@@ -312,10 +312,11 @@ impl Display for EmptyStats {
     }
 }
 impl ToCSVFields for EmptyStats {
+    #[no_coverage]
     fn csv_headers(&self) -> Vec<CSVField> {
         vec![]
     }
-
+    #[no_coverage]
     fn to_csv_record(&self) -> Vec<CSVField> {
         vec![]
     }
@@ -363,6 +364,7 @@ pub enum CSVField {
     String(String),
 }
 impl CSVField {
+    #[no_coverage]
     pub fn to_bytes(fields: &[CSVField]) -> Vec<u8> {
         let mut bytes = vec![];
         for field in fields {

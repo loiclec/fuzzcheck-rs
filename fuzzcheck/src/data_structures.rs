@@ -176,8 +176,14 @@ impl<T> Slab<T> {
         let available_slots = self.available_slots.clone();
         (0..self.storage.len())
             .into_iter()
-            .filter(move |i| !available_slots.contains(i))
-            .map(|raw_key| SlabKey::new(raw_key))
+            .filter(
+                #[no_coverage]
+                move |i| !available_slots.contains(i),
+            )
+            .map(
+                #[no_coverage]
+                |raw_key| SlabKey::new(raw_key),
+            )
     }
 }
 

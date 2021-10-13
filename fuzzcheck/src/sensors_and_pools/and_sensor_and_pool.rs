@@ -25,6 +25,7 @@ where
     P1: Pool,
     P2: Pool,
 {
+    #[no_coverage]
     pub fn new(p1: P1, p2: P2, ratio_choose_first: u8) -> Self {
         Self {
             p1,
@@ -45,6 +46,7 @@ where
     fn len(&self) -> usize {
         self.p1.len() + self.p2.len()
     }
+    #[no_coverage]
     fn stats(&self) -> Self::Stats {
         AndStats {
             stats1: self.p1.stats(),
@@ -229,12 +231,14 @@ where
     S1: ToCSVFields,
     S2: ToCSVFields,
 {
+    #[no_coverage]
     fn csv_headers(&self) -> Vec<CSVField> {
         let mut h = self.stats1.csv_headers();
         h.extend(self.stats2.csv_headers());
         h
     }
 
+    #[no_coverage]
     fn to_csv_record(&self) -> Vec<CSVField> {
         let mut h = self.stats1.to_csv_record();
         h.extend(self.stats2.to_csv_record());

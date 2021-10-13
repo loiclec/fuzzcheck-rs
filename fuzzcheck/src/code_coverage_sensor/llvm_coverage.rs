@@ -53,12 +53,18 @@ pub struct LLVMCovSections {
 
 #[no_coverage]
 pub fn get_llvm_cov_sections(path: &Path) -> Result<LLVMCovSections, ReadCovMapError> {
-    let bin_data = std::fs::read(path).map_err(|_| ReadCovMapError::CannotReadObjectFile {
-        path: path.to_path_buf(),
-    })?;
-    let obj_file = object::File::parse(&*bin_data).map_err(|_| ReadCovMapError::CannotReadObjectFile {
-        path: path.to_path_buf(),
-    })?;
+    let bin_data = std::fs::read(path).map_err(
+        #[no_coverage]
+        |_| ReadCovMapError::CannotReadObjectFile {
+            path: path.to_path_buf(),
+        },
+    )?;
+    let obj_file = object::File::parse(&*bin_data).map_err(
+        #[no_coverage]
+        |_| ReadCovMapError::CannotReadObjectFile {
+            path: path.to_path_buf(),
+        },
+    )?;
     let covmap = obj_file
         .section_by_name("__llvm_covmap")
         .ok_or(ReadCovMapError::CannotFindSection {
@@ -377,11 +383,17 @@ pub fn read_prf_data(prf_data: &[u8], idx: &mut usize) -> Result<Vec<PrfData>, R
 #[must_use]
 #[no_coverage]
 fn read_func_names(slice: &[u8], names: &mut Vec<String>) -> Result<(), ReadCovMapError> {
-    let slices = slice.split(|&x| x == 0x01);
+    let slices = slice.split(
+        #[no_coverage]
+        |&x| x == 0x01,
+    );
     for slice in slices {
-        let string = String::from_utf8(slice.to_vec()).map_err(|_| ReadCovMapError::CannotParseUTF8 {
-            section: CovMapSection::PrfNames,
-        })?;
+        let string = String::from_utf8(slice.to_vec()).map_err(
+            #[no_coverage]
+            |_| ReadCovMapError::CannotParseUTF8 {
+                section: CovMapSection::PrfNames,
+            },
+        )?;
         names.push(string);
     }
     Ok(())
@@ -544,14 +556,17 @@ pub fn read_list_filenames(slice: &[u8], idx: &mut usize) -> Result<Vec<String>,
     let length_uncompressed = read_leb_usize(slice, idx);
     let length_compressed = read_leb_usize(slice, idx);
 
+    #[no_coverage]
     fn read_filenames(slice: &[u8], idx: &mut usize) -> Result<Vec<String>, ReadCovMapError> {
         let mut filenames = Vec::new();
         while *idx < slice.len() {
             let len = read_leb_usize(slice, idx);
-            let filename =
-                String::from_utf8(slice[*idx..*idx + len].to_vec()).map_err(|_| ReadCovMapError::CannotParseUTF8 {
+            let filename = String::from_utf8(slice[*idx..*idx + len].to_vec()).map_err(
+                #[no_coverage]
+                |_| ReadCovMapError::CannotParseUTF8 {
                     section: CovMapSection::CovMap,
-                })?;
+                },
+            )?;
             filenames.push(filename);
             *idx += len;
         }
@@ -649,7 +664,10 @@ impl ExpandedExpression {
             Sign::Negative => (&mut self.sub_terms, &mut self.add_terms),
             Sign::Positive => (&mut self.add_terms, &mut self.sub_terms),
         };
-        if let Some(index_in_counterpart) = counterpart.iter().position(|&x| x == term) {
+        if let Some(index_in_counterpart) = counterpart.iter().position(
+            #[no_coverage]
+            |&x| x == term,
+        ) {
             counterpart.remove(index_in_counterpart);
         } else {
             recipient.push(term);
@@ -676,19 +694,24 @@ impl ExpandedExpression {
     }
 }
 
-impl FunctionRecord {
-    #[no_coverage]
-    pub fn filter_trivial_expressions(&mut self) -> Vec<(usize, MappingRegion)> {
-        // filtered represent all the (unique) expressions that consist of only one positive term
-        // that term is necessarily a reference to one of the “physical” counters in __llvm_prf_cnts
-        let filtered = self
-            .expressions
-            .drain_filter(|(e, _)| e.add_terms.len() <= 1 && e.sub_terms.is_empty())
-            .filter_map(|(e, mapping_region)| e.add_terms.get(0).map(|c| (*c, mapping_region)))
-            .collect::<Vec<_>>();
-        filtered
-    }
-}
+// impl FunctionRecord {
+//     #[no_coverage]
+//     pub fn filter_trivial_expressions(&mut self) -> Vec<(usize, MappingRegion)> {
+//         // filtered represent all the (unique) expressions that consist of only one positive term
+//         // that term is necessarily a reference to one of the “physical” counters in __llvm_prf_cnts
+//         let filtered = self
+//             .expressions
+//             .drain_filter(|(e, _)| e.add_terms.len() <= 1 && e.sub_terms.is_empty())
+//             .filter_map(|(e, mapping_region)| {
+//                 e.add_terms.get(0).map(
+//                     #[no_coverage]
+//                     |c| (*c, mapping_region),
+//                 )
+//             })
+//             .collect::<Vec<_>>();
+//         filtered
+//     }
+// }
 
 pub struct OptimisedExpandedExpression {
     add_terms: Vec<*const u64>,
@@ -761,43 +784,49 @@ impl Coverage {
         let mut start_idx = 0;
         prf_datas
             .iter()
-            .map(|prf_data| {
-                let range = start_idx..start_idx + prf_data.number_of_counters;
-                start_idx = range.end;
-                let f_r = function_records
-                    .iter()
-                    .find(|fr| fr.header.id == prf_data.function_id)
-                    .ok_or(ReadCovMapError::CannotFindFunctionRecordAssociatedWithPrfData)?;
+            .map(
+                #[no_coverage]
+                |prf_data| {
+                    let range = start_idx..start_idx + prf_data.number_of_counters;
+                    start_idx = range.end;
+                    let f_r = function_records
+                        .iter()
+                        .find(
+                            #[no_coverage]
+                            |fr| fr.header.id == prf_data.function_id,
+                        )
+                        .ok_or(ReadCovMapError::CannotFindFunctionRecordAssociatedWithPrfData)?;
 
-                let slice = &mut all_counters[range];
-                let mut single_counters = Vec::new();
-                let mut expression_counters = Vec::new();
+                    let slice = &mut all_counters[range];
+                    let mut single_counters = Vec::new();
+                    let mut expression_counters = Vec::new();
 
-                for (e, _) in f_r.expressions.iter() {
-                    if e.add_terms.is_empty() && e.sub_terms.is_empty() {
-                        continue;
-                    } else if e.add_terms.len() == 1 && e.sub_terms.is_empty() {
-                        single_counters.push(&mut slice[e.add_terms[0]] as *mut _);
-                    } else if e.add_terms.len() > 0 {
-                        expression_counters.push(e.optimized(slice));
-                    } else {
-                        panic!(
-                            "An expression contains only sub terms\nAdd terms: {:?}\nSub terms: {:?}",
-                            e.add_terms, e.sub_terms
-                        );
+                    for (e, _) in f_r.expressions.iter() {
+                        if e.add_terms.is_empty() && e.sub_terms.is_empty() {
+                            continue;
+                        } else if e.add_terms.len() == 1 && e.sub_terms.is_empty() {
+                            single_counters.push(&mut slice[e.add_terms[0]] as *mut _);
+                        } else if e.add_terms.len() > 0 {
+                            expression_counters.push(e.optimized(slice));
+                        } else {
+                            panic!(
+                                "An expression contains only sub terms\nAdd terms: {:?}\nSub terms: {:?}",
+                                e.add_terms, e.sub_terms
+                            );
+                        }
                     }
-                }
-                // let nbr_expressions = expression_counters.len();
-                single_counters.sort();
-                Ok(Coverage {
-                    function_record: f_r.clone(),
-                    start_counters: slice.as_mut_ptr(),
-                    counters_len: slice.len(),
-                    single_counters,
-                    expression_counters,
-                    // computed_expressions: Vec::with_capacity(nbr_expressions),
-                })
-            })
+                    // let nbr_expressions = expression_counters.len();
+                    single_counters.sort();
+                    Ok(Coverage {
+                        function_record: f_r.clone(),
+                        start_counters: slice.as_mut_ptr(),
+                        counters_len: slice.len(),
+                        single_counters,
+                        expression_counters,
+                        // computed_expressions: Vec::with_capacity(nbr_expressions),
+                    })
+                },
+            )
             .collect()
     }
     #[no_coverage]
@@ -806,17 +835,20 @@ impl Coverage {
         F: Fn(&Path) -> bool,
         G: Fn(&Path) -> bool,
     {
-        all_self.drain_filter(|coverage| {
-            let mut excluded = false;
-            for filepath in &coverage.function_record.filenames {
-                if keep_f(filepath) {
-                    return false;
+        all_self.drain_filter(
+            #[no_coverage]
+            |coverage| {
+                let mut excluded = false;
+                for filepath in &coverage.function_record.filenames {
+                    if keep_f(filepath) {
+                        return false;
+                    }
+                    if exclude_f(filepath) {
+                        excluded = true;
+                    }
                 }
-                if exclude_f(filepath) {
-                    excluded = true;
-                }
-            }
-            excluded
-        });
+                excluded
+            },
+        );
     }
 }

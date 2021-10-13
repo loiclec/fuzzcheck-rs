@@ -17,7 +17,7 @@ impl UnitPool {
 
 impl Pool for UnitPool {
     type Stats = EmptyStats;
-
+    #[no_coverage]
     fn stats(&self) -> Self::Stats {
         EmptyStats
     }

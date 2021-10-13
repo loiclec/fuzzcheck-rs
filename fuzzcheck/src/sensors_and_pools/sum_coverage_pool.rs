@@ -24,6 +24,7 @@ pub struct AggregateCoveragePool<Strategy> {
     _phantom: PhantomData<Strategy>,
 }
 impl<Strategy> AggregateCoveragePool<Strategy> {
+    #[no_coverage]
     pub fn new(name: &str) -> Self {
         Self {
             name: name.to_string(),
@@ -35,15 +36,15 @@ impl<Strategy> AggregateCoveragePool<Strategy> {
 }
 impl<Strategy> Pool for AggregateCoveragePool<Strategy> {
     type Stats = EmptyStats;
-
+    #[no_coverage]
     fn len(&self) -> usize {
         1
     }
-
+    #[no_coverage]
     fn stats(&self) -> Self::Stats {
         EmptyStats
     }
-
+    #[no_coverage]
     fn get_random_index(&mut self) -> Option<PoolStorageIndex> {
         if let Some(best) = &self.current_best {
             if !self.current_best_dead_end {
@@ -52,10 +53,11 @@ impl<Strategy> Pool for AggregateCoveragePool<Strategy> {
         }
         None
     }
-
+    #[no_coverage]
     fn mark_test_case_as_dead_end(&mut self, _idx: PoolStorageIndex) {
         self.current_best_dead_end = true;
     }
+    #[no_coverage]
     fn minify(
         &mut self,
         _target_len: usize,
@@ -68,13 +70,13 @@ impl<Strategy> Pool for AggregateCoveragePool<Strategy> {
 impl CompatibleWithIteratorSensor for AggregateCoveragePool<SumCounterValues> {
     type Observation = (usize, u64);
     type ObservationState = u64;
-
+    #[no_coverage]
     fn observe(&mut self, observation: &Self::Observation, _input_complexity: f64, state: &mut Self::ObservationState) {
         *state += observation.1;
     }
-
+    #[no_coverage]
     fn finish_observing(&mut self, _state: &mut Self::ObservationState, _input_complexity: f64) {}
-
+    #[no_coverage]
     fn is_interesting(&self, observation_state: &Self::ObservationState, input_complexity: f64) -> bool {
         if let Some((counter, cur_input)) = &self.current_best {
             if *observation_state > *counter {
@@ -88,7 +90,7 @@ impl CompatibleWithIteratorSensor for AggregateCoveragePool<SumCounterValues> {
             true
         }
     }
-
+    #[no_coverage]
     fn add(
         &mut self,
         input_idx: PoolStorageIndex,
@@ -113,7 +115,7 @@ impl CompatibleWithIteratorSensor for AggregateCoveragePool<SumCounterValues> {
 impl CompatibleWithIteratorSensor for AggregateCoveragePool<CountNumberOfDifferentCounters> {
     type Observation = (usize, u64);
     type ObservationState = u64;
-
+    #[no_coverage]
     fn observe(
         &mut self,
         _observation: &Self::Observation,
@@ -122,9 +124,9 @@ impl CompatibleWithIteratorSensor for AggregateCoveragePool<CountNumberOfDiffere
     ) {
         *state += 1;
     }
-
+    #[no_coverage]
     fn finish_observing(&mut self, _state: &mut Self::ObservationState, _input_complexity: f64) {}
-
+    #[no_coverage]
     fn is_interesting(&self, observation_state: &Self::ObservationState, input_complexity: f64) -> bool {
         if let Some((counter, cur_input)) = &self.current_best {
             if *observation_state > *counter {
@@ -138,7 +140,7 @@ impl CompatibleWithIteratorSensor for AggregateCoveragePool<CountNumberOfDiffere
             true
         }
     }
-
+    #[no_coverage]
     fn add(
         &mut self,
         input_idx: PoolStorageIndex,

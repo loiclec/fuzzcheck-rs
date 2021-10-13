@@ -2,6 +2,8 @@
 
 mod leb128;
 mod llvm_coverage;
+mod serialized;
+
 use crate::traits::Sensor;
 use std::collections::HashMap;
 use std::convert::TryFrom;
@@ -51,7 +53,7 @@ impl CodeCoverageSensor {
 
         let mut coverage = unsafe { Coverage::new(covfun, prf_data, get_counters()) }
             .expect("failed to properly link the different LLVM coverage sections");
-        coverage.drain_filter(|coverage| coverage.single_counters.len() + coverage.expression_counters.len() <= 1);
+        // coverage.drain_filter(|coverage| coverage.single_counters.len() + coverage.expression_counters.len() <= 1);
         Coverage::filter_function_by_files(&mut coverage, exclude, keep);
 
         let mut count_instrumented = 0;

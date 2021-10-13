@@ -466,10 +466,20 @@ impl<T: Clone, M: Mutator<T>> Mutator<Vec<T>> for VecMutator<T, M> {
             )
             .collect::<Vec<_>>();
 
-        let sum_cplx = cplxs.iter().fold(0.0, |sum_cplx, c| sum_cplx + c);
+        let sum_cplx = cplxs.iter().fold(
+            0.0,
+            #[no_coverage]
+            |sum_cplx, c| sum_cplx + c,
+        );
 
         let alias = if !inner_caches.is_empty() {
-            let mut probabilities = cplxs.into_iter().map(|c| 10. + c).collect::<Vec<_>>();
+            let mut probabilities = cplxs
+                .into_iter()
+                .map(
+                    #[no_coverage]
+                    |c| 10. + c,
+                )
+                .collect::<Vec<_>>();
             let sum_prob = probabilities.iter().sum::<f64>();
             probabilities.iter_mut().for_each(
                 #[no_coverage]

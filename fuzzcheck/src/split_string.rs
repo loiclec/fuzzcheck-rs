@@ -41,7 +41,7 @@ pub(crate) enum Token<'a> {
 
 impl<'a> Iterator for Lexer<'a> {
     type Item = (usize, Token<'a>);
-
+    #[no_coverage]
     fn next(&mut self) -> Option<Self::Item> {
         match self.chars.next() {
             Some((idx, chr)) => match chr {
@@ -78,13 +78,14 @@ impl<'a> Iterator for Lexer<'a> {
         }
     }
 }
-
+#[no_coverage]
 fn is_word_character(c: char) -> bool {
     c != '\'' && c != '"' && c != '\\' && !c.is_whitespace()
 }
 /**
 Split an input string into arguments by whitespace such that text between matching quotes is combined into a single argument. Additionally, single character escapes are supported and ignored where applicable. Will panic on invalid inputs.
 */
+#[no_coverage]
 pub fn split_string_by_whitespace(input: &str) -> Vec<&str> {
     let mut lexer = Lexer {
         input,
@@ -134,6 +135,7 @@ pub fn split_string_by_whitespace(input: &str) -> Vec<&str> {
 mod tests {
     use super::split_string_by_whitespace;
     #[test]
+    #[no_coverage]
     fn test1() {
         let s = "hello world";
         println!("{:?}", split_string_by_whitespace(s));

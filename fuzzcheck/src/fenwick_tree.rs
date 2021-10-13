@@ -61,13 +61,17 @@ impl FenwickTree {
     // Find the first item which has a prefix sum *higher* than the chosen weight.
     #[no_coverage]
     pub fn first_index_past_prefix_sum(&self, chosen_weight: f64) -> usize {
-        binary_search(self.len(), |idx| {
-            if self.prefix_sum(idx) <= chosen_weight {
-                Ordering::Less
-            } else {
-                Ordering::Greater
-            }
-        })
+        binary_search(
+            self.len(),
+            #[no_coverage]
+            |idx| {
+                if self.prefix_sum(idx) <= chosen_weight {
+                    Ordering::Less
+                } else {
+                    Ordering::Greater
+                }
+            },
+        )
         .unwrap_err()
     }
 }

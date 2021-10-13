@@ -6,8 +6,8 @@ use crate::sensors_and_pools::sum_coverage_pool::{
     AggregateCoveragePool, CountNumberOfDifferentCounters, SumCounterValues,
 };
 use crate::sensors_and_pools::unique_coverage_pool::UniqueCoveragePool;
-use crate::split_string_by_whitespace;
 use crate::traits::{CompatibleWithSensor, Mutator, Pool, Sensor, Serializer};
+use crate::{split_string_by_whitespace, DefaultMutator, SerdeSerializer};
 
 use fuzzcheck_common::arg::{
     options_parser, COMMAND_FUZZ, COMMAND_MINIFY_CORPUS, COMMAND_MINIFY_INPUT, CORPUS_SIZE_FLAG, INPUT_FILE_FLAG,
@@ -47,6 +47,7 @@ where
     type NormalizedFunction = impl Fn(&T) -> bool;
     #[no_coverage]
     fn test_function(self) -> Self::NormalizedFunction {
+        #[no_coverage]
         move |x| (self)(x.borrow())
     }
 }
@@ -58,6 +59,7 @@ where
     type NormalizedFunction = impl Fn(&T) -> bool;
     #[no_coverage]
     fn test_function(self) -> Self::NormalizedFunction {
+        #[no_coverage]
         move |x| {
             self(x.borrow());
             true
@@ -174,7 +176,6 @@ where
     }
 }
 
-#[cfg(feature = "serde_json_serializer")]
 impl<T, F> FuzzerBuilder1<T, F>
 where
     T: ?Sized + ToOwned + 'static,
@@ -289,6 +290,11 @@ where
     #[no_coverage]
     pub fn default_sensor(self) -> FuzzerBuilder4<F, M, V, CodeCoverageSensor> {
         let sensor = CodeCoverageSensor::observing_only_files_from_current_dir();
+        let coverage_map = sensor.coverage_map();
+        let file = Path::new("coverage_map.json");
+        let contents = serde_json::to_vec_pretty(&coverage_map).unwrap();
+        std::fs::write(file, contents).unwrap();
+
         FuzzerBuilder4 {
             test_function: self.test_function,
             mutator: self.mutator,
@@ -309,12 +315,18 @@ where
     }
 }
 
+#[no_coverage]
 pub fn default_sensor_and_pool() -> (CodeCoverageSensor, impl CompatibleWithSensor<CodeCoverageSensor>) {
     let sensor = CodeCoverageSensor::observing_only_files_from_current_dir();
+    let coverage_map = sensor.coverage_map();
+    let file = Path::new("coverage_map.json");
+    let contents = serde_json::to_vec_pretty(&coverage_map).unwrap();
+    std::fs::write(file, contents).unwrap();
     let pool = defaul_pool_for_code_coverage_sensor(&sensor);
     (sensor, pool)
 }
 
+#[no_coverage]
 fn defaul_pool_for_code_coverage_sensor(sensor: &CodeCoverageSensor) -> impl CompatibleWithSensor<CodeCoverageSensor> {
     let count_instrumented = sensor.count_instrumented;
     let pool = UniqueCoveragePool::new("uniq_cov", count_instrumented);

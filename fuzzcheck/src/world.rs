@@ -25,13 +25,14 @@ use std::time::Instant;
 use std::time::SystemTime;
 
 impl ToCSVFields for FuzzerStats {
+    #[no_coverage]
     fn csv_headers(&self) -> Vec<CSVField> {
         vec![
             CSVField::String("nbr_iter".to_string()),
             CSVField::String("iter/s".to_string()),
         ]
     }
-
+    #[no_coverage]
     fn to_csv_record(&self) -> Vec<CSVField> {
         vec![
             CSVField::Integer(self.total_number_of_runs as isize),
@@ -254,6 +255,7 @@ This should never happen, and is probably a bug in fuzzcheck. Sorry :("#
         self.read_input_corpus_rec(corpus, &mut values)?;
         Ok(values)
     }
+    #[no_coverage]
     fn read_input_corpus_rec(&self, corpus: &Path, values: &mut Vec<Vec<u8>>) -> Result<()> {
         if !corpus.exists() {
             return Ok(());

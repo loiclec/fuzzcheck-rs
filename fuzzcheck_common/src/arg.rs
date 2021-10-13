@@ -179,10 +179,19 @@ impl Arguments {
 
         let max_input_cplx: Option<f64> = matches
             .opt_str(MAX_INPUT_CPLX_FLAG)
-            .and_then(|x| x.parse::<usize>().ok())
-            .map(|x| x as f64);
+            .and_then(
+                #[no_coverage]
+                |x| x.parse::<usize>().ok(),
+            )
+            .map(
+                #[no_coverage]
+                |x| x as f64,
+            );
 
-        let corpus_in: Option<PathBuf> = matches.opt_str(IN_CORPUS_FLAG).and_then(|x| x.parse::<PathBuf>().ok());
+        let corpus_in: Option<PathBuf> = matches.opt_str(IN_CORPUS_FLAG).and_then(
+            #[no_coverage]
+            |x| x.parse::<PathBuf>().ok(),
+        );
 
         let no_in_corpus = if matches.opt_present(NO_IN_CORPUS_FLAG) {
             Some(())
@@ -190,7 +199,10 @@ impl Arguments {
             None
         };
 
-        let corpus_out: Option<PathBuf> = matches.opt_str(OUT_CORPUS_FLAG).and_then(|x| x.parse::<PathBuf>().ok());
+        let corpus_out: Option<PathBuf> = matches.opt_str(OUT_CORPUS_FLAG).and_then(
+            #[no_coverage]
+            |x| x.parse::<PathBuf>().ok(),
+        );
 
         let no_out_corpus = if matches.opt_present(NO_OUT_CORPUS_FLAG) {
             Some(())
@@ -198,7 +210,10 @@ impl Arguments {
             None
         };
 
-        let artifacts_folder: Option<PathBuf> = matches.opt_str(ARTIFACTS_FLAG).and_then(|x| x.parse::<PathBuf>().ok());
+        let artifacts_folder: Option<PathBuf> = matches.opt_str(ARTIFACTS_FLAG).and_then(
+            #[no_coverage]
+            |x| x.parse::<PathBuf>().ok(),
+        );
 
         let no_artifacts = if matches.opt_present(NO_ARTIFACTS_FLAG) {
             Some(())
@@ -214,16 +229,25 @@ impl Arguments {
             None
         };
 
-        let socket_address = matches.opt_str(SOCK_ADDR_FLAG).and_then(|x| {
-            if let Ok(mut addrs) = x.to_socket_addrs() {
-                addrs.next()
-            } else {
-                None
-            }
-        });
+        let socket_address = matches.opt_str(SOCK_ADDR_FLAG).and_then(
+            #[no_coverage]
+            |x| {
+                if let Ok(mut addrs) = x.to_socket_addrs() {
+                    addrs.next()
+                } else {
+                    None
+                }
+            },
+        );
 
-        let input_file: Option<PathBuf> = matches.opt_str(INPUT_FILE_FLAG).and_then(|x| x.parse::<PathBuf>().ok());
-        let corpus_size: Option<usize> = matches.opt_str(CORPUS_SIZE_FLAG).and_then(|x| x.parse::<usize>().ok());
+        let input_file: Option<PathBuf> = matches.opt_str(INPUT_FILE_FLAG).and_then(
+            #[no_coverage]
+            |x| x.parse::<PathBuf>().ok(),
+        );
+        let corpus_size: Option<usize> = matches.opt_str(CORPUS_SIZE_FLAG).and_then(
+            #[no_coverage]
+            |x| x.parse::<usize>().ok(),
+        );
 
         // verify all the right options are here
 
@@ -262,13 +286,19 @@ impl Arguments {
         let maximum_duration = {
             let seconds = matches
                 .opt_str(MAX_DURATION_FLAG)
-                .and_then(|x| x.parse::<u64>().ok())
+                .and_then(
+                    #[no_coverage]
+                    |x| x.parse::<u64>().ok(),
+                )
                 .unwrap_or(u64::MAX);
             Duration::new(seconds, 0)
         };
         let maximum_iterations = matches
             .opt_str(MAX_ITERATIONS_FLAG)
-            .and_then(|x| x.parse::<usize>().ok())
+            .and_then(
+                #[no_coverage]
+                |x| x.parse::<usize>().ok(),
+            )
             .unwrap_or(usize::MAX);
         let stop_after_first_failure = matches.opt_present(STOP_AFTER_FIRST_FAILURE_FLAG);
 
@@ -309,7 +339,7 @@ impl Arguments {
         })
     }
 }
-
+#[no_coverage]
 pub fn help(parser: &Options) -> String {
     let mut help = format!(
         r##"
@@ -391,11 +421,13 @@ pub enum ArgumentsError {
 }
 
 impl Debug for ArgumentsError {
+    #[no_coverage]
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         <Self as Display>::fmt(&self, f)
     }
 }
 impl Display for ArgumentsError {
+    #[no_coverage]
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             ArgumentsError::NoArgumentsGiven(parser) => {
@@ -428,6 +460,7 @@ To display the help, run:
 impl Error for ArgumentsError {}
 
 impl From<Fail> for ArgumentsError {
+    #[no_coverage]
     fn from(e: Fail) -> Self {
         Self::Parsing(e)
     }

@@ -379,7 +379,10 @@ impl UniqueCoveragePool {
             .collect();
         let deleted_pool_storage_indices = deleted_values
             .iter()
-            .map(|key| self.slab_inputs[*key].data)
+            .map(
+                #[no_coverage]
+                |key| self.slab_inputs[*key].data,
+            )
             .collect::<Vec<_>>();
 
         self.delete_elements(to_delete, &mut affected_groups, &mut affected_features, false);
@@ -497,7 +500,10 @@ impl UniqueCoveragePool {
 
         let to_delete_pool_storage = to_delete
             .iter()
-            .map(|key| self.slab_inputs[*key].data)
+            .map(
+                #[no_coverage]
+                |key| self.slab_inputs[*key].data,
+            )
             .collect::<Vec<_>>();
         self.delete_elements(to_delete, &mut affected_groups, &mut affected_features, true);
 
@@ -800,6 +806,7 @@ impl Display for UniqueCoveragePoolStats {
     }
 }
 impl ToCSVFields for UniqueCoveragePoolStats {
+    #[no_coverage]
     fn csv_headers(&self) -> Vec<CSVField> {
         vec![
             CSVField::String(format!("{}-size", self.name)),
@@ -807,7 +814,7 @@ impl ToCSVFields for UniqueCoveragePoolStats {
             CSVField::String(format!("{}-avg-cplx", self.name)),
         ]
     }
-
+    #[no_coverage]
     fn to_csv_record(&self) -> Vec<CSVField> {
         vec![
             CSVField::Integer(self.pool_size as isize),
@@ -872,7 +879,13 @@ impl CompatibleWithIteratorSensor for UniqueCoveragePool {
         observation_state: Self::ObservationState,
     ) -> Vec<CorpusDelta> {
         let result = observation_state.analysis_result;
-        self.add(data, complexity, result).map(|x| x.0).into_iter().collect()
+        self.add(data, complexity, result)
+            .map(
+                #[no_coverage]
+                |x| x.0,
+            )
+            .into_iter()
+            .collect()
     }
 }
 

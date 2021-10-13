@@ -34,6 +34,7 @@ pub enum ReasonForStopping<T> {
 }
 
 impl<T> From<std::io::Error> for ReasonForStopping<T> {
+    #[no_coverage]
     fn from(e: std::io::Error) -> Self {
         Self::IOError(e)
     }
@@ -153,7 +154,10 @@ where
     #[no_coverage]
     unsafe fn set_up_signal_handler(&mut self) {
         let ptr = self as *mut Self;
-        set_signal_handlers(move |sig| (&mut *ptr).receive_signal(sig));
+        set_signal_handlers(
+            #[no_coverage]
+            move |sig| (&mut *ptr).receive_signal(sig),
+        );
     }
 }
 
@@ -229,23 +233,29 @@ where
         // we have verified in the caller function that there is an input
         let input = FuzzerState::<T, M, Sens, P>::get_input(input_idx, pool_storage).unwrap();
 
-        std::panic::set_hook(Box::new(move |panic_info| {
-            let mut hasher = DefaultHasher::new();
-            panic_info.location().hash(&mut hasher);
-            unsafe {
-                TEST_FAILURE = Some(TestFailure {
-                    display: format!("{}", panic_info),
-                    id: hasher.finish(),
-                });
-            }
-        }));
+        std::panic::set_hook(Box::new(
+            #[no_coverage]
+            move |panic_info| {
+                let mut hasher = DefaultHasher::new();
+                panic_info.location().hash(&mut hasher);
+                unsafe {
+                    TEST_FAILURE = Some(TestFailure {
+                        display: format!("{}", panic_info),
+                        id: hasher.finish(),
+                    });
+                }
+            },
+        ));
 
         sensor.start_recording();
         let cell = NotUnwindSafe { value: test };
         let input_cell = NotUnwindSafe {
             value: input.value.borrow(),
         };
-        let result = catch_unwind(|| (cell.value)(input_cell.value));
+        let result = catch_unwind(
+            #[no_coverage]
+            || (cell.value)(input_cell.value),
+        );
         let _ = std::panic::take_hook();
         let test_failure = match result {
             Ok(false) => unsafe {
@@ -278,9 +288,11 @@ where
         let deltas = pool.process(input_id, sensor, cplx);
 
         if !deltas.is_empty() {
-            let add_ref_count = deltas
-                .iter()
-                .fold(0, |acc, delta| if delta.add { acc + 1 } else { acc });
+            let add_ref_count = deltas.iter().fold(
+                0,
+                #[no_coverage]
+                |acc, delta| if delta.add { acc + 1 } else { acc },
+            );
             update_fuzzer_stats(fuzzer_stats, world);
             let event = CorpusDelta::fuzzer_event(&deltas);
             let content = if add_ref_count > 0 {
@@ -361,11 +373,14 @@ where
             .world
             .read_input_corpus()?
             .into_iter()
-            .filter_map(|value| {
-                let value = self.state.serializer.from_data(&value)?;
-                let (cache, mutation_step) = self.state.mutator.validate_value(&value)?;
-                Some(FuzzedInput::new(value, cache, mutation_step, 0))
-            })
+            .filter_map(
+                #[no_coverage]
+                |value| {
+                    let value = self.state.serializer.from_data(&value)?;
+                    let (cache, mutation_step) = self.state.mutator.validate_value(&value)?;
+                    Some(FuzzedInput::new(value, cache, mutation_step, 0))
+                },
+            )
             .collect();
 
         for _ in 0..100 {
@@ -376,7 +391,10 @@ where
             }
         }
 
-        inputs.drain_filter(|i| i.complexity(&self.state.mutator) > self.state.settings.max_input_cplx);
+        inputs.drain_filter(
+            #[no_coverage]
+            |i| i.complexity(&self.state.mutator) > self.state.settings.max_input_cplx,
+        );
         assert!(!inputs.is_empty());
 
         self.state.world.set_checkpoint_instant();
@@ -446,13 +464,17 @@ where
 
         world.report_event(FuzzerEvent::DidReadCorpus, Some((fuzzer_stats, &pool.stats())));
 
-        pool.minify(corpus_size, |corpus_delta, pool_stats| {
-            let deltas = vec![corpus_delta];
-            let event = CorpusDelta::fuzzer_event(&deltas);
-            world.update_corpus(PoolStorageIndex(0), vec![], &deltas, serializer.extension())?;
-            world.report_event(event, Some((fuzzer_stats, &pool_stats)));
-            Ok(())
-        })?;
+        pool.minify(
+            corpus_size,
+            #[no_coverage]
+            |corpus_delta, pool_stats| {
+                let deltas = vec![corpus_delta];
+                let event = CorpusDelta::fuzzer_event(&deltas);
+                world.update_corpus(PoolStorageIndex(0), vec![], &deltas, serializer.extension())?;
+                world.report_event(event, Some((fuzzer_stats, &pool_stats)));
+                Ok(())
+            },
+        )?;
         world.report_event(FuzzerEvent::Done, Some((fuzzer_stats, &pool.stats())));
         Ok(())
     }
@@ -583,7 +605,10 @@ where
                 let input_cell = NotUnwindSafe {
                     value: input.value.borrow(),
                 };
-                let result = catch_unwind(|| (cell.value)(input_cell.value));
+                let result = catch_unwind(
+                    #[no_coverage]
+                    || (cell.value)(input_cell.value),
+                );
 
                 if result.is_err() || !result.unwrap() {
                     world.report_event::<EmptyStats>(FuzzerEvent::TestFailure, None);

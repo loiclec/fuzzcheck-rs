@@ -1,6 +1,5 @@
 extern crate self as fuzzcheck;
 
-#[cfg(feature = "serde_json_serializer")]
 use serde::{Deserialize, Serialize};
 
 use crate::{mutators::map::MapMutator, Mutator};
@@ -8,8 +7,7 @@ use crate::{mutators::map::MapMutator, Mutator};
 use super::ASTMutator;
 
 /// An abstract syntax tree.
-#[cfg_attr(feature = "serde_json_serializer", derive(Serialize, Deserialize))]
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 pub enum AST {
     Token(char),
     Sequence(Vec<AST>),
@@ -20,7 +18,9 @@ impl ASTMutator {
     pub fn with_string(self) -> impl Mutator<(AST, String)> {
         MapMutator::new(
             self,
+            #[no_coverage]
             |x: &(AST, String)| Some(x.0.clone()),
+            #[no_coverage]
             |ast| (ast.clone(), ast.generate_string().0),
         )
     }
