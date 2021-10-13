@@ -134,7 +134,7 @@ impl<T: Clone, M: Mutator<T>> VecMutator<T, M> {
             return None;
         }
         // select disjoint indices here, minimum 2 and maximum 4
-        let nbr_indices = self.rng.usize(2..=cmp::max(2, value.len() - 1));
+        let nbr_indices = self.rng.usize(2..=std::cmp::min(value.len(), 5));
         let mut shuffled_indices: Vec<_> = (0..value.len()).collect();
         self.rng.shuffle(&mut shuffled_indices);
 
@@ -582,27 +582,28 @@ impl<T: Clone, M: Mutator<T>> Mutator<Vec<T>> for VecMutator<T, M> {
         let current_cplx = self.complexity(value, cache);
         let spare_cplx = max_cplx - current_cplx;
 
-        let token = if value.is_empty() || step.alias.is_none() || self.rng.usize(0..10) == 0 {
+        let token = if value.is_empty() || step.alias.is_none() || self.rng.usize(0..5) == 0 {
             // vector mutation
-            let end = if value.is_empty() {
-                5
-            } else if self.dictionary.is_empty() {
-                10
-            } else if value.len() < 2 {
-                15
+            if !self.dictionary.is_empty() && self.rng.usize(..5) == 0 {
+                self.use_dictionary(value, cache, spare_cplx)
             } else {
-                18
-            };
-            match self.rng.usize(0..end) {
-                0..=3 => self.insert_element(value, cache, spare_cplx),
-                4 => self.insert_repeated_elements(value, cache, spare_cplx),
-                5..=8 => self.remove_element(value, cache),
-                9 => self.remove_many_elements(value, cache),
-                10..=14 => self.use_dictionary(value, cache, spare_cplx),
-                15 => self.swap_elements(value, cache),
-                16 => self.mutate_many_elements(value, cache, spare_cplx),
-                17 => self.remove_and_insert_element(value, cache, spare_cplx),
-                _ => unreachable!(),
+                let end = if value.is_empty() {
+                    8
+                } else if value.len() < 2 {
+                    9
+                } else {
+                    20
+                };
+                match self.rng.usize(0..end) {
+                    0..=3 => self.insert_element(value, cache, spare_cplx),
+                    4..=7 => self.insert_repeated_elements(value, cache, spare_cplx),
+                    8 => self.remove_element(value, cache),
+                    9 => self.remove_many_elements(value, cache),
+                    10 => self.swap_elements(value, cache),
+                    11..=18 => self.mutate_many_elements(value, cache, spare_cplx),
+                    19 => self.remove_and_insert_element(value, cache, spare_cplx),
+                    _ => unreachable!(),
+                }
             }
         } else {
             // we know value is not empty, therefore the alias is Some
@@ -656,27 +657,27 @@ impl<T: Clone, M: Mutator<T>> Mutator<Vec<T>> for VecMutator<T, M> {
         let current_cplx = self.complexity(value, cache);
         let spare_cplx = max_cplx - current_cplx;
 
-        if value.is_empty() || self.rng.usize(0..10) == 0 {
-            // vector mutation
-            let end = if value.is_empty() {
-                5
-            } else if self.dictionary.is_empty() {
-                10
-            } else if value.len() < 2 {
-                15
+        if value.is_empty() || self.rng.usize(0..5) == 0 {
+            if !self.dictionary.is_empty() && self.rng.usize(..5) == 0 {
+                self.use_dictionary(value, cache, spare_cplx)
             } else {
-                18
-            };
-            match self.rng.usize(0..end) {
-                0..=3 => self.insert_element(value, cache, spare_cplx),
-                4 => self.insert_repeated_elements(value, cache, spare_cplx),
-                5..=8 => self.remove_element(value, cache),
-                9 => self.remove_many_elements(value, cache),
-                10..=14 => self.use_dictionary(value, cache, spare_cplx),
-                15 => self.swap_elements(value, cache),
-                16 => self.mutate_many_elements(value, cache, spare_cplx),
-                17 => self.remove_and_insert_element(value, cache, spare_cplx),
-                _ => None,
+                let end = if value.is_empty() {
+                    8
+                } else if value.len() < 2 {
+                    9
+                } else {
+                    20
+                };
+                match self.rng.usize(0..end) {
+                    0..=3 => self.insert_element(value, cache, spare_cplx),
+                    4..=7 => self.insert_repeated_elements(value, cache, spare_cplx),
+                    8 => self.remove_element(value, cache),
+                    9 => self.remove_many_elements(value, cache),
+                    10 => self.swap_elements(value, cache),
+                    11..=18 => self.mutate_many_elements(value, cache, spare_cplx),
+                    19 => self.remove_and_insert_element(value, cache, spare_cplx),
+                    _ => unreachable!(),
+                }
             }
             .unwrap_or_else(
                 #[no_coverage]
