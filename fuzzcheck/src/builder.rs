@@ -6,8 +6,8 @@ use crate::sensors_and_pools::sum_coverage_pool::{
     AggregateCoveragePool, CountNumberOfDifferentCounters, SumCounterValues,
 };
 use crate::sensors_and_pools::unique_coverage_pool::UniqueCoveragePool;
+use crate::split_string_by_whitespace;
 use crate::traits::{CompatibleWithSensor, Mutator, Pool, Sensor, Serializer};
-use crate::{split_string_by_whitespace, DefaultMutator, SerdeSerializer};
 
 use fuzzcheck_common::arg::{
     options_parser, COMMAND_FUZZ, COMMAND_MINIFY_CORPUS, COMMAND_MINIFY_INPUT, CORPUS_SIZE_FLAG, INPUT_FILE_FLAG,

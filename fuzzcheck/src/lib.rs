@@ -51,11 +51,6 @@ pub use serializers::ByteSerializer;
 #[doc(inline)]
 pub use serializers::StringSerializer;
 
-#[cfg(feature = "serde_json_alternative_serializer")]
-#[doc(inline)]
-pub use serializers::JsonSerializer;
-
-#[cfg(feature = "serde_json_serializer")]
 #[doc(inline)]
 pub use serializers::SerdeSerializer;
 

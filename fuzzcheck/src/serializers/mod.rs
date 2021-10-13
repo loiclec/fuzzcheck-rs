@@ -9,21 +9,10 @@
 //! copy/pasting the bytes from/to the files. The extension is customizable.
 //!
 
-#[cfg(feature = "serde_json_serializer")]
 mod serde_serializer;
 use std::{marker::PhantomData, str::FromStr};
 
-#[cfg(feature = "serde_json_serializer")]
 pub use serde_serializer::SerdeSerializer;
-
-#[cfg(feature = "serde_json_alternative_serializer")]
-mod json_serializer;
-#[cfg(feature = "serde_json_alternative_serializer")]
-pub use decent_serde_json_alternative;
-#[cfg(feature = "serde_json_alternative_serializer")]
-pub use json;
-#[cfg(feature = "serde_json_alternative_serializer")]
-pub use json_serializer::JsonSerializer;
 
 use crate::Serializer;
 

@@ -14,9 +14,6 @@ categories = ["development-tools"]
 cc = "1"
 
 [features]
-default = ["serde_json_serializer"]
-serde_json_serializer = ["serde", "serde_json"]
-serde_json_alternative_serializer = ["json", "decent-serde-json-alternative"]
 
 [dependencies]
 getopts = "0.2"
@@ -31,11 +28,8 @@ flate2 = { version = "1", default_features = false, features = ["zlib"] }
 
 fuzzcheck_common = { path = "../fuzzcheck_common", version = "0.8.0" }
 
-json = { version = "0.12", optional = true }
-decent-serde-json-alternative  = { version = "0.5.0", optional = true }
-
-serde = { version = "1.0", features = ["derive"], optional = true }
-serde_json = { version = "1.0", optional = true }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = { version = "1.0" }
 
 fuzzcheck_mutators_derive = {path = "../fuzzcheck_mutators_derive", version = "0.8.0" }
 
