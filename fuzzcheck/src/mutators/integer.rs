@@ -12,10 +12,8 @@ use crate::Mutator;
 
     One idea to create arbitrary integers that don't repeat themselves and span the whole search space was
     to use a binary-search-like approach, as written in the function binary_search_arbitrary. However that
-    turns out to be quite slow for an integer mutator. So what I do instead is create a sequence of 256 integers
-    using that approach, which I store in a variable called “shuffled integers”. So shuffled integers is a
-    vector that look something like this:
-        [0, 256, 128, 192, 64, 224, 32, ...]
+    turns out to be quite slow for an integer mutator. So what I do instead is create a sequence of 256
+    random non-repeating integers, which I store in a variable called “shuffled integers”
     Now, for an 8-bit integer type, it is enough to simply index that vector to get an arbitrary value that
     respects all the criteria I laid above. But for types that have 16, 32, 64, or 128 bits, I can't do that.
     So I index the shuffled_integers vector multiple times until I have all the bits I need. For an u32, I need
@@ -85,11 +83,11 @@ macro_rules! impl_int_mutator {
             #[no_coverage]
             fn default() -> Self {
                 let mut shuffled_integers = [0; 256];
-                let rng = fastrand::Rng::default();
-                let xor = rng.u8(..);
-                for (i, x) in shuffled_integers.iter_mut().enumerate() {
-                    *x = binary_search_arbitrary_u8(0, u8::MAX, i as u64) ^ xor;
+                for i in 0..=255_u8 {
+                    shuffled_integers[i as usize] = i;
                 }
+                let rng = fastrand::Rng::default();
+                rng.shuffle(&mut shuffled_integers);
                 $name_mutator {
                     shuffled_integers,
                     rng,
