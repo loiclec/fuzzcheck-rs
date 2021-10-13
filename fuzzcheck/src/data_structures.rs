@@ -9,7 +9,6 @@ use std::fmt::Debug;
 use std::hash::Hash;
 use std::ops::Index;
 use std::ops::IndexMut;
-use std::ops::Range;
 
 // ========= Slab ============
 
@@ -298,48 +297,5 @@ impl<T> RcSlab<T> {
         (0..self.storage.len())
             .into_iter()
             .filter(move |i| !self.available_slots.contains(i))
-    }
-}
-
-// ========== WeightedIndex ===========
-/// Generate a random f64 within the given range
-/// The start and end of the range must be finite
-/// This is a very naive implementation
-#[inline(always)]
-#[no_coverage]
-fn gen_f64(rng: &fastrand::Rng, range: Range<f64>) -> f64 {
-    range.start + rng.f64() * (range.end - range.start)
-}
-
-/**
- * A distribution using weighted sampling to pick a discretely selected item.
- *
- * An alternative implementation of the same type by the `rand` crate.
- */
-#[derive(Debug, Clone)]
-pub struct WeightedIndex<'a> {
-    pub cumulative_weights: &'a Vec<f64>,
-}
-
-impl<'a> WeightedIndex<'a> {
-    #[no_coverage]
-    pub fn sample(&self, rng: &fastrand::Rng) -> usize {
-        assert!(!self.cumulative_weights.is_empty());
-        if self.cumulative_weights.len() == 1 {
-            return 0;
-        }
-
-        let range = 0.0..*self.cumulative_weights.last().unwrap();
-        let chosen_weight = gen_f64(rng, range);
-        // Find the first item which has a weight *higher* than the chosen weight.
-        self.cumulative_weights
-            .binary_search_by(|w| {
-                if *w <= chosen_weight {
-                    Ordering::Less
-                } else {
-                    Ordering::Greater
-                }
-            })
-            .unwrap_err()
     }
 }
