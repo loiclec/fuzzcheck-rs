@@ -440,44 +440,6 @@ where
             }
         }
     }
-
-    /// Reads a corpus of inputs from the [World] and minifies the corpus
-    /// such that only the highest-scoring inputs are kept.
-    ///
-    /// The number of inputs to keep is taken from
-    /// [`self.settings.corpus_size`](FuzzerSettings::corpus_size)
-    #[no_coverage]
-    fn corpus_minifying_loop(&mut self, corpus_size: usize) -> Result<(), ReasonForStopping<T>> {
-        self.state.world.report_event(
-            FuzzerEvent::Start,
-            Some((&self.state.fuzzer_stats, &self.state.pool.stats())),
-        );
-        self.process_initial_inputs()?;
-
-        let FuzzerState {
-            pool,
-            fuzzer_stats,
-            serializer,
-            world,
-            ..
-        } = &mut self.state;
-
-        world.report_event(FuzzerEvent::DidReadCorpus, Some((fuzzer_stats, &pool.stats())));
-
-        pool.minify(
-            corpus_size,
-            #[no_coverage]
-            |corpus_delta, pool_stats| {
-                let deltas = vec![corpus_delta];
-                let event = CorpusDelta::fuzzer_event(&deltas);
-                world.update_corpus(PoolStorageIndex(0), vec![], &deltas, serializer.extension())?;
-                world.report_event(event, Some((fuzzer_stats, &pool_stats)));
-                Ok(())
-            },
-        )?;
-        world.report_event(FuzzerEvent::Done, Some((fuzzer_stats, &pool.stats())));
-        Ok(())
-    }
 }
 
 struct NotUnwindSafe<T> {
@@ -625,21 +587,6 @@ where
                 println!("A value in the input corpus is invalid.");
             }
             Ok(())
-        }
-        FuzzerCommand::MinifyCorpus { corpus_size } => {
-            let mut fuzzer = Fuzzer::new(
-                test,
-                mutator,
-                serializer,
-                sensor,
-                pool,
-                args.clone(),
-                World::new(args.clone())?,
-            );
-            // fuzzer.sensor_and_pool.update
-            unsafe { fuzzer.state.set_up_signal_handler() };
-
-            fuzzer.corpus_minifying_loop(*corpus_size)
         }
     };
 

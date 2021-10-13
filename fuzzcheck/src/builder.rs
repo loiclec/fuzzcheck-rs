@@ -9,10 +9,7 @@ use crate::sensors_and_pools::unique_coverage_pool::UniqueCoveragePool;
 use crate::traits::{CompatibleWithSensor, Mutator, Pool, Sensor, Serializer};
 use crate::{split_string_by_whitespace, DefaultMutator, SerdeSerializer};
 
-use fuzzcheck_common::arg::{
-    options_parser, COMMAND_FUZZ, COMMAND_MINIFY_CORPUS, COMMAND_MINIFY_INPUT, CORPUS_SIZE_FLAG, INPUT_FILE_FLAG,
-    IN_CORPUS_FLAG,
-};
+use fuzzcheck_common::arg::{options_parser, COMMAND_FUZZ, COMMAND_MINIFY_INPUT, INPUT_FILE_FLAG};
 use fuzzcheck_common::arg::{Arguments, FuzzerCommand};
 use std::borrow::Borrow;
 use std::marker::PhantomData;
@@ -416,13 +413,10 @@ fuzzcheck <SUBCOMMAND> [OPTIONS]
 SUBCOMMANDS:
     {fuzz}    Run the fuzz test
     {tmin}    Minify a crashing test input, requires --{input_file}
-    {cmin}    Minify a corpus of test inputs, requires --{in_corpus}
 "#,
             fuzz = COMMAND_FUZZ,
             tmin = COMMAND_MINIFY_INPUT,
             input_file = INPUT_FILE_FLAG,
-            cmin = COMMAND_MINIFY_CORPUS,
-            in_corpus = IN_CORPUS_FLAG,
         );
         help += parser.usage("").as_str();
         help += format!(
@@ -439,20 +433,10 @@ fuzzcheck {tmin} --{input_file} "artifacts/crash.json"
     and name them {{complexity}}-{{hash}}.json. 
     For example, artifacts/crash.minified/4213--8cd7777109b57b8c.json
     is a minified input of complexity 42.13.
-
-fuzzcheck {cmin} --{in_corpus} "fuzz-corpus" --{corpus_size} 25
-
-    Minify the corpus defined by the folder "fuzz-corpus", which should
-    contain JSON-encoded test inputs.
-    It will remove files from that folder until only the 25 most important
-    test inputs remain.
 "#,
             fuzz = COMMAND_FUZZ,
             tmin = COMMAND_MINIFY_INPUT,
             input_file = INPUT_FILE_FLAG,
-            cmin = COMMAND_MINIFY_CORPUS,
-            in_corpus = IN_CORPUS_FLAG,
-            corpus_size = CORPUS_SIZE_FLAG
         )
         .as_str();
 

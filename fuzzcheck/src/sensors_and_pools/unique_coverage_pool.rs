@@ -62,7 +62,6 @@ use crate::{CSVField, ToCSVFields};
 use ahash::{AHashMap, AHashSet};
 use fastrand::Rng;
 use owo_colors::OwoColorize;
-use std::cmp::Ordering;
 use std::fmt::Display;
 use std::hash::Hash;
 use std::ops::Range;
@@ -482,62 +481,6 @@ impl UniqueCoveragePool {
             self.slab_inputs.remove(to_delete_key);
         }
     }
-    #[no_coverage]
-    pub(crate) fn remove_lowest_scoring_input(&mut self) -> Option<(CorpusDelta, <Self as Pool>::Stats)> {
-        let slab = &self.slab_inputs;
-        let pick_key = self
-            .slab_inputs
-            .keys()
-            .min_by(
-                #[no_coverage]
-                |&k1, &k2| slab[k1].score.partial_cmp(&slab[k2].score).unwrap_or(Ordering::Less),
-            )
-            .unwrap();
-        let mut to_delete = AHashSet::with_hasher(ahash::RandomState::with_seeds(0, 0, 0, 0));
-        to_delete.insert(pick_key);
-        let mut affected_groups = AHashSet::with_hasher(ahash::RandomState::with_seeds(0, 0, 0, 0));
-        let mut affected_features = AHashSet::with_hasher(ahash::RandomState::with_seeds(0, 0, 0, 0));
-
-        let to_delete_pool_storage = to_delete
-            .iter()
-            .map(
-                #[no_coverage]
-                |key| self.slab_inputs[*key].data,
-            )
-            .collect::<Vec<_>>();
-        self.delete_elements(to_delete, &mut affected_groups, &mut affected_features, true);
-
-        for group_id in affected_groups {
-            let group = &self.feature_groups[&group_id];
-            for feature_key in &group.features {
-                affected_features.insert(*feature_key);
-            }
-        }
-
-        for feature_key in affected_features.into_iter() {
-            let feature = &mut self.slab_features.get_mut(&feature_key).unwrap();
-            let group = &self.feature_groups[&feature_key.group_id()];
-
-            let old_score = feature.score;
-            feature.score = Self::score_of_feature(group.size(), feature.inputs.len());
-            let change_in_score = feature.score - old_score;
-
-            for &input_key in &feature.inputs {
-                let element_with_feature = &mut self.slab_inputs[input_key];
-                element_with_feature.score += change_in_score;
-            }
-        }
-        self.update_self_stats();
-        let stats = self.stats();
-
-        let delta = CorpusDelta {
-            path: Path::new(&self.name).to_path_buf(),
-            add: false,
-            remove: to_delete_pool_storage,
-        };
-
-        Some((delta, stats))
-    }
 
     #[no_coverage]
     pub fn score_of_feature(group_size: usize, exact_feature_multiplicity: usize) -> f64 {
@@ -727,21 +670,6 @@ impl Pool for UniqueCoveragePool {
             }
         }
         self.update_self_stats()
-    }
-    #[no_coverage]
-    fn minify(
-        &mut self,
-        target_len: usize,
-        mut event_handler: impl FnMut(CorpusDelta, Self::Stats) -> Result<(), std::io::Error>,
-    ) -> Result<(), std::io::Error> {
-        while self.len() > target_len {
-            if let Some((delta, stats)) = self.remove_lowest_scoring_input() {
-                event_handler(delta, stats)?;
-            } else {
-                break;
-            }
-        }
-        Ok(())
     }
 }
 
@@ -990,17 +918,18 @@ mod tests {
                     pool.score()
                 );
             }
-            for _ in 0..pool.len() {
-                let prev_score = pool.score();
-                let _ = pool.remove_lowest_scoring_input();
-                pool.sanity_check();
-                assert!(
-                    (prev_score - pool.score()) > -0.01,
-                    "{:.3} < {:.3}",
-                    prev_score,
-                    pool.score()
-                );
-            }
+            // TODO: restore that
+            // for _ in 0..pool.len() {
+            //     let prev_score = pool.score();
+            //     let _ = pool.remove_lowest_scoring_input();
+            //     pool.sanity_check();
+            //     assert!(
+            //         (prev_score - pool.score()) > -0.01,
+            //         "{:.3} < {:.3}",
+            //         prev_score,
+            //         pool.score()
+            //     );
+            // }
         }
     }
 

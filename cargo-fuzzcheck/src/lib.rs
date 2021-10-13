@@ -119,12 +119,6 @@ pub fn string_from_args(args: &Arguments) -> String {
             s.push_str(" ");
             Some(input_file.clone())
         }
-        FuzzerCommand::MinifyCorpus { corpus_size } => {
-            s.push_str(COMMAND_MINIFY_CORPUS);
-            s.push_str(" ");
-            s.push_str(&format!("--{} {} ", CORPUS_SIZE_FLAG, corpus_size));
-            None
-        }
     };
     if let Some(input_file) = input_file {
         s.push_str(&format!("--{} {} ", INPUT_FILE_FLAG, input_file.display()));

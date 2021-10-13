@@ -38,14 +38,6 @@ impl Pool for UnitPool {
     fn mark_test_case_as_dead_end(&mut self, _idx: PoolStorageIndex) {
         self.dead_end = true
     }
-    #[no_coverage]
-    fn minify(
-        &mut self,
-        _target_len: usize,
-        _event_handler: impl FnMut(CorpusDelta, Self::Stats) -> Result<(), std::io::Error>,
-    ) -> Result<(), std::io::Error> {
-        Ok(())
-    }
 }
 
 impl<S: Sensor> CompatibleWithSensor<S> for UnitPool {

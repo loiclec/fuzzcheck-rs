@@ -57,15 +57,6 @@ impl<Strategy> Pool for AggregateCoveragePool<Strategy> {
     fn mark_test_case_as_dead_end(&mut self, _idx: PoolStorageIndex) {
         self.current_best_dead_end = true;
     }
-    #[no_coverage]
-    fn minify(
-        &mut self,
-        _target_len: usize,
-        _event_handler: impl FnMut(CorpusDelta, Self::Stats) -> Result<(), std::io::Error>,
-    ) -> Result<(), std::io::Error> {
-        // nothing to do
-        Ok(())
-    }
 }
 impl CompatibleWithIteratorSensor for AggregateCoveragePool<SumCounterValues> {
     type Observation = (usize, u64);

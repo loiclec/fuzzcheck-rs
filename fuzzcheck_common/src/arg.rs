@@ -17,7 +17,6 @@ pub const ARTIFACTS_FLAG: &str = "artifacts";
 pub const NO_ARTIFACTS_FLAG: &str = "no-artifacts";
 pub const STATS_FLAG: &str = "stats";
 pub const NO_STATS_FLAG: &str = "no-stats";
-pub const CORPUS_SIZE_FLAG: &str = "corpus-size";
 pub const SOCK_ADDR_FLAG: &str = "socket-address";
 
 pub const MAX_DURATION_FLAG: &str = "max-duration";
@@ -26,7 +25,6 @@ pub const STOP_AFTER_FIRST_FAILURE_FLAG: &str = "stop-after-first-failure";
 
 pub const COMMAND_FUZZ: &str = "fuzz";
 pub const COMMAND_MINIFY_INPUT: &str = "tmin";
-pub const COMMAND_MINIFY_CORPUS: &str = "cmin";
 pub const COMMAND_READ: &str = "read";
 
 #[derive(Clone)]
@@ -45,7 +43,6 @@ pub enum FuzzerCommand {
     Fuzz,
     Read { input_file: PathBuf },
     MinifyInput { input_file: PathBuf },
-    MinifyCorpus { corpus_size: usize },
 }
 impl Default for FuzzerCommand {
     fn default() -> Self {
@@ -125,7 +122,6 @@ pub fn options_parser() -> Options {
         format!("do not save statistics, overrides --{stats}", stats = STATS_FLAG).as_str(),
     );
     options.optopt("", INPUT_FILE_FLAG, "file containing a JSON-encoded input", "PATH");
-    options.optopt("", CORPUS_SIZE_FLAG, "target size of the corpus", "N");
     options.optopt(
         "",
         MAX_INPUT_CPLX_FLAG,
@@ -164,16 +160,12 @@ impl Arguments {
             return Err(ArgumentsError::WantsHelp);
         }
 
-        if !matches!(
-            args[0],
-            COMMAND_FUZZ | COMMAND_READ | COMMAND_MINIFY_INPUT | COMMAND_MINIFY_CORPUS
-        ) {
+        if !matches!(args[0], COMMAND_FUZZ | COMMAND_READ | COMMAND_MINIFY_INPUT) {
             return Err(ArgumentsError::Validation(format!(
-                r#"The command {c} is not supported. It can either be ‘{fuzz}’, ‘{tmin}’, or ‘{cmin}’."#,
+                r#"The command {c} is not supported. It can either be ‘{fuzz}’ or ‘{tmin}’."#,
                 c = args[0],
                 fuzz = COMMAND_FUZZ,
                 tmin = COMMAND_MINIFY_INPUT,
-                cmin = COMMAND_MINIFY_CORPUS
             )));
         }
 
@@ -244,10 +236,6 @@ impl Arguments {
             #[no_coverage]
             |x| x.parse::<PathBuf>().ok(),
         );
-        let corpus_size: Option<usize> = matches.opt_str(CORPUS_SIZE_FLAG).and_then(
-            #[no_coverage]
-            |x| x.parse::<usize>().ok(),
-        );
 
         // verify all the right options are here
 
@@ -266,19 +254,6 @@ impl Arguments {
                     INPUT_FILE_FLAG
                 ));
                 FuzzerCommand::MinifyInput { input_file }
-            }
-            COMMAND_MINIFY_CORPUS => {
-                let corpus_size = corpus_size.expect(&format!(
-                    "A corpus size must be provided when minifying a corpus. Use --{}",
-                    CORPUS_SIZE_FLAG
-                ));
-                if corpus_in.is_none() {
-                    panic!(
-                        "An input corpus must be provided when minifying a corpus. Use --{}",
-                        IN_CORPUS_FLAG
-                    )
-                }
-                FuzzerCommand::MinifyCorpus { corpus_size }
             }
             _ => unreachable!(),
         };
@@ -365,14 +340,10 @@ FUZZ_TEST:
 SUBCOMMANDS:
     {fuzz}    Run the fuzz test
     {tmin}    Minify a crashing test input, requires --{input_file}
-    {cmin}    Minify a corpus of test inputs, requires --{in_corpus} and --{corpus_size}
 "##,
         fuzz = COMMAND_FUZZ,
         tmin = COMMAND_MINIFY_INPUT,
         input_file = INPUT_FILE_FLAG,
-        cmin = COMMAND_MINIFY_CORPUS,
-        in_corpus = IN_CORPUS_FLAG,
-        corpus_size = CORPUS_SIZE_FLAG
     );
     help += parser.usage("").as_str();
     help += format!(
@@ -394,18 +365,10 @@ cargo-fuzzcheck target1 {tmin} --{input_file} "artifacts/crash.json"
     artifacts/crash.minified/ and name them {{complexity}}-{{hash}}.json. 
     For example, artifacts/crash.minified/4213--8cd7777109b57b8c.json
     is a minified input of complexity 42.13.
-
-cargo-fuzzcheck target1 {cmin} --{in_corpus} "fuzz-corpus" --{out_corpus} "minimized_corpus" --{corpus_size} 25
-    Using “target1”, minify the corpus defined by the folder "fuzz-corpus",
-    which should contain JSON-encoded test inputs. The 25 most important
-    inputs from fuzz-corpus will be copied to minimized-corpus.
 "#,
         fuzz = COMMAND_FUZZ,
         tmin = COMMAND_MINIFY_INPUT,
         input_file = INPUT_FILE_FLAG,
-        cmin = COMMAND_MINIFY_CORPUS,
-        in_corpus = IN_CORPUS_FLAG,
-        corpus_size = CORPUS_SIZE_FLAG,
         max_cplx = MAX_INPUT_CPLX_FLAG,
         out_corpus = OUT_CORPUS_FLAG,
     )

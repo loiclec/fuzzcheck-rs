@@ -139,16 +139,6 @@ impl Pool for ArtifactsPool {
             }
         }
     }
-
-    #[no_coverage]
-    fn minify(
-        &mut self,
-        _target_len: usize,
-        _event_handler: impl FnMut(CorpusDelta, Self::Stats) -> Result<(), std::io::Error>,
-    ) -> Result<(), std::io::Error> {
-        // TODO
-        Ok(())
-    }
 }
 impl CompatibleWithSensor<TestFailureSensor> for ArtifactsPool {
     #[no_coverage]

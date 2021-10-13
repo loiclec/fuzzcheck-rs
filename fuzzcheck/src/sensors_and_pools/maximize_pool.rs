@@ -149,15 +149,6 @@ impl Pool for CounterMaximizingPool {
         }
         self.update_stats();
     }
-    #[no_coverage]
-    fn minify(
-        &mut self,
-        _target_len: usize,
-        _event_handler: impl FnMut(CorpusDelta, Self::Stats) -> Result<(), std::io::Error>,
-    ) -> Result<(), std::io::Error> {
-        // TODO: only keep the `target_len` highest-scoring inputs?
-        Ok(())
-    }
 }
 
 impl CounterMaximizingPool {

@@ -101,10 +101,6 @@ fn main() -> Result<(), Box<dyn Error>> {
             let exec = launch_executable(target_name, &args, &cargo_args, &process::Stdio::inherit)?;
             exec.wait_with_output()?;
         }
-        FuzzerCommand::MinifyCorpus { .. } => {
-            let exec = launch_executable(target_name, &args, &cargo_args, &process::Stdio::inherit)?;
-            exec.wait_with_output()?;
-        }
     }
     Ok(())
 }

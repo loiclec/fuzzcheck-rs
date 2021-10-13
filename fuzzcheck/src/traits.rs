@@ -400,12 +400,6 @@ pub trait Pool {
     fn get_random_index(&mut self) -> Option<PoolStorageIndex>;
 
     fn mark_test_case_as_dead_end(&mut self, idx: PoolStorageIndex);
-
-    fn minify(
-        &mut self,
-        target_len: usize,
-        event_handler: impl FnMut(CorpusDelta, Self::Stats) -> Result<(), std::io::Error>,
-    ) -> Result<(), std::io::Error>;
 }
 
 pub trait CompatibleWithSensor<S: Sensor>: Pool {

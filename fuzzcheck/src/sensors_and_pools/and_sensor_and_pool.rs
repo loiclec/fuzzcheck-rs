@@ -75,46 +75,6 @@ where
         self.p1.mark_test_case_as_dead_end(idx);
         self.p2.mark_test_case_as_dead_end(idx);
     }
-    #[no_coverage]
-    fn minify(
-        &mut self,
-        target_len: usize,
-        mut event_handler: impl FnMut(CorpusDelta, Self::Stats) -> Result<(), std::io::Error>,
-    ) -> Result<(), std::io::Error> {
-        {
-            let AndStats { stats2, .. } = self.stats();
-            self.p1.minify(
-                target_len,
-                #[no_coverage]
-                |corpus_delta, stats1| {
-                    event_handler(
-                        corpus_delta,
-                        AndStats {
-                            stats1,
-                            stats2: stats2.clone(),
-                        },
-                    )
-                },
-            )?;
-        }
-        {
-            let AndStats { stats1, .. } = self.stats();
-
-            self.p2.minify(
-                target_len,
-                #[no_coverage]
-                |corpus_delta, stats2| {
-                    event_handler(
-                        corpus_delta,
-                        AndStats {
-                            stats1: stats1.clone(),
-                            stats2,
-                        },
-                    )
-                },
-            )
-        }
-    }
 }
 
 pub struct AndSensor<S1, S2>
