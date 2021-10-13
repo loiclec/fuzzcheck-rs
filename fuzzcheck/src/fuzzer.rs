@@ -526,10 +526,11 @@ where
                     World::new(args.clone())?,
                 );
                 unsafe { fuzzer.state.set_up_signal_handler() };
-                fuzzer
-                    .state
-                    .world
-                    .append_stats_file(&fuzzer.state.pool.stats().csv_headers())?;
+
+                let mut stats_headers = vec![CSVField::String("time".to_string())];
+                stats_headers.extend(fuzzer.state.fuzzer_stats.csv_headers());
+                stats_headers.extend(fuzzer.state.pool.stats().csv_headers());
+                fuzzer.state.world.append_stats_file(&stats_headers)?;
                 fuzzer.main_loop()?
             }
         }

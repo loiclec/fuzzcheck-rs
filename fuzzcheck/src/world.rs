@@ -227,10 +227,10 @@ This should never happen, and is probably a bug in fuzzcheck. Sorry :("#
         }
     }
 
-    #[no_coverage]
-    pub fn set_start_instant(&mut self) {
-        self.initial_instant = Instant::now();
-    }
+    // #[no_coverage]
+    // pub fn set_start_instant(&mut self) {
+    //     self.initial_instant = Instant::now();
+    // }
     #[no_coverage]
     pub fn set_checkpoint_instant(&mut self) {
         self.checkpoint_instant = Instant::now();
