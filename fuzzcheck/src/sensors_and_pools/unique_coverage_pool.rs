@@ -741,7 +741,7 @@ impl Pool for UniqueCoveragePool {
 
 #[inline(always)]
 #[no_coverage]
-fn gen_f64(rng: &fastrand::Rng, range: Range<f64>) -> f64 {
+pub fn gen_f64(rng: &fastrand::Rng, range: Range<f64>) -> f64 {
     range.start + rng.f64() * (range.end - range.start)
 }
 

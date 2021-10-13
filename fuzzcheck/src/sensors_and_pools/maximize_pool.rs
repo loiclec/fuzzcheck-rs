@@ -1,4 +1,5 @@
-use crate::data_structures::{Slab, SlabKey, WeightedIndex};
+use crate::data_structures::{Slab, SlabKey};
+use crate::fenwick_tree::FenwickTree;
 use crate::fuzzer::PoolStorageIndex;
 use crate::sensors_and_pools::compatible_with_iterator_sensor::CompatibleWithIteratorSensor;
 use crate::traits::{CorpusDelta, Pool};
@@ -7,6 +8,8 @@ use ahash::AHashSet;
 use owo_colors::OwoColorize;
 use std::fmt::{Debug, Display};
 use std::path::Path;
+
+use super::unique_coverage_pool::gen_f64;
 
 #[derive(Clone)]
 pub struct Stats {
@@ -47,6 +50,7 @@ pub struct Input {
     cplx: f64,
     idx: PoolStorageIndex,
     score: f64,
+    number_times_chosen: usize,
 }
 
 pub struct CounterMaximizingPool {
@@ -56,7 +60,8 @@ pub struct CounterMaximizingPool {
     inputs: Slab<Input>,
     best_input_for_counter: Vec<Option<SlabKey<Input>>>,
     // also use a fenwick tree here?
-    cumulative_score_inputs: Vec<f64>,
+    // cumulative_score_inputs: Vec<f64>,
+    ranked_inputs: FenwickTree,
     stats: Stats,
     rng: fastrand::Rng,
 }
@@ -68,7 +73,7 @@ impl Debug for CounterMaximizingPool {
             .field("highest_counts", &self.highest_counts)
             .field("inputs", &self.inputs)
             .field("best_input_for_counter", &self.best_input_for_counter)
-            .field("cumulative_score_inputs", &self.cumulative_score_inputs)
+            // .field("cumulative_score_inputs", &self.cumulative_score_inputs)
             .finish()
     }
 }
@@ -82,7 +87,7 @@ impl CounterMaximizingPool {
             highest_counts: vec![0; size],
             inputs: Slab::new(),
             best_input_for_counter: vec![None; size],
-            cumulative_score_inputs: vec![],
+            ranked_inputs: FenwickTree::new(vec![]),
             stats: Stats {
                 name: name.to_string(),
                 size: 0,
@@ -108,16 +113,28 @@ impl Pool for CounterMaximizingPool {
 
     #[no_coverage]
     fn get_random_index(&mut self) -> Option<PoolStorageIndex> {
-        if self.cumulative_score_inputs.last().unwrap_or(&0.0) > &0.0 {
-            let weighted_index = WeightedIndex {
-                cumulative_weights: &self.cumulative_score_inputs,
-            };
-            let index = weighted_index.sample(&self.rng);
-            let key = self.inputs.get_nth_key(index);
-            Some(self.inputs[key].idx)
-        } else {
-            None
+        if self.ranked_inputs.len() == 0 {
+            return None;
         }
+        let most = self.ranked_inputs.prefix_sum(self.ranked_inputs.len() - 1);
+        if most <= 0.0 {
+            return None;
+        }
+        let chosen_weight = gen_f64(&self.rng, 0.0..most);
+
+        // Find the first item which has a weight *higher* than the chosen weight.
+        let choice = self.ranked_inputs.first_index_past_prefix_sum(chosen_weight);
+
+        let key = self.inputs.get_nth_key(choice);
+
+        let input = &mut self.inputs[key];
+        let old_rank = input.score / (input.number_times_chosen as f64);
+        input.number_times_chosen += 1;
+        let new_rank = input.score / (input.number_times_chosen as f64);
+
+        let delta = new_rank - old_rank;
+        self.ranked_inputs.update(choice, delta);
+        Some(input.idx)
     }
 
     #[no_coverage]
@@ -140,26 +157,24 @@ impl Pool for CounterMaximizingPool {
         Ok(())
     }
 }
+
 impl CounterMaximizingPool {
     #[no_coverage]
     fn update_stats(&mut self) {
         let inputs = &self.inputs;
-        self.cumulative_score_inputs = self
+        let ranked_inputs = self
             .inputs
             .keys()
             .map(
                 #[no_coverage]
-                |key| &inputs[key],
-            )
-            .scan(
-                0.0,
-                #[no_coverage]
-                |state, x| {
-                    *state += x.score;
-                    Some(*state)
+                |key| {
+                    let input = &inputs[key];
+                    input.score / (input.number_times_chosen as f64)
                 },
             )
             .collect();
+        self.ranked_inputs = FenwickTree::new(ranked_inputs);
+
         self.stats.size = self.inputs.len();
         self.stats.total_counts = self.highest_counts.iter().sum();
     }
@@ -211,6 +226,7 @@ impl CompatibleWithIteratorSensor for CounterMaximizingPool {
             cplx,
             idx: input_idx,
             score: highest_for_counters.len() as f64,
+            number_times_chosen: 1,
         };
         let input_key = self.inputs.insert(input);
 
