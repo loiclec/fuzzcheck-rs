@@ -70,6 +70,7 @@ impl<C> Default for VecMutatorCache<C> {
 
 pub enum UnmutateVecToken<T: Clone, M: Mutator<T>> {
     Element(usize, M::UnmutateToken),
+    Elements(Vec<(usize, M::UnmutateToken)>),
     Replace(Vec<T>),
 }
 
@@ -77,6 +78,31 @@ impl<T: Clone, M: Mutator<T>> FixedLenVecMutator<T, M> {
     #[no_coverage]
     fn len(&self) -> usize {
         self.mutators.len()
+    }
+    #[no_coverage]
+    fn mutate_elements(
+        &self,
+        value: &mut Vec<T>,
+        cache: &mut VecMutatorCache<M::Cache>,
+        idcs: &[usize],
+        current_cplx: f64,
+        max_cplx: f64,
+    ) -> (UnmutateVecToken<T, M>, f64) {
+        let mut cplx = current_cplx;
+        let mut tokens = vec![];
+        for &idx in idcs {
+            let spare_cplx = max_cplx - cplx;
+            let mutator = &self.mutators[idx];
+            let el = &mut value[idx];
+            let el_cache = &mut cache.inner[idx];
+
+            let old_cplx = mutator.complexity(el, el_cache);
+
+            let (token, new_cplx) = mutator.random_mutate(el, el_cache, spare_cplx + old_cplx);
+            tokens.push((idx, token));
+            cplx = cplx - old_cplx + new_cplx;
+        }
+        (UnmutateVecToken::Elements(tokens), cplx)
     }
     #[no_coverage]
     fn mutate_element(
@@ -237,14 +263,21 @@ impl<T: Clone, M: Mutator<T>> Mutator<Vec<T>> for FixedLenVecMutator<T, M> {
         }
         let current_cplx = self.complexity(value, cache);
         let spare_cplx = max_cplx - current_cplx;
-
-        let idx = step.element_step % value.len();
-        step.element_step += 1;
-        self.mutate_element(value, cache, step, idx, current_cplx, spare_cplx)
-            .or_else(
-                #[no_coverage]
-                || Some(self.random_mutate(value, cache, max_cplx)),
-            )
+        if value.len() > 1 && self.rng.usize(..2) == 0 {
+            let mut idcs = (0..value.len()).collect::<Vec<_>>();
+            self.rng.shuffle(&mut idcs);
+            let count = self.rng.usize(2..=value.len());
+            let idcs = &idcs[..count];
+            Some(self.mutate_elements(value, cache, idcs, current_cplx, max_cplx))
+        } else {
+            let idx = step.element_step % value.len();
+            step.element_step += 1;
+            self.mutate_element(value, cache, step, idx, current_cplx, spare_cplx)
+                .or_else(
+                    #[no_coverage]
+                    || Some(self.random_mutate(value, cache, max_cplx)),
+                )
+        }
     }
 
     #[no_coverage]
@@ -264,6 +297,13 @@ impl<T: Clone, M: Mutator<T>> Mutator<Vec<T>> for FixedLenVecMutator<T, M> {
             return (UnmutateVecToken::Replace(v), cplx);
         }
         let current_cplx = self.complexity(value, cache);
+        if value.len() > 1 && self.rng.usize(..2) == 0 {
+            let mut idcs = (0..value.len()).collect::<Vec<_>>();
+            self.rng.shuffle(&mut idcs);
+            let count = self.rng.usize(2..=value.len());
+            let idcs = &idcs[..count];
+            return self.mutate_elements(value, cache, idcs, current_cplx, max_cplx);
+        }
         let spare_cplx = max_cplx - current_cplx;
 
         let idx = self.rng.usize(0..value.len());
@@ -285,6 +325,12 @@ impl<T: Clone, M: Mutator<T>> Mutator<Vec<T>> for FixedLenVecMutator<T, M> {
             UnmutateVecToken::Element(idx, inner_t) => {
                 let el = &mut value[idx];
                 self.mutators[idx].unmutate(el, &mut cache.inner[idx], inner_t);
+            }
+            UnmutateVecToken::Elements(tokens) => {
+                for (idx, token) in tokens {
+                    let el = &mut value[idx];
+                    self.mutators[idx].unmutate(el, &mut cache.inner[idx], token);
+                }
             }
             UnmutateVecToken::Replace(new_value) => {
                 let _ = std::mem::replace(value, new_value);

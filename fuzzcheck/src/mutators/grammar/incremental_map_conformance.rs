@@ -423,6 +423,19 @@ where
                 }
                 *self.len = self.len.wrapping_add(diff_len);
             }
+            fixed_len_vector::UnmutateVecToken::Elements(tokens) => {
+                for (idx, t) in tokens {
+                    let v = &from_value[*idx];
+                    let child = &mut self.children[*idx];
+                    let old_len = child.len;
+                    child.mutate_value_from_token(v, to_value, t);
+                    let diff_len = child.len.wrapping_sub(old_len);
+                    for child in &mut self.children[idx + 1..] {
+                        child.start_index = child.start_index.wrapping_add(diff_len);
+                    }
+                    *self.len = self.len.wrapping_add(diff_len);
+                }
+            }
             fixed_len_vector::UnmutateVecToken::Replace(_) => {
                 let mut start_index = *self.start_index;
                 let original_start_idx = start_index;
@@ -450,6 +463,18 @@ where
                     child.start_index = child.start_index.wrapping_add(diff_len);
                 }
                 *self.len = self.len.wrapping_add(diff_len);
+            }
+            fixed_len_vector::UnmutateVecToken::Elements(tokens) => {
+                for (idx, t) in tokens {
+                    let child = &mut self.children[*idx];
+                    let old_len = child.len;
+                    child.unmutate_value_from_token(to_value, t);
+                    let diff_len = child.len.wrapping_sub(old_len);
+                    for child in &mut self.children[idx + 1..] {
+                        child.start_index = child.start_index.wrapping_add(diff_len);
+                    }
+                    *self.len = self.len.wrapping_add(diff_len);
+                }
             }
             fixed_len_vector::UnmutateVecToken::Replace(x) => {
                 let mut start_index = *self.start_index;
