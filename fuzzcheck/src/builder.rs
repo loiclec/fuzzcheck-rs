@@ -287,10 +287,6 @@ where
     #[no_coverage]
     pub fn default_sensor(self) -> FuzzerBuilder4<F, M, V, CodeCoverageSensor> {
         let sensor = CodeCoverageSensor::observing_only_files_from_current_dir();
-        let coverage_map = sensor.coverage_map();
-        let file = Path::new("coverage_map.json");
-        let contents = serde_json::to_vec_pretty(&coverage_map).unwrap();
-        std::fs::write(file, contents).unwrap();
 
         FuzzerBuilder4 {
             test_function: self.test_function,

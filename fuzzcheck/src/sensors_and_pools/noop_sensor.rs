@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use crate::traits::Sensor;
 
 pub struct NoopSensor;
@@ -11,4 +13,9 @@ impl Sensor for NoopSensor {
 
     #[no_coverage]
     fn iterate_over_observations(&mut self, _handler: Self::ObservationHandler<'_>) {}
+
+    #[no_coverage]
+    fn serialized(&self) -> Vec<(PathBuf, Vec<u8>)> {
+        vec![]
+    }
 }

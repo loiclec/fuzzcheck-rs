@@ -247,10 +247,9 @@ fn read_mapping_regions(
     assert!(!covfun.is_empty());
 
     let mut result = Vec::new();
-
     for &filename_index in filename_indices {
         let num_regions = read_leb_usize(covfun, idx);
-        let mut prev_line_end = 0;
+        let mut prev_line_start = 0;
         for _ in 0..num_regions {
             let raw_header = read_leb_usize(covfun, idx);
             let header = read_counter(raw_header); //read_leb_usize(covfun, idx)); // counter or pseudo-counter
@@ -263,9 +262,9 @@ fn read_mapping_regions(
             let num_lines = read_leb_usize(covfun, idx);
             let col_end = read_leb_usize(covfun, idx);
 
-            let line_start = prev_line_end + delta_line_start;
+            let line_start = prev_line_start + delta_line_start;
             let line_end = line_start + num_lines;
-            prev_line_end = line_end;
+            prev_line_start = line_start;
             let file_region = MappingRegion {
                 filename_index,
                 line_start,
@@ -447,12 +446,14 @@ pub fn process_function_records(
 ) -> Vec<FunctionRecord> {
     let mut all_expressions = Vec::new();
     for function_counters in records {
-        let mut expressions = HashMap::<ExpandedExpression, MappingRegion>::new();
+        let mut expressions = vec![];
+        // let mut expressions = HashMap::<ExpandedExpression, MappingRegion>::new();
         for (raw_counter, mapping_region) in function_counters.counters_list.iter() {
             let mut expanded = ExpandedExpression::default();
             expanded.push_counter(raw_counter, Sign::Positive, &function_counters);
             expanded.sort(); // sort them so that their hash is the same if they are equal
-            expressions.insert(expanded, mapping_region.clone());
+                             // expressions.insert(expanded, mapping_region.clone());
+            expressions.push((expanded, mapping_region.clone()));
         }
         let name_function = (&prf_names[&function_counters.header.id.name_md5]).clone();
 
@@ -736,12 +737,12 @@ impl OptimisedExpandedExpression {
 impl ExpandedExpression {
     #[no_coverage]
     fn optimized(&self, counters: &[u64]) -> OptimisedExpandedExpression {
-        assert!(
-            self.add_terms.len() > 1 || !self.sub_terms.is_empty(),
-            "{} {}",
-            self.add_terms.len(),
-            self.sub_terms.len()
-        );
+        // assert!(
+        //     self.add_terms.len() > 1 || !self.sub_terms.is_empty(),
+        //     "{} {}",
+        //     self.add_terms.len(),
+        //     self.sub_terms.len()
+        // );
         let mut add_terms = Vec::new();
         let mut sub_terms = Vec::new();
         for &add_term in &self.add_terms {
@@ -815,15 +816,12 @@ impl Coverage {
                             );
                         }
                     }
-                    // let nbr_expressions = expression_counters.len();
-                    single_counters.sort();
                     Ok(Coverage {
                         function_record: f_r.clone(),
                         start_counters: slice.as_mut_ptr(),
                         counters_len: slice.len(),
                         single_counters,
                         expression_counters,
-                        // computed_expressions: Vec::with_capacity(nbr_expressions),
                     })
                 },
             )

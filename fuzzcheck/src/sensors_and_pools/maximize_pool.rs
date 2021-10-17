@@ -149,6 +149,11 @@ impl Pool for CounterMaximizingPool {
         }
         self.update_stats();
     }
+
+    #[no_coverage]
+    fn serialized(&self) -> Vec<(std::path::PathBuf, Vec<u8>)> {
+        vec![]
+    }
 }
 
 impl CounterMaximizingPool {

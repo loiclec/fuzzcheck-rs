@@ -1,4 +1,4 @@
-use std::fmt::Display;
+use std::{fmt::Display, path::PathBuf};
 
 use crate::{
     fuzzer::PoolStorageIndex,
@@ -75,6 +75,12 @@ where
         self.p1.mark_test_case_as_dead_end(idx);
         self.p2.mark_test_case_as_dead_end(idx);
     }
+    #[no_coverage]
+    fn serialized(&self) -> Vec<(std::path::PathBuf, Vec<u8>)> {
+        let mut x = self.p1.serialized();
+        x.extend(self.p2.serialized());
+        x
+    }
 }
 
 pub struct AndSensor<S1, S2>
@@ -106,6 +112,13 @@ where
     fn iterate_over_observations(&mut self, handler: Self::ObservationHandler<'_>) {
         self.s1.iterate_over_observations(handler.0);
         self.s2.iterate_over_observations(handler.1);
+    }
+
+    #[no_coverage]
+    fn serialized(&self) -> Vec<(PathBuf, Vec<u8>)> {
+        let mut x = self.s1.serialized();
+        x.extend(self.s2.serialized());
+        x
     }
 }
 

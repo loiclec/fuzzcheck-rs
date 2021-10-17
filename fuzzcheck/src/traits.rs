@@ -356,6 +356,8 @@ pub trait Sensor {
     fn stop_recording(&mut self);
 
     fn iterate_over_observations(&mut self, handler: Self::ObservationHandler<'_>);
+
+    fn serialized(&self) -> Vec<(PathBuf, Vec<u8>)>;
 }
 
 pub enum CSVField {
@@ -400,6 +402,8 @@ pub trait Pool {
     fn get_random_index(&mut self) -> Option<PoolStorageIndex>;
 
     fn mark_test_case_as_dead_end(&mut self, idx: PoolStorageIndex);
+
+    fn serialized(&self) -> Vec<(PathBuf, Vec<u8>)>;
 }
 
 pub trait CompatibleWithSensor<S: Sensor>: Pool {

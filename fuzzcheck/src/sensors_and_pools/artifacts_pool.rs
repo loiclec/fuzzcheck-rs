@@ -41,6 +41,11 @@ impl Sensor for TestFailureSensor {
     fn iterate_over_observations(&mut self, handler: Self::ObservationHandler<'_>) {
         *handler = std::mem::take(&mut self.error);
     }
+
+    #[no_coverage]
+    fn serialized(&self) -> Vec<(PathBuf, Vec<u8>)> {
+        vec![]
+    }
 }
 
 #[derive(Clone, Copy)]
@@ -138,6 +143,11 @@ impl Pool for ArtifactsPool {
                 }
             }
         }
+    }
+
+    #[no_coverage]
+    fn serialized(&self) -> Vec<(PathBuf, Vec<u8>)> {
+        vec![]
     }
 }
 impl CompatibleWithSensor<TestFailureSensor> for ArtifactsPool {

@@ -1,8 +1,9 @@
-use std::{marker::PhantomData, path::PathBuf};
+use std::{fmt::Display, marker::PhantomData, path::PathBuf};
 
 use crate::{
     fuzzer::PoolStorageIndex,
     traits::{CorpusDelta, EmptyStats, Pool},
+    CSVField, ToCSVFields,
 };
 
 use super::compatible_with_iterator_sensor::CompatibleWithIteratorSensor;
@@ -23,6 +24,25 @@ pub struct AggregateCoveragePool<Strategy> {
     current_best_dead_end: bool,
     _phantom: PhantomData<Strategy>,
 }
+#[derive(Clone)]
+pub struct Stats {
+    name: String,
+    best: u64,
+}
+impl Display for Stats {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}({})", self.name, self.best)
+    }
+}
+impl ToCSVFields for Stats {
+    fn csv_headers(&self) -> Vec<CSVField> {
+        vec![CSVField::String(self.name.clone())]
+    }
+
+    fn to_csv_record(&self) -> Vec<CSVField> {
+        vec![CSVField::Integer(self.best as isize)]
+    }
+}
 impl<Strategy> AggregateCoveragePool<Strategy> {
     #[no_coverage]
     pub fn new(name: &str) -> Self {
@@ -35,14 +55,17 @@ impl<Strategy> AggregateCoveragePool<Strategy> {
     }
 }
 impl<Strategy> Pool for AggregateCoveragePool<Strategy> {
-    type Stats = EmptyStats;
+    type Stats = Stats;
     #[no_coverage]
     fn len(&self) -> usize {
         1
     }
     #[no_coverage]
     fn stats(&self) -> Self::Stats {
-        EmptyStats
+        Stats {
+            name: self.name.clone(),
+            best: self.current_best.as_ref().map(|z| z.0).unwrap_or(0),
+        }
     }
     #[no_coverage]
     fn get_random_index(&mut self) -> Option<PoolStorageIndex> {
@@ -56,6 +79,11 @@ impl<Strategy> Pool for AggregateCoveragePool<Strategy> {
     #[no_coverage]
     fn mark_test_case_as_dead_end(&mut self, _idx: PoolStorageIndex) {
         self.current_best_dead_end = true;
+    }
+
+    #[no_coverage]
+    fn serialized(&self) -> Vec<(PathBuf, Vec<u8>)> {
+        vec![]
     }
 }
 impl CompatibleWithIteratorSensor for AggregateCoveragePool<SumCounterValues> {

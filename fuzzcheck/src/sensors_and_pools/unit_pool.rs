@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use crate::fuzzer::PoolStorageIndex;
 use crate::traits::{CompatibleWithSensor, CorpusDelta, EmptyStats, Pool, Sensor};
 
@@ -37,6 +39,11 @@ impl Pool for UnitPool {
     #[no_coverage]
     fn mark_test_case_as_dead_end(&mut self, _idx: PoolStorageIndex) {
         self.dead_end = true
+    }
+
+    #[no_coverage]
+    fn serialized(&self) -> Vec<(PathBuf, Vec<u8>)> {
+        vec![]
     }
 }
 

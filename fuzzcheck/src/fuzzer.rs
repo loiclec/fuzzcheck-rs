@@ -40,7 +40,7 @@ impl<T> From<std::io::Error> for ReasonForStopping<T> {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub struct PoolStorageIndex(usize);
 
 #[cfg(test)]
@@ -473,7 +473,7 @@ where
     P: Pool + CompatibleWithSensor<Sens> + 'static,
 {
     let command = &args.command;
-    let result = match command {
+    let reason_for_stopping = match command {
         FuzzerCommand::Fuzz => {
             if !args.stop_after_first_failure {
                 let test_failure = TestFailureSensor::default();
@@ -498,7 +498,15 @@ where
                 stats_headers.extend(fuzzer.state.pool.stats().csv_headers());
                 fuzzer.state.world.append_stats_file(&stats_headers)?;
                 unsafe { fuzzer.state.set_up_signal_handler() };
-                fuzzer.main_loop()?
+
+                let reason_for_stopping = fuzzer.main_loop().unwrap_err();
+                if !matches!(reason_for_stopping, ReasonForStopping::IOError(_)) {
+                    let mut contents = fuzzer.state.pool.serialized();
+                    contents.extend(fuzzer.state.sensor.serialized());
+                    contents.extend(fuzzer.state.world.serialized());
+                    fuzzer.state.world.write_stats_content(contents)?;
+                }
+                reason_for_stopping
             } else {
                 let mut fuzzer = Fuzzer::new(
                     test,
@@ -515,7 +523,14 @@ where
                 stats_headers.extend(fuzzer.state.fuzzer_stats.csv_headers());
                 stats_headers.extend(fuzzer.state.pool.stats().csv_headers());
                 fuzzer.state.world.append_stats_file(&stats_headers)?;
-                fuzzer.main_loop()?
+                let reason_for_stopping = fuzzer.main_loop().unwrap_err();
+                if !matches!(reason_for_stopping, ReasonForStopping::IOError(_)) {
+                    let mut contents = fuzzer.state.pool.serialized();
+                    contents.extend(fuzzer.state.sensor.serialized());
+                    contents.extend(fuzzer.state.world.serialized());
+                    fuzzer.state.world.write_stats_content(contents)?;
+                }
+                reason_for_stopping
             }
         }
         FuzzerCommand::MinifyInput { input_file } => {
@@ -543,12 +558,11 @@ where
 
                 unsafe { fuzzer.state.set_up_signal_handler() };
 
-                fuzzer.main_loop()?
+                fuzzer.main_loop().unwrap_err()
             } else {
                 // TODO: send a better error message saying some inputs in the corpus cannot be read
                 // TODO: there should be an option to ignore invalid values
-                println!("A value in the input corpus is invalid.");
-                Ok(())
+                panic!("A value in the input corpus is invalid.");
             }
         }
         FuzzerCommand::Read { input_file } => {
@@ -581,16 +595,16 @@ where
                     // which checks that a crash happens by looking at the exit code
                     // so we don't want to handle any error
                     exit(TerminationStatus::TestFailure as i32);
+                } else {
+                    exit(TerminationStatus::Success as i32);
                 }
             } else {
                 // TODO: send a better error message saying some inputs in the corpus cannot be read
-                println!("A value in the input corpus is invalid.");
+                panic!("A value in the input corpus is invalid.");
             }
-            Ok(())
         }
     };
-
     let _ = std::panic::take_hook();
 
-    result
+    Err(reason_for_stopping)
 }

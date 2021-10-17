@@ -48,21 +48,23 @@ pub struct World {
     /// keeps track of the hash of each input in the corpus, indexed by the Pool key
     pub corpus: HashMap<(PathBuf, PoolStorageIndex), String>,
     pub stats: Option<RefCell<File>>,
+    pub stats_folder: Option<PathBuf>,
 }
 
 impl World {
     #[no_coverage]
     pub fn new(settings: Arguments) -> Result<Self> {
-        let stats = if let Some(stats_folder) = &settings.stats_folder {
+        let (stats, stats_folder) = if let Some(stats_folder) = &settings.stats_folder {
             let now = SystemTime::now();
             let duration_since_epoch = now.duration_since(SystemTime::UNIX_EPOCH).unwrap();
             let name = format!("{}", duration_since_epoch.as_millis());
-            std::fs::create_dir_all(stats_folder)?;
-            let path = stats_folder.join(name).with_extension("csv");
+            let stats_folder = stats_folder.join(name);
+            std::fs::create_dir_all(&stats_folder)?;
+            let path = stats_folder.join("events").with_extension("csv");
             let file = OpenOptions::new().create_new(true).append(true).open(path)?;
-            Some(RefCell::new(file))
+            (Some(RefCell::new(file)), Some(stats_folder))
         } else {
-            None
+            (None, None)
         };
         Ok(Self {
             settings,
@@ -70,6 +72,7 @@ impl World {
             checkpoint_instant: std::time::Instant::now(),
             corpus: HashMap::new(),
             stats,
+            stats_folder,
         })
     }
 
@@ -318,5 +321,22 @@ This should never happen, and is probably a bug in fuzzcheck. Sorry :("#
     pub fn stop(&mut self) -> ! {
         self.report_event::<EmptyStats>(FuzzerEvent::Stop, None);
         std::process::exit(TerminationStatus::Success as i32);
+    }
+
+    #[no_coverage]
+    pub fn write_stats_content(&self, contents: Vec<(PathBuf, Vec<u8>)>) -> Result<()> {
+        if let Some(stats_folder) = &self.stats_folder {
+            for (path, content) in contents {
+                let path = stats_folder.join(path);
+                fs::write(path, &content)?;
+            }
+        }
+        Ok(())
+    }
+
+    #[no_coverage]
+    pub fn serialized(&self) -> Vec<(PathBuf, Vec<u8>)> {
+        let content = serde_json::to_vec(&self.corpus.iter().collect::<Vec<_>>()).unwrap();
+        vec![(PathBuf::new().join("world.json"), content)]
     }
 }

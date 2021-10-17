@@ -5,9 +5,9 @@ mod llvm_coverage;
 mod serialized;
 
 use crate::traits::Sensor;
-use std::collections::HashMap;
 use std::convert::TryFrom;
 use std::path::Path;
+use std::{collections::HashMap, path::PathBuf};
 
 use self::llvm_coverage::{get_counters, get_prf_data, read_covmap, Coverage, LLVMCovSections};
 
@@ -118,5 +118,12 @@ impl Sensor for CodeCoverageSensor {
                 }
             }
         }
+    }
+
+    #[no_coverage]
+    fn serialized(&self) -> Vec<(PathBuf, Vec<u8>)> {
+        let coverage_map = self.coverage_map();
+        let content = serde_json::to_vec(&coverage_map).unwrap();
+        vec![(PathBuf::new().join("coverage_sensor.json"), content)]
     }
 }

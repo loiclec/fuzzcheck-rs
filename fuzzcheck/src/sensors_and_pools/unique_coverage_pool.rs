@@ -62,10 +62,12 @@ use crate::{CSVField, ToCSVFields};
 use ahash::{AHashMap, AHashSet};
 use fastrand::Rng;
 use owo_colors::OwoColorize;
+use serde_json::{Number, Value};
+use std::cmp::Ordering;
 use std::fmt::Display;
 use std::hash::Hash;
 use std::ops::Range;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 /**
  * A unit of code coverage.
@@ -625,7 +627,7 @@ impl Pool for UniqueCoveragePool {
             score: self.score(),
             pool_size: self.slab_inputs.len(),
             avg_cplx: self.average_complexity,
-            percent_coverage: self.feature_groups.len() as f64 / (self.features.len() as f64),
+            coverage: (self.feature_groups.len(), self.features.len()),
         }
     }
 
@@ -671,6 +673,71 @@ impl Pool for UniqueCoveragePool {
         }
         self.update_self_stats()
     }
+
+    #[no_coverage]
+    fn serialized(&self) -> Vec<(PathBuf, Vec<u8>)> {
+        let path = PathBuf::new().join(format!("{}.json", &self.name));
+
+        let all_hit_counters = self
+            .features
+            .iter()
+            .enumerate()
+            .filter(|(_, x)| x.least_complexity.is_some())
+            .map(|(idx, _)| idx)
+            .collect::<Vec<_>>();
+
+        let best_for_counter = self
+            .features
+            .iter()
+            .enumerate()
+            .filter(|(_, x)| x.least_complexity.is_some())
+            .map(|(idx, _)| {
+                let f = &self.slab_features[&FeatureIdx::new(idx)];
+                let key = f.least_complex_input;
+                let input = &self.slab_inputs[key].data;
+                (idx, *input)
+            })
+            .collect::<Vec<_>>();
+
+        let mut ranked_inputs = self
+            .slab_inputs
+            .keys()
+            .map(|key| {
+                let input = &self.slab_inputs[key];
+                (input.data, input.score)
+            })
+            .collect::<Vec<_>>();
+        ranked_inputs.sort_by(|x, y| x.1.partial_cmp(&y.1).unwrap_or(Ordering::Equal));
+        let ranked_inputs = ranked_inputs.into_iter().map(|x| x.0).collect();
+
+        let counters_for_input = self
+            .slab_inputs
+            .keys()
+            .map(|key| {
+                let input = &self.slab_inputs[key];
+                (input.data, input.all_features.iter().map(|x| x.0).collect())
+            })
+            .collect::<Vec<_>>();
+
+        let serialized = SerializedUniqCov {
+            all_hit_counters,
+            best_for_counter,
+            ranked_inputs,
+            counters_for_input,
+        };
+
+        let content = serde_json::to_vec(&serialized).unwrap();
+
+        vec![(path, content)]
+    }
+}
+
+#[derive(serde::Serialize, serde::Deserialize)]
+struct SerializedUniqCov {
+    all_hit_counters: Vec<usize>,
+    best_for_counter: Vec<(usize, PoolStorageIndex)>,
+    ranked_inputs: Vec<PoolStorageIndex>,
+    counters_for_input: Vec<(PoolStorageIndex, Vec<usize>)>,
 }
 
 #[inline(always)]
@@ -714,7 +781,7 @@ pub struct UniqueCoveragePoolStats {
     pub score: f64,
     pub pool_size: usize,
     pub avg_cplx: f64,
-    pub percent_coverage: f64,
+    pub coverage: (usize, usize),
 }
 impl Display for UniqueCoveragePoolStats {
     #[no_coverage]
@@ -723,11 +790,8 @@ impl Display for UniqueCoveragePoolStats {
             f,
             "{}",
             format!(
-                "{}({} cov: {:.2}% cplx: {:.2})",
-                self.name,
-                self.pool_size,
-                self.percent_coverage * 100.0,
-                self.avg_cplx
+                "{}({} cov: {}/{} cplx: {:.2})",
+                self.name, self.pool_size, self.coverage.0, self.coverage.1, self.avg_cplx
             )
             .bright_green()
         )
@@ -746,7 +810,7 @@ impl ToCSVFields for UniqueCoveragePoolStats {
     fn to_csv_record(&self) -> Vec<CSVField> {
         vec![
             CSVField::Integer(self.pool_size as isize),
-            CSVField::Float(self.percent_coverage),
+            CSVField::Integer(self.coverage.0 as isize),
             CSVField::Float(self.avg_cplx),
         ]
     }
