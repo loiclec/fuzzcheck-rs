@@ -33,7 +33,14 @@ macro_rules! impl_int_mutator_constrained {
                     }
                     Bound::Unbounded => <$name>::MAX,
                 };
-                assert!(start <= end);
+                if !start <= end {
+                    panic!(
+                        "You have provided a character range where the value of the start of the range \
+                        is larger than the end of the range!\nRange start: {:#?}\nRange end: {:#?}",
+                        range.start_bound(),
+                        range.end_bound()
+                    )
+                }
                 Self {
                     start_range: start,
                     len_range: end.wrapping_sub(start) as $name_unsigned,

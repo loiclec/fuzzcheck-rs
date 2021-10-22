@@ -29,7 +29,14 @@ impl CharWithinRangeMutator {
             }
             Bound::Unbounded => <u32>::MAX,
         };
-        assert!(start <= end);
+        if !start <= end {
+            panic!(
+                "You have provided a character range where the value of the start of the range \
+                is larger than the end of the range!\nRange start: {:#?}\nRange end: {:#?}",
+                range.start_bound(),
+                range.end_bound()
+            )
+        }
         let len_range = end.wrapping_sub(start);
         let cplx = 1.0 + crate::mutators::size_to_cplxity(len_range as usize);
         Self {
