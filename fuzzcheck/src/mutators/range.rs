@@ -69,38 +69,38 @@ fn tuple_from_range_inclusive<T: Clone>(r: &RangeInclusive<T>) -> Option<(T, T)>
     Some((r.start().clone(), r.end().clone()))
 }
 
-pub type RangeInclusiveMutator<T, M> = Wrapper<
-    MapMutator<
-        (T, T),
-        RangeInclusive<T>,
-        TupleMutatorWrapper<Tuple2Mutator<M, M>, Tuple2<T, T>>,
-        fn(&RangeInclusive<T>) -> Option<(T, T)>,
-        fn(&(T, T)) -> RangeInclusive<T>,
-    >,
->;
+// pub type RangeInclusiveMutator<T, M> = Wrapper<
+//     MapMutator<
+//         (T, T),
+//         RangeInclusive<T>,
+//         TupleMutatorWrapper<Tuple2Mutator<M, M>, Tuple2<T, T>>,
+//         fn(&RangeInclusive<T>) -> Option<(T, T)>,
+//         fn(&(T, T)) -> RangeInclusive<T>,
+//     >,
+// >;
 
-impl<T, M> RangeInclusiveMutator<T, M>
-where
-    T: Clone,
-    M: Mutator<T> + Clone,
-{
-    #[no_coverage]
-    pub fn new(m: M) -> Self {
-        Wrapper(MapMutator::new(
-            TupleMutatorWrapper::new(Tuple2Mutator::new(m.clone(), m)),
-            tuple_from_range_inclusive,
-            range_inclusive_from_tuple,
-        ))
-    }
-}
-impl<T> DefaultMutator for RangeInclusive<T>
-where
-    T: 'static + Clone + DefaultMutator,
-    T::Mutator: Clone,
-{
-    type Mutator = RangeInclusiveMutator<T, T::Mutator>;
-    #[no_coverage]
-    fn default_mutator() -> Self::Mutator {
-        Self::Mutator::new(T::default_mutator())
-    }
-}
+// impl<T, M> RangeInclusiveMutator<T, M>
+// where
+//     T: Clone,
+//     M: Mutator<T> + Clone,
+// {
+//     #[no_coverage]
+//     pub fn new(m: M) -> Self {
+//         Wrapper(MapMutator::new(
+//             TupleMutatorWrapper::new(Tuple2Mutator::new(m.clone(), m)),
+//             tuple_from_range_inclusive,
+//             range_inclusive_from_tuple,
+//         ))
+//     }
+// }
+// impl<T> DefaultMutator for RangeInclusive<T>
+// where
+//     T: 'static + Clone + DefaultMutator,
+//     T::Mutator: Clone,
+// {
+//     type Mutator = RangeInclusiveMutator<T, T::Mutator>;
+//     #[no_coverage]
+//     fn default_mutator() -> Self::Mutator {
+//         Self::Mutator::new(T::default_mutator())
+//     }
+// }

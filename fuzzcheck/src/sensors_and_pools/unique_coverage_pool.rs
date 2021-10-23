@@ -707,7 +707,7 @@ impl Pool for UniqueCoveragePool {
                 (input.data, input.score)
             })
             .collect::<Vec<_>>();
-        ranked_inputs.sort_by(|x, y| x.1.partial_cmp(&y.1).unwrap_or(Ordering::Equal));
+        ranked_inputs.sort_by(|x, y| x.1.partial_cmp(&y.1).unwrap_or(Ordering::Equal).reverse());
         let ranked_inputs = ranked_inputs.into_iter().map(|x| x.0).collect();
 
         let counters_for_input = self

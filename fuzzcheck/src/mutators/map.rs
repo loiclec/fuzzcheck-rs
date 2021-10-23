@@ -2,33 +2,37 @@ use std::marker::PhantomData;
 
 use crate::Mutator;
 
-pub struct MapMutator<From, To, M, Parse, Map>
+pub struct MapMutator<From, To, M, Parse, Map, Complexity>
 where
     From: Clone,
     To: Clone,
     M: Mutator<From>,
     Parse: Fn(&To) -> Option<From>,
     Map: Fn(&From) -> To,
+    Complexity: Fn(&To) -> f64,
 {
     pub mutator: M,
     pub parse: Parse,
     pub map: Map,
+    pub complexity: Complexity,
     _phantom: PhantomData<(From, To)>,
 }
-impl<From, To, M, Parse, Map> MapMutator<From, To, M, Parse, Map>
+impl<From, To, M, Parse, Map, Complexity> MapMutator<From, To, M, Parse, Map, Complexity>
 where
     From: Clone,
     To: Clone,
     M: Mutator<From>,
     Parse: Fn(&To) -> Option<From>,
     Map: Fn(&From) -> To,
+    Complexity: Fn(&To) -> f64,
 {
     #[no_coverage]
-    pub fn new(mutator: M, parse: Parse, map: Map) -> Self {
+    pub fn new(mutator: M, parse: Parse, map: Map, complexity: Complexity) -> Self {
         Self {
             mutator,
             parse,
             map,
+            complexity,
             _phantom: PhantomData,
         }
     }
@@ -55,13 +59,14 @@ where
     }
 }
 
-impl<From, To, M, Parse, Map> Mutator<To> for MapMutator<From, To, M, Parse, Map>
+impl<From, To, M, Parse, Map, Complexity> Mutator<To> for MapMutator<From, To, M, Parse, Map, Complexity>
 where
     From: Clone,
     To: Clone,
     M: Mutator<From>,
     Parse: Fn(&To) -> Option<From>,
     Map: Fn(&From) -> To,
+    Complexity: Fn(&To) -> f64,
 {
     type Cache = Cache<From, M>;
     type MutationStep = M::MutationStep;
@@ -91,21 +96,23 @@ where
     }
 
     #[no_coverage]
-    fn complexity(&self, _value: &To, cache: &Self::Cache) -> f64 {
-        self.mutator.complexity(&cache.from_value, &cache.from_cache)
+    fn complexity(&self, value: &To, cache: &Self::Cache) -> f64 {
+        (self.complexity)(value) // self.mutator.complexity(&cache.from_value, &cache.from_cache)
     }
 
     #[no_coverage]
     fn ordered_arbitrary(&self, step: &mut Self::ArbitraryStep, max_cplx: f64) -> Option<(To, f64)> {
-        let (from_value, cplx) = self.mutator.ordered_arbitrary(step, max_cplx)?;
+        let (from_value, _) = self.mutator.ordered_arbitrary(step, max_cplx)?;
         let to_value = (self.map)(&from_value);
+        let cplx = (self.complexity)(&to_value);
         Some((to_value, cplx))
     }
 
     #[no_coverage]
     fn random_arbitrary(&self, max_cplx: f64) -> (To, f64) {
-        let (from_value, cplx) = self.mutator.random_arbitrary(max_cplx);
+        let (from_value, _) = self.mutator.random_arbitrary(max_cplx);
         let to_value = (self.map)(&from_value);
+        let cplx = (self.complexity)(&to_value);
         (to_value, cplx)
     }
 
@@ -117,19 +124,21 @@ where
         step: &mut Self::MutationStep,
         max_cplx: f64,
     ) -> Option<(Self::UnmutateToken, f64)> {
-        let (token, cplx) =
-            self.mutator
-                .ordered_mutate(&mut cache.from_value, &mut cache.from_cache, step, max_cplx)?;
+        let (token, _) = self
+            .mutator
+            .ordered_mutate(&mut cache.from_value, &mut cache.from_cache, step, max_cplx)?;
         *value = (self.map)(&cache.from_value);
+        let cplx = (self.complexity)(value);
         Some((token, cplx))
     }
 
     #[no_coverage]
     fn random_mutate(&self, value: &mut To, cache: &mut Self::Cache, max_cplx: f64) -> (Self::UnmutateToken, f64) {
-        let (token, cplx) = self
+        let (token, _) = self
             .mutator
             .random_mutate(&mut cache.from_value, &mut cache.from_cache, max_cplx);
         *value = (self.map)(&cache.from_value);
+        let cplx = (self.complexity)(value);
         (token, cplx)
     }
 
