@@ -13,6 +13,7 @@
 
 pub extern crate fastrand;
 
+mod bitset;
 pub mod builder;
 mod code_coverage_sensor;
 mod data_structures;

@@ -9,3 +9,4 @@ pub mod unique_coverage_pool;
 // pub mod unique_values_pool;
 pub mod unit_pool;
 pub use crate::code_coverage_sensor::CodeCoverageSensor;
+pub mod most_n_diverse_pool;
