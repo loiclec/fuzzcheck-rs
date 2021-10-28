@@ -138,13 +138,12 @@ impl<T: Clone, M: Mutator<T>> FixedLenVecMutator<T, M> {
         let mut remaining_cplx = target_cplx;
         let mut remaining_min_complexity = self.min_complexity();
         for (i, mutator) in self.mutators.iter().enumerate() {
-            let mut max_cplx_element = remaining_cplx / ((self.len() - i) as f64) - remaining_min_complexity;
+            let mut max_cplx_element = (remaining_cplx / ((self.len() - i) as f64)) - remaining_min_complexity;
             let min_cplx_el = mutator.min_complexity();
             if min_cplx_el >= max_cplx_element {
                 max_cplx_element = min_cplx_el;
             }
-            let cplx_element = crate::mutators::gen_f64(&self.rng, min_cplx_el..max_cplx_element);
-            let (x, x_cplx) = mutator.random_arbitrary(cplx_element);
+            let (x, x_cplx) = mutator.random_arbitrary(max_cplx_element);
             v.push(x);
             sum_cplx += x_cplx;
             remaining_cplx -= x_cplx;
@@ -218,26 +217,16 @@ impl<T: Clone, M: Mutator<T>> Mutator<Vec<T>> for FixedLenVecMutator<T, M> {
     }
 
     #[no_coverage]
-    fn ordered_arbitrary(&self, _step: &mut Self::ArbitraryStep, mut max_cplx: f64) -> Option<(Vec<T>, f64)> {
+    fn ordered_arbitrary(&self, _step: &mut Self::ArbitraryStep, max_cplx: f64) -> Option<(Vec<T>, f64)> {
         if max_cplx < self.min_complexity() {
             return None;
-        }
-        let mutator_max_cplx = self.max_complexity();
-        if max_cplx > mutator_max_cplx {
-            max_cplx = mutator_max_cplx;
         }
         Some(self.random_arbitrary(max_cplx))
     }
 
     #[no_coverage]
-    fn random_arbitrary(&self, mut max_cplx: f64) -> (Vec<T>, f64) {
-        let mutator_max_cplx = self.max_complexity();
-        if max_cplx > mutator_max_cplx {
-            max_cplx = mutator_max_cplx;
-        }
-
+    fn random_arbitrary(&self, max_cplx: f64) -> (Vec<T>, f64) {
         let target_cplx = crate::mutators::gen_f64(&self.rng, 1.0..max_cplx);
-
         self.new_input_with_complexity(target_cplx)
     }
 

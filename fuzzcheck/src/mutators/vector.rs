@@ -525,10 +525,6 @@ impl<T: Clone, M: Mutator<T>> Mutator<Vec<T>> for VecMutator<T, M> {
         if max_cplx < self.min_complexity() {
             return None;
         }
-        let mutator_max_cplx = self.max_complexity();
-        if max_cplx > mutator_max_cplx {
-            max_cplx = mutator_max_cplx;
-        }
         if !*step || max_cplx <= 1.0 {
             *step = true;
             if self.len_range.contains(&0) {
@@ -543,11 +539,6 @@ impl<T: Clone, M: Mutator<T>> Mutator<Vec<T>> for VecMutator<T, M> {
 
     #[no_coverage]
     fn random_arbitrary(&self, mut max_cplx: f64) -> (Vec<T>, f64) {
-        let mutator_max_cplx = self.max_complexity();
-        if max_cplx > mutator_max_cplx {
-            max_cplx = mutator_max_cplx;
-        }
-
         let min_cplx = self.min_complexity();
         if max_cplx <= min_cplx || self.rng.u8(..) == 0 {
             // return the least complex value possible
