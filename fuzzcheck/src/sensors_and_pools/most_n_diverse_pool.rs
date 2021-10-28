@@ -116,7 +116,7 @@ impl CompatibleWithIteratorSensor for MostNDiversePool {
     fn observe(&mut self, observation: &Self::Observation, _input_complexity: f64, state: &mut Self::ObservationState) {
         let ObservationState {
             counters,
-            nbr_new_counters,
+            nbr_new_counters: _,
         } = state;
         let (idx, _) = observation;
         // if *idx >= counters.len() {

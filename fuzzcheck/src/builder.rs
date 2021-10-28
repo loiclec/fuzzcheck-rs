@@ -2,6 +2,7 @@ use crate::code_coverage_sensor::CodeCoverageSensor;
 use crate::fuzzer::{Fuzzer, ReasonForStopping};
 use crate::sensors_and_pools::and_sensor_and_pool::AndPool;
 use crate::sensors_and_pools::maximize_pool::CounterMaximizingPool;
+use crate::sensors_and_pools::most_n_diverse_pool::MostNDiversePool;
 use crate::sensors_and_pools::sum_coverage_pool::{
     AggregateCoveragePool, CountNumberOfDifferentCounters, SumCounterValues,
 };
@@ -325,12 +326,17 @@ fn defaul_pool_for_code_coverage_sensor(sensor: &CodeCoverageSensor) -> impl Com
     let pool = UniqueCoveragePool::new("uniq_cov", count_instrumented);
     let pool2 = CounterMaximizingPool::new("high_cov_hits", count_instrumented);
 
-    let pool4 = AggregateCoveragePool::<SumCounterValues>::new("highest_aggregate_cov_hits");
-    let pool5 = AggregateCoveragePool::<CountNumberOfDifferentCounters>::new("most_diverse_cov");
+    let pool4 = AggregateCoveragePool::<SumCounterValues>::new("highest_cov_hits");
+    let pool5 = AggregateCoveragePool::<CountNumberOfDifferentCounters>::new("uniq_cov1");
+    let pool6 = MostNDiversePool::new("uniq_cov20", 20);
 
-    let pool = AndPool::new(pool2, pool, 1);
-    let pool = AndPool::new(pool, pool4, 254);
-    let pool = AndPool::new(pool, pool5, 254);
+    let perf_pools = AndPool::new(pool4, pool2, 128);
+    let diverse_pools = AndPool::new(pool6, pool5, 200);
+
+    let secondary_pool = AndPool::new(diverse_pools, perf_pools, 220);
+
+    let pool = AndPool::new(pool, secondary_pool, 200);
+
     pool
 }
 

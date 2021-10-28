@@ -62,7 +62,6 @@ use crate::{CSVField, ToCSVFields};
 use ahash::{AHashMap, AHashSet};
 use fastrand::Rng;
 use owo_colors::OwoColorize;
-use serde_json::{Number, Value};
 use std::cmp::Ordering;
 use std::fmt::Display;
 use std::hash::Hash;

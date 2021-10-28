@@ -2,7 +2,7 @@ use std::{fmt::Display, marker::PhantomData, path::PathBuf};
 
 use crate::{
     fuzzer::PoolStorageIndex,
-    traits::{CorpusDelta, EmptyStats, Pool},
+    traits::{CorpusDelta, Pool},
     CSVField, ToCSVFields,
 };
 
