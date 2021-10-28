@@ -38,7 +38,7 @@ impl CharWithinRangeMutator {
             )
         }
         let len_range = end.wrapping_sub(start);
-        let cplx = 1.0 + crate::mutators::size_to_cplxity(len_range as usize);
+        let cplx = 8.; // 1.0 + crate::mutators::size_to_cplxity(len_range as usize);
         Self {
             start_range: start,
             len_range: len_range as u32,
@@ -92,19 +92,27 @@ impl Mutator<char> for CharWithinRangeMutator {
             None
         } else {
             let result = binary_search_arbitrary_u32(0, self.len_range, *step);
-            *step = step.wrapping_add(1);
-            let c = char::from_u32(self.start_range.wrapping_add(result)).unwrap();
-            Some((c, self.cplx))
+            *step += 1;
+            if let Some(c) = char::from_u32(self.start_range.wrapping_add(result)) {
+                Some((c, self.cplx))
+            } else {
+                *step += 1;
+                self.ordered_arbitrary(step, max_cplx)
+            }
         }
     }
 
     #[no_coverage]
-    fn random_arbitrary(&self, _max_cplx: f64) -> (char, f64) {
+    fn random_arbitrary(&self, max_cplx: f64) -> (char, f64) {
         let value = self
             .rng
             .u32(self.start_range..=self.start_range.wrapping_add(self.len_range));
-        let value = char::from_u32(value).unwrap();
-        (value, self.cplx)
+        if let Some(value) = char::from_u32(value) {
+            (value, self.cplx)
+        } else {
+            // try again
+            self.random_arbitrary(max_cplx)
+        }
     }
 
     #[no_coverage]
@@ -124,15 +132,19 @@ impl Mutator<char> for CharWithinRangeMutator {
         let token = *value;
 
         let result = binary_search_arbitrary_u32(0, self.len_range, *step);
-        let result = char::from_u32(self.start_range.wrapping_add(result)).unwrap();
-        *step = step.wrapping_add(1);
-        if result == *value {
-            return self.ordered_mutate(value, cache, step, max_cplx);
+        if let Some(result) = char::from_u32(self.start_range.wrapping_add(result)) {
+            *step += 1;
+            if result == *value {
+                return self.ordered_mutate(value, cache, step, max_cplx);
+            }
+
+            *value = result;
+
+            Some((token, self.cplx))
+        } else {
+            *step += 1;
+            self.ordered_mutate(value, cache, step, max_cplx)
         }
-
-        *value = result;
-
-        Some((token, self.cplx))
     }
 
     #[no_coverage]
@@ -144,7 +156,7 @@ impl Mutator<char> for CharWithinRangeMutator {
                     self.rng
                         .u32(self.start_range..=self.start_range.wrapping_add(self.len_range)),
                 )
-                .unwrap(),
+                .unwrap_or(*value),
             ),
             self.cplx,
         )
