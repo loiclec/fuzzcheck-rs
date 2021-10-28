@@ -300,6 +300,10 @@ where
             world.report_event(event, Some((fuzzer_stats, &pool.stats())));
             if add_ref_count > 0 {
                 let new_input = input.new_source(mutator);
+                // here I don't check the complexity of the new input,
+                // but because of the way mutators work (real possibility of
+                // inconsistent complexities), then its complexity may be higher
+                // than the maximum allowed one
                 pool_storage.insert(new_input, add_ref_count);
             }
             for delta in deltas {
