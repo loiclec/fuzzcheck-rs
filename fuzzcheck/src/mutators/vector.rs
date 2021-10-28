@@ -521,7 +521,7 @@ impl<T: Clone, M: Mutator<T>> Mutator<Vec<T>> for VecMutator<T, M> {
     }
 
     #[no_coverage]
-    fn ordered_arbitrary(&self, step: &mut Self::ArbitraryStep, mut max_cplx: f64) -> Option<(Vec<T>, f64)> {
+    fn ordered_arbitrary(&self, step: &mut Self::ArbitraryStep, max_cplx: f64) -> Option<(Vec<T>, f64)> {
         if max_cplx < self.min_complexity() {
             return None;
         }
@@ -538,7 +538,7 @@ impl<T: Clone, M: Mutator<T>> Mutator<Vec<T>> for VecMutator<T, M> {
     }
 
     #[no_coverage]
-    fn random_arbitrary(&self, mut max_cplx: f64) -> (Vec<T>, f64) {
+    fn random_arbitrary(&self, max_cplx: f64) -> (Vec<T>, f64) {
         let min_cplx = self.min_complexity();
         if max_cplx <= min_cplx || self.rng.u8(..) == 0 {
             // return the least complex value possible

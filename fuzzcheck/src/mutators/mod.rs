@@ -22,6 +22,7 @@ This crate provides [grammar-based string mutators](crate::grammar).
 pub use fuzzcheck_mutators_derive::*;
 
 pub mod alternation;
+pub mod arbitrary_only;
 pub mod bool;
 pub mod boxed;
 pub mod char;
