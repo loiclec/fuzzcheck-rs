@@ -1,13 +1,13 @@
 extern crate self as fuzzcheck;
 
-use crate::mutators::map::MapMutator;
-use crate::mutators::tuples::TupleMutatorWrapper;
-use crate::mutators::tuples::{Tuple2, Tuple2Mutator};
-use crate::mutators::wrapper::Wrapper;
-use crate::DefaultMutator;
-use crate::Mutator;
+// use crate::mutators::map::MapMutator;
+// use crate::mutators::tuples::TupleMutatorWrapper;
+// use crate::mutators::tuples::{Tuple2, Tuple2Mutator};
+// use crate::mutators::wrapper::Wrapper;
+// use crate::DefaultMutator;
+// use crate::Mutator;
 use fuzzcheck_mutators_derive::make_mutator;
-use std::ops::{Bound, Range, RangeFrom, RangeFull, RangeInclusive, RangeTo, RangeToInclusive};
+use std::ops::{Bound, Range, RangeFrom, RangeFull, /*RangeInclusive,*/ RangeTo, RangeToInclusive};
 
 // TODO: RangeInclusiveMutator with a MapMutator
 
@@ -60,14 +60,14 @@ make_mutator! {
     }
 }
 
-#[no_coverage]
-fn range_inclusive_from_tuple<T: Clone>(t: &(T, T)) -> RangeInclusive<T> {
-    t.0.clone()..=t.1.clone()
-}
-#[no_coverage]
-fn tuple_from_range_inclusive<T: Clone>(r: &RangeInclusive<T>) -> Option<(T, T)> {
-    Some((r.start().clone(), r.end().clone()))
-}
+// #[no_coverage]
+// fn range_inclusive_from_tuple<T: Clone>(t: &(T, T)) -> RangeInclusive<T> {
+//     t.0.clone()..=t.1.clone()
+// }
+// #[no_coverage]
+// fn tuple_from_range_inclusive<T: Clone>(r: &RangeInclusive<T>) -> Option<(T, T)> {
+//     Some((r.start().clone(), r.end().clone()))
+// }
 
 // pub type RangeInclusiveMutator<T, M> = Wrapper<
 //     MapMutator<
