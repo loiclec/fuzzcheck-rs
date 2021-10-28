@@ -2,7 +2,7 @@
 name = "fuzzcheck"
 version = "0.8.0"
 authors = ["Loïc Lecrenier <loic.lecrenier@me.com>"]
-edition = "2018"
+edition = "2021"
 description = "A coverage-guided, structure-aware fuzzing engine for Rust functions"
 repository = "https://git.sr.ht/~loic/fuzzcheck-rs"
 readme = "README.md"
@@ -23,7 +23,7 @@ cfg-if = "1"
 libc = { version = "0.2", default_features = false  }
 
 md5 = "0.7"
-object = { version = "0.26", default_features = false, features = ["read"] }
+object = { version = "0.27", default_features = false, features = ["read"] }
 flate2 = { version = "1", default_features = false, features = ["zlib"] }
 
 fuzzcheck_common = { path = "../fuzzcheck_common", version = "0.8.0" }
@@ -35,7 +35,8 @@ fuzzcheck_mutators_derive = {path = "../fuzzcheck_mutators_derive", version = "0
 
 ahash = "0.7"
 
-owo-colors = "2.0"
+owo-colors = "3"
+regex-syntax = "0.6"
 
 [lib]
 name = "fuzzcheck"

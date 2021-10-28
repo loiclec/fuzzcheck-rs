@@ -2,7 +2,7 @@
 name = "fuzzcheck_common"
 version = "0.8.0"
 authors = ["Loïc Lecrenier <loic.lecrenier@me.com>"]
-edition = "2018"
+edition = "2021"
 description = "Common components for both cargo-fuzzcheck and fuzzcheck"
 repository = "https://git.sr.ht/~loic/fuzzcheck-rs"
 license = "MIT"

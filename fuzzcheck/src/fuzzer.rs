@@ -20,7 +20,7 @@ use libc::{SIGABRT, SIGALRM, SIGBUS, SIGFPE, SIGINT, SIGSEGV, SIGTERM, SIGTRAP};
 use std::borrow::Borrow;
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
-use std::panic::{catch_unwind, RefUnwindSafe, UnwindSafe};
+use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::process::exit;
 use std::result::Result;
 
@@ -248,14 +248,10 @@ where
         ));
 
         sensor.start_recording();
-        let cell = NotUnwindSafe { value: test };
-        let input_cell = NotUnwindSafe {
-            value: input.value.borrow(),
-        };
-        let result = catch_unwind(
+        let result = catch_unwind(AssertUnwindSafe(
             #[no_coverage]
-            || (cell.value)(input_cell.value),
-        );
+            || (test)(input.value.borrow()),
+        ));
         let _ = std::panic::take_hook();
         let test_failure = match result {
             Ok(false) => unsafe {
@@ -442,13 +438,6 @@ where
     }
 }
 
-struct NotUnwindSafe<T> {
-    value: T,
-}
-
-impl<T> UnwindSafe for NotUnwindSafe<T> {}
-impl<T> RefUnwindSafe for NotUnwindSafe<T> {}
-
 pub enum TerminationStatus {
     Success = 0,
     Crash = 1,
@@ -577,14 +566,10 @@ where
                 let input = FuzzedInput::new(value, cache, mutation_step, 0);
                 let cplx = input.complexity(&mutator);
 
-                let cell = NotUnwindSafe { value: test };
-                let input_cell = NotUnwindSafe {
-                    value: input.value.borrow(),
-                };
-                let result = catch_unwind(
+                let result = catch_unwind(AssertUnwindSafe(
                     #[no_coverage]
-                    || (cell.value)(input_cell.value),
-                );
+                    || (test)(input.value.borrow()),
+                ));
 
                 if result.is_err() || !result.unwrap() {
                     world.report_event::<EmptyStats>(FuzzerEvent::TestFailure, None);

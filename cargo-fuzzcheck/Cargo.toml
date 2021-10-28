@@ -2,7 +2,7 @@
 name = "cargo-fuzzcheck"
 version = "0.8.0"
 authors = ["Loïc Lecrenier <loic.lecrenier@me.com>"]
-edition = "2018"
+edition = "2021"
 description = "Command line tool to use fuzzcheck-rs"
 repository = "https://git.sr.ht/~loic/fuzzcheck-rs"
 readme = "README.md"

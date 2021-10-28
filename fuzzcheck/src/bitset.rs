@@ -1,4 +1,3 @@
-use std::cmp::Ord;
 use std::ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign, BitXor, BitXorAssign};
 
 const BITS: usize = 64;
