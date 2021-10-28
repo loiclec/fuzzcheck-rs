@@ -2,13 +2,13 @@ use std::rc::Rc;
 
 use crate::{concatenation, literal, mutators::grammar::Grammar};
 use regex_syntax::hir::{Class, HirKind, Literal, RepetitionKind, RepetitionRange};
-
+#[no_coverage]
 pub fn grammar_from_regex(regex: &str) -> Rc<Grammar> {
     let mut parser = regex_syntax::Parser::new();
     let hir = parser.parse(regex).unwrap();
     grammar_from_regex_hir_kind(hir.kind())
 }
-
+#[no_coverage]
 pub fn grammar_from_regex_hir_kind(hir: &HirKind) -> Rc<Grammar> {
     match hir {
         HirKind::Empty => concatenation! {},
@@ -45,12 +45,14 @@ pub fn grammar_from_regex_hir_kind(hir: &HirKind) -> Rc<Grammar> {
             Grammar::repetition(grammar, range)
         }
         HirKind::Group(group) => grammar_from_regex_hir_kind(group.hir.kind()),
-        HirKind::Concat(concat) => {
-            Grammar::concatenation(concat.iter().map(|hir| grammar_from_regex_hir_kind(hir.kind())))
-        }
-        HirKind::Alternation(alternation) => {
-            Grammar::alternation(alternation.iter().map(|hir| grammar_from_regex_hir_kind(hir.kind())))
-        }
+        HirKind::Concat(concat) => Grammar::concatenation(concat.iter().map(
+            #[no_coverage]
+            |hir| grammar_from_regex_hir_kind(hir.kind()),
+        )),
+        HirKind::Alternation(alternation) => Grammar::alternation(alternation.iter().map(
+            #[no_coverage]
+            |hir| grammar_from_regex_hir_kind(hir.kind()),
+        )),
     }
 }
 
@@ -59,6 +61,7 @@ mod tests {
     use crate::Mutator;
 
     use super::*;
+    #[no_coverage]
     #[test]
     fn t() {
         let s = "[0-9]{4}-[0-9]{2}-[0-9]{2}";
