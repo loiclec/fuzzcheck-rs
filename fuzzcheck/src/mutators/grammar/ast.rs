@@ -22,7 +22,7 @@ impl ASTMutator {
             |x: &(AST, String)| Some(x.0.clone()),
             #[no_coverage]
             |ast| (ast.clone(), ast.generate_string().0),
-            |(_ast, string)| 1.0 + string.len() as f64,
+            |(_ast, string)| 1.0 + (string.len() * 8) as f64,
         )
     }
 }
@@ -79,6 +79,31 @@ impl AST {
             }
         }
     }
+
+    #[no_coverage]
+    pub fn generate_string_only_in(&self, string: &mut String) {
+        match self {
+            AST::Token(c) => {
+                string.push(*c);
+            }
+            AST::Sequence(asts) => {
+                for ast in asts {
+                    ast.generate_string_only_in(string);
+                }
+            }
+            AST::Box(ast) => {
+                ast.generate_string_only_in(string);
+            }
+        }
+    }
+
+    #[no_coverage]
+    pub fn generate_string_only(&self) -> String {
+        let mut s = String::with_capacity(64);
+        self.generate_string_only_in(&mut s);
+        s
+    }
+
     #[no_coverage]
     pub fn generate_string(&self) -> (String, ASTMap) {
         let mut s = String::new();
