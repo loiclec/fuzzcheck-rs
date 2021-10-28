@@ -96,7 +96,7 @@ where
     }
 
     #[no_coverage]
-    fn complexity(&self, value: &To, cache: &Self::Cache) -> f64 {
+    fn complexity(&self, value: &To, _cache: &Self::Cache) -> f64 {
         (self.complexity)(value) // self.mutator.complexity(&cache.from_value, &cache.from_cache)
     }
 
