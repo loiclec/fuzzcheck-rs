@@ -26,6 +26,7 @@ pub mod arbitrary_only;
 pub mod bool;
 pub mod boxed;
 pub mod char;
+pub mod character_classes;
 pub mod dictionary;
 pub mod either;
 pub mod enums;

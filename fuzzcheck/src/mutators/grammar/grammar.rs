@@ -1,12 +1,12 @@
 use std::{
-    ops::{Range, RangeBounds},
+    ops::{Range, RangeBounds, RangeInclusive},
     rc::Rc,
     rc::Weak,
 };
 
 #[derive(Clone, Debug)]
 pub enum Grammar {
-    Literal(Range<char>),
+    Literal(Vec<RangeInclusive<char>>),
     Alternation(Vec<Rc<Grammar>>),
     Concatenation(Vec<Rc<Grammar>>),
     Repetition(Rc<Grammar>, Range<usize>),
@@ -15,6 +15,10 @@ pub enum Grammar {
 }
 
 impl Grammar {
+    #[no_coverage]
+    pub fn literal_ranges(ranges: Vec<RangeInclusive<char>>) -> Rc<Grammar> {
+        Rc::new(Grammar::Literal(ranges))
+    }
     #[no_coverage]
     pub fn literal<R>(range: R) -> Rc<Grammar>
     where
@@ -26,11 +30,11 @@ impl Grammar {
             std::ops::Bound::Unbounded => panic!("The range must have a lower bound"),
         };
         let end = match range.end_bound() {
-            std::ops::Bound::Included(x) => unsafe { char::from_u32_unchecked((*x as u32) + 1) },
-            std::ops::Bound::Excluded(x) => *x,
+            std::ops::Bound::Included(x) => *x,
+            std::ops::Bound::Excluded(x) => unsafe { char::from_u32_unchecked(*x as u32 - 1) },
             std::ops::Bound::Unbounded => panic!("The range must have an upper bound"),
         };
-        Rc::new(Grammar::Literal(start..end))
+        Rc::new(Grammar::Literal(vec![start..=end]))
     }
     #[no_coverage]
     pub fn alternation(gs: impl IntoIterator<Item = Rc<Grammar>>) -> Rc<Grammar> {

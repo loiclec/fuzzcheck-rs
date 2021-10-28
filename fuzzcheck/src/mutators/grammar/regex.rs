@@ -18,12 +18,8 @@ pub fn grammar_from_regex_hir_kind(hir: &HirKind) -> Rc<Grammar> {
         },
         HirKind::Class(class) => match class {
             Class::Unicode(class) => {
-                let mut alternation = vec![];
-                for range in class.ranges() {
-                    let range = range.start()..=range.end();
-                    alternation.push(literal!(range));
-                }
-                Grammar::alternation(alternation)
+                let ranges = class.ranges().iter().map(|r| r.start()..=r.end()).collect::<Vec<_>>();
+                Grammar::literal_ranges(ranges)
             }
             Class::Bytes(_) => panic!("non-unicode regexes are not supported"),
         },
@@ -67,7 +63,7 @@ mod tests {
         let s = "[0-9]{4}-[0-9]{2}-[0-9]{2}";
         let g = grammar_from_regex(s);
         println!("{:?}", g);
-        let mutator = fuzzcheck::mutators::grammar::grammar_based_string_mutator(g);
+        let mutator = crate::mutators::grammar::grammar_based_string_mutator(g);
         let (s, cplx) = mutator.random_arbitrary(1000.0);
         println!("\n{}\n{}", s, cplx);
     }

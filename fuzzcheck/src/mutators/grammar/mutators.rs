@@ -4,7 +4,7 @@ use super::grammar::Grammar;
 use super::parser::parse_from_grammar;
 use crate::mutators::alternation::AlternationMutator;
 use crate::mutators::boxed::BoxMutator;
-use crate::mutators::char::CharWithinRangeMutator;
+use crate::mutators::character_classes::CharacterMutator;
 use crate::mutators::either::Either;
 use crate::mutators::fixed_len_vector::FixedLenVecMutator;
 use crate::mutators::grammar::ast::{ASTMap, AST};
@@ -25,31 +25,9 @@ make_single_variant_mutator! {
     }
 }
 
-/**
-TODO: something like this
-make_mutator_wrapper! {
-    name: ASTMutator,
-    additional_wrapper: Box,
-    wrapped_mutator:  Either<
-    ASTSingleVariant<
-        Tuple1Mutator<char, CharWithinRangeMutator>,
-        Tuple1Mutator<Vec<AST>, Either<FixedLenVecMutator<AST, ASTMutator>, VecMutator<AST, ASTMutator>>>,
-        Tuple1Mutator<
-            Box<AST>,
-            BoxMutator<
-                AST,
-                Either<Either<ASTMutator, RecurToMutator<ASTMutator>>, AlternationMutator<AST, ASTMutator>>,
-            >,
-        >,
-    >,
-    RecursiveMutator<ASTMutator>,
->
-}
-*/
-
 type InnerASTMutator = Either<
     ASTSingleVariant<
-        Tuple1Mutator<CharWithinRangeMutator>,
+        Tuple1Mutator<CharacterMutator>,
         Tuple1Mutator<Either<FixedLenVecMutator<AST, ASTMutator>, VecMutator<AST, ASTMutator>>>,
         Tuple1Mutator<
             BoxMutator<Either<Either<ASTMutator, RecurToMutator<ASTMutator>>, AlternationMutator<AST, ASTMutator>>>,
@@ -177,7 +155,7 @@ pub fn grammar_based_string_mutator(grammar: Rc<Grammar>) -> impl Mutator<String
 
 impl ASTMutator {
     #[no_coverage]
-    fn token(m: CharWithinRangeMutator) -> Self {
+    fn token(m: CharacterMutator) -> Self {
         Self {
             inner: Box::new(Either::Left(ASTSingleVariant::Token(Tuple1Mutator::new(m)))),
         }
@@ -220,7 +198,7 @@ impl ASTMutator {
     #[no_coverage]
     pub fn from_grammar_rec(grammar: Rc<Grammar>, others: &mut HashMap<*const Grammar, Weak<ASTMutator>>) -> Self {
         match grammar.as_ref() {
-            Grammar::Literal(l) => Self::token(CharWithinRangeMutator::new(l.clone())),
+            Grammar::Literal(l) => Self::token(CharacterMutator::new(l.clone())),
             Grammar::Alternation(gs) => Self::alternation(AlternationMutator::new(
                 gs.iter().map(|g| Self::from_grammar_rec(g.clone(), others)).collect(),
             )),

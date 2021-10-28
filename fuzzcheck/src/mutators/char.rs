@@ -38,7 +38,7 @@ impl CharWithinRangeMutator {
             )
         }
         let len_range = end.wrapping_sub(start);
-        let cplx = 8.; // 1.0 + crate::mutators::size_to_cplxity(len_range as usize);
+        let cplx = crate::mutators::size_to_cplxity(len_range as usize);
         Self {
             start_range: start,
             len_range: len_range as u32,

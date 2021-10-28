@@ -1,3 +1,4 @@
+use std::ops::RangeInclusive;
 use std::{ops::Range, rc::Rc};
 
 use super::ast::AST;
@@ -65,7 +66,7 @@ fn recurse_parser<'a>(
 fn atom_parser<'a>(
     string: &'a str,
     idx: usize,
-    range_chars: Range<char>,
+    range_chars: Vec<RangeInclusive<char>>,
 ) -> Box<dyn 'a + FnMut() -> Option<(AST, usize)>> {
     let mut end = false;
     Box::new(
@@ -77,7 +78,7 @@ fn atom_parser<'a>(
                 let string = &string[idx..];
                 let mut chars = string.chars();
                 if let Some(char) = chars.next() {
-                    if range_chars.contains(&char) {
+                    if range_chars.iter().find(|r| r.contains(&char)).is_some() {
                         end = true;
                         Some((AST::Token(char), idx + char.len_utf8()))
                     } else {
