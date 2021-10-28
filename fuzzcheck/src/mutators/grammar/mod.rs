@@ -8,9 +8,11 @@ mod incremental_map_conformance;
 mod list;
 mod mutators;
 mod parser;
+mod regex;
 
 pub use grammar::Grammar;
 pub use mutators::grammar_based_string_mutator;
+pub use regex::grammar_from_regex;
 
 pub use ast::AST;
 pub use mutators::ASTMutator;
@@ -24,6 +26,13 @@ pub use mutators::ASTMutator;
     let digit_or_space = literal! { ('0'..='9'), (' ') }; // either a digit or a space
     ```
 */
+#[macro_export]
+macro_rules! regex {
+    ($l:literal) => {
+        $crate::mutators::grammar::grammar_from_regex($l)
+    };
+}
+
 #[macro_export]
 macro_rules! literal {
     ($l:literal) => {
