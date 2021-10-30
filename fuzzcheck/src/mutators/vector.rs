@@ -97,7 +97,7 @@ pub enum UnmutateVecToken<T: Clone, M: Mutator<T>> {
 impl<T: Clone, M: Mutator<T>> VecMutator<T, M> {
     #[no_coverage]
     fn complexity_from_inner(&self, cplx: f64, len: usize) -> f64 {
-        1.0 + cplx + crate::mutators::size_to_cplxity(len.saturating_add(1))
+        1.0 + cplx
     }
     #[no_coverage]
     fn mutate_element(

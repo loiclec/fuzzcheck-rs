@@ -323,7 +323,6 @@ pub fn default_sensor_and_pool() -> (CodeCoverageSensor, impl CompatibleWithSens
 #[no_coverage]
 fn defaul_pool_for_code_coverage_sensor(sensor: &CodeCoverageSensor) -> impl CompatibleWithSensor<CodeCoverageSensor> {
     let count_instrumented = sensor.count_instrumented;
-    let pool = UniqueCoveragePool::new("uniq_cov", count_instrumented);
     let pool2 = CounterMaximizingPool::new("high_cov_hits", count_instrumented);
 
     let pool4 = AggregateCoveragePool::<SumCounterValues>::new("highest_cov_hits");
@@ -335,6 +334,7 @@ fn defaul_pool_for_code_coverage_sensor(sensor: &CodeCoverageSensor) -> impl Com
 
     let secondary_pool = AndPool::new(diverse_pools, perf_pools, 220);
 
+    let pool = UniqueCoveragePool::new("uniq_cov", count_instrumented);
     let pool = AndPool::new(pool, secondary_pool, 200);
 
     pool

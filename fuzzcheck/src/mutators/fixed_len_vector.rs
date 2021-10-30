@@ -33,10 +33,8 @@ where
     #[no_coverage]
     pub fn new(mutators: Vec<M>) -> Self {
         assert!(!mutators.is_empty());
-        let max_complexity = crate::mutators::size_to_cplxity(mutators.len() + 1)
-            + mutators.iter().fold(0.0, |cplx, m| cplx + m.max_complexity());
-        let min_complexity = crate::mutators::size_to_cplxity(mutators.len() + 1)
-            + mutators.iter().fold(0.0, |cplx, m| cplx + m.min_complexity());
+        let max_complexity = mutators.iter().fold(0.0, |cplx, m| cplx + m.max_complexity());
+        let min_complexity = mutators.iter().fold(0.0, |cplx, m| cplx + m.min_complexity());
         Self {
             rng: Rng::default(),
             mutators,
@@ -164,6 +162,9 @@ impl<T: Clone, M: Mutator<T>> Mutator<Vec<T>> for FixedLenVecMutator<T, M> {
 
     #[no_coverage]
     fn validate_value(&self, value: &Vec<T>) -> Option<(Self::Cache, Self::MutationStep)> {
+        if value.len() != self.mutators.len() {
+            return None;
+        }
         let inner: Vec<_> = value
             .iter()
             .zip(self.mutators.iter())
@@ -213,7 +214,7 @@ impl<T: Clone, M: Mutator<T>> Mutator<Vec<T>> for FixedLenVecMutator<T, M> {
 
     #[no_coverage]
     fn complexity(&self, _value: &Vec<T>, cache: &Self::Cache) -> f64 {
-        self.min_complexity + cache.sum_cplx
+        cache.sum_cplx
     }
 
     #[no_coverage]
@@ -236,7 +237,7 @@ impl<T: Clone, M: Mutator<T>> Mutator<Vec<T>> for FixedLenVecMutator<T, M> {
         value: &mut Vec<T>,
         cache: &mut Self::Cache,
         step: &mut Self::MutationStep,
-        mut max_cplx: f64,
+        max_cplx: f64,
     ) -> Option<(Self::UnmutateToken, f64)> {
         if max_cplx < self.min_complexity() {
             return None;
@@ -245,10 +246,6 @@ impl<T: Clone, M: Mutator<T>> Mutator<Vec<T>> for FixedLenVecMutator<T, M> {
             let (mut v, cplx) = self.random_arbitrary(max_cplx);
             std::mem::swap(value, &mut v);
             return Some((UnmutateVecToken::Replace(v), cplx));
-        }
-        let mutator_max_cplx = self.max_complexity();
-        if max_cplx > mutator_max_cplx {
-            max_cplx = mutator_max_cplx;
         }
         let current_cplx = self.complexity(value, cache);
         let spare_cplx = max_cplx - current_cplx;
@@ -270,16 +267,7 @@ impl<T: Clone, M: Mutator<T>> Mutator<Vec<T>> for FixedLenVecMutator<T, M> {
     }
 
     #[no_coverage]
-    fn random_mutate(
-        &self,
-        value: &mut Vec<T>,
-        cache: &mut Self::Cache,
-        mut max_cplx: f64,
-    ) -> (Self::UnmutateToken, f64) {
-        let mutator_max_cplx = self.max_complexity();
-        if max_cplx > mutator_max_cplx {
-            max_cplx = mutator_max_cplx;
-        }
+    fn random_mutate(&self, value: &mut Vec<T>, cache: &mut Self::Cache, max_cplx: f64) -> (Self::UnmutateToken, f64) {
         if value.is_empty() || self.rng.usize(0..100) == 0 {
             let (mut v, cplx) = self.random_arbitrary(max_cplx);
             std::mem::swap(value, &mut v);
