@@ -1,13 +1,12 @@
 extern crate self as fuzzcheck;
 
-use serde::{Deserialize, Serialize};
-
 use crate::{mutators::map::MapMutator, Mutator};
+use serde::{ser::SerializeTuple, Deserialize, Serialize};
 
 use super::ASTMutator;
 
 /// An abstract syntax tree.
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum AST {
     Token(char),
     Sequence(Vec<AST>),
@@ -130,5 +129,39 @@ impl From<AST> for String {
     #[no_coverage]
     fn from(ast: AST) -> Self {
         ast.generate_string().0
+    }
+}
+
+/// A type that is exactly the same as AST so that I can derive most of the
+/// Serialize/Deserialize implementation
+#[derive(Serialize, Deserialize)]
+enum __AST {
+    Token(char),
+    Sequence(Vec<__AST>),
+    Box(Box<__AST>),
+}
+
+impl Serialize for AST {
+    #[no_coverage]
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let string = self.generate_string_only();
+        let mut ser = serializer.serialize_tuple(2)?;
+        ser.serialize_element(&string)?;
+        let ast = unsafe { std::mem::transmute::<&AST, &__AST>(self) };
+        ser.serialize_element(ast)?;
+        ser.end()
+    }
+}
+impl<'de> Deserialize<'de> for AST {
+    #[no_coverage]
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let ast = <(String, __AST)>::deserialize(deserializer).map(|x| x.1)?;
+        Ok(unsafe { std::mem::transmute::<__AST, AST>(ast) })
     }
 }
