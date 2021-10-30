@@ -97,7 +97,7 @@ pub enum UnmutateVecToken<T: Clone, M: Mutator<T>> {
 impl<T: Clone, M: Mutator<T>> VecMutator<T, M> {
     #[no_coverage]
     fn complexity_from_inner(&self, cplx: f64, len: usize) -> f64 {
-        1.0 + cplx
+        1.0 + if cplx <= 0.0 { len as f64 } else { cplx }
     }
     #[no_coverage]
     fn mutate_element(
@@ -440,15 +440,11 @@ impl<T: Clone, M: Mutator<T>> Mutator<Vec<T>> for VecMutator<T, M> {
     fn validate_value(&self, value: &Vec<T>) -> Option<(Self::Cache, Self::MutationStep)> {
         let inner: Vec<_> = value
             .iter()
-            .filter_map(
+            .map(
                 #[no_coverage]
                 |x| self.m.validate_value(x),
             )
-            .collect();
-
-        if inner.len() < value.len() {
-            return None;
-        }
+            .collect::<Option<_>>()?;
 
         let mut inner_caches = Vec::with_capacity(inner.len());
         let mut inner_steps = Vec::with_capacity(inner.len());

@@ -168,15 +168,11 @@ impl<T: Clone, M: Mutator<T>> Mutator<Vec<T>> for FixedLenVecMutator<T, M> {
         let inner: Vec<_> = value
             .iter()
             .zip(self.mutators.iter())
-            .filter_map(
+            .map(
                 #[no_coverage]
                 |(x, mutator)| mutator.validate_value(x),
             )
-            .collect();
-
-        if inner.len() < value.len() {
-            return None;
-        }
+            .collect::<Option<_>>()?;
 
         let mut inner_caches = Vec::with_capacity(inner.len());
         let mut inner_steps = Vec::with_capacity(inner.len());
@@ -249,7 +245,7 @@ impl<T: Clone, M: Mutator<T>> Mutator<Vec<T>> for FixedLenVecMutator<T, M> {
         }
         let current_cplx = self.complexity(value, cache);
         let spare_cplx = max_cplx - current_cplx;
-        if value.len() > 1 && self.rng.usize(..2) == 0 {
+        if value.len() > 1 && self.rng.usize(..20) == 0 {
             let mut idcs = (0..value.len()).collect::<Vec<_>>();
             self.rng.shuffle(&mut idcs);
             let count = self.rng.usize(2..=value.len());
@@ -274,7 +270,7 @@ impl<T: Clone, M: Mutator<T>> Mutator<Vec<T>> for FixedLenVecMutator<T, M> {
             return (UnmutateVecToken::Replace(v), cplx);
         }
         let current_cplx = self.complexity(value, cache);
-        if value.len() > 1 && self.rng.usize(..2) == 0 {
+        if value.len() > 1 && self.rng.usize(..20) == 0 {
             let mut idcs = (0..value.len()).collect::<Vec<_>>();
             self.rng.shuffle(&mut idcs);
             let count = self.rng.usize(2..=value.len());
