@@ -183,6 +183,11 @@ impl CompatibleWithIteratorSensor for CounterMaximizingPool {
     type ObservationState = Vec<(usize, u64)>;
 
     #[no_coverage]
+    fn start_observing(&mut self) -> Self::ObservationState {
+        <_>::default()
+    }
+
+    #[no_coverage]
     fn observe(
         &mut self,
         &(index, counter): &Self::Observation,

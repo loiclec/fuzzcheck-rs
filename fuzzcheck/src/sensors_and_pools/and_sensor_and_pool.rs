@@ -164,6 +164,12 @@ where
 {
     type Observation = P1::Observation;
     type ObservationState = (P1::ObservationState, P2::ObservationState);
+
+    #[no_coverage]
+    fn start_observing(&mut self) -> Self::ObservationState {
+        (self.p1.start_observing(), self.p2.start_observing())
+    }
+
     #[no_coverage]
     fn observe(&mut self, observation: &Self::Observation, input_complexity: f64, state: &mut Self::ObservationState) {
         self.p1.observe(observation, input_complexity, &mut state.0);

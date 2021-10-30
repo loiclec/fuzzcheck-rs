@@ -5,11 +5,13 @@ use crate::{
 
 pub trait CompatibleWithIteratorSensor: Pool {
     type Observation;
-    type ObservationState: Default;
+    type ObservationState;
 
+    fn start_observing(&mut self) -> Self::ObservationState;
     fn observe(&mut self, observation: &Self::Observation, input_complexity: f64, state: &mut Self::ObservationState);
     fn finish_observing(&mut self, state: &mut Self::ObservationState, input_complexity: f64);
     fn is_interesting(&self, observation_state: &Self::ObservationState, input_complexity: f64) -> bool;
+
     fn add(
         &mut self,
         data: PoolStorageIndex,
@@ -25,7 +27,7 @@ where
 {
     #[no_coverage]
     fn process(&mut self, input_id: PoolStorageIndex, sensor: &mut S, complexity: f64) -> Vec<CorpusDelta> {
-        let mut observation_state = <Self as CompatibleWithIteratorSensor>::ObservationState::default();
+        let mut observation_state = self.start_observing();
         sensor.iterate_over_observations(
             #[no_coverage]
             &mut |o| {

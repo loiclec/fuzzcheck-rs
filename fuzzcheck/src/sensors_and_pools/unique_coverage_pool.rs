@@ -831,6 +831,11 @@ impl CompatibleWithIteratorSensor for UniqueCoveragePool {
     type ObservationState = UniqueCoveragePoolObservationState;
 
     #[no_coverage]
+    fn start_observing(&mut self) -> Self::ObservationState {
+        <_>::default()
+    }
+
+    #[no_coverage]
     fn observe(
         &mut self,
         &(index, _counter): &Self::Observation,

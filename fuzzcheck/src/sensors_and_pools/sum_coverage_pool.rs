@@ -89,6 +89,12 @@ impl<Strategy> Pool for AggregateCoveragePool<Strategy> {
 impl CompatibleWithIteratorSensor for AggregateCoveragePool<SumCounterValues> {
     type Observation = (usize, u64);
     type ObservationState = u64;
+
+    #[no_coverage]
+    fn start_observing(&mut self) -> Self::ObservationState {
+        <_>::default()
+    }
+
     #[no_coverage]
     fn observe(&mut self, observation: &Self::Observation, _input_complexity: f64, state: &mut Self::ObservationState) {
         *state += observation.1;
@@ -134,6 +140,12 @@ impl CompatibleWithIteratorSensor for AggregateCoveragePool<SumCounterValues> {
 impl CompatibleWithIteratorSensor for AggregateCoveragePool<CountNumberOfDifferentCounters> {
     type Observation = (usize, u64);
     type ObservationState = u64;
+
+    #[no_coverage]
+    fn start_observing(&mut self) -> Self::ObservationState {
+        <_>::default()
+    }
+
     #[no_coverage]
     fn observe(
         &mut self,

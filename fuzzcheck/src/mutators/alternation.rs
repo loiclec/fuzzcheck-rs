@@ -246,17 +246,14 @@ where
             return Some((UnmutateToken::Replace(old_value), cplx));
         }
 
-        /*
-            1. choose a cache/step randomly
-            2. mutate away
-            3. if the result is none, make sure that those cache/steps are not chosen again!
-        */
         let step_idx = self.rng.usize(..step.len());
         let chosen_step = &mut step[step_idx];
         let mutator_idx = chosen_step.mutator_idx;
         let chosen_cache = cache.iter_mut().find(|c| c.mutator_idx == mutator_idx).unwrap();
 
         let idx = chosen_cache.mutator_idx;
+        assert_eq!(idx, mutator_idx);
+
         let mutator = &self.mutators[idx];
         if let Some((t, cplx)) =
             mutator.ordered_mutate(value, &mut chosen_cache.inner, &mut chosen_step.inner, max_cplx)

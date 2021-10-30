@@ -327,7 +327,7 @@ fn defaul_pool_for_code_coverage_sensor(sensor: &CodeCoverageSensor) -> impl Com
 
     let pool4 = AggregateCoveragePool::<SumCounterValues>::new("highest_cov_hits");
     let pool5 = AggregateCoveragePool::<CountNumberOfDifferentCounters>::new("uniq_cov1");
-    let pool6 = MostNDiversePool::new("uniq_cov20", 20);
+    let pool6 = MostNDiversePool::new("uniq_cov20", 20, count_instrumented);
 
     let perf_pools = AndPool::new(pool4, pool2, 128);
     let diverse_pools = AndPool::new(pool6, pool5, 200);

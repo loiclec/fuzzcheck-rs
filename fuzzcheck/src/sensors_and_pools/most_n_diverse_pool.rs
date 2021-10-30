@@ -27,6 +27,7 @@ pub struct Input {
 pub struct MostNDiversePool {
     name: String,
     max_len: usize,
+    nbr_counters: usize,
     inputs: Vec<Input>,
     all_counters: FixedBitSet,
     worst_input_idx: Option<usize>,
@@ -42,10 +43,11 @@ pub struct Stats {
 }
 impl MostNDiversePool {
     #[no_coverage]
-    pub fn new(name: &str, max_len: usize) -> Self {
+    pub fn new(name: &str, max_len: usize, nbr_counters: usize) -> Self {
         Self {
             name: name.to_owned(),
             max_len,
+            nbr_counters,
             inputs: vec![],
             all_counters: FixedBitSet::new(),
             worst_input_idx: None,
@@ -100,18 +102,19 @@ pub struct ObservationState {
     counters: FixedBitSet,
     nbr_new_counters: usize,
 }
-impl Default for ObservationState {
-    fn default() -> Self {
-        Self {
-            counters: FixedBitSet::with_capacity(2617),
+
+impl CompatibleWithIteratorSensor for MostNDiversePool {
+    type Observation = (usize, u64);
+    type ObservationState = ObservationState;
+
+    #[no_coverage]
+    fn start_observing(&mut self) -> Self::ObservationState {
+        ObservationState {
+            counters: FixedBitSet::with_capacity(self.nbr_counters + 1),
             nbr_new_counters: 0,
         }
     }
-}
-impl CompatibleWithIteratorSensor for MostNDiversePool {
-    type Observation = (usize, u64);
 
-    type ObservationState = ObservationState;
     #[no_coverage]
     fn observe(&mut self, observation: &Self::Observation, _input_complexity: f64, state: &mut Self::ObservationState) {
         let ObservationState {
@@ -327,7 +330,7 @@ mod tests {
     #[test]
     #[no_coverage]
     fn test_most_n_diverse_pool() {
-        let mut pool = MostNDiversePool::new("diverse5", 5);
+        let mut pool = MostNDiversePool::new("diverse5", 5, 10);
 
         run(&mut pool, vec![1], 10.0);
         run(&mut pool, vec![2], 10.0);
@@ -344,7 +347,7 @@ mod tests {
 
     #[no_coverage]
     fn run(pool: &mut MostNDiversePool, observations: Vec<usize>, cplx: f64) {
-        let mut obs_state = ObservationState::default();
+        let mut obs_state = pool.start_observing();
         for observation in &observations {
             pool.observe(&(*observation, 1), cplx, &mut obs_state);
         }
