@@ -113,6 +113,14 @@ where
     Self: 'static,
 {
     #[no_coverage]
+    fn write_stats(&mut self) -> Result<(), std::io::Error> {
+        let mut contents = self.pool.serialized();
+        contents.extend(self.sensor.serialized());
+        contents.extend(self.world.serialized());
+        self.world.write_stats_content(contents)
+    }
+
+    #[no_coverage]
     fn receive_signal(&mut self, signal: i32) -> ! {
         self.world.report_event(
             FuzzerEvent::CaughtSignal(signal as i32),
@@ -125,7 +133,7 @@ where
                     let cplx = input.complexity(&self.mutator);
                     let content = self.serializer.to_data(&input.value);
                     let _ = self.world.save_artifact(content, cplx, self.serializer.extension());
-
+                    self.write_stats().unwrap();
                     exit(TerminationStatus::Crash as i32);
                 } else {
                     self.world.report_event(
@@ -135,7 +143,10 @@ where
                     exit(TerminationStatus::Crash as i32);
                 }
             }
-            SIGINT | SIGTERM => self.world.stop(),
+            SIGINT | SIGTERM => {
+                self.write_stats().unwrap();
+                self.world.stop()
+            }
             _ => exit(TerminationStatus::Unknown as i32),
         }
     }
@@ -494,10 +505,7 @@ where
 
                 let reason_for_stopping = fuzzer.main_loop().unwrap_err();
                 if !matches!(reason_for_stopping, ReasonForStopping::IOError(_)) {
-                    let mut contents = fuzzer.state.pool.serialized();
-                    contents.extend(fuzzer.state.sensor.serialized());
-                    contents.extend(fuzzer.state.world.serialized());
-                    fuzzer.state.world.write_stats_content(contents)?;
+                    fuzzer.state.write_stats()?;
                 }
                 reason_for_stopping
             } else {
@@ -518,10 +526,7 @@ where
                 fuzzer.state.world.append_stats_file(&stats_headers)?;
                 let reason_for_stopping = fuzzer.main_loop().unwrap_err();
                 if !matches!(reason_for_stopping, ReasonForStopping::IOError(_)) {
-                    let mut contents = fuzzer.state.pool.serialized();
-                    contents.extend(fuzzer.state.sensor.serialized());
-                    contents.extend(fuzzer.state.world.serialized());
-                    fuzzer.state.world.write_stats_content(contents)?;
+                    fuzzer.state.write_stats()?;
                 }
                 reason_for_stopping
             }
