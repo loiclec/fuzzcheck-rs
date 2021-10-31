@@ -13,7 +13,8 @@ pub enum AST {
     Box(Box<AST>),
 }
 impl ASTMutator {
-    /// Wrap the mutator in a
+    /// Transforms the [ASTMutator] into a mutator which passes both the [AST] type and that [AST]
+    /// instance as a [String] (rather than just the [AST]).
     pub fn with_string(self) -> impl Mutator<(AST, String)> {
         MapMutator::new(
             self,
