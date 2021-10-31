@@ -16,7 +16,7 @@ a non-recursive `struct` or `enum` and makes it its default mutator.
 - [`make_basic_tuple_mutator!(N)`](fuzzcheck_mutators_derive::make_mutator) creates a mutator for tuples of `N`
 elements. For small values of `N`, these mutators are already available in [the `tuples` module](crate::mutators::tuples)
 
-This crate provides [grammar-based string mutators](crate::grammar).
+This crate provides [grammar-based string mutators](crate::mutators::grammar).
 */
 
 pub use fuzzcheck_mutators_derive::*;
