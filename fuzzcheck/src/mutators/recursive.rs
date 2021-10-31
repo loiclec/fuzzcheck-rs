@@ -25,7 +25,7 @@ struct S {
 }
 ```
 `RecursiveMutator` is only the top-level type. It must be used in conjuction
-with [RecurToMutator](crate::recursive::RecurToMutator) at points of recursion.
+with [RecurToMutator](crate::mutators::recursive::RecurToMutator) at points of recursion.
 For example:
 ```ignore
 use fuzzcheck_mutators::recursive::RecursiveMutator;
@@ -50,7 +50,8 @@ impl<M> RecursiveMutator<M> {
     }
 }
 
-/// A mutator that defers to a weak reference of a [RecursiveMutator](crate::recursive::RecursiveMutator)
+/// A mutator that defers to a weak reference of a
+/// [RecursiveMutator](crate::mutators::recursive::RecursiveMutator)
 pub struct RecurToMutator<M> {
     reference: Weak<M>,
 }
