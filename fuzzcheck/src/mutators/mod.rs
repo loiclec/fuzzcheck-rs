@@ -33,7 +33,6 @@ This module provides the following mutators:
 pub use fuzzcheck_mutators_derive::*;
 
 pub mod alternation;
-pub mod arbitrary_only;
 pub mod bool;
 pub mod boxed;
 pub mod char;
@@ -48,9 +47,7 @@ pub mod integer;
 pub mod integer_within_range;
 pub mod map;
 pub mod never;
-pub mod num;
 pub mod option;
-pub mod ordering;
 pub mod range;
 pub mod recursive;
 pub mod result;
