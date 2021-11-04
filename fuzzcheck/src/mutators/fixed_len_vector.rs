@@ -3,6 +3,9 @@ use std::marker::PhantomData;
 use crate::Mutator;
 use fastrand::Rng;
 
+/// A mutator for vectors of a specific length
+///
+/// A different mutator is used for each element of the vector
 pub struct FixedLenVecMutator<T, M>
 where
     T: Clone,

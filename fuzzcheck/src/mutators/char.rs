@@ -4,6 +4,7 @@ use std::ops::{Bound, RangeBounds};
 
 const INITIAL_MUTATION_STEP: u64 = 0;
 
+/// Mutator for a `char` within a given range
 pub struct CharWithinRangeMutator {
     start_range: u32,
     len_range: u32,
@@ -29,7 +30,7 @@ impl CharWithinRangeMutator {
             }
             Bound::Unbounded => <u32>::MAX,
         };
-        if !start <= end {
+        if !(start <= end) {
             panic!(
                 "You have provided a character range where the value of the start of the range \
                 is larger than the end of the range!\nRange start: {:#?}\nRange end: {:#?}",

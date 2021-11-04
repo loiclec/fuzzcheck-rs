@@ -1,5 +1,7 @@
 use crate::Mutator;
 
+/// Trait used by the [DefaultMutator derive macro](fuzzcheck_mutators_derive::DefaultMutator)
+/// for enums without associated data
 pub trait BasicEnumStructure {
     fn from_item_index(item_index: usize) -> Self;
     fn get_item_index(&self) -> usize;
@@ -7,6 +9,7 @@ pub trait BasicEnumStructure {
 
 extern crate self as fuzzcheck;
 
+/// A mutator used for enums implementing [BasicEnumStructure]
 pub struct BasicEnumMutator {
     rng: fastrand::Rng,
     cplx: f64,

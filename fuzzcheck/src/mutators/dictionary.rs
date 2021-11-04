@@ -1,5 +1,16 @@
 use crate::Mutator;
 
+/** Wrap a mutator and prioritise the generation of a few given values.
+```
+use fuzzcheck::DefaultMutator;
+use fuzzcheck::mutators::dictionary::DictionaryMutator;
+
+let m = usize::default_mutator();
+let m = DictionaryMutator::new(m, [256, 65_536, 1_000_000]);
+// m will first generate the values given to the DictionaryMutator constructor
+// and will then use usize’s default mutator
+```
+*/
 pub struct DictionaryMutator<T: Clone, M: Mutator<T>> {
     m: M,
     dictionary: Vec<(T, f64)>,
@@ -7,8 +18,9 @@ pub struct DictionaryMutator<T: Clone, M: Mutator<T>> {
 }
 impl<T: Clone, M: Mutator<T>> DictionaryMutator<T, M> {
     #[no_coverage]
-    pub fn new(value_mutator: M, dictionary: impl Iterator<Item = T>) -> Self {
+    pub fn new(value_mutator: M, dictionary: impl IntoIterator<Item = T>) -> Self {
         let dictionary = dictionary
+            .into_iter()
             .filter_map(|v| {
                 if let Some((cache, _)) = value_mutator.validate_value(&v) {
                     let complexity = value_mutator.complexity(&v, &cache);

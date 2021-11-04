@@ -1,6 +1,21 @@
 use crate::Mutator;
 use std::{cmp::Ordering, marker::PhantomData};
 
+/**
+A mutator that wraps multiple different mutators of the same type.
+
+```
+use fuzzcheck::mutators::alternation::AlternationMutator;
+use fuzzcheck::mutators::integer_within_range::U8WithinRangeMutator;
+
+let m1 = U8WithinRangeMutator::new(3 ..= 10);
+let m2 = U8WithinRangeMutator::new(78 ..= 200);
+
+let m = AlternationMutator::new(vec![m1, m2]);
+
+// m will produce values either in 3..=10 or in 78..=200
+```
+*/
 pub struct AlternationMutator<T, M>
 where
     T: Clone,

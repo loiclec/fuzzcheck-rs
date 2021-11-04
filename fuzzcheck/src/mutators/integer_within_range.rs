@@ -33,7 +33,7 @@ macro_rules! impl_int_mutator_constrained {
                     }
                     Bound::Unbounded => <$name>::MAX,
                 };
-                if !start <= end {
+                if !(start <= end) {
                     panic!(
                         "You have provided a character range where the value of the start of the range \
                         is larger than the end of the range!\nRange start: {:#?}\nRange end: {:#?}",

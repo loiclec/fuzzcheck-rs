@@ -1,6 +1,7 @@
 use crate::DefaultMutator;
 use crate::Mutator;
 
+/// Default mutator for `bool`
 #[derive(Default)]
 pub struct BoolMutator {
     rng: fastrand::Rng,

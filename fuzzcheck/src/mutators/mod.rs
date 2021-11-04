@@ -4,12 +4,12 @@ Types implementing the [Mutator] trait.
 This module provides the following mutators:
 
 * mutators for basic types such as
-    * `bool` ([here](crate::mutators::bool))
-    * `char` ([here](crate::mutators::char) and [here](crate::mutators::character_classes))
+    * `bool` ([here](crate::mutators::bool::BoolMutator))
+    * `char` ([here](crate::mutators::char::CharWithinRangeMutator) and [here](crate::mutators::character_classes::CharacterMutator))
     * integers ([here](crate::mutators::integer) and [here](crate::mutators::integer_within_range))
-    * `Vec` ([here](crate::mutators::vector) and [here](crate::mutators::fixed_len_vector))
-    * `Option` ([here](crate::mutators::option))
-    * `Result` ([here](crate::mutators::result))
+    * `Vec` ([here](crate::mutators::vector::VecMutator) and [here](crate::mutators::fixed_len_vector::FixedLenVecMutator))
+    * `Option` ([here](crate::mutators::option::OptionMutator))
+    * `Result` ([here](crate::mutators::result::ResultMutator))
     * `Box` ([here](crate::mutators::boxed))
     * tuples of up to 10 elements ([here](crate::mutators::tuples))
 
@@ -24,7 +24,7 @@ This module provides the following mutators:
 * basic blocks to build more complex mutators:
     * [`DictionaryMutator<_, M>`](crate::mutators::dictionary::DictionaryMutator) to wrap a mutator and prioritise the generation of a few given values
     * [`AlternationMutator<_, M>`](crate::mutators::alternation::AlternationMutator) to use multiple different mutators acting on the same test case type
-    * [`Either<M1, M2>`](crate::mutators::either) is the regular `Either` type, which also implements `Mutator<T>` if both `M1` and `M2` implement it too
+    * [`Either<M1, M2>`](crate::mutators::either::Either) is the regular `Either` type, which also implements `Mutator<T>` if both `M1` and `M2` implement it too
     * [`RecursiveMutator` and `RecurToMutator`](crate::mutators::recursive) are wrappers allowing mutators to call themselves recursively, which is necessary to mutate recursive types.
     * [`MapMutator<..>`](crate::mutators::map::MapMutator) wraps a mutator and transforms the generated value using a user-provided function.
     * [`IncrementalMapMutator<..>`](crate::mutators::incremental_map::IncrementalMapMutator) is the same as `MapMutator` but transforms the value incrementally

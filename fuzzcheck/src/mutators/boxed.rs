@@ -1,6 +1,7 @@
 use crate::DefaultMutator;
 use crate::Mutator;
 
+/// Default mutator of `Box<T>`
 #[derive(Default)]
 pub struct BoxMutator<M> {
     pub mutator: M,

@@ -4,6 +4,7 @@ use fastrand::Rng;
 
 use crate::Mutator;
 
+/// Mutator for a `char` within a list of ranges
 #[derive(Debug)]
 pub struct CharacterMutator {
     ranges: Vec<RangeInclusive<char>>,
