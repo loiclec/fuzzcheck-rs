@@ -22,7 +22,7 @@ impl ASTMutator {
             |x: &(AST, String)| Some(x.0.clone()),
             #[no_coverage]
             |ast| (ast.clone(), ast.generate_string().0),
-            |(_ast, string)| 1.0 + (string.len() * 8) as f64,
+            |(_ast, string), _cplx| 1.0 + (string.len() * 8) as f64,
         )
     }
 }
