@@ -4,34 +4,32 @@ use std::{
     rc::Weak,
 };
 
+use super::grammar_from_regex;
+
 #[derive(Clone, Debug)]
 /// A grammar which can be used for fuzzing.
 ///
 /// Note that instead of constructing these yourself you probably want to use the provided macros
 /// (see the documentation for each field for the appropriate macro to use).
 pub enum Grammar {
-    /// [crate::literal]
     Literal(Vec<RangeInclusive<char>>),
-    /// [crate::alternation]
     Alternation(Vec<Rc<Grammar>>),
-    /// [crate::concatenation]
     Concatenation(Vec<Rc<Grammar>>),
-    /// [crate::repetition]
     Repetition(Rc<Grammar>, Range<usize>),
-    /// [crate::recurse]
     Recurse(Weak<Grammar>),
-    /// [crate::recursive]
     Recursive(Rc<Grammar>),
 }
 
 impl Grammar {
     #[no_coverage]
-    /// You may want to use the [crate::literal] macro instead of invoking this function directly.
+    pub fn regex(s: &str) -> Rc<Grammar> {
+        grammar_from_regex(s)
+    }
+    #[no_coverage]
     pub fn literal_ranges(ranges: Vec<RangeInclusive<char>>) -> Rc<Grammar> {
         Rc::new(Grammar::Literal(ranges))
     }
     #[no_coverage]
-    /// You may want to use the [crate::literal] macro instead of invoking this function directly.
     pub fn literal<R>(range: R) -> Rc<Grammar>
     where
         R: RangeBounds<char>,
@@ -49,19 +47,14 @@ impl Grammar {
         Rc::new(Grammar::Literal(vec![start..=end]))
     }
     #[no_coverage]
-    /// You may want to use the [crate::alternation] macro instead of invoking this function directly.
     pub fn alternation(gs: impl IntoIterator<Item = Rc<Grammar>>) -> Rc<Grammar> {
         Rc::new(Grammar::Alternation(gs.into_iter().collect()))
     }
     #[no_coverage]
-    /// You may want to use the [crate::concatenation] macro instead of invoking this function
-    /// directly.
     pub fn concatenation(gs: impl IntoIterator<Item = Rc<Grammar>>) -> Rc<Grammar> {
         Rc::new(Grammar::Concatenation(gs.into_iter().collect()))
     }
     #[no_coverage]
-    /// You may want to use the [crate::repetition] macro instead of invoking this function
-    /// directly.
     pub fn repetition<R>(gs: Rc<Grammar>, range: R) -> Rc<Grammar>
     where
         R: RangeBounds<usize>,
@@ -80,12 +73,10 @@ impl Grammar {
     }
 
     #[no_coverage]
-    /// You may want to use the [crate::recurse] macro instead of invoking this function directly.
     pub fn recurse(g: &Weak<Grammar>) -> Rc<Grammar> {
         Rc::new(Grammar::Recurse(g.clone()))
     }
     #[no_coverage]
-    /// You may want to use the [crate::recursive] macro instead of invoking this function directly.
     pub fn recursive(data_fn: impl Fn(&Weak<Grammar>) -> Rc<Grammar>) -> Rc<Grammar> {
         Rc::new(Grammar::Recursive(Rc::new_cyclic(|g| {
             Rc::try_unwrap(data_fn(g)).unwrap()

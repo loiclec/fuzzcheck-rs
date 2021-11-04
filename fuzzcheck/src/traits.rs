@@ -204,7 +204,7 @@ pub trait Mutator<Value: Clone> {
 }
 
 /**
- * A Serializer is used to encode and decode values into bytes.
+ * A [Serializer] is used to encode and decode values into bytes.
  *
  * One possible implementation would be to use `serde` to implement
  * both required functions. But we also want to be able to fuzz-test
@@ -223,6 +223,12 @@ pub trait Serializer {
     fn to_data(&self, value: &Self::Value) -> Vec<u8>;
 }
 
+/**
+A trait for types that are basic wrappers over a mutator, such as `Box<M>` or
+`Rc<M>`.
+
+Such wrapper types automatically implement the `Mutator` trait.
+ */
 pub trait MutatorWrapper {
     type Wrapped;
 
@@ -303,15 +309,17 @@ impl<M> MutatorWrapper for Box<M> {
     }
 }
 
+/// An empty type that can be used for [Pool::Stats]
 #[derive(Clone, Copy)]
 pub struct EmptyStats;
+
 impl Display for EmptyStats {
     #[no_coverage]
     fn fmt(&self, _f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         Ok(())
     }
 }
-impl ToCSVFields for EmptyStats {
+impl ToCSV for EmptyStats {
     #[no_coverage]
     fn csv_headers(&self) -> Vec<CSVField> {
         vec![]
@@ -322,14 +330,21 @@ impl ToCSVFields for EmptyStats {
     }
 }
 
+/// A [CorpusDelta] describes how to reflect a change in the pool’s content to the corpus on the file system.
+///
+/// It is used as the return type to [`pool.process(..)`](CompatibleWithSensor::process) where a test case along
+/// with its associated sensor observations is given to the pool. Thus, it is always implicitly associated with
+/// a specific pool and test case.
 #[derive(Debug)]
 pub struct CorpusDelta {
+    /// The common path to the subfolder inside the main corpus where the test cases (added or removed) reside
     pub path: PathBuf,
+    /// Whether the test case was added to the pool
     pub add: bool,
+    /// A list of test cases that were removed
     pub remove: Vec<PoolStorageIndex>,
 }
 
-// TODO: this should operate on a vec of corpus delta
 impl CorpusDelta {
     #[no_coverage]
     pub fn fuzzer_event(deltas: &[CorpusDelta]) -> FuzzerEvent {
@@ -350,13 +365,33 @@ impl CorpusDelta {
     }
 }
 
+/**
+A [Sensor] records information when running the test function, which the
+fuzzer can use to evaluate the rank of a test case.
+
+For example, the sensor can record the code coverage triggered by the test case,
+store the source location of a panic, measure the number of allocations made, etc.
+The observations made by a sensor are then assessed by a [Pool], which must be
+explicitly [compatible](CompatibleWithSensor) with the sensor.
+*/
 pub trait Sensor {
+    /**
+    A type that is used to retrieve the observations made by the sensor.
+
+    For example, if the sensor stores only one value of type `u8`, the
+    observation handler can be `&'a mut u8`. But if the observations are retrieved one-by-one, the observation handler may be `&'a mut dyn FnMut(T)`.
+    */
     type ObservationHandler<'a>;
+
+    /// Signal to the sensor that it should prepare to record observations
     fn start_recording(&mut self);
+    /// Signal to the sensor that it should stop recording observations
     fn stop_recording(&mut self);
 
+    /// Access the sensor's observations through the handler
     fn iterate_over_observations(&mut self, handler: Self::ObservationHandler<'_>);
 
+    // TODO: move `serialized` to its own trait
     fn serialized(&self) -> Vec<(PathBuf, Vec<u8>)>;
 }
 
@@ -388,24 +423,72 @@ impl CSVField {
     }
 }
 
-pub trait ToCSVFields {
+/**
+Describes how to save a list of this value as a CSV file.
+
+It is done via two methods:
+1. [self.csv_headers\()](ToCSV::csv_headers) gives the first row of the file, as a list of [CSVField].
+For example, it can be `time, score`.
+2. [self.to_csv_record\()](ToCSV::to_csv_record) serializes the value as a CSV row. For example, it
+can be `16:07:32, 34.0`.
+
+Note that each call to [self.to_csv_record\()](ToCSV::to_csv_record) must return a list of [CSVField]
+where the field at index `i` corresponds to the header at index `i` given by [self.csv_headers()](ToCSV::csv_headers).
+Otherwise, the CSV file will be invalid.
+*/
+pub trait ToCSV {
+    /// The headers of the CSV file
     fn csv_headers(&self) -> Vec<CSVField>;
+    /// Serializes `self` as a list of [CSVField]. Each element in the vector must correspond to a header given
+    /// by [self.csv_headers\()](ToCSV::csv_headers)
     fn to_csv_record(&self) -> Vec<CSVField>;
 }
 
-pub trait Pool {
-    type Stats: Display + ToCSVFields + Clone;
+/**
+A [Pool] ranks test cases based on observations recorded by a sensor.
 
+The pool trait is divided into two parts:
+1. [Pool] contains general methods that are independent of the sensor used
+2. [CompatibleWithSensor<Sensor>] is a subtrait of [Pool]. It describes how the pool handles
+observations made by the Sensor.
+*/
+pub trait Pool {
+    /// Statistics about the pool to be printed to the terminal as the fuzzer is running and
+    /// saved to a .csv file after the run
+    type Stats: Display + ToCSV + Clone;
+
+    /// The number of test cases in the pool
     fn len(&self) -> usize;
+
+    /// The pool’s statistics
     fn stats(&self) -> Self::Stats;
 
+    /// Get the index of a random test case.
+    ///
+    /// Most [Pool] implementations will want to prioritise certain test cases
+    /// over others based on their associated observations.
     fn get_random_index(&mut self) -> Option<PoolStorageIndex>;
 
+    /// Mark a certain test case as a dead end.
+    ///
+    /// A test case is a dead end when its [Mutator] can no longer mutate it
+    /// to different values.
     fn mark_test_case_as_dead_end(&mut self, idx: PoolStorageIndex);
 
+    // TODO: put serialized in its own trait
     fn serialized(&self) -> Vec<(PathBuf, Vec<u8>)>;
 }
 
+/**
+A subtrait of [Pool] describing how the pool handles observations made by a sensor.
+
+This trait is separate from [Pool] because a single pool type may handle multiple different kinds of sensors.
+
+It is responsible for judging whether the observations are interesting, and then adding the test case to the pool
+if they are. It communicates to the rest of the fuzzer what test cases were added or removed from the pool via the
+[CorpusDelta] type. This ensures that the right message can be printed to the terminal and that the corpus on the
+file system, which reflects the content of the pool, can be properly updated.
+*/
 pub trait CompatibleWithSensor<S: Sensor>: Pool {
     fn process(&mut self, input_id: PoolStorageIndex, sensor: &mut S, complexity: f64) -> Vec<CorpusDelta>;
 }

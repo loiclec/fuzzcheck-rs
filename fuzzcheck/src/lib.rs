@@ -11,14 +11,17 @@
 #![allow(clippy::nonstandard_macro_braces)]
 #![allow(clippy::too_many_arguments)]
 
+#[doc(hidden)]
 pub extern crate fastrand;
 
 mod bitset;
+/** Builders used to set up a fuzz test */
 pub mod builder;
 mod code_coverage_sensor;
 mod data_structures;
 mod fenwick_tree;
 mod fuzzer;
+
 pub mod mutators;
 pub mod sensors_and_pools;
 pub mod serializers;
@@ -28,6 +31,13 @@ mod traits;
 mod world;
 
 pub(crate) use split_string::split_string_by_whitespace;
+
+#[doc(inline)]
+pub use crate::traits::CompatibleWithSensor;
+#[doc(inline)]
+pub use crate::traits::Pool;
+#[doc(inline)]
+pub use crate::traits::Sensor;
 
 #[doc(inline)]
 pub use builder::default_sensor_and_pool;
@@ -42,7 +52,7 @@ pub use traits::MutatorWrapper;
 #[doc(inline)]
 pub use traits::Serializer;
 #[doc(inline)]
-pub use traits::{CSVField, ToCSVFields};
+pub use traits::{CSVField, ToCSV};
 
 #[doc(inline)]
 pub use builder::fuzz_test;
@@ -59,7 +69,7 @@ pub use serializers::SerdeSerializer;
  * A struct that stores the value, cache, and mutation step of an input.
  * It is used for convenience.
  */
-pub struct FuzzedInput<T: Clone, Mut: Mutator<T>> {
+pub(crate) struct FuzzedInput<T: Clone, Mut: Mutator<T>> {
     pub value: T,
     pub cache: Mut::Cache,
     pub mutation_step: Mut::MutationStep,

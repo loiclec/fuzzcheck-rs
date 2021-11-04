@@ -3,7 +3,7 @@ use std::{fmt::Display, path::PathBuf};
 use crate::{
     fuzzer::PoolStorageIndex,
     traits::{CompatibleWithSensor, CorpusDelta, Pool, Sensor},
-    CSVField, ToCSVFields,
+    CSVField, ToCSV,
 };
 
 use super::compatible_with_iterator_sensor::CompatibleWithIteratorSensor;
@@ -203,12 +203,12 @@ where
         deltas
     }
 }
-impl<S1, S2> ToCSVFields for AndStats<S1, S2>
+impl<S1, S2> ToCSV for AndStats<S1, S2>
 where
     S1: Display,
     S2: Display,
-    S1: ToCSVFields,
-    S2: ToCSVFields,
+    S1: ToCSV,
+    S2: ToCSV,
 {
     #[no_coverage]
     fn csv_headers(&self) -> Vec<CSVField> {

@@ -1,3 +1,7 @@
+/*!
+Types implementing the [Sensor](crate::Sensor) and [Pool](crate::Pool) traits.
+*/
+
 pub mod and_sensor_and_pool;
 pub mod array_of_counters;
 pub mod artifacts_pool;

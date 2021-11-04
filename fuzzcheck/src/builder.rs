@@ -257,7 +257,7 @@ where
     /**
         Specify the serializer to use when saving the interesting test cases to the file system.
 
-        The serializer must implement the [Serializer](fuzzcheck_traits::Serializer) trait. If you wish
+        The serializer must implement the [Serializer](crate::Serializer) trait. If you wish
         to use `serde`, you can compile fuzzcheck with the `serde_json_serializer` feature, which exposes
         `fuzzcheck::fuzzcheck_serializer::SerdeSerializer`. You can then write:
         ```ignore

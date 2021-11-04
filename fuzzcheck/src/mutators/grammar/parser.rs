@@ -291,7 +291,7 @@ fn alternation_parser<'a>(
 mod tests {
     use std::rc::Rc;
 
-    use crate::{alternation, concatenation, literal, mutators::grammar::Grammar, recurse, recursive};
+    use crate::mutators::grammar::Grammar;
 
     #[test]
     #[no_coverage]
@@ -397,16 +397,13 @@ mod tests {
     #[test]
     #[no_coverage]
     fn test_recurse_2() {
-        let grammar = recursive! { g in
-            concatenation! {
-                literal!('('),
-                alternation! {
-                    literal!('a' ..= 'b'),
-                    recurse!(g)
-                },
-                literal!(')')
-            }
-        };
+        let grammar = Grammar::recursive(|g| {
+            Grammar::concatenation([
+                Grammar::literal('('..='('),
+                Grammar::alternation([Grammar::literal('a'..='b'), Grammar::recurse(g)]),
+                Grammar::literal(')'..=')'),
+            ])
+        });
         let string = "(((b)))";
         let mut parser = super::grammar_parser(string, 0, grammar);
         while let Some((ast, _)) = parser() {

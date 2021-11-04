@@ -3,7 +3,7 @@ use std::{fmt::Display, marker::PhantomData, path::PathBuf};
 use crate::{
     fuzzer::PoolStorageIndex,
     traits::{CorpusDelta, Pool},
-    CSVField, ToCSVFields,
+    CSVField, ToCSV,
 };
 
 use super::compatible_with_iterator_sensor::CompatibleWithIteratorSensor;
@@ -34,7 +34,7 @@ impl Display for Stats {
         write!(f, "{}({})", self.name, self.best)
     }
 }
-impl ToCSVFields for Stats {
+impl ToCSV for Stats {
     fn csv_headers(&self) -> Vec<CSVField> {
         vec![CSVField::String(self.name.clone())]
     }

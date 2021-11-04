@@ -1,13 +1,13 @@
-//! The [Pool] is responsible for storing and updating inputs along with
-//! their associated code coverage.
+//! The [UniqueCoveragePool] is responsible for storing and updating inputs
+//! along with their associated code coverage.
 //!
 //! It assigns a score for each input based on how unique its associated code
 //! coverage is. And it can randomly select an input with a probability that
 //! is proportional to its score relative to all the other ones.
 //!
-//! # [Feature]: a unit of code coverage
+//! # Feature: a unit of code coverage
 //!
-//! The code coverage of an input is a set of [Feature]. A [Feature] is a value
+//! The code coverage of an input is a set of Feature. A Feature is a value
 //! that identifies some behavior of the code that was run. For example, it
 //! could say “This edge was reached this many times” or “This comparison
 //! instruction was called with these arguments”. In practice, features are not
@@ -58,7 +58,7 @@ use crate::data_structures::{Slab, SlabKey};
 use crate::fenwick_tree::FenwickTree;
 use crate::fuzzer::PoolStorageIndex;
 use crate::traits::{CorpusDelta, Pool};
-use crate::{CSVField, ToCSVFields};
+use crate::{CSVField, ToCSV};
 use ahash::{AHashMap, AHashSet};
 use fastrand::Rng;
 use owo_colors::OwoColorize;
@@ -126,7 +126,7 @@ pub struct Input {
     /// The keys of the features for which there are no simpler inputs in the
     /// pool reaching the feature.
     least_complex_for_features: AHashSet<FeatureIdx>,
-    /// Holds the key of each [FeatureInPool] associated with this input.
+    /// Holds the key of each Feature associated with this input.
     all_features: Vec<FeatureIdx>,
     /// The computed score of the input
     pub score: f64,
@@ -134,7 +134,7 @@ pub struct Input {
     data: PoolStorageIndex,
     /// Cached complexity of the value.
     ///
-    /// It should always be equal to [mutator.complexity(&self.data.value, &self.data.cache)](Mutator::complexity)
+    /// It should always be equal to [mutator.complexity(&self.data.value, &self.data.cache)](crate::Mutator::complexity)
     complexity: f64,
 
     number_times_chosen: usize,
@@ -796,7 +796,7 @@ impl Display for UniqueCoveragePoolStats {
         )
     }
 }
-impl ToCSVFields for UniqueCoveragePoolStats {
+impl ToCSV for UniqueCoveragePoolStats {
     #[no_coverage]
     fn csv_headers(&self) -> Vec<CSVField> {
         vec![

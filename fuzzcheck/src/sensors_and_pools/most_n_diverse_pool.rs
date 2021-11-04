@@ -10,7 +10,7 @@ use crate::{
     fenwick_tree::FenwickTree,
     fuzzer::PoolStorageIndex,
     traits::{CorpusDelta, Pool},
-    CSVField, ToCSVFields,
+    CSVField, ToCSV,
 };
 
 use super::{compatible_with_iterator_sensor::CompatibleWithIteratorSensor, unique_coverage_pool::gen_f64};
@@ -306,7 +306,7 @@ impl MostNDiversePool {
     }
 }
 
-impl ToCSVFields for Stats {
+impl ToCSV for Stats {
     #[no_coverage]
     fn csv_headers(&self) -> Vec<CSVField> {
         vec![]

@@ -3,7 +3,7 @@ use crate::fuzzer::TerminationStatus;
 use crate::traits::CorpusDelta;
 use crate::traits::EmptyStats;
 use crate::CSVField;
-use crate::ToCSVFields;
+use crate::ToCSV;
 use fuzzcheck_common::arg::Arguments;
 use fuzzcheck_common::arg::FuzzerCommand;
 use fuzzcheck_common::{FuzzerEvent, FuzzerStats};
@@ -24,7 +24,7 @@ use std::time::Duration;
 use std::time::Instant;
 use std::time::SystemTime;
 
-impl ToCSVFields for FuzzerStats {
+impl ToCSV for FuzzerStats {
     #[no_coverage]
     fn csv_headers(&self) -> Vec<CSVField> {
         vec![
@@ -150,7 +150,7 @@ impl World {
     }
 
     #[no_coverage]
-    pub(crate) fn report_event<PoolStats: Display + ToCSVFields>(
+    pub(crate) fn report_event<PoolStats: Display + ToCSV>(
         &self,
         event: FuzzerEvent,
         stats: Option<(&FuzzerStats, &PoolStats)>,

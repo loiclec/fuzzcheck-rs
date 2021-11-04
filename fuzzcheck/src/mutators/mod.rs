@@ -1,22 +1,33 @@
 /*!
-This crate provides a range of [mutators](fuzzcheck_traits::Mutator) that can
-be used to run structure-aware fuzz tests using the [fuzzcheck](https://github.com/loiclec/fuzzcheck-rs)
-crate. It also provides the [DefaultMutator] trait, which assigns a default mutator
-to a type:
-```
-use fuzzcheck::DefaultMutator;
-let mutator = <Vec<Vec<Option<Box<u16>>>>>::default_mutator();
-```
+Types implementing the [Mutator] trait.
 
-The following procedural macros are provided:
-- [`#[derive(DefaultMutator)]`](fuzzcheck_mutators_derive::DefaultMutator) creates a mutator for
-a non-recursive `struct` or `enum` and makes it its default mutator.
-- [`make_mutator! { .. }`](fuzzcheck_mutators_derive::make_mutator) creates a mutator for an arbitrary
-`struct` or `enum`. It can be parameterized to do more than what `#[derive(DefaultMutator)]` allows.
-- [`make_basic_tuple_mutator!(N)`](fuzzcheck_mutators_derive::make_mutator) creates a mutator for tuples of `N`
-elements. For small values of `N`, these mutators are already available in [the `tuples` module](crate::mutators::tuples)
+This module provides the following mutators:
 
-This crate provides [grammar-based string mutators](crate::mutators::grammar).
+* mutators for basic types such as
+    * `bool` ([here](crate::mutators::bool))
+    * `char` ([here](crate::mutators::char) and [here](crate::mutators::character_classes))
+    * integers ([here](crate::mutators::integer) and [here](crate::mutators::integer_within_range))
+    * `Vec` ([here](crate::mutators::vector) and [here](crate::mutators::fixed_len_vector))
+    * `Option` ([here](crate::mutators::option))
+    * `Result` ([here](crate::mutators::result))
+    * `Box` ([here](crate::mutators::boxed))
+    * tuples of up to 10 elements ([here](crate::mutators::tuples))
+
+* procedural macros to generate mutators for custom types:
+    * [`#[derive(DefaultMutator)]`](fuzzcheck_mutators_derive::DefaultMutator) which works on most structs and enums
+    * [`make_mutator! { .. }`](fuzzcheck_mutators_derive::make_mutator) which works like `#[derive(DefaultMutator)]` but is customisable
+    * [`make_basic_tuple_mutator!(N)`](fuzzcheck_mutators_derive::make_basic_tuple_mutator) creates a mutator for tuples of `N`
+    elements. It is useful to fuzz-test tuples of more than 10 elements, for which a default mutator is not provided by `fuzzcheck`.
+
+* grammar-based string and syntax tree mutators ([here](crate::mutators::grammar))
+
+* basic blocks to build more complex mutators:
+    * [`DictionaryMutator<_, M>`](crate::mutators::dictionary::DictionaryMutator) to wrap a mutator and prioritise the generation of a few given values
+    * [`AlternationMutator<_, M>`](crate::mutators::alternation::AlternationMutator) to use multiple different mutators acting on the same test case type
+    * [`Either<M1, M2>`](crate::mutators::either) is the regular `Either` type, which also implements `Mutator<T>` if both `M1` and `M2` implement it too
+    * [`RecursiveMutator` and `RecurToMutator`](crate::mutators::recursive) are wrappers allowing mutators to call themselves recursively, which is necessary to mutate recursive types.
+    * [`MapMutator<..>`](crate::mutators::map::MapMutator) wraps a mutator and transforms the generated value using a user-provided function.
+    * [`IncrementalMapMutator<..>`](crate::mutators::incremental_map::IncrementalMapMutator) is the same as `MapMutator` but transforms the value incrementally
 */
 
 pub use fuzzcheck_mutators_derive::*;
@@ -52,6 +63,7 @@ pub mod wrapper;
 use crate::Mutator;
 use std::ops::Range;
 
+/// A trait for giving a type a default [Mutator]
 pub trait DefaultMutator: Clone {
     type Mutator: Mutator<Self>;
     fn default_mutator() -> Self::Mutator;

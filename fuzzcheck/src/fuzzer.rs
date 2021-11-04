@@ -13,7 +13,7 @@ use crate::signals_handler::set_signal_handlers;
 use crate::traits::{CompatibleWithSensor, CorpusDelta, EmptyStats, Pool, Sensor};
 use crate::traits::{Mutator, Serializer};
 use crate::world::World;
-use crate::{CSVField, FuzzedInput, ToCSVFields};
+use crate::{CSVField, FuzzedInput, ToCSV};
 use fuzzcheck_common::arg::{Arguments, FuzzerCommand};
 use fuzzcheck_common::{FuzzerEvent, FuzzerStats};
 use libc::{SIGABRT, SIGALRM, SIGBUS, SIGFPE, SIGINT, SIGSEGV, SIGTERM, SIGTRAP};

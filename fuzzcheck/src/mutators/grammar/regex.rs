@@ -1,6 +1,6 @@
 use std::rc::Rc;
 
-use crate::{concatenation, literal, mutators::grammar::Grammar};
+use crate::mutators::grammar::Grammar;
 use regex_syntax::hir::{Class, HirKind, Literal, RepetitionKind, RepetitionRange};
 #[no_coverage]
 pub fn grammar_from_regex(regex: &str) -> Rc<Grammar> {
@@ -11,9 +11,9 @@ pub fn grammar_from_regex(regex: &str) -> Rc<Grammar> {
 #[no_coverage]
 pub fn grammar_from_regex_hir_kind(hir: &HirKind) -> Rc<Grammar> {
     match hir {
-        HirKind::Empty => concatenation! {},
+        HirKind::Empty => panic!("emoty regexes are not supported"),
         HirKind::Literal(literal) => match literal {
-            Literal::Unicode(literal) => literal!(literal..=literal),
+            Literal::Unicode(literal) => Grammar::literal(literal..=literal),
             Literal::Byte(_) => panic!("non-unicode regexes are not supported"),
         },
         HirKind::Class(class) => match class {
