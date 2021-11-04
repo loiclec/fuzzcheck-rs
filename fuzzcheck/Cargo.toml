@@ -35,8 +35,8 @@ fuzzcheck_mutators_derive = {path = "../fuzzcheck_mutators_derive", version = "0
 
 ahash = "0.7"
 
-owo-colors = "3"
 regex-syntax = "0.6"
+nu-ansi-term = "0.39"
 
 [lib]
 name = "fuzzcheck"

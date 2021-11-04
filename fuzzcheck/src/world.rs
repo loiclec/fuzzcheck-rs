@@ -7,7 +7,7 @@ use crate::ToCSV;
 use fuzzcheck_common::arg::Arguments;
 use fuzzcheck_common::arg::FuzzerCommand;
 use fuzzcheck_common::{FuzzerEvent, FuzzerStats};
-use owo_colors::OwoColorize;
+use nu_ansi_term::Color;
 use std::cell::RefCell;
 use std::collections::hash_map::DefaultHasher;
 use std::collections::HashMap;
@@ -158,11 +158,11 @@ impl World {
         // println uses a lock, which may mess up the signal handling
         match event {
             FuzzerEvent::Start => {
-                println!("{}", "START".yellow());
+                println!("{}", Color::Yellow.paint("START"));
                 return;
             }
             FuzzerEvent::Pulse => {
-                print!("{}\t", "PULSE".yellow());
+                print!("{}\t", Color::Yellow.paint("PULSE"));
             }
             FuzzerEvent::Stop => {
                 println!("\n======================== STOPPED ========================");
@@ -189,11 +189,11 @@ This should never happen, and is probably a bug in fuzzcheck. Sorry :("#
                 return;
             }
             FuzzerEvent::Done => {
-                println!("{}", "DONE".yellow());
+                println!("{}", Color::Yellow.paint("DONE"));
                 return;
             }
             FuzzerEvent::DidReadCorpus => {
-                println!("{}", "FINISHED READING CORPUS".yellow());
+                println!("{}", Color::Yellow.paint("FINISHED READING CORPUS"));
                 return;
             }
             FuzzerEvent::CaughtSignal(signal) => println!("\n================ SIGNAL {} ================", signal),
@@ -203,12 +203,12 @@ This should never happen, and is probably a bug in fuzzcheck. Sorry :("#
             }
             FuzzerEvent::Replace(add, sub) => {
                 if add != 0 {
-                    print!("+{} ", add.yellow());
+                    print!("+{} ", Color::Yellow.paint(format!("{}", add)));
                 } else {
                     print!("   ");
                 }
                 if sub != 0 {
-                    print!("-{}", add.yellow());
+                    print!("-{}", Color::Yellow.paint(format!("{}", add)));
                 } else {
                     print!("  ");
                 }
@@ -217,9 +217,15 @@ This should never happen, and is probably a bug in fuzzcheck. Sorry :("#
             FuzzerEvent::None => return,
         };
         if let Some((fuzzer_stats, pool_stats)) = stats {
-            print!("{} ", fuzzer_stats.total_number_of_runs.yellow());
-            print!("{} ", pool_stats.yellow());
-            print!("{} {}", "iter/s:".yellow(), fuzzer_stats.exec_per_s.yellow());
+            print!(
+                "{} ",
+                Color::Yellow.paint(format!("{}", fuzzer_stats.total_number_of_runs))
+            );
+            print!("{} ", Color::Yellow.paint(format!("{}", pool_stats)));
+            print!(
+                "{} ",
+                Color::Yellow.paint(format!("iter/s {}", fuzzer_stats.exec_per_s))
+            );
 
             println!();
             let time_since_start = self.initial_instant.elapsed();

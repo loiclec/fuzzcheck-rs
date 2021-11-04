@@ -5,7 +5,7 @@ use crate::sensors_and_pools::compatible_with_iterator_sensor::CompatibleWithIte
 use crate::traits::{CorpusDelta, Pool};
 use crate::{CSVField, ToCSV};
 use ahash::AHashSet;
-use owo_colors::OwoColorize;
+use nu_ansi_term::Color;
 use std::fmt::{Debug, Display};
 use std::path::Path;
 
@@ -24,7 +24,7 @@ impl Display for Stats {
         write!(
             f,
             "{}",
-            format!("{}({} sum: {})", self.name, self.size, self.total_counts).bright_purple()
+            Color::LightPurple.paint(format!("{}({} sum: {})", self.name, self.size, self.total_counts))
         )
     }
 }

@@ -61,7 +61,7 @@ use crate::traits::{CorpusDelta, Pool};
 use crate::{CSVField, ToCSV};
 use ahash::{AHashMap, AHashSet};
 use fastrand::Rng;
-use owo_colors::OwoColorize;
+use nu_ansi_term::Color;
 use std::cmp::Ordering;
 use std::fmt::Display;
 use std::hash::Hash;
@@ -788,11 +788,10 @@ impl Display for UniqueCoveragePoolStats {
         write!(
             f,
             "{}",
-            format!(
+            Color::LightGreen.paint(format!(
                 "{}({} cov: {}/{} cplx: {:.2})",
                 self.name, self.pool_size, self.coverage.0, self.coverage.1, self.avg_cplx
-            )
-            .bright_green()
+            ))
         )
     }
 }

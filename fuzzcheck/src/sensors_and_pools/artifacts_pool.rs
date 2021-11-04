@@ -1,7 +1,7 @@
 use crate::fuzzer::PoolStorageIndex;
 use crate::traits::{CompatibleWithSensor, CorpusDelta, Pool, Sensor};
 use crate::{CSVField, ToCSV};
-use owo_colors::OwoColorize;
+use nu_ansi_term::Color;
 use std::fmt::Display;
 use std::path::PathBuf;
 
@@ -58,7 +58,7 @@ impl Display for Stats {
         if self.count == 0 {
             write!(f, "{}", format!("artifacts({})", self.count))
         } else {
-            write!(f, "{}", format!("artifacts({})", self.count).red())
+            write!(f, "{}", Color::Red.paint(format!("artifacts({})", self.count)))
         }
     }
 }
