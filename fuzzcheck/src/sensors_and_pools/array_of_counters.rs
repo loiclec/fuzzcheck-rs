@@ -1,7 +1,33 @@
+use crate::traits::Sensor;
 use std::path::PathBuf;
 
-use crate::traits::Sensor;
-
+/// A custom sensor consisting of an array of counters that can be manually set.
+///
+/// ```
+/// // the “counters” array must be a static item
+/// static mut COUNTERS: [u64; 2] = [0; 2];
+///
+/// // inside the fuzz test, you can create the sensor as follows
+/// let sensor = ArrayOfCounters::new(unsafe { &mut COUNTERS });
+///
+/// fn test_function(x: &[bool]) {
+///     // you can then manually instrument a test function by changing the values of COUNTERS
+///     unsafe {
+///         COUNTERS[0] = x.len();
+///     }
+///     // ...
+///     unsafe {
+///         COUNTERS[1] = x.len();
+///     }
+///     // ...
+/// }
+/// ```
+/// The [ObservationHandler](crate::Sensor::ObservationHandler) of this sensor has the same type as the one from
+/// the default [code coverage sensor](crate::sensors_and_pools::CodeCoverageSensor). Therefore, most [pools](crate::Pool)
+/// that are [compatible with](crate::CompatibleWithSensor) the code coverage sensor will also be compatible with
+/// the `ArrayOfCounters` sensor.
+///
+/// You can also use a different pool such as the [`UniqueValuesPool`](crate::sensors_and_pools::UniqueValuesPool)
 pub struct ArrayOfCounters<const N: usize> {
     start: *mut u64,
 }

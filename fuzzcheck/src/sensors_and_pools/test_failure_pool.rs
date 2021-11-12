@@ -9,12 +9,18 @@ const NBR_ARTIFACTS_PER_ERROR_AND_CPLX: usize = 8;
 
 pub(crate) static mut TEST_FAILURE: Option<TestFailure> = None;
 
+/// A type describing a test failure.
+///
+/// It is uniquely identifiable through `self.id` and displayable through `self.display`.
 #[derive(Debug, Clone)]
 pub struct TestFailure {
     pub display: String,
     pub id: u64,
 }
 
+/// A sensor that records test failures.
+///
+/// It is [compatible with](CompatibleWithSensor) [`TestFailurePool`].
 #[derive(Default)]
 pub struct TestFailureSensor {
     error: Option<TestFailure>,
@@ -49,10 +55,10 @@ impl Sensor for TestFailureSensor {
 }
 
 #[derive(Clone, Copy)]
-pub(crate) struct Stats {
+pub struct TestFailurePoolStats {
     count: usize,
 }
-impl Display for Stats {
+impl Display for TestFailurePoolStats {
     #[no_coverage]
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         if self.count == 0 {
@@ -62,7 +68,7 @@ impl Display for Stats {
         }
     }
 }
-impl ToCSV for Stats {
+impl ToCSV for TestFailurePoolStats {
     #[no_coverage]
     fn csv_headers(&self) -> Vec<CSVField> {
         vec![CSVField::String("artifacts_count".to_string())]
@@ -73,23 +79,28 @@ impl ToCSV for Stats {
     }
 }
 
-struct ArftifactList {
+struct TestFailureList {
     error: TestFailure,
-    inputs: Vec<ArtifactListForError>,
+    inputs: Vec<TestFailureListForError>,
 }
 
-struct ArtifactListForError {
+struct TestFailureListForError {
     cplx: f64,
     inputs: Vec<PoolStorageIndex>,
 }
 
-pub(crate) struct ArtifactsPool {
+/// A pool that saves failing test cases.
+///
+/// It categorizes the test cases by their failure information and sort them by complexity.
+///
+/// It is [compatible with](crate::CompatibleWithSensor) [`TestFailureSensor`]
+pub struct TestFailurePool {
     name: String,
-    inputs: Vec<ArftifactList>,
+    inputs: Vec<TestFailureList>,
     rng: fastrand::Rng,
 }
 
-impl ArtifactsPool {
+impl TestFailurePool {
     #[no_coverage]
     pub(crate) fn new(name: &str) -> Self {
         Self {
@@ -100,12 +111,12 @@ impl ArtifactsPool {
     }
 }
 
-impl Pool for ArtifactsPool {
-    type Stats = Stats;
+impl Pool for TestFailurePool {
+    type Stats = TestFailurePoolStats;
 
     #[no_coverage]
     fn stats(&self) -> Self::Stats {
-        Stats {
+        TestFailurePoolStats {
             count: self.inputs.len(),
         }
     }
@@ -150,7 +161,7 @@ impl Pool for ArtifactsPool {
         vec![]
     }
 }
-impl CompatibleWithSensor<TestFailureSensor> for ArtifactsPool {
+impl CompatibleWithSensor<TestFailureSensor> for TestFailurePool {
     #[no_coverage]
     fn process(
         &mut self,
@@ -206,9 +217,9 @@ impl CompatibleWithSensor<TestFailureSensor> for ArtifactsPool {
 
                 match position {
                     PositionOfNewInput::NewError => {
-                        self.inputs.push(ArftifactList {
+                        self.inputs.push(TestFailureList {
                             error,
-                            inputs: vec![ArtifactListForError {
+                            inputs: vec![TestFailureListForError {
                                 cplx: complexity,
                                 inputs: vec![input_idx],
                             }],
@@ -216,7 +227,7 @@ impl CompatibleWithSensor<TestFailureSensor> for ArtifactsPool {
                     }
                     PositionOfNewInput::ExistingErrorNewCplx(error_idx) => {
                         // TODO: handle event
-                        self.inputs[error_idx].inputs.push(ArtifactListForError {
+                        self.inputs[error_idx].inputs.push(TestFailureListForError {
                             cplx: complexity,
                             inputs: vec![input_idx],
                         });

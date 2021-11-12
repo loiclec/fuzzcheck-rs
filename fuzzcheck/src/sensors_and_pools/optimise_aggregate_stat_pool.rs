@@ -8,17 +8,30 @@ use crate::{
 
 use super::compatible_with_iterator_sensor::CompatibleWithIteratorSensor;
 
-pub struct SumCounterValues;
-pub struct CountNumberOfDifferentCounters;
+/// A strategy for [`OptimiseAggregateStatPool`] that maximises the total sum of all counters
+pub struct SumOfCounterValues;
+/// A strategy for [`OptimiseAggregateStatPool`] that maximises the number of counters that are != 0
+pub struct NumberOfActivatedCounters;
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
-pub struct Unit;
+struct Unit;
 
-pub struct Input {
+struct Input {
     input_idx: PoolStorageIndex,
     complexity: f64,
 }
-pub struct AggregateCoveragePool<Strategy> {
+
+/// A pool that finds a single test case maximising some statistics computed from all of the sensor’s counters.
+///
+/// The statistics to optimise for is determined by the `Strategy` type parameter, which can be:
+/// * [`SumOfCounterValues`] to maximise the total sum of all counters
+/// * [`NumberOfActivatedCounters`] to maximise the number of counters that are != 0
+///
+/// Both strategies make the pool [compatible with](crate::CompatibleWithSensor) sensors whose
+/// [observation handler](crate::Sensor::ObservationHandler) is `&'a mut dyn FnMut((usize, u64))`,
+/// such as [`CodeCoverageSensor`](crate::sensors_and_pools::CodeCoverageSensor) and
+/// [`ArrayOfCounters`](crate::sensors_and_pools::ArrayOfCounters).
+pub struct OptimiseAggregateStatPool<Strategy> {
     name: String,
     current_best: Option<(u64, Input)>,
     current_best_dead_end: bool,
@@ -43,7 +56,7 @@ impl ToCSV for Stats {
         vec![CSVField::Integer(self.best as isize)]
     }
 }
-impl<Strategy> AggregateCoveragePool<Strategy> {
+impl<Strategy> OptimiseAggregateStatPool<Strategy> {
     #[no_coverage]
     pub fn new(name: &str) -> Self {
         Self {
@@ -54,7 +67,7 @@ impl<Strategy> AggregateCoveragePool<Strategy> {
         }
     }
 }
-impl<Strategy> Pool for AggregateCoveragePool<Strategy> {
+impl<Strategy> Pool for OptimiseAggregateStatPool<Strategy> {
     type Stats = Stats;
     #[no_coverage]
     fn len(&self) -> usize {
@@ -86,7 +99,7 @@ impl<Strategy> Pool for AggregateCoveragePool<Strategy> {
         vec![]
     }
 }
-impl CompatibleWithIteratorSensor for AggregateCoveragePool<SumCounterValues> {
+impl CompatibleWithIteratorSensor for OptimiseAggregateStatPool<SumOfCounterValues> {
     type Observation = (usize, u64);
     type ObservationState = u64;
 
@@ -137,7 +150,7 @@ impl CompatibleWithIteratorSensor for AggregateCoveragePool<SumCounterValues> {
     }
 }
 
-impl CompatibleWithIteratorSensor for AggregateCoveragePool<CountNumberOfDifferentCounters> {
+impl CompatibleWithIteratorSensor for OptimiseAggregateStatPool<NumberOfActivatedCounters> {
     type Observation = (usize, u64);
     type ObservationState = u64;
 

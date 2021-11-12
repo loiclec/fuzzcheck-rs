@@ -1,7 +1,7 @@
 use crate::fuzzer::PoolStorageIndex;
 use crate::fuzzer::TerminationStatus;
+use crate::sensors_and_pools::stats::EmptyStats;
 use crate::traits::CorpusDelta;
-use crate::traits::EmptyStats;
 use crate::CSVField;
 use crate::ToCSV;
 use fuzzcheck_common::arg::Arguments;

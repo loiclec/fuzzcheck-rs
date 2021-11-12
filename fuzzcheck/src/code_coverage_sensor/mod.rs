@@ -11,23 +11,33 @@ use std::{collections::HashMap, path::PathBuf};
 
 use self::llvm_coverage::{get_counters, get_prf_data, read_covmap, Coverage, LLVMCovSections};
 
-/// Records the code coverage of the program and converts it into `Feature`s
-/// that the `pool` can understand.
+/// A sensor that automatically records the code coverage of the program through an array of counters.
+///
+/// This is the default sensor used by fuzzcheck. It can filter the recorded code coverage so that
+/// only some files influence the fuzzer.
+///
+/// By default, coverage is recorded only for the files whose given paths are relative to the current directory.
+/// This is a heuristic to observe only the crate being tested. However, this behaviour can be changed.
+/// When creating a new `CodeCoverageSensor`, you can pass a function that determines whether coverage is
+/// recorded for a file with a given path.
+///
+/// ```
+/// let sensor = CodeCoverageSensor::new(|path| path.is_relative() == true);
+/// ```
 pub struct CodeCoverageSensor {
-    pub coverage: Vec<Coverage>,
-    // pub index_ranges: Vec<RangeInclusive<usize>>,
+    pub(crate) coverage: Vec<Coverage>,
+    /// The number of code regions observed by the sensor
     pub count_instrumented: usize,
 }
 
 impl CodeCoverageSensor {
     #[no_coverage]
     pub fn observing_only_files_from_current_dir() -> Self {
-        Self::new(|_| true, |f| f.is_relative())
+        Self::new(|f| f.is_relative())
     }
     #[no_coverage]
-    pub fn new<E, K>(exclude: E, keep: K) -> Self
+    pub fn new<K>(keep: K) -> Self
     where
-        E: Fn(&Path) -> bool,
         K: Fn(&Path) -> bool,
     {
         let exec = std::env::current_exe().expect("could not read current executable");
@@ -54,7 +64,7 @@ impl CodeCoverageSensor {
         let mut coverage = unsafe { Coverage::new(covfun, prf_data, get_counters()) }
             .expect("failed to properly link the different LLVM coverage sections");
         // coverage.drain_filter(|coverage| coverage.single_counters.len() + coverage.expression_counters.len() <= 1);
-        Coverage::filter_function_by_files(&mut coverage, exclude, keep);
+        Coverage::filter_function_by_files(&mut coverage, keep);
 
         let mut count_instrumented = 0;
         for coverage in coverage.iter() {
@@ -77,6 +87,10 @@ impl CodeCoverageSensor {
     }
 }
 impl Sensor for CodeCoverageSensor {
+    /// A function to handle the observations made by the code coverage sensor
+    ///
+    /// An observation is a tuple. The first element is the index of a code region.
+    /// The second element represents the number of times the code region was hit.
     type ObservationHandler<'a> = &'a mut dyn FnMut((usize, u64));
 
     #[no_coverage]

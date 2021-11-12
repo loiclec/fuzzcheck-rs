@@ -2,6 +2,11 @@ use std::path::PathBuf;
 
 use crate::traits::Sensor;
 
+/// A sensor that does nothing.
+///
+/// In practice, it is used in conjunction with [`UnitPool`](crate::sensors_and_pools::UnitPool) to
+/// favour one particular test case throughout the whole fuzzing run. This is partly how the `tmin`
+/// (test case minify) command is implemented.
 pub struct NoopSensor;
 
 impl Sensor for NoopSensor {

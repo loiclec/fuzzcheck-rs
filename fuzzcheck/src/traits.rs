@@ -309,27 +309,6 @@ impl<M> MutatorWrapper for Box<M> {
     }
 }
 
-/// An empty type that can be used for [Pool::Stats]
-#[derive(Clone, Copy)]
-pub struct EmptyStats;
-
-impl Display for EmptyStats {
-    #[no_coverage]
-    fn fmt(&self, _f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        Ok(())
-    }
-}
-impl ToCSV for EmptyStats {
-    #[no_coverage]
-    fn csv_headers(&self) -> Vec<CSVField> {
-        vec![]
-    }
-    #[no_coverage]
-    fn to_csv_record(&self) -> Vec<CSVField> {
-        vec![]
-    }
-}
-
 /// A [CorpusDelta] describes how to reflect a change in the pool’s content to the corpus on the file system.
 ///
 /// It is used as the return type to [`pool.process(..)`](CompatibleWithSensor::process) where a test case along

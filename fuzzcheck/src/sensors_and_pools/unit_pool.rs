@@ -1,8 +1,10 @@
 use std::path::PathBuf;
 
 use crate::fuzzer::PoolStorageIndex;
-use crate::traits::{CompatibleWithSensor, CorpusDelta, EmptyStats, Pool, Sensor};
+use crate::sensors_and_pools::stats::EmptyStats;
+use crate::traits::{CompatibleWithSensor, CorpusDelta, Pool, Sensor};
 
+/// A pool that stores only one given test case.
 pub struct UnitPool {
     input_index: PoolStorageIndex,
     dead_end: bool,

@@ -1,5 +1,4 @@
-//! The [UniqueCoveragePool] is responsible for storing and updating inputs
-//! along with their associated code coverage.
+//! A pool that tries to find a minimal test case activating each sensor counter.
 //!
 //! # Policy for adding and removing inputs from the pool
 //!
@@ -126,7 +125,7 @@ impl AnalysedCounter {
         least_complex_input: SlabKey<Input>,
         least_complexity: f64,
     ) -> Self {
-        let score = UniqueCoveragePool::score_of_counter(inputs.len());
+        let score = SimplestToActivateCounterPool::score_of_counter(inputs.len());
         Self {
             key,
             inputs,
@@ -155,7 +154,7 @@ struct FastCounterRef {
 /// It is compatible with any sensor whose [observation handler](crate::Sensor::ObservationHandler)
 /// is `&'a mut dyn FnMut((usize, u64))`. In particular, it is recommended to use it
 /// with the [`CodeCoverageSensor`](crate::sensors_and_pools::CodeCoverageSensor).
-pub struct UniqueCoveragePool {
+pub struct SimplestToActivateCounterPool {
     pub name: String,
 
     all_counters_ref: Vec<FastCounterRef>,
@@ -172,10 +171,10 @@ pub struct UniqueCoveragePool {
     new_counters: Vec<CounterIdx>,
 }
 
-impl UniqueCoveragePool {
+impl SimplestToActivateCounterPool {
     #[no_coverage]
     pub fn new(name: &str, nbr_counters: usize) -> Self {
-        UniqueCoveragePool {
+        SimplestToActivateCounterPool {
             name: name.to_string(),
             all_counters_ref: vec![FastCounterRef { least_complexity: None }; nbr_counters],
             analysed_counters: AHashMap::with_hasher(ahash::RandomState::with_seeds(0, 0, 0, 0)),
@@ -509,7 +508,7 @@ impl UniqueCoveragePool {
     }
 }
 
-impl Pool for UniqueCoveragePool {
+impl Pool for SimplestToActivateCounterPool {
     type Stats = UniqueCoveragePoolStats;
 
     #[no_coverage]
@@ -706,7 +705,7 @@ struct AnalysisResult {
     new_counters: Vec<CounterIdx>,
 }
 
-impl CompatibleWithIteratorSensor for UniqueCoveragePool {
+impl CompatibleWithIteratorSensor for SimplestToActivateCounterPool {
     type Observation = (usize, u64);
     type ObservationState = UniqueCoveragePoolObservationState;
 
@@ -791,7 +790,7 @@ mod tests {
             let mut new_counters: AHashSet<_, ahash::RandomState> = AHashSet::from_iter(list_counters.iter());
             let mut added_counters: Vec<CounterIdx> = vec![];
 
-            let mut pool = UniqueCoveragePool::new("cov", 1024);
+            let mut pool = SimplestToActivateCounterPool::new("cov", 1024);
 
             for i in 0..fastrand::usize(0..100) {
                 let nbr_new_counters = if new_counters.is_empty() {

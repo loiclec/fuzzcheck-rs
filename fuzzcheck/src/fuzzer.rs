@@ -4,13 +4,14 @@
 
 use crate::code_coverage_sensor::CodeCoverageSensor;
 use crate::data_structures::RcSlab;
-use crate::sensors_and_pools::and_sensor_and_pool::{AndPool, AndSensor};
-use crate::sensors_and_pools::artifacts_pool::{ArtifactsPool, TestFailure, TestFailureSensor, TEST_FAILURE};
-use crate::sensors_and_pools::noop_sensor::NoopSensor;
-use crate::sensors_and_pools::unique_coverage_pool::UniqueCoveragePool;
-use crate::sensors_and_pools::unit_pool::UnitPool;
+use crate::sensors_and_pools::stats::EmptyStats;
+use crate::sensors_and_pools::NoopSensor;
+use crate::sensors_and_pools::SimplestToActivateCounterPool;
+use crate::sensors_and_pools::UnitPool;
+use crate::sensors_and_pools::{AndPool, AndSensor};
+use crate::sensors_and_pools::{TestFailure, TestFailurePool, TestFailureSensor, TEST_FAILURE};
 use crate::signals_handler::set_signal_handlers;
-use crate::traits::{CompatibleWithSensor, CorpusDelta, EmptyStats, Pool, Sensor};
+use crate::traits::{CompatibleWithSensor, CorpusDelta, Pool, Sensor};
 use crate::traits::{Mutator, Serializer};
 use crate::world::World;
 use crate::{CSVField, FuzzedInput, ToCSV};
@@ -40,6 +41,7 @@ impl<T> From<std::io::Error> for ReasonForStopping<T> {
     }
 }
 
+/// The index to a test case in the fuzzer’s storage.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub struct PoolStorageIndex(usize);
 
@@ -472,7 +474,7 @@ pub fn launch<T, M, Sens, P>(
 where
     T: Clone,
     M: Mutator<T>,
-    Fuzzer<T, M, CodeCoverageSensor, UniqueCoveragePool>: 'static,
+    Fuzzer<T, M, CodeCoverageSensor, SimplestToActivateCounterPool>: 'static,
     Sens: Sensor + 'static,
     P: Pool + CompatibleWithSensor<Sens> + 'static,
 {
@@ -481,11 +483,8 @@ where
         FuzzerCommand::Fuzz => {
             if !args.stop_after_first_failure {
                 let test_failure = TestFailureSensor::default();
-                let sensor = AndSensor {
-                    s1: sensor,
-                    s2: test_failure,
-                };
-                let artifacts_pool = ArtifactsPool::new("artifacts");
+                let sensor = AndSensor(sensor, test_failure);
+                let artifacts_pool = TestFailurePool::new("test_failures");
                 let pool = AndPool::new(pool, artifacts_pool, 254);
                 let mut fuzzer = Fuzzer::new(
                     test,
@@ -541,10 +540,7 @@ where
             if let Some((cache, mutation_step)) = mutator.validate_value(&value) {
                 args.max_input_cplx = mutator.complexity(&value, &cache) - 0.01;
 
-                let sensor = AndSensor {
-                    s1: sensor,
-                    s2: NoopSensor,
-                };
+                let sensor = AndSensor(sensor, NoopSensor);
 
                 let unit_pool = UnitPool::new(PoolStorageIndex(0));
                 let pool = AndPool::new(pool, unit_pool, 240);

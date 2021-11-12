@@ -1,45 +1,59 @@
 use crate::data_structures::{Slab, SlabKey};
 use crate::fenwick_tree::FenwickTree;
+use crate::fuzzer::PoolStorageIndex;
 use crate::sensors_and_pools::compatible_with_iterator_sensor::CompatibleWithIteratorSensor;
-use crate::traits::{CorpusDelta, Pool, TestCase};
+use crate::traits::{CorpusDelta, Pool};
+use crate::ToCSV;
 use ahash::{AHashMap, AHashSet};
-use owo_colors::OwoColorize;
 use std::fmt::{Debug, Display};
 use std::ops::Range;
 use std::path::Path;
 
 #[derive(Clone, Default)]
-pub struct Stats {
+pub struct UniqueValuesPoolStats {
     name: String,
     size: usize,
 }
+impl ToCSV for UniqueValuesPoolStats {
+    fn csv_headers(&self) -> Vec<crate::CSVField> {
+        vec![]
+    }
 
-impl Display for Stats {
+    fn to_csv_record(&self) -> Vec<crate::CSVField> {
+        vec![]
+    }
+}
+
+impl Display for UniqueValuesPoolStats {
     #[no_coverage]
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", format!("{}({})", self.name, self.size).blue())
+        write!(
+            f,
+            "{}",
+            nu_ansi_term::Color::Blue.paint(format!("{}({})", self.name, self.size))
+        )
     }
 }
 
 #[derive(Debug)]
-pub struct Input<T> {
+struct Input {
     best_for_values: AHashSet<(usize, u64)>,
-    data: T,
+    data: PoolStorageIndex,
     score: f64,
     number_times_chosen: usize,
 }
 
-pub struct UniqueValuesPool<T> {
+/// A pool that stores an input for each different value of each sensor counter
+pub struct UniqueValuesPool {
     name: String,
     complexities: Vec<AHashMap<u64, f64>>,
-    inputs: Slab<Input<T>>,
-    best_input_for_value: Vec<AHashMap<u64, SlabKey<Input<T>>>>,
-    // also use a fenwick tree here?
+    inputs: Slab<Input>,
+    best_input_for_value: Vec<AHashMap<u64, SlabKey<Input>>>,
     ranked_inputs: FenwickTree,
-    stats: Stats,
+    stats: UniqueValuesPoolStats,
     rng: fastrand::Rng,
 }
-impl<T: Debug> Debug for UniqueValuesPool<T> {
+impl Debug for UniqueValuesPool {
     #[no_coverage]
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("UniqueValuesPool")
@@ -52,7 +66,7 @@ impl<T: Debug> Debug for UniqueValuesPool<T> {
     }
 }
 
-impl<T> UniqueValuesPool<T> {
+impl UniqueValuesPool {
     #[no_coverage]
     pub fn new(name: &str, size: usize) -> Self {
         Self {
@@ -61,7 +75,7 @@ impl<T> UniqueValuesPool<T> {
             inputs: Slab::new(),
             best_input_for_value: vec![AHashMap::new(); size],
             ranked_inputs: FenwickTree::new(vec![]),
-            stats: Stats {
+            stats: UniqueValuesPoolStats {
                 name: name.to_string(),
                 size: 0,
             },
@@ -70,15 +84,8 @@ impl<T> UniqueValuesPool<T> {
     }
 }
 
-impl<T: TestCase> Pool for UniqueValuesPool<T> {
-    type TestCase = T;
-    type Index = SlabKey<Input<T>>;
-    type Stats = Stats;
-
-    #[no_coverage]
-    fn stats(&self) -> Self::Stats {
-        self.stats.clone()
-    }
+impl Pool for UniqueValuesPool {
+    type Stats = UniqueValuesPoolStats;
 
     #[no_coverage]
     fn len(&self) -> usize {
@@ -86,7 +93,12 @@ impl<T: TestCase> Pool for UniqueValuesPool<T> {
     }
 
     #[no_coverage]
-    fn get_random_index(&mut self) -> Option<Self::Index> {
+    fn stats(&self) -> Self::Stats {
+        self.stats.clone()
+    }
+
+    #[no_coverage]
+    fn get_random_index(&mut self) -> Option<PoolStorageIndex> {
         if self.ranked_inputs.len() == 0 {
             return None;
         }
@@ -105,47 +117,27 @@ impl<T: TestCase> Pool for UniqueValuesPool<T> {
 
         let delta = new_rank - old_rank;
         self.ranked_inputs.update(choice, delta);
-        Some(key)
+        let data = self.inputs[key].data;
+        Some(data)
     }
 
     #[no_coverage]
-    fn get(&self, idx: Self::Index) -> &Self::TestCase {
-        &self.inputs[idx].data
-    }
-
-    #[no_coverage]
-    fn get_mut(&mut self, idx: Self::Index) -> &mut Self::TestCase {
-        &mut self.inputs[idx].data
-    }
-
-    #[no_coverage]
-    fn retrieve_after_processing(&mut self, idx: Self::Index, generation: usize) -> Option<&mut Self::TestCase> {
-        if let Some(input) = self.inputs.get_mut(idx) {
-            if input.data.generation() == generation {
-                Some(&mut input.data)
-            } else {
-                None
+    fn mark_test_case_as_dead_end(&mut self, idx: PoolStorageIndex) {
+        for input_key in self.inputs.keys() {
+            let input = &mut self.inputs[input_key];
+            if input.data == idx {
+                input.score = 0.0;
+                break;
             }
-        } else {
-            None
         }
-    }
-
-    #[no_coverage]
-    fn mark_test_case_as_dead_end(&mut self, idx: Self::Index) {
-        self.inputs[idx].score = 0.0;
         self.update_stats();
     }
-    fn minify(
-        &mut self,
-        _target_len: usize,
-        _event_handler: impl FnMut(CorpusDelta<&Self::TestCase, Self::Index>, Self::Stats) -> Result<(), std::io::Error>,
-    ) -> Result<(), std::io::Error> {
-        // TODO: only keep the `target_len` highest-scoring inputs?
-        Ok(())
+
+    fn serialized(&self) -> Vec<(std::path::PathBuf, Vec<u8>)> {
+        vec![]
     }
 }
-impl<T: TestCase> UniqueValuesPool<T> {
+impl UniqueValuesPool {
     #[no_coverage]
     fn update_stats(&mut self) {
         let inputs = &self.inputs;
@@ -167,10 +159,14 @@ impl<T: TestCase> UniqueValuesPool<T> {
     }
 }
 
-impl<T: TestCase> CompatibleWithIteratorSensor for UniqueValuesPool<T> {
+impl CompatibleWithIteratorSensor for UniqueValuesPool {
     type Observation = (usize, u64);
     type ObservationState = Vec<(usize, u64)>;
 
+    #[no_coverage]
+    fn start_observing(&mut self) -> Self::ObservationState {
+        vec![]
+    }
     #[no_coverage]
     fn observe(
         &mut self,
@@ -199,11 +195,10 @@ impl<T: TestCase> CompatibleWithIteratorSensor for UniqueValuesPool<T> {
     #[no_coverage]
     fn add(
         &mut self,
-        data: Self::TestCase,
+        data: PoolStorageIndex,
         complexity: f64,
         observation_state: Self::ObservationState,
-        mut event_handler: impl FnMut(CorpusDelta<&Self::TestCase, Self::Index>, Self::Stats) -> Result<(), std::io::Error>,
-    ) -> Result<(), std::io::Error> {
+    ) -> Vec<CorpusDelta> {
         let new_observations = observation_state;
         let cplx = complexity;
         let input = data;
@@ -237,18 +232,13 @@ impl<T: TestCase> CompatibleWithIteratorSensor for UniqueValuesPool<T> {
         for &removed_key in &removed_keys {
             self.inputs.remove(removed_key);
         }
-
+        let removed_keys = removed_keys.into_iter().map(|k| self.inputs[k].data).collect();
         self.update_stats();
-        let stats = self.stats();
-        event_handler(
-            CorpusDelta {
-                path: Path::new(&self.name).to_path_buf(),
-                add: Some((&self.inputs[input_key].data, input_key)),
-                remove: removed_keys,
-            },
-            stats,
-        )?;
-        Ok(())
+        return vec![CorpusDelta {
+            path: Path::new(&self.name).to_path_buf(),
+            add: true,
+            remove: removed_keys,
+        }];
     }
 }
 

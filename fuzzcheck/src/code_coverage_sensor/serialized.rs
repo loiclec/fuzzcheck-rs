@@ -29,7 +29,7 @@ pub struct Counter {
 
 impl CodeCoverageSensor {
     #[no_coverage]
-    pub fn coverage_map(&self) -> CoverageMap {
+    pub(crate) fn coverage_map(&self) -> CoverageMap {
         let mut idx = 0;
         let functions = self
             .coverage

@@ -482,7 +482,7 @@ pub fn process_function_records(
 pub enum CovMapSection {
     CovFun,
     CovMap,
-    PrfData,
+    // PrfData,
     PrfNames,
 }
 
@@ -493,7 +493,7 @@ pub enum ReadCovMapError {
         length: usize,
         cur_pointer: usize,
     },
-    FoundProfileDataForDummyFunction,
+    // FoundProfileDataForDummyFunction,
     InconsistentLengthOfEncodedData {
         section: CovMapSection,
     },
@@ -736,7 +736,7 @@ impl OptimisedExpandedExpression {
 
 impl ExpandedExpression {
     #[no_coverage]
-    fn optimized(&self, counters: &[u64]) -> OptimisedExpandedExpression {
+    fn optimised(&self, counters: &[u64]) -> OptimisedExpandedExpression {
         // assert!(
         //     self.add_terms.len() > 1 || !self.sub_terms.is_empty(),
         //     "{} {}",
@@ -808,7 +808,7 @@ impl Coverage {
                         } else if e.add_terms.len() == 1 && e.sub_terms.is_empty() {
                             single_counters.push(&mut slice[e.add_terms[0]] as *mut _);
                         } else if e.add_terms.len() > 0 {
-                            expression_counters.push(e.optimized(slice));
+                            expression_counters.push(e.optimised(slice));
                         } else {
                             panic!(
                                 "An expression contains only sub terms\nAdd terms: {:?}\nSub terms: {:?}",
@@ -828,24 +828,17 @@ impl Coverage {
             .collect()
     }
     #[no_coverage]
-    pub(crate) fn filter_function_by_files<F, G>(all_self: &mut Vec<Self>, exclude_f: F, keep_f: G)
+    pub(crate) fn filter_function_by_files<F>(all_self: &mut Vec<Self>, keep_f: F)
     where
         F: Fn(&Path) -> bool,
-        G: Fn(&Path) -> bool,
     {
         all_self.drain_filter(
             #[no_coverage]
             |coverage| {
-                let mut excluded = false;
                 for filepath in &coverage.function_record.filenames {
-                    if keep_f(filepath) {
-                        return false;
-                    }
-                    if exclude_f(filepath) {
-                        excluded = true;
-                    }
+                    return !keep_f(filepath);
                 }
-                excluded
+                return false;
             },
         );
     }

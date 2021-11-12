@@ -9,16 +9,17 @@ use nu_ansi_term::Color;
 use std::fmt::{Debug, Display};
 use std::path::Path;
 
-use super::unique_coverage_pool::gen_f64;
+use super::simplest_to_activate_counter_pool::gen_f64;
 
+/// The statistics of a [MaximiseCounterValuePool]
 #[derive(Clone)]
-pub struct Stats {
+pub struct MaximiseCounterValuePoolStats {
     name: String,
     size: usize,
     total_counts: u64,
 }
 
-impl Display for Stats {
+impl Display for MaximiseCounterValuePoolStats {
     #[no_coverage]
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
@@ -28,7 +29,7 @@ impl Display for Stats {
         )
     }
 }
-impl ToCSV for Stats {
+impl ToCSV for MaximiseCounterValuePoolStats {
     #[no_coverage]
     fn csv_headers(&self) -> Vec<CSVField> {
         vec![
@@ -46,7 +47,7 @@ impl ToCSV for Stats {
 }
 
 #[derive(Debug)]
-pub struct Input {
+struct Input {
     best_for_counters: AHashSet<usize>,
     cplx: f64,
     idx: PoolStorageIndex,
@@ -54,19 +55,23 @@ pub struct Input {
     number_times_chosen: usize,
 }
 
-pub struct CounterMaximizingPool {
+/// A pool that tries to find test cases maximizing the value of each counter of a sensor.
+///
+/// It is [compatible with](crate::CompatibleWithSensor) the following sensors:
+/// * [`CodeCoverageSensor`](crate::sensors_and_pools::CodeCoverageSensor)
+/// * [`ArrayOfCounters`](crate::sensors_and_pools::ArrayOfCounters)
+/// * any other sensor whose [observation handler](crate::Sensor::ObservationHandler) is a `&'a mut dyn FnMut((usize, u64))`
+pub struct MaximiseCounterValuePool {
     name: String,
     complexities: Vec<f64>,
     highest_counts: Vec<u64>,
     inputs: Slab<Input>,
     best_input_for_counter: Vec<Option<SlabKey<Input>>>,
-    // also use a fenwick tree here?
-    // cumulative_score_inputs: Vec<f64>,
     ranked_inputs: FenwickTree,
-    stats: Stats,
+    stats: MaximiseCounterValuePoolStats,
     rng: fastrand::Rng,
 }
-impl Debug for CounterMaximizingPool {
+impl Debug for MaximiseCounterValuePool {
     #[no_coverage]
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("CounterMaximizingPool")
@@ -79,7 +84,7 @@ impl Debug for CounterMaximizingPool {
     }
 }
 
-impl CounterMaximizingPool {
+impl MaximiseCounterValuePool {
     #[no_coverage]
     pub fn new(name: &str, size: usize) -> Self {
         Self {
@@ -89,7 +94,7 @@ impl CounterMaximizingPool {
             inputs: Slab::new(),
             best_input_for_counter: vec![None; size],
             ranked_inputs: FenwickTree::new(vec![]),
-            stats: Stats {
+            stats: MaximiseCounterValuePoolStats {
                 name: name.to_string(),
                 size: 0,
                 total_counts: 0,
@@ -99,8 +104,8 @@ impl CounterMaximizingPool {
     }
 }
 
-impl Pool for CounterMaximizingPool {
-    type Stats = Stats;
+impl Pool for MaximiseCounterValuePool {
+    type Stats = MaximiseCounterValuePoolStats;
 
     #[no_coverage]
     fn stats(&self) -> Self::Stats {
@@ -156,7 +161,7 @@ impl Pool for CounterMaximizingPool {
     }
 }
 
-impl CounterMaximizingPool {
+impl MaximiseCounterValuePool {
     #[no_coverage]
     fn update_stats(&mut self) {
         let inputs = &self.inputs;
@@ -178,7 +183,7 @@ impl CounterMaximizingPool {
     }
 }
 
-impl CompatibleWithIteratorSensor for CounterMaximizingPool {
+impl CompatibleWithIteratorSensor for MaximiseCounterValuePool {
     type Observation = (usize, u64);
     type ObservationState = Vec<(usize, u64)>;
 
@@ -283,14 +288,14 @@ impl CompatibleWithIteratorSensor for CounterMaximizingPool {
 mod tests {
     use std::collections::HashMap;
 
-    use super::CounterMaximizingPool;
+    use super::MaximiseCounterValuePool;
     use crate::fuzzer::PoolStorageIndex;
     use crate::sensors_and_pools::compatible_with_iterator_sensor::CompatibleWithIteratorSensor;
     use crate::traits::Pool;
 
     #[test]
     fn test_basic_pool_1() {
-        let mut pool = CounterMaximizingPool::new("a", 5);
+        let mut pool = MaximiseCounterValuePool::new("a", 5);
         println!("{:?}", pool);
         let index = pool.get_random_index();
         println!("{:?}", index);
@@ -310,7 +315,7 @@ mod tests {
 
     #[test]
     fn test_basic_pool_2() {
-        let mut pool = CounterMaximizingPool::new("b", 5);
+        let mut pool = MaximiseCounterValuePool::new("b", 5);
 
         let _ = pool.add(PoolStorageIndex::mock(0), 1.21, vec![(1, 4)]);
         let _ = pool.add(PoolStorageIndex::mock(1), 2.21, vec![(2, 2)]);

@@ -15,7 +15,6 @@
 pub extern crate fastrand;
 
 mod bitset;
-/** Builders used to set up a fuzz test */
 pub mod builder;
 mod code_coverage_sensor;
 mod data_structures;
@@ -40,6 +39,9 @@ pub use crate::traits::CorpusDelta;
 pub use crate::traits::Pool;
 #[doc(inline)]
 pub use crate::traits::Sensor;
+
+#[doc(inline)]
+pub use crate::fuzzer::PoolStorageIndex;
 
 #[doc(inline)]
 pub use builder::default_sensor_and_pool;

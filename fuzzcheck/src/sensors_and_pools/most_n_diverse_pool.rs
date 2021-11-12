@@ -13,10 +13,12 @@ use crate::{
     CSVField, ToCSV,
 };
 
-use super::{compatible_with_iterator_sensor::CompatibleWithIteratorSensor, unique_coverage_pool::gen_f64};
+use super::{
+    compatible_with_iterator_sensor::CompatibleWithIteratorSensor, simplest_to_activate_counter_pool::gen_f64,
+};
 
 #[derive(Clone)]
-pub struct Input {
+struct Input {
     nbr_unique_counters: usize,
     unique_counters: FixedBitSet,
     counters: FixedBitSet,
@@ -24,6 +26,9 @@ pub struct Input {
     cplx: f64,
 }
 
+/// A pool that tries to find N test cases which, combined, activate the most counters of a sensor
+///
+/// A counter is a tuple `(index: usize, value: u64)`. It is “activated” when its value is != 0.
 pub struct MostNDiversePool {
     name: String,
     max_len: usize,
@@ -37,7 +42,7 @@ pub struct MostNDiversePool {
 }
 
 #[derive(Clone)]
-pub struct Stats {
+pub struct MostNDiversePoolStats {
     name: String,
     counters: usize,
 }
@@ -59,14 +64,14 @@ impl MostNDiversePool {
 }
 
 impl Pool for MostNDiversePool {
-    type Stats = Stats;
+    type Stats = MostNDiversePoolStats;
     #[no_coverage]
     fn len(&self) -> usize {
         self.inputs.len()
     }
     #[no_coverage]
     fn stats(&self) -> Self::Stats {
-        Stats {
+        MostNDiversePoolStats {
             name: self.name.clone(),
             counters: self.all_counters.count_ones(),
         }
@@ -122,13 +127,7 @@ impl CompatibleWithIteratorSensor for MostNDiversePool {
             nbr_new_counters: _,
         } = state;
         let (idx, _) = observation;
-        // if *idx >= counters.len() {
-        //     counters.grow(2617);
-        // }
         counters.insert(*idx);
-        // if !self.all_counters.contains(*idx) {
-        //     *nbr_new_counters += 1;
-        // }
     }
     #[no_coverage]
     fn finish_observing(&mut self, state: &mut Self::ObservationState, _input_complexity: f64) {
@@ -306,7 +305,7 @@ impl MostNDiversePool {
     }
 }
 
-impl ToCSV for Stats {
+impl ToCSV for MostNDiversePoolStats {
     #[no_coverage]
     fn csv_headers(&self) -> Vec<CSVField> {
         vec![]
@@ -316,7 +315,7 @@ impl ToCSV for Stats {
         vec![]
     }
 }
-impl Display for Stats {
+impl Display for MostNDiversePoolStats {
     #[no_coverage]
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(f, "{}({})", self.name, self.counters)
