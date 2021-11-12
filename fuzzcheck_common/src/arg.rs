@@ -1,8 +1,7 @@
-use getopts::{Fail, Options};
+use getopts::{Fail, Matches, Options};
 use std::{
     error::Error,
     fmt::{Debug, Display},
-    net::{SocketAddr, ToSocketAddrs},
     path::PathBuf,
     time::Duration,
 };
@@ -19,8 +18,8 @@ pub const STATS_FLAG: &str = "stats";
 pub const NO_STATS_FLAG: &str = "no-stats";
 pub const SOCK_ADDR_FLAG: &str = "socket-address";
 
-pub const MAX_DURATION_FLAG: &str = "max-duration";
-pub const MAX_ITERATIONS_FLAG: &str = "max-iterations";
+pub const MAX_DURATION_FLAG: &str = "stop-after-duration";
+pub const MAX_ITERATIONS_FLAG: &str = "stop-after-iterations";
 pub const STOP_AFTER_FIRST_FAILURE_FLAG: &str = "stop-after-first-failure";
 
 pub const COMMAND_FUZZ: &str = "fuzz";
@@ -61,7 +60,6 @@ pub struct Arguments {
     pub corpus_out: Option<PathBuf>,
     pub artifacts_folder: Option<PathBuf>,
     pub stats_folder: Option<PathBuf>,
-    pub socket_address: Option<SocketAddr>,
 }
 
 #[must_use]
@@ -71,7 +69,6 @@ pub fn options_parser() -> Options {
 
     let defaults = DefaultArguments::default();
 
-    options.long_only(true);
     options.optopt(
         "",
         MAX_DURATION_FLAG,
@@ -121,7 +118,7 @@ pub fn options_parser() -> Options {
         NO_STATS_FLAG,
         format!("do not save statistics, overrides --{stats}", stats = STATS_FLAG).as_str(),
     );
-    options.optopt("", INPUT_FILE_FLAG, "file containing a JSON-encoded input", "PATH");
+    options.optopt("", INPUT_FILE_FLAG, "file containing a test case", "PATH");
     options.optopt(
         "",
         MAX_INPUT_CPLX_FLAG,
@@ -133,37 +130,46 @@ pub fn options_parser() -> Options {
         "N",
     );
 
-    options.optopt(
-        "",
-        SOCK_ADDR_FLAG,
-        "address of the TCP socket for communication between cargo-fuzzcheck and the fuzz target",
-        "127.0.0.1:0",
-    );
-
-    options.optflag("", "help", "print this help menu");
+    options.optflag("h", "help", "print this help menu");
 
     options
 }
 
 impl Arguments {
     #[no_coverage]
-    pub fn from_parser(options: &Options, args: &[&str]) -> Result<Self, ArgumentsError> {
-        let matches = options.parse(args)?;
-
-        if args.is_empty() {
-            return Err(ArgumentsError::Validation(
-                "A command must be given to cargo fuzzcheck.".to_string(),
-            ));
+    pub fn from_matches(matches: &Matches, for_cargo_fuzzcheck: bool) -> Result<Self, ArgumentsError> {
+        if for_cargo_fuzzcheck {
+            if matches.free.is_empty() {
+                return Err(ArgumentsError::Validation(
+                    "A fuzz target must be given to cargo fuzzcheck.".to_string(),
+                ));
+            }
+            if matches.free.len() == 1 {
+                return Err(ArgumentsError::Validation(
+                    "A command must be given to cargo fuzzcheck.".to_string(),
+                ));
+            }
+        } else {
+            if matches.free.is_empty() {
+                return Err(ArgumentsError::Validation(
+                    "A command must be given to cargo fuzzcheck.".to_string(),
+                ));
+            }
         }
 
-        if matches.opt_present("help") {
+        let index_command = if for_cargo_fuzzcheck { 1 } else { 0 };
+
+        if matches.opt_present("help") || matches.free.contains(&"help".to_owned()) {
             return Err(ArgumentsError::WantsHelp);
         }
 
-        if !matches!(args[0], COMMAND_FUZZ | COMMAND_READ | COMMAND_MINIFY_INPUT) {
+        if !matches!(
+            matches.free[index_command].as_str(),
+            COMMAND_FUZZ | COMMAND_READ | COMMAND_MINIFY_INPUT
+        ) {
             return Err(ArgumentsError::Validation(format!(
                 r#"The command {c} is not supported. It can either be ‘{fuzz}’ or ‘{tmin}’."#,
-                c = args[0],
+                c = &matches.free[0],
                 fuzz = COMMAND_FUZZ,
                 tmin = COMMAND_MINIFY_INPUT,
             )));
@@ -221,17 +227,6 @@ impl Arguments {
             None
         };
 
-        let socket_address = matches.opt_str(SOCK_ADDR_FLAG).and_then(
-            #[no_coverage]
-            |x| {
-                if let Ok(mut addrs) = x.to_socket_addrs() {
-                    addrs.next()
-                } else {
-                    None
-                }
-            },
-        );
-
         let input_file: Option<PathBuf> = matches.opt_str(INPUT_FILE_FLAG).and_then(
             #[no_coverage]
             |x| x.parse::<PathBuf>().ok(),
@@ -239,7 +234,7 @@ impl Arguments {
 
         // verify all the right options are here
 
-        let command = match args[0] {
+        let command = match matches.free[index_command].as_str() {
             COMMAND_FUZZ => FuzzerCommand::Fuzz,
             COMMAND_READ => {
                 let input_file = input_file.expect(&format!(
@@ -298,8 +293,6 @@ impl Arguments {
         };
         let stats_folder: Option<PathBuf> = if no_stats.is_some() { None } else { stats_folder.clone() };
 
-        let socket_address = socket_address;
-
         Ok(Arguments {
             command,
             maximum_duration,
@@ -310,7 +303,6 @@ impl Arguments {
             corpus_out,
             artifacts_folder,
             stats_folder,
-            socket_address,
         })
     }
 }
@@ -319,7 +311,7 @@ pub fn help(parser: &Options) -> String {
     let mut help = format!(
         r##"
 USAGE:
-    cargo-fuzzcheck <FUZZ_TEST> <SUBCOMMAND> [OPTIONS]
+    cargo-fuzzcheck <FUZZ_TEST> <SUBCOMMAND> < --lib | --bin .. | --test .. > [OPTIONS]
     => Execute the subcommand on the given fuzz test.
 
 FUZZ_TEST:
@@ -340,6 +332,10 @@ FUZZ_TEST:
 SUBCOMMANDS:
     {fuzz}    Run the fuzz test
     {tmin}    Minify a crashing test input, requires --{input_file}
+
+[--lib | --bin .. | --test ..]
+    One of those options must be given to determine which target to compile. 
+    They are equivalent to the same options used on `cargo test`.
 "##,
         fuzz = COMMAND_FUZZ,
         tmin = COMMAND_MINIFY_INPUT,
@@ -376,8 +372,9 @@ cargo-fuzzcheck target1 {tmin} --{input_file} "artifacts/crash.json"
     help
 }
 
+#[derive(Clone)]
 pub enum ArgumentsError {
-    NoArgumentsGiven(Options),
+    NoArgumentsGiven(String),
     Parsing(Fail),
     Validation(String),
     WantsHelp,
@@ -393,8 +390,8 @@ impl Display for ArgumentsError {
     #[no_coverage]
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            ArgumentsError::NoArgumentsGiven(parser) => {
-                write!(f, "No arguments were given.\nHelp:\n{}", help(parser))
+            ArgumentsError::NoArgumentsGiven(help) => {
+                write!(f, "No arguments were given.\nHelp:\n{}", help)
             }
             ArgumentsError::Parsing(e) => {
                 write!(

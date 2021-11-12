@@ -40,7 +40,7 @@ use crate::sensors_and_pools::{NumberOfActivatedCounters, OptimiseAggregateStatP
 use crate::traits::{CompatibleWithSensor, Mutator, Pool, Sensor, Serializer};
 use crate::{split_string_by_whitespace, DefaultMutator, SerdeSerializer};
 
-use fuzzcheck_common::arg::{options_parser, COMMAND_FUZZ, COMMAND_MINIFY_INPUT, INPUT_FILE_FLAG};
+use fuzzcheck_common::arg::{options_parser, ArgumentsError, COMMAND_FUZZ, COMMAND_MINIFY_INPUT, INPUT_FILE_FLAG};
 use fuzzcheck_common::arg::{Arguments, FuzzerCommand};
 use std::borrow::Borrow;
 use std::marker::PhantomData;
@@ -525,7 +525,8 @@ fuzzcheck {tmin} --{input_file} "artifacts/crash.json"
 
         let arguments = std::env::var("FUZZCHECK_ARGS").unwrap();
         let arguments = split_string_by_whitespace(&arguments);
-        let arguments = match Arguments::from_parser(&parser, &arguments) {
+        let matches = parser.parse(arguments).map_err(|e| ArgumentsError::from(e));
+        let arguments = match matches.and_then(|matches| Arguments::from_matches(&matches, false)) {
             Ok(r) => r,
             Err(e) => {
                 println!("{}\n\n{}", e, help);

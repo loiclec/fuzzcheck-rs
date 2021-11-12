@@ -10,6 +10,11 @@ const CARGO_ARGS_FLAG: &str = "cargo-args";
 
 fn main() -> Result<(), Box<dyn Error>> {
     let mut parser = options_parser();
+
+    parser.optflag("", "lib", "Test only this package's library unit tests");
+    parser.optopt("", "bin", "Test only the specified binary", "<NAME>");
+    parser.optopt("", "test", "Test only the specified test target", "<NAME>");
+
     parser.opt(
         "",
         CARGO_ARGS_FLAG,
@@ -22,50 +27,31 @@ fn main() -> Result<(), Box<dyn Error>> {
     let env_args: Vec<String> = std::env::args().collect();
 
     if env_args.len() <= 1 {
-        return Err(Box::new(ArgumentsError::NoArgumentsGiven(parser)));
+        return Err(Box::new(ArgumentsError::NoArgumentsGiven(help(&parser))));
     }
 
     let start_idx = if env_args[1] == "fuzzcheck" { 2 } else { 1 };
 
     if env_args.len() <= start_idx {
-        return Err(Box::new(ArgumentsError::NoArgumentsGiven(parser)));
+        return Err(Box::new(ArgumentsError::NoArgumentsGiven(help(&parser))));
     }
 
-    let target_name = &env_args[start_idx];
-
-    if is_help_string(&target_name) {
-        println!("{}", help(&parser));
-        return Ok(());
-    }
-
-    let string_args = env_args[start_idx + 1..]
+    let string_args = env_args[start_idx..]
         .into_iter()
         .map(|s| s.as_str())
         .collect::<Vec<_>>();
 
-    let parsed = parser.parse(string_args.clone()).map_err(ArgumentsError::Parsing)?;
+    let matches = parser.parse(string_args.clone()).map_err(ArgumentsError::Parsing)?;
 
-    let cargo_args: Option<String> = parsed.opt_get(CARGO_ARGS_FLAG)?;
+    let target_name = &matches.free[0];
+
+    let cargo_args: Option<String> = matches.opt_get(CARGO_ARGS_FLAG)?;
 
     let cargo_args = cargo_args
         .map(|x| x.split_ascii_whitespace().map(|s| s.to_string()).collect::<Vec<_>>())
         .unwrap_or(vec![]);
 
-    if string_args.is_empty() {
-        return Err(Box::new(ArgumentsError::Validation(
-            format!(
-                "Both a fuzz target and a command must be given to cargo fuzzcheck. You specified the fuzz target as \"{}\", but no command was given.",
-                target_name
-            )
-        )));
-    }
-
-    if is_help_string(&string_args[0]) {
-        println!("{}", help(&parser));
-        return Ok(());
-    }
-
-    let mut args = match Arguments::from_parser(&parser, &string_args) {
+    let mut args = match Arguments::from_matches(&matches, true) {
         Ok(r) => r,
         Err(ArgumentsError::WantsHelp) => {
             println!("{}", help(&parser));
@@ -75,7 +61,29 @@ fn main() -> Result<(), Box<dyn Error>> {
             return Err(Box::new(e));
         }
     };
-    let matches = parser.parse(&string_args).unwrap();
+
+    let lib = matches.opt_present("lib");
+    let bin = matches.opt_present("bin");
+    let test = matches.opt_present("test");
+    let count_defined = [lib, bin, test]
+        .into_iter()
+        .fold(0, |acc, next| acc + if next { 1 } else { 0 });
+    if count_defined != 1 {
+        return Err(Box::new(ArgumentsError::Validation(
+            "Exactly one of --lib, --test <NAME>, or --bin <NAME> must be given.".to_string(),
+        )));
+    }
+    let compiled_target = if lib {
+        CompiledTarget::Lib
+    } else if test {
+        let test_name = matches.opt_get::<String>("test").unwrap().unwrap();
+        CompiledTarget::Test(test_name)
+    } else if bin {
+        let bin_name = matches.opt_get::<String>("bin").unwrap().unwrap();
+        CompiledTarget::Bin(bin_name)
+    } else {
+        unreachable!();
+    };
 
     match args.command {
         FuzzerCommand::Fuzz => {
@@ -91,20 +99,34 @@ fn main() -> Result<(), Box<dyn Error>> {
             if args.stats_folder.is_none() && matches.opt_present(NO_STATS_FLAG) == false {
                 args.stats_folder = Some(PathBuf::new().join(format!("fuzz/{}/stats", target_name)));
             }
-            let exec = launch_executable(target_name, &args, &cargo_args, &process::Stdio::inherit)?;
+            let exec = launch_executable(
+                target_name,
+                &args,
+                &compiled_target,
+                &cargo_args,
+                &process::Stdio::inherit,
+            )?;
             exec.wait_with_output()?;
         }
         FuzzerCommand::MinifyInput { .. } => {
-            input_minify_command(target_name, &args, &cargo_args, &process::Stdio::inherit)?;
+            input_minify_command(
+                target_name,
+                &args,
+                &compiled_target,
+                &cargo_args,
+                &process::Stdio::inherit,
+            )?;
         }
         FuzzerCommand::Read { .. } => {
-            let exec = launch_executable(target_name, &args, &cargo_args, &process::Stdio::inherit)?;
+            let exec = launch_executable(
+                target_name,
+                &args,
+                &compiled_target,
+                &cargo_args,
+                &process::Stdio::inherit,
+            )?;
             exec.wait_with_output()?;
         }
     }
     Ok(())
-}
-
-fn is_help_string(s: &str) -> bool {
-    matches!(s, "--help" | "-help" | "-h" | "help")
 }

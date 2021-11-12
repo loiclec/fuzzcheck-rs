@@ -7,9 +7,25 @@ use std::process::{Command, Stdio};
 const TARGET: &str = env!("TARGET");
 const BUILD_FOLDER: &str = "target/fuzzcheck";
 
+pub enum CompiledTarget {
+    Lib,
+    Bin(String),
+    Test(String),
+}
+impl CompiledTarget {
+    fn to_args(&self) -> Vec<String> {
+        match self {
+            CompiledTarget::Lib => vec!["--lib".to_owned()],
+            CompiledTarget::Bin(name) => vec!["--bin".to_owned(), name.clone()],
+            CompiledTarget::Test(name) => vec!["--test".to_owned(), name.clone()],
+        }
+    }
+}
+
 pub fn launch_executable(
     target_name: &str,
     args: &Arguments,
+    compiled_target: &CompiledTarget,
     cargo_args: &[String],
     stdio: impl Fn() -> Stdio,
 ) -> std::io::Result<process::Child> {
@@ -18,9 +34,10 @@ pub fn launch_executable(
         .env("FUZZCHECK_ARGS", args)
         .env(
             "RUSTFLAGS",
-            "-Zinstrument-coverage=except-unused-functions -Zno-profiler-runtime --cfg fuzzing -Ctarget-cpu=native -Ccodegen-units=1",
+            "-Zinstrument-coverage=except-unused-functions -Zno-profiler-runtime --cfg fuzzing -Ccodegen-units=1",
         )
         .arg("test")
+        .args(compiled_target.to_args())
         .args(cargo_args)
         .args(["--target", TARGET])
         .arg("--release")
@@ -40,6 +57,7 @@ pub fn launch_executable(
 pub fn input_minify_command(
     target_name: &str,
     args: &Arguments,
+    compiled_target: &CompiledTarget,
     cargo_args: &[String],
     stdio: &impl Fn() -> Stdio,
 ) -> std::io::Result<()> {
@@ -85,7 +103,7 @@ pub fn input_minify_command(
         input_file: simplest.clone(),
     };
 
-    let child = launch_executable(target_name, &config, cargo_args, stdio)?;
+    let child = launch_executable(target_name, &config, compiled_target, cargo_args, stdio)?;
     let o = child.wait_with_output()?;
 
     assert!(!o.status.success());
@@ -95,7 +113,7 @@ pub fn input_minify_command(
         config.command = FuzzerCommand::MinifyInput {
             input_file: simplest.clone(),
         };
-        let mut c = launch_executable(target_name, &config, cargo_args, Stdio::inherit)?;
+        let mut c = launch_executable(target_name, &config, compiled_target, cargo_args, Stdio::inherit)?;
         c.wait()?;
     }
 }
@@ -164,10 +182,5 @@ pub fn string_from_args(args: &Arguments) -> String {
     if args.stop_after_first_failure {
         s.push_str(&format!("--{} ", STOP_AFTER_FIRST_FAILURE_FLAG));
     }
-
-    if let Some(socket_address) = args.socket_address {
-        s.push_str(&format!("--{} {} ", SOCK_ADDR_FLAG, socket_address,));
-    }
-
     s
 }
