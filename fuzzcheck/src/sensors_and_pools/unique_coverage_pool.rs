@@ -1,21 +1,6 @@
 //! The [UniqueCoveragePool] is responsible for storing and updating inputs
 //! along with their associated code coverage.
 //!
-//! It assigns a score for each input based on how unique its associated code
-//! coverage is. And it can randomly select an input with a probability that
-//! is proportional to its score relative to all the other ones.
-//!
-//! # Feature: a unit of code coverage
-//!
-//! The code coverage of an input is a set of Feature. A Feature is a value
-//! that identifies some behavior of the code that was run. For example, it
-//! could say “This edge was reached this many times” or “This comparison
-//! instruction was called with these arguments”. In practice, features are not
-//! perfectly precise. They won't count the exact number of times a code edge
-//! was reached, or record the exact arguments passed to an instruction.
-//! This is purely due to performance reasons. The end consequence is that the
-//! fuzzer may think that an input is less interesting than it really is.
-//!
 //! # Policy for adding and removing inputs from the pool
 //!
 //! The pool will strive to keep as few inputs as possible, and will
@@ -24,8 +9,8 @@
 //!
 //! First, an input will only be added if:
 //!
-//! 1. It contains a new feature, not seen by any other input in the pool; or
-//! 2. It is the smallest input that contains a particular Feature; or
+//! 1. It activates a new counter, not seen by any other input in the pool; or
+//! 2. It is the smallest input that activates a particular counter
 //!
 //! Second, following a pool update, any input in the pool that does not meet
 //! the above conditions anymore will be removed from the pool.
@@ -33,26 +18,14 @@
 //! # Scoring of an input
 //!
 //! The score of an input is computed to be as fair as possible. This
-//! is currently done by assigning a score to each Feature and distributing
-//! that score to each input containing that feature. For example, if a
-//! thousand inputs all contain the feature F1, then they will all derive
-//! a thousandth of F1’s score from it. On the other hand, if only two inputs
-//! contain the feature F2, then they will each get half of F2’s score from it.
+//! is currently done by assigning a score to each counter and distributing
+//! that score to each input activating that counter. For example, if a
+//! thousand inputs all activate the counter C1, then they will all derive
+//! a thousandth of C1’s score from it. On the other hand, if only two inputs
+//! activate the counter C2, then they will each get half of C2’s score from it.
 //! In short, an input’s final score is the sum of the score of each of its
-//! features divided by their frequencies.
+//! activated counters divided by their frequencies.
 //!
-//! ## Feature Groups
-//!
-//! Additionally, different but similar features also share a commong score.
-//! For example, features with different counter values but the same location
-//! belong to the same group, and divide the score of the group among themselves.
-//!
-//! Let's say Group G3 correspond to edge features of the PC “467” and that
-//! there are 5 different features belonging to that group: F1, F2, F3, F4, F5.
-//! The score associated with each feature is `(group.score() / 5)`.
-//! Now imagine the feature f4 appears in 3 different inputs. Each input will
-//! thus gain ((group.score() / 5) / 3) from having the feature f4.
-
 use super::compatible_with_iterator_sensor::CompatibleWithIteratorSensor;
 use crate::data_structures::{Slab, SlabKey};
 use crate::fenwick_tree::FenwickTree;
@@ -68,29 +41,26 @@ use std::hash::Hash;
 use std::ops::Range;
 use std::path::{Path, PathBuf};
 
-/**
- * A unit of code coverage.
- */
 #[derive(Debug)]
 #[repr(transparent)]
-pub struct FeatureIdx(pub usize);
+struct CounterIdx(pub usize);
 
-impl Clone for FeatureIdx {
+impl Clone for CounterIdx {
     #[inline(always)]
     #[no_coverage]
     fn clone(&self) -> Self {
         Self(self.0.clone())
     }
 }
-impl Copy for FeatureIdx {}
-impl Hash for FeatureIdx {
+impl Copy for CounterIdx {}
+impl Hash for CounterIdx {
     #[inline(always)]
     #[no_coverage]
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.0.hash(state);
     }
 }
-impl PartialEq for FeatureIdx {
+impl PartialEq for CounterIdx {
     #[inline(always)]
     #[no_coverage]
     fn eq(&self, other: &Self) -> bool {
@@ -102,19 +72,13 @@ impl PartialEq for FeatureIdx {
         self.0 != other.0
     }
 }
-impl Eq for FeatureIdx {}
+impl Eq for CounterIdx {}
 
-impl FeatureIdx {
+impl CounterIdx {
     #[inline(always)]
     #[no_coverage]
     pub(crate) fn new(index: usize) -> Self {
         Self(index)
-    }
-
-    #[inline(always)]
-    #[no_coverage]
-    fn group_id(self) -> FeatureGroupId {
-        FeatureGroupId { id: Self(self.0) }
     }
 }
 
@@ -122,49 +86,47 @@ impl FeatureIdx {
  * An element stored in the pool, containing its value, cache, mutation step,
  * as well as analysed code coverage and computed score.
 */
-pub struct Input {
-    /// The keys of the features for which there are no simpler inputs in the
-    /// pool reaching the feature.
-    least_complex_for_features: AHashSet<FeatureIdx>,
-    /// Holds the key of each Feature associated with this input.
-    all_features: Vec<FeatureIdx>,
+struct Input {
+    /// The keys of the counters for which there are no simpler inputs in the
+    /// pool activating the counter.
+    least_complex_for_counters: AHashSet<CounterIdx>,
+    /// Holds the key of each counter associated with this input.
+    all_counters: Vec<CounterIdx>,
     /// The computed score of the input
     pub score: f64,
-    /// Data associated with the input: value, cache, and mutation step
+    /// Index in the fuzzer’s storage that points to the input’s data
     data: PoolStorageIndex,
     /// Cached complexity of the value.
-    ///
-    /// It should always be equal to [mutator.complexity(&self.data.value, &self.data.cache)](crate::Mutator::complexity)
     complexity: f64,
-
+    /// The number of times that this input was fed to the test function.
+    ///
+    /// This is used to prioritise new inputs over old ones.
     number_times_chosen: usize,
 }
 
 /**
-    An analysis of the role of a feature in the pool.
+    An analysis of the role of a counter in the pool.
 
-    It contains the feature itself, a reference to the group of the feature,
-    the list of inputs hitting this feature, as well as a reference to the
-    least complex of these inputs.
+    It contains the counter itself, the list of inputs activating this counter,
+    as well as a reference to the least complex of these inputs.
 */
-pub struct AnalyzedFeature {
-    pub key: FeatureIdx,
+struct AnalysedCounter {
+    key: CounterIdx,
     inputs: Vec<SlabKey<Input>>,
-    pub least_complex_input: SlabKey<Input>,
-    pub least_complexity: f64,
-    pub score: f64,
+    least_complex_input: SlabKey<Input>,
+    least_complexity: f64,
+    score: f64,
 }
 
-impl AnalyzedFeature {
+impl AnalysedCounter {
     #[no_coverage]
     fn new(
-        key: FeatureIdx,
-        group: &FeatureGroup,
+        key: CounterIdx,
         inputs: Vec<SlabKey<Input>>,
         least_complex_input: SlabKey<Input>,
         least_complexity: f64,
     ) -> Self {
-        let score = UniqueCoveragePool::score_of_feature(group.size(), inputs.len());
+        let score = UniqueCoveragePool::score_of_counter(inputs.len());
         Self {
             key,
             inputs,
@@ -176,64 +138,28 @@ impl AnalyzedFeature {
 }
 
 /**
-    A reference to a FeatureInPool that can be used for fast searching and sorting.
+    A subset of the data contained in a [AnalysedCounter] that can be used to quickly
+    iterate over the counters analysed by the pool.
 
-    It contains a SlabKey to the FeatureInPool and a copy of the feature. By storing
-    a copy of the feature, we can avoid indexing the slab and accessing the feature
-    which saves time.
+    It contains a single field, `least_complexity`, that is `None` is the counter has
+    never been activated before. Otherwise, it is `Some(cplx)` where `cplx` is the complexity
+    of the simplest input activating this counter.
 */
-
 #[derive(Clone)]
-#[repr(transparent)]
-pub struct AnalyzedFeatureRef {
-    pub least_complexity: Option<f64>,
+struct FastCounterRef {
+    least_complexity: Option<f64>,
 }
 
-/**
-    A unique identifier for a feature group.
-
-    The identifier itself is a `Feature` whose payload has been removed.
-    So it is a Feature with only a tag and an id.
-
-    Because the payload is in the lower bits of the feature, we have the nice
-    property that if two features f1 and f2 are related by: f1 < f2, the groups
-    of those features are related by: g1 <= g2.
-
-    Another way to put it is that a group identifier is equal to the first
-    feature that could belong to that group (the one with a payload of 0).
-*/
-#[derive(Clone, Copy, PartialEq, Eq, Debug, Hash)]
-pub struct FeatureGroupId {
-    id: FeatureIdx,
-}
-
-pub struct FeatureGroup {
-    features: AHashSet<FeatureIdx>,
-}
-impl FeatureGroup {
-    #[no_coverage]
-    pub fn size(&self) -> usize {
-        self.features.len()
-    }
-}
-impl Default for FeatureGroup {
-    #[no_coverage]
-    fn default() -> Self {
-        Self {
-            features: Default::default(),
-        }
-    }
-}
-
+/// A pool that tries to find a minimal test case activating each sensor counter.
+///
+/// It is compatible with any sensor whose [observation handler](crate::Sensor::ObservationHandler)
+/// is `&'a mut dyn FnMut((usize, u64))`. In particular, it is recommended to use it
+/// with the [`CodeCoverageSensor`](crate::sensors_and_pools::CodeCoverageSensor).
 pub struct UniqueCoveragePool {
     pub name: String,
 
-    pub features: Vec<AnalyzedFeatureRef>,
-
-    pub slab_features: AHashMap<FeatureIdx, AnalyzedFeature>,
-
-    pub feature_groups: AHashMap<FeatureGroupId, FeatureGroup>,
-
+    all_counters_ref: Vec<FastCounterRef>,
+    analysed_counters: AHashMap<CounterIdx, AnalysedCounter>,
     slab_inputs: Slab<Input>,
 
     pub average_complexity: f64,
@@ -242,19 +168,17 @@ pub struct UniqueCoveragePool {
 
     rng: Rng,
 
-    pub existing_features: Vec<FeatureIdx>,
-    pub new_features: Vec<FeatureIdx>,
+    existing_counters: Vec<CounterIdx>,
+    new_counters: Vec<CounterIdx>,
 }
 
 impl UniqueCoveragePool {
     #[no_coverage]
-    pub fn new(name: &str, nbr_features: usize) -> Self {
+    pub fn new(name: &str, nbr_counters: usize) -> Self {
         UniqueCoveragePool {
             name: name.to_string(),
-            features: vec![AnalyzedFeatureRef { least_complexity: None }; nbr_features],
-            slab_features: AHashMap::with_hasher(ahash::RandomState::with_seeds(0, 0, 0, 0)),
-
-            feature_groups: AHashMap::with_hasher(ahash::RandomState::with_seeds(0, 0, 0, 0)),
+            all_counters_ref: vec![FastCounterRef { least_complexity: None }; nbr_counters],
+            analysed_counters: AHashMap::with_hasher(ahash::RandomState::with_seeds(0, 0, 0, 0)),
 
             slab_inputs: Slab::new(),
 
@@ -264,8 +188,8 @@ impl UniqueCoveragePool {
 
             rng: fastrand::Rng::new(),
 
-            existing_features: vec![],
-            new_features: vec![],
+            existing_counters: vec![],
+            new_counters: vec![],
         }
     }
 
@@ -274,26 +198,26 @@ impl UniqueCoveragePool {
         self.total_score
     }
 
-    #[allow(clippy::too_many_lines, clippy::type_complexity)]
+    #[allow(clippy::too_many_lines)]
     #[no_coverage]
-    pub(crate) fn add(
+    fn add(
         &mut self,
         data: PoolStorageIndex,
         complexity: f64,
         result: AnalysisResult,
     ) -> Option<(CorpusDelta, <Self as Pool>::Stats)> {
         let AnalysisResult {
-            existing_features,
-            new_features,
+            existing_counters,
+            new_counters,
         } = result;
 
-        if existing_features.is_empty() && new_features.is_empty() {
+        if existing_counters.is_empty() && new_counters.is_empty() {
             return None;
         }
 
         let element = Input {
-            least_complex_for_features: AHashSet::with_hasher(ahash::RandomState::with_seeds(0, 0, 0, 0)),
-            all_features: vec![],
+            least_complex_for_counters: AHashSet::with_hasher(ahash::RandomState::with_seeds(0, 0, 0, 0)),
+            all_counters: vec![],
             score: 0.0,
             data,
             complexity,
@@ -303,72 +227,58 @@ impl UniqueCoveragePool {
 
         let mut to_delete: AHashSet<SlabKey<Input>> = AHashSet::with_hasher(ahash::RandomState::with_seeds(0, 0, 0, 0));
 
-        // 1. Update the `element.least_complex_for_features` fields of the elements affected
-        // by a change in the `least_complexity` of the features in `existing_features`.
-        // 1.1. If it turns out that an element is now no longer the least complex for any feature,
+        // 1. Update the `element.least_complex_for_counters` fields of the elements affected
+        // by a change in the `least_complexity` of the counters in `existing_counters`.
+        // 1.1. If it turns out that an element is now no longer the least complex for any counter,
         // then add it to the list of elements to delete
-        for feature_key in existing_features.iter() {
-            let feature = self.slab_features.get_mut(feature_key).unwrap();
+        for counter_key in existing_counters.iter() {
+            let counter = self.analysed_counters.get_mut(counter_key).unwrap();
 
-            if feature.least_complexity < complexity {
+            if counter.least_complexity < complexity {
                 continue;
             }
 
-            for input_key in &feature.inputs {
+            for input_key in &counter.inputs {
                 let affected_element = &mut self.slab_inputs[*input_key];
-                affected_element.least_complex_for_features.remove(feature_key);
-                if affected_element.least_complex_for_features.is_empty() {
+                affected_element.least_complex_for_counters.remove(counter_key);
+                if affected_element.least_complex_for_counters.is_empty() {
                     to_delete.insert(*input_key);
                 }
             }
             let element = &mut self.slab_inputs[element_key];
 
-            element.least_complex_for_features.insert(*feature_key);
-            feature.least_complex_input = element_key;
-            self.features[feature_key.0] = AnalyzedFeatureRef {
+            element.least_complex_for_counters.insert(*counter_key);
+            counter.least_complex_input = element_key;
+            self.all_counters_ref[counter_key.0] = FastCounterRef {
                 least_complexity: Some(complexity),
             };
-            feature.least_complexity = complexity;
+            counter.least_complexity = complexity;
         }
 
-        for feature_key in existing_features.iter() {
-            let feature = self.slab_features.get_mut(feature_key).unwrap();
+        for counter_key in existing_counters.iter() {
+            let counter = self.analysed_counters.get_mut(counter_key).unwrap();
             let element = &mut self.slab_inputs[element_key];
 
-            element.all_features.push(*feature_key);
-            feature.inputs.push(element_key);
+            element.all_counters.push(*counter_key);
+            counter.inputs.push(element_key);
         }
 
-        let mut affected_groups = AHashSet::with_hasher(ahash::RandomState::with_seeds(0, 0, 0, 0));
-
-        // Now add in the new features
+        // Now add in the new counters
         let element = &mut self.slab_inputs[element_key];
-        for &f in new_features.iter() {
-            let new_feature_for_iter = AnalyzedFeatureRef {
+        for &f in new_counters.iter() {
+            let new_counter_for_iter = FastCounterRef {
                 least_complexity: Some(complexity),
             };
-            self.features[f.0] = new_feature_for_iter;
+            self.all_counters_ref[f.0] = new_counter_for_iter;
 
-            let group_id = f.group_id();
-            let group = self.feature_groups.entry(group_id).or_default();
-            group.features.insert(f);
+            let analyzed_f = AnalysedCounter::new(f, vec![element_key], element_key, complexity);
+            self.analysed_counters.insert(f, analyzed_f);
 
-            let analyzed_f = AnalyzedFeature::new(f, group, vec![element_key], element_key, complexity);
-            self.slab_features.insert(f, analyzed_f);
-
-            element.all_features.push(f);
-            element.least_complex_for_features.insert(f);
-
-            affected_groups.insert(group_id);
+            element.all_counters.push(f);
+            element.least_complex_for_counters.insert(f);
         }
 
-        let mut affected_features = AHashSet::<FeatureIdx>::new();
-        for group_id in &affected_groups {
-            let group = &self.feature_groups[&group_id];
-            for feature_key in &group.features {
-                affected_features.insert(*feature_key);
-            }
-        }
+        let mut affected_counters = AHashSet::<CounterIdx>::new();
 
         let deleted_values: Vec<_> = to_delete
             .iter()
@@ -385,34 +295,32 @@ impl UniqueCoveragePool {
             )
             .collect::<Vec<_>>();
 
-        self.delete_elements(to_delete, &mut affected_groups, &mut affected_features, false);
+        self.delete_elements(to_delete, &mut affected_counters, false);
 
-        // now track the features whose scores are affected by the existing features
-        for feature_key in existing_features.iter() {
-            affected_features.insert(*feature_key);
+        // now track the counters whose scores are affected by the existing counters
+        for counter_key in existing_counters.iter() {
+            affected_counters.insert(*counter_key);
         }
         // and update the score of every affected input
-        for feature_key in affected_features.into_iter() {
-            let feature = self.slab_features.get_mut(&feature_key).unwrap();
-            let group = &self.feature_groups[&feature_key.group_id()];
+        for counter_key in affected_counters.into_iter() {
+            let counter = self.analysed_counters.get_mut(&counter_key).unwrap();
 
-            let old_score = feature.score;
-            feature.score = Self::score_of_feature(group.size(), feature.inputs.len());
-            let change_in_score = feature.score - old_score;
+            let old_score = counter.score;
+            counter.score = Self::score_of_counter(counter.inputs.len());
+            let change_in_score = counter.score - old_score;
 
-            for &input_key in &feature.inputs {
-                let element_with_feature = &mut self.slab_inputs[input_key];
-                element_with_feature.score += change_in_score;
+            for &input_key in &counter.inputs {
+                let element_with_counter = &mut self.slab_inputs[input_key];
+                element_with_counter.score += change_in_score;
             }
         }
 
         let element = &mut self.slab_inputs[element_key];
         element.score = 0.0;
-        for f_key in &element.all_features {
-            let analyzed_feature = self.slab_features.get_mut(f_key).unwrap();
-            let group = &self.feature_groups[&f_key.group_id()];
-            let feature_score = Self::score_of_feature(group.size(), analyzed_feature.inputs.len());
-            element.score += feature_score;
+        for f_key in &element.all_counters {
+            let analyzed_counter = self.analysed_counters.get_mut(f_key).unwrap();
+            let counter_score = Self::score_of_counter(analyzed_counter.inputs.len());
+            element.score += counter_score;
         }
 
         self.update_self_stats();
@@ -430,22 +338,21 @@ impl UniqueCoveragePool {
     }
 
     #[no_coverage]
-    pub fn delete_elements(
+    fn delete_elements(
         &mut self,
         to_delete: AHashSet<SlabKey<Input>>,
-        affected_group: &mut AHashSet<FeatureGroupId>, // for now we assume that no feature is removed, which is incorrect for corpus reduction
-        affected_features: &mut AHashSet<FeatureIdx>,
-        may_remove_feature: bool,
+        affected_counters: &mut AHashSet<CounterIdx>,
+        may_remove_counter: bool,
     ) {
         for &to_delete_key in &to_delete {
             let to_delete_el = &self.slab_inputs[to_delete_key];
 
-            for f in &to_delete_el.all_features {
-                affected_features.insert(*f);
+            for f in &to_delete_el.all_counters {
+                affected_counters.insert(*f);
             }
 
-            for &f_key in &to_delete_el.all_features {
-                let analyzed_f = self.slab_features.get_mut(&f_key).unwrap();
+            for &f_key in &to_delete_el.all_counters {
+                let analyzed_f = self.analysed_counters.get_mut(&f_key).unwrap();
 
                 let idx_to_delete_key = analyzed_f
                     .inputs
@@ -458,24 +365,19 @@ impl UniqueCoveragePool {
                 analyzed_f.inputs.swap_remove(idx_to_delete_key);
             }
 
-            if may_remove_feature {
-                // iter through all features and, if they have no corresponding inputs, remove them from the pool
-                for &f_key in &to_delete_el.all_features {
-                    let analyzed_f = &self.slab_features[&f_key];
+            if may_remove_counter {
+                // iter through all counters and, if they have no corresponding inputs, remove them from the pool
+                for &f_key in &to_delete_el.all_counters {
+                    let analyzed_f = &self.analysed_counters[&f_key];
                     if !analyzed_f.inputs.is_empty() {
                         continue;
                     }
-                    // remove the feature from the list and the slab
-                    self.slab_features.remove(&f_key);
-                    self.features[f_key.0].least_complexity = None;
+                    // remove the counter from the list and the slab
+                    self.analysed_counters.remove(&f_key);
+                    self.all_counters_ref[f_key.0].least_complexity = None;
 
-                    // update the group and mark it as affected
-                    // let analyzed_f = &self.slab_features[&f_key];
-                    let group = self.feature_groups.get_mut(&f_key.group_id()).unwrap();
-                    group.features.remove(&f_key);
-
-                    affected_group.insert(f_key.group_id());
-                    affected_features.remove(&f_key);
+                    // let analyzed_f = &self.slab_counters[&f_key];
+                    affected_counters.remove(&f_key);
                 }
             }
 
@@ -484,8 +386,8 @@ impl UniqueCoveragePool {
     }
 
     #[no_coverage]
-    pub fn score_of_feature(group_size: usize, exact_feature_multiplicity: usize) -> f64 {
-        score_for_group_size(group_size) / (group_size as f64 * exact_feature_multiplicity as f64)
+    pub fn score_of_counter(exact_counter_multiplicity: usize) -> f64 {
+        1.0 / (exact_counter_multiplicity as f64)
     }
 
     /// Update global statistics of the pool following a change in its content
@@ -537,22 +439,14 @@ impl UniqueCoveragePool {
         for input_key in self.slab_inputs.keys() {
             let input = &self.slab_inputs[input_key];
             println!(
-                "input with key {:?} has cplx {:.2}, score {:.2}, and features: {:?}",
-                input_key, input.complexity, input.score, input.all_features
+                "input with key {:?} has cplx {:.2}, score {:.2}, and counters: {:?}",
+                input_key, input.complexity, input.score, input.all_counters
             );
-            println!("        and is best for {:?}", input.least_complex_for_features);
+            println!("        and is best for {:?}", input.least_complex_for_counters);
         }
-        println!("recap features:");
-        for (f_idx, f) in &self.slab_features {
-            println!("feature {:?}’s inputs: {:?}", f_idx, f.inputs);
-        }
-        println!("recap groups:");
-        for (i, (_, group)) in self.feature_groups.iter().enumerate() {
-            println!(
-                "group {} has features {:?}",
-                i,
-                group.features.iter().collect::<Vec<_>>()
-            );
+        println!("recap counters:");
+        for (f_idx, f) in &self.analysed_counters {
+            println!("counter {:?}’s inputs: {:?}", f_idx, f.inputs);
         }
         println!("---");
     }
@@ -560,24 +454,23 @@ impl UniqueCoveragePool {
     #[cfg(test)]
     #[no_coverage]
     fn sanity_check(&self) {
-        let slab = &self.slab_features;
+        let slab = &self.analysed_counters;
 
         self.print_recap();
 
-        for (f_key, f) in &self.slab_features {
+        for (f_key, f) in &self.analysed_counters {
             for input_key in &f.inputs {
                 let input = &self.slab_inputs[*input_key];
-                assert!(input.all_features.contains(&f_key));
+                assert!(input.all_counters.contains(&f_key));
             }
         }
 
         for input_key in self.slab_inputs.keys() {
             let input = &self.slab_inputs[input_key];
             assert!(input.score > 0.0);
-            let expected_input_score = input.all_features.iter().fold(0.0, |c, fk| {
+            let expected_input_score = input.all_counters.iter().fold(0.0, |c, fk| {
                 let f = &slab[fk];
-                let group = &self.feature_groups[&fk.group_id()];
-                c + Self::score_of_feature(group.size(), f.inputs.len())
+                c + Self::score_of_counter(f.inputs.len())
             });
             assert!(
                 (input.score - expected_input_score).abs() < 0.01,
@@ -585,10 +478,10 @@ impl UniqueCoveragePool {
                 input.score,
                 expected_input_score
             );
-            assert!(!input.least_complex_for_features.is_empty());
+            assert!(!input.least_complex_for_counters.is_empty());
 
-            for f_key in &input.least_complex_for_features {
-                let analyzed_f = &self.slab_features[f_key];
+            for f_key in &input.least_complex_for_counters {
+                let analyzed_f = &self.analysed_counters[f_key];
 
                 #[allow(clippy::float_cmp)]
                 let equal_cplx = analyzed_f.least_complexity == input.complexity;
@@ -609,10 +502,10 @@ impl UniqueCoveragePool {
         dedupped_inputs.dedup();
         assert_eq!(dedupped_inputs.len(), self.slab_inputs.len());
 
-        // let mut dedupped_features = self.features.clone();
-        // dedupped_features.sort();
-        // dedupped_features.dedup();
-        // assert_eq!(dedupped_features.len(), self.features.len());
+        // let mut dedupped_counters = self.counters.clone();
+        // dedupped_counters.sort();
+        // dedupped_counters.dedup();
+        // assert_eq!(dedupped_counters.len(), self.counters.len());
     }
 }
 
@@ -626,7 +519,7 @@ impl Pool for UniqueCoveragePool {
             score: self.score(),
             pool_size: self.slab_inputs.len(),
             avg_cplx: self.average_complexity,
-            coverage: (self.feature_groups.len(), self.features.len()),
+            coverage: (self.analysed_counters.len(), self.all_counters_ref.len()),
         }
     }
 
@@ -678,7 +571,7 @@ impl Pool for UniqueCoveragePool {
         let path = PathBuf::new().join(format!("{}.json", &self.name));
 
         let all_hit_counters = self
-            .features
+            .all_counters_ref
             .iter()
             .enumerate()
             .filter(|(_, x)| x.least_complexity.is_some())
@@ -686,12 +579,12 @@ impl Pool for UniqueCoveragePool {
             .collect::<Vec<_>>();
 
         let best_for_counter = self
-            .features
+            .all_counters_ref
             .iter()
             .enumerate()
             .filter(|(_, x)| x.least_complexity.is_some())
             .map(|(idx, _)| {
-                let f = &self.slab_features[&FeatureIdx::new(idx)];
+                let f = &self.analysed_counters[&CounterIdx::new(idx)];
                 let key = f.least_complex_input;
                 let input = &self.slab_inputs[key].data;
                 (idx, *input)
@@ -714,7 +607,7 @@ impl Pool for UniqueCoveragePool {
             .keys()
             .map(|key| {
                 let input = &self.slab_inputs[key];
-                (input.data, input.all_features.iter().map(|x| x.0).collect())
+                (input.data, input.all_counters.iter().map(|x| x.0).collect())
             })
             .collect::<Vec<_>>();
 
@@ -745,23 +638,11 @@ pub fn gen_f64(rng: &fastrand::Rng, range: Range<f64>) -> f64 {
     range.start + rng.f64() * (range.end - range.start)
 }
 
-#[no_coverage]
-fn score_for_group_size(size: usize) -> f64 {
-    const SCORES: [f64; 17] = [
-        0.0, 1.0, 1.1, 1.2, 1.3, 1.4, 1.5, 1.55, 1.6, 1.65, 1.7, 1.75, 1.8, 1.85, 1.9, 1.95, 2.0,
-    ];
-    if size < 16 {
-        SCORES[size]
-    } else {
-        2.0
-    }
-}
-
 // ===============================================================
 // ==================== Trait implementations ====================
 // ===============================================================
 
-impl Clone for AnalyzedFeature {
+impl Clone for AnalysedCounter {
     #[no_coverage]
     fn clone(&self) -> Self {
         Self {
@@ -820,9 +701,9 @@ pub struct UniqueCoveragePoolObservationState {
     analysis_result: AnalysisResult,
 }
 #[derive(Default)]
-pub struct AnalysisResult {
-    pub(crate) existing_features: Vec<FeatureIdx>,
-    pub(crate) new_features: Vec<FeatureIdx>,
+struct AnalysisResult {
+    existing_counters: Vec<CounterIdx>,
+    new_counters: Vec<CounterIdx>,
 }
 
 impl CompatibleWithIteratorSensor for UniqueCoveragePool {
@@ -841,26 +722,26 @@ impl CompatibleWithIteratorSensor for UniqueCoveragePool {
         input_complexity: f64,
         state: &mut Self::ObservationState,
     ) {
-        let feature_index = FeatureIdx::new(index);
-        let AnalyzedFeatureRef { least_complexity } = unsafe { self.features.get_unchecked(feature_index.0) };
+        let counter_idx = CounterIdx::new(index);
+        let FastCounterRef { least_complexity } = unsafe { self.all_counters_ref.get_unchecked(counter_idx.0) };
         if let Some(prev_least_complexity) = least_complexity {
-            self.existing_features.push(feature_index);
+            self.existing_counters.push(counter_idx);
             if input_complexity < *prev_least_complexity {
                 state.is_interesting = true;
             }
         } else {
-            self.new_features.push(feature_index);
+            self.new_counters.push(counter_idx);
             state.is_interesting = true;
         }
     }
     #[no_coverage]
     fn finish_observing(&mut self, state: &mut Self::ObservationState, _input_complexity: f64) {
         if state.is_interesting {
-            state.analysis_result.new_features = self.new_features.clone();
-            state.analysis_result.existing_features = self.existing_features.clone();
+            state.analysis_result.new_counters = self.new_counters.clone();
+            state.analysis_result.existing_counters = self.existing_counters.clone();
         }
-        self.new_features.clear();
-        self.existing_features.clear();
+        self.new_counters.clear();
+        self.existing_counters.clear();
     }
     #[no_coverage]
     fn is_interesting(&self, observation_state: &Self::ObservationState, _input_complexity: f64) -> bool {
@@ -890,8 +771,8 @@ mod tests {
     use crate::Mutator;
 
     #[no_coverage]
-    fn edge_f(index: usize, intensity: u16) -> FeatureIdx {
-        FeatureIdx(index * 64 + intensity as usize)
+    fn edge_f(index: usize, intensity: u16) -> CounterIdx {
+        CounterIdx(index * 64 + intensity as usize)
     }
 
     #[test]
@@ -899,60 +780,60 @@ mod tests {
     fn property_test() {
         use std::iter::FromIterator;
 
-        let mut list_features = vec![];
+        let mut list_counters = vec![];
         for i in 0..3 {
             for j in 0..3 {
-                list_features.push(edge_f(i, j));
+                list_counters.push(edge_f(i, j));
             }
         }
 
         for _ in 0..1000 {
-            let mut new_features: AHashSet<_, ahash::RandomState> = AHashSet::from_iter(list_features.iter());
-            let mut added_features: Vec<FeatureIdx> = vec![];
+            let mut new_counters: AHashSet<_, ahash::RandomState> = AHashSet::from_iter(list_counters.iter());
+            let mut added_counters: Vec<CounterIdx> = vec![];
 
             let mut pool = UniqueCoveragePool::new("cov", 1024);
 
             for i in 0..fastrand::usize(0..100) {
-                let nbr_new_features = if new_features.is_empty() {
+                let nbr_new_counters = if new_counters.is_empty() {
                     0
                 } else if i == 0 {
-                    fastrand::usize(1..new_features.len())
+                    fastrand::usize(1..new_counters.len())
                 } else {
-                    fastrand::usize(0..new_features.len())
+                    fastrand::usize(0..new_counters.len())
                 };
-                let new_features_1: Vec<_> = {
-                    let mut fs = new_features.iter().map(|&&f| f).collect::<Vec<_>>();
+                let new_counters_1: Vec<_> = {
+                    let mut fs = new_counters.iter().map(|&&f| f).collect::<Vec<_>>();
 
                     fastrand::shuffle(&mut fs);
-                    fs[0..nbr_new_features].to_vec()
+                    fs[0..nbr_new_counters].to_vec()
                 };
 
-                for f in &new_features_1 {
-                    new_features.remove(f);
+                for f in &new_counters_1 {
+                    new_counters.remove(f);
                 }
-                let nbr_existing_features = if new_features_1.is_empty() {
-                    if added_features.len() > 1 {
-                        fastrand::usize(1..added_features.len())
+                let nbr_existing_counters = if new_counters_1.is_empty() {
+                    if added_counters.len() > 1 {
+                        fastrand::usize(1..added_counters.len())
                     } else {
                         1
                     }
-                } else if added_features.is_empty() {
+                } else if added_counters.is_empty() {
                     0
                 } else {
-                    fastrand::usize(0..added_features.len())
+                    fastrand::usize(0..added_counters.len())
                 };
 
-                let existing_features_1: Vec<FeatureIdx> = {
-                    let mut fs = added_features.clone();
+                let existing_counters_1: Vec<CounterIdx> = {
+                    let mut fs = added_counters.clone();
                     fastrand::shuffle(&mut fs);
-                    fs[0..nbr_existing_features].to_vec()
+                    fs[0..nbr_existing_counters].to_vec()
                 };
 
-                let max_cplx: f64 = if !existing_features_1.is_empty() && new_features_1.is_empty() {
-                    let idx = fastrand::usize(0..existing_features_1.len());
-                    let fs = existing_features_1
+                let max_cplx: f64 = if !existing_counters_1.is_empty() && new_counters_1.is_empty() {
+                    let idx = fastrand::usize(0..existing_counters_1.len());
+                    let fs = existing_counters_1
                         .iter()
-                        .map(|&f_key| pool.slab_features[&f_key].least_complexity)
+                        .map(|&f_key| pool.analysed_counters[&f_key].least_complexity)
                         .collect::<Vec<_>>();
                     fs[idx]
                 } else {
@@ -965,16 +846,16 @@ mod tests {
                 }
 
                 let cplx1 = 1.0 + fastrand::f64() * (max_cplx - 1.0);
-                for f in new_features_1.iter() {
-                    added_features.push(*f);
+                for f in new_counters_1.iter() {
+                    added_counters.push(*f);
                 }
 
                 let prev_score = pool.score();
                 let analysis_result = AnalysisResult {
-                    existing_features: existing_features_1,
-                    new_features: new_features_1,
+                    existing_counters: existing_counters_1,
+                    new_counters: new_counters_1,
                 };
-                // println!("adding input of cplx {:.2} with new features {:?} and existing features {:?}", cplx1, new_features_1, existing_features_1);
+                // println!("adding input of cplx {:.2} with new counters {:?} and existing counters {:?}", cplx1, new_counters_1, existing_counters_1);
                 let _ = pool.add(PoolStorageIndex::mock(0), cplx1, analysis_result);
                 // pool.print_recap();
                 pool.sanity_check();
