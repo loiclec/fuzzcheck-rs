@@ -10,9 +10,13 @@ mod mutators;
 mod parser;
 mod regex;
 
-pub use grammar::Grammar;
-pub use mutators::grammar_based_string_mutator;
-pub use regex::grammar_from_regex;
-
+#[doc(inline)]
 pub use ast::AST;
-pub use mutators::ASTMutator;
+#[doc(inline)]
+pub use grammar::Grammar;
+#[doc(inline)]
+pub use mutators::grammar_based_ast_mutator;
+#[doc(inline)]
+pub use mutators::grammar_based_string_mutator;
+#[doc(inline)]
+pub use regex::grammar_from_regex;

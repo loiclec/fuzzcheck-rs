@@ -1,9 +1,6 @@
 extern crate self as fuzzcheck;
 
-use crate::{mutators::map::MapMutator, Mutator};
 use serde::{ser::SerializeTuple, Deserialize, Serialize};
-
-use super::ASTMutator;
 
 /// An abstract syntax tree.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -12,30 +9,16 @@ pub enum AST {
     Sequence(Vec<AST>),
     Box(Box<AST>),
 }
-impl ASTMutator {
-    /// Transforms the [ASTMutator] into a mutator which passes both the [AST] type and that [AST]
-    /// instance as a [String] (rather than just the [AST]).
-    pub fn with_string(self) -> impl Mutator<(AST, String)> {
-        MapMutator::new(
-            self,
-            #[no_coverage]
-            |x: &(AST, String)| Some(x.0.clone()),
-            #[no_coverage]
-            |ast| (ast.clone(), ast.generate_string().0),
-            |(_ast, string), _cplx| 1.0 + (string.len() * 8) as f64,
-        )
-    }
-}
 
 /// Like an abstract syntax tree, but augmented with the string indices that correspond to each node
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ASTMap {
+pub(crate) struct ASTMap {
     pub start_index: usize,
     pub len: usize,
     pub content: ASTMappingKind,
 }
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum ASTMappingKind {
+pub(crate) enum ASTMappingKind {
     Token,
     Sequence(Vec<ASTMap>),
     Box(Box<ASTMap>),
@@ -43,7 +26,7 @@ pub enum ASTMappingKind {
 
 impl AST {
     #[no_coverage]
-    pub fn generate_string_in(&self, s: &mut String, start_index: &mut usize) -> ASTMap {
+    pub(crate) fn generate_string_and_ast_map_in(&self, s: &mut String, start_index: &mut usize) -> ASTMap {
         match self {
             AST::Token(c) => {
                 let len = c.len_utf8();
@@ -60,7 +43,7 @@ impl AST {
                 let original_start_idx = *start_index;
                 let mut cs = vec![];
                 for ast in asts {
-                    let c = ast.generate_string_in(s, start_index);
+                    let c = ast.generate_string_and_ast_map_in(s, start_index);
                     cs.push(c);
                 }
                 ASTMap {
@@ -70,7 +53,7 @@ impl AST {
                 }
             }
             AST::Box(ast) => {
-                let mapping = ast.generate_string_in(s, start_index);
+                let mapping = ast.generate_string_and_ast_map_in(s, start_index);
                 ASTMap {
                     start_index: mapping.start_index,
                     len: mapping.len,
@@ -81,41 +64,41 @@ impl AST {
     }
 
     #[no_coverage]
-    pub fn generate_string_only_in(&self, string: &mut String) {
+    fn generate_string_in(&self, string: &mut String) {
         match self {
             AST::Token(c) => {
                 string.push(*c);
             }
             AST::Sequence(asts) => {
                 for ast in asts {
-                    ast.generate_string_only_in(string);
+                    ast.generate_string_in(string);
                 }
             }
             AST::Box(ast) => {
-                ast.generate_string_only_in(string);
+                ast.generate_string_in(string);
             }
         }
     }
 
     #[no_coverage]
-    pub fn generate_string_only(&self) -> String {
+    pub fn to_string(&self) -> String {
         let mut s = String::with_capacity(64);
-        self.generate_string_only_in(&mut s);
+        self.generate_string_in(&mut s);
         s
     }
 
     #[no_coverage]
-    pub fn generate_string(&self) -> (String, ASTMap) {
+    pub(crate) fn generate_string_and_ast_map(&self) -> (String, ASTMap) {
         let mut s = String::new();
         let mut start_index = 0;
-        let c = self.generate_string_in(&mut s, &mut start_index);
+        let c = self.generate_string_and_ast_map_in(&mut s, &mut start_index);
         (s, c)
     }
     #[no_coverage]
-    pub fn generate_string_starting_at_idx(&self, idx: usize) -> (String, ASTMap) {
+    pub(crate) fn generate_string_and_ast_map_starting_at_idx(&self, idx: usize) -> (String, ASTMap) {
         let mut s = String::new();
         let mut start_index = idx;
-        let c = self.generate_string_in(&mut s, &mut start_index);
+        let c = self.generate_string_and_ast_map_in(&mut s, &mut start_index);
         (s, c)
     }
 }
@@ -123,13 +106,13 @@ impl AST {
 impl From<&AST> for ASTMap {
     #[no_coverage]
     fn from(ast: &AST) -> Self {
-        ast.generate_string().1
+        ast.generate_string_and_ast_map().1
     }
 }
 impl From<AST> for String {
     #[no_coverage]
     fn from(ast: AST) -> Self {
-        ast.generate_string().0
+        ast.generate_string_and_ast_map().0
     }
 }
 
@@ -148,7 +131,7 @@ impl Serialize for AST {
     where
         S: serde::Serializer,
     {
-        let string = self.generate_string_only();
+        let string = self.to_string();
         let mut ser = serializer.serialize_tuple(2)?;
         ser.serialize_element(&string)?;
         let ast = unsafe { std::mem::transmute::<&AST, &__AST>(self) };

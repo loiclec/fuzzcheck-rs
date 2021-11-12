@@ -64,7 +64,7 @@ impl<'a> ASTMappingSequence<'a> {
             .unwrap_or(*self.start_index);
 
         let v = &from_value[removal_idx];
-        let (new_s, new_c) = v.generate_string_starting_at_idx(start_index);
+        let (new_s, new_c) = v.generate_string_and_ast_map_starting_at_idx(start_index);
         let len = new_c.len;
 
         self.children.insert(removal_idx, new_c);
@@ -110,7 +110,7 @@ impl<'a> ASTMappingSequence<'a> {
             .unwrap_or(*self.start_index);
 
         // I need to add the value v[insertion_idx] to s and c and update the following indices
-        let (new_s, new_c) = insert_element.generate_string_starting_at_idx(start_index);
+        let (new_s, new_c) = insert_element.generate_string_and_ast_map_starting_at_idx(start_index);
         let len = new_c.len;
         // adjust len of whole mapping
         // and indices of things following them
@@ -193,7 +193,7 @@ where
                 let mut tmp_cs = vec![];
 
                 for v in vs {
-                    let (new_s, new_c) = v.generate_string_starting_at_idx(start_index);
+                    let (new_s, new_c) = v.generate_string_and_ast_map_starting_at_idx(start_index);
                     let len = new_c.len;
                     start_index += len;
 
@@ -242,7 +242,7 @@ where
                 self.children.clear();
                 let mut new_s = String::new();
                 for x in from_value {
-                    let c = x.generate_string_in(&mut new_s, &mut start_index);
+                    let c = x.generate_string_and_ast_map_in(&mut new_s, &mut start_index);
                     self.children.push(c);
                 }
                 to_value.replace_range(*self.start_index..*self.start_index + *self.len, &new_s);
@@ -341,7 +341,7 @@ where
                 let mut tmp_s = String::new();
                 let mut tmp_cs = vec![];
                 for x in xs {
-                    let (new_s, new_c) = x.generate_string_starting_at_idx(start_index);
+                    let (new_s, new_c) = x.generate_string_and_ast_map_starting_at_idx(start_index);
                     let len = new_c.len;
                     start_index += len;
                     total_len += len;
@@ -364,7 +364,7 @@ where
                 self.children.clear();
                 let mut new_s = String::new();
                 for x in x {
-                    let c = x.generate_string_in(&mut new_s, &mut start_index);
+                    let c = x.generate_string_and_ast_map_in(&mut new_s, &mut start_index);
                     self.children.push(c);
                 }
                 to_value.replace_range(*self.start_index..*self.start_index + *self.len, &new_s);
@@ -442,7 +442,7 @@ where
                 self.children.clear();
                 let mut new_s = String::new();
                 for x in from_value {
-                    let c = x.generate_string_in(&mut new_s, &mut start_index);
+                    let c = x.generate_string_and_ast_map_in(&mut new_s, &mut start_index);
                     self.children.push(c);
                 }
                 to_value.replace_range(*self.start_index..*self.start_index + *self.len, &new_s);
@@ -482,7 +482,7 @@ where
                 self.children.clear();
                 let mut new_s = String::new();
                 for x in x {
-                    let c = x.generate_string_in(&mut new_s, &mut start_index);
+                    let c = x.generate_string_and_ast_map_in(&mut new_s, &mut start_index);
                     self.children.push(c);
                 }
                 to_value.replace_range(*self.start_index..*self.start_index + *self.len, &new_s);
@@ -506,7 +506,7 @@ where
     ) {
         match token {
             alternation::UnmutateToken::Replace(_) => {
-                let (new_s, new_c) = from_value.generate_string_starting_at_idx(self.start_index);
+                let (new_s, new_c) = from_value.generate_string_and_ast_map_starting_at_idx(self.start_index);
                 to_value.replace_range(self.start_index..self.start_index + self.len, &new_s);
                 self.len = new_c.len;
                 self.content = new_c.content;
@@ -525,7 +525,7 @@ where
     ) {
         match token {
             alternation::UnmutateToken::Replace(x) => {
-                let (new_s, new_c) = x.generate_string_starting_at_idx(self.start_index);
+                let (new_s, new_c) = x.generate_string_and_ast_map_starting_at_idx(self.start_index);
                 to_value.replace_range(self.start_index..self.start_index + self.len, &new_s);
                 self.len = new_c.len;
                 self.content = new_c.content;
@@ -563,12 +563,12 @@ impl<'a> IncrementalMapping<char, String, CharWithinRangeMutator> for ASTMapping
     }
 }
 
-pub struct ASTMappingSequence<'a> {
+pub(crate) struct ASTMappingSequence<'a> {
     children: &'a mut Vec<ASTMap>,
     start_index: &'a mut usize,
     len: &'a mut usize,
 }
-pub struct ASTMappingAtom<'a> {
+pub(crate) struct ASTMappingAtom<'a> {
     start_index: &'a mut usize,
     len: &'a mut usize,
 }

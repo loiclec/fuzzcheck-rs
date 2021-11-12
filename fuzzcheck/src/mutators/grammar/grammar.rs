@@ -9,8 +9,7 @@ use super::grammar_from_regex;
 #[derive(Clone, Debug)]
 /// A grammar which can be used for fuzzing.
 ///
-/// Note that instead of constructing these yourself you probably want to use the provided macros
-/// (see the documentation for each field for the appropriate macro to use).
+/// See [the module documentation](crate::mutators::grammar) for advice on how to create a grammar.
 pub enum Grammar {
     Literal(Vec<RangeInclusive<char>>),
     Alternation(Vec<Rc<Grammar>>),

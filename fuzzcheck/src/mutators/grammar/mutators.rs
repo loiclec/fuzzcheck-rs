@@ -36,12 +36,12 @@ type InnerASTMutator = Either<
     RecursiveMutator<ASTMutator>,
 >;
 
-pub struct ASTMutator {
-    pub inner: Box<InnerASTMutator>,
+pub(crate) struct ASTMutator {
+    inner: Box<InnerASTMutator>,
 }
 #[derive(Clone)]
 pub struct ASTMutatorCache {
-    pub inner: Box<<InnerASTMutator as Mutator<AST>>::Cache>,
+    inner: Box<<InnerASTMutator as Mutator<AST>>::Cache>,
 }
 impl ASTMutatorCache {
     #[no_coverage]
@@ -51,7 +51,7 @@ impl ASTMutatorCache {
 }
 #[derive(Clone)]
 pub struct ASTMutatorMutationStep {
-    pub inner: Box<<InnerASTMutator as Mutator<AST>>::MutationStep>,
+    inner: Box<<InnerASTMutator as Mutator<AST>>::MutationStep>,
 }
 impl ASTMutatorMutationStep {
     #[no_coverage]
@@ -61,10 +61,10 @@ impl ASTMutatorMutationStep {
 }
 #[derive(Clone)]
 pub struct ASTMutatorArbitraryStep {
-    pub inner: Box<<InnerASTMutator as Mutator<AST>>::ArbitraryStep>,
+    inner: Box<<InnerASTMutator as Mutator<AST>>::ArbitraryStep>,
 }
 pub struct ASTMutatorUnmutateToken {
-    pub inner: Box<<InnerASTMutator as Mutator<AST>>::UnmutateToken>,
+    pub(crate) inner: Box<<InnerASTMutator as Mutator<AST>>::UnmutateToken>,
 }
 impl ASTMutatorUnmutateToken {
     #[no_coverage]
@@ -151,6 +151,11 @@ pub fn grammar_based_string_mutator(grammar: Rc<Grammar>) -> impl Mutator<String
         parse,
         ASTMutator::from_grammar(grammar),
     )
+}
+
+#[no_coverage]
+pub fn grammar_based_ast_mutator(grammar: Rc<Grammar>) -> impl Mutator<AST> {
+    ASTMutator::from_grammar(grammar)
 }
 
 impl ASTMutator {
