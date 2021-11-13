@@ -1,5 +1,5 @@
 use decent_synquote_alternative as synquote;
-use proc_macro2::{Ident, Span, TokenStream};
+use proc_macro2::{Ident, Span};
 
 use synquote::parser::*;
 use synquote::token_builder::*;
@@ -231,21 +231,9 @@ pub(crate) fn impl_default_mutator_for_struct(tb: &mut TokenBuilder, struc: &Str
 #[allow(non_snake_case)]
 fn declare_tuple_mutator(tb: &mut TokenBuilder, nbr_elements: usize) {
     let cm = Common::new(nbr_elements);
-    let Mi = cm.Mi.as_ref();
 
     let mutator_type_params = join_ts!(0..nbr_elements, i, ident!("M" i), separator: ",");
     let type_params = ts!(mutator_type_params);
-
-    let mutator_type_params_replacing_one_by_m = |replacing: usize| -> TokenStream {
-        join_ts!(0..nbr_elements, i, 
-            if i == replacing {
-                ident!("M")
-            } else {
-                Mi(i)
-            }
-        , separator: ",")
-    };
-
     extend_ts!(tb,
         "#[derive(" cm.Default ")]"
         "pub struct" cm.TupleNMutator_ident "<" type_params ">"
@@ -266,19 +254,6 @@ fn declare_tuple_mutator(tb: &mut TokenBuilder, nbr_elements: usize) {
                     "rng: <_>::default() ,"
                 "}
             }"
-            join_ts!(0..nbr_elements, i,
-                "#[no_coverage]
-                pub fn" ident!("replacing_mutator_" i) " < M > ( self , mutator : M )
-                    ->" cm.TupleNMutator_ident "<" mutator_type_params_replacing_one_by_m(i) " >" "
-                {
-                    " cm.TupleNMutator_ident " {"
-                        join_ts!(0..nbr_elements, j,
-                            ident!("mutator_" j) ":" if i == j { ts!("mutator") } else { ts!("self ." ident!("mutator_" j)) } ","
-                        )
-                        "rng : self.rng ,
-                    }
-                }"
-            )
         "}"
     )
 }
