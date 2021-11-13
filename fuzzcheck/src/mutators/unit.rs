@@ -57,36 +57,46 @@ impl<T> Mutator<T> for UnitMutator<T>
 where
     T: Clone + 'static,
 {
+    #[doc(hidden)]
     type Cache = ();
+    #[doc(hidden)]
     type MutationStep = ();
+    #[doc(hidden)]
     type ArbitraryStep = bool;
+    #[doc(hidden)]
     type UnmutateToken = ();
 
+    #[doc(hidden)]
     #[no_coverage]
     fn default_arbitrary_step(&self) -> Self::ArbitraryStep {
         false
     }
 
+    #[doc(hidden)]
     #[no_coverage]
     fn validate_value(&self, _value: &T) -> Option<(Self::Cache, Self::MutationStep)> {
         Some(((), ()))
     }
 
+    #[doc(hidden)]
     #[no_coverage]
     fn max_complexity(&self) -> f64 {
         0.0
     }
 
+    #[doc(hidden)]
     #[no_coverage]
     fn min_complexity(&self) -> f64 {
         0.0
     }
 
+    #[doc(hidden)]
     #[no_coverage]
     fn complexity(&self, _value: &T, _cache: &Self::Cache) -> f64 {
         0.0
     }
 
+    #[doc(hidden)]
     #[no_coverage]
     fn ordered_arbitrary(&self, step: &mut Self::ArbitraryStep, _max_cplx: f64) -> Option<(T, f64)> {
         if !*step {
@@ -97,11 +107,13 @@ where
         }
     }
 
+    #[doc(hidden)]
     #[no_coverage]
     fn random_arbitrary(&self, _max_cplx: f64) -> (T, f64) {
         (self.value.clone(), 0.0)
     }
 
+    #[doc(hidden)]
     #[no_coverage]
     fn ordered_mutate(
         &self,
@@ -113,11 +125,13 @@ where
         None
     }
 
+    #[doc(hidden)]
     #[no_coverage]
     fn random_mutate(&self, _value: &mut T, _cache: &mut Self::Cache, _max_cplx: f64) -> (Self::UnmutateToken, f64) {
         ((), 0.0)
     }
 
+    #[doc(hidden)]
     #[no_coverage]
     fn unmutate(&self, _value: &mut T, _cache: &mut Self::Cache, _t: Self::UnmutateToken) {}
 }

@@ -50,16 +50,21 @@ impl CharWithinRangeMutator {
 }
 
 impl Mutator<char> for CharWithinRangeMutator {
+    #[doc(hidden)]
     type Cache = ();
+    #[doc(hidden)]
     type MutationStep = u64; // mutation step
+    #[doc(hidden)]
     type ArbitraryStep = u64;
+    #[doc(hidden)]
     type UnmutateToken = char; // old value
 
+    #[doc(hidden)]
     #[no_coverage]
     fn default_arbitrary_step(&self) -> Self::ArbitraryStep {
         0
     }
-
+    #[doc(hidden)]
     #[no_coverage]
     fn validate_value(&self, value: &char) -> Option<(Self::Cache, Self::MutationStep)> {
         if (self.start_range..=self.start_range + self.len_range).contains(&(*value as u32)) {
@@ -68,22 +73,22 @@ impl Mutator<char> for CharWithinRangeMutator {
             None
         }
     }
-
+    #[doc(hidden)]
     #[no_coverage]
     fn max_complexity(&self) -> f64 {
         self.cplx
     }
-
+    #[doc(hidden)]
     #[no_coverage]
     fn min_complexity(&self) -> f64 {
         self.cplx
     }
-
+    #[doc(hidden)]
     #[no_coverage]
     fn complexity(&self, _value: &char, _cache: &Self::Cache) -> f64 {
         self.cplx
     }
-
+    #[doc(hidden)]
     #[no_coverage]
     fn ordered_arbitrary(&self, step: &mut Self::ArbitraryStep, max_cplx: f64) -> Option<(char, f64)> {
         if max_cplx < self.min_complexity() {
@@ -103,6 +108,7 @@ impl Mutator<char> for CharWithinRangeMutator {
         }
     }
 
+    #[doc(hidden)]
     #[no_coverage]
     fn random_arbitrary(&self, max_cplx: f64) -> (char, f64) {
         let value = self
@@ -115,7 +121,7 @@ impl Mutator<char> for CharWithinRangeMutator {
             self.random_arbitrary(max_cplx)
         }
     }
-
+    #[doc(hidden)]
     #[no_coverage]
     fn ordered_mutate(
         &self,
@@ -147,7 +153,7 @@ impl Mutator<char> for CharWithinRangeMutator {
             self.ordered_mutate(value, cache, step, max_cplx)
         }
     }
-
+    #[doc(hidden)]
     #[no_coverage]
     fn random_mutate(&self, value: &mut char, _cache: &mut Self::Cache, _max_cplx: f64) -> (Self::UnmutateToken, f64) {
         (
@@ -162,7 +168,7 @@ impl Mutator<char> for CharWithinRangeMutator {
             self.cplx,
         )
     }
-
+    #[doc(hidden)]
     #[no_coverage]
     fn unmutate(&self, value: &mut char, _cache: &mut Self::Cache, t: Self::UnmutateToken) {
         *value = t;

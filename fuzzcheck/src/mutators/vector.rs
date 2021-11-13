@@ -77,6 +77,7 @@ pub struct VecMutatorCache<C> {
     alias: Option<VoseAlias>,
 }
 
+#[doc(hidden)]
 pub enum UnmutateVecToken<T: Clone, M: Mutator<T>> {
     Elements(Vec<(usize, M::UnmutateToken)>),
     Element(usize, M::UnmutateToken),
@@ -426,16 +427,22 @@ impl<T: Clone, M: Mutator<T>> VecMutator<T, M> {
 }
 
 impl<T: Clone, M: Mutator<T>> Mutator<Vec<T>> for VecMutator<T, M> {
+    #[doc(hidden)]
     type Cache = VecMutatorCache<M::Cache>;
+    #[doc(hidden)]
     type MutationStep = MutationStep<M::MutationStep>;
+    #[doc(hidden)]
     type ArbitraryStep = bool; // false: check empty vector, true: random
+    #[doc(hidden)]
     type UnmutateToken = UnmutateVecToken<T, M>;
 
+    #[doc(hidden)]
     #[no_coverage]
     fn default_arbitrary_step(&self) -> Self::ArbitraryStep {
         <_>::default()
     }
 
+    #[doc(hidden)]
     #[no_coverage]
     fn validate_value(&self, value: &Vec<T>) -> Option<(Self::Cache, Self::MutationStep)> {
         let inner: Vec<_> = value
@@ -499,23 +506,27 @@ impl<T: Clone, M: Mutator<T>> Mutator<Vec<T>> for VecMutator<T, M> {
         Some((cache, step))
     }
 
+    #[doc(hidden)]
     #[no_coverage]
     fn max_complexity(&self) -> f64 {
         let max_len = *self.len_range.end();
         self.complexity_from_inner((max_len as f64) * self.m.max_complexity(), max_len.saturating_add(1))
     }
 
+    #[doc(hidden)]
     #[no_coverage]
     fn min_complexity(&self) -> f64 {
         let min_len = *self.len_range.start();
         self.complexity_from_inner((min_len as f64) * self.m.min_complexity(), min_len)
     }
 
+    #[doc(hidden)]
     #[no_coverage]
     fn complexity(&self, value: &Vec<T>, cache: &Self::Cache) -> f64 {
         self.complexity_from_inner(cache.sum_cplx, value.len())
     }
 
+    #[doc(hidden)]
     #[no_coverage]
     fn ordered_arbitrary(&self, step: &mut Self::ArbitraryStep, max_cplx: f64) -> Option<(Vec<T>, f64)> {
         if max_cplx < self.min_complexity() {
@@ -533,6 +544,7 @@ impl<T: Clone, M: Mutator<T>> Mutator<Vec<T>> for VecMutator<T, M> {
         }
     }
 
+    #[doc(hidden)]
     #[no_coverage]
     fn random_arbitrary(&self, max_cplx: f64) -> (Vec<T>, f64) {
         let min_cplx = self.min_complexity();
@@ -556,6 +568,7 @@ impl<T: Clone, M: Mutator<T>> Mutator<Vec<T>> for VecMutator<T, M> {
         self.new_input_with_length_and_complexity(target_len, target_cplx)
     }
 
+    #[doc(hidden)]
     #[no_coverage]
     fn ordered_mutate(
         &self,
@@ -635,6 +648,7 @@ impl<T: Clone, M: Mutator<T>> Mutator<Vec<T>> for VecMutator<T, M> {
         }
     }
 
+    #[doc(hidden)]
     #[no_coverage]
     fn random_mutate(
         &self,
@@ -700,6 +714,7 @@ impl<T: Clone, M: Mutator<T>> Mutator<Vec<T>> for VecMutator<T, M> {
         }
     }
 
+    #[doc(hidden)]
     #[no_coverage]
     fn unmutate(&self, value: &mut Vec<T>, cache: &mut Self::Cache, t: Self::UnmutateToken) {
         match t {

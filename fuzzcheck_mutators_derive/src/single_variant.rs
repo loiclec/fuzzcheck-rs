@@ -134,23 +134,28 @@ pub fn make_single_variant_mutator(tb: &mut TokenBuilder, enu: &Enum) {
     impl " impl_mutator_generics.removing_eq_type() cm.fuzzcheck_traits_Mutator "<" enu.ident enum_generics_no_bounds "> 
         for " EnumSingleVariant single_variant_generics.removing_bounds_and_eq_type() impl_mutator_where_clause 
     "{
+        #[doc(hidden)]
         type Cache = " EnumSingleVariant
             single_variant_generics.mutating_type_params(|tp| {
                 tp.type_ident = ts!(tp.type_ident "::Cache")
             }) ";
+        #[doc(hidden)]
         type MutationStep = " EnumSingleVariant
             single_variant_generics.mutating_type_params(|tp| {
                 tp.type_ident = ts!(tp.type_ident "::MutationStep")
             }) ";
+        #[doc(hidden)]
         type ArbitraryStep = " EnumSingleVariant
             single_variant_generics.mutating_type_params(|tp| {
                 tp.type_ident = ts!(tp.type_ident "::ArbitraryStep")
             }) ";
+        #[doc(hidden)]
         type UnmutateToken = " EnumSingleVariant
             single_variant_generics.mutating_type_params(|tp| {
                 tp.type_ident = ts!(tp.type_ident "::UnmutateToken")
             }) ";
         
+        #[doc(hidden)]
         #[no_coverage]
         fn default_arbitrary_step(&self) -> Self::ArbitraryStep {
             match self {"
@@ -160,6 +165,7 @@ pub fn make_single_variant_mutator(tb: &mut TokenBuilder, enu: &Enum) {
             "}
         }
 
+        #[doc(hidden)]
         #[no_coverage]
         fn validate_value(&self, value: &" enu.ident enum_generics_no_bounds ") -> " cm.Option "<(Self::Cache, Self::MutationStep)> {
             match (self, value) {"
@@ -173,6 +179,7 @@ pub fn make_single_variant_mutator(tb: &mut TokenBuilder, enu: &Enum) {
             }
         }
         
+        #[doc(hidden)]
         #[no_coverage]
         fn max_complexity(&self) -> f64 {
             match self {"
@@ -181,6 +188,8 @@ pub fn make_single_variant_mutator(tb: &mut TokenBuilder, enu: &Enum) {
             )"
             }
         }
+
+        #[doc(hidden)]
         #[no_coverage]
         fn min_complexity(&self) -> f64 {
             match self {"
@@ -189,6 +198,8 @@ pub fn make_single_variant_mutator(tb: &mut TokenBuilder, enu: &Enum) {
             )"
             }
         }
+
+        #[doc(hidden)]
         #[no_coverage]
         fn complexity(&self, value: &" enu.ident enum_generics_no_bounds ", cache: &Self::Cache) -> f64 {
             match (self, value, cache) {"
@@ -203,6 +214,8 @@ pub fn make_single_variant_mutator(tb: &mut TokenBuilder, enu: &Enum) {
             )   "_ => unreachable!()
             }
         }
+
+        #[doc(hidden)]
         #[no_coverage]
         fn ordered_arbitrary(&self, step: &mut Self::ArbitraryStep, max_cplx: f64) -> Option<(" enu.ident enum_generics_no_bounds ", f64)> {
             match (self, step) {"
@@ -220,6 +233,8 @@ pub fn make_single_variant_mutator(tb: &mut TokenBuilder, enu: &Enum) {
             ) "_ => unreachable!()
             }
         }
+
+        #[doc(hidden)]
         #[no_coverage]
         fn random_arbitrary(&self, max_cplx: f64) -> (" enu.ident enum_generics_no_bounds ", f64) {
             match self {"
@@ -233,6 +248,8 @@ pub fn make_single_variant_mutator(tb: &mut TokenBuilder, enu: &Enum) {
                 }"
             )"}
         }
+        
+        #[doc(hidden)]
         #[no_coverage]
         fn ordered_mutate(
             &self,
@@ -255,6 +272,8 @@ pub fn make_single_variant_mutator(tb: &mut TokenBuilder, enu: &Enum) {
             )" _ => unreachable!(),
             }
         }
+
+        #[doc(hidden)]
         #[no_coverage]
         fn random_mutate(&self, value: &mut " enu.ident enum_generics_no_bounds ", cache: &mut Self::Cache, max_cplx: f64) -> (Self::UnmutateToken, f64) {
             match (self, value, cache) {"
@@ -272,6 +291,8 @@ pub fn make_single_variant_mutator(tb: &mut TokenBuilder, enu: &Enum) {
             )   "_ => unreachable!()"
             "}
         }
+
+        #[doc(hidden)]
         #[no_coverage]
         fn unmutate(&self, value: &mut " enu.ident enum_generics_no_bounds ", cache: &mut Self::Cache, t: Self::UnmutateToken) {
             match (self, value, cache, t) {"

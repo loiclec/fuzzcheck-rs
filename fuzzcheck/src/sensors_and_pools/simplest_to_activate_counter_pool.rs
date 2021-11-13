@@ -884,9 +884,13 @@ mod tests {
     pub struct VoidMutator {}
 
     impl Mutator<f64> for VoidMutator {
+        #[doc(hidden)]
         type Cache = ();
+        #[doc(hidden)]
         type MutationStep = ();
+        #[doc(hidden)]
         type ArbitraryStep = ();
+        #[doc(hidden)]
         type UnmutateToken = ();
 
         #[no_coverage]

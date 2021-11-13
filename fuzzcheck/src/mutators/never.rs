@@ -4,46 +4,58 @@ use crate::Mutator;
 pub enum NeverMutator {}
 
 impl<T: Clone> Mutator<T> for NeverMutator {
-    type Cache = ();
-    type MutationStep = ();
-    type ArbitraryStep = ();
-    type UnmutateToken = ();
+    #[doc(hidden)]
+type Cache = ();
+    #[doc(hidden)]
+type MutationStep = ();
+    #[doc(hidden)]
+type ArbitraryStep = ();
+    #[doc(hidden)]
+type UnmutateToken = ();
+    #[doc(hidden)]
     #[no_coverage]
     fn default_arbitrary_step(&self) -> Self::ArbitraryStep {
         unreachable!()
     }
 
+    #[doc(hidden)]
     #[no_coverage]
     fn validate_value(&self, _value: &T) -> Option<(Self::Cache, Self::MutationStep)> {
         unreachable!()
     }
 
+    #[doc(hidden)]
     #[no_coverage]
     fn max_complexity(&self) -> f64 {
         unreachable!()
     }
 
+    #[doc(hidden)]
     #[no_coverage]
     fn min_complexity(&self) -> f64 {
         unreachable!()
     }
 
+    #[doc(hidden)]
     #[no_coverage]
     fn complexity(&self, _value: &T, _cache: &Self::Cache) -> f64 {
         unreachable!()
     }
 
+    #[doc(hidden)]
     #[no_coverage]
     fn ordered_arbitrary(&self, _step: &mut Self::ArbitraryStep, _max_cplx: f64) -> Option<(T, f64)> {
         unreachable!()
     }
 
+    #[doc(hidden)]
     #[no_coverage]
     fn random_arbitrary(&self, _max_cplx: f64) -> (T, f64) {
         unreachable!()
     }
 
-    #[no_coverage]
+    #[doc(hidden)]
+#[no_coverage]
     fn ordered_mutate(
         &self,
         _value: &mut T,
@@ -54,12 +66,14 @@ impl<T: Clone> Mutator<T> for NeverMutator {
         unreachable!()
     }
 
-    #[no_coverage]
+    #[doc(hidden)]
+#[no_coverage]
     fn random_mutate(&self, _value: &mut T, _cache: &mut Self::Cache, _max_cplx: f64) -> (Self::UnmutateToken, f64) {
         unreachable!()
     }
 
-    #[no_coverage]
+   #[doc(hidden)]
+ #[no_coverage]
     fn unmutate(&self, _value: &mut T, _cache: &mut Self::Cache, _t: Self::UnmutateToken) {
         unreachable!()
     }
@@ -69,11 +83,16 @@ impl<T: Clone, TupleKind: RefTypes> TupleMutator<T, TupleKind> for NeverMutator
 where
     T: TupleStructure<TupleKind>,
 {
-    type Cache = ();
-    type MutationStep = ();
-    type ArbitraryStep = ();
-    type UnmutateToken = ();
+    #[doc(hidden)]
+type Cache = ();
+    #[doc(hidden)]
+type MutationStep = ();
+    #[doc(hidden)]
+type ArbitraryStep = ();
+    #[doc(hidden)]
+type UnmutateToken = ();
 
+    #[doc(hidden)]
     #[no_coverage]
     fn default_arbitrary_step(&self) -> Self::ArbitraryStep {
         unreachable!()
@@ -84,32 +103,38 @@ where
         unreachable!()
     }
 
+    #[doc(hidden)]
     #[no_coverage]
     fn validate_value<'a>(&'a self, _value: TupleKind::Ref<'a>) -> Option<(Self::Cache, Self::MutationStep)> {
         unreachable!()
     }
 
+    #[doc(hidden)]
     #[no_coverage]
     fn max_complexity(&self) -> f64 {
         unreachable!()
     }
 
+    #[doc(hidden)]
     #[no_coverage]
     fn min_complexity(&self) -> f64 {
         unreachable!()
     }
 
+    #[doc(hidden)]
     #[no_coverage]
     fn ordered_arbitrary(&self, _step: &mut Self::ArbitraryStep, _max_cplx: f64) -> Option<(T, f64)> {
         unreachable!()
     }
 
+    #[doc(hidden)]
     #[no_coverage]
     fn random_arbitrary(&self, _max_cplx: f64) -> (T, f64) {
         unreachable!()
     }
 
-    #[no_coverage]
+    #[doc(hidden)]
+#[no_coverage]
     fn ordered_mutate<'a>(
         &'a self,
         _value: TupleKind::Mut<'a>,
@@ -120,7 +145,8 @@ where
         unreachable!()
     }
 
-    #[no_coverage]
+    #[doc(hidden)]
+#[no_coverage]
     fn random_mutate<'a>(
         &'a self,
         _value: TupleKind::Mut<'a>,
@@ -130,7 +156,8 @@ where
         unreachable!()
     }
 
-    #[no_coverage]
+   #[doc(hidden)]
+ #[no_coverage]
     fn unmutate<'a>(&'a self, _value: TupleKind::Mut<'a>, _cache: &'a mut Self::Cache, _t: Self::UnmutateToken) {
         unreachable!()
     }

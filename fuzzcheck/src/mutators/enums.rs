@@ -30,36 +30,46 @@ impl<T> Mutator<T> for BasicEnumMutator
 where
     T: Clone + BasicEnumStructure,
 {
+    #[doc(hidden)]
     type Cache = ();
+    #[doc(hidden)]
     type MutationStep = usize;
+    #[doc(hidden)]
     type ArbitraryStep = usize;
+    #[doc(hidden)]
     type UnmutateToken = usize;
 
+    #[doc(hidden)]
     #[no_coverage]
     fn default_arbitrary_step(&self) -> Self::ArbitraryStep {
         0
     }
 
+    #[doc(hidden)]
     #[no_coverage]
     fn validate_value(&self, _value: &T) -> Option<(Self::Cache, Self::MutationStep)> {
         Some(((), INITIAL_MUTATION_STEP))
     }
 
+    #[doc(hidden)]
     #[no_coverage]
     fn max_complexity(&self) -> f64 {
         self.cplx
     }
 
+    #[doc(hidden)]
     #[no_coverage]
     fn min_complexity(&self) -> f64 {
         self.cplx
     }
 
+    #[doc(hidden)]
     #[no_coverage]
     fn complexity(&self, _value: &T, _cache: &Self::Cache) -> f64 {
         self.cplx
     }
 
+    #[doc(hidden)]
     #[no_coverage]
     fn ordered_arbitrary(&self, step: &mut Self::ArbitraryStep, max_cplx: f64) -> Option<(T, f64)> {
         if max_cplx < <Self as Mutator<T>>::min_complexity(self) {
@@ -74,12 +84,14 @@ where
         }
     }
 
+    #[doc(hidden)]
     #[no_coverage]
     fn random_arbitrary(&self, _max_cplx: f64) -> (T, f64) {
         let item_idx = self.rng.usize(..std::mem::variant_count::<T>());
         (T::from_item_index(item_idx), self.cplx)
     }
 
+    #[doc(hidden)]
     #[no_coverage]
     fn ordered_mutate(
         &self,
@@ -104,6 +116,7 @@ where
         }
     }
 
+    #[doc(hidden)]
     #[no_coverage]
     fn random_mutate(&self, value: &mut T, _cache: &mut Self::Cache, _max_cplx: f64) -> (Self::UnmutateToken, f64) {
         let old_index = value.get_item_index();
@@ -112,6 +125,7 @@ where
         (old_index, self.cplx)
     }
 
+    #[doc(hidden)]
     #[no_coverage]
     fn unmutate(&self, value: &mut T, _cache: &mut Self::Cache, t: Self::UnmutateToken) {
         *value = T::from_item_index(t);

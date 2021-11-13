@@ -69,27 +69,35 @@ where
     M: Mutator<T>,
     T: Clone,
 {
-    type Cache = <M as Mutator<T>>::Cache;
-    type MutationStep = <M as Mutator<T>>::MutationStep;
-    type ArbitraryStep = RecursingArbitraryStep<<M as Mutator<T>>::ArbitraryStep>;
-    type UnmutateToken = <M as Mutator<T>>::UnmutateToken;
+    #[doc(hidden)]
+type Cache = <M as Mutator<T>>::Cache;
+    #[doc(hidden)]
+type MutationStep = <M as Mutator<T>>::MutationStep;
+    #[doc(hidden)]
+type ArbitraryStep = RecursingArbitraryStep<<M as Mutator<T>>::ArbitraryStep>;
+    #[doc(hidden)]
+type UnmutateToken = <M as Mutator<T>>::UnmutateToken;
 
-    #[no_coverage]
+    #[doc(hidden)]
+#[no_coverage]
     fn default_arbitrary_step(&self) -> Self::ArbitraryStep {
         RecursingArbitraryStep::Default
     }
 
-    #[no_coverage]
+   #[doc(hidden)]
+ #[no_coverage]
     fn validate_value(&self, value: &T) -> Option<(Self::Cache, Self::MutationStep)> {
         self.reference.upgrade().unwrap().validate_value(value)
     }
 
-    #[no_coverage]
+    #[doc(hidden)]
+#[no_coverage]
     fn max_complexity(&self) -> f64 {
         std::f64::INFINITY
     }
 
-    #[no_coverage]
+    #[doc(hidden)]
+#[no_coverage]
     fn min_complexity(&self) -> f64 {
         // should be the min complexity of the mutator
         if let Some(m) = self.reference.upgrade() {
@@ -99,12 +107,14 @@ where
         }
     }
 
-    #[no_coverage]
+    #[doc(hidden)]
+#[no_coverage]
     fn complexity(&self, value: &T, cache: &Self::Cache) -> f64 {
         self.reference.upgrade().unwrap().complexity(value, cache)
     }
 
-    #[no_coverage]
+    #[doc(hidden)]
+#[no_coverage]
     fn ordered_arbitrary(&self, step: &mut Self::ArbitraryStep, max_cplx: f64) -> Option<(T, f64)> {
         match step {
             RecursingArbitraryStep::Default => {
@@ -122,12 +132,14 @@ where
         }
     }
 
-    #[no_coverage]
+    #[doc(hidden)]
+#[no_coverage]
     fn random_arbitrary(&self, max_cplx: f64) -> (T, f64) {
         self.reference.upgrade().unwrap().random_arbitrary(max_cplx)
     }
 
-    #[no_coverage]
+    #[doc(hidden)]
+#[no_coverage]
     fn ordered_mutate(
         &self,
         value: &mut T,
@@ -141,12 +153,14 @@ where
             .ordered_mutate(value, cache, step, max_cplx)
     }
 
-    #[no_coverage]
+    #[doc(hidden)]
+#[no_coverage]
     fn random_mutate(&self, value: &mut T, cache: &mut Self::Cache, max_cplx: f64) -> (Self::UnmutateToken, f64) {
         self.reference.upgrade().unwrap().random_mutate(value, cache, max_cplx)
     }
 
-    #[no_coverage]
+   #[doc(hidden)]
+ #[no_coverage]
     fn unmutate(&self, value: &mut T, cache: &mut Self::Cache, t: Self::UnmutateToken) {
         self.reference.upgrade().unwrap().unmutate(value, cache, t)
     }

@@ -240,46 +240,58 @@ where
     M: MutatorWrapper<Wrapped = W>,
     W: Mutator<T>,
 {
+    #[doc(hidden)]
     type Cache = W::Cache;
+    #[doc(hidden)]
     type MutationStep = W::MutationStep;
+    #[doc(hidden)]
     type ArbitraryStep = W::ArbitraryStep;
+    #[doc(hidden)]
     type UnmutateToken = W::UnmutateToken;
 
+    #[doc(hidden)]
     #[no_coverage]
     fn default_arbitrary_step(&self) -> Self::ArbitraryStep {
         self.wrapped_mutator().default_arbitrary_step()
     }
 
+    #[doc(hidden)]
     #[no_coverage]
     fn validate_value(&self, value: &T) -> Option<(Self::Cache, Self::MutationStep)> {
         self.wrapped_mutator().validate_value(value)
     }
 
+    #[doc(hidden)]
     #[no_coverage]
     fn max_complexity(&self) -> f64 {
         self.wrapped_mutator().max_complexity()
     }
 
+    #[doc(hidden)]
     #[no_coverage]
     fn min_complexity(&self) -> f64 {
         self.wrapped_mutator().min_complexity()
     }
 
+    #[doc(hidden)]
     #[no_coverage]
     fn complexity(&self, value: &T, cache: &Self::Cache) -> f64 {
         self.wrapped_mutator().complexity(value, cache)
     }
 
+    #[doc(hidden)]
     #[no_coverage]
     fn ordered_arbitrary(&self, step: &mut Self::ArbitraryStep, max_cplx: f64) -> Option<(T, f64)> {
         self.wrapped_mutator().ordered_arbitrary(step, max_cplx)
     }
 
+    #[doc(hidden)]
     #[no_coverage]
     fn random_arbitrary(&self, max_cplx: f64) -> (T, f64) {
         self.wrapped_mutator().random_arbitrary(max_cplx)
     }
 
+    #[doc(hidden)]
     #[no_coverage]
     fn ordered_mutate(
         &self,
@@ -291,11 +303,13 @@ where
         self.wrapped_mutator().ordered_mutate(value, cache, step, max_cplx)
     }
 
+    #[doc(hidden)]
     #[no_coverage]
     fn random_mutate(&self, value: &mut T, cache: &mut Self::Cache, max_cplx: f64) -> (Self::UnmutateToken, f64) {
         self.wrapped_mutator().random_mutate(value, cache, max_cplx)
     }
 
+    #[doc(hidden)]
     #[no_coverage]
     fn unmutate(&self, value: &mut T, cache: &mut Self::Cache, t: Self::UnmutateToken) {
         self.wrapped_mutator().unmutate(value, cache, t)

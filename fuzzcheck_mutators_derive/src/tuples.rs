@@ -251,7 +251,7 @@ fn declare_tuple_mutator(tb: &mut TokenBuilder, nbr_elements: usize) {
         "pub struct" cm.TupleNMutator_ident "<" type_params ">"
         "{"
             join_ts!(0..nbr_elements, i,
-                "pub" ident!("mutator_" i) ":" ident!("M" i) ","
+                ident!("mutator_" i) ":" ident!("M" i) ","
             )
             "rng :" cm.fastrand_Rng
         "}
@@ -291,7 +291,9 @@ fn declare_tuple_mutator_helper_types(tb: &mut TokenBuilder, nbr_elements: usize
     let tuple_type_params = join_ts!(0..nbr_elements, i, ident!("T" i), separator: ",");
 
     extend_ts!(tb,
-        "#[derive(" cm.Clone ", " cm.Debug ", " cm.PartialEq ")]
+        "
+        #[doc(hidden)]
+        #[derive(" cm.Clone ", " cm.Debug ", " cm.PartialEq ")]
         pub struct Cache <" tuple_type_params "> {"
             join_ts!(0..nbr_elements, i,
                 ti(i) ":" ident!("T" i) ","
@@ -299,12 +301,14 @@ fn declare_tuple_mutator_helper_types(tb: &mut TokenBuilder, nbr_elements: usize
             "cplx : f64,
             vose_alias : " cm.VoseAlias "
         }
+        #[doc(hidden)]
         #[derive(" cm.Clone ", " cm.Debug ")]
         pub enum InnerMutationStep {"
             join_ts!(0..nbr_elements, i,
                 Ti(i)
             , separator: ",")
         "}
+        #[doc(hidden)]
         #[derive(" cm.Clone ", " cm.Debug ")]
         pub struct MutationStep < " tuple_type_params " > {"
             join_ts!(0..nbr_elements, i,
@@ -313,6 +317,7 @@ fn declare_tuple_mutator_helper_types(tb: &mut TokenBuilder, nbr_elements: usize
             "inner : " cm.Vec " < InnerMutationStep > ,
             vose_alias : Option<" cm.VoseAlias ">
         }
+        #[doc(hidden)]
         #[derive(" cm.Clone ", " cm.Debug ")]
         pub struct ArbitraryStep < " tuple_type_params " > {"
             join_ts!(0..nbr_elements, i,
@@ -320,6 +325,7 @@ fn declare_tuple_mutator_helper_types(tb: &mut TokenBuilder, nbr_elements: usize
             , separator: ",")
         "}
 
+        #[doc(hidden)]
         pub struct UnmutateToken < " tuple_type_params " > {"
             join_ts!(0..nbr_elements, i,
                 "pub" ti(i) ":" cm.Option "<" Ti(i) "> ,"
@@ -375,27 +381,32 @@ fn impl_mutator_trait(tb: &mut TokenBuilder, nbr_elements: usize) {
         ) "
         T: " cm.TupleStructure "<" cm.TupleN_ident "<" tuple_type_params "> >,
     {
+        #[doc(hidden)]
         type Cache = Cache <"
             join_ts!(0..nbr_elements, i,
                 "<" Mi(i) "as" cm.fuzzcheck_traits_Mutator "<" Ti(i) "> >::Cache "
             , separator: ",")
         ">;
+        #[doc(hidden)]
         type MutationStep = MutationStep <"
             join_ts!(0..nbr_elements, i,
                 "<" Mi(i) "as" cm.fuzzcheck_traits_Mutator "<" Ti(i) "> >::MutationStep "
             , separator: ",")
         ">;
+        #[doc(hidden)]
         type ArbitraryStep = ArbitraryStep <"
             join_ts!(0..nbr_elements, i,
                 "<" Mi(i) "as" cm.fuzzcheck_traits_Mutator "<" Ti(i) "> >::ArbitraryStep "
             , separator: ",")
         ">;
         
+        #[doc(hidden)]
         type UnmutateToken = UnmutateToken <"
             join_ts!(0..nbr_elements, i,
                 "<" Mi(i) "as" cm.fuzzcheck_traits_Mutator "<" Ti(i) "> >::UnmutateToken "
             , separator: ",")
         ">;
+        #[doc(hidden)]
         #[no_coverage]
         fn default_arbitrary_step(&self) -> Self::ArbitraryStep {
             Self::ArbitraryStep {"
@@ -404,22 +415,26 @@ fn impl_mutator_trait(tb: &mut TokenBuilder, nbr_elements: usize) {
                 , separator: ",")
             "}
         }
+        #[doc(hidden)]
         #[no_coverage]
         fn max_complexity(&self) -> f64 {"
             join_ts!(0..nbr_elements, i,
                 "self." mutator_i(i) ".max_complexity()"
             , separator: "+")
         "}
+        #[doc(hidden)]
         #[no_coverage]
         fn min_complexity(&self) -> f64 {"
             join_ts!(0..nbr_elements, i,
                 "self." mutator_i(i) ".min_complexity()"
             , separator: "+")
         "}
+        #[doc(hidden)]
         #[no_coverage]
         fn complexity<'a>(&'a self, _value: " tuple_ref ", cache: &'a Self::Cache) -> f64 {
             cache.cplx
         }
+        #[doc(hidden)]
         #[no_coverage]
         fn validate_value<'a>(&'a self, value: " tuple_ref ") -> " cm.Option "<(Self::Cache, Self::MutationStep)> {"
             join_ts!(0..nbr_elements, i,
@@ -457,6 +472,7 @@ fn impl_mutator_trait(tb: &mut TokenBuilder, nbr_elements: usize) {
 
             " cm.Some "((cache, step))
         }
+        #[doc(hidden)]
         #[no_coverage]
         fn ordered_arbitrary(
             &self,
@@ -469,6 +485,7 @@ fn impl_mutator_trait(tb: &mut TokenBuilder, nbr_elements: usize) {
             " // TODO: actually write something that is ordered_arbitrary sense here
             cm.Some "  (self.random_arbitrary(max_cplx))
         }
+        #[doc(hidden)]
         #[no_coverage]
         fn random_arbitrary(&self, max_cplx: f64) -> (T, f64) {"
             join_ts!(0..nbr_elements, i,
@@ -500,6 +517,7 @@ fn impl_mutator_trait(tb: &mut TokenBuilder, nbr_elements: usize) {
                 sum_cplx,
             )
         }
+        #[doc(hidden)]
         #[no_coverage]
         fn ordered_mutate<'a>(
             &'a self,
@@ -548,6 +566,7 @@ fn impl_mutator_trait(tb: &mut TokenBuilder, nbr_elements: usize) {
             }
             " SelfAsTupleMutator "::ordered_mutate(self, value, cache, step, max_cplx)
         }
+        #[doc(hidden)]
         #[no_coverage]
         fn random_mutate<'a>(&'a self, value: " tuple_mut ", cache: &'a mut Self::Cache, max_cplx: f64, ) -> (Self::UnmutateToken, f64) {
             let current_cplx = " SelfAsTupleMutator "::complexity(self, " TupleNAsRefTypes "::get_ref_from_mut(&value), cache);
@@ -568,6 +587,7 @@ fn impl_mutator_trait(tb: &mut TokenBuilder, nbr_elements: usize) {
                 "_ => unreachable!() ,
             }
         }
+        #[doc(hidden)]
         #[no_coverage]
         fn unmutate<'a>(&'a self, value: " tuple_mut ", cache: &'a mut Self::Cache, t: Self::UnmutateToken) {"
             join_ts!(0..nbr_elements, i,

@@ -74,6 +74,7 @@ impl<'a> ASTMappingSequence<'a> {
         }
         *self.len += len;
     }
+    #[doc(hidden)]
     #[no_coverage]
     fn unmutate_value_from_element_token<M>(
         &mut self,
@@ -93,6 +94,7 @@ impl<'a> ASTMappingSequence<'a> {
         }
         *self.len = self.len.wrapping_add(diff_len);
     }
+    #[doc(hidden)]
     #[no_coverage]
     fn unmutate_value_from_insertion_token(
         &mut self,
@@ -122,6 +124,7 @@ impl<'a> ASTMappingSequence<'a> {
             child.start_index += len;
         }
     }
+    #[doc(hidden)]
     #[no_coverage]
     fn unmutate_value_from_removal_token(&mut self, to_value: &mut String, removal_idx: usize) {
         let (start_idx, len) = {
@@ -276,6 +279,7 @@ where
         }
     }
 
+    #[doc(hidden)]
     #[no_coverage]
     fn unmutate_value_from_token(&mut self, to_value: &mut String, token: &UnmutateVecToken<AST, M>) {
         match token {
@@ -451,6 +455,7 @@ where
         }
     }
 
+    #[doc(hidden)]
     #[no_coverage]
     fn unmutate_value_from_token(&mut self, to_value: &mut String, token: &fixed_len_vector::UnmutateVecToken<AST, M>) {
         match token {
@@ -517,6 +522,7 @@ where
         }
     }
 
+    #[doc(hidden)]
     #[no_coverage]
     fn unmutate_value_from_token(
         &mut self,
@@ -552,6 +558,7 @@ impl<'a> IncrementalMapping<char, String, CharWithinRangeMutator> for ASTMapping
         *self.len = from_value.len_utf8();
     }
 
+    #[doc(hidden)]
     #[no_coverage]
     fn unmutate_value_from_token(
         &mut self,
@@ -624,6 +631,7 @@ where
         }
     }
 
+    #[doc(hidden)]
     #[no_coverage]
     fn unmutate_value_from_token(
         &mut self,
@@ -684,6 +692,7 @@ impl IncrementalMapping<AST, String, ASTMutator> for ASTMap {
         >>::mutate_value_from_token(self, from_value, to_value, token.inner.as_ref());
     }
 
+    #[doc(hidden)]
     #[no_coverage]
     fn unmutate_value_from_token(
         &mut self,

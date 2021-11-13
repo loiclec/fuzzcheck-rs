@@ -50,9 +50,13 @@ macro_rules! impl_int_mutator_constrained {
         }
 
         impl Mutator<$name> for $name_mutator {
+            #[doc(hidden)]
             type Cache = ();
+            #[doc(hidden)]
             type MutationStep = u64; // mutation step
+            #[doc(hidden)]
             type ArbitraryStep = u64;
+            #[doc(hidden)]
             type UnmutateToken = $name; // old value
 
             #[no_coverage]

@@ -73,11 +73,16 @@ impl ASTMutatorUnmutateToken {
     }
 }
 impl Mutator<AST> for ASTMutator {
+    #[doc(hidden)]
     type Cache = ASTMutatorCache;
+    #[doc(hidden)]
     type MutationStep = ASTMutatorMutationStep;
+    #[doc(hidden)]
     type ArbitraryStep = ASTMutatorArbitraryStep;
+    #[doc(hidden)]
     type UnmutateToken = ASTMutatorUnmutateToken;
 
+    #[doc(hidden)]
     #[no_coverage]
     fn default_arbitrary_step(&self) -> Self::ArbitraryStep {
         Self::ArbitraryStep {
@@ -85,37 +90,44 @@ impl Mutator<AST> for ASTMutator {
         }
     }
 
+    #[doc(hidden)]
     #[no_coverage]
     fn validate_value(&self, value: &AST) -> Option<(Self::Cache, Self::MutationStep)> {
         let (cache, step) = self.inner.validate_value(value)?;
         Some((Self::Cache::new(cache), Self::MutationStep::new(step)))
     }
 
+    #[doc(hidden)]
     #[no_coverage]
     fn max_complexity(&self) -> f64 {
         self.inner.max_complexity()
     }
 
+    #[doc(hidden)]
     #[no_coverage]
     fn min_complexity(&self) -> f64 {
         self.inner.min_complexity()
     }
 
+    #[doc(hidden)]
     #[no_coverage]
     fn complexity(&self, value: &AST, cache: &Self::Cache) -> f64 {
         self.inner.complexity(value, &cache.inner)
     }
 
+    #[doc(hidden)]
     #[no_coverage]
     fn ordered_arbitrary(&self, step: &mut Self::ArbitraryStep, max_cplx: f64) -> Option<(AST, f64)> {
         self.inner.ordered_arbitrary(&mut step.inner, max_cplx)
     }
 
+    #[doc(hidden)]
     #[no_coverage]
     fn random_arbitrary(&self, max_cplx: f64) -> (AST, f64) {
         self.inner.random_arbitrary(max_cplx)
     }
 
+    #[doc(hidden)]
     #[no_coverage]
     fn ordered_mutate(
         &self,
@@ -130,12 +142,14 @@ impl Mutator<AST> for ASTMutator {
         Some((Self::UnmutateToken::new(token), cplx))
     }
 
+    #[doc(hidden)]
     #[no_coverage]
     fn random_mutate(&self, value: &mut AST, cache: &mut Self::Cache, max_cplx: f64) -> (Self::UnmutateToken, f64) {
         let (token, cplx) = self.inner.random_mutate(value, &mut cache.inner, max_cplx);
         (Self::UnmutateToken::new(token), cplx)
     }
 
+    #[doc(hidden)]
     #[no_coverage]
     fn unmutate(&self, value: &mut AST, cache: &mut Self::Cache, t: Self::UnmutateToken) {
         self.inner.unmutate(value, &mut cache.inner, *t.inner)

@@ -72,19 +72,23 @@ mod _A {
         A: ::core::clone::Clone,
     {
         type Value = A;
-        type Cache = AMutatorCache<
+        #[doc(hidden)]
+type Cache = AMutatorCache<
             <xType as fuzzcheck_mutators::fuzzcheck_traits::Mutator>::Cache,
             <yType as fuzzcheck_mutators::fuzzcheck_traits::Mutator>::Cache,
         >;
-        type MutationStep = AMutationStep<
+        #[doc(hidden)]
+type MutationStep = AMutationStep<
             <xType as fuzzcheck_mutators::fuzzcheck_traits::Mutator>::MutationStep,
             <yType as fuzzcheck_mutators::fuzzcheck_traits::Mutator>::MutationStep,
         >;
-        type ArbitraryStep = AArbitraryStep<
+        #[doc(hidden)]
+type ArbitraryStep = AArbitraryStep<
             <xType as fuzzcheck_mutators::fuzzcheck_traits::Mutator>::ArbitraryStep,
             <yType as fuzzcheck_mutators::fuzzcheck_traits::Mutator>::ArbitraryStep,
         >;
-        type UnmutateToken = AUnmutateToken<
+        #[doc(hidden)]
+type UnmutateToken = AUnmutateToken<
             <xType as fuzzcheck_mutators::fuzzcheck_traits::Mutator>::UnmutateToken,
             <yType as fuzzcheck_mutators::fuzzcheck_traits::Mutator>::UnmutateToken,
         >;

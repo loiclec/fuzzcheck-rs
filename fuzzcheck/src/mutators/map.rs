@@ -68,16 +68,22 @@ where
     Map: Fn(&From) -> To,
     Complexity: Fn(&To, f64) -> f64,
 {
+    #[doc(hidden)]
     type Cache = Cache<From, M>;
+    #[doc(hidden)]
     type MutationStep = M::MutationStep;
+    #[doc(hidden)]
     type ArbitraryStep = M::ArbitraryStep;
+    #[doc(hidden)]
     type UnmutateToken = M::UnmutateToken;
 
+    #[doc(hidden)]
     #[no_coverage]
     fn default_arbitrary_step(&self) -> Self::ArbitraryStep {
         self.mutator.default_arbitrary_step()
     }
 
+    #[doc(hidden)]
     #[no_coverage]
     fn validate_value(&self, to_value: &To) -> Option<(Self::Cache, Self::MutationStep)> {
         let from_value = (self.parse)(to_value)?;
@@ -85,22 +91,26 @@ where
         Some((Cache { from_value, from_cache }, step))
     }
 
+    #[doc(hidden)]
     #[no_coverage]
     fn max_complexity(&self) -> f64 {
         self.mutator.max_complexity()
     }
 
+    #[doc(hidden)]
     #[no_coverage]
     fn min_complexity(&self) -> f64 {
         self.mutator.min_complexity()
     }
 
+    #[doc(hidden)]
     #[no_coverage]
     fn complexity(&self, value: &To, cache: &Self::Cache) -> f64 {
         let cplx = self.mutator.complexity(&cache.from_value, &cache.from_cache);
         (self.complexity)(value, cplx)
     }
 
+    #[doc(hidden)]
     #[no_coverage]
     fn ordered_arbitrary(&self, step: &mut Self::ArbitraryStep, max_cplx: f64) -> Option<(To, f64)> {
         let (from_value, cplx) = self.mutator.ordered_arbitrary(step, max_cplx)?;
@@ -109,6 +119,7 @@ where
         Some((to_value, cplx))
     }
 
+    #[doc(hidden)]
     #[no_coverage]
     fn random_arbitrary(&self, max_cplx: f64) -> (To, f64) {
         let (from_value, cplx) = self.mutator.random_arbitrary(max_cplx);
@@ -117,6 +128,7 @@ where
         (to_value, cplx)
     }
 
+    #[doc(hidden)]
     #[no_coverage]
     fn ordered_mutate(
         &self,
@@ -133,6 +145,7 @@ where
         Some((token, cplx))
     }
 
+    #[doc(hidden)]
     #[no_coverage]
     fn random_mutate(&self, value: &mut To, cache: &mut Self::Cache, max_cplx: f64) -> (Self::UnmutateToken, f64) {
         let (token, cplx) = self
@@ -143,6 +156,7 @@ where
         (token, cplx)
     }
 
+    #[doc(hidden)]
     #[no_coverage]
     fn unmutate(&self, value: &mut To, cache: &mut Self::Cache, t: Self::UnmutateToken) {
         self.mutator.unmutate(&mut cache.from_value, &mut cache.from_cache, t);

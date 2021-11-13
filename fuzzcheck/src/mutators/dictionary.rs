@@ -68,16 +68,22 @@ impl<T> Default for ArbitraryStep<T> {
 }
 
 impl<T: Clone, M: Mutator<T>> Mutator<T> for DictionaryMutator<T, M> {
-    type Cache = M::Cache;
-    type MutationStep = self::MutationStep<M::MutationStep>;
-    type ArbitraryStep = self::ArbitraryStep<M::ArbitraryStep>;
-    type UnmutateToken = UnmutateToken<T, M>;
+    #[doc(hidden)]
+type Cache = M::Cache;
+    #[doc(hidden)]
+type MutationStep = self::MutationStep<M::MutationStep>;
+    #[doc(hidden)]
+type ArbitraryStep = self::ArbitraryStep<M::ArbitraryStep>;
+    #[doc(hidden)]
+type UnmutateToken = UnmutateToken<T, M>;
 
+    #[doc(hidden)]
     #[no_coverage]
     fn default_arbitrary_step(&self) -> Self::ArbitraryStep {
         <_>::default()
     }
 
+    #[doc(hidden)]
     #[no_coverage]
     fn validate_value(&self, value: &T) -> Option<(Self::Cache, Self::MutationStep)> {
         if let Some((cache, step)) = self.m.validate_value(value) {
@@ -87,6 +93,7 @@ impl<T: Clone, M: Mutator<T>> Mutator<T> for DictionaryMutator<T, M> {
         }
     }
 
+    #[doc(hidden)]
     #[no_coverage]
     fn ordered_arbitrary(&self, step: &mut Self::ArbitraryStep, max_cplx: f64) -> Option<(T, f64)> {
         match step {
@@ -108,6 +115,7 @@ impl<T: Clone, M: Mutator<T>> Mutator<T> for DictionaryMutator<T, M> {
         }
     }
 
+    #[doc(hidden)]
     #[no_coverage]
     fn random_arbitrary(&self, max_cplx: f64) -> (T, f64) {
         let (v, c) = if !self.dictionary.is_empty() && self.rng.usize(..20) == 0 {
@@ -119,21 +127,25 @@ impl<T: Clone, M: Mutator<T>> Mutator<T> for DictionaryMutator<T, M> {
         (v, c)
     }
 
+    #[doc(hidden)]
     #[no_coverage]
     fn max_complexity(&self) -> f64 {
         self.m.max_complexity()
     }
 
+    #[doc(hidden)]
     #[no_coverage]
     fn min_complexity(&self) -> f64 {
         self.m.min_complexity()
     }
 
+    #[doc(hidden)]
     #[no_coverage]
     fn complexity(&self, value: &T, cache: &Self::Cache) -> f64 {
         self.m.complexity(value, cache)
     }
 
+    #[doc(hidden)]
     #[no_coverage]
     fn ordered_mutate(
         &self,
@@ -156,6 +168,7 @@ impl<T: Clone, M: Mutator<T>> Mutator<T> for DictionaryMutator<T, M> {
         }
     }
 
+    #[doc(hidden)]
     #[no_coverage]
     fn random_mutate(&self, value: &mut T, cache: &mut Self::Cache, max_cplx: f64) -> (Self::UnmutateToken, f64) {
         if !self.dictionary.is_empty() && self.rng.usize(..20) == 0 {
@@ -171,6 +184,7 @@ impl<T: Clone, M: Mutator<T>> Mutator<T> for DictionaryMutator<T, M> {
         }
     }
 
+    #[doc(hidden)]
     #[no_coverage]
     fn unmutate(&self, value: &mut T, cache: &mut Self::Cache, t: Self::UnmutateToken) {
         match t {
