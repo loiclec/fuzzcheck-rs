@@ -99,13 +99,13 @@ where
     M: TupleMutator<T, TupleKind>,
 {
     #[doc(hidden)]
-type Cache = M::Cache;
+    type Cache = M::Cache;
     #[doc(hidden)]
-type MutationStep = M::MutationStep;
+    type MutationStep = M::MutationStep;
     #[doc(hidden)]
-type ArbitraryStep = M::ArbitraryStep;
+    type ArbitraryStep = M::ArbitraryStep;
     #[doc(hidden)]
-type UnmutateToken = M::UnmutateToken;
+    type UnmutateToken = M::UnmutateToken;
 
     #[doc(hidden)]
     #[no_coverage]

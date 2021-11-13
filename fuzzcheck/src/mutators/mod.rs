@@ -16,8 +16,6 @@ This module provides the following mutators:
 * procedural macros to generate mutators for custom types:
     * [`#[derive(DefaultMutator)]`](fuzzcheck_mutators_derive::DefaultMutator) which works on most structs and enums
     * [`make_mutator! { .. }`](fuzzcheck_mutators_derive::make_mutator) which works like `#[derive(DefaultMutator)]` but is customisable
-    * [`make_basic_tuple_mutator!(N)`](fuzzcheck_mutators_derive::make_basic_tuple_mutator) creates a mutator for tuples of `N`
-    elements. It is useful to fuzz-test tuples of more than 10 elements, for which a default mutator is not provided by `fuzzcheck`.
 
 * grammar-based string and syntax tree mutators ([here](crate::mutators::grammar))
 
@@ -30,7 +28,7 @@ This module provides the following mutators:
     * [`IncrementalMapMutator<..>`](crate::mutators::incremental_map::IncrementalMapMutator) is the same as `MapMutator` but transforms the value incrementally
 */
 
-pub use fuzzcheck_mutators_derive::*;
+pub use fuzzcheck_mutators_derive::{make_mutator, DefaultMutator};
 
 pub mod alternation;
 pub mod bool;
@@ -109,6 +107,7 @@ mod test {
     }
 }
 
+#[doc(hidden)]
 pub mod testing_utilities {
     use std::collections::HashSet;
     use std::fmt::Debug;

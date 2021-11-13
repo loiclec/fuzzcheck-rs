@@ -18,6 +18,20 @@ mod tuples;
 #[macro_use]
 extern crate decent_synquote_alternative;
 
+/// Create a tuple-mutatpr for of the given arity.
+///
+/// This function can only be used within fuzzcheck itself.
+///
+/// ```ignore
+/// make_basic_tuple_mutator!(2);
+/// // now the type Tuple2Mutator<M1, M2> is available
+/// // It implements TupleMutator<T, Tuple2<A, B>> if M1: Mutator<A> and M2: Mutator<B>
+/// let tuple_mutator = Tuple2Mutator::new(bool::default_mutator(), i8::default_mutator());
+/// // tuple_mutator impl Tuple2Mutator<T, Tuple2<bool, i8>>
+/// // to get a regular Mutator<(A, B)>, wrap the generated tuple-mutator with a TupleMutatorWrapper
+/// let mutator = TupleMutatorWrapper::new(tuple_mutator);
+/// // mutator impl Mutator<(A, B)>
+/// ```
 #[proc_macro]
 pub fn make_basic_tuple_mutator(item: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let mut tb = TokenBuilder::new();
@@ -31,6 +45,8 @@ pub fn make_basic_tuple_mutator(item: proc_macro::TokenStream) -> proc_macro::To
     }
     panic!()
 }
+
+#[doc(hidden)]
 #[proc_macro]
 pub fn make_tuple_type_structure(item: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let mut tb = TokenBuilder::new();
@@ -45,6 +61,7 @@ pub fn make_tuple_type_structure(item: proc_macro::TokenStream) -> proc_macro::T
     panic!()
 }
 
+#[doc(hidden)]
 #[proc_macro_derive(TupleStructure)]
 pub fn derive_tuple_structure(item: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let input = proc_macro2::TokenStream::from(item);
@@ -66,7 +83,7 @@ pub fn derive_tuple_structure(item: proc_macro::TokenStream) -> proc_macro::Toke
     make_mutator! {
         name: SMutator // the name of the mutator
         recursive: false, // the type is not recursive
-        default: true, // impl DefautMutator<Mutator = SMutator> for S
+        default: true, // impl DefaultMutator<Mutator = SMutator> for S
         type:  // repeat the declaration of S
             pub struct S<T> {
             // left hand side: the type of the mutator for the field
@@ -94,7 +111,7 @@ pub fn derive_tuple_structure(item: proc_macro::TokenStream) -> proc_macro::Toke
         type: // repeat the declaration of E
             pub enum E<T> {
                 One,
-                Two(T, #field_mutator(U8Mutator) u8),
+                Two(T, #[field_mutator(U8Mutator)] u8),
                 Three { x: Option<u8> }
             }
     }
@@ -132,6 +149,29 @@ pub fn make_mutator(item: proc_macro::TokenStream) -> proc_macro::TokenStream {
     derive_default_mutator_(parser, settings).into()
 }
 
+/// Implement a mutator for the type and make it the type’s `DefaultMutator`.
+///
+/// The mutator will be called `<Name>Mutator`. It can be constructed in two ways:
+/// 1. Through the `DefaultMutator` trait, for example:
+/// ```ignore
+/// #[derive(DefaultMutator)]
+/// struct X<A> {
+///     field: A,
+/// }
+/// let mutator = <X<u8> as DefaultMutator>::default_mutator();
+/// // but it can also be inferred by the rust compiler:
+/// let mutator = X::<u8>::default_mutator();
+/// ```
+/// 2. By using `<Name>Mutator::new(..)` with the submutators for every field given as argument, for example:
+/// ```ignore
+/// #[derive(DefaultMutator)]
+/// enum Either<A, B> {
+///     Left(A),
+///     Right(B)
+/// }
+/// let mutator = EitherMutator::new(u8::default_mutator(), bool::default_mutator());
+/// // mutator impl Mutator<Either<u8, bool>>
+/// ```
 #[proc_macro_derive(DefaultMutator)]
 pub fn derive_default_mutator(item: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let settings = MakeMutatorSettings::default();
@@ -140,6 +180,7 @@ pub fn derive_default_mutator(item: proc_macro::TokenStream) -> proc_macro::Toke
     derive_default_mutator_(parser, settings).into()
 }
 
+#[doc(hidden)]
 #[proc_macro]
 pub fn make_single_variant_mutator(item: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let input = proc_macro2::TokenStream::from(item);
@@ -149,7 +190,6 @@ pub fn make_single_variant_mutator(item: proc_macro::TokenStream) -> proc_macro:
 /*
 Actual implementations
 */
-
 fn derive_tuple_structure_(item: proc_macro2::TokenStream) -> proc_macro2::TokenStream {
     let input = item;
     let mut tb = TokenBuilder::new();
