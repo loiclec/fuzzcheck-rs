@@ -5,7 +5,11 @@
 //! * `s2` and `p2`
 //!
 //! Then we can combine them into a single sensor and pool as follows:
-//! ```ignore
+//! ```
+//! use fuzzcheck::sensors_and_pools::{AndSensor, AndPool};
+//! # use fuzzcheck::sensors_and_pools::{NoopSensor, UniqueValuesPool};
+//! # let (s1, s2) = (NoopSensor, NoopSensor);
+//! # let (p1, p2) = (UniqueValuesPool::new("a", 0), UniqueValuesPool::new("b", 0)); 
 //! let s = AndSensor(s1, s2);
 //! let p = AndPool::new(p1, p2, 128);
 //! // 128 is the ratio of times the first pool is chosen when selecting a test case to mutate.

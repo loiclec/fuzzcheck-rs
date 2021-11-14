@@ -1,5 +1,14 @@
-//! Fuzzcheck is a coverage-guided, evolutionary fuzzing engine for Rust
-//! functions.
+//! Fuzzcheck is an evolutionary fuzzing engine for Rust functions.
+//!
+//! It is recommended to use it with the command line tool `cargo-fuzzcheck`, which
+//! makes it easy to compile your crate with code coverage instrumentation and
+//! to manage fuzz targets.
+//!
+//! The best way to get started is to follow [the guide at fuzzcheck.neocities.org](https://fuzzcheck.neocities.org).
+//!
+//! The crate documentation contains information on how to set up and launch a fuzz-test ([here](crate::builder)) but
+//! also documents the core traits ([`Pool`], [`Sensor`], [`Mutator`], etc.) that are useful to understand how it works
+//! and to extend it.
 
 #![feature(drain_filter)]
 #![feature(never_type)]

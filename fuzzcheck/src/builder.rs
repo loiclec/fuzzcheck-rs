@@ -13,20 +13,29 @@ The idea is to help you specify each part of the fuzzer progressively:
 
 In most cases, you don't need to manually specify all these components. If the argument type of the function has a [default mutator](DefaultMutator) and is serializable
 with serde, then you can write:
-```ignore
-let _ = fuzz_test(test_function) // FuzzerBuilder1
-    .default_options()           // FuzzerBuilder6!  we use the default values for stages 2 to 5
+```no_run
+# fn test_function(x: &bool) {}
+let _ = fuzzcheck::fuzz_test(test_function) // FuzzerBuilder1
+    .default_options() // FuzzerBuilder6!  we use the default values for stages 2 to 5
     .launch();
+
 ```
 If you'd like to use a custom mutator or serializer but keep the default sensor, pool, and additional arguments, you can write:
-```ignore
-let _ = fuzz_test(test_function)
+```no_run
+# use fuzzcheck::DefaultMutator;
+# fn test_function(x: &bool) {}
+#
+# fn fuzz() {
+# let my_mutator = bool::default_mutator();
+# let my_serializer = fuzzcheck::SerdeSerializer::default();
+let _ = fuzzcheck::fuzz_test(test_function)
     .mutator(my_mutator)         // the default is `<T as DefaultMutator>::default_mutator()`
     .serializer(my_serializer)   // the default is `SerdeSerializer::new()`
     .default_sensor()
     .default_pool()
     .arguments_from_cargo_fuzzcheck()
     .launch();
+# }
 ```
 */
 
@@ -110,11 +119,11 @@ where
 /// A fuzz-test builder that knows the function to fuzz-test.
 ///
 /// Use [`self.mutator(..)`](FuzzerBuilder1::mutator) to specify the [mutator](Mutator)
-/// and obtain a [FuzzerBuilder2]
+/// and obtain a [`FuzzerBuilder2`]
 ///
 /// Alternatively, use [`self.default_options()`](FuzzerBuilder1::default_options)
-/// to use the default mutator, serializer, sensor, pool, and arguments, and obtain a [FuzzerBuilder6].
-/// This method is only available if the argument of the test function implements [DefaultMutator]
+/// to use the default mutator, serializer, sensor, pool, and arguments, and obtain a [`FuzzerBuilder6`].
+/// This method is only available if the argument of the test function implements [`DefaultMutator`]
 /// and is serializable with serde.
 pub struct FuzzerBuilder1<T, F>
 where
@@ -127,7 +136,7 @@ where
 
 /// A fuzz-test builder that knows the function to fuzz-test and the mutator.
 ///
-/// Use [`self.serializer(..)`] to specify the [serializer](Serializer) and obtain a [FuzzerBuilder3].
+/// Use [`self.serializer(..)`](FuzzerBuilder2::serializer) to specify the [serializer](Serializer) and obtain a [`FuzzerBuilder3`].
 pub struct FuzzerBuilder2<F, M, V>
 where
     F: Fn(&V) -> bool + 'static,
@@ -159,10 +168,10 @@ where
 
 /// A fuzz-test builder that knows the function to fuzz-test, the mutator, the serializer, and the sensor.
 ///
-/// Use [`self.pool(..)`] to specify the [pool](Pool) and obtain a [FuzzerBuilder5]. Note that the pool
+/// Use [`self.pool(..)`] to specify the [pool](Pool) and obtain a [`FuzzerBuilder5`]. Note that the pool
 /// given as argument must be [compatible](CompatibleWithSensor) with the sensor that was previously given.
 ///
-/// Alternatively, if the sensor is fuzzcheck’s default ([CodeCoverageSensor]), you can use
+/// Alternatively, if the sensor is fuzzcheck’s default ([`CodeCoverageSensor`]), you can use
 /// [`self.default_pool(..)`](FuzzerBuilder4::default_pool) to use fuzzcheck’s default pool.
 pub struct FuzzerBuilder4<F, M, V, Sens>
 where
@@ -180,7 +189,7 @@ where
 
 /// A fuzz-test builder that knows the function to fuzz-test, the mutator, the serializer, the sensor, and the pool.
 ///
-/// Use [`self.arguments(..)`] to specify the [arguments](Arguments) and obtain a [FuzzerBuilder6].
+/// Use [`self.arguments(..)`] to specify the [arguments](Arguments) and obtain a [`FuzzerBuilder6`].
 ///
 /// If you are using the `cargo-fuzzcheck` command line tool (and you should), use
 /// [`self.arguments_from_cargo_fuzzcheck()`](FuzzerBuilder5::arguments_from_cargo_fuzzcheck)
@@ -202,7 +211,7 @@ where
 }
 /// A fuzz-test builder that knows every necessary detail to start fuzzing.
 ///
-/// Use [`self.launch`](FuzzerBuilder6::launch) to start fuzzing.
+/// Use [`self.launch()`](FuzzerBuilder6::launch) to start fuzzing.
 ///
 /// You can also override some arguments using:
 /// * [`self.command(..)`](FuzzerBuilder6::command)
@@ -233,7 +242,7 @@ where
 /**
     Build a fuzz test for the given function!
 
-    The returned value is a [FuzzerBuilder1]. See the [module/crate documentation](crate::builder)
+    The returned value is a [`FuzzerBuilder1`]. See the [module/crate documentation](crate::builder)
     for a full example of how to build a fuzz test.
 
     There are currently three kinds of functions that can be passed as arguments:
@@ -288,10 +297,6 @@ where
     /**
         Specify the mutator that produces input values for the tested function.
 
-        The easiest way to create a mutator is to use the `fuzzcheck_mutators` crate,
-        which is automatically included in fuzzcheck when compiled with the “mutators”
-        feature.
-
         For example, if the test function is:
         ```
         fn foo(xs: &[u8]) {
@@ -300,14 +305,13 @@ where
         ```
         Then the given mutator should produces values that can be borrowed as `[u8]`.
         We can write:
-        ```ignore
-        use fuzzcheck::{FuzzerBuilder, DefaultMutator};
-        # fn foo(xs: &[u8]) {
-        #     // ..
-        # }
-
+        ```
+        use fuzzcheck::DefaultMutator;
+        fn foo(xs: &[u8]) {
+            // ..
+        }
         fn fuzz_test() {
-            FuzzerBuilder::test(foo)
+            fuzzcheck::fuzz_test(foo)
                 .mutator(Vec::<u8>::default_mutator())
                 // ..
                 # ;
@@ -338,13 +342,20 @@ where
     /**
         Specify the serializer to use when saving the interesting test cases to the file system.
 
-        The serializer must implement the [Serializer](crate::Serializer) trait. If you wish
+        The serializer must implement the [`Serializer`](crate::Serializer) trait. If you wish
         to use `serde`, you can compile fuzzcheck with the `serde_json_serializer` feature, which exposes
         `fuzzcheck::fuzzcheck_serializer::SerdeSerializer`. You can then write:
-        ```ignore
-        FuzzerBuilder::test(foo)
-            .mutator(/* .. */)
+        ```
+        use fuzzcheck::SerdeSerializer;
+        # use fuzzcheck::DefaultMutator;
+        # fn foo(x: &bool) {}
+        fuzzcheck::fuzz_test(foo)
+            .mutator(
+                # bool::default_mutator()
+                /* .. */
+            )
             .serializer(SerdeSerializer::default())
+            # ;
         ```
     */
     #[no_coverage]
@@ -626,3 +637,18 @@ where
         crate::fuzzer::launch(Box::new(test_function), mutator, serializer, sensor, pool, arguments)
     }
 }
+
+// / Here create a SensorAndPoolBuilder
+// / it should proceed like a flowchart, or a set of questions to answer
+// / do you want to record codecoverage? and if so:
+// /     do you want the basic pool (SimplestToActivateCounter)?
+// /     do you want a minified pool (MostNDiverse)?  if so, what size?
+// /     do you want the single most diverse test case (OptimiseAggegateStatPool<NumberOfActivatedCounters>?
+// /
+// /     do you want to find test cases that repeatedly hit some instrumented code regions?
+// /     if so, do you also want to find the test case that hit the most instrumented code regions?
+// / do you want to record something else?
+// /     if no, we are done
+// /     if yes:
+// /         ???
+mod sensor_and_pool {}

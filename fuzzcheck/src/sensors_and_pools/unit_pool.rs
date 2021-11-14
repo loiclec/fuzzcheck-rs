@@ -5,6 +5,10 @@ use crate::sensors_and_pools::stats::EmptyStats;
 use crate::traits::{CompatibleWithSensor, CorpusDelta, Pool, Sensor};
 
 /// A pool that stores only one given test case.
+///
+/// Currently, it can only be used by fuzzcheck itself
+/// because it requires a `PoolStorageIndex`, which only
+/// fuzzcheck can create. This will change at some point.
 pub struct UnitPool {
     input_index: PoolStorageIndex,
     dead_end: bool,

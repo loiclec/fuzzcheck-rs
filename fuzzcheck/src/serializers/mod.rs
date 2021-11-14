@@ -29,6 +29,8 @@ impl ByteSerializer {
     /// Create a byte serializer. The only argument is the name of the extension
     /// that the created files should have. For example:
     /// ```
+    /// use fuzzcheck::ByteSerializer;
+    ///
     /// let ser = ByteSerializer::new("png");
     /// ````
     #[no_coverage]
@@ -75,7 +77,9 @@ where
     /// Create a string serializer. The only argument is the name of the extension
     /// that the created files should have. For example:
     /// ```
-    /// let ser = StringSerializer::new("txt");
+    /// use fuzzcheck::StringSerializer;
+    ///
+    /// let ser = StringSerializer::<String>::new("txt");
     /// ````
     #[no_coverage]
     pub fn new(extension: &'static str) -> Self {

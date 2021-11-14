@@ -1,6 +1,25 @@
+//! An efficient data structure to sample from a discrete, fixed distribution.
+//!
+//! See: <https://www.keithschwarz.com/darts-dice-coins/> for an explanation.
+
 use fastrand::Rng;
 use std::fmt::Debug;
 
+/// An efficient data structure to sample from a discrete, fixed distribution.
+///
+/// ```
+/// use fuzzcheck::mutators::vose_alias::VoseAlias;
+///
+/// // the discrete distribution is a vector of floats which must add up to 1.0
+/// let probabilities = vec![0.5, 0.1, 0.2, 0.2];
+/// // create the Vose alias. The `probabilities` vector is moved to `alias.original_probabilities`.
+/// let alias = VoseAlias::new(probabilities);
+///
+/// // index has a 50% chance of being 0, 10% chance of being 1, 20% chance of being 2, and 20% chance of being 2
+/// let index = alias.sample();
+///
+/// assert!((0 .. 4).contains(&index));
+/// ```
 #[derive(Debug, Clone)]
 pub struct VoseAlias {
     pub original_probabilities: Vec<f64>,
@@ -17,7 +36,9 @@ impl PartialEq for VoseAlias {
 
 // implementation from https://www.keithschwarz.com/darts-dice-coins/
 impl VoseAlias {
-    /// Note: the probabilities must sum up to 1.0
+    /// Create a new Vose alias with the given discrete probability distribution.
+    ///
+    /// Important: the probabilities must sum up to ~ 1.0
     #[no_coverage]
     pub fn new(mut probabilities: Vec<f64>) -> VoseAlias {
         let original_probabilities = probabilities.clone();
@@ -95,6 +116,9 @@ impl VoseAlias {
         }
     }
 
+    /// Sample the Vose alias.
+    ///
+    /// It returns an index within `0` .. `original_probabilities.len()`.
     #[no_coverage]
     pub fn sample(&self) -> usize {
         // Step 1

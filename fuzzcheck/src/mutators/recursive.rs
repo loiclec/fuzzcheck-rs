@@ -1,3 +1,51 @@
+//! Mutators that can handle recursive types.
+//!
+//! There are two main mutators:
+//! 1. [`RecursiveMutator`] is the top-level mutator for the recursive type
+//! 2. [`RecurToMutator`] is the mutator used at points of recursion. It is essentially a weak reference to [`RecursiveMutator`]
+//!
+//! In practice, you will want to use the [`make_mutator!`](crate::mutators::make_mutator) procedural macro to create recursive mutators.
+//! For example:
+//! ```
+//! # #![feature(no_coverage)]
+//! use fuzzcheck::mutators::{option::OptionMutator, boxed::BoxMutator};
+//! use fuzzcheck::mutators::recursive::{RecursiveMutator, RecurToMutator};
+//! use fuzzcheck::DefaultMutator;
+//! use fuzzcheck::mutators::make_mutator;
+//!
+//! #[derive(Clone)]
+//! struct S {
+//!     content: bool,
+//!     next: Option<Box<S>> // the type recurses here
+//! }
+//!
+//! make_mutator! {
+//!     name: SMutator,
+//!     recursive: true, // this is important
+//!     default: false,
+//!     type: struct S {
+//!         content: bool,
+//!         // We need to specify a concrete sub-mutator for this field to avoid creating an infinite type.
+//!         // We use the standard Option and Box mutators, but replace what would be SMutator<M0, M1> by
+//!         // RecurToMutator<SMutator<M0>>, which indicates that this is a point of recursion
+//!         // and the mutator should be a weak reference to a RecursiveMutator
+//!         // The M0 part refers to the mutator for the `content: bool` field.
+//!         #[field_mutator(OptionMutator<Box<S>, BoxMutator<RecurToMutator<SMutator<M0>>>>)]
+//!         next: Option<Box<S>>
+//!     }
+//! }
+//! # fn main() {
+//!
+//! let s_mutator = RecursiveMutator::new(|mutator| {
+//!     SMutator::new(
+//!         /*content_mutator:*/ bool::default_mutator(),
+//!         /*next_mutator:*/ OptionMutator::new(BoxMutator::new(RecurToMutator::from(mutator)))
+//!     )
+//! });
+//! // s_mutator impl Mutator<S>
+//! # }
+//! ```
+
 use crate::{traits::MutatorWrapper, Mutator};
 use std::rc::{Rc, Weak};
 
@@ -17,23 +65,43 @@ impl<AS> Default for RecursingArbitraryStep<AS> {
 A wrapper that allows a mutator to call itself recursively.
 
 For example, it is used to provide mutators for types such as:
-```ignore
+```
 struct S {
-    content: T,
+    content: bool,
     // to mutate this field, a mutator must be able to recursively call itself
     next: Option<Box<S>>
 }
 ```
 `RecursiveMutator` is only the top-level type. It must be used in conjuction
-with [RecurToMutator](crate::mutators::recursive::RecurToMutator) at points of recursion.
+with [`RecurToMutator`](crate::mutators::recursive::RecurToMutator) at points of recursion.
 For example:
-```ignore
-use fuzzcheck_mutators::recursive::RecursiveMutator;
+```
+# #![feature(no_coverage)]
+use fuzzcheck::DefaultMutator;
+use fuzzcheck::mutators::{option::OptionMutator, boxed::BoxMutator};
+use fuzzcheck::mutators::recursive::{RecursiveMutator, RecurToMutator};
+
+# use fuzzcheck::mutators::make_mutator;
+# #[derive(Clone)]
+# struct S {
+#     content: bool,
+#     next: Option<Box<S>>
+# }
+# make_mutator! {
+#     name: SMutator,
+#     recursive: true,
+#     default: false,
+#     type: struct S {
+#         content: bool,
+#         #[field_mutator(OptionMutator<Box<S>, BoxMutator<RecurToMutator<SMutator<M0>>>>)]
+#         next: Option<Box<S>>
+#     }
+# }
 let s_mutator = RecursiveMutator::new(|mutator| {
-    SMutator {
-        content_mutator: TMutator::default(),
-        next_mutator: OptionMutator::new(BoxMutator::new(RecurToMutator::from(mutator)))
-    }
+    SMutator::new(
+        /*content_mutator:*/ bool::default_mutator(),
+        /*next_mutator:*/ OptionMutator::new(BoxMutator::new(RecurToMutator::from(mutator)))
+    )
 });
 ```
 */
@@ -51,7 +119,7 @@ impl<M> RecursiveMutator<M> {
 }
 
 /// A mutator that defers to a weak reference of a
-/// [RecursiveMutator](crate::mutators::recursive::RecursiveMutator)
+/// [`RecursiveMutator`](crate::mutators::recursive::RecursiveMutator)
 pub struct RecurToMutator<M> {
     reference: Weak<M>,
 }
@@ -70,34 +138,34 @@ where
     T: Clone,
 {
     #[doc(hidden)]
-type Cache = <M as Mutator<T>>::Cache;
+    type Cache = <M as Mutator<T>>::Cache;
     #[doc(hidden)]
-type MutationStep = <M as Mutator<T>>::MutationStep;
+    type MutationStep = <M as Mutator<T>>::MutationStep;
     #[doc(hidden)]
-type ArbitraryStep = RecursingArbitraryStep<<M as Mutator<T>>::ArbitraryStep>;
+    type ArbitraryStep = RecursingArbitraryStep<<M as Mutator<T>>::ArbitraryStep>;
     #[doc(hidden)]
-type UnmutateToken = <M as Mutator<T>>::UnmutateToken;
+    type UnmutateToken = <M as Mutator<T>>::UnmutateToken;
 
     #[doc(hidden)]
-#[no_coverage]
+    #[no_coverage]
     fn default_arbitrary_step(&self) -> Self::ArbitraryStep {
         RecursingArbitraryStep::Default
     }
 
-   #[doc(hidden)]
- #[no_coverage]
+    #[doc(hidden)]
+    #[no_coverage]
     fn validate_value(&self, value: &T) -> Option<(Self::Cache, Self::MutationStep)> {
         self.reference.upgrade().unwrap().validate_value(value)
     }
 
     #[doc(hidden)]
-#[no_coverage]
+    #[no_coverage]
     fn max_complexity(&self) -> f64 {
         std::f64::INFINITY
     }
 
     #[doc(hidden)]
-#[no_coverage]
+    #[no_coverage]
     fn min_complexity(&self) -> f64 {
         // should be the min complexity of the mutator
         if let Some(m) = self.reference.upgrade() {
@@ -108,13 +176,13 @@ type UnmutateToken = <M as Mutator<T>>::UnmutateToken;
     }
 
     #[doc(hidden)]
-#[no_coverage]
+    #[no_coverage]
     fn complexity(&self, value: &T, cache: &Self::Cache) -> f64 {
         self.reference.upgrade().unwrap().complexity(value, cache)
     }
 
     #[doc(hidden)]
-#[no_coverage]
+    #[no_coverage]
     fn ordered_arbitrary(&self, step: &mut Self::ArbitraryStep, max_cplx: f64) -> Option<(T, f64)> {
         match step {
             RecursingArbitraryStep::Default => {
@@ -133,13 +201,13 @@ type UnmutateToken = <M as Mutator<T>>::UnmutateToken;
     }
 
     #[doc(hidden)]
-#[no_coverage]
+    #[no_coverage]
     fn random_arbitrary(&self, max_cplx: f64) -> (T, f64) {
         self.reference.upgrade().unwrap().random_arbitrary(max_cplx)
     }
 
     #[doc(hidden)]
-#[no_coverage]
+    #[no_coverage]
     fn ordered_mutate(
         &self,
         value: &mut T,
@@ -154,13 +222,13 @@ type UnmutateToken = <M as Mutator<T>>::UnmutateToken;
     }
 
     #[doc(hidden)]
-#[no_coverage]
+    #[no_coverage]
     fn random_mutate(&self, value: &mut T, cache: &mut Self::Cache, max_cplx: f64) -> (Self::UnmutateToken, f64) {
         self.reference.upgrade().unwrap().random_mutate(value, cache, max_cplx)
     }
 
-   #[doc(hidden)]
- #[no_coverage]
+    #[doc(hidden)]
+    #[no_coverage]
     fn unmutate(&self, value: &mut T, cache: &mut Self::Cache, t: Self::UnmutateToken) {
         self.reference.upgrade().unwrap().unmutate(value, cache, t)
     }

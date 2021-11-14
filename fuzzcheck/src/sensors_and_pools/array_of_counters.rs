@@ -4,6 +4,7 @@ use std::path::PathBuf;
 /// A custom sensor consisting of an array of counters that can be manually set.
 ///
 /// ```
+/// use fuzzcheck::sensors_and_pools::ArrayOfCounters;
 /// // the “counters” array must be a static item
 /// static mut COUNTERS: [u64; 2] = [0; 2];
 ///
@@ -13,11 +14,11 @@ use std::path::PathBuf;
 /// fn test_function(x: &[bool]) {
 ///     // you can then manually instrument a test function by changing the values of COUNTERS
 ///     unsafe {
-///         COUNTERS[0] = x.len();
+///         COUNTERS[0] = x.len() as u64;
 ///     }
 ///     // ...
 ///     unsafe {
-///         COUNTERS[1] = x.len();
+///         COUNTERS[1] = x.len() as u64;
 ///     }
 ///     // ...
 /// }

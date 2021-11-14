@@ -21,7 +21,8 @@ use self::llvm_coverage::{get_counters, get_prf_data, read_covmap, Coverage, LLV
 /// When creating a new `CodeCoverageSensor`, you can pass a function that determines whether coverage is
 /// recorded for a file with a given path.
 ///
-/// ```
+/// ```no_run
+/// use fuzzcheck::sensors_and_pools::CodeCoverageSensor;
 /// let sensor = CodeCoverageSensor::new(|path| path.is_relative() == true);
 /// ```
 pub struct CodeCoverageSensor {

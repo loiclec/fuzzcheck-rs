@@ -98,12 +98,20 @@ fn ordered_mutate(&self, value: &mut Value, cache: &mut Self::Cache, step: &mut 
  mutation, the element at index 2 has to be unmutated by removing
  its element at index 1. In pseudocode:
 
- ```ignore
- value = [[1, 3], [5], [9, 8]];
- cache: c1 (ommitted from example)
- step: s1 (ommitted from example)
+ ```
+ use fuzzcheck::Mutator;
 
- let unmutate_token = self.mutate(&mut value, &mut cache, &mut step, max_cplx);
+# use fuzzcheck::DefaultMutator;
+# let m = bool::default_mutator();
+# let mut value = false;
+# let (mut cache, mut step) = m.validate_value(&value).unwrap();
+# let max_cplx = 8.0;
+# fn test(x: &bool) {}
+//  value = [[1, 3], [5], [9, 8]];
+//  cache: c1 (ommitted from example)
+//  step: s1 (ommitted from example)
+
+ let (unmutate_token, _cplx) = m.ordered_mutate(&mut value, &mut cache, &mut step, max_cplx).unwrap();
 
  // value = [[1, 3], [5], [9, 1, 8]]
  // token = Element(2, Remove(1))
@@ -112,7 +120,7 @@ fn ordered_mutate(&self, value: &mut Value, cache: &mut Self::Cache, step: &mut 
 
  test(&value);
 
- self.unmutate(&mut value, &mut cache, unmutate_token);
+ m.unmutate(&mut value, &mut cache, unmutate_token);
 
  // value = [[1, 3], [5], [9, 8]]
  // cache = c1 (back to original cache)
@@ -224,8 +232,7 @@ pub trait Serializer {
 }
 
 /**
-A trait for types that are basic wrappers over a mutator, such as `Box<M>` or
-`Rc<M>`.
+A trait for types that are basic wrappers over a mutator, such as `Box<M>`.
 
 Such wrapper types automatically implement the `Mutator` trait.
  */
