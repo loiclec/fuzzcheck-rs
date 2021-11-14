@@ -9,7 +9,7 @@
 //! use fuzzcheck::sensors_and_pools::{AndSensor, AndPool};
 //! # use fuzzcheck::sensors_and_pools::{NoopSensor, UniqueValuesPool};
 //! # let (s1, s2) = (NoopSensor, NoopSensor);
-//! # let (p1, p2) = (UniqueValuesPool::new("a", 0), UniqueValuesPool::new("b", 0)); 
+//! # let (p1, p2) = (UniqueValuesPool::new("a", 0), UniqueValuesPool::new("b", 0));
 //! let s = AndSensor(s1, s2);
 //! let p = AndPool::new(p1, p2, 128);
 //! // 128 is the ratio of times the first pool is chosen when selecting a test case to mutate.
@@ -22,7 +22,7 @@ use std::{fmt::Display, path::PathBuf};
 
 use crate::{
     fuzzer::PoolStorageIndex,
-    traits::{CompatibleWithSensor, CorpusDelta, Pool, Sensor},
+    traits::{CompatibleWithSensor, CorpusDelta, Pool, SaveToStatsFolder, Sensor},
     CSVField, ToCSV,
 };
 
@@ -92,10 +92,16 @@ where
         self.p1.mark_test_case_as_dead_end(idx);
         self.p2.mark_test_case_as_dead_end(idx);
     }
+}
+impl<P1, P2> SaveToStatsFolder for AndPool<P1, P2>
+where
+    P1: Pool,
+    P2: Pool,
+{
     #[no_coverage]
-    fn serialized(&self) -> Vec<(std::path::PathBuf, Vec<u8>)> {
-        let mut x = self.p1.serialized();
-        x.extend(self.p2.serialized());
+    fn save_to_stats_folder(&self) -> Vec<(PathBuf, Vec<u8>)> {
+        let mut x = self.p1.save_to_stats_folder();
+        x.extend(self.p2.save_to_stats_folder());
         x
     }
 }
@@ -128,11 +134,17 @@ where
         self.0.iterate_over_observations(handler.0);
         self.1.iterate_over_observations(handler.1);
     }
+}
 
+impl<S1, S2> SaveToStatsFolder for AndSensor<S1, S2>
+where
+    S1: Sensor,
+    S2: Sensor,
+{
     #[no_coverage]
-    fn serialized(&self) -> Vec<(PathBuf, Vec<u8>)> {
-        let mut x = self.0.serialized();
-        x.extend(self.1.serialized());
+    fn save_to_stats_folder(&self) -> Vec<(PathBuf, Vec<u8>)> {
+        let mut x = self.0.save_to_stats_folder();
+        x.extend(self.1.save_to_stats_folder());
         x
     }
 }

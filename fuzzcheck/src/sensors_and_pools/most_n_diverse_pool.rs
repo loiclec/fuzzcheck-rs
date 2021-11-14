@@ -4,7 +4,7 @@ use std::{
     path::PathBuf,
 };
 
-use crate::bitset::FixedBitSet;
+use crate::{bitset::FixedBitSet, traits::SaveToStatsFolder};
 
 use crate::{
     fenwick_tree::FenwickTree,
@@ -97,12 +97,14 @@ impl Pool for MostNDiversePool {
     fn mark_test_case_as_dead_end(&mut self, _idx: PoolStorageIndex) {
         // TODO
     }
+}
+impl SaveToStatsFolder for MostNDiversePool {
     #[no_coverage]
-    fn serialized(&self) -> Vec<(PathBuf, Vec<u8>)> {
-        // TODO
+    fn save_to_stats_folder(&self) -> Vec<(PathBuf, Vec<u8>)> {
         vec![]
     }
 }
+
 pub struct ObservationState {
     counters: FixedBitSet,
     nbr_new_counters: usize,

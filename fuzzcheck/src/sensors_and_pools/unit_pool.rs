@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 use crate::fuzzer::PoolStorageIndex;
 use crate::sensors_and_pools::stats::EmptyStats;
-use crate::traits::{CompatibleWithSensor, CorpusDelta, Pool, Sensor};
+use crate::traits::{CompatibleWithSensor, CorpusDelta, Pool, SaveToStatsFolder, Sensor};
 
 /// A pool that stores only one given test case.
 ///
@@ -46,9 +46,10 @@ impl Pool for UnitPool {
     fn mark_test_case_as_dead_end(&mut self, _idx: PoolStorageIndex) {
         self.dead_end = true
     }
-
+}
+impl SaveToStatsFolder for UnitPool {
     #[no_coverage]
-    fn serialized(&self) -> Vec<(PathBuf, Vec<u8>)> {
+    fn save_to_stats_folder(&self) -> Vec<(PathBuf, Vec<u8>)> {
         vec![]
     }
 }

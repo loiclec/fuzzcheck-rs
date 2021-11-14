@@ -29,7 +29,7 @@ use super::compatible_with_iterator_sensor::CompatibleWithIteratorSensor;
 use crate::data_structures::{Slab, SlabKey};
 use crate::fenwick_tree::FenwickTree;
 use crate::fuzzer::PoolStorageIndex;
-use crate::traits::{CorpusDelta, Pool};
+use crate::traits::{CorpusDelta, Pool, SaveToStatsFolder};
 use crate::{CSVField, ToCSV};
 use ahash::{AHashMap, AHashSet};
 use fastrand::Rng;
@@ -564,9 +564,11 @@ impl Pool for SimplestToActivateCounterPool {
         }
         self.update_self_stats()
     }
+}
 
+impl SaveToStatsFolder for SimplestToActivateCounterPool {
     #[no_coverage]
-    fn serialized(&self) -> Vec<(PathBuf, Vec<u8>)> {
+    fn save_to_stats_folder(&self) -> Vec<(PathBuf, Vec<u8>)> {
         let path = PathBuf::new().join(format!("{}.json", &self.name));
 
         let all_hit_counters = self

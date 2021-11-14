@@ -4,7 +4,7 @@ mod leb128;
 mod llvm_coverage;
 mod serialized;
 
-use crate::traits::Sensor;
+use crate::traits::{SaveToStatsFolder, Sensor};
 use std::convert::TryFrom;
 use std::path::Path;
 use std::{collections::HashMap, path::PathBuf};
@@ -134,9 +134,10 @@ impl Sensor for CodeCoverageSensor {
             }
         }
     }
-
+}
+impl SaveToStatsFolder for CodeCoverageSensor {
     #[no_coverage]
-    fn serialized(&self) -> Vec<(PathBuf, Vec<u8>)> {
+    fn save_to_stats_folder(&self) -> Vec<(PathBuf, Vec<u8>)> {
         let coverage_map = self.coverage_map();
         let content = serde_json::to_vec(&coverage_map).unwrap();
         vec![(PathBuf::new().join("coverage_sensor.json"), content)]

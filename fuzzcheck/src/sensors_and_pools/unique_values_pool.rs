@@ -2,7 +2,7 @@ use crate::data_structures::{Slab, SlabKey};
 use crate::fenwick_tree::FenwickTree;
 use crate::fuzzer::PoolStorageIndex;
 use crate::sensors_and_pools::compatible_with_iterator_sensor::CompatibleWithIteratorSensor;
-use crate::traits::{CorpusDelta, Pool};
+use crate::traits::{CorpusDelta, Pool, SaveToStatsFolder};
 use crate::ToCSV;
 use ahash::{AHashMap, AHashSet};
 use std::fmt::{Debug, Display};
@@ -132,11 +132,14 @@ impl Pool for UniqueValuesPool {
         }
         self.update_stats();
     }
-
-    fn serialized(&self) -> Vec<(std::path::PathBuf, Vec<u8>)> {
+}
+impl SaveToStatsFolder for UniqueValuesPool {
+    #[no_coverage]
+    fn save_to_stats_folder(&self) -> Vec<(std::path::PathBuf, Vec<u8>)> {
         vec![]
     }
 }
+
 impl UniqueValuesPool {
     #[no_coverage]
     fn update_stats(&mut self) {

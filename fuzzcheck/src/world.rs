@@ -2,6 +2,7 @@ use crate::fuzzer::PoolStorageIndex;
 use crate::fuzzer::TerminationStatus;
 use crate::sensors_and_pools::stats::EmptyStats;
 use crate::traits::CorpusDelta;
+use crate::traits::SaveToStatsFolder;
 use crate::CSVField;
 use crate::ToCSV;
 use fuzzcheck_common::arg::Arguments;
@@ -339,9 +340,10 @@ This should never happen, and is probably a bug in fuzzcheck. Sorry :("#
         }
         Ok(())
     }
-
+}
+impl SaveToStatsFolder for World {
     #[no_coverage]
-    pub fn serialized(&self) -> Vec<(PathBuf, Vec<u8>)> {
+    fn save_to_stats_folder(&self) -> Vec<(PathBuf, Vec<u8>)> {
         let content = serde_json::to_vec(&self.corpus.iter().collect::<Vec<_>>()).unwrap();
         vec![(PathBuf::new().join("world.json"), content)]
     }

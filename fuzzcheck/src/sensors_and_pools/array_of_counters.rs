@@ -1,4 +1,4 @@
-use crate::traits::Sensor;
+use crate::traits::{SaveToStatsFolder, Sensor};
 use std::path::PathBuf;
 
 /// A custom sensor consisting of an array of counters that can be manually set.
@@ -66,8 +66,10 @@ impl<const N: usize> Sensor for ArrayOfCounters<N> {
             }
         }
     }
+}
+impl<const N: usize> SaveToStatsFolder for ArrayOfCounters<N> {
     #[no_coverage]
-    fn serialized(&self) -> Vec<(PathBuf, Vec<u8>)> {
+    fn save_to_stats_folder(&self) -> Vec<(PathBuf, Vec<u8>)> {
         vec![]
     }
 }

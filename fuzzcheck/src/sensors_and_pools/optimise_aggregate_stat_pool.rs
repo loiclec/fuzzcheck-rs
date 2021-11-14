@@ -1,10 +1,6 @@
 use std::{fmt::Display, marker::PhantomData, path::PathBuf};
 
-use crate::{
-    fuzzer::PoolStorageIndex,
-    traits::{CorpusDelta, Pool},
-    CSVField, ToCSV,
-};
+use crate::{CSVField, ToCSV, fuzzer::PoolStorageIndex, traits::{CorpusDelta, Pool, SaveToStatsFolder}};
 
 use super::compatible_with_iterator_sensor::CompatibleWithIteratorSensor;
 
@@ -93,12 +89,14 @@ impl<Strategy> Pool for OptimiseAggregateStatPool<Strategy> {
     fn mark_test_case_as_dead_end(&mut self, _idx: PoolStorageIndex) {
         self.current_best_dead_end = true;
     }
-
+}
+impl<T> SaveToStatsFolder for OptimiseAggregateStatPool<T> {
     #[no_coverage]
-    fn serialized(&self) -> Vec<(PathBuf, Vec<u8>)> {
+    fn save_to_stats_folder(&self) -> Vec<(PathBuf, Vec<u8>)> {
         vec![]
     }
 }
+
 impl CompatibleWithIteratorSensor for OptimiseAggregateStatPool<SumOfCounterValues> {
     type Observation = (usize, u64);
     type ObservationState = u64;

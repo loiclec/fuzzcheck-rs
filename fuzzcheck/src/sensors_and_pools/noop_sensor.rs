@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use crate::traits::Sensor;
+use crate::traits::{SaveToStatsFolder, Sensor};
 
 /// A sensor that does nothing.
 ///
@@ -18,9 +18,10 @@ impl Sensor for NoopSensor {
 
     #[no_coverage]
     fn iterate_over_observations(&mut self, _handler: Self::ObservationHandler<'_>) {}
-
+}
+impl SaveToStatsFolder for NoopSensor {
     #[no_coverage]
-    fn serialized(&self) -> Vec<(PathBuf, Vec<u8>)> {
+    fn save_to_stats_folder(&self) -> Vec<(PathBuf, Vec<u8>)> {
         vec![]
     }
 }

@@ -11,6 +11,7 @@ use crate::sensors_and_pools::UnitPool;
 use crate::sensors_and_pools::{AndPool, AndSensor};
 use crate::sensors_and_pools::{TestFailure, TestFailurePool, TestFailureSensor, TEST_FAILURE};
 use crate::signals_handler::set_signal_handlers;
+use crate::traits::SaveToStatsFolder;
 use crate::traits::{CompatibleWithSensor, CorpusDelta, Pool, Sensor};
 use crate::traits::{Mutator, Serializer};
 use crate::world::World;
@@ -109,6 +110,20 @@ fn update_fuzzer_stats(stats: &mut FuzzerStats, world: &mut World) {
     }
 }
 
+impl<T: Clone, M: Mutator<T>, Sens: Sensor, P: Pool> SaveToStatsFolder for FuzzerState<T, M, Sens, P>
+where
+    P: CompatibleWithSensor<Sens>,
+    Self: 'static,
+{
+    #[no_coverage]
+    fn save_to_stats_folder(&self) -> Vec<(std::path::PathBuf, Vec<u8>)> {
+        let mut contents = self.pool.save_to_stats_folder();
+        contents.extend(self.sensor.save_to_stats_folder());
+        contents.extend(self.world.save_to_stats_folder());
+        contents
+    }
+}
+
 impl<T: Clone, M: Mutator<T>, Sens: Sensor, P: Pool> FuzzerState<T, M, Sens, P>
 where
     P: CompatibleWithSensor<Sens>,
@@ -116,10 +131,7 @@ where
 {
     #[no_coverage]
     fn write_stats(&mut self) -> Result<(), std::io::Error> {
-        let mut contents = self.pool.serialized();
-        contents.extend(self.sensor.serialized());
-        contents.extend(self.world.serialized());
-        self.world.write_stats_content(contents)
+        self.world.write_stats_content(self.save_to_stats_folder())
     }
 
     #[no_coverage]

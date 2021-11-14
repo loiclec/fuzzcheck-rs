@@ -1,5 +1,5 @@
 use crate::fuzzer::PoolStorageIndex;
-use crate::traits::{CompatibleWithSensor, CorpusDelta, Pool, Sensor};
+use crate::traits::{CompatibleWithSensor, CorpusDelta, Pool, SaveToStatsFolder, Sensor};
 use crate::{CSVField, ToCSV};
 use nu_ansi_term::Color;
 use std::fmt::Display;
@@ -47,9 +47,10 @@ impl Sensor for TestFailureSensor {
     fn iterate_over_observations(&mut self, handler: Self::ObservationHandler<'_>) {
         *handler = std::mem::take(&mut self.error);
     }
-
+}
+impl SaveToStatsFolder for TestFailureSensor {
     #[no_coverage]
-    fn serialized(&self) -> Vec<(PathBuf, Vec<u8>)> {
+    fn save_to_stats_folder(&self) -> Vec<(PathBuf, Vec<u8>)> {
         vec![]
     }
 }
@@ -155,12 +156,14 @@ impl Pool for TestFailurePool {
             }
         }
     }
-
+}
+impl SaveToStatsFolder for TestFailurePool {
     #[no_coverage]
-    fn serialized(&self) -> Vec<(PathBuf, Vec<u8>)> {
+    fn save_to_stats_folder(&self) -> Vec<(PathBuf, Vec<u8>)> {
         vec![]
     }
 }
+
 impl CompatibleWithSensor<TestFailureSensor> for TestFailurePool {
     #[no_coverage]
     fn process(

@@ -374,7 +374,7 @@ store the source location of a panic, measure the number of allocations made, et
 The observations made by a sensor are then assessed by a [Pool], which must be
 explicitly [compatible](CompatibleWithSensor) with the sensor.
 */
-pub trait Sensor {
+pub trait Sensor: SaveToStatsFolder {
     /**
     A type that is used to retrieve the observations made by the sensor.
 
@@ -390,9 +390,6 @@ pub trait Sensor {
 
     /// Access the sensor's observations through the handler
     fn iterate_over_observations(&mut self, handler: Self::ObservationHandler<'_>);
-
-    // TODO: move `serialized` to its own trait
-    fn serialized(&self) -> Vec<(PathBuf, Vec<u8>)>;
 }
 
 pub enum CSVField {
@@ -452,7 +449,7 @@ The pool trait is divided into two parts:
 2. [CompatibleWithSensor<Sensor>] is a subtrait of [Pool]. It describes how the pool handles
 observations made by the Sensor.
 */
-pub trait Pool {
+pub trait Pool: SaveToStatsFolder {
     /// Statistics about the pool to be printed to the terminal as the fuzzer is running and
     /// saved to a .csv file after the run
     type Stats: Display + ToCSV + Clone;
@@ -474,9 +471,6 @@ pub trait Pool {
     /// A test case is a dead end when its [Mutator] can no longer mutate it
     /// to different values.
     fn mark_test_case_as_dead_end(&mut self, idx: PoolStorageIndex);
-
-    // TODO: put serialized in its own trait
-    fn serialized(&self) -> Vec<(PathBuf, Vec<u8>)>;
 }
 
 /**
@@ -491,4 +485,14 @@ file system, which reflects the content of the pool, can be properly updated.
 */
 pub trait CompatibleWithSensor<S: Sensor>: Pool {
     fn process(&mut self, input_id: PoolStorageIndex, sensor: &mut S, complexity: f64) -> Vec<CorpusDelta>;
+}
+
+/// A trait for types that want to save their content to the `stats` folder which is created after a fuzzing run.
+pub trait SaveToStatsFolder {
+    /// Save information about `self` to the stats folder
+    ///
+    /// Return a vector of tuples `(path_to_file, serialised_content)` representing a list of files to create under
+    /// the `stats_folder`. The first element of each tuple is the path of the new created file. If this path is relative,
+    /// it is relative to the `stats` folder path. The second element is the content of the file, as bytes.
+    fn save_to_stats_folder(&self) -> Vec<(PathBuf, Vec<u8>)>;
 }
