@@ -74,29 +74,6 @@ pub fn make_mutator(item: proc_macro::TokenStream) -> proc_macro::TokenStream {
     derive_default_mutator_(parser, settings).into()
 }
 
-/// Implement a mutator for the type and make it the type’s `DefaultMutator`.
-///
-/// The mutator will be called `<Name>Mutator`. It can be constructed in two ways:
-/// 1. Through the `DefaultMutator` trait, for example:
-/// ```ignore
-/// #[derive(DefaultMutator)]
-/// struct X<A> {
-///     field: A,
-/// }
-/// let mutator = <X<u8> as DefaultMutator>::default_mutator();
-/// // but it can also be inferred by the rust compiler:
-/// let mutator = X::<u8>::default_mutator();
-/// ```
-/// 2. By using `<Name>Mutator::new(..)` with the submutators for every field given as argument, for example:
-/// ```ignore
-/// #[derive(DefaultMutator)]
-/// enum Either<A, B> {
-///     Left(A),
-///     Right(B)
-/// }
-/// let mutator = EitherMutator::new(u8::default_mutator(), bool::default_mutator());
-/// // mutator impl Mutator<Either<u8, bool>>
-/// ```
 #[proc_macro_derive(DefaultMutator)]
 pub fn derive_default_mutator(item: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let settings = MakeMutatorSettings::default();

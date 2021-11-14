@@ -156,8 +156,13 @@ impl Mutator<AST> for ASTMutator {
     }
 }
 
+/// A mutator created by [`grammar_based_string_mutator`](crate::mutators::grammar::grammar_based_string_mutator)
+///
+/// It only generates strings which match the given grammar.
+pub type GrammarBasedStringMutator = impl Mutator<String>;
+
 #[no_coverage]
-pub fn grammar_based_string_mutator(grammar: Rc<Grammar>) -> impl Mutator<String> {
+pub fn grammar_based_string_mutator(grammar: Rc<Grammar>) -> GrammarBasedStringMutator {
     let grammar_cloned = grammar.clone();
     let parse = move |string: &String| parse_from_grammar(string, grammar_cloned.clone());
     IncrementalMapMutator::<AST, String, ASTMutator, ASTMap, _>::new(
@@ -167,8 +172,14 @@ pub fn grammar_based_string_mutator(grammar: Rc<Grammar>) -> impl Mutator<String
     )
 }
 
+/// A mutator created by [`grammar_based_ast_mutator`](crate::mutators::grammar::grammar_based_ast_mutator)
+///
+/// It only generates syntax trees whose [`to_string()`](crate::mutators::grammar::AST::to_string)
+/// value matches the given grammar.
+pub type GrammarBasedASTMutator = impl Mutator<AST>;
+
 #[no_coverage]
-pub fn grammar_based_ast_mutator(grammar: Rc<Grammar>) -> impl Mutator<AST> {
+pub fn grammar_based_ast_mutator(grammar: Rc<Grammar>) -> GrammarBasedASTMutator {
     ASTMutator::from_grammar(grammar)
 }
 

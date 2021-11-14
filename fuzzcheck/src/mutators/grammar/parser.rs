@@ -2,6 +2,7 @@ use std::ops::RangeInclusive;
 use std::{ops::Range, rc::Rc};
 
 use super::ast::AST;
+use super::grammar::Grammar::{Alternation, Concatenation, Literal, Recurse, Recursive, Repetition};
 use super::{grammar::Grammar, list::List};
 
 #[no_coverage]
@@ -22,11 +23,11 @@ fn grammar_parser<'a>(
     grammar: Rc<Grammar>,
 ) -> Box<dyn 'a + FnMut() -> Option<(AST, usize)>> {
     match grammar.as_ref() {
-        Grammar::Literal(l) => atom_parser(string, idx, l.clone()),
-        Grammar::Repetition(g, range) => repetition_parser(string, idx, g.clone(), range.clone()),
-        Grammar::Alternation(gs) => alternation_parser(string, idx, Rc::new(List::from_slice(gs))),
-        Grammar::Recurse(grammar) => recurse_parser(string, idx, grammar.upgrade().unwrap().clone()),
-        Grammar::Recursive(inner_grammar) => {
+        Literal(l) => atom_parser(string, idx, l.clone()),
+        Repetition(g, range) => repetition_parser(string, idx, g.clone(), range.clone()),
+        Alternation(gs) => alternation_parser(string, idx, Rc::new(List::from_slice(gs))),
+        Recurse(grammar) => recurse_parser(string, idx, grammar.upgrade().unwrap().clone()),
+        Recursive(inner_grammar) => {
             // the grammar might be the only strong reference to the recursive grammar,
             // and we just deconstructed it, so it might be destroyed
             // so we clone it and store it in the parser (that is, in the closure)
@@ -40,7 +41,7 @@ fn grammar_parser<'a>(
                 },
             )
         }
-        Grammar::Concatenation(gs) => concatenation_parser(string, idx, gs),
+        Concatenation(gs) => concatenation_parser(string, idx, gs),
     }
 }
 
@@ -289,14 +290,12 @@ fn alternation_parser<'a>(
 
 #[cfg(test)]
 mod tests {
-    use std::rc::Rc;
-
-    use crate::mutators::grammar::Grammar;
+    use crate::mutators::grammar::{alternation, concatenation, literal, recurse, recursive, repetition};
 
     #[test]
     #[no_coverage]
     fn test_atom() {
-        let grammar = Grammar::literal('a'..='c');
+        let grammar = literal('a'..='c');
         for string in ["a", "b", "c", "d"] {
             let mut parser = super::grammar_parser(string, 0, grammar.clone());
             while let Some((ast, _)) = parser() {
@@ -308,11 +307,7 @@ mod tests {
     #[test]
     #[no_coverage]
     fn test_alternation() {
-        let grammar = Grammar::alternation([
-            Grammar::literal('a'..='c'),
-            Grammar::literal('d'..='g'),
-            Grammar::literal('y'..='z'),
-        ]);
+        let grammar = alternation([literal('a'..='c'), literal('d'..='g'), literal('y'..='z')]);
         for string in ["a", "b", "e", "y", "i"] {
             let mut parser = super::grammar_parser(string, 0, grammar.clone());
             while let Some((ast, _)) = parser() {
@@ -323,11 +318,7 @@ mod tests {
     #[test]
     #[no_coverage]
     fn test_concatenation() {
-        let grammar = Grammar::concatenation([
-            Grammar::literal('a'..='c'),
-            Grammar::literal('d'..='g'),
-            Grammar::literal('y'..='z'),
-        ]);
+        let grammar = concatenation([literal('a'..='c'), literal('d'..='g'), literal('y'..='z')]);
         for string in ["a", "ad", "ady", "bfz", "adyg"] {
             println!("results for {}", string);
             let mut parser = super::grammar_parser(string, 0, grammar.clone());
@@ -339,7 +330,7 @@ mod tests {
     #[test]
     #[no_coverage]
     fn test_end() {
-        let grammar = Grammar::concatenation([Grammar::literal('a'..='c'), Grammar::literal('d'..='g')]);
+        let grammar = concatenation([literal('a'..='c'), literal('d'..='g')]);
         for string in ["a", "ad", "ady", "bfz"] {
             println!("results for {}", string);
             let mut parser = super::grammar_parser(string, 0, grammar.clone());
@@ -351,8 +342,8 @@ mod tests {
     #[test]
     #[no_coverage]
     fn test_repetition() {
-        let grammar = Grammar::concatenation([Grammar::repetition(
-            Grammar::concatenation([Grammar::literal('a'..='c'), Grammar::literal('d'..='g')]),
+        let grammar = concatenation([repetition(
+            concatenation([literal('a'..='c'), literal('d'..='g')]),
             0..3,
         )]);
         for string in ["", "a", "ad", "adad", "adadad"] {
@@ -367,17 +358,17 @@ mod tests {
     #[test]
     #[no_coverage]
     fn test_recurse() {
-        let main_rule = Rc::new_cyclic(|grammar| {
-            let letter = Grammar::literal('a'..='z');
-            let space = Grammar::repetition(Grammar::literal(' '..=' '), 0..10);
-            let bar = Grammar::literal('|'..='|');
-            Grammar::Alternation(vec![
+        let main_rule = recursive(|grammar| {
+            let letter = literal('a'..='z');
+            let space = repetition(literal(' '..=' '), 0..10);
+            let bar = literal('|'..='|');
+            alternation([
                 letter.clone(),
-                Grammar::concatenation([letter, space.clone(), bar, space, Grammar::recurse(grammar)]),
+                concatenation([letter, space.clone(), bar, space, recurse(grammar)]),
             ])
         });
 
-        let grammar = Grammar::concatenation([main_rule]);
+        let grammar = concatenation([main_rule]);
 
         let string = "a|a";
         let mut parser = super::grammar_parser(string, 0, grammar.clone());
@@ -397,11 +388,11 @@ mod tests {
     #[test]
     #[no_coverage]
     fn test_recurse_2() {
-        let grammar = Grammar::recursive(|g| {
-            Grammar::concatenation([
-                Grammar::literal('('..='('),
-                Grammar::alternation([Grammar::literal('a'..='b'), Grammar::recurse(g)]),
-                Grammar::literal(')'..=')'),
+        let grammar = recursive(|g| {
+            concatenation([
+                literal('('..='('),
+                alternation([literal('a'..='b'), recurse(g)]),
+                literal(')'..=')'),
             ])
         });
         let string = "(((b)))";
@@ -417,22 +408,22 @@ mod tests {
     //     // here, as a mitigation, I could set a recursion limit, every time a recursing grammar
     //     // is parsed, the recursion limit goes down to 1
     //     let main_rule = Rc::new_cyclic(|grammar| {
-    //         let letter = Grammar::literal('a'..='z');
-    //         let space = Grammar::repetition(Grammar::literal(' '..=' '), 0..10);
-    //         let bar = Grammar::literal('|'..='|');
-    //         Grammar::alternation([
+    //         let letter = literal('a'..='z');
+    //         let space = repetition(literal(' '..=' '), 0..10);
+    //         let bar = literal('|'..='|');
+    //         alternation([
     //             letter.clone(),
-    //             Grammar::concatenation([
-    //                 Grammar::recurse(grammar),
+    //             concatenation([
+    //                 recurse(grammar),
     //                 space.clone(),
     //                 bar,
     //                 space,
-    //                 Grammar::recurse(grammar),
+    //                 recurse(grammar),
     //             ]),
     //         ])
     //     });
 
-    //     let grammar = Grammar::concatenation([Grammar::shared(&main_rule)]);
+    //     let grammar = concatenation([Grammar::shared(&main_rule)]);
 
     //     for string in ["a", "a | a"] {
     //         println!("results for {}", string);
@@ -446,38 +437,32 @@ mod tests {
     #[test]
     #[no_coverage]
     fn test_complex() {
-        let grammar = Grammar::concatenation([Rc::new_cyclic(|rule| {
-            let tick = Grammar::literal('\''..='\'');
-            let digit = Grammar::literal('0'..='9');
-            let number = Grammar::repetition(digit.clone(), 1..10); // no more than 9 digits
-            let character = Grammar::alternation([Grammar::literal('a'..='z'), digit, Grammar::literal('_'..='_')]);
-            let char_literal =
-                Grammar::alternation([/* char */ Grammar::concatenation([tick.clone(), character, tick])]);
+        let grammar = concatenation([recursive(|rule| {
+            let tick = literal('\''..='\'');
+            let digit = literal('0'..='9');
+            let number = repetition(digit.clone(), 1..10); // no more than 9 digits
+            let character = alternation([literal('a'..='z'), digit, literal('_'..='_')]);
+            let char_literal = alternation([/* char */ concatenation([tick.clone(), character, tick])]);
 
-            let repetition_mark = Grammar::alternation([
-                Grammar::literal('*'..='*'),
-                Grammar::literal('?'..='?'),
-                Grammar::literal('+'..='+'),
-                Grammar::concatenation([
-                    Grammar::literal('{'..='{'),
+            let repetition_mark = alternation([
+                literal('*'..='*'),
+                literal('?'..='?'),
+                literal('+'..='+'),
+                concatenation([
+                    literal('{'..='{'),
                     number.clone(),
-                    Grammar::repetition(Grammar::concatenation([Grammar::literal(','..=','), number]), 0..=1),
-                    Grammar::literal('}'..='}'),
+                    repetition(concatenation([literal(','..=','), number]), 0..=1),
+                    literal('}'..='}'),
                 ]),
             ]);
-            let group = Grammar::concatenation([
-                Grammar::literal('('..='('),
-                Grammar::recurse(rule),
-                Grammar::literal(')'..=')'),
-            ]);
+            let group = concatenation([literal('('..='('), recurse(rule), literal(')'..=')')]);
 
-            let literal_or_group = Grammar::alternation([char_literal.clone(), group]);
+            let literal_or_group = alternation([char_literal.clone(), group]);
 
-            let repetition = Grammar::concatenation([literal_or_group.clone(), repetition_mark]);
+            let rep = concatenation([literal_or_group.clone(), repetition_mark]);
 
-            let alternation =
-                Grammar::concatenation([literal_or_group.clone(), Grammar::literal('|'..='|'), literal_or_group]);
-            Grammar::Alternation(vec![char_literal, repetition, alternation])
+            let alt = concatenation([literal_or_group.clone(), literal('|'..='|'), literal_or_group]);
+            alternation([char_literal, rep, alt])
         })]);
         let string = "((('a'|'b')|'b')*)|('a'+)";
         let mut parser = super::grammar_parser(string, 0, grammar);

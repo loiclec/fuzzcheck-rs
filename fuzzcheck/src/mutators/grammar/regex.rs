@@ -2,8 +2,11 @@ use std::rc::Rc;
 
 use crate::mutators::grammar::Grammar;
 use regex_syntax::hir::{Class, HirKind, Literal, RepetitionKind, RepetitionRange};
+
+use crate::mutators::grammar::{alternation, concatenation, literal, literal_ranges, repetition};
+
 #[no_coverage]
-pub fn grammar_from_regex(regex: &str) -> Rc<Grammar> {
+pub(crate) fn grammar_from_regex(regex: &str) -> Rc<Grammar> {
     let mut parser = regex_syntax::Parser::new();
     let hir = parser.parse(regex).unwrap();
     grammar_from_regex_hir_kind(hir.kind())
@@ -12,21 +15,21 @@ pub fn grammar_from_regex(regex: &str) -> Rc<Grammar> {
 pub fn grammar_from_regex_hir_kind(hir: &HirKind) -> Rc<Grammar> {
     match hir {
         HirKind::Empty => panic!("emoty regexes are not supported"),
-        HirKind::Literal(literal) => match literal {
-            Literal::Unicode(literal) => Grammar::literal(literal..=literal),
+        HirKind::Literal(l) => match l {
+            Literal::Unicode(l) => literal(l..=l),
             Literal::Byte(_) => panic!("non-unicode regexes are not supported"),
         },
         HirKind::Class(class) => match class {
             Class::Unicode(class) => {
                 let ranges = class.ranges().iter().map(|r| r.start()..=r.end()).collect::<Vec<_>>();
-                Grammar::literal_ranges(ranges)
+                literal_ranges(ranges)
             }
             Class::Bytes(_) => panic!("non-unicode regexes are not supported"),
         },
         HirKind::Anchor(_) => panic!("anchors are not supported"),
         HirKind::WordBoundary(_) => panic!("word boundaries are not supported"),
-        HirKind::Repetition(repetition) => {
-            let range = match repetition.kind.clone() {
+        HirKind::Repetition(rep) => {
+            let range = match rep.kind.clone() {
                 RepetitionKind::ZeroOrOne => 0..=1u32,
                 RepetitionKind::ZeroOrMore => 0..=u32::MAX,
                 RepetitionKind::OneOrMore => 1..=u32::MAX,
@@ -37,15 +40,15 @@ pub fn grammar_from_regex_hir_kind(hir: &HirKind) -> Rc<Grammar> {
                 },
             };
             let range = (*range.start() as usize)..=(*range.end() as usize);
-            let grammar = grammar_from_regex_hir_kind(repetition.hir.kind());
-            Grammar::repetition(grammar, range)
+            let grammar = grammar_from_regex_hir_kind(rep.hir.kind());
+            repetition(grammar, range)
         }
         HirKind::Group(group) => grammar_from_regex_hir_kind(group.hir.kind()),
-        HirKind::Concat(concat) => Grammar::concatenation(concat.iter().map(
+        HirKind::Concat(concat) => concatenation(concat.iter().map(
             #[no_coverage]
             |hir| grammar_from_regex_hir_kind(hir.kind()),
         )),
-        HirKind::Alternation(alternation) => Grammar::alternation(alternation.iter().map(
+        HirKind::Alternation(alt) => alternation(alt.iter().map(
             #[no_coverage]
             |hir| grammar_from_regex_hir_kind(hir.kind()),
         )),

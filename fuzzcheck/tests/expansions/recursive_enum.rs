@@ -1,5 +1,5 @@
+use fuzzcheck::make_mutator;
 use fuzzcheck::mutators::boxed::BoxMutator;
-use fuzzcheck::mutators::make_mutator;
 use fuzzcheck::mutators::recursive::RecurToMutator;
 use fuzzcheck::DefaultMutator;
 use fuzzcheck::Mutator;

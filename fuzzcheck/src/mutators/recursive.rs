@@ -4,14 +4,14 @@
 //! 1. [`RecursiveMutator`] is the top-level mutator for the recursive type
 //! 2. [`RecurToMutator`] is the mutator used at points of recursion. It is essentially a weak reference to [`RecursiveMutator`]
 //!
-//! In practice, you will want to use the [`make_mutator!`](crate::mutators::make_mutator) procedural macro to create recursive mutators.
+//! In practice, you will want to use the [`make_mutator!`](crate::make_mutator) procedural macro to create recursive mutators.
 //! For example:
 //! ```
 //! # #![feature(no_coverage)]
 //! use fuzzcheck::mutators::{option::OptionMutator, boxed::BoxMutator};
 //! use fuzzcheck::mutators::recursive::{RecursiveMutator, RecurToMutator};
 //! use fuzzcheck::DefaultMutator;
-//! use fuzzcheck::mutators::make_mutator;
+//! use fuzzcheck::make_mutator;
 //!
 //! #[derive(Clone)]
 //! struct S {
@@ -81,7 +81,7 @@ use fuzzcheck::DefaultMutator;
 use fuzzcheck::mutators::{option::OptionMutator, boxed::BoxMutator};
 use fuzzcheck::mutators::recursive::{RecursiveMutator, RecurToMutator};
 
-# use fuzzcheck::mutators::make_mutator;
+# use fuzzcheck::make_mutator;
 # #[derive(Clone)]
 # struct S {
 #     content: bool,

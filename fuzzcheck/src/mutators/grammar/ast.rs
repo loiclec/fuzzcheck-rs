@@ -5,8 +5,11 @@ use serde::{ser::SerializeTuple, Deserialize, Serialize};
 /// An abstract syntax tree.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum AST {
+    #[doc(hidden)]
     Token(char),
+    #[doc(hidden)]
     Sequence(Vec<AST>),
+    #[doc(hidden)]
     Box(Box<AST>),
 }
 
@@ -80,6 +83,7 @@ impl AST {
         }
     }
 
+    /// Converts the AST to its `String` representation
     #[no_coverage]
     pub fn to_string(&self) -> String {
         let mut s = String::with_capacity(64);
