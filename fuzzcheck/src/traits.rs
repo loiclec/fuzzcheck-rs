@@ -367,7 +367,7 @@ impl CorpusDelta {
 
 /**
 A [Sensor] records information when running the test function, which the
-fuzzer can use to evaluate the rank of a test case.
+fuzzer can use to determine the importance of a test case.
 
 For example, the sensor can record the code coverage triggered by the test case,
 store the source location of a panic, measure the number of allocations made, etc.

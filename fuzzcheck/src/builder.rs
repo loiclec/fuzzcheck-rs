@@ -1,42 +1,62 @@
 /*!
 Builders used to set up a fuzz test.
 
-This module mainly contains 6 types: `FuzzerBuilder[1–6]`.
+This module contains 5 types to build a fuzz test: `FuzzerBuilder[1–5]`.
 
 The idea is to help you specify each part of the fuzzer progressively:
 1. the function to fuzz
 2. the [mutator](Mutator) to generate arguments to the test function (called “inputs” or “test cases”)
 3. the [serializer](Serializer) to save test cases to the file system
-4. the [sensor](Sensor) to provide feedback after running the test function
-5. the [pool](Pool) to interpret the feedback from the sensor
-6. [other settings](Arguments) for the fuzzer, such as the maximum allowed complexity for the test cases, where to save the corpora or artifacts on the file system, etc.
+4. the [sensor](Sensor) to provide feedback after running the test function, and the [pool](Pool) to interpret the feedback from the sensor
+5. [other settings](Arguments) for the fuzzer, such as the maximum allowed complexity for the test cases, where to save the corpora or artifacts on the file system, etc.
 
 In most cases, you don't need to manually specify all these components. If the argument type of the function has a [default mutator](DefaultMutator) and is serializable
 with serde, then you can write:
 ```no_run
 # fn test_function(x: &bool) {}
 let _ = fuzzcheck::fuzz_test(test_function) // FuzzerBuilder1
-    .default_options() // FuzzerBuilder6!  we use the default values for stages 2 to 5
+    .default_options() // FuzzerBuilder5!  we use the default values for stages 2 to 5
     .launch();
 
 ```
-If you'd like to use a custom mutator or serializer but keep the default sensor, pool, and additional arguments, you can write:
+This is equivalent to:
 ```no_run
 # use fuzzcheck::DefaultMutator;
 # fn test_function(x: &bool) {}
 #
 # fn fuzz() {
-# let my_mutator = bool::default_mutator();
-# let my_serializer = fuzzcheck::SerdeSerializer::default();
 let _ = fuzzcheck::fuzz_test(test_function)
-    .mutator(my_mutator)         // the default is `<T as DefaultMutator>::default_mutator()`
-    .serializer(my_serializer)   // the default is `SerdeSerializer::new()`
-    .default_sensor()
-    .default_pool()
+    .default_mutator()      // the default is `<T as DefaultMutator>::default_mutator()`
+    .serde_serializer()   // the default is `SerdeSerializer::new()`
+    .default_sensor_and_pool() // the default is `default_sensor_and_pool().finish()`
     .arguments_from_cargo_fuzzcheck()
     .launch();
 # }
 ```
+If you'd like to use a custom mutator, serializer, sensor and pool, or argumemts, you can write:
+```no_run
+# use fuzzcheck::DefaultMutator;
+# use fuzzcheck::builder::default_sensor_and_pool;
+# use fuzzcheck::Arguments;
+# fn test_function(x: &bool) {}
+#
+# fn fuzz() {
+# let my_mutator = bool::default_mutator();
+# let my_serializer = fuzzcheck::SerdeSerializer::default();
+# let (sensor, pool) = default_sensor_and_pool().finish();
+# let arguments: Arguments = todo!();
+let _ = fuzzcheck::fuzz_test(test_function)
+    .mutator(my_mutator)         // the default is `<T as DefaultMutator>::default_mutator()`
+    .serializer(my_serializer)   // the default is `SerdeSerializer::new()`
+    .sensor_and_pool(sensor, pool)
+    .arguments(arguments)
+    .launch();
+# }
+```
+
+To build a custom sensor and pool, you may want to look at the [`Sensor`], [`Pool`], and [`CompatibleWithSensor`] traits.
+You can also look at the types provided in the [`sensors_and_pools`](crate::sensors_and_pools) module. But the easiest way to customize them
+is to use the [`CodeCoverageSensorAndPoolBuilder`], although it only offers a couple limited options.
 */
 
 use crate::code_coverage_sensor::CodeCoverageSensor;
@@ -116,13 +136,14 @@ where
     }
 }
 
-/// A fuzz-test builder that knows the function to fuzz-test.
+/// A fuzz-test builder that knows the function to fuzz-test. It is created by calling [`fuzz_test(..)`](fuzz_test).
 ///
 /// Use [`self.mutator(..)`](FuzzerBuilder1::mutator) to specify the [mutator](Mutator)
-/// and obtain a [`FuzzerBuilder2`]
+/// and obtain a [`FuzzerBuilder2`]. If the function argument’s type implements [`DefaultMutator`],
+/// you can also use [`self.default_mutator()`](FuzzerBuilder1::default_mutator).
 ///
 /// Alternatively, use [`self.default_options()`](FuzzerBuilder1::default_options)
-/// to use the default mutator, serializer, sensor, pool, and arguments, and obtain a [`FuzzerBuilder6`].
+/// to use the default mutator, serializer, sensor, pool, and arguments, and obtain a [`FuzzerBuilder5`].
 /// This method is only available if the argument of the test function implements [`DefaultMutator`]
 /// and is serializable with serde.
 pub struct FuzzerBuilder1<T, F>
@@ -150,9 +171,9 @@ where
 
 /// A fuzz-test builder that knows the function to fuzz-test, the mutator, and the serializer.
 ///
-/// Use [`self.sensor(..)`] to specify the [sensor](Sensor) and obtain a [FuzzerBuilder4].
+/// Use [`self.sensor_and_pool(..)`] to specify the [sensor](Sensor) and [pool](Pool) and obtain a [FuzzerBuilder4].
 ///
-/// Alternatively, use [`self.default_sensor(..)`](FuzzerBuilder3::default_sensor) to use fuzzcheck’s
+/// Alternatively, use [`self.default_sensor_and_pool(..)`](FuzzerBuilder3::default_sensor_and_pool) to use fuzzcheck’s
 /// default sensor, which monitors code coverage.
 pub struct FuzzerBuilder3<F, M, V>
 where
@@ -166,35 +187,14 @@ where
     _phantom: PhantomData<*const V>,
 }
 
-/// A fuzz-test builder that knows the function to fuzz-test, the mutator, the serializer, and the sensor.
-///
-/// Use [`self.pool(..)`] to specify the [pool](Pool) and obtain a [`FuzzerBuilder5`]. Note that the pool
-/// given as argument must be [compatible](CompatibleWithSensor) with the sensor that was previously given.
-///
-/// Alternatively, if the sensor is fuzzcheck’s default ([`CodeCoverageSensor`]), you can use
-/// [`self.default_pool(..)`](FuzzerBuilder4::default_pool) to use fuzzcheck’s default pool.
-pub struct FuzzerBuilder4<F, M, V, Sens>
-where
-    F: Fn(&V) -> bool + 'static,
-    V: Clone,
-    M: Mutator<V>,
-    Sens: Sensor,
-{
-    test_function: F,
-    mutator: M,
-    serializer: Box<dyn Serializer<Value = V>>,
-    sensor: Sens,
-    _phantom: PhantomData<*const V>,
-}
-
 /// A fuzz-test builder that knows the function to fuzz-test, the mutator, the serializer, the sensor, and the pool.
 ///
-/// Use [`self.arguments(..)`] to specify the [arguments](Arguments) and obtain a [`FuzzerBuilder6`].
+/// Use [`self.arguments(..)`] to specify the [arguments](Arguments) and obtain a [`FuzzerBuilder5`].
 ///
 /// If you are using the `cargo-fuzzcheck` command line tool (and you should), use
-/// [`self.arguments_from_cargo_fuzzcheck()`](FuzzerBuilder5::arguments_from_cargo_fuzzcheck)
+/// [`self.arguments_from_cargo_fuzzcheck()`](FuzzerBuilder4::arguments_from_cargo_fuzzcheck)
 /// to use the arguments specified by this tool, which is easier.
-pub struct FuzzerBuilder5<F, M, V, Sens, P>
+pub struct FuzzerBuilder4<F, M, V, Sens, P>
 where
     F: Fn(&V) -> bool + 'static,
     V: Clone,
@@ -209,20 +209,21 @@ where
     pool: P,
     _phantom: PhantomData<*const V>,
 }
+
 /// A fuzz-test builder that knows every necessary detail to start fuzzing.
 ///
-/// Use [`self.launch()`](FuzzerBuilder6::launch) to start fuzzing.
+/// Use [`self.launch()`](FuzzerBuilder5::launch) to start fuzzing.
 ///
 /// You can also override some arguments using:
-/// * [`self.command(..)`](FuzzerBuilder6::command)
-/// * [`self.in_corpus(..)`](FuzzerBuilder6::in_corpus)
-/// * [`self.out_corpus(..)`](FuzzerBuilder6::out_corpus)
-/// * [`self.artifacts_folder(..)`](FuzzerBuilder6::artifacts_folder)
-/// * [`self.maximum_complexity(..)`](FuzzerBuilder6::maximum_complexity)
-/// * [`self.stop_after_iterations(..)`](FuzzerBuilder6::stop_after_iterations)
-/// * [`self.stop_after_duration(..)`](FuzzerBuilder6::stop_after_duration)
-/// * [`self.stop_after_first_test_failure(..)`](FuzzerBuilder6::stop_after_first_test_failure)
-pub struct FuzzerBuilder6<F, M, V, Sens, P>
+/// * [`self.command(..)`](FuzzerBuilder5::command)
+/// * [`self.in_corpus(..)`](FuzzerBuilder5::in_corpus)
+/// * [`self.out_corpus(..)`](FuzzerBuilder5::out_corpus)
+/// * [`self.artifacts_folder(..)`](FuzzerBuilder5::artifacts_folder)
+/// * [`self.maximum_complexity(..)`](FuzzerBuilder5::maximum_complexity)
+/// * [`self.stop_after_iterations(..)`](FuzzerBuilder5::stop_after_iterations)
+/// * [`self.stop_after_duration(..)`](FuzzerBuilder5::stop_after_duration)
+/// * [`self.stop_after_first_test_failure(..)`](FuzzerBuilder5::stop_after_first_test_failure)
+pub struct FuzzerBuilder5<F, M, V, Sens, P>
 where
     F: Fn(&V) -> bool + 'static,
     V: Clone,
@@ -272,10 +273,11 @@ where
     F: Fn(&T) -> bool,
     F: FuzzTestFunction<T::Owned, T, ReturnBool>,
 {
+    /// Use the default mutator, serializer, sensor, pool, and arguments.
     #[no_coverage]
     pub fn default_options(
         self,
-    ) -> FuzzerBuilder6<
+    ) -> FuzzerBuilder5<
         F::NormalizedFunction,
         <T::Owned as DefaultMutator>::Mutator,
         T::Owned,
@@ -284,9 +286,25 @@ where
     > {
         self.mutator(<T::Owned as DefaultMutator>::default_mutator())
             .serializer(SerdeSerializer::default())
-            .default_sensor()
-            .default_pool()
+            .default_sensor_and_pool()
             .arguments_from_cargo_fuzzcheck()
+    }
+}
+
+impl<T, F> FuzzerBuilder1<T, F>
+where
+    T: ?Sized + ToOwned + 'static,
+    T::Owned: Clone + DefaultMutator,
+    <T::Owned as DefaultMutator>::Mutator: 'static,
+    F: Fn(&T) -> bool,
+    F: FuzzTestFunction<T::Owned, T, ReturnBool>,
+{
+    /// Use the [`DefaultMutator`] trait to specify the mutator that produces input values for the tested function.
+    #[no_coverage]
+    pub fn default_mutator(
+        self,
+    ) -> FuzzerBuilder2<F::NormalizedFunction, <T::Owned as DefaultMutator>::Mutator, T::Owned> {
+        self.mutator(<T::Owned as DefaultMutator>::default_mutator())
     }
 }
 impl<T, F> FuzzerBuilder1<T, F>
@@ -307,12 +325,27 @@ where
         We can write:
         ```
         use fuzzcheck::DefaultMutator;
+        use fuzzcheck::mutators::vector::VecMutator;
         fn foo(xs: &[u8]) {
             // ..
         }
         fn fuzz_test() {
             fuzzcheck::fuzz_test(foo)
-                .mutator(Vec::<u8>::default_mutator())
+                .mutator(VecMutator::new(u8::default_mutator(), 2 ..= 10))
+                // ..
+                # ;
+        }
+        ```
+        Alternatively, if you would like to use the argument type’s [default mutator](DefaultMutator), you can use
+        [`.default_mutator()`](FuzzerBuilder1::default_mutator), as follows:
+        ```
+        use fuzzcheck::DefaultMutator;
+        fn foo(xs: &[u8]) {
+            // ..
+        }
+        fn fuzz_test() {
+            fuzzcheck::fuzz_test(foo)
+                .default_mutator()
                 // ..
                 # ;
         }
@@ -343,10 +376,8 @@ where
         Specify the serializer to use when saving the interesting test cases to the file system.
 
         The serializer must implement the [`Serializer`](crate::Serializer) trait. If you wish
-        to use `serde`, you can compile fuzzcheck with the `serde_json_serializer` feature, which exposes
-        `fuzzcheck::fuzzcheck_serializer::SerdeSerializer`. You can then write:
+        to use `serde`, you can use [`.serde_serializer()`](FuzzerBuilder2::serde_serializer) as follows:
         ```
-        use fuzzcheck::SerdeSerializer;
         # use fuzzcheck::DefaultMutator;
         # fn foo(x: &bool) {}
         fuzzcheck::fuzz_test(foo)
@@ -354,7 +385,7 @@ where
                 # bool::default_mutator()
                 /* .. */
             )
-            .serializer(SerdeSerializer::default())
+            .serde_serializer()
             # ;
         ```
     */
@@ -371,6 +402,24 @@ where
         }
     }
 }
+
+impl<F, M, V> FuzzerBuilder2<F, M, V>
+where
+    F: Fn(&V) -> bool,
+    V: Clone + serde::Serialize + for<'e> serde::Deserialize<'e> + 'static,
+    M: Mutator<V>,
+{
+    /// Specify [`SerdeSerializer`] as the serializer to use when saving the interesting test cases to the file system.
+    #[no_coverage]
+    pub fn serde_serializer(self) -> FuzzerBuilder3<F, M, V> {
+        FuzzerBuilder3 {
+            test_function: self.test_function,
+            mutator: self.mutator,
+            serializer: Box::new(SerdeSerializer::<V>::default()),
+            _phantom: PhantomData,
+        }
+    }
+}
 impl<F, M, V> FuzzerBuilder3<F, M, V>
 where
     F: Fn(&V) -> bool,
@@ -378,106 +427,37 @@ where
     M: Mutator<V>,
 {
     #[no_coverage]
-    pub fn default_sensor(self) -> FuzzerBuilder4<F, M, V, CodeCoverageSensor> {
-        let sensor = CodeCoverageSensor::observing_only_files_from_current_dir();
-
-        FuzzerBuilder4 {
-            test_function: self.test_function,
-            mutator: self.mutator,
-            serializer: self.serializer,
-            sensor,
-            _phantom: PhantomData,
-        }
-    }
-    #[no_coverage]
-    pub fn sensor<Sens: Sensor>(self, sensor: Sens) -> FuzzerBuilder4<F, M, V, Sens> {
-        FuzzerBuilder4 {
-            test_function: self.test_function,
-            mutator: self.mutator,
-            serializer: self.serializer,
-            sensor,
-            _phantom: PhantomData,
-        }
-    }
-}
-
-#[no_coverage]
-pub fn default_sensor_and_pool() -> (CodeCoverageSensor, impl CompatibleWithSensor<CodeCoverageSensor>) {
-    let sensor = CodeCoverageSensor::observing_only_files_from_current_dir();
-    let coverage_map = sensor.coverage_map();
-    let file = Path::new("coverage_map.json");
-    let contents = serde_json::to_vec_pretty(&coverage_map).unwrap();
-    std::fs::write(file, contents).unwrap();
-    let pool = defaul_pool_for_code_coverage_sensor(&sensor);
-    (sensor, pool)
-}
-
-#[no_coverage]
-fn defaul_pool_for_code_coverage_sensor(sensor: &CodeCoverageSensor) -> impl CompatibleWithSensor<CodeCoverageSensor> {
-    let count_instrumented = sensor.count_instrumented;
-    let pool2 = MaximiseCounterValuePool::new("max_each_cov_hits", count_instrumented);
-
-    let pool4 = OptimiseAggregateStatPool::<SumOfCounterValues>::new("max_total_cov_hits");
-    let pool5 = OptimiseAggregateStatPool::<NumberOfActivatedCounters>::new("diverse_cov_1");
-    let pool6 = MostNDiversePool::new("diverse_cov_20", 20, count_instrumented);
-
-    let perf_pools = AndPool::new(pool4, pool2, 128);
-    let diverse_pools = AndPool::new(pool6, pool5, 200);
-
-    let secondary_pool = AndPool::new(diverse_pools, perf_pools, 220);
-
-    let pool = SimplestToActivateCounterPool::new("cov", count_instrumented);
-    let pool = AndPool::new(pool, secondary_pool, 200);
-
-    pool
-}
-
-impl<F, M, V> FuzzerBuilder4<F, M, V, CodeCoverageSensor>
-where
-    F: Fn(&V) -> bool,
-    V: Clone,
-    M: Mutator<V>,
-{
-    #[no_coverage]
-    pub fn default_pool(
+    pub fn default_sensor_and_pool(
         self,
-    ) -> FuzzerBuilder5<F, M, V, CodeCoverageSensor, impl Pool + CompatibleWithSensor<CodeCoverageSensor>> {
-        let pool = defaul_pool_for_code_coverage_sensor(&self.sensor);
-        FuzzerBuilder5 {
+    ) -> FuzzerBuilder4<F, M, V, CodeCoverageSensor, impl CompatibleWithSensor<CodeCoverageSensor>> {
+        let (sensor, pool) = default_sensor_and_pool().finish();
+        FuzzerBuilder4 {
             test_function: self.test_function,
             mutator: self.mutator,
             serializer: self.serializer,
-            sensor: self.sensor,
+            sensor,
             pool,
             _phantom: PhantomData,
         }
     }
-}
-
-impl<F, M, V, Sens> FuzzerBuilder4<F, M, V, Sens>
-where
-    F: Fn(&V) -> bool,
-    V: Clone,
-    M: Mutator<V>,
-    Sens: Sensor,
-{
     #[no_coverage]
-    pub fn pool<P>(self, pool: P) -> FuzzerBuilder5<F, M, V, Sens, P>
-    where
-        P: Pool + CompatibleWithSensor<Sens>,
-    {
-        FuzzerBuilder5 {
+    pub fn sensor_and_pool<Sens: Sensor, P: CompatibleWithSensor<Sens>>(
+        self,
+        sensor: Sens,
+        pool: P,
+    ) -> FuzzerBuilder4<F, M, V, Sens, P> {
+        FuzzerBuilder4 {
             test_function: self.test_function,
             mutator: self.mutator,
             serializer: self.serializer,
-            sensor: self.sensor,
+            sensor,
             pool,
             _phantom: PhantomData,
         }
     }
 }
 
-impl<F, M, V, Sens, P> FuzzerBuilder5<F, M, V, Sens, P>
+impl<F, M, V, Sens, P> FuzzerBuilder4<F, M, V, Sens, P>
 where
     F: Fn(&V) -> bool,
     V: Clone,
@@ -486,8 +466,8 @@ where
     P: Pool + CompatibleWithSensor<Sens>,
 {
     #[no_coverage]
-    pub fn arguments(self, arguments: Arguments) -> FuzzerBuilder6<F, M, V, Sens, P> {
-        FuzzerBuilder6 {
+    pub fn arguments(self, arguments: Arguments) -> FuzzerBuilder5<F, M, V, Sens, P> {
+        FuzzerBuilder5 {
             test_function: self.test_function,
             mutator: self.mutator,
             serializer: self.serializer,
@@ -498,7 +478,7 @@ where
         }
     }
     #[no_coverage]
-    pub fn arguments_from_cargo_fuzzcheck(self) -> FuzzerBuilder6<F, M, V, Sens, P> {
+    pub fn arguments_from_cargo_fuzzcheck(self) -> FuzzerBuilder5<F, M, V, Sens, P> {
         let parser = options_parser();
         let mut help = format!(
             r#""
@@ -544,7 +524,7 @@ fuzzcheck {tmin} --{input_file} "artifacts/crash.json"
                 std::process::exit(1);
             }
         };
-        FuzzerBuilder6 {
+        FuzzerBuilder5 {
             test_function: self.test_function,
             mutator: self.mutator,
             serializer: self.serializer,
@@ -556,7 +536,7 @@ fuzzcheck {tmin} --{input_file} "artifacts/crash.json"
     }
 }
 
-impl<F, M, V, Sens, P> FuzzerBuilder6<F, M, V, Sens, P>
+impl<F, M, V, Sens, P> FuzzerBuilder5<F, M, V, Sens, P>
 where
     F: Fn(&V) -> bool + 'static,
     V: Clone,
@@ -628,7 +608,7 @@ where
     /// do not use
     #[no_coverage]
     pub fn launch_even_if_cfg_fuzzing_is_not_set(self) -> FuzzingResult<V> {
-        let FuzzerBuilder6 {
+        let FuzzerBuilder5 {
             test_function,
             mutator,
             serializer,
@@ -642,17 +622,167 @@ where
     }
 }
 
-// / Here create a SensorAndPoolBuilder
-// / it should proceed like a flowchart, or a set of questions to answer
-// / do you want to record codecoverage? and if so:
-// /     do you want the basic pool (SimplestToActivateCounter)?
-// /     do you want a minified pool (MostNDiverse)?  if so, what size?
-// /     do you want the single most diverse test case (OptimiseAggegateStatPool<NumberOfActivatedCounters>?
-// /
-// /     do you want to find test cases that repeatedly hit some instrumented code regions?
-// /     if so, do you also want to find the test case that hit the most instrumented code regions?
-// / do you want to record something else?
-// /     if no, we are done
-// /     if yes:
-// /         ???
-mod sensor_and_pool {}
+/// An alias for the basic pool chosen to handle the [`CodeCoverageSensor`]'s observations
+pub type BasicPool = SimplestToActivateCounterPool;
+/// An alias for the type of the pool which tries to find a fixed-length set of test cases which, together, activate the most counters.
+pub type DiversePool = AndPool<MostNDiversePool, OptimiseAggregateStatPool<NumberOfActivatedCounters>>;
+/// An alias for the type of the pool which tries to find test cases repeatedly hitting the same counters.
+pub type MaxHitsPool = AndPool<MaximiseCounterValuePool, OptimiseAggregateStatPool<SumOfCounterValues>>;
+
+/// An alias for the combination of the [`BasicPool`] and the [`DiversePool`]
+pub type BasicAndDiversePool = AndPool<SimplestToActivateCounterPool, DiversePool>;
+/// An alias for the combination of the [`BasicPool`] and the [`MaxHitsPool`]
+pub type BasicAndMaxHitsPool = AndPool<SimplestToActivateCounterPool, MaxHitsPool>;
+/// An alias for the combination of the [`BasicPool`], the [`DiversePool`], and the [`MaxHitsPool`]
+pub type BasicAndDiverseAndMaxHitsPool = AndPool<SimplestToActivateCounterPool, AndPool<DiversePool, MaxHitsPool>>;
+
+/// Create the initial [sensor and pool builder](CodeCoverageSensorAndPoolBuilder)
+///
+/// Use [`.find_most_diverse_set_of_test_cases()`](CodeCoverageSensorAndPoolBuilder::<BasicPool>::find_most_diverse_set_of_test_cases)
+/// or [`.find_test_cases_repeatedly_hitting_coverage_counters()`](CodeCoverageSensorAndPoolBuilder::<BasicPool>::find_test_cases_repeatedly_hitting_coverage_counters)
+/// on the result to augment the pool. Or use [`.finish()`](CodeCoverageSensorAndPoolBuilder::finish) to obtain the concrete sensor and pool.
+pub fn basic_sensor_and_pool() -> CodeCoverageSensorAndPoolBuilder<BasicPool> {
+    let sensor = CodeCoverageSensor::observing_only_files_from_current_dir();
+    let nbr_counters = sensor.count_instrumented;
+    CodeCoverageSensorAndPoolBuilder {
+        sensor,
+        pool: SimplestToActivateCounterPool::new("simplest_cov", nbr_counters),
+    }
+}
+
+/// Create the [sensor and pool builder](CodeCoverageSensorAndPoolBuilder) that is used by default by fuzzcheck
+///
+/// Currently, the result cannot be augmented any further. Thus, the only action you can take on the result is to
+/// use [`.finish()`](CodeCoverageSensorAndPoolBuilder::finish) to obtain the concrete sensor and pool.
+pub fn default_sensor_and_pool() -> CodeCoverageSensorAndPoolBuilder<BasicAndDiverseAndMaxHitsPool> {
+    basic_sensor_and_pool()
+        .find_most_diverse_set_of_test_cases(20)
+        .find_test_cases_repeatedly_hitting_coverage_counters()
+}
+/// A builder to create a [sensor](Sensor) and [pool](Pool) that can be given as argument to
+/// [`FuzzerBuilder3::sensor_and_pool`].
+///
+/// # Usage
+/// ```no_run
+/// use fuzzcheck::builder::basic_sensor_and_pool;
+///
+/// let (sensor, pool) = basic_sensor_and_pool()
+///     .find_most_diverse_set_of_test_cases(10) // optional
+///     .find_test_cases_repeatedly_hitting_coverage_counters() // optional
+///     .finish(); // mandatory
+/// ```
+pub struct CodeCoverageSensorAndPoolBuilder<P>
+where
+    P: CompatibleWithSensor<CodeCoverageSensor>,
+{
+    sensor: CodeCoverageSensor,
+    pool: P,
+}
+
+impl<P> CodeCoverageSensorAndPoolBuilder<P>
+where
+    P: CompatibleWithSensor<CodeCoverageSensor>,
+{
+    /// Obtain the sensor and pool from the builder
+    pub fn finish(self) -> (CodeCoverageSensor, impl CompatibleWithSensor<CodeCoverageSensor>) {
+        (self.sensor, self.pool)
+    }
+}
+
+impl CodeCoverageSensorAndPoolBuilder<BasicPool> {
+    /// Augment the current pool such that it also tries to find a fixed-length set of test cases which, together,
+    /// trigger the most code coverage.
+    ///
+    /// ### Argument
+    /// `size` : the size of the set of test cases to find
+    pub fn find_most_diverse_set_of_test_cases(
+        self,
+        size: usize,
+    ) -> CodeCoverageSensorAndPoolBuilder<BasicAndDiversePool> {
+        let nbr_counters = self.sensor.count_instrumented;
+        CodeCoverageSensorAndPoolBuilder {
+            sensor: self.sensor,
+            pool: AndPool::new(
+                self.pool,
+                AndPool::new(
+                    MostNDiversePool::new(&format!("diverse_cov_{}", size), size, nbr_counters),
+                    OptimiseAggregateStatPool::<NumberOfActivatedCounters>::new("diverse_cov1"),
+                    192, // choose most n diverse ~75% of the time
+                ),
+                192, // 75% if the time
+            ),
+        }
+    }
+    /// Augment the current pool such that it also tries to find test cases repeatedly hitting the same regions of code.
+    pub fn find_test_cases_repeatedly_hitting_coverage_counters(
+        self,
+    ) -> CodeCoverageSensorAndPoolBuilder<BasicAndMaxHitsPool> {
+        let nbr_counters = self.sensor.count_instrumented;
+        CodeCoverageSensorAndPoolBuilder {
+            sensor: self.sensor,
+            pool: AndPool::new(
+                self.pool,
+                AndPool::new(
+                    MaximiseCounterValuePool::new("max_each_cov_hits", nbr_counters),
+                    OptimiseAggregateStatPool::<SumOfCounterValues>::new("max_total_cov_hits"),
+                    192, // choose max_each_cov_hits ~75% of the time
+                ),
+                217, // ~85% of the time
+            ),
+        }
+    }
+}
+impl CodeCoverageSensorAndPoolBuilder<BasicAndDiversePool> {
+    /// Augment the current pool such that it also tries to find test cases repeatedly hitting the same regions of code.
+    pub fn find_test_cases_repeatedly_hitting_coverage_counters(
+        self,
+    ) -> CodeCoverageSensorAndPoolBuilder<BasicAndDiverseAndMaxHitsPool> {
+        let nbr_counters = self.sensor.count_instrumented;
+        CodeCoverageSensorAndPoolBuilder {
+            sensor: self.sensor,
+            pool: AndPool::new(
+                self.pool.p1, // smallest to activate counter pool
+                AndPool::new(
+                    self.pool.p2, // diverse pool
+                    AndPool::new(
+                        // in the end, the max_hits pool is chosen ~10% of the time
+                        MaximiseCounterValuePool::new("max_each_cov_hits", nbr_counters),
+                        OptimiseAggregateStatPool::<SumOfCounterValues>::new("max_total_cov_hits"),
+                        192, // choose max_each_cov_hits ~75% of the time
+                    ),
+                    183, // choose diverse pool 71% of the time => in the end, chosen (100% - 65%) * 75% = ~25% of the time
+                ),
+                166, // 65% of the time
+            ),
+        }
+    }
+}
+impl CodeCoverageSensorAndPoolBuilder<BasicAndMaxHitsPool> {
+    /// Augment the current pool such that it also tries to find a fixed-length set of test cases which, together,
+    /// trigger the most code coverage.
+    ///
+    /// ### Argument
+    /// `size` : the size of the set of test cases to find
+    pub fn find_most_diverse_set_of_test_cases(
+        self,
+        size: usize,
+    ) -> CodeCoverageSensorAndPoolBuilder<BasicAndDiverseAndMaxHitsPool> {
+        let nbr_counters = self.sensor.count_instrumented;
+        CodeCoverageSensorAndPoolBuilder {
+            sensor: self.sensor,
+            pool: AndPool::new(
+                self.pool.p1, // smallest to activate counter pool
+                AndPool::new(
+                    AndPool::new(
+                        MostNDiversePool::new(&format!("diverse_cov_{}", size), size, nbr_counters),
+                        OptimiseAggregateStatPool::<NumberOfActivatedCounters>::new("diverse_cov1"),
+                        192, // choose most n diverse ~75% of the time
+                    ),
+                    self.pool.p2, // diverse pool
+                    183, // choose diverse pool 71% of the time => in the end, chosen (100% - 65%) * 75% = ~25% of the time
+                ),
+                166, // 65% of the time
+            ),
+        }
+    }
+}

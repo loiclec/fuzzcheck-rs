@@ -38,6 +38,8 @@ mod split_string;
 mod traits;
 mod world;
 
+pub use fuzzcheck_common::arg::Arguments;
+
 pub(crate) use split_string::split_string_by_whitespace;
 
 #[doc(inline)]
@@ -52,8 +54,6 @@ pub use crate::traits::Sensor;
 #[doc(inline)]
 pub use crate::fuzzer::PoolStorageIndex;
 
-#[doc(inline)]
-pub use builder::default_sensor_and_pool;
 #[doc(inline)]
 pub use fuzzer::ReasonForStopping;
 #[doc(inline)]
@@ -111,6 +111,7 @@ pub use fuzzcheck_mutators_derive::DefaultMutator;
 
 /**
     Make a mutator for a custom type, optionally making it the type’s default mutator.
+
     The syntax is as follows:
     ```
     # #![feature(no_coverage)]

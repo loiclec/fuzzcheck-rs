@@ -37,6 +37,7 @@ impl Default for DefaultArguments {
     }
 }
 
+/// The task that the fuzzer is asked to perform.
 #[derive(Debug, Clone)]
 pub enum FuzzerCommand {
     Fuzz,
@@ -49,6 +50,7 @@ impl Default for FuzzerCommand {
     }
 }
 
+/// Various arguments given to the fuzzer, typically provided by the `cargo fuzzcheck` command line tool.
 #[derive(Debug, Clone)]
 pub struct Arguments {
     pub command: FuzzerCommand,
