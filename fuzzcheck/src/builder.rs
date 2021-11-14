@@ -40,7 +40,7 @@ let _ = fuzzcheck::fuzz_test(test_function)
 */
 
 use crate::code_coverage_sensor::CodeCoverageSensor;
-use crate::fuzzer::{Fuzzer, ReasonForStopping};
+use crate::fuzzer::{Fuzzer, FuzzingResult};
 use crate::sensors_and_pools::AndPool;
 use crate::sensors_and_pools::MaximiseCounterValuePool;
 use crate::sensors_and_pools::MostNDiversePool;
@@ -615,15 +615,19 @@ where
     }
     /// Launch the fuzz test!
     #[no_coverage]
-    pub fn launch(self) -> Result<(), ReasonForStopping<V>> {
+    pub fn launch(self) -> FuzzingResult<V> {
         #[cfg(fuzzing)]
-        self.launch_even_if_cfg_fuzzing_is_not_set()?;
-        Ok(())
+        return self.launch_even_if_cfg_fuzzing_is_not_set();
+        #[cfg(not(fuzzing))]
+        return FuzzingResult {
+            found_test_failure: true,
+            reason_for_stopping: crate::fuzzer::ReasonForStopping::LaunchedFuzzcheckWithoutCfgFuzzing,
+        };
     }
 
     /// do not use
     #[no_coverage]
-    pub fn launch_even_if_cfg_fuzzing_is_not_set(self) -> Result<(), ReasonForStopping<V>> {
+    pub fn launch_even_if_cfg_fuzzing_is_not_set(self) -> FuzzingResult<V> {
         let FuzzerBuilder6 {
             test_function,
             mutator,

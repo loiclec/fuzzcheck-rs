@@ -26,20 +26,28 @@ use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::process::exit;
 use std::result::Result;
 
-#[derive(Debug)]
-pub enum ReasonForStopping<T> {
-    MaximumIterations,
-    MaximumDuration,
-    ExhaustedPossibleMutations,
-    TestFailure(T),
-    IOError(std::io::Error),
+static WRITE_STATS_ERROR: &str = "the stats could not be written to the file system";
+static WORLD_NEW_ERROR: &str = "an IO operation failed when setting up the fuzzer";
+static SERIALIZER_FROM_DATA_ERROR: &str = "the file could not be decoded into a valid input";
+static READ_INPUT_FILE_ERROR: &str = "the input file could not be read";
+static SAVE_ARTIFACTS_ERROR: &str = "the artifact could not be saved";
+static UPDATE_CORPUS_ERROR: &str = "the corpus could not be updated on the file system";
+
+static mut DID_FIND_ANY_TEST_FAILURE: bool = false;
+
+#[derive(Debug, Clone)]
+pub struct FuzzingResult<T> {
+    pub found_test_failure: bool,
+    pub reason_for_stopping: ReasonForStopping<T>,
 }
 
-impl<T> From<std::io::Error> for ReasonForStopping<T> {
-    #[no_coverage]
-    fn from(e: std::io::Error) -> Self {
-        Self::IOError(e)
-    }
+#[derive(Debug, Clone)]
+pub enum ReasonForStopping<T> {
+    TestFailure(T),
+    ExhaustedAllPossibleMutations,
+    MaxIterationsReached,
+    MaxDurationReached,
+    LaunchedFuzzcheckWithoutCfgFuzzing,
 }
 
 /// The index to a test case in the fuzzer’s storage.
@@ -147,7 +155,7 @@ where
                     let cplx = input.complexity(&self.mutator);
                     let content = self.serializer.to_data(&input.value);
                     let _ = self.world.save_artifact(content, cplx, self.serializer.extension());
-                    self.write_stats().unwrap();
+                    self.write_stats().expect(WRITE_STATS_ERROR);
                     exit(TerminationStatus::Crash as i32);
                 } else {
                     self.world.report_event(
@@ -158,7 +166,7 @@ where
                 }
             }
             SIGINT | SIGTERM => {
-                self.write_stats().unwrap();
+                self.write_stats().expect(WRITE_STATS_ERROR);
                 self.world.stop()
             }
             _ => exit(TerminationStatus::Unknown as i32),
@@ -293,12 +301,18 @@ where
             }
             Ok(true) => false,
         };
+        if test_failure {
+            unsafe {
+                DID_FIND_ANY_TEST_FAILURE = true;
+            }
+        }
         sensor.stop_recording();
         if test_failure && self.state.settings.stop_after_first_failure {
             let serialized_input = serializer.to_data(&input.value);
             self.state
                 .world
-                .save_artifact(serialized_input, cplx, serializer.extension())?;
+                .save_artifact(serialized_input, cplx, serializer.extension())
+                .expect(SAVE_ARTIFACTS_ERROR);
             return Err(ReasonForStopping::TestFailure(input.value.clone()));
         }
 
@@ -321,7 +335,9 @@ where
             } else {
                 vec![]
             };
-            world.update_corpus(input_id, content, &deltas, serializer.extension())?;
+            world
+                .update_corpus(input_id, content, &deltas, serializer.extension())
+                .expect(UPDATE_CORPUS_ERROR);
             world.report_event(event, Some((fuzzer_stats, &pool.stats())));
             if add_ref_count > 0 {
                 let new_input = input.new_source(mutator);
@@ -386,7 +402,7 @@ where
                     FuzzerEvent::End,
                     Some((&self.state.fuzzer_stats, &self.state.pool.stats())),
                 );
-                break Err(ReasonForStopping::ExhaustedPossibleMutations);
+                break Err(ReasonForStopping::ExhaustedAllPossibleMutations);
             }
         }
     }
@@ -396,7 +412,8 @@ where
         let mut inputs: Vec<FuzzedInput<T, M>> = self
             .state
             .world
-            .read_input_corpus()?
+            .read_input_corpus()
+            .expect(READ_INPUT_FILE_ERROR)
             .into_iter()
             .filter_map(
                 #[no_coverage]
@@ -449,10 +466,10 @@ where
         loop {
             let duration_since_beginning = self.state.world.elapsed_time_since_start();
             if duration_since_beginning > self.state.settings.maximum_duration {
-                return Err(ReasonForStopping::MaximumDuration);
+                return Err(ReasonForStopping::MaxDurationReached);
             }
             if self.state.fuzzer_stats.total_number_of_runs >= self.state.settings.maximum_iterations {
-                return Err(ReasonForStopping::MaximumIterations);
+                return Err(ReasonForStopping::MaxIterationsReached);
             }
             self.process_next_input()?;
             if self.state.fuzzer_stats.total_number_of_runs >= next_milestone {
@@ -482,7 +499,7 @@ pub fn launch<T, M, Sens, P>(
     sensor: Sens,
     pool: P,
     mut args: Arguments,
-) -> Result<(), ReasonForStopping<T>>
+) -> FuzzingResult<T>
 where
     T: Clone,
     M: Mutator<T>,
@@ -496,8 +513,8 @@ where
             if !args.stop_after_first_failure {
                 let test_failure = TestFailureSensor::default();
                 let sensor = AndSensor(sensor, test_failure);
-                let artifacts_pool = TestFailurePool::new("test_failures");
-                let pool = AndPool::new(pool, artifacts_pool, 254);
+                let test_failure_pool = TestFailurePool::new("test_failures");
+                let pool = AndPool::new(pool, test_failure_pool, 254);
                 let mut fuzzer = Fuzzer::new(
                     test,
                     mutator,
@@ -505,19 +522,22 @@ where
                     sensor,
                     pool,
                     args.clone(),
-                    World::new(args.clone())?,
+                    World::new(args.clone()).expect(WORLD_NEW_ERROR),
                 );
 
                 let mut stats_headers = vec![CSVField::String("time".to_string())];
                 stats_headers.extend(fuzzer.state.fuzzer_stats.csv_headers());
                 stats_headers.extend(fuzzer.state.pool.stats().csv_headers());
-                fuzzer.state.world.append_stats_file(&stats_headers)?;
+                fuzzer
+                    .state
+                    .world
+                    .append_stats_file(&stats_headers)
+                    .expect(WRITE_STATS_ERROR);
                 unsafe { fuzzer.state.set_up_signal_handler() };
 
                 let reason_for_stopping = fuzzer.main_loop().unwrap_err();
-                if !matches!(reason_for_stopping, ReasonForStopping::IOError(_)) {
-                    fuzzer.state.write_stats()?;
-                }
+                fuzzer.state.write_stats().expect(WRITE_STATS_ERROR);
+
                 reason_for_stopping
             } else {
                 let mut fuzzer = Fuzzer::new(
@@ -527,28 +547,28 @@ where
                     sensor,
                     pool,
                     args.clone(),
-                    World::new(args.clone())?,
+                    World::new(args.clone()).expect(WORLD_NEW_ERROR),
                 );
                 unsafe { fuzzer.state.set_up_signal_handler() };
 
                 let mut stats_headers = vec![CSVField::String("time".to_string())];
                 stats_headers.extend(fuzzer.state.fuzzer_stats.csv_headers());
                 stats_headers.extend(fuzzer.state.pool.stats().csv_headers());
-                fuzzer.state.world.append_stats_file(&stats_headers)?;
+                fuzzer
+                    .state
+                    .world
+                    .append_stats_file(&stats_headers)
+                    .expect(WRITE_STATS_ERROR);
                 let reason_for_stopping = fuzzer.main_loop().unwrap_err();
-                if !matches!(reason_for_stopping, ReasonForStopping::IOError(_)) {
-                    fuzzer.state.write_stats()?;
-                }
+                fuzzer.state.write_stats().expect(WRITE_STATS_ERROR);
+
                 reason_for_stopping
             }
         }
         FuzzerCommand::MinifyInput { input_file } => {
-            let world = World::new(args.clone())?;
-            let value = world.read_input_file(input_file)?;
-            let value = serializer.from_data(&value).ok_or(std::io::Error::new(
-                std::io::ErrorKind::Other,
-                "The file could not be decoded into a valid input.",
-            ))?;
+            let world = World::new(args.clone()).expect(WORLD_NEW_ERROR);
+            let value = world.read_input_file(input_file).expect(READ_INPUT_FILE_ERROR);
+            let value = serializer.from_data(&value).expect(SERIALIZER_FROM_DATA_ERROR);
             if let Some((cache, mutation_step)) = mutator.validate_value(&value) {
                 args.max_input_cplx = mutator.complexity(&value, &cache) - 0.01;
 
@@ -573,12 +593,9 @@ where
         }
         FuzzerCommand::Read { input_file } => {
             // no signal handlers are installed, but that should be ok as the exit code won't be 0
-            let mut world = World::new(args.clone())?;
-            let value = world.read_input_file(input_file)?;
-            let value = serializer.from_data(&value).ok_or(std::io::Error::new(
-                std::io::ErrorKind::Other,
-                "The file could not be decoded into a valid input.",
-            ))?;
+            let mut world = World::new(args.clone()).expect(WORLD_NEW_ERROR);
+            let value = world.read_input_file(input_file).expect(READ_INPUT_FILE_ERROR);
+            let value = serializer.from_data(&value).expect(SERIALIZER_FROM_DATA_ERROR);
             if let Some((cache, mutation_step)) = mutator.validate_value(&value) {
                 let input = FuzzedInput::new(value, cache, mutation_step, 0);
                 let cplx = input.complexity(&mutator);
@@ -591,7 +608,9 @@ where
                 if result.is_err() || !result.unwrap() {
                     world.report_event::<EmptyStats>(FuzzerEvent::TestFailure, None);
                     let content = serializer.to_data(&input.value);
-                    world.save_artifact(content, cplx, serializer.extension())?;
+                    world
+                        .save_artifact(content, cplx, serializer.extension())
+                        .expect(SAVE_ARTIFACTS_ERROR);
                     // in this case we really want to exit with a non-zero termination status here
                     // because the Read command is only used by the input minify command from cargo-fuzzcheck
                     // which checks that a crash happens by looking at the exit code
@@ -608,5 +627,11 @@ where
     };
     let _ = std::panic::take_hook();
 
-    Err(reason_for_stopping)
+    let found_test_failure =
+        unsafe { matches!(reason_for_stopping, ReasonForStopping::TestFailure(_)) || DID_FIND_ANY_TEST_FAILURE };
+
+    FuzzingResult {
+        found_test_failure,
+        reason_for_stopping,
+    }
 }
