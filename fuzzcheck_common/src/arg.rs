@@ -16,14 +16,14 @@ pub const ARTIFACTS_FLAG: &str = "artifacts";
 pub const NO_ARTIFACTS_FLAG: &str = "no-artifacts";
 pub const STATS_FLAG: &str = "stats";
 pub const NO_STATS_FLAG: &str = "no-stats";
-pub const SOCK_ADDR_FLAG: &str = "socket-address";
+pub const COMMAND_FLAG: &str = "command";
 
 pub const MAX_DURATION_FLAG: &str = "stop-after-duration";
 pub const MAX_ITERATIONS_FLAG: &str = "stop-after-iterations";
 pub const STOP_AFTER_FIRST_FAILURE_FLAG: &str = "stop-after-first-failure";
 
 pub const COMMAND_FUZZ: &str = "fuzz";
-pub const COMMAND_MINIFY_INPUT: &str = "tmin";
+pub const COMMAND_MINIFY_INPUT: &str = "minify";
 pub const COMMAND_READ: &str = "read";
 
 #[derive(Clone)]
@@ -70,7 +70,15 @@ pub fn options_parser() -> Options {
     let mut options = Options::new();
 
     let defaults = DefaultArguments::default();
-
+    options.optopt(
+        "",
+        COMMAND_FLAG,
+        &format!(
+            "the action to be performed (default: fuzz). --{} is required when using `{}`",
+            INPUT_FILE_FLAG, COMMAND_MINIFY_INPUT
+        ),
+        &format!("<{} | {}>", COMMAND_FUZZ, COMMAND_MINIFY_INPUT),
+    );
     options.optopt(
         "",
         MAX_DURATION_FLAG,
@@ -140,40 +148,28 @@ pub fn options_parser() -> Options {
 impl Arguments {
     #[no_coverage]
     pub fn from_matches(matches: &Matches, for_cargo_fuzzcheck: bool) -> Result<Self, ArgumentsError> {
+        if matches.opt_present("help") || matches.free.contains(&"help".to_owned()) {
+            return Err(ArgumentsError::WantsHelp);
+        }
+
         if for_cargo_fuzzcheck {
             if matches.free.is_empty() {
                 return Err(ArgumentsError::Validation(
                     "A fuzz target must be given to cargo fuzzcheck.".to_string(),
                 ));
             }
-            if matches.free.len() == 1 {
-                return Err(ArgumentsError::Validation(
-                    "A command must be given to cargo fuzzcheck.".to_string(),
-                ));
-            }
-        } else {
-            if matches.free.is_empty() {
-                return Err(ArgumentsError::Validation(
-                    "A command must be given to cargo fuzzcheck.".to_string(),
-                ));
-            }
         }
 
-        let index_command = if for_cargo_fuzzcheck { 1 } else { 0 };
+        let command = matches.opt_str(COMMAND_FLAG).unwrap_or(COMMAND_FUZZ.to_owned());
 
-        if matches.opt_present("help") || matches.free.contains(&"help".to_owned()) {
-            return Err(ArgumentsError::WantsHelp);
-        }
+        let command = command.as_str();
 
-        if !matches!(
-            matches.free[index_command].as_str(),
-            COMMAND_FUZZ | COMMAND_READ | COMMAND_MINIFY_INPUT
-        ) {
+        if !matches!(command, COMMAND_FUZZ | COMMAND_READ | COMMAND_MINIFY_INPUT) {
             return Err(ArgumentsError::Validation(format!(
-                r#"The command {c} is not supported. It can either be ‘{fuzz}’ or ‘{tmin}’."#,
+                r#"The command {c} is not supported. It can either be ‘{fuzz}’ or ‘{minify}’."#,
                 c = &matches.free[0],
                 fuzz = COMMAND_FUZZ,
-                tmin = COMMAND_MINIFY_INPUT,
+                minify = COMMAND_MINIFY_INPUT,
             )));
         }
 
@@ -236,7 +232,7 @@ impl Arguments {
 
         // verify all the right options are here
 
-        let command = match matches.free[index_command].as_str() {
+        let command = match command {
             COMMAND_FUZZ => FuzzerCommand::Fuzz,
             COMMAND_READ => {
                 let input_file = input_file.expect(&format!(
@@ -313,7 +309,7 @@ pub fn help(parser: &Options) -> String {
     let mut help = format!(
         r##"
 USAGE:
-    cargo-fuzzcheck <FUZZ_TEST> <SUBCOMMAND> < --lib | --bin .. | --test .. > [OPTIONS]
+    cargo-fuzzcheck <FUZZ_TEST> [OPTIONS]
     => Execute the subcommand on the given fuzz test.
 
 FUZZ_TEST:
@@ -333,14 +329,10 @@ FUZZ_TEST:
 
 SUBCOMMANDS:
     {fuzz}    Run the fuzz test
-    {tmin}    Minify a crashing test input, requires --{input_file}
-
-[--lib | --bin .. | --test ..]
-    One of those options must be given to determine which target to compile. 
-    They are equivalent to the same options used on `cargo test`.
+    {minify}    Minify a crashing test input, requires --{input_file}
 "##,
         fuzz = COMMAND_FUZZ,
-        tmin = COMMAND_MINIFY_INPUT,
+        minify = COMMAND_MINIFY_INPUT,
         input_file = INPUT_FILE_FLAG,
     );
     help += parser.usage("").as_str();
@@ -357,7 +349,7 @@ cargo-fuzzcheck target2 fuzz --{max_cplx} 4000 --{out_corpus} fuzz_results/out/
     and write the output corpus (i.e. the folder of most interesting test cases) 
     to fuzz_results/out/.
 
-cargo-fuzzcheck target1 {tmin} --{input_file} "artifacts/crash.json"
+cargo-fuzzcheck target1 {minify} --{input_file} "artifacts/crash.json"
     Using “target1”, minify the test input defined in the file 
     "artifacts/crash.json". It will put minified inputs in the folder 
     artifacts/crash.minified/ and name them {{complexity}}-{{hash}}.json. 
@@ -365,7 +357,7 @@ cargo-fuzzcheck target1 {tmin} --{input_file} "artifacts/crash.json"
     is a minified input of complexity 42.13.
 "#,
         fuzz = COMMAND_FUZZ,
-        tmin = COMMAND_MINIFY_INPUT,
+        minify = COMMAND_MINIFY_INPUT,
         input_file = INPUT_FILE_FLAG,
         max_cplx = MAX_INPUT_CPLX_FLAG,
         out_corpus = OUT_CORPUS_FLAG,

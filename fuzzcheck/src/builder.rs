@@ -486,10 +486,10 @@ fuzzcheck <SUBCOMMAND> [OPTIONS]
 
 SUBCOMMANDS:
     {fuzz}    Run the fuzz test
-    {tmin}    Minify a crashing test input, requires --{input_file}
+    {minify}    Minify a crashing test input, requires --{input_file}
 "#,
             fuzz = COMMAND_FUZZ,
-            tmin = COMMAND_MINIFY_INPUT,
+            minify = COMMAND_MINIFY_INPUT,
             input_file = INPUT_FILE_FLAG,
         );
         help += parser.usage("").as_str();
@@ -500,7 +500,7 @@ SUBCOMMANDS:
 fuzzcheck {fuzz}
     Launch the fuzzer with default options.
 
-fuzzcheck {tmin} --{input_file} "artifacts/crash.json"
+fuzzcheck {minify} --{input_file} "artifacts/crash.json"
 
     Minify the test input defined in the file "artifacts/crash.json".
     It will put minified inputs in the folder artifacts/crash.minified/
@@ -509,7 +509,7 @@ fuzzcheck {tmin} --{input_file} "artifacts/crash.json"
     is a minified input of complexity 42.13.
 "#,
             fuzz = COMMAND_FUZZ,
-            tmin = COMMAND_MINIFY_INPUT,
+            minify = COMMAND_MINIFY_INPUT,
             input_file = INPUT_FILE_FLAG,
         )
         .as_str();

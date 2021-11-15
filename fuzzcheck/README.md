@@ -207,11 +207,11 @@ interesting inputs through the option `--in-corpus <folder path>`.
 Fuzzcheck can also be used to *minify* a large input that fails a test.
 
 Let's say you have a file `crash.json` containing an input that you would like
-to minify. Launch `cargo fuzzcheck <exact name of fuzz test>` with the `tmin` command
+to minify. Launch `cargo fuzzcheck <exact name of fuzz test>` with the `minify` command
 and an `--input-file` option.
 
 ```bash
-cargo fuzzcheck "tests::test_function_shouldn_t_crash" tmin --input-file "crash.json"
+cargo fuzzcheck "tests::test_function_shouldn_t_crash" --command minify --input-file "crash.json"
 ```
 
 This will repeatedly launch the fuzzer in “minify” mode and save the

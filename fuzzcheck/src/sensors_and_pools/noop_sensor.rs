@@ -5,7 +5,7 @@ use crate::traits::{SaveToStatsFolder, Sensor};
 /// A sensor that does nothing.
 ///
 /// In practice, it is used in conjunction with [`UnitPool`](crate::sensors_and_pools::UnitPool) to
-/// favour one particular test case throughout the whole fuzzing run. This is partly how the `tmin`
+/// favour one particular test case throughout the whole fuzzing run. This is partly how the `minify`
 /// (test case minify) command is implemented.
 pub struct NoopSensor;
 
