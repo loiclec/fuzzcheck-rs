@@ -374,21 +374,21 @@ impl<T: Clone, M: Mutator<T>> VecMutator<T, M> {
         #[no_coverage]
         fn length_for_elements_of_cplx(target_cplx: f64, cplx: f64) -> usize {
             if cplx == 0.0 {
+                assert!(target_cplx.is_finite());
+                assert!(target_cplx >= 0.0);
                 // cplx is 0, so the length is the maximum complexity of the length component of the vector
-                crate::mutators::cplxity_to_size(target_cplx - 1.0)
+                target_cplx.round() as usize
             } else if !cplx.is_finite() {
                 0
             } else {
                 (target_cplx / cplx).trunc() as usize
             }
         }
-
         let min_len = length_for_elements_of_cplx(target_cplx, self.m.max_complexity());
         let max_len = length_for_elements_of_cplx(target_cplx, self.m.min_complexity());
 
         let min_len = clamp(&self.len_range, min_len);
         let max_len = clamp(&(min_len..=*self.len_range.end()), max_len);
-
         min_len..=max_len
     }
 
@@ -560,6 +560,7 @@ impl<T: Clone, M: Mutator<T>> Mutator<Vec<T>> for VecMutator<T, M> {
             let cplx = self.complexity_from_inner(inner_cplx, v.len());
             return (v, cplx);
         }
+
         let target_cplx = crate::mutators::gen_f64(&self.rng, min_cplx..max_cplx);
         let len_range = self.choose_slice_length(target_cplx);
         let upperbound_max_len = std::cmp::min(*len_range.end(), (max_cplx / self.m.min_complexity()).ceil() as usize);
