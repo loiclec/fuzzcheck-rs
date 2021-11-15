@@ -28,7 +28,11 @@ pub fn literal_ranges(ranges: Vec<RangeInclusive<char>>) -> Rc<Grammar> {
     Rc::new(Grammar::Literal(ranges))
 }
 #[no_coverage]
-pub fn literal<R>(range: R) -> Rc<Grammar>
+pub fn literal(l: char) -> Rc<Grammar> {
+    Rc::new(Grammar::Literal(vec![l..=l]))
+}
+#[no_coverage]
+pub fn literal_range<R>(range: R) -> Rc<Grammar>
 where
     R: RangeBounds<char>,
 {

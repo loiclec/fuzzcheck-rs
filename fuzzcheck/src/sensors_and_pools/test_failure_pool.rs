@@ -63,16 +63,16 @@ impl Display for TestFailurePoolStats {
     #[no_coverage]
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         if self.count == 0 {
-            write!(f, "{}", format!("artifacts({})", self.count))
+            write!(f, "{}", format!("failures({})", self.count))
         } else {
-            write!(f, "{}", Color::Red.paint(format!("artifacts({})", self.count)))
+            write!(f, "{}", Color::Red.paint(format!("failures({})", self.count)))
         }
     }
 }
 impl ToCSV for TestFailurePoolStats {
     #[no_coverage]
     fn csv_headers(&self) -> Vec<CSVField> {
-        vec![CSVField::String("artifacts_count".to_string())]
+        vec![CSVField::String("test_failures_count".to_string())]
     }
     #[no_coverage]
     fn to_csv_record(&self) -> Vec<CSVField> {

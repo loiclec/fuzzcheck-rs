@@ -72,16 +72,6 @@ fn gen_f64(rng: &fastrand::Rng, range: Range<f64>) -> f64 {
 
 #[must_use]
 #[no_coverage]
-fn cplxity_to_size(cplx: f64) -> usize {
-    let size_f: f64 = 2.0_f64.powf(cplx).round();
-    if std::usize::MAX as f64 > size_f {
-        size_f as usize
-    } else {
-        std::usize::MAX
-    }
-}
-#[must_use]
-#[no_coverage]
 fn size_to_cplxity(size: usize) -> f64 {
     (usize::BITS - (size.saturating_sub(1)).leading_zeros()) as f64
 }

@@ -706,7 +706,7 @@ impl CodeCoverageSensorAndPoolBuilder<BasicPool> {
                 self.pool,
                 AndPool::new(
                     MostNDiversePool::new(&format!("diverse_cov_{}", size), size, nbr_counters),
-                    OptimiseAggregateStatPool::<NumberOfActivatedCounters>::new("diverse_cov1"),
+                    OptimiseAggregateStatPool::<NumberOfActivatedCounters>::new("diverse_cov_1"),
                     192, // choose most n diverse ~75% of the time
                 ),
                 192, // 75% if the time

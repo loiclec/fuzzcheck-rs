@@ -6,7 +6,8 @@
 //!
 //! To specify a grammar, you should use the following functions:
 //! * [`regex`](crate::mutators::grammar::regex) to create a grammar from a regular expression
-//! * [`literal`] for a grammar that matches a single character within a specified range
+//! * [`literal`] for a grammar that matches a single character
+//! * [`literal_ranges`] for a grammar matching a single character within a specified ranges
 //! * [`literal_ranges`] for a grammar matching a single character within any of multiple ranges
 //! * [`alternation`] for a grammar matching any of a list of grammar rules
 //! * [`concatenation`] matching multiple grammar rules one after the other
@@ -23,7 +24,7 @@
 //!             regex("hello[0-9]"),
 //!             regex("world[0-9]?")
 //!         ]),
-//!         literal(' ' ..= ' '),
+//!         literal(' '),
 //!     ]),
 //!     1..5
 //! );
@@ -41,7 +42,7 @@
 //!             recurse(rule),
 //!             regex(r"\)|\]"),
 //!         ]),
-//!         literal('a' ..= 'z')
+//!         literal_range('a' ..= 'z')
 //!     ])
 //! });
 //! /* rule matches/generates:
@@ -95,7 +96,9 @@ pub use ast::AST;
 #[doc(inline)]
 pub use grammar::Grammar;
 #[doc(inline)]
-pub use grammar::{alternation, concatenation, literal, literal_ranges, recurse, recursive, regex, repetition};
+pub use grammar::{
+    alternation, concatenation, literal, literal_range, literal_ranges, recurse, recursive, regex, repetition,
+};
 #[doc(inline)]
 pub use mutators::grammar_based_ast_mutator;
 

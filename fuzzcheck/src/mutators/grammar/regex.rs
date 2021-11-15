@@ -16,7 +16,7 @@ pub fn grammar_from_regex_hir_kind(hir: &HirKind) -> Rc<Grammar> {
     match hir {
         HirKind::Empty => panic!("emoty regexes are not supported"),
         HirKind::Literal(l) => match l {
-            Literal::Unicode(l) => literal(l..=l),
+            Literal::Unicode(l) => literal(*l),
             Literal::Byte(_) => panic!("non-unicode regexes are not supported"),
         },
         HirKind::Class(class) => match class {
