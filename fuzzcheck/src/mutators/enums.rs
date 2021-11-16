@@ -130,4 +130,24 @@ where
     fn unmutate(&self, value: &mut T, _cache: &mut Self::Cache, t: Self::UnmutateToken) {
         *value = T::from_item_index(t);
     }
+
+    #[doc(hidden)]
+    type RecursingPartIndex = ();
+    #[doc(hidden)]
+    #[no_coverage]
+    fn default_recursing_part_index(&self, _value: &T, _cache: &Self::Cache) -> Self::RecursingPartIndex {}
+    #[doc(hidden)]
+    #[no_coverage]
+    fn recursing_part<'a, V, N>(
+        &self,
+        _parent: &N,
+        _value: &'a T,
+        _index: &mut Self::RecursingPartIndex,
+    ) -> Option<&'a V>
+    where
+        V: Clone + 'static,
+        N: Mutator<V> + 'static,
+    {
+        None
+    }
 }

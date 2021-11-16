@@ -950,5 +950,25 @@ mod tests {
 
         #[no_coverage]
         fn unmutate(&self, _value: &mut f64, _cache: &mut Self::Cache, _t: Self::UnmutateToken) {}
+
+        #[doc(hidden)]
+        type RecursingPartIndex = ();
+        #[doc(hidden)]
+        #[no_coverage]
+        fn default_recursing_part_index(&self, _value: &f64, _cache: &Self::Cache) -> Self::RecursingPartIndex {}
+        #[doc(hidden)]
+        #[no_coverage]
+        fn recursing_part<'a, T, M>(
+            &self,
+            _parent: &M,
+            _value: &'a f64,
+            _index: &mut Self::RecursingPartIndex,
+        ) -> Option<&'a T>
+        where
+            T: Clone + 'static,
+            M: Mutator<T>,
+        {
+            None
+        }
     }
 }

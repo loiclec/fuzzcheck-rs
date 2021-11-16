@@ -1,8 +1,7 @@
 use crate::mutators::either::Either;
-use crate::mutators::recursive::{RecurToMutator, RecursiveMutator};
+use crate::mutators::recursive::RecurToMutator;
 use crate::Mutator;
 use std::marker::PhantomData;
-
 /**
     A type that that can propagate updates to a value (From) to
     another value (To) based on a Token.
@@ -10,7 +9,7 @@ use std::marker::PhantomData;
     The token should be the UnmutateToken of a mutator.
 */
 #[doc(hidden)] // hide the documentation because it pollutes the documentation of all other types
-pub trait IncrementalMapping<From: Clone, To, M: Mutator<From>> {
+pub trait IncrementalMapping<From: Clone + 'static, To: Clone + 'static, M: Mutator<From>> {
     /// The `from_value` was already mutated. The `token` encodes how to unmutate `from_value`. Based on `token` and `from_value`,
     /// this function updates the `to_value`.
     fn mutate_value_from_token(&mut self, from_value: &From, to_value: &mut To, token: &M::UnmutateToken);
@@ -21,10 +20,11 @@ pub trait IncrementalMapping<From: Clone, To, M: Mutator<From>> {
 
 pub struct Cache<From, To, M, Map>
 where
-    From: Clone,
+    From: Clone + 'static,
     To: Clone + std::convert::From<From>,
     M: Mutator<From>,
     Map: IncrementalMapping<From, To, M> + for<'a> std::convert::From<&'a From>,
+    Self: 'static,
 {
     from_value: From,
     from_cache: M::Cache,
@@ -33,10 +33,11 @@ where
 }
 impl<From, To, M, Map> Clone for Cache<From, To, M, Map>
 where
-    From: Clone,
+    From: Clone + 'static,
     To: Clone + std::convert::From<From>,
     M: Mutator<From>,
     Map: IncrementalMapping<From, To, M> + for<'a> std::convert::From<&'a From> + Clone,
+    Self: 'static,
 {
     fn clone(&self) -> Self {
         Self {
@@ -50,11 +51,12 @@ where
 
 pub struct IncrementalMapMutator<From, To, M, Map, Parse>
 where
-    From: Clone,
+    From: Clone + 'static,
     To: Clone + std::convert::From<From>,
     M: Mutator<From>,
     Map: IncrementalMapping<From, To, M> + for<'a> std::convert::From<&'a From>,
     Parse: Fn(&To) -> Option<From>,
+    Self: 'static,
 {
     parse: Parse,
     mutator: M,
@@ -67,6 +69,7 @@ where
     M: Mutator<From>,
     Map: IncrementalMapping<From, To, M> + for<'a> std::convert::From<&'a From>,
     Parse: Fn(&To) -> Option<From>,
+    Self: 'static,
 {
     #[no_coverage]
     pub fn new(parse: Parse, mutator: M) -> Self {
@@ -80,20 +83,21 @@ where
 
 impl<From, To, M, Map, Parse> Mutator<To> for IncrementalMapMutator<From, To, M, Map, Parse>
 where
-    From: Clone,
-    To: Clone + std::convert::From<From>,
+    From: Clone + 'static,
+    To: Clone + std::convert::From<From> + 'static,
     M: Mutator<From>,
     Map: IncrementalMapping<From, To, M> + for<'a> std::convert::From<&'a From> + Clone,
     Parse: Fn(&To) -> Option<From>,
+    Self: 'static,
 {
     #[doc(hidden)]
-type Cache = Cache<From, To, M, Map>;
+    type Cache = Cache<From, To, M, Map>;
     #[doc(hidden)]
-type MutationStep = M::MutationStep;
+    type MutationStep = M::MutationStep;
     #[doc(hidden)]
-type ArbitraryStep = M::ArbitraryStep;
+    type ArbitraryStep = M::ArbitraryStep;
     #[doc(hidden)]
-type UnmutateToken = M::UnmutateToken;
+    type UnmutateToken = M::UnmutateToken;
 
     #[doc(hidden)]
     #[no_coverage]
@@ -176,46 +180,79 @@ type UnmutateToken = M::UnmutateToken;
         (token, cplx)
     }
 
-   #[doc(hidden)]
- #[no_coverage]
+    #[doc(hidden)]
+    #[no_coverage]
     fn unmutate(&self, value: &mut To, cache: &mut Self::Cache, t: Self::UnmutateToken) {
         cache.map.unmutate_value_from_token(value, &t);
         self.mutator.unmutate(&mut cache.from_value, &mut cache.from_cache, t);
     }
-}
+    // TODO: Not yet supported for MapMutator
+    // it would require `recursing_part` to take the `cache` value as argument as well
+    // maybe I should do that, but I haven't thought about it yet
+    type RecursingPartIndex = ();
 
-impl<From, To, M, Map> IncrementalMapping<From, To, RecursiveMutator<M>> for Map
-where
-    From: Clone,
-    To: Clone,
-    M: Mutator<From>,
-    Self: IncrementalMapping<From, To, M>,
-{
-    #[no_coverage]
-    fn mutate_value_from_token(
-        &mut self,
-        from_value: &From,
-        to_value: &mut To,
-        token: &<RecursiveMutator<M> as Mutator<From>>::UnmutateToken,
-    ) {
-        <Self as IncrementalMapping<From, To, M>>::mutate_value_from_token(self, from_value, to_value, token);
-    }
+    fn default_recursing_part_index(&self, _value: &To, _cache: &Self::Cache) -> Self::RecursingPartIndex {}
 
-   #[doc(hidden)]
- #[no_coverage]
-    fn unmutate_value_from_token(
-        &mut self,
-        to_value: &mut To,
-        token: &<RecursiveMutator<M> as Mutator<From>>::UnmutateToken,
-    ) {
-        <Self as IncrementalMapping<From, To, M>>::unmutate_value_from_token(self, to_value, token);
+    fn recursing_part<'a, V, N>(
+        &self,
+        _parent: &N,
+        _value: &'a To,
+        _index: &mut Self::RecursingPartIndex,
+    ) -> Option<&'a V>
+    where
+        V: Clone + 'static,
+        N: Mutator<V>,
+    {
+        None
     }
 }
+
+// impl<From, To, M, Map> IncrementalMapping<From, To, RecursiveMutator<M>> for Map
+// where
+//     From: Clone + 'static,
+//     To: Clone + 'static,
+//     M: Mutator<From>,
+//     Self: IncrementalMapping<From, To, M>,
+// {
+//     #[no_coverage]
+//     fn mutate_value_from_token(
+//         &mut self,
+//         from_value: &From,
+//         to_value: &mut To,
+//         token: &<RecursiveMutator<M> as Mutator<From>>::UnmutateToken,
+//     ) {
+//         match token {
+//             RecursiveMutatorUnmutateToken::Replace(v) => {
+//                 *to_value = todo!();
+//             }
+//             RecursiveMutatorUnmutateToken::Token(t) => {
+//                 <Self as IncrementalMapping<From, To, M>>::mutate_value_from_token(self, from_value, to_value, t);
+//             }
+//         }
+//     }
+
+//     #[doc(hidden)]
+//     #[no_coverage]
+//     fn unmutate_value_from_token(
+//         &mut self,
+//         to_value: &mut To,
+//         token: &<RecursiveMutator<M> as Mutator<From>>::UnmutateToken,
+//     ) {
+//         match token {
+//             RecursiveMutatorUnmutateToken::Replace(v) => {
+//                 *to_value = todo!();
+//             }
+//             RecursiveMutatorUnmutateToken::Token(t) => {
+//                 <Self as IncrementalMapping<From, To, M>>::unmutate_value_from_token(self, to_value, t);
+//             }
+//         }
+//     }
+// }
 
 impl<From, To, Map, M1, M2> IncrementalMapping<From, To, Either<M1, M2>> for Map
 where
-    From: Clone,
-    To: Clone,
+    From: Clone + 'static,
+    To: Clone + 'static,
     M1: Mutator<From>,
     M2: Mutator<From>,
     Self: IncrementalMapping<From, To, M1> + IncrementalMapping<From, To, M2>,
@@ -237,8 +274,8 @@ where
         }
     }
 
-   #[doc(hidden)]
- #[no_coverage]
+    #[doc(hidden)]
+    #[no_coverage]
     fn unmutate_value_from_token(
         &mut self,
         to_value: &mut To,
@@ -257,8 +294,8 @@ where
 
 impl<From, To, M, Map> IncrementalMapping<From, To, RecurToMutator<M>> for Map
 where
-    From: Clone,
-    To: Clone,
+    From: Clone + 'static,
+    To: Clone + 'static,
     M: Mutator<From>,
     Self: IncrementalMapping<From, To, M>,
 {
@@ -272,8 +309,8 @@ where
         <Self as IncrementalMapping<From, To, M>>::mutate_value_from_token(self, from_value, to_value, token);
     }
 
-   #[doc(hidden)]
- #[no_coverage]
+    #[doc(hidden)]
+    #[no_coverage]
     fn unmutate_value_from_token(
         &mut self,
         to_value: &mut To,

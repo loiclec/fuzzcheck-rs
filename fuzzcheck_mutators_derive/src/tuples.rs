@@ -278,7 +278,7 @@ fn declare_tuple_mutator_helper_types(tb: &mut TokenBuilder, nbr_elements: usize
         }
         #[doc(hidden)]
         #[derive(" cm.Clone ", " cm.Debug ")]
-        pub enum InnerMutationStep {"
+        pub enum TupleIndex {"
             join_ts!(0..nbr_elements, i,
                 Ti(i)
             , separator: ",")
@@ -289,17 +289,17 @@ fn declare_tuple_mutator_helper_types(tb: &mut TokenBuilder, nbr_elements: usize
             join_ts!(0..nbr_elements, i,
                 ti(i) ":" Ti(i) ","
             )
-            "inner : " cm.Vec " < InnerMutationStep > ,
+            "inner : " cm.Vec " < TupleIndex > ,
             vose_alias : Option<" cm.VoseAlias ">
         }
         #[doc(hidden)]
         #[derive(" cm.Clone ", " cm.Debug ")]
-        pub struct ArbitraryStep < " tuple_type_params " > {"
+        pub struct RecursingPartIndex < " tuple_type_params " > {"
             join_ts!(0..nbr_elements, i,
-                ti(i) ":" Ti(i)
-            , separator: ",")
-        "}
-
+                ti(i) ":" Ti(i) ","
+            )
+            "inner : " cm.Vec " < TupleIndex >
+        }
         #[doc(hidden)]
         pub struct UnmutateToken < " tuple_type_params " > {"
             join_ts!(0..nbr_elements, i,
@@ -338,18 +338,22 @@ fn impl_mutator_trait(tb: &mut TokenBuilder, nbr_elements: usize) {
     let ti_value = cm.ti_value.as_ref();
 
     // let tuple_owned = ts!("(" join_ts!(0..nbr_elements, i, Ti(i), separator: ",") ")");
-    let tuple_ref = ts!("(" join_ts!(0..nbr_elements, i, "&'a" Ti(i) ",") ")");
-    let tuple_mut = ts!("(" join_ts!(0..nbr_elements, i, "&'a mut" Ti(i) ",") ")");
 
     let SelfAsTupleMutator = ts!("<Self as " cm.TupleMutator "<T, " cm.TupleN_ident "<" tuple_type_params "> >>");
 
     let TupleNAsRefTypes = ts!("<" cm.TupleN_ident "<" tuple_type_params "> as " cm.RefTypes ">");
+    let tuple_ref = ts!(
+       TupleNAsRefTypes "::Ref<'a>"
+    );
+    let tuple_mut = ts!(
+       TupleNAsRefTypes "::Mut<'a>"
+    );
 
     extend_ts!(tb,"
     impl <T , " type_params " > " cm.TupleMutator "<T , " cm.TupleN_ident "<" tuple_type_params "> > 
         for " cm.TupleNMutator_ident "< " mutator_type_params " >
     where
-        T: " cm.Clone "," 
+        T: " cm.Clone " + 'static," 
         join_ts!(0..nbr_elements, i,
             Ti(i) ":" cm.Clone " + 'static ,"
             Mi(i) ":" cm.fuzzcheck_traits_Mutator "<" Ti(i) ">,"
@@ -369,12 +373,15 @@ fn impl_mutator_trait(tb: &mut TokenBuilder, nbr_elements: usize) {
             , separator: ",")
         ">;
         #[doc(hidden)]
-        type ArbitraryStep = ArbitraryStep <"
+        type RecursingPartIndex = RecursingPartIndex <"
             join_ts!(0..nbr_elements, i,
-                "<" Mi(i) "as" cm.fuzzcheck_traits_Mutator "<" Ti(i) "> >::ArbitraryStep "
+                "<" Mi(i) "as" cm.fuzzcheck_traits_Mutator "<" Ti(i) "> >::RecursingPartIndex "
             , separator: ",")
         ">;
-        
+
+        #[doc(hidden)]
+        type ArbitraryStep = ();
+
         #[doc(hidden)]
         type UnmutateToken = UnmutateToken <"
             join_ts!(0..nbr_elements, i,
@@ -384,11 +391,6 @@ fn impl_mutator_trait(tb: &mut TokenBuilder, nbr_elements: usize) {
         #[doc(hidden)]
         #[no_coverage]
         fn default_arbitrary_step(&self) -> Self::ArbitraryStep {
-            Self::ArbitraryStep {"
-                join_ts!(0..nbr_elements, i,
-                    ti(i) ": self." mutator_i(i) ".default_arbitrary_step()"
-                , separator: ",")
-            "}
         }
         #[doc(hidden)]
         #[no_coverage]
@@ -406,12 +408,12 @@ fn impl_mutator_trait(tb: &mut TokenBuilder, nbr_elements: usize) {
         "}
         #[doc(hidden)]
         #[no_coverage]
-        fn complexity<'a>(&'a self, _value: " tuple_ref ", cache: &'a Self::Cache) -> f64 {
+        fn complexity<'a>(&self, _value: " tuple_ref ", cache: &'a Self::Cache) -> f64 {
             cache.cplx
         }
         #[doc(hidden)]
         #[no_coverage]
-        fn validate_value<'a>(&'a self, value: " tuple_ref ") -> " cm.Option "<(Self::Cache, Self::MutationStep)> {"
+        fn validate_value<'a>(&self, value: " tuple_ref ") -> " cm.Option "<(Self::Cache, Self::MutationStep)> {"
             join_ts!(0..nbr_elements, i,
                 "let (" ident!("c" i) ", " ident!("s" i) ") = self." mutator_i(i) ".validate_value(value." i ")?;"
             )
@@ -435,7 +437,7 @@ fn impl_mutator_trait(tb: &mut TokenBuilder, nbr_elements: usize) {
 
             let step = Self::MutationStep {"
                 join_ts!(0..nbr_elements, i, ti(i) ":" ident!("s" i) ",")
-                "inner: vec![" join_ts!(0..nbr_elements, i, "InnerMutationStep::" Ti(i), separator: ",") "] ,
+                "inner: vec![" join_ts!(0..nbr_elements, i, "TupleIndex::" Ti(i), separator: ",") "] ,
                 vose_alias: Some(vose_alias.clone())
             };
 
@@ -495,7 +497,7 @@ fn impl_mutator_trait(tb: &mut TokenBuilder, nbr_elements: usize) {
         #[doc(hidden)]
         #[no_coverage]
         fn ordered_mutate<'a>(
-            &'a self,
+            &self,
             value: " tuple_mut ",
             cache: &'a mut Self::Cache,
             step: &'a mut Self::MutationStep,
@@ -513,7 +515,7 @@ fn impl_mutator_trait(tb: &mut TokenBuilder, nbr_elements: usize) {
 
             match step.inner[step_idx] {"
             join_ts!(0..nbr_elements, i,
-                "InnerMutationStep::" Ti(i) "=> {
+                "TupleIndex::" Ti(i) "=> {
                     let old_field_cplx = self." mutator_i(i) ".complexity(value." i ", &cache." ti(i) ");
                     let max_field_cplx = max_cplx - current_cplx + old_field_cplx;
                     if let " cm.Some "((token, new_field_cplx)) =
@@ -543,7 +545,7 @@ fn impl_mutator_trait(tb: &mut TokenBuilder, nbr_elements: usize) {
         }
         #[doc(hidden)]
         #[no_coverage]
-        fn random_mutate<'a>(&'a self, value: " tuple_mut ", cache: &'a mut Self::Cache, max_cplx: f64, ) -> (Self::UnmutateToken, f64) {
+        fn random_mutate<'a>(&self, value: " tuple_mut ", cache: &'a mut Self::Cache, max_cplx: f64, ) -> (Self::UnmutateToken, f64) {
             let current_cplx = " SelfAsTupleMutator "::complexity(self, " TupleNAsRefTypes "::get_ref_from_mut(&value), cache);
             match cache.vose_alias.sample() {"
                 join_ts!(0..nbr_elements, i,
@@ -571,6 +573,42 @@ fn impl_mutator_trait(tb: &mut TokenBuilder, nbr_elements: usize) {
                 }"
             )
         "}
+        #[doc(hidden)]
+        #[no_coverage]
+        fn default_recursing_part_index<'a>(&self, value:" tuple_ref ", cache: &'a Self::Cache) -> Self::RecursingPartIndex {
+            Self::RecursingPartIndex {"
+                join_ts!(0..nbr_elements, i,
+                    ti(i) ": self. " mutator_i(i) ".default_recursing_part_index(&value." i ", &cache." ti(i) ") ,"
+                )
+                "inner: vec![" join_ts!(0..nbr_elements, i, "TupleIndex::" Ti(i), separator: ",") "]
+            }
+        }
+        #[doc(hidden)]
+        #[no_coverage]
+        fn recursing_part<'a, ___V, ___N>(&self, parent: &___N, value:" tuple_ref ", index: &mut Self::RecursingPartIndex) -> " cm.Option " <&'a ___V>
+        where
+            ___V: " cm.Clone " + 'static,
+            ___N: " cm.fuzzcheck_traits_Mutator " <___V>
+        {
+            if index.inner.is_empty() {
+                return " cm.None "
+            }
+            let choice = self.rng.usize(..index.inner.len());
+            let tuple_index = &index.inner[choice];
+            match tuple_index {
+            " join_ts!(0..nbr_elements, i,
+                "TupleIndex::" Ti(i) "=> {
+                    let result = self. " mutator_i(i) ".recursing_part::<___V, ___N>(parent, &value." i ", &mut index." ti(i) ");
+                    if result.is_none() {
+                        index.inner.remove(choice);
+                        " SelfAsTupleMutator "::recursing_part::<___V, ___N>(self, parent, value, index)
+                    } else {
+                        result
+                    }
+                }"
+            )"
+            }
+        }
     }
     "
     )

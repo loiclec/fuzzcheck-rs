@@ -93,6 +93,28 @@ impl<T: Clone, M: Mutator<T>> Mutator<Box<T>> for BoxMutator<M> {
     fn unmutate(&self, value: &mut Box<T>, cache: &mut Self::Cache, t: Self::UnmutateToken) {
         self.mutator.unmutate(value, cache, t)
     }
+
+    #[doc(hidden)]
+    type RecursingPartIndex = M::RecursingPartIndex;
+    #[doc(hidden)]
+    #[no_coverage]
+    fn default_recursing_part_index(&self, value: &Box<T>, cache: &Self::Cache) -> Self::RecursingPartIndex {
+        self.mutator.default_recursing_part_index(value, cache)
+    }
+    #[doc(hidden)]
+    #[no_coverage]
+    fn recursing_part<'a, V, N>(
+        &self,
+        parent: &N,
+        value: &'a Box<T>,
+        index: &mut Self::RecursingPartIndex,
+    ) -> Option<&'a V>
+    where
+        V: Clone + 'static,
+        N: Mutator<V>,
+    {
+        self.mutator.recursing_part::<V, N>(parent, value, index)
+    }
 }
 
 impl<T> DefaultMutator for Box<T>

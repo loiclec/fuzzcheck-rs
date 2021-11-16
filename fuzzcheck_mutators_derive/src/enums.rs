@@ -60,7 +60,7 @@ pub(crate) fn impl_default_mutator_for_enum(tb: &mut TokenBuilder, enu: &Enum, s
             EnumSingleVariant "<"
                 join_ts!(field_mutators.iter(), item_field_mutators,
                     if item_field_mutators.is_empty() {
-                        ts!(cm.UnitMutator "<()>")
+                        ts!(TupleNMutator(0))
                     } else {
                         ts!(
                             TupleNMutator(item_field_mutators.len()) "<"
@@ -103,7 +103,7 @@ pub(crate) fn impl_default_mutator_for_enum(tb: &mut TokenBuilder, enu: &Enum, s
                                     ")"
                                ),
                             _ => ts!(
-                                cm.UnitMutator "::default()"
+                                TupleNMutator(0)
                             )
                         }
                         ")"

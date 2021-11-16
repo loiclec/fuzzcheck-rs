@@ -415,7 +415,7 @@ mod tests {
     // #[test]
     // #[no_coverage] fn test_recurse_2() {
     //     // this one overflows the stack!
-    //     // here, as a mitigation, I could set a recursion limit, every time a recursing grammar
+    //     // here, as a mitigation, I could set a recursion limit, every time a recursive grammar
     //     // is parsed, the recursion limit goes down to 1
     //     let main_rule = Rc::new_cyclic(|grammar| {
     //         let letter = literal_range('a'..='z');

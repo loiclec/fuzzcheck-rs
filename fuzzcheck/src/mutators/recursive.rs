@@ -46,8 +46,11 @@
 //! # }
 //! ```
 
-use crate::{traits::MutatorWrapper, Mutator};
-use std::rc::{Rc, Weak};
+use crate::Mutator;
+use std::{
+    any::Any,
+    rc::{Rc, Weak},
+};
 
 /// The ArbitraryStep that is used for recursive mutators
 #[derive(Clone)]
@@ -61,6 +64,7 @@ impl<AS> Default for RecursingArbitraryStep<AS> {
         Self::Default
     }
 }
+
 /**
 A wrapper that allows a mutator to call itself recursively.
 
@@ -107,6 +111,7 @@ let s_mutator = RecursiveMutator::new(|mutator| {
 */
 pub struct RecursiveMutator<M> {
     pub mutator: Rc<M>,
+    rng: fastrand::Rng,
 }
 impl<M> RecursiveMutator<M> {
     /// Create a new `RecursiveMutator` using a weak reference to itself.
@@ -114,6 +119,7 @@ impl<M> RecursiveMutator<M> {
     pub fn new(data_fn: impl FnOnce(&Weak<M>) -> M) -> Self {
         Self {
             mutator: Rc::new_cyclic(data_fn),
+            rng: fastrand::Rng::new(),
         }
     }
 }
@@ -135,7 +141,7 @@ impl<M> From<&Weak<M>> for RecurToMutator<M> {
 impl<T, M> Mutator<T> for RecurToMutator<M>
 where
     M: Mutator<T>,
-    T: Clone,
+    T: Clone + 'static,
 {
     #[doc(hidden)]
     type Cache = <M as Mutator<T>>::Cache;
@@ -187,10 +193,9 @@ where
         match step {
             RecursingArbitraryStep::Default => {
                 let mutator = self.reference.upgrade().unwrap();
-                let mut inner_step = mutator.default_arbitrary_step();
-                let result = mutator.ordered_arbitrary(&mut inner_step, max_cplx);
+                let inner_step = mutator.default_arbitrary_step();
                 *step = RecursingArbitraryStep::Initialized(inner_step);
-                result
+                self.ordered_arbitrary(step, max_cplx)
             }
             RecursingArbitraryStep::Initialized(inner_step) => self
                 .reference
@@ -232,13 +237,199 @@ where
     fn unmutate(&self, value: &mut T, cache: &mut Self::Cache, t: Self::UnmutateToken) {
         self.reference.upgrade().unwrap().unmutate(value, cache, t)
     }
+
+    #[doc(hidden)]
+    type RecursingPartIndex = bool;
+    #[doc(hidden)]
+    #[no_coverage]
+    fn default_recursing_part_index(&self, _value: &T, _cache: &Self::Cache) -> Self::RecursingPartIndex {
+        false
+    }
+    #[doc(hidden)]
+    #[no_coverage]
+    fn recursing_part<'a, V, N>(&self, parent: &N, value: &'a T, index: &mut Self::RecursingPartIndex) -> Option<&'a V>
+    where
+        V: Clone + 'static,
+        N: Mutator<V>,
+    {
+        if *index {
+            None
+        } else {
+            *index = true;
+            let parent_any: &dyn Any = parent;
+            if let Some(parent) = parent_any.downcast_ref::<RecursiveMutator<M>>() {
+                if Rc::downgrade(&parent.mutator).ptr_eq(&self.reference) {
+                    let v: &dyn Any = value;
+                    let v = v.downcast_ref::<V>().unwrap();
+                    Some(v)
+                } else {
+                    None
+                }
+            } else {
+                None
+            }
+        }
+    }
 }
 
-impl<M> MutatorWrapper for RecursiveMutator<M> {
-    type Wrapped = M;
+#[derive(Clone)]
+pub struct RecursiveMutatorMutationStep<MS, RPI> {
+    recursing_part_index: Option<RPI>,
+    mutation_step: MS,
+}
 
+pub enum RecursiveMutatorUnmutateToken<T, UnmutateToken> {
+    Replace(T),
+    Token(UnmutateToken),
+}
+
+impl<M, T: Clone + 'static> Mutator<T> for RecursiveMutator<M>
+where
+    M: Mutator<T>,
+{
+    type Cache = M::Cache;
+    type MutationStep = RecursiveMutatorMutationStep<M::MutationStep, M::RecursingPartIndex>;
+    type ArbitraryStep = M::ArbitraryStep;
+    type UnmutateToken = RecursiveMutatorUnmutateToken<T, M::UnmutateToken>;
+
+    #[doc(hidden)]
     #[no_coverage]
-    fn wrapped_mutator(&self) -> &Self::Wrapped {
-        Rc::as_ref(&self.mutator)
+    fn default_arbitrary_step(&self) -> Self::ArbitraryStep {
+        self.mutator.default_arbitrary_step()
+    }
+
+    #[doc(hidden)]
+    #[no_coverage]
+    fn validate_value(&self, value: &T) -> Option<(Self::Cache, Self::MutationStep)> {
+        if let Some((cache, mutation_step)) = self.mutator.validate_value(value) {
+            let recursing_part_index = Some(self.default_recursing_part_index(value, &cache));
+            Some((
+                cache,
+                RecursiveMutatorMutationStep {
+                    mutation_step,
+                    recursing_part_index,
+                },
+            ))
+        } else {
+            None
+        }
+    }
+
+    #[doc(hidden)]
+    #[no_coverage]
+    fn max_complexity(&self) -> f64 {
+        self.mutator.max_complexity()
+    }
+
+    #[doc(hidden)]
+    #[no_coverage]
+    fn min_complexity(&self) -> f64 {
+        self.mutator.min_complexity()
+    }
+
+    #[doc(hidden)]
+    #[no_coverage]
+    fn complexity(&self, value: &T, cache: &Self::Cache) -> f64 {
+        self.mutator.complexity(value, cache)
+    }
+
+    #[doc(hidden)]
+    #[no_coverage]
+    fn ordered_arbitrary(&self, step: &mut Self::ArbitraryStep, max_cplx: f64) -> Option<(T, f64)> {
+        self.mutator.ordered_arbitrary(step, max_cplx)
+    }
+
+    #[doc(hidden)]
+    #[no_coverage]
+    fn random_arbitrary(&self, max_cplx: f64) -> (T, f64) {
+        self.mutator.random_arbitrary(max_cplx)
+    }
+
+    #[doc(hidden)]
+    #[no_coverage]
+    fn ordered_mutate(
+        &self,
+        value: &mut T,
+        cache: &mut Self::Cache,
+        step: &mut Self::MutationStep,
+        max_cplx: f64,
+    ) -> Option<(Self::UnmutateToken, f64)> {
+        if let Some(recursing_part_index) = &mut step.recursing_part_index {
+            if let Some(new) = self
+                .mutator
+                .recursing_part::<T, Self>(self, value, recursing_part_index)
+            {
+                let mut new = new.clone();
+                let (cache, _) = self.validate_value(&new).unwrap();
+                let cplx = self.complexity(&new, &cache);
+                std::mem::swap(value, &mut new);
+                let token = RecursiveMutatorUnmutateToken::Replace(new);
+                Some((token, cplx))
+            } else {
+                step.recursing_part_index = None;
+                self.ordered_mutate(value, cache, step, max_cplx)
+            }
+        } else {
+            if let Some((token, cplx)) = self
+                .mutator
+                .ordered_mutate(value, cache, &mut step.mutation_step, max_cplx)
+            {
+                Some((RecursiveMutatorUnmutateToken::Token(token), cplx))
+            } else {
+                None
+            }
+        }
+    }
+
+    #[doc(hidden)]
+    #[no_coverage]
+    fn random_mutate(&self, value: &mut T, cache: &mut Self::Cache, max_cplx: f64) -> (Self::UnmutateToken, f64) {
+        if self.rng.usize(..100) == 0 {
+            let mut recursing_part_index = self.default_recursing_part_index(value, cache);
+            if let Some(new) = self
+                .mutator
+                .recursing_part::<T, Self>(self, value, &mut recursing_part_index)
+            {
+                let mut new = new.clone();
+                let (cache, _) = self.validate_value(&new).unwrap();
+                let cplx = self.complexity(&new, &cache);
+                std::mem::swap(value, &mut new);
+                let token = RecursiveMutatorUnmutateToken::Replace(new);
+                return (token, cplx);
+            }
+        }
+        let (token, cplx) = self.mutator.random_mutate(value, cache, max_cplx);
+        let token = RecursiveMutatorUnmutateToken::Token(token);
+        return (token, cplx);
+    }
+
+    #[doc(hidden)]
+    #[no_coverage]
+    fn unmutate(&self, value: &mut T, cache: &mut Self::Cache, t: Self::UnmutateToken) {
+        match t {
+            RecursiveMutatorUnmutateToken::Replace(x) => {
+                let _ = std::mem::replace(value, x);
+            }
+            RecursiveMutatorUnmutateToken::Token(t) => self.mutator.unmutate(value, cache, t),
+        }
+    }
+
+    #[doc(hidden)]
+    type RecursingPartIndex = M::RecursingPartIndex;
+
+    #[doc(hidden)]
+    #[no_coverage]
+    fn default_recursing_part_index(&self, value: &T, cache: &Self::Cache) -> Self::RecursingPartIndex {
+        self.mutator.default_recursing_part_index(value, cache)
+    }
+
+    #[doc(hidden)]
+    #[no_coverage]
+    fn recursing_part<'a, V, N>(&self, parent: &N, value: &'a T, index: &mut Self::RecursingPartIndex) -> Option<&'a V>
+    where
+        V: Clone + 'static,
+        N: Mutator<V>,
+    {
+        self.mutator.recursing_part::<V, N>(parent, value, index)
     }
 }

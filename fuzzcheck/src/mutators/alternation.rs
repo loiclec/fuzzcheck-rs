@@ -97,7 +97,15 @@ pub struct ArbitraryStep<AS> {
 
 #[doc(hidden)]
 #[derive(Clone)]
+pub struct RecursingPartIndex<RPI> {
+    inner: Vec<RPI>,
+    indices: Vec<usize>,
+}
+
+#[doc(hidden)]
+#[derive(Clone)]
 pub struct MutationStep<MS, AS> {
+    step: usize,
     mutator_idx: usize,
     inner: MS,
     arbitrary: AS,
@@ -128,6 +136,7 @@ where
         idx: usize,
     ) -> MutationStep<M::MutationStep, <Self as Mutator<T>>::ArbitraryStep> {
         MutationStep {
+            step: 0,
             mutator_idx: idx,
             inner,
             arbitrary: {
@@ -155,7 +164,7 @@ where
 
 impl<T, M> Mutator<T> for AlternationMutator<T, M>
 where
-    T: Clone,
+    T: Clone + 'static,
     M: Mutator<T>,
 {
     #[doc(hidden)]
@@ -271,6 +280,7 @@ where
         if step.is_empty() {
             return None;
         }
+
         if self.rng.usize(..100) == 0 {
             let (new_value, cplx) = self.random_arbitrary(max_cplx);
             let old_value = ::std::mem::replace(value, new_value);
@@ -279,6 +289,14 @@ where
 
         let step_idx = self.rng.usize(..step.len());
         let chosen_step = &mut step[step_idx];
+        chosen_step.step += 1;
+        if chosen_step.step < 20 {
+            if let Some((mut v, cplx)) = self.ordered_arbitrary(&mut chosen_step.arbitrary, max_cplx) {
+                std::mem::swap(value, &mut v);
+                return Some((UnmutateToken::Replace(v), cplx));
+            }
+        }
+
         let mutator_idx = chosen_step.mutator_idx;
         let chosen_cache = cache.iter_mut().find(|c| c.mutator_idx == mutator_idx).unwrap();
 
@@ -339,6 +357,51 @@ where
                 let cache = cache.iter_mut().find(|c| c.mutator_idx == idx).unwrap();
                 mutator.unmutate(value, &mut cache.inner, t);
             }
+        }
+    }
+
+    #[doc(hidden)]
+    type RecursingPartIndex = RecursingPartIndex<M::RecursingPartIndex>;
+
+    #[doc(hidden)]
+    #[no_coverage]
+    fn default_recursing_part_index(&self, value: &T, cache: &Self::Cache) -> Self::RecursingPartIndex {
+        Self::RecursingPartIndex {
+            inner: cache
+                .iter()
+                .map(|c| self.mutators[c.mutator_idx].default_recursing_part_index(value, &c.inner))
+                .collect(),
+            indices: cache.iter().map(|c| c.mutator_idx).collect(),
+        }
+    }
+
+    #[doc(hidden)]
+    #[no_coverage]
+    fn recursing_part<'a, V, N>(&self, parent: &N, value: &'a T, index: &mut Self::RecursingPartIndex) -> Option<&'a V>
+    where
+        V: Clone + 'static,
+        N: Mutator<V>,
+    {
+        // if vector is empty, return Nlne
+        if index.inner.is_empty() {
+            return None;
+        }
+
+        // choose a recursing part randomly
+        let choice = self.rng.usize(..index.inner.len());
+        let subindex = &mut index.inner[choice];
+        let mutator_index = index.indices[choice];
+
+        // call it
+        let result = self.mutators[mutator_index].recursing_part::<V, N>(parent, value, subindex);
+
+        // if none, remove it from the vector and call the function again
+        if result.is_none() {
+            index.inner.remove(choice);
+            index.indices.remove(choice);
+            self.recursing_part::<V, N>(parent, value, index)
+        } else {
+            result
         }
     }
 }

@@ -636,6 +636,20 @@ pub type BasicAndMaxHitsPool = AndPool<SimplestToActivateCounterPool, MaxHitsPoo
 /// An alias for the combination of the [`BasicPool`], the [`DiversePool`], and the [`MaxHitsPool`]
 pub type BasicAndDiverseAndMaxHitsPool = AndPool<SimplestToActivateCounterPool, AndPool<DiversePool, MaxHitsPool>>;
 
+#[no_coverage]
+pub fn max_cov_hits_sensor_and_pool() -> CodeCoverageSensorAndPoolBuilder<MaxHitsPool> {
+    let sensor = CodeCoverageSensor::observing_only_files_from_current_dir();
+    let nbr_counters = sensor.count_instrumented;
+    CodeCoverageSensorAndPoolBuilder {
+        sensor,
+        pool: AndPool::new(
+            MaximiseCounterValuePool::new("max_each_cov_hits", nbr_counters),
+            OptimiseAggregateStatPool::<SumOfCounterValues>::new("max_total_cov_hits"),
+            192, // choose max_each_cov_hits ~75% of the time
+        ),
+    }
+}
+
 /// Create the initial [sensor and pool builder](CodeCoverageSensorAndPoolBuilder)
 ///
 /// Use [`.find_most_diverse_set_of_test_cases()`](CodeCoverageSensorAndPoolBuilder::<BasicPool>::find_most_diverse_set_of_test_cases)

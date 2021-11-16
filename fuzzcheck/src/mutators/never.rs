@@ -5,13 +5,13 @@ pub enum NeverMutator {}
 
 impl<T: Clone> Mutator<T> for NeverMutator {
     #[doc(hidden)]
-type Cache = ();
+    type Cache = ();
     #[doc(hidden)]
-type MutationStep = ();
+    type MutationStep = ();
     #[doc(hidden)]
-type ArbitraryStep = ();
+    type ArbitraryStep = ();
     #[doc(hidden)]
-type UnmutateToken = ();
+    type UnmutateToken = ();
     #[doc(hidden)]
     #[no_coverage]
     fn default_arbitrary_step(&self) -> Self::ArbitraryStep {
@@ -55,7 +55,7 @@ type UnmutateToken = ();
     }
 
     #[doc(hidden)]
-#[no_coverage]
+    #[no_coverage]
     fn ordered_mutate(
         &self,
         _value: &mut T,
@@ -67,14 +67,35 @@ type UnmutateToken = ();
     }
 
     #[doc(hidden)]
-#[no_coverage]
+    #[no_coverage]
     fn random_mutate(&self, _value: &mut T, _cache: &mut Self::Cache, _max_cplx: f64) -> (Self::UnmutateToken, f64) {
         unreachable!()
     }
 
-   #[doc(hidden)]
- #[no_coverage]
+    #[doc(hidden)]
+    #[no_coverage]
     fn unmutate(&self, _value: &mut T, _cache: &mut Self::Cache, _t: Self::UnmutateToken) {
+        unreachable!()
+    }
+    #[doc(hidden)]
+    type RecursingPartIndex = ();
+    #[doc(hidden)]
+    #[no_coverage]
+    fn default_recursing_part_index(&self, _value: &T, _cache: &Self::Cache) -> Self::RecursingPartIndex {
+        unreachable!()
+    }
+    #[doc(hidden)]
+    #[no_coverage]
+    fn recursing_part<'a, V, N>(
+        &self,
+        _parent: &N,
+        _value: &'a T,
+        _index: &mut Self::RecursingPartIndex,
+    ) -> Option<&'a V>
+    where
+        V: Clone + 'static,
+        N: Mutator<V>,
+    {
         unreachable!()
     }
 }
@@ -84,13 +105,13 @@ where
     T: TupleStructure<TupleKind>,
 {
     #[doc(hidden)]
-type Cache = ();
+    type Cache = ();
     #[doc(hidden)]
-type MutationStep = ();
+    type MutationStep = ();
     #[doc(hidden)]
-type ArbitraryStep = ();
+    type ArbitraryStep = ();
     #[doc(hidden)]
-type UnmutateToken = ();
+    type UnmutateToken = ();
 
     #[doc(hidden)]
     #[no_coverage]
@@ -99,13 +120,13 @@ type UnmutateToken = ();
     }
 
     #[no_coverage]
-    fn complexity<'a>(&'a self, _value: TupleKind::Ref<'a>, _cache: &'a Self::Cache) -> f64 {
+    fn complexity<'a>(&self, _value: TupleKind::Ref<'a>, _cache: &'a Self::Cache) -> f64 {
         unreachable!()
     }
 
     #[doc(hidden)]
     #[no_coverage]
-    fn validate_value<'a>(&'a self, _value: TupleKind::Ref<'a>) -> Option<(Self::Cache, Self::MutationStep)> {
+    fn validate_value<'a>(&self, _value: TupleKind::Ref<'a>) -> Option<(Self::Cache, Self::MutationStep)> {
         unreachable!()
     }
 
@@ -134,9 +155,9 @@ type UnmutateToken = ();
     }
 
     #[doc(hidden)]
-#[no_coverage]
+    #[no_coverage]
     fn ordered_mutate<'a>(
-        &'a self,
+        &self,
         _value: TupleKind::Mut<'a>,
         _cache: &'a mut Self::Cache,
         _step: &'a mut Self::MutationStep,
@@ -146,9 +167,9 @@ type UnmutateToken = ();
     }
 
     #[doc(hidden)]
-#[no_coverage]
+    #[no_coverage]
     fn random_mutate<'a>(
-        &'a self,
+        &self,
         _value: TupleKind::Mut<'a>,
         _cache: &'a mut Self::Cache,
         _max_cplx: f64,
@@ -156,9 +177,35 @@ type UnmutateToken = ();
         unreachable!()
     }
 
-   #[doc(hidden)]
- #[no_coverage]
-    fn unmutate<'a>(&'a self, _value: TupleKind::Mut<'a>, _cache: &'a mut Self::Cache, _t: Self::UnmutateToken) {
+    #[doc(hidden)]
+    #[no_coverage]
+    fn unmutate<'a>(&self, _value: TupleKind::Mut<'a>, _cache: &'a mut Self::Cache, _t: Self::UnmutateToken) {
         unreachable!()
+    }
+
+    type RecursingPartIndex = ();
+
+    #[doc(hidden)]
+    #[no_coverage]
+    fn default_recursing_part_index<'a>(
+        &self,
+        _value: TupleKind::Ref<'a>,
+        _cache: &Self::Cache,
+    ) -> Self::RecursingPartIndex {
+    }
+
+    #[doc(hidden)]
+    #[no_coverage]
+    fn recursing_part<'a, V, N>(
+        &self,
+        _parent: &N,
+        _value: TupleKind::Ref<'a>,
+        _index: &mut Self::RecursingPartIndex,
+    ) -> Option<&'a V>
+    where
+        V: Clone + 'static,
+        N: Mutator<V>,
+    {
+        None
     }
 }

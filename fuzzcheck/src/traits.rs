@@ -143,7 +143,7 @@ Note that in most cases, it is completely fine to never mutate a value’s cache
 since it is recomputed by [`validate_value`](crate::Mutator::validate_value) when
 needed.
 **/
-pub trait Mutator<Value: Clone> {
+pub trait Mutator<Value: Clone>: 'static {
     /// Accompanies each value to help compute its complexity and mutate it efficiently.
     type Cache: Clone;
     /// Contains information about what mutations have already been tried.
@@ -229,6 +229,19 @@ pub trait Mutator<Value: Clone> {
     /// Undoes a mutation performed on the given value and cache, described by
     /// the given [`UnmutateToken`](Mutator::UnmutateToken).
     fn unmutate(&self, value: &mut Value, cache: &mut Self::Cache, t: Self::UnmutateToken);
+
+    type RecursingPartIndex: Clone;
+
+    fn default_recursing_part_index(&self, value: &Value, cache: &Self::Cache) -> Self::RecursingPartIndex;
+    fn recursing_part<'a, T, M>(
+        &self,
+        parent: &M,
+        value: &'a Value,
+        index: &mut Self::RecursingPartIndex,
+    ) -> Option<&'a T>
+    where
+        T: Clone + 'static,
+        M: Mutator<T>;
 }
 
 /**
@@ -272,6 +285,7 @@ impl<T: Clone, W, M> Mutator<T> for M
 where
     M: MutatorWrapper<Wrapped = W>,
     W: Mutator<T>,
+    Self: 'static,
 {
     #[doc(hidden)]
     type Cache = W::Cache;
@@ -347,7 +361,26 @@ where
     fn unmutate(&self, value: &mut T, cache: &mut Self::Cache, t: Self::UnmutateToken) {
         self.wrapped_mutator().unmutate(value, cache, t)
     }
+
+    #[doc(hidden)]
+    type RecursingPartIndex = W::RecursingPartIndex;
+    #[doc(hidden)]
+    #[no_coverage]
+    fn default_recursing_part_index(&self, value: &T, cache: &Self::Cache) -> Self::RecursingPartIndex {
+        self.wrapped_mutator().default_recursing_part_index(value, cache)
+    }
+    #[doc(hidden)]
+    #[no_coverage]
+    fn recursing_part<'a, V, N>(&self, parent: &N, value: &'a T, index: &mut Self::RecursingPartIndex) -> Option<&'a V>
+    where
+        V: Clone + 'static,
+        N: Mutator<V>,
+    {
+        let m = self.wrapped_mutator();
+        m.recursing_part::<V, N>(parent, value, index)
+    }
 }
+
 impl<M> MutatorWrapper for Box<M> {
     type Wrapped = M;
     #[no_coverage]

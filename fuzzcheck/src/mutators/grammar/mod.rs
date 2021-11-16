@@ -104,6 +104,5 @@ pub use mutators::grammar_based_ast_mutator;
 
 #[doc(inline)]
 pub use mutators::grammar_based_string_mutator;
-
 pub use mutators::GrammarBasedASTMutator;
 pub use mutators::GrammarBasedStringMutator;

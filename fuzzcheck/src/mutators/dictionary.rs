@@ -67,15 +67,15 @@ impl<T> Default for ArbitraryStep<T> {
     }
 }
 
-impl<T: Clone, M: Mutator<T>> Mutator<T> for DictionaryMutator<T, M> {
+impl<T: Clone + 'static, M: Mutator<T>> Mutator<T> for DictionaryMutator<T, M> {
     #[doc(hidden)]
-type Cache = M::Cache;
+    type Cache = M::Cache;
     #[doc(hidden)]
-type MutationStep = self::MutationStep<M::MutationStep>;
+    type MutationStep = self::MutationStep<M::MutationStep>;
     #[doc(hidden)]
-type ArbitraryStep = self::ArbitraryStep<M::ArbitraryStep>;
+    type ArbitraryStep = self::ArbitraryStep<M::ArbitraryStep>;
     #[doc(hidden)]
-type UnmutateToken = UnmutateToken<T, M>;
+    type UnmutateToken = UnmutateToken<T, M>;
 
     #[doc(hidden)]
     #[no_coverage]
@@ -193,5 +193,21 @@ type UnmutateToken = UnmutateToken<T, M>;
             }
             UnmutateToken::Unmutate(t) => self.m.unmutate(value, cache, t),
         }
+    }
+    #[doc(hidden)]
+    type RecursingPartIndex = M::RecursingPartIndex;
+    #[doc(hidden)]
+    #[no_coverage]
+    fn default_recursing_part_index(&self, value: &T, cache: &Self::Cache) -> Self::RecursingPartIndex {
+        self.m.default_recursing_part_index(value, cache)
+    }
+    #[doc(hidden)]
+    #[no_coverage]
+    fn recursing_part<'a, V, N>(&self, parent: &N, value: &'a T, index: &mut Self::RecursingPartIndex) -> Option<&'a V>
+    where
+        V: Clone + 'static,
+        N: Mutator<V>,
+    {
+        self.m.recursing_part::<V, N>(parent, value, index)
     }
 }

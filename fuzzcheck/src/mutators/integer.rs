@@ -158,35 +158,35 @@ macro_rules! impl_int_mutator {
             type ArbitraryStep = u64;
             #[doc(hidden)]
             type UnmutateToken = $name; // old value
-
+            #[doc(hidden)]
             #[no_coverage]
             fn default_arbitrary_step(&self) -> Self::ArbitraryStep {
                 <_>::default()
             }
-
+            #[doc(hidden)]
             #[no_coverage]
             fn validate_value(&self, _value: &$name) -> Option<(Self::Cache, Self::MutationStep)> {
                 Some(((), INITIAL_MUTATION_STEP))
             }
 
             /// The maximum complexity of an input of this type
-
+            #[doc(hidden)]
             #[no_coverage]
             fn max_complexity(&self) -> f64 {
                 <$name>::BITS as f64
             }
             /// The minimum complexity of an input of this type
-
+            #[doc(hidden)]
             #[no_coverage]
             fn min_complexity(&self) -> f64 {
                 <$name>::BITS as f64
             }
-
+            #[doc(hidden)]
             #[no_coverage]
             fn complexity(&self, _value: &$name, _cache: &Self::Cache) -> f64 {
                 <$name>::BITS as f64
             }
-
+            #[doc(hidden)]
             #[no_coverage]
             fn ordered_arbitrary(&self, step: &mut Self::ArbitraryStep, max_cplx: f64) -> Option<($name, f64)> {
                 if max_cplx < self.min_complexity() {
@@ -200,13 +200,13 @@ macro_rules! impl_int_mutator {
                     Some((value, <$name>::BITS as f64))
                 }
             }
-
+            #[doc(hidden)]
             #[no_coverage]
             fn random_arbitrary(&self, _max_cplx: f64) -> ($name, f64) {
                 let value = self.rng.$name(..);
                 (value, <$name>::BITS as f64)
             }
-
+            #[doc(hidden)]
             #[no_coverage]
             fn ordered_mutate(
                 &self,
@@ -240,7 +240,7 @@ macro_rules! impl_int_mutator {
 
                 Some((token, <$name>::BITS as f64))
             }
-
+            #[doc(hidden)]
             #[no_coverage]
             fn random_mutate(
                 &self,
@@ -250,10 +250,30 @@ macro_rules! impl_int_mutator {
             ) -> (Self::UnmutateToken, f64) {
                 (std::mem::replace(value, self.rng.$name(..)), <$name>::BITS as f64)
             }
-
+            #[doc(hidden)]
             #[no_coverage]
             fn unmutate(&self, value: &mut $name, _cache: &mut Self::Cache, t: Self::UnmutateToken) {
                 *value = t;
+            }
+
+            #[doc(hidden)]
+            type RecursingPartIndex = ();
+            #[doc(hidden)]
+            #[no_coverage]
+            fn default_recursing_part_index(&self, _value: &$name, _cache: &Self::Cache) -> Self::RecursingPartIndex {}
+            #[doc(hidden)]
+            #[no_coverage]
+            fn recursing_part<'a, V, N>(
+                &self,
+                _parent: &N,
+                _value: &'a $name,
+                _index: &mut Self::RecursingPartIndex,
+            ) -> Option<&'a V>
+            where
+                V: Clone + 'static,
+                N: Mutator<V> + 'static,
+            {
+                None
             }
         }
 

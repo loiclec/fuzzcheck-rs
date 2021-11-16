@@ -67,6 +67,7 @@ where
     Parse: Fn(&To) -> Option<From>,
     Map: Fn(&From) -> To,
     Complexity: Fn(&To, f64) -> f64,
+    Self: 'static,
 {
     #[doc(hidden)]
     type Cache = Cache<From, M>;
@@ -161,5 +162,25 @@ where
     fn unmutate(&self, value: &mut To, cache: &mut Self::Cache, t: Self::UnmutateToken) {
         self.mutator.unmutate(&mut cache.from_value, &mut cache.from_cache, t);
         *value = (self.map)(&cache.from_value);
+    }
+
+    // TODO: Not yet supported for MapMutator
+    // it would require `recursing_part` to take the `cache` value as argument as well
+    // maybe I should do that, but I haven't thought about it yet
+    type RecursingPartIndex = ();
+
+    fn default_recursing_part_index(&self, _value: &To, _cache: &Self::Cache) -> Self::RecursingPartIndex {}
+
+    fn recursing_part<'a, V, N>(
+        &self,
+        _parent: &N,
+        _value: &'a To,
+        _index: &mut Self::RecursingPartIndex,
+    ) -> Option<&'a V>
+    where
+        V: Clone + 'static,
+        N: Mutator<V>,
+    {
+        None
     }
 }

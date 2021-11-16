@@ -72,6 +72,10 @@ impl ASTMutatorUnmutateToken {
         Self { inner: Box::new(inner) }
     }
 }
+#[derive(Clone)]
+pub struct ASTMutatorRecursingPartIndex {
+    inner: Box<<InnerASTMutator as Mutator<AST>>::RecursingPartIndex>,
+}
 impl Mutator<AST> for ASTMutator {
     #[doc(hidden)]
     type Cache = ASTMutatorCache;
@@ -153,6 +157,32 @@ impl Mutator<AST> for ASTMutator {
     #[no_coverage]
     fn unmutate(&self, value: &mut AST, cache: &mut Self::Cache, t: Self::UnmutateToken) {
         self.inner.unmutate(value, &mut cache.inner, *t.inner)
+    }
+
+    #[doc(hidden)]
+    type RecursingPartIndex = ASTMutatorRecursingPartIndex;
+
+    #[doc(hidden)]
+    #[no_coverage]
+    fn default_recursing_part_index(&self, value: &AST, cache: &Self::Cache) -> Self::RecursingPartIndex {
+        Self::RecursingPartIndex {
+            inner: Box::new(self.inner.default_recursing_part_index(value, &cache.inner)),
+        }
+    }
+
+    #[doc(hidden)]
+    #[no_coverage]
+    fn recursing_part<'a, T, M>(
+        &self,
+        parent: &M,
+        value: &'a AST,
+        index: &mut Self::RecursingPartIndex,
+    ) -> Option<&'a T>
+    where
+        T: Clone + 'static,
+        M: Mutator<T>,
+    {
+        self.inner.recursing_part::<T, M>(parent, value, &mut index.inner)
     }
 }
 

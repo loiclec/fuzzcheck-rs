@@ -3,6 +3,13 @@ use std::marker::PhantomData;
 use crate::Mutator;
 use fastrand::Rng;
 
+#[doc(hidden)]
+#[derive(Clone)]
+pub struct RecursingPartIndex<RPI> {
+    inner: Vec<RPI>,
+    indices: Vec<usize>,
+}
+
 /// A mutator for vectors of a specific length
 ///
 /// A different mutator is used for each element of the vector
@@ -19,7 +26,7 @@ where
 }
 impl<T, M> FixedLenVecMutator<T, M>
 where
-    T: Clone,
+    T: Clone + 'static,
     M: Mutator<T> + Clone,
 {
     #[no_coverage]
@@ -30,7 +37,7 @@ where
 
 impl<T, M> FixedLenVecMutator<T, M>
 where
-    T: Clone,
+    T: Clone + 'static,
     M: Mutator<T>,
 {
     #[no_coverage]
@@ -75,7 +82,7 @@ pub enum UnmutateVecToken<T: Clone, M: Mutator<T>> {
     Replace(Vec<T>),
 }
 
-impl<T: Clone, M: Mutator<T>> FixedLenVecMutator<T, M> {
+impl<T: Clone + 'static, M: Mutator<T>> FixedLenVecMutator<T, M> {
     #[no_coverage]
     fn len(&self) -> usize {
         self.mutators.len()
@@ -154,15 +161,15 @@ impl<T: Clone, M: Mutator<T>> FixedLenVecMutator<T, M> {
     }
 }
 
-impl<T: Clone, M: Mutator<T>> Mutator<Vec<T>> for FixedLenVecMutator<T, M> {
+impl<T: Clone + 'static, M: Mutator<T>> Mutator<Vec<T>> for FixedLenVecMutator<T, M> {
     #[doc(hidden)]
-type Cache = VecMutatorCache<M::Cache>;
+    type Cache = VecMutatorCache<M::Cache>;
     #[doc(hidden)]
-type MutationStep = MutationStep<M::MutationStep>;
+    type MutationStep = MutationStep<M::MutationStep>;
     #[doc(hidden)]
-type ArbitraryStep = ();
+    type ArbitraryStep = ();
     #[doc(hidden)]
-type UnmutateToken = UnmutateVecToken<T, M>;
+    type UnmutateToken = UnmutateVecToken<T, M>;
 
     #[doc(hidden)]
     #[no_coverage]
@@ -278,7 +285,7 @@ type UnmutateToken = UnmutateVecToken<T, M>;
     }
 
     #[doc(hidden)]
-#[no_coverage]
+    #[no_coverage]
     fn random_mutate(&self, value: &mut Vec<T>, cache: &mut Self::Cache, max_cplx: f64) -> (Self::UnmutateToken, f64) {
         if value.is_empty() || self.rng.usize(0..100) == 0 {
             let (mut v, cplx) = self.random_arbitrary(max_cplx);
@@ -308,8 +315,8 @@ type UnmutateToken = UnmutateVecToken<T, M>;
         )
     }
 
-   #[doc(hidden)]
- #[no_coverage]
+    #[doc(hidden)]
+    #[no_coverage]
     fn unmutate(&self, value: &mut Vec<T>, cache: &mut Self::Cache, t: Self::UnmutateToken) {
         match t {
             UnmutateVecToken::Element(idx, inner_t) => {
@@ -325,6 +332,51 @@ type UnmutateToken = UnmutateVecToken<T, M>;
             UnmutateVecToken::Replace(new_value) => {
                 let _ = std::mem::replace(value, new_value);
             }
+        }
+    }
+
+    #[doc(hidden)]
+    type RecursingPartIndex = RecursingPartIndex<M::RecursingPartIndex>;
+    #[doc(hidden)]
+    #[no_coverage]
+    fn default_recursing_part_index(&self, value: &Vec<T>, cache: &Self::Cache) -> Self::RecursingPartIndex {
+        RecursingPartIndex {
+            inner: value
+                .iter()
+                .zip(cache.inner.iter())
+                .zip(self.mutators.iter())
+                .map(|((v, c), m)| m.default_recursing_part_index(v, c))
+                .collect(),
+            indices: (0..value.len()).collect(),
+        }
+    }
+    #[doc(hidden)]
+    #[no_coverage]
+    fn recursing_part<'a, V, N>(
+        &self,
+        parent: &N,
+        value: &'a Vec<T>,
+        index: &mut Self::RecursingPartIndex,
+    ) -> Option<&'a V>
+    where
+        V: Clone + 'static,
+        N: Mutator<V>,
+    {
+        assert_eq!(index.inner.len(), index.indices.len());
+        if index.inner.is_empty() {
+            return None;
+        }
+        let choice = self.rng.usize(..index.inner.len());
+        let subindex = &mut index.inner[choice];
+        let value_index = index.indices[choice];
+        let v = &value[value_index];
+        let result = self.mutators[value_index].recursing_part(parent, v, subindex);
+        if result.is_none() {
+            index.inner.remove(choice);
+            index.indices.remove(choice);
+            self.recursing_part::<V, N>(parent, value, index)
+        } else {
+            result
         }
     }
 }

@@ -9,14 +9,14 @@ use std::{
 };
 use std::{iter::repeat, marker::PhantomData};
 
-pub struct VecMutator<T: Clone, M: Mutator<T>> {
+pub struct VecMutator<T: Clone + 'static, M: Mutator<T>> {
     pub rng: Rng,
     pub m: M,
     pub len_range: RangeInclusive<usize>,
     pub dictionary: Vec<Vec<T>>,
     _phantom: PhantomData<T>,
 }
-impl<T: Clone, M: Mutator<T>> VecMutator<T, M> {
+impl<T: Clone + 'static, M: Mutator<T>> VecMutator<T, M> {
     #[no_coverage]
     pub fn new(mutator: M, len_range: RangeInclusive<usize>) -> Self {
         Self {
@@ -53,7 +53,7 @@ where
         }
     }
 }
-impl<T: Clone> DefaultMutator for Vec<T>
+impl<T: Clone + 'static> DefaultMutator for Vec<T>
 where
     T: DefaultMutator,
 {
@@ -65,7 +65,14 @@ where
 }
 
 #[derive(Clone)]
+pub struct ExecutedMutations {
+    make_empty: bool,      // true if it's been tried
+    remove_element: usize, // index of removed element, starts at 0 and then get increased up to len, when equal to len, we stop trying
+}
+
+#[derive(Clone)]
 pub struct MutationStep<S> {
+    executed_mutations: ExecutedMutations,
     inner: Vec<S>,
     alias: Option<VoseAlias>,
 }
@@ -93,6 +100,13 @@ pub enum UnmutateVecToken<T: Clone, M: Mutator<T>> {
         insert_element: T,
     },
     Nothing,
+}
+
+#[doc(hidden)]
+#[derive(Clone)]
+pub struct RecursingPartIndex<RPI> {
+    inner: Vec<RPI>,
+    indices: Vec<usize>,
 }
 
 impl<T: Clone, M: Mutator<T>> VecMutator<T, M> {
@@ -230,6 +244,7 @@ impl<T: Clone, M: Mutator<T>> VecMutator<T, M> {
     #[no_coverage]
     fn remove_element(
         &self,
+
         value: &mut Vec<T>,
         cache: &VecMutatorCache<M::Cache>,
     ) -> Option<(UnmutateVecToken<T, M>, f64)> {
@@ -244,6 +259,22 @@ impl<T: Clone, M: Mutator<T>> VecMutator<T, M> {
             token,
             self.complexity_from_inner(cache.sum_cplx - removed_el_cplx, value.len()),
         ))
+    }
+
+    #[no_coverage]
+    fn unchecked_remove_element(
+        &self,
+        idx: usize,
+        value: &mut Vec<T>,
+        cache: &VecMutatorCache<M::Cache>,
+    ) -> (UnmutateVecToken<T, M>, f64) {
+        let removed_el = value.remove(idx);
+        let removed_el_cplx = self.m.complexity(&removed_el, &cache.inner[idx]);
+        let token = UnmutateVecToken::Insert(idx, removed_el);
+        (
+            token,
+            self.complexity_from_inner(cache.sum_cplx - removed_el_cplx, value.len()),
+        )
     }
 
     #[no_coverage]
@@ -426,7 +457,7 @@ impl<T: Clone, M: Mutator<T>> VecMutator<T, M> {
     }
 }
 
-impl<T: Clone, M: Mutator<T>> Mutator<Vec<T>> for VecMutator<T, M> {
+impl<T: Clone + 'static, M: Mutator<T>> Mutator<Vec<T>> for VecMutator<T, M> {
     #[doc(hidden)]
     type Cache = VecMutatorCache<M::Cache>;
     #[doc(hidden)]
@@ -499,6 +530,10 @@ impl<T: Clone, M: Mutator<T>> Mutator<Vec<T>> for VecMutator<T, M> {
             alias: alias.clone(),
         };
         let step = MutationStep {
+            executed_mutations: ExecutedMutations {
+                make_empty: value.is_empty(),
+                remove_element: 0,
+            },
             inner: inner_steps,
             alias,
         };
@@ -517,7 +552,11 @@ impl<T: Clone, M: Mutator<T>> Mutator<Vec<T>> for VecMutator<T, M> {
     #[no_coverage]
     fn min_complexity(&self) -> f64 {
         let min_len = *self.len_range.start();
-        self.complexity_from_inner((min_len as f64) * self.m.min_complexity(), min_len)
+        if min_len == 0 {
+            return 1.0;
+        } else {
+            self.complexity_from_inner((min_len as f64) * self.m.min_complexity(), min_len)
+        }
     }
 
     #[doc(hidden)]
@@ -581,6 +620,21 @@ impl<T: Clone, M: Mutator<T>> Mutator<Vec<T>> for VecMutator<T, M> {
         if max_cplx < self.min_complexity() {
             return None;
         }
+        if !step.executed_mutations.make_empty && *self.len_range.start() == 0 {
+            step.executed_mutations.make_empty = true;
+            let mut old_value = vec![];
+            std::mem::swap(value, &mut old_value);
+            return Some((Self::UnmutateToken::Replace(old_value), self.min_complexity()));
+        }
+        if step.executed_mutations.remove_element < value.len()
+            && !value.is_empty()
+            && self.len_range.contains(&(value.len() - 1))
+        {
+            let (t, cplx) = self.unchecked_remove_element(step.executed_mutations.remove_element, value, cache);
+            step.executed_mutations.remove_element += 1;
+            return Some((t, cplx));
+        }
+
         if self.rng.usize(0..100) == 0 {
             let (mut v, cplx) = self.random_arbitrary(max_cplx);
             std::mem::swap(value, &mut v);
@@ -601,15 +655,14 @@ impl<T: Clone, M: Mutator<T>> Mutator<Vec<T>> for VecMutator<T, M> {
                 let end = if value.is_empty() {
                     8
                 } else if value.len() < 2 {
-                    9
+                    8
                 } else {
                     20
                 };
                 match self.rng.usize(0..end) {
                     0..=3 => self.insert_element(value, cache, spare_cplx),
                     4..=7 => self.insert_repeated_elements(value, cache, spare_cplx),
-                    8 => self.remove_element(value, cache),
-                    9 => self.remove_many_elements(value, cache),
+                    8..=9 => self.remove_many_elements(value, cache),
                     10 => self.swap_elements(value, cache),
                     11..=18 => self.mutate_many_elements(value, cache, spare_cplx),
                     19 => self.remove_and_insert_element(value, cache, spare_cplx),
@@ -617,7 +670,6 @@ impl<T: Clone, M: Mutator<T>> Mutator<Vec<T>> for VecMutator<T, M> {
                 }
             }
         } else {
-            // we know value is not empty, therefore the alias is Some
             if let Some(alias) = step.alias.as_ref() {
                 let idx = alias.sample();
                 if let Some(x) = self.mutate_element(value, cache, step, idx, spare_cplx) {
@@ -756,6 +808,50 @@ impl<T: Clone, M: Mutator<T>> Mutator<Vec<T>> for VecMutator<T, M> {
                 value.swap(a, b);
             }
             UnmutateVecToken::Nothing => {}
+        }
+    }
+
+    #[doc(hidden)]
+    type RecursingPartIndex = RecursingPartIndex<M::RecursingPartIndex>;
+    #[doc(hidden)]
+    #[no_coverage]
+    fn default_recursing_part_index(&self, value: &Vec<T>, cache: &Self::Cache) -> Self::RecursingPartIndex {
+        RecursingPartIndex {
+            inner: value
+                .iter()
+                .zip(cache.inner.iter())
+                .map(|(v, c)| self.m.default_recursing_part_index(v, c))
+                .collect(),
+            indices: (0..value.len()).collect(),
+        }
+    }
+    #[doc(hidden)]
+    #[no_coverage]
+    fn recursing_part<'a, V, N>(
+        &self,
+        parent: &N,
+        value: &'a Vec<T>,
+        index: &mut Self::RecursingPartIndex,
+    ) -> Option<&'a V>
+    where
+        V: Clone + 'static,
+        N: Mutator<V>,
+    {
+        assert_eq!(index.inner.len(), index.indices.len());
+        if index.inner.is_empty() {
+            return None;
+        }
+        let choice = self.rng.usize(..index.inner.len());
+        let subindex = &mut index.inner[choice];
+        let value_index = index.indices[choice];
+        let v = &value[value_index];
+        let result = self.m.recursing_part(parent, v, subindex);
+        if result.is_none() {
+            index.inner.remove(choice);
+            index.indices.remove(choice);
+            self.recursing_part::<V, N>(parent, value, index)
+        } else {
+            result
         }
     }
 }

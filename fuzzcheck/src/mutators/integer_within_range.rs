@@ -153,6 +153,26 @@ macro_rules! impl_int_mutator_constrained {
             fn unmutate(&self, value: &mut $name, _cache: &mut Self::Cache, t: Self::UnmutateToken) {
                 *value = t;
             }
+
+            #[doc(hidden)]
+            type RecursingPartIndex = ();
+            #[doc(hidden)]
+            #[no_coverage]
+            fn default_recursing_part_index(&self, _value: &$name, _cache: &Self::Cache) -> Self::RecursingPartIndex {}
+            #[doc(hidden)]
+            #[no_coverage]
+            fn recursing_part<'a, V, N>(
+                &self,
+                _parent: &N,
+                _value: &'a $name,
+                _index: &mut Self::RecursingPartIndex,
+            ) -> Option<&'a V>
+            where
+                V: Clone + 'static,
+                N: Mutator<V>,
+            {
+                None
+            }
         }
     };
 }

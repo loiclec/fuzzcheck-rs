@@ -6,7 +6,7 @@ use crate::mutators::either::Either;
 use crate::mutators::fixed_len_vector::{self, FixedLenVecMutator};
 use crate::mutators::grammar::mutators::{ASTMutator, ASTSingleVariant};
 use crate::mutators::incremental_map::IncrementalMapping;
-use crate::mutators::recursive::{RecurToMutator, RecursiveMutator};
+use crate::mutators::recursive::{RecurToMutator, RecursiveMutator, RecursiveMutatorUnmutateToken};
 use crate::mutators::tuples::Tuple1Mutator;
 use crate::mutators::vector::{UnmutateVecToken, VecMutator};
 use crate::mutators::Mutator;
@@ -662,6 +662,43 @@ where
                 )
             }
             _ => panic!(),
+        }
+    }
+}
+
+impl IncrementalMapping<AST, String, RecursiveMutator<ASTMutator>> for ASTMap {
+    #[no_coverage]
+    fn mutate_value_from_token(
+        &mut self,
+        from_value: &AST,
+        to_value: &mut String,
+        token: &<RecursiveMutator<ASTMutator> as Mutator<AST>>::UnmutateToken,
+    ) {
+        match token {
+            RecursiveMutatorUnmutateToken::Replace(_) => {
+                *to_value = from_value.to_string();
+            }
+            RecursiveMutatorUnmutateToken::Token(token) => {
+                <Self as IncrementalMapping<AST, String, ASTMutator>>::mutate_value_from_token(
+                    self, from_value, to_value, token,
+                )
+            }
+        }
+    }
+
+    #[no_coverage]
+    fn unmutate_value_from_token(
+        &mut self,
+        to_value: &mut String,
+        token: &<RecursiveMutator<ASTMutator> as Mutator<AST>>::UnmutateToken,
+    ) {
+        match token {
+            RecursiveMutatorUnmutateToken::Replace(ast) => {
+                *to_value = ast.to_string();
+            }
+            RecursiveMutatorUnmutateToken::Token(token) => {
+                <Self as IncrementalMapping<AST, String, ASTMutator>>::unmutate_value_from_token(self, to_value, token)
+            }
         }
     }
 }

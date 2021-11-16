@@ -12,13 +12,13 @@ where
     M2: Mutator<T>,
 {
     #[doc(hidden)]
-type Cache = Either<M1::Cache, M2::Cache>;
+    type Cache = Either<M1::Cache, M2::Cache>;
     #[doc(hidden)]
-type MutationStep = Either<M1::MutationStep, M2::MutationStep>;
+    type MutationStep = Either<M1::MutationStep, M2::MutationStep>;
     #[doc(hidden)]
-type ArbitraryStep = Either<M1::ArbitraryStep, M2::ArbitraryStep>;
+    type ArbitraryStep = Either<M1::ArbitraryStep, M2::ArbitraryStep>;
     #[doc(hidden)]
-type UnmutateToken = Either<M1::UnmutateToken, M2::UnmutateToken>;
+    type UnmutateToken = Either<M1::UnmutateToken, M2::UnmutateToken>;
 
     #[doc(hidden)]
     #[no_coverage]
@@ -139,6 +139,31 @@ type UnmutateToken = Either<M1::UnmutateToken, M2::UnmutateToken>;
             (Either::Right(m), Either::Right(c), Either::Right(t)) => {
                 m.unmutate(value, c, t);
             }
+            _ => panic!(),
+        }
+    }
+
+    #[doc(hidden)]
+    type RecursingPartIndex = Either<M1::RecursingPartIndex, M2::RecursingPartIndex>;
+    #[doc(hidden)]
+    #[no_coverage]
+    fn default_recursing_part_index(&self, value: &T, cache: &Self::Cache) -> Self::RecursingPartIndex {
+        match (self, cache) {
+            (Either::Left(m), Either::Left(c)) => Either::Left(m.default_recursing_part_index(value, c)),
+            (Either::Right(m), Either::Right(c)) => Either::Right(m.default_recursing_part_index(value, c)),
+            _ => unreachable!(),
+        }
+    }
+    #[doc(hidden)]
+    #[no_coverage]
+    fn recursing_part<'a, V, N>(&self, parent: &N, value: &'a T, index: &mut Self::RecursingPartIndex) -> Option<&'a V>
+    where
+        V: Clone + 'static,
+        N: Mutator<V>,
+    {
+        match (self, index) {
+            (Either::Left(m), Either::Left(i)) => m.recursing_part::<V, N>(parent, value, i),
+            (Either::Right(m), Either::Right(i)) => m.recursing_part::<V, N>(parent, value, i),
             _ => panic!(),
         }
     }

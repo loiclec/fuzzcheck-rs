@@ -16,7 +16,7 @@ pub trait TupleStructure<TupleKind: RefTypes> {
     fn new(t: TupleKind::Owned) -> Self;
 }
 
-pub trait TupleMutator<T, TupleKind>: Sized
+pub trait TupleMutator<T, TupleKind>: Sized + 'static
 where
     TupleKind: RefTypes,
     T: TupleStructure<TupleKind>,
@@ -28,9 +28,9 @@ where
 
     fn default_arbitrary_step(&self) -> Self::ArbitraryStep;
 
-    fn complexity<'a>(&'a self, value: TupleKind::Ref<'a>, cache: &'a Self::Cache) -> f64;
+    fn complexity<'a>(&self, value: TupleKind::Ref<'a>, cache: &'a Self::Cache) -> f64;
 
-    fn validate_value<'a>(&'a self, value: TupleKind::Ref<'a>) -> Option<(Self::Cache, Self::MutationStep)>;
+    fn validate_value<'a>(&self, value: TupleKind::Ref<'a>) -> Option<(Self::Cache, Self::MutationStep)>;
 
     fn max_complexity(&self) -> f64;
 
@@ -41,7 +41,7 @@ where
     fn random_arbitrary(&self, max_cplx: f64) -> (T, f64);
 
     fn ordered_mutate<'a>(
-        &'a self,
+        &self,
         value: TupleKind::Mut<'a>,
         cache: &'a mut Self::Cache,
         step: &'a mut Self::MutationStep,
@@ -49,13 +49,29 @@ where
     ) -> Option<(Self::UnmutateToken, f64)>;
 
     fn random_mutate<'a>(
-        &'a self,
+        &self,
         value: TupleKind::Mut<'a>,
         cache: &'a mut Self::Cache,
         max_cplx: f64,
     ) -> (Self::UnmutateToken, f64);
 
-    fn unmutate<'a>(&'a self, value: TupleKind::Mut<'a>, cache: &'a mut Self::Cache, t: Self::UnmutateToken);
+    fn unmutate<'a>(&self, value: TupleKind::Mut<'a>, cache: &'a mut Self::Cache, t: Self::UnmutateToken);
+
+    type RecursingPartIndex: Clone;
+    fn default_recursing_part_index<'a>(
+        &self,
+        value: TupleKind::Ref<'a>,
+        cache: &Self::Cache,
+    ) -> Self::RecursingPartIndex;
+    fn recursing_part<'a, V, N>(
+        &self,
+        parent: &N,
+        value: TupleKind::Ref<'a>,
+        index: &mut Self::RecursingPartIndex,
+    ) -> Option<&'a V>
+    where
+        V: Clone + 'static,
+        N: Mutator<V>;
 }
 
 pub struct TupleMutatorWrapper<M, TupleKind>
@@ -94,7 +110,7 @@ where
 impl<T, M, TupleKind> Mutator<T> for TupleMutatorWrapper<M, TupleKind>
 where
     T: Clone + 'static,
-    TupleKind: RefTypes,
+    TupleKind: RefTypes + 'static,
     T: TupleStructure<TupleKind>,
     M: TupleMutator<T, TupleKind>,
 {
@@ -172,11 +188,167 @@ where
     fn unmutate(&self, value: &mut T, cache: &mut Self::Cache, t: Self::UnmutateToken) {
         self.mutator.unmutate(value.get_mut(), cache, t)
     }
+
+    #[doc(hidden)]
+    type RecursingPartIndex = M::RecursingPartIndex;
+
+    #[doc(hidden)]
+    #[no_coverage]
+    fn default_recursing_part_index(&self, value: &T, cache: &Self::Cache) -> Self::RecursingPartIndex {
+        self.mutator.default_recursing_part_index(value.get_ref(), cache)
+    }
+
+    #[doc(hidden)]
+    #[no_coverage]
+    fn recursing_part<'a, V, N>(&self, parent: &N, value: &'a T, index: &mut Self::RecursingPartIndex) -> Option<&'a V>
+    where
+        V: Clone + 'static,
+        N: Mutator<V>,
+    {
+        self.mutator.recursing_part::<V, N>(parent, value.get_ref(), index)
+    }
+}
+
+pub use tuple0::{Tuple0, Tuple0Mutator};
+mod tuple0 {
+    use super::TupleMutator;
+    use crate::mutators::tuples::RefTypes;
+    use crate::mutators::tuples::TupleStructure;
+    use crate::Mutator;
+
+    pub struct Tuple0;
+    impl RefTypes for Tuple0 {
+        type Owned = ();
+        type Ref<'a> = ();
+        type Mut<'a> = ();
+        fn get_ref_from_mut<'a>(_v: &'a Self::Mut<'a>) -> Self::Ref<'a> {
+            ()
+        }
+    }
+    impl TupleStructure<Tuple0> for () {
+        fn get_ref(&self) -> <Tuple0 as RefTypes>::Ref<'_> {
+            ()
+        }
+
+        fn get_mut(&mut self) -> <Tuple0 as RefTypes>::Mut<'_> {
+            ()
+        }
+
+        fn new(_t: <Tuple0 as RefTypes>::Owned) -> Self {
+            ()
+        }
+    }
+    pub struct Tuple0Mutator;
+    impl TupleMutator<(), Tuple0> for Tuple0Mutator {
+        #[doc(hidden)]
+        type Cache = ();
+        #[doc(hidden)]
+        type MutationStep = bool;
+        #[doc(hidden)]
+        type ArbitraryStep = bool;
+        #[doc(hidden)]
+        type UnmutateToken = ();
+
+        #[doc(hidden)]
+        #[no_coverage]
+        fn default_arbitrary_step(&self) -> Self::ArbitraryStep {
+            false
+        }
+
+        #[doc(hidden)]
+        #[no_coverage]
+        fn complexity(&self, _value: (), _cache: &Self::Cache) -> f64 {
+            0.0
+        }
+
+        #[doc(hidden)]
+        #[no_coverage]
+        fn validate_value(&self, _value: ()) -> Option<(Self::Cache, Self::MutationStep)> {
+            Some(((), false))
+        }
+
+        #[doc(hidden)]
+        #[no_coverage]
+        fn max_complexity(&self) -> f64 {
+            0.0
+        }
+
+        #[doc(hidden)]
+        #[no_coverage]
+        fn min_complexity(&self) -> f64 {
+            0.0
+        }
+
+        #[doc(hidden)]
+        #[no_coverage]
+        fn ordered_arbitrary(&self, step: &mut Self::ArbitraryStep, _max_cplx: f64) -> Option<((), f64)> {
+            if !*step {
+                *step = true;
+                Some(((), 0.0))
+            } else {
+                None
+            }
+        }
+
+        #[doc(hidden)]
+        #[no_coverage]
+        fn random_arbitrary(&self, _max_cplx: f64) -> ((), f64) {
+            ((), 0.0)
+        }
+
+        #[doc(hidden)]
+        #[no_coverage]
+        fn ordered_mutate(
+            &self,
+            _value: (),
+            _cache: &mut Self::Cache,
+            step: &mut Self::MutationStep,
+            _max_cplx: f64,
+        ) -> Option<(Self::UnmutateToken, f64)> {
+            if !*step {
+                *step = true;
+                Some(((), 0.0))
+            } else {
+                None
+            }
+        }
+
+        #[doc(hidden)]
+        #[no_coverage]
+        fn random_mutate(&self, _value: (), _cache: &mut Self::Cache, _max_cplx: f64) -> (Self::UnmutateToken, f64) {
+            ((), 0.0)
+        }
+
+        #[doc(hidden)]
+        #[no_coverage]
+        fn unmutate(&self, _value: (), _cache: &mut Self::Cache, _t: Self::UnmutateToken) {}
+
+        #[doc(hidden)]
+        type RecursingPartIndex = ();
+
+        #[doc(hidden)]
+        #[no_coverage]
+        fn default_recursing_part_index(&self, _value: (), _cache: &Self::Cache) -> Self::RecursingPartIndex {}
+
+        #[doc(hidden)]
+        #[no_coverage]
+        fn recursing_part<'a, V, N>(
+            &self,
+            _parent: &N,
+            _value: (),
+            _index: &mut Self::RecursingPartIndex,
+        ) -> Option<&'a V>
+        where
+            V: Clone + 'static,
+            N: Mutator<V>,
+        {
+            None
+        }
+    }
 }
 
 pub use tuple1::{Tuple1, Tuple1Mutator};
 mod tuple1 {
-    #![allow(clippy::needless_update)]
     extern crate self as fuzzcheck;
     fuzzcheck_mutators_derive::make_basic_tuple_mutator!(1);
 }
