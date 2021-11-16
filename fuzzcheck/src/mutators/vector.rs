@@ -71,6 +71,18 @@ pub struct ExecutedMutations {
 }
 
 #[derive(Clone)]
+pub enum VecMutationStep<S> {
+    InnerMutatorIsUnit { length_step: usize },
+    Normal(MutationStep<S>),
+}
+
+#[derive(Clone)]
+pub enum VecArbitraryStep {
+    InnerMutatorIsUnit { length_step: usize },
+    Normal { make_empty: bool },
+}
+
+#[derive(Clone)]
 pub struct MutationStep<S> {
     executed_mutations: ExecutedMutations,
     inner: Vec<S>,
@@ -461,16 +473,22 @@ impl<T: Clone + 'static, M: Mutator<T>> Mutator<Vec<T>> for VecMutator<T, M> {
     #[doc(hidden)]
     type Cache = VecMutatorCache<M::Cache>;
     #[doc(hidden)]
-    type MutationStep = MutationStep<M::MutationStep>;
+    type MutationStep = VecMutationStep<M::MutationStep>;
     #[doc(hidden)]
-    type ArbitraryStep = bool; // false: check empty vector, true: random
+    type ArbitraryStep = VecArbitraryStep;
     #[doc(hidden)]
     type UnmutateToken = UnmutateVecToken<T, M>;
 
     #[doc(hidden)]
     #[no_coverage]
     fn default_arbitrary_step(&self) -> Self::ArbitraryStep {
-        <_>::default()
+        if self.m.max_complexity() == 0.0 {
+            Self::ArbitraryStep::InnerMutatorIsUnit {
+                length_step: *self.len_range.start(),
+            }
+        } else {
+            Self::ArbitraryStep::Normal { make_empty: false }
+        }
     }
 
     #[doc(hidden)]
@@ -529,13 +547,19 @@ impl<T: Clone + 'static, M: Mutator<T>> Mutator<Vec<T>> for VecMutator<T, M> {
             sum_cplx,
             alias: alias.clone(),
         };
-        let step = MutationStep {
-            executed_mutations: ExecutedMutations {
-                make_empty: value.is_empty(),
-                remove_element: 0,
-            },
-            inner: inner_steps,
-            alias,
+        let step = if self.m.max_complexity() == 0.0 {
+            Self::MutationStep::InnerMutatorIsUnit {
+                length_step: *self.len_range.start(),
+            }
+        } else {
+            Self::MutationStep::Normal(MutationStep {
+                executed_mutations: ExecutedMutations {
+                    make_empty: value.is_empty(),
+                    remove_element: 0,
+                },
+                inner: inner_steps,
+                alias,
+            })
         };
 
         Some((cache, step))
@@ -571,15 +595,34 @@ impl<T: Clone + 'static, M: Mutator<T>> Mutator<Vec<T>> for VecMutator<T, M> {
         if max_cplx < self.min_complexity() {
             return None;
         }
-        if !*step || max_cplx <= 1.0 {
-            *step = true;
-            if self.len_range.contains(&0) {
-                Some((<_>::default(), 1.0))
-            } else {
-                Some(self.random_arbitrary(max_cplx))
+        match step {
+            VecArbitraryStep::InnerMutatorIsUnit { length_step } => {
+                if self.len_range.contains(length_step) && (*length_step as f64) < max_cplx {
+                    let mut result = Vec::with_capacity(*length_step);
+                    for _ in 0..*length_step {
+                        let (e, c) = self.m.random_arbitrary(1.0);
+                        assert!(c == 0.0);
+                        result.push(e);
+                    }
+                    let cplx = self.complexity_from_inner(0.0, *length_step);
+                    *length_step += 1;
+                    Some((result, cplx))
+                } else {
+                    None
+                }
             }
-        } else {
-            Some(self.random_arbitrary(max_cplx))
+            VecArbitraryStep::Normal { make_empty } => {
+                if !*make_empty || max_cplx <= 1.0 {
+                    *make_empty = true;
+                    if self.len_range.contains(&0) {
+                        Some((<_>::default(), 1.0))
+                    } else {
+                        Some(self.random_arbitrary(max_cplx))
+                    }
+                } else {
+                    Some(self.random_arbitrary(max_cplx))
+                }
+            }
         }
     }
 
@@ -620,84 +663,105 @@ impl<T: Clone + 'static, M: Mutator<T>> Mutator<Vec<T>> for VecMutator<T, M> {
         if max_cplx < self.min_complexity() {
             return None;
         }
-        if !step.executed_mutations.make_empty && *self.len_range.start() == 0 {
-            step.executed_mutations.make_empty = true;
-            let mut old_value = vec![];
-            std::mem::swap(value, &mut old_value);
-            return Some((Self::UnmutateToken::Replace(old_value), self.min_complexity()));
-        }
-        if step.executed_mutations.remove_element < value.len()
-            && !value.is_empty()
-            && self.len_range.contains(&(value.len() - 1))
-        {
-            let (t, cplx) = self.unchecked_remove_element(step.executed_mutations.remove_element, value, cache);
-            step.executed_mutations.remove_element += 1;
-            return Some((t, cplx));
-        }
-
-        if self.rng.usize(0..100) == 0 {
-            let (mut v, cplx) = self.random_arbitrary(max_cplx);
-            std::mem::swap(value, &mut v);
-            return Some((UnmutateVecToken::Replace(v), cplx));
-        }
-        let mutator_max_cplx = self.max_complexity();
-        if max_cplx > mutator_max_cplx {
-            max_cplx = mutator_max_cplx;
-        }
-        let current_cplx = self.complexity(value, cache);
-        let spare_cplx = max_cplx - current_cplx;
-
-        let token = if value.is_empty() || step.alias.is_none() || self.rng.usize(0..5) == 0 {
-            // vector mutation
-            if !self.dictionary.is_empty() && self.rng.usize(..5) == 0 {
-                self.use_dictionary(value, cache, spare_cplx)
-            } else {
-                let end = if value.is_empty() {
-                    8
-                } else if value.len() < 2 {
-                    8
-                } else {
-                    20
-                };
-                match self.rng.usize(0..end) {
-                    0..=3 => self.insert_element(value, cache, spare_cplx),
-                    4..=7 => self.insert_repeated_elements(value, cache, spare_cplx),
-                    8..=9 => self.remove_many_elements(value, cache),
-                    10 => self.swap_elements(value, cache),
-                    11..=18 => self.mutate_many_elements(value, cache, spare_cplx),
-                    19 => self.remove_and_insert_element(value, cache, spare_cplx),
-                    _ => unreachable!(),
-                }
-            }
-        } else {
-            if let Some(alias) = step.alias.as_ref() {
-                let idx = alias.sample();
-                if let Some(x) = self.mutate_element(value, cache, step, idx, spare_cplx) {
-                    Some(x)
-                } else {
-                    let mut prob = step.alias.as_ref().unwrap().original_probabilities.clone();
-                    prob[idx] = 0.0;
-                    let sum = prob.iter().sum::<f64>();
-                    if sum == 0.0 {
-                        step.alias = None;
-                    } else {
-                        prob.iter_mut().for_each(
-                            #[no_coverage]
-                            |c| *c /= sum,
-                        );
-                        step.alias = Some(VoseAlias::new(prob));
+        match step {
+            VecMutationStep::InnerMutatorIsUnit { length_step } => {
+                if self.len_range.contains(length_step) && (*length_step as f64) < max_cplx {
+                    let mut result = Vec::with_capacity(*length_step);
+                    for _ in 0..*length_step {
+                        let (e, c) = self.m.random_arbitrary(1.0);
+                        assert!(c == 0.0);
+                        result.push(e);
                     }
-
-                    None
+                    let cplx = self.complexity_from_inner(0.0, *length_step);
+                    *length_step += 1;
+                    std::mem::swap(value, &mut result);
+                    let token = Self::UnmutateToken::Replace(result);
+                    return Some((token, cplx));
+                } else {
+                    return None;
                 }
-            } else {
-                None
             }
-        };
-        if let Some(token) = token {
-            Some(token)
-        } else {
-            Some(self.random_mutate(value, cache, max_cplx))
+            VecMutationStep::Normal(step) => {
+                if !step.executed_mutations.make_empty && *self.len_range.start() == 0 {
+                    step.executed_mutations.make_empty = true;
+                    let mut old_value = vec![];
+                    std::mem::swap(value, &mut old_value);
+                    return Some((Self::UnmutateToken::Replace(old_value), self.min_complexity()));
+                }
+                if step.executed_mutations.remove_element < value.len()
+                    && !value.is_empty()
+                    && self.len_range.contains(&(value.len() - 1))
+                {
+                    let (t, cplx) = self.unchecked_remove_element(step.executed_mutations.remove_element, value, cache);
+                    step.executed_mutations.remove_element += 1;
+                    return Some((t, cplx));
+                }
+
+                if self.rng.usize(0..100) == 0 {
+                    let (mut v, cplx) = self.random_arbitrary(max_cplx);
+                    std::mem::swap(value, &mut v);
+                    return Some((UnmutateVecToken::Replace(v), cplx));
+                }
+                let mutator_max_cplx = self.max_complexity();
+                if max_cplx > mutator_max_cplx {
+                    max_cplx = mutator_max_cplx;
+                }
+                let current_cplx = self.complexity(value, cache);
+                let spare_cplx = max_cplx - current_cplx;
+
+                let token = if value.is_empty() || step.alias.is_none() || self.rng.usize(0..5) == 0 {
+                    // vector mutation
+                    if !self.dictionary.is_empty() && self.rng.usize(..5) == 0 {
+                        self.use_dictionary(value, cache, spare_cplx)
+                    } else {
+                        let end = if value.is_empty() {
+                            8
+                        } else if value.len() < 2 {
+                            8
+                        } else {
+                            20
+                        };
+                        match self.rng.usize(0..end) {
+                            0..=3 => self.insert_element(value, cache, spare_cplx),
+                            4..=7 => self.insert_repeated_elements(value, cache, spare_cplx),
+                            8..=9 => self.remove_many_elements(value, cache),
+                            10 => self.swap_elements(value, cache),
+                            11..=18 => self.mutate_many_elements(value, cache, spare_cplx),
+                            19 => self.remove_and_insert_element(value, cache, spare_cplx),
+                            _ => unreachable!(),
+                        }
+                    }
+                } else {
+                    if let Some(alias) = step.alias.as_ref() {
+                        let idx = alias.sample();
+                        if let Some(x) = self.mutate_element(value, cache, step, idx, spare_cplx) {
+                            Some(x)
+                        } else {
+                            let mut prob = step.alias.as_ref().unwrap().original_probabilities.clone();
+                            prob[idx] = 0.0;
+                            let sum = prob.iter().sum::<f64>();
+                            if sum == 0.0 {
+                                step.alias = None;
+                            } else {
+                                prob.iter_mut().for_each(
+                                    #[no_coverage]
+                                    |c| *c /= sum,
+                                );
+                                step.alias = Some(VoseAlias::new(prob));
+                            }
+
+                            None
+                        }
+                    } else {
+                        None
+                    }
+                };
+                if let Some(token) = token {
+                    Some(token)
+                } else {
+                    Some(self.random_mutate(value, cache, max_cplx))
+                }
+            }
         }
     }
 
@@ -712,6 +776,19 @@ impl<T: Clone + 'static, M: Mutator<T>> Mutator<Vec<T>> for VecMutator<T, M> {
         let mutator_max_cplx = self.max_complexity();
         if max_cplx > mutator_max_cplx {
             max_cplx = mutator_max_cplx;
+        }
+        if self.m.max_complexity() == 0.0 {
+            let length = std::cmp::min(max_cplx.round() as usize, self.rng.usize(self.len_range.clone()));
+            let mut result = Vec::with_capacity(length);
+            for _ in 0..length {
+                let (e, c) = self.m.random_arbitrary(1.0);
+                assert!(c == 0.0);
+                result.push(e);
+            }
+            let cplx = self.complexity_from_inner(0.0, length);
+            std::mem::swap(value, &mut result);
+            let token = Self::UnmutateToken::Replace(result);
+            return (token, cplx);
         }
         if self.rng.usize(0..100) == 0 {
             let (mut v, cplx) = self.random_arbitrary(max_cplx);
@@ -879,7 +956,7 @@ mod tests {
     fn test_constrained_length_mutator_ordered_arbitrary() {
         let range = 0..=10;
         let m = VecMutator::<u8, U8Mutator>::new(U8Mutator::default(), range.clone());
-        let mut step = false;
+        let mut step = m.default_arbitrary_step();
 
         let mut lengths = vec![0; 11];
         let mut cplxs = vec![0; 81];
@@ -899,7 +976,7 @@ mod tests {
     fn test_constrained_length_mutator_ordered_mutate() {
         let range = 0..=10;
         let m = VecMutator::<u8, U8Mutator>::new(U8Mutator::default(), range.clone());
-        let mut step = false;
+        let mut step = m.default_arbitrary_step();
 
         let mut lengths = vec![0; 11];
         let mut cplxs = vec![0; 81];
