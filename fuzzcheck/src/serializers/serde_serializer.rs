@@ -19,10 +19,7 @@ where
     S: serde::Serialize + for<'e> serde::Deserialize<'e>,
 {
     type Value = S;
-    #[no_coverage]
-    fn is_utf8(&self) -> bool {
-        true
-    }
+
     #[no_coverage]
     fn extension(&self) -> &str {
         "json"

@@ -9,13 +9,16 @@ use std::fmt::Display;
 use std::path::PathBuf;
 
 /**
- A [Mutator] is an object capable of mutating a value for the purpose of
+ A [`Mutator`] is an object capable of generating/mutating a value for the purpose of
  fuzz-testing.
 
  For example, a mutator could change the value
  `v1 = [1, 4, 2, 1]` to `v1' = [1, 5, 2, 1]`.
- The idea is that if v1 is an “interesting” value to test, then v1' also
+ The idea is that if `v1` is an “interesting” value to test, then `v1'` also
  has a high chance of being “interesting” to test.
+
+ Fuzzcheck itself provides a few mutators for `std` types as well as procedural macros
+ to generate mutators. See the [`mutators`](crate::mutators) module.
 
  ## Complexity
 
@@ -23,22 +26,24 @@ use std::path::PathBuf;
  [complexity](crate::Mutator::complexity) of a value. The complexity is,
  roughly speaking, how large the value is.
 
- For example, the complexity of a vector is the complexity of its length,
- plus  the sum of the complexities of its elements. So `vec![]` would have a
- complexity of `1.0` and `vec![76]` would have a complexity of `10.0`: `2.0`
- for its short length and `8.0` for the 8-bit integer “76”. But there is no
- fixed rule for how to compute the complexity of a value, and it is up to you
- to judge how “large” something is.
+ If the complexity is `0.0`, then it means the mutator can only produce one value.
 
- ## Cache
+ For example, the complexity of a vector could be the sum of the complexities
+ of its elements. So `vec![]` would have a complexity of `1.0` (what we chose as
+ the base complexity of a vector) and `vec![76]` would have a complexity of
+ `9.0`: `1.0` for the base complexity of the vector itself + `8.0` for the 8-bit
+ integer “76”. But there is no fixed rule for how to compute the complexity of a
+ value, and it is up to you to judge how “large” something is.
+
+ ## [`Cache`](Mutator::Cache)
 
  In order to mutate values efficiently, the mutator is able to make use of a
- per-value *cache*. The Cache contains information associated with the value
- that will make it faster to compute its complexity or apply a mutation to
- it. For a vector, its cache is its total complexity, along with a vector of
- the cache of each of its element.
+ per-value *cache*. The [`Cache`](Mutator::Cache) contains information associated
+ with the value that will make it faster to compute its complexity or apply a
+ mutation to it. For a vector, its cache is its total complexity, along with a
+ vector of the caches of each of its element.
 
- ## MutationStep
+ ## [`MutationStep`](Mutator::MutationStep)
 
  The same values will be passed to the mutator many times, so that it is
  mutated in many different ways. There are different strategies to choose
@@ -48,39 +53,39 @@ use std::path::PathBuf;
  However, one may want to have better control over which mutation operation
  is used. For example, if the value to be mutated is of type `Option<T>`,
  then you may want to first mutate it to `None`, and then always mutate it
- to another `Some(t)`. This is where `MutationStep` comes in. The mutation
- step is a type you define to allow you to keep track of which mutation
- operation has already been tried. This allows you to deterministically
- apply mutations to a value such that better mutations are tried first, and
- duplicate mutations are avoided.
+ to another `Some(t)`. This is where [`MutationStep`](Mutator::MutationStep)
+ comes in. The mutationstep is a type you define to allow you to keep track
+ of which mutation operation has already been tried. This allows you to
+ deterministically apply mutations to a value such that better mutations are
+ tried first, and duplicate mutations are avoided.
 
  It is not always possible to schedule mutations in order. For that reason,
- we have two method: [random_mutate](crate::Mutator::random_mutate) executes
- a random mutation, and [ordered_mutate](crate::Mutator::ordered_mutate) uses
- the MutationStep to schedule mutations in order. The fuzzing engine only ever
- uses `ordered_mutate` directly, but the former is sometimes necessary to
- compose mutators together.
+ we have two methods: [`random_mutate`](crate::Mutator::random_mutate) executes
+ a random mutation, and [`ordered_mutate`](crate::Mutator::ordered_mutate) uses
+ the [`MutationStep`](Mutator::MutationStep) to schedule mutations in order.
+ The fuzzing engine only ever uses [`ordered_mutate`](crate::Mutator::ordered_mutate)
+ directly, but the former is sometimes necessary to compose mutators together.
 
  If you don't want to bother with ordered mutations, that is fine. In that
- case, only implement `random_mutate` and call it from the `ordered_mutate`
- method.
+ case, only implement [`random_mutate`](crate::Mutator::random_mutate) and call it from
+ the [`ordered_mutate`](crate::Mutator::ordered_mutate) method.
  ```ignore
-fn random_mutate(&self, value: &mut Value, cache: &mut Self::Cache, max_cplx: f64) -> (Self::UnmutateToken, f64) {
-     // ...
+ fn random_mutate(&self, value: &mut Value, cache: &mut Self::Cache, max_cplx: f64) -> (Self::UnmutateToken, f64) {
+      // ...
  }
-fn ordered_mutate(&self, value: &mut Value, cache: &mut Self::Cache, step: &mut Self::MutationStep, max_cplx: f64) -> Option<(Self::UnmutateToken, f64)> {
-    Some(self.random_mutate(value, cache, max_cplx))
+ fn ordered_mutate(&self, value: &mut Value, cache: &mut Self::Cache, step: &mut Self::MutationStep, max_cplx: f64) -> Option<(Self::UnmutateToken, f64)> {
+     Some(self.random_mutate(value, cache, max_cplx))
  }
  ```
 
  ## Arbitrary
 
  A mutator must also be able to generate new values from nothing. This is what
- the [random_arbitrary](crate::Mutator::random_arbitrary) and
- [ordered_arbitrary](crate::Mutator::ordered_arbitrary) methods are for. The
- latter one is called by the fuzzer directly and uses an `ArbitraryStep` that
- can be used to smartly generate more interesting values first and avoid
- duplicates.
+ the [`random_arbitrary`](crate::Mutator::random_arbitrary) and
+ [`ordered_arbitrary`](crate::Mutator::ordered_arbitrary) methods are for. The
+ latter one is called by the fuzzer directly and uses an
+ [`ArbitraryStep`](Mutator::ArbitraryStep) that can be used to smartly generate
+ more interesting values first and avoid duplicates.
 
  ## Unmutate
 
@@ -128,14 +133,14 @@ fn ordered_mutate(&self, value: &mut Value, cache: &mut Self::Cache, step: &mut 
  ```
 
 When a mutated value is deemed interesting by the fuzzing engine, the method
-[validate_value](crate::Mutator::validate_value) is called on it in order to
+[`validate_value`](crate::Mutator::validate_value) is called on it in order to
 get a new Cache and MutationStep for it. The same method is called when the
 fuzzer reads values from a corpus to verify that they conform to the
-mutator’s expectations. For example, a CharWithinRangeMutator
+mutator’s expectations. For example, a [`CharWithinRangeMutator`](crate::mutators::char::CharWithinRangeMutator)
 will check whether the character is within a certain range.
 
 Note that in most cases, it is completely fine to never mutate a value’s cache,
-since it is recomputed by [validate_value](crate::Mutator::validate_value) when
+since it is recomputed by [`validate_value`](crate::Mutator::validate_value) when
 needed.
 **/
 pub trait Mutator<Value: Clone> {
@@ -148,49 +153,62 @@ pub trait Mutator<Value: Clone> {
     /// Describes how to reverse a mutation
     type UnmutateToken;
 
-    /// The first ArbitraryStep value to be passed to [ordered_arbitrary](crate::Mutator::ordered_arbitrary)
+    /// The first [`ArbitraryStep`](Mutator::ArbitraryStep) value to be passed to [`ordered_arbitrary`](crate::Mutator::ordered_arbitrary)
     fn default_arbitrary_step(&self) -> Self::ArbitraryStep;
 
     /// Verifies that the value conforms to the mutator’s expectations and, if it does,
-    /// returns the Cache and first MutationStep associated with that value.
+    /// returns the [`Cache`](Mutator::Cache) and first [`MutationStep`](Mutator::MutationStep)
+    /// associated with that value.
     fn validate_value(&self, value: &Value) -> Option<(Self::Cache, Self::MutationStep)>;
 
-    /// The maximum complexity that a Value can possibly have.
+    /// The maximum complexity that a value can possibly have.
+    ///
+    /// If the maximum complexity is 0, it means that the mutator
+    /// can only produce one value.
     fn max_complexity(&self) -> f64;
-    /// The minimum complexity that a Value can possibly have.
+    /// The minimum complexity that a value can possibly have.
+    ///
+    /// If the minimum complexity is 0, then the maximum complexity must
+    /// also be 0. It means that the mutator can only produce one value.
     fn min_complexity(&self) -> f64;
 
     /// Computes the complexity of the value.
     ///
     /// The returned value must be greater or equal than 0.
+    /// It is only allowed to return 0 if the mutator cannot produce
+    /// any other value than the one given as argument.
     fn complexity(&self, value: &Value, cache: &Self::Cache) -> f64;
 
-    /// Generates an entirely new value based on the given `ArbitraryStep`.
+    /// Generates an entirely new value based on the given [`ArbitraryStep`](Mutator::ArbitraryStep).
     ///
     /// The generated value should be smaller than the given `max_cplx`.
+    ///
     /// The return value is `None` if no more new value can be generated or if
     /// it is not possible to stay within the given complexity. Otherwise, it
-    /// is the value itself and its complexity, which must be equal to
-    /// `self.complexity(value, cache)`
+    /// is the value itself and its complexity, which should be equal to
+    /// [`self.complexity(value, cache)`](Mutator::complexity)
     fn ordered_arbitrary(&self, step: &mut Self::ArbitraryStep, max_cplx: f64) -> Option<(Value, f64)>;
 
     /// Generates an entirely new value.
-
-    /// The generated value should be smaller
-    /// than the given `max_cplx`. However, if that is not possible, then
-    /// it should return a value of the lowest possible complexity.
+    ///
+    /// The generated value should be smaller than the given `max_cplx`.
+    /// However, if that is not possible, then it should return a value of
+    /// the lowest possible complexity.
+    ///
     /// Returns the value itself and its complexity, which must be equal to
-    /// `self.complexity(value, cache)`
+    /// [`self.complexity(value, cache)`](Mutator::complexity)
     fn random_arbitrary(&self, max_cplx: f64) -> (Value, f64);
 
     /// Mutates a value (and optionally its cache) based on the given
-    /// `MutationStep`.
-
+    /// [`MutationStep`](Mutator::MutationStep).
+    ///
     /// The mutated value should be within the given
-    /// `max_cplx`. Returns `None` if it no longer possible to mutate
+    /// `max_cplx`.
+    ///
+    /// Returns `None` if it no longer possible to mutate
     /// the value to a new state, or if it is not possible to keep it under
-    /// `max_cplx`. Otherwise, return the `UnmutateToken` that describes how to
-    /// undo the mutation as well as the new complexity of the value.
+    /// `max_cplx`. Otherwise, return the [`UnmutateToken`](Mutator::UnmutateToken)
+    /// that describes how to undo the mutation, as well as the new complexity of the value.
     fn ordered_mutate(
         &self,
         value: &mut Value,
@@ -199,15 +217,17 @@ pub trait Mutator<Value: Clone> {
         max_cplx: f64,
     ) -> Option<(Self::UnmutateToken, f64)>;
 
-    /// Mutates a value (and optionally its cache). The mutated value should be
-    /// within the given `max_cplx`. But if that is not possible, then it
-    /// should mutate the value so that it has a minimal complexity. Returns
-    /// the `UnmutateToken` that describes how to undo the mutation as well as
-    /// the new complexity of the value.
+    /// Mutates a value (and optionally its cache).
+    ///
+    /// The mutated value should be within the given `max_cplx`. But if that
+    /// is not possible, then it should mutate the value so that it has a minimal complexity.
+    ///
+    /// Returns the [`UnmutateToken`](Mutator::UnmutateToken) that describes how to undo
+    /// the mutation as well as the new complexity of the value.
     fn random_mutate(&self, value: &mut Value, cache: &mut Self::Cache, max_cplx: f64) -> (Self::UnmutateToken, f64);
 
     /// Undoes a mutation performed on the given value and cache, described by
-    /// the given `UnmutateToken`.
+    /// the given [`UnmutateToken`](Mutator::UnmutateToken).
     fn unmutate(&self, value: &mut Value, cache: &mut Self::Cache, t: Self::UnmutateToken);
 }
 
@@ -217,25 +237,31 @@ pub trait Mutator<Value: Clone> {
  * One possible implementation would be to use `serde` to implement
  * both required functions. But we also want to be able to fuzz-test
  * types that are not serializable with `serde`, which is why this
- * Serializer trait exists.
+ * trait exists.
 */
 pub trait Serializer {
+    /// The type of the valeu to be serialized
     type Value;
 
-    fn is_utf8(&self) -> bool;
-
+    /// The extension of the file containing the serialized value
     fn extension(&self) -> &str;
 
+    /// Deserialize the bytes into the value.
+    ///
+    /// This method can fail by returning `None`
     fn from_data(&self, data: &[u8]) -> Option<Self::Value>;
 
+    /// Serialize the value into bytes
+    ///
+    /// This method should never fail.
     fn to_data(&self, value: &Self::Value) -> Vec<u8>;
 }
 
 /**
-A trait for types that are basic wrappers over a mutator, such as `Box<M>`.
+ A trait for types that are basic wrappers over a mutator, such as `Box<M>`.
 
-Such wrapper types automatically implement the `Mutator` trait.
- */
+ Such wrapper types automatically implement the [`Mutator`](Mutator) trait.
+*/
 pub trait MutatorWrapper {
     type Wrapped;
 

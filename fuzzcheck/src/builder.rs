@@ -171,7 +171,7 @@ where
 
 /// A fuzz-test builder that knows the function to fuzz-test, the mutator, and the serializer.
 ///
-/// Use [`self.sensor_and_pool(..)`] to specify the [sensor](Sensor) and [pool](Pool) and obtain a [FuzzerBuilder4].
+/// Use [`self.sensor_and_pool(..)`](FuzzerBuilder3::sensor_and_pool) to specify the [sensor](Sensor) and [pool](Pool) and obtain a [FuzzerBuilder4].
 ///
 /// Alternatively, use [`self.default_sensor_and_pool(..)`](FuzzerBuilder3::default_sensor_and_pool) to use fuzzcheck’s
 /// default sensor, which monitors code coverage.
@@ -641,6 +641,7 @@ pub type BasicAndDiverseAndMaxHitsPool = AndPool<SimplestToActivateCounterPool, 
 /// Use [`.find_most_diverse_set_of_test_cases()`](CodeCoverageSensorAndPoolBuilder::<BasicPool>::find_most_diverse_set_of_test_cases)
 /// or [`.find_test_cases_repeatedly_hitting_coverage_counters()`](CodeCoverageSensorAndPoolBuilder::<BasicPool>::find_test_cases_repeatedly_hitting_coverage_counters)
 /// on the result to augment the pool. Or use [`.finish()`](CodeCoverageSensorAndPoolBuilder::finish) to obtain the concrete sensor and pool.
+#[no_coverage]
 pub fn basic_sensor_and_pool() -> CodeCoverageSensorAndPoolBuilder<BasicPool> {
     let sensor = CodeCoverageSensor::observing_only_files_from_current_dir();
     let nbr_counters = sensor.count_instrumented;
@@ -654,6 +655,7 @@ pub fn basic_sensor_and_pool() -> CodeCoverageSensorAndPoolBuilder<BasicPool> {
 ///
 /// Currently, the result cannot be augmented any further. Thus, the only action you can take on the result is to
 /// use [`.finish()`](CodeCoverageSensorAndPoolBuilder::finish) to obtain the concrete sensor and pool.
+#[no_coverage]
 pub fn default_sensor_and_pool() -> CodeCoverageSensorAndPoolBuilder<BasicAndDiverseAndMaxHitsPool> {
     basic_sensor_and_pool()
         .find_most_diverse_set_of_test_cases(20)
@@ -684,6 +686,7 @@ where
     P: CompatibleWithSensor<CodeCoverageSensor>,
 {
     /// Obtain the sensor and pool from the builder
+    #[no_coverage]
     pub fn finish(self) -> (CodeCoverageSensor, impl CompatibleWithSensor<CodeCoverageSensor>) {
         (self.sensor, self.pool)
     }
@@ -695,6 +698,7 @@ impl CodeCoverageSensorAndPoolBuilder<BasicPool> {
     ///
     /// ### Argument
     /// `size` : the size of the set of test cases to find
+    #[no_coverage]
     pub fn find_most_diverse_set_of_test_cases(
         self,
         size: usize,
@@ -714,6 +718,7 @@ impl CodeCoverageSensorAndPoolBuilder<BasicPool> {
         }
     }
     /// Augment the current pool such that it also tries to find test cases repeatedly hitting the same regions of code.
+    #[no_coverage]
     pub fn find_test_cases_repeatedly_hitting_coverage_counters(
         self,
     ) -> CodeCoverageSensorAndPoolBuilder<BasicAndMaxHitsPool> {
@@ -734,6 +739,7 @@ impl CodeCoverageSensorAndPoolBuilder<BasicPool> {
 }
 impl CodeCoverageSensorAndPoolBuilder<BasicAndDiversePool> {
     /// Augment the current pool such that it also tries to find test cases repeatedly hitting the same regions of code.
+    #[no_coverage]
     pub fn find_test_cases_repeatedly_hitting_coverage_counters(
         self,
     ) -> CodeCoverageSensorAndPoolBuilder<BasicAndDiverseAndMaxHitsPool> {
@@ -763,6 +769,7 @@ impl CodeCoverageSensorAndPoolBuilder<BasicAndMaxHitsPool> {
     ///
     /// ### Argument
     /// `size` : the size of the set of test cases to find
+    #[no_coverage]
     pub fn find_most_diverse_set_of_test_cases(
         self,
         size: usize,

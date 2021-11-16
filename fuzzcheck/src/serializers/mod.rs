@@ -41,10 +41,7 @@ impl ByteSerializer {
 
 impl crate::traits::Serializer for ByteSerializer {
     type Value = Vec<u8>;
-    #[no_coverage]
-    fn is_utf8(&self) -> bool {
-        false
-    }
+
     #[no_coverage]
     fn extension(&self) -> &str {
         self.ext
@@ -94,10 +91,7 @@ where
     StringType: ToString + FromStr,
 {
     type Value = StringType;
-    #[no_coverage]
-    fn is_utf8(&self) -> bool {
-        true
-    }
+
     #[no_coverage]
     fn extension(&self) -> &str {
         self.extension

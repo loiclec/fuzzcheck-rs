@@ -64,6 +64,7 @@ pub struct Arguments {
     pub stats_folder: Option<PathBuf>,
 }
 
+/// The command line argument parser used by the fuzz target and `cargo fuzzcheck`
 #[must_use]
 #[no_coverage]
 pub fn options_parser() -> Options {
@@ -146,6 +147,12 @@ pub fn options_parser() -> Options {
 }
 
 impl Arguments {
+    /// Create an `Arguments` from the parsed result of [`options_parser()`].
+    ///
+    /// ### Arguments
+    /// * `for_cargo_fuzzcheck` : true if this method is called within `cargo fuzzcheck`, false otherwise.
+    ///   This is because `cargo fuzzcheck` also needs a fuzz target as argument, while the fuzzed binary
+    ///   does not.
     #[no_coverage]
     pub fn from_matches(matches: &Matches, for_cargo_fuzzcheck: bool) -> Result<Self, ArgumentsError> {
         if matches.opt_present("help") || matches.free.contains(&"help".to_owned()) {
@@ -304,6 +311,8 @@ impl Arguments {
         })
     }
 }
+
+/// The “help” output of cargo-fuzzcheck
 #[no_coverage]
 pub fn help(parser: &Options) -> String {
     let mut help = format!(
