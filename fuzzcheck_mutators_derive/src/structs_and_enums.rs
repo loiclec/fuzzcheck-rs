@@ -161,10 +161,18 @@ pub(crate) fn make_mutator_type_and_impl(params: CreateWrapperMutatorParams) -> 
             if conformances {
                 let clone_where_clause = NameMutator_where_clause.clone();
                 let mut debug_where_clause = NameMutator_where_clause.clone();
-                debug_where_clause.add_clause_items(ts!(InnerType ":" cm.Debug));
+                debug_where_clause.add_clause_items(ts!(
+                    join_ts!(&field_generic_mutators, m,
+                        m.mutator_stream(cm) "::" helper_type ":" cm.Debug ","
+                    )
+                ));
 
                 let mut partialeq_where_clause = NameMutator_where_clause.clone();
-                partialeq_where_clause.add_clause_items(ts!(InnerType ":" cm.PartialEq));
+                partialeq_where_clause.add_clause_items(
+                    join_ts!(&field_generic_mutators, m,
+                        m.mutator_stream(cm) "::" helper_type ":" cm.PartialEq ","
+                    )
+                );
                 ts!(
                     "impl" NameMutator_generics.removing_eq_type() cm.Clone "for" ident!(NameMutator helper_type) NameMutator_generics.removing_bounds_and_eq_type() clone_where_clause "{
                         #[no_coverage]

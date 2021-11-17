@@ -277,14 +277,14 @@ fn declare_tuple_mutator_helper_types(tb: &mut TokenBuilder, nbr_elements: usize
             vose_alias : " cm.VoseAlias "
         }
         #[doc(hidden)]
-        #[derive(" cm.Clone ", " cm.Debug ")]
+        #[derive(" cm.Clone ", " cm.Debug ", " cm.PartialEq ")]
         pub enum TupleIndex {"
             join_ts!(0..nbr_elements, i,
                 Ti(i)
             , separator: ",")
         "}
         #[doc(hidden)]
-        #[derive(" cm.Clone ", " cm.Debug ")]
+        #[derive(" cm.Clone ", " cm.Debug ", " cm.PartialEq ")]
         pub struct MutationStep < " tuple_type_params " > {"
             join_ts!(0..nbr_elements, i,
                 ti(i) ":" Ti(i) ","
@@ -293,7 +293,7 @@ fn declare_tuple_mutator_helper_types(tb: &mut TokenBuilder, nbr_elements: usize
             vose_alias : Option<" cm.VoseAlias ">
         }
         #[doc(hidden)]
-        #[derive(" cm.Clone ", " cm.Debug ")]
+        #[derive(" cm.Clone ", " cm.Debug ", " cm.PartialEq ")]
         pub struct RecursingPartIndex < " tuple_type_params " > {"
             join_ts!(0..nbr_elements, i,
                 ti(i) ":" Ti(i) ","

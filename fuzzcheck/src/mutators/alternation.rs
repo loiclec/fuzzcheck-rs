@@ -88,7 +88,7 @@ where
 }
 
 #[doc(hidden)]
-#[derive(Clone)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct ArbitraryStep<AS> {
     inner: Vec<AS>,
     indices: Vec<usize>,
@@ -96,14 +96,14 @@ pub struct ArbitraryStep<AS> {
 }
 
 #[doc(hidden)]
-#[derive(Clone)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct RecursingPartIndex<RPI> {
     inner: Vec<RPI>,
     indices: Vec<usize>,
 }
 
 #[doc(hidden)]
-#[derive(Clone)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct MutationStep<MS, AS> {
     step: usize,
     mutator_idx: usize,

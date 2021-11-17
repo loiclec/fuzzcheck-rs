@@ -16,7 +16,7 @@
 //!
 //! Examples:
 //! ```
-//! use fuzzcheck::mutators::grammar::{alternation, concatenation, literal, recurse, recursive, regex, repetition};
+//! use fuzzcheck::mutators::grammar::{alternation, concatenation, literal, literal_range, recurse, recursive, regex, repetition};
 //!
 //! let rule = repetition(
 //!     concatenation([
