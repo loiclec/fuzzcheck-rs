@@ -1,14 +1,14 @@
 extern crate self as fuzzcheck;
 
 use super::grammar::Grammar;
-use super::parser::parse_from_grammar;
+// use super::parser::parse_from_grammar;
 use crate::mutators::alternation::AlternationMutator;
 use crate::mutators::boxed::BoxMutator;
 use crate::mutators::character_classes::CharacterMutator;
 use crate::mutators::either::Either;
 use crate::mutators::fixed_len_vector::FixedLenVecMutator;
-use crate::mutators::grammar::ast::{ASTMap, AST};
-use crate::mutators::incremental_map::IncrementalMapMutator;
+use crate::mutators::grammar::ast::AST;
+// use crate::mutators::incremental_map::IncrementalMapMutator;
 use crate::mutators::recursive::{RecurToMutator, RecursiveMutator};
 use crate::mutators::tuples::Tuple1Mutator;
 use crate::mutators::vector::VecMutator;
@@ -36,10 +36,10 @@ type InnerASTMutator = Either<
     RecursiveMutator<ASTMutator>,
 >;
 
-pub(crate) struct ASTMutator {
+pub struct ASTMutator {
     inner: Box<InnerASTMutator>,
 }
-#[derive(Clone)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct ASTMutatorCache {
     inner: Box<<InnerASTMutator as Mutator<AST>>::Cache>,
 }
@@ -49,7 +49,7 @@ impl ASTMutatorCache {
         Self { inner: Box::new(inner) }
     }
 }
-#[derive(Clone)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct ASTMutatorMutationStep {
     inner: Box<<InnerASTMutator as Mutator<AST>>::MutationStep>,
 }
@@ -59,7 +59,7 @@ impl ASTMutatorMutationStep {
         Self { inner: Box::new(inner) }
     }
 }
-#[derive(Clone)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct ASTMutatorArbitraryStep {
     inner: Box<<InnerASTMutator as Mutator<AST>>::ArbitraryStep>,
 }
@@ -72,7 +72,7 @@ impl ASTMutatorUnmutateToken {
         Self { inner: Box::new(inner) }
     }
 }
-#[derive(Clone)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct ASTMutatorRecursingPartIndex {
     inner: Box<<InnerASTMutator as Mutator<AST>>::RecursingPartIndex>,
 }
@@ -186,27 +186,28 @@ impl Mutator<AST> for ASTMutator {
     }
 }
 
-/// A mutator created by [`grammar_based_string_mutator`](crate::mutators::grammar::grammar_based_string_mutator)
-///
-/// It only generates strings which match the given grammar.
-pub type GrammarBasedStringMutator = impl Mutator<String>;
+// /// A mutator created by [`grammar_based_string_mutator`](crate::mutators::grammar::grammar_based_string_mutator)
+// ///
+// /// It only generates strings which match the given grammar.
+// pub type GrammarBasedStringMutator =
+//     IncrementalMapMutator<AST, String, ASTMutator, ASTMap, impl Fn(&String) -> Option<AST>>;
 
-#[no_coverage]
-pub fn grammar_based_string_mutator(grammar: Rc<Grammar>) -> GrammarBasedStringMutator {
-    let grammar_cloned = grammar.clone();
-    let parse = move |string: &String| parse_from_grammar(string, grammar_cloned.clone());
-    IncrementalMapMutator::<AST, String, ASTMutator, ASTMap, _>::new(
-        #[no_coverage]
-        parse,
-        ASTMutator::from_grammar(grammar),
-    )
-}
+// #[no_coverage]
+// pub fn grammar_based_string_mutator(grammar: Rc<Grammar>) -> GrammarBasedStringMutator {
+//     let grammar_cloned = grammar.clone();
+//     let parse = move |string: &String| parse_from_grammar(string, grammar_cloned.clone());
+//     IncrementalMapMutator::<AST, String, ASTMutator, ASTMap, _>::new(
+//         #[no_coverage]
+//         parse,
+//         ASTMutator::from_grammar(grammar),
+//     )
+// }
 
 /// A mutator created by [`grammar_based_ast_mutator`](crate::mutators::grammar::grammar_based_ast_mutator)
 ///
 /// It only generates syntax trees whose [`to_string()`](crate::mutators::grammar::AST::to_string)
 /// value matches the given grammar.
-pub type GrammarBasedASTMutator = impl Mutator<AST>;
+pub type GrammarBasedASTMutator = ASTMutator; //impl Mutator<AST>;
 
 #[no_coverage]
 pub fn grammar_based_ast_mutator(grammar: Rc<Grammar>) -> GrammarBasedASTMutator {

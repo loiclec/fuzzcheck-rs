@@ -5,5 +5,6 @@ mod char_mutators;
 mod constrained_integer;
 mod derived_recursive_struct;
 mod expansions;
+mod grammar_based_mutators;
 mod option;
 mod vector;

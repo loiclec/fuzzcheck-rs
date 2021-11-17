@@ -570,12 +570,12 @@ impl<'a> IncrementalMapping<char, String, CharWithinRangeMutator> for ASTMapping
     }
 }
 
-pub(crate) struct ASTMappingSequence<'a> {
+pub struct ASTMappingSequence<'a> {
     children: &'a mut Vec<ASTMap>,
     start_index: &'a mut usize,
     len: &'a mut usize,
 }
-pub(crate) struct ASTMappingAtom<'a> {
+pub struct ASTMappingAtom<'a> {
     start_index: &'a mut usize,
     len: &'a mut usize,
 }

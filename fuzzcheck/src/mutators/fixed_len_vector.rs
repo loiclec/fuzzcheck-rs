@@ -4,7 +4,7 @@ use crate::Mutator;
 use fastrand::Rng;
 
 #[doc(hidden)]
-#[derive(Clone)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct RecursingPartIndex<RPI> {
     inner: Vec<RPI>,
     indices: Vec<usize>,
@@ -55,13 +55,13 @@ where
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct MutationStep<S> {
     inner: Vec<S>,
     element_step: usize,
 }
 
-#[derive(Clone, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct VecMutatorCache<C> {
     inner: Vec<C>,
     sum_cplx: f64,

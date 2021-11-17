@@ -1,8 +1,9 @@
 //! Grammar-based mutators and related utilties.
 //!
-//! This module provides two mutators:
-//! 1. a grammar-based `impl Mutator<AST>` which generates an abstract syntax tree satisfying a grammar, created though [`grammar_based_ast_mutator`]
-//! 2. a grammar-based `impl Mutator<String>` which generates a string satisfying a grammar, created though [`grammar_based_string_mutator`]
+//! This module provides two mutators a grammar-based `impl Mutator<AST>` which generates an abstract syntax
+//! tree satisfying a grammar, created though [`grammar_based_ast_mutator`]. You can then obtain a string
+//! from the [`AST`] by calling [`ast.to_string()`](AST::to_string).
+//!
 //!
 //! To specify a grammar, you should use the following functions:
 //! * [`regex`](crate::mutators::grammar::regex) to create a grammar from a regular expression
@@ -52,43 +53,16 @@
 //!     ...
 //!  */
 //! ```
-//!
-//! In general, try to avoid defining overly ambiguous grammars, such as:
-//! ```
-//! use fuzzcheck::mutators::grammar;
-//!
-//! let rule = grammar::regex("(a|aa|aaa)+");
-//! ```
-//! where a string such as
-//! ```
-//! # fn foo() {
-//! "aaaaaaaaaaaaaaaaaa"
-//! # ;
-//! # }
-//! ```
-//! can match the grammar through a lot of possible paths. In these cases, the [grammar-based string mutator](grammar_based_string_mutator)
-//! may dramatically slow down the fuzzer or even crash.
-//!
-//! If you cannot or don't want to avoid ambiguous grammars, you should use the [grammar-based AST mutator](grammar_based_string_mutator)
-//! and then generate strings from the generated ASTs:
-//! ```
-//! use fuzzcheck::mutators::grammar::AST;
-//! fn test_function(ast: &AST) {
-//!     let string = ast.to_string();
-//!     // do something with string
-//! }
-//! ```
-
 #![allow(clippy::type_complexity)]
 #![allow(clippy::module_inception)]
 #![allow(clippy::nonstandard_macro_braces)]
 
 mod ast;
 mod grammar;
-mod incremental_map_conformance;
-mod list;
+// mod incremental_map_conformance;
+// mod list;
 mod mutators;
-mod parser;
+// mod parser;
 mod regex;
 
 #[doc(inline)]
@@ -103,6 +77,6 @@ pub use grammar::{
 pub use mutators::grammar_based_ast_mutator;
 
 #[doc(inline)]
-pub use mutators::grammar_based_string_mutator;
+// pub use mutators::grammar_based_string_mutator;
 pub use mutators::GrammarBasedASTMutator;
-pub use mutators::GrammarBasedStringMutator;
+// pub use mutators::GrammarBasedStringMutator;

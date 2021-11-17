@@ -49,11 +49,12 @@
 use crate::Mutator;
 use std::{
     any::Any,
+    fmt::Debug,
     rc::{Rc, Weak},
 };
 
 /// The ArbitraryStep that is used for recursive mutators
-#[derive(Clone)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum RecursingArbitraryStep<AS> {
     Default,
     Initialized(AS),
@@ -272,7 +273,7 @@ where
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct RecursiveMutatorMutationStep<MS, RPI> {
     recursing_part_index: Option<RPI>,
     mutation_step: MS,

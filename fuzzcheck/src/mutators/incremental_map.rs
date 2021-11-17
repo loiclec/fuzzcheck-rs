@@ -1,6 +1,7 @@
 use crate::mutators::either::Either;
 use crate::mutators::recursive::RecurToMutator;
 use crate::Mutator;
+use std::fmt::Debug;
 use std::marker::PhantomData;
 /**
     A type that that can propagate updates to a value (From) to
@@ -46,6 +47,40 @@ where
             map: self.map.clone(),
             _phantom: self._phantom.clone(),
         }
+    }
+}
+impl<From, To, M, Map> Debug for Cache<From, To, M, Map>
+where
+    From: Clone + Debug + 'static,
+    To: Clone + Debug + std::convert::From<From>,
+    M::Cache: Debug,
+    M: Mutator<From>,
+    Map: IncrementalMapping<From, To, M> + for<'a> std::convert::From<&'a From> + Debug,
+    Self: 'static,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Cache")
+            .field("from_value", &self.from_value)
+            .field("from_cache", &self.from_cache)
+            .field("map", &self.map)
+            .field("_phantom", &self._phantom)
+            .finish()
+    }
+}
+impl<From, To, M, Map> PartialEq for Cache<From, To, M, Map>
+where
+    From: Clone + PartialEq + 'static,
+    To: Clone + PartialEq + std::convert::From<From>,
+    M: Mutator<From>,
+    M::Cache: PartialEq,
+    Map: IncrementalMapping<From, To, M> + for<'a> std::convert::From<&'a From> + PartialEq,
+    Self: 'static,
+{
+    fn eq(&self, other: &Self) -> bool {
+        self.from_value == other.from_value
+            && self.from_cache == other.from_cache
+            && self.map == other.map
+            && self._phantom == other._phantom
     }
 }
 
