@@ -157,13 +157,24 @@ impl World {
         stats: Option<(&FuzzerStats, &PoolStats)>,
     ) {
         // println uses a lock, which may mess up the signal handling
+        let time_since_start = self.initial_instant.elapsed();
+        let time_since_start_display = {
+            let time_since_start_millis = time_since_start.as_millis();
+            if time_since_start_millis > 10_000 {
+                let time_since_start_seconds = time_since_start.as_secs();
+                format!("{}s ", time_since_start_seconds)
+            } else {
+                format!("{}ms ", time_since_start_millis)
+            }
+        };
+        print!("{} ", time_since_start_display);
         match event {
             FuzzerEvent::Start => {
                 println!("{}", Color::Yellow.paint("START"));
                 return;
             }
             FuzzerEvent::Pulse => {
-                print!("{}\t", Color::Yellow.paint("PULSE"));
+                print!("{} ", Color::Yellow.paint("PULSE"));
             }
             FuzzerEvent::Stop => {
                 println!("\n======================== STOPPED ========================");
@@ -171,7 +182,6 @@ impl World {
                 return;
             }
             FuzzerEvent::End => {
-                //;
                 println!("\n======================== END ========================");
                 println!(
                     r#"Fuzzcheck cannot generate more arbitrary values of the input type. This may be
@@ -181,7 +191,6 @@ because the mutator does not know how to generate more values."#
                 return;
             }
             FuzzerEvent::CrashNoInput => {
-                //;
                 println!("\n=================== CRASH DETECTED ===================");
                 println!(
                     r#"A crash was detected, but the fuzzer cannot recover the crashing input.
@@ -202,19 +211,7 @@ This should never happen, and is probably a bug in fuzzcheck. Sorry :("#
             FuzzerEvent::TestFailure => {
                 println!("\n================ TEST FAILED ================");
             }
-            FuzzerEvent::Replace(add, sub) => {
-                if add != 0 {
-                    print!("+{} ", Color::Yellow.paint(format!("{}", add)));
-                } else {
-                    print!("   ");
-                }
-                if sub != 0 {
-                    print!("-{}", Color::Yellow.paint(format!("{}", add)));
-                } else {
-                    print!("  ");
-                }
-                print!("\t");
-            }
+            FuzzerEvent::Replace(_, _) => {}
             FuzzerEvent::None => return,
         };
         if let Some((fuzzer_stats, pool_stats)) = stats {
@@ -229,7 +226,6 @@ This should never happen, and is probably a bug in fuzzcheck. Sorry :("#
             );
 
             println!();
-            let time_since_start = self.initial_instant.elapsed();
             let mut stats_fields = vec![CSVField::Integer(time_since_start.as_millis() as isize)];
             stats_fields.extend(fuzzer_stats.to_csv_record());
             stats_fields.extend(pool_stats.to_csv_record());

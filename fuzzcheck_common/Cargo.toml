@@ -4,10 +4,10 @@ version = "0.8.0"
 authors = ["Loïc Lecrenier <loic.lecrenier@me.com>"]
 edition = "2021"
 description = "Common components for both cargo-fuzzcheck and fuzzcheck"
-repository = "https://git.sr.ht/~loic/fuzzcheck-rs"
-license = "MIT"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+homepage = "https://fuzzcheck.neocities.org"
+repository = "https://github.com/loiclec/fuzzcheck-rs"
+keywords = ["property", "fuzzer", "fuzzing", "test", "testing"]
+categories = ["development-tools::testing"]
 
 [dependencies]
 getopts = "0.2"

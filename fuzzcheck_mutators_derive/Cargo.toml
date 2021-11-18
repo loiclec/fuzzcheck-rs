@@ -4,10 +4,11 @@ version = "0.8.0"
 authors = ["Loïc Lecrenier <loic.lecrenier@me.com>"]
 edition = "2021"
 description = "Procedural macros to generate fuzzcheck mutators"
-repository = "https://git.sr.ht/~loic/fuzzcheck-rs"
+homepage = "https://fuzzcheck.neocities.org"
+repository = "https://github.com/loiclec/fuzzcheck-rs"
 license = "MIT"
-keywords = ["fuzzing", "test"]
-categories = ["development-tools"]
+keywords = ["property", "fuzzer", "fuzzing", "test", "testing"]
+categories = ["development-tools::testing"]
 
 [lib]
 proc-macro = true
