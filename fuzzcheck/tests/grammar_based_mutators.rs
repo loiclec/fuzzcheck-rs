@@ -179,9 +179,5 @@ fn markdown() -> Rc<Grammar> {
 #[test]
 fn test_grammar_based_ast_mutator() {
     let mutator = grammar_based_ast_mutator(markdown());
-    test_mutator(mutator, 1000., 1000., false, 100, 100);
-    // let mutator = grammar_based_string_mutator(markdown());
-    // test_mutator(mutator, 1000., 1000., false, 100, 100);
-    // let mutator = <Vec<SampleStruct<u8, u8>>>::default_mutator();
-    // test_mutator(mutator, 1000., 1000., false, 100, 100);
+    test_mutator(mutator, 500., 500., false, 50, 50);
 }
