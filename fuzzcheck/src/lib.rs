@@ -17,8 +17,6 @@
 #![feature(generic_associated_types)]
 #![feature(variant_count)]
 #![feature(arc_new_cyclic)]
-#![feature(box_syntax)]
-#![feature(trivial_bounds)]
 #![allow(clippy::nonstandard_macro_braces)]
 #![allow(clippy::too_many_arguments)]
 
