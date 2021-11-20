@@ -6,6 +6,7 @@ mod and_sensor_and_pool;
 mod array_of_counters;
 mod compatible_with_iterator_sensor;
 mod maximise_counter_value_pool;
+mod merged_sensors;
 mod most_n_diverse_pool;
 mod noop_sensor;
 mod optimise_aggregate_stat_pool;
@@ -24,6 +25,8 @@ pub use array_of_counters::ArrayOfCounters;
 pub use compatible_with_iterator_sensor::CompatibleWithIteratorSensor;
 #[doc(inline)]
 pub use maximise_counter_value_pool::MaximiseCounterValuePool;
+#[doc(inline)]
+pub use merged_sensors::MergedSensors;
 #[doc(inline)]
 pub use most_n_diverse_pool::MostNDiversePool;
 #[doc(inline)]

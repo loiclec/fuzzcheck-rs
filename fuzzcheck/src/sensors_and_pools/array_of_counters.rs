@@ -31,11 +31,26 @@ use std::path::PathBuf;
 /// You can also use a different pool such as the [`UniqueValuesPool`](crate::sensors_and_pools::UniqueValuesPool)
 pub struct ArrayOfCounters<const N: usize> {
     start: *mut u64,
+    offset: usize,
 }
 impl<const N: usize> ArrayOfCounters<N> {
     #[no_coverage]
     pub fn new(xs: &'static mut [u64; N]) -> Self {
-        Self { start: xs.as_mut_ptr() }
+        Self {
+            start: xs.as_mut_ptr(),
+            offset: 0,
+        }
+    }
+    #[no_coverage]
+    pub fn offset_counter_id_by(self, offset: usize) -> Self {
+        Self {
+            start: self.start,
+            offset,
+        }
+    }
+    #[no_coverage]
+    pub fn len(&self) -> usize {
+        N
     }
 }
 
@@ -61,7 +76,7 @@ impl<const N: usize> Sensor for ArrayOfCounters<N> {
             let slice = std::slice::from_raw_parts(self.start, N);
             for (i, &x) in slice.iter().enumerate() {
                 if x != 0 {
-                    handler((i, x))
+                    handler((self.offset + i, x))
                 }
             }
         }
