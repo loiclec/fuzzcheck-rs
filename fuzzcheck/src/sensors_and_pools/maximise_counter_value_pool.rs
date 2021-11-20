@@ -9,8 +9,6 @@ use nu_ansi_term::Color;
 use std::fmt::{Debug, Display};
 use std::path::Path;
 
-use super::simplest_to_activate_counter_pool::gen_f64;
-
 /// The statistics of a [MaximiseCounterValuePool]
 #[derive(Clone)]
 pub struct MaximiseCounterValuePoolStats {
@@ -119,17 +117,7 @@ impl Pool for MaximiseCounterValuePool {
 
     #[no_coverage]
     fn get_random_index(&mut self) -> Option<PoolStorageIndex> {
-        if self.ranked_inputs.len() == 0 {
-            return None;
-        }
-        let most = self.ranked_inputs.prefix_sum(self.ranked_inputs.len() - 1);
-        if most <= 0.0 {
-            return None;
-        }
-        let chosen_weight = gen_f64(&self.rng, 0.0..most);
-
-        // Find the first item which has a weight *higher* than the chosen weight.
-        let choice = self.ranked_inputs.first_index_past_prefix_sum(chosen_weight);
+        let choice = self.ranked_inputs.sample(&self.rng)?;
 
         let key = self.inputs.get_nth_key(choice);
 

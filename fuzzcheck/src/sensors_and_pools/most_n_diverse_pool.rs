@@ -13,9 +13,7 @@ use crate::{
     CSVField, ToCSV,
 };
 
-use super::{
-    compatible_with_iterator_sensor::CompatibleWithIteratorSensor, simplest_to_activate_counter_pool::gen_f64,
-};
+use super::compatible_with_iterator_sensor::CompatibleWithIteratorSensor;
 
 #[derive(Clone)]
 struct Input {
@@ -78,18 +76,7 @@ impl Pool for MostNDiversePool {
     }
     #[no_coverage]
     fn get_random_index(&mut self) -> Option<PoolStorageIndex> {
-        if self.fenwick_tree.len() == 0 {
-            return None;
-        }
-        let most = self.fenwick_tree.prefix_sum(self.fenwick_tree.len() - 1);
-        if most <= 0.0 {
-            return None;
-        }
-        let chosen_weight = gen_f64(&self.rng, 0.0..most);
-
-        // Find the first item which has a weight *higher* than the chosen weight.
-        let choice = self.fenwick_tree.first_index_past_prefix_sum(chosen_weight);
-
+        let choice = self.fenwick_tree.sample(&self.rng)?;
         let input = &self.inputs[choice];
         Some(input.pool_idx)
     }

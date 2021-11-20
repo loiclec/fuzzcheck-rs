@@ -26,7 +26,6 @@ This module provides the following mutators:
     * [`RecursiveMutator` and `RecurToMutator`](crate::mutators::recursive) are wrappers allowing mutators to call themselves recursively, which is necessary to mutate recursive types.
     * [`MapMutator<..>`](crate::mutators::map::MapMutator) wraps a mutator and transforms the generated value using a user-provided function.
 */
-
 pub mod alternation;
 pub mod bool;
 pub mod boxed;
@@ -68,7 +67,8 @@ pub trait DefaultMutator: Clone {
 /// The start and end of the range must be finite
 /// This is a very naive implementation
 #[no_coverage]
-fn gen_f64(rng: &fastrand::Rng, range: Range<f64>) -> f64 {
+#[inline]
+pub fn gen_f64(rng: &fastrand::Rng, range: Range<f64>) -> f64 {
     range.start + rng.f64() * (range.end - range.start)
 }
 

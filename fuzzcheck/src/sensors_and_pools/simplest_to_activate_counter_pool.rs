@@ -37,7 +37,6 @@ use nu_ansi_term::Color;
 use std::cmp::Ordering;
 use std::fmt::Display;
 use std::hash::Hash;
-use std::ops::Range;
 use std::path::{Path, PathBuf};
 
 #[derive(Debug)]
@@ -529,18 +528,7 @@ impl Pool for SimplestToActivateCounterPool {
 
     #[no_coverage]
     fn get_random_index(&mut self) -> Option<PoolStorageIndex> {
-        if self.ranked_inputs.len() == 0 {
-            return None;
-        }
-        let most = self.ranked_inputs.prefix_sum(self.ranked_inputs.len() - 1);
-        if most <= 0.0 {
-            return None;
-        }
-        let chosen_weight = gen_f64(&self.rng, 0.0..most);
-
-        // Find the first item which has a weight *higher* than the chosen weight.
-        let choice = self.ranked_inputs.first_index_past_prefix_sum(chosen_weight);
-
+        let choice = self.ranked_inputs.sample(&self.rng)?;
         let key = self.slab_inputs.get_nth_key(choice);
 
         let input = &mut self.slab_inputs[key];
@@ -631,12 +619,6 @@ struct SerializedUniqCov {
     best_for_counter: Vec<(usize, PoolStorageIndex)>,
     ranked_inputs: Vec<PoolStorageIndex>,
     counters_for_input: Vec<(PoolStorageIndex, Vec<usize>)>,
-}
-
-#[inline(always)]
-#[no_coverage]
-pub fn gen_f64(rng: &fastrand::Rng, range: Range<f64>) -> f64 {
-    range.start + rng.f64() * (range.end - range.start)
 }
 
 // ===============================================================

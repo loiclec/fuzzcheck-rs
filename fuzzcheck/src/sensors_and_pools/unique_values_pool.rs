@@ -6,7 +6,6 @@ use crate::traits::{CorpusDelta, Pool, SaveToStatsFolder};
 use crate::ToCSV;
 use ahash::{AHashMap, AHashSet};
 use std::fmt::{Debug, Display};
-use std::ops::Range;
 use std::path::Path;
 
 #[derive(Clone, Default)]
@@ -99,15 +98,7 @@ impl Pool for UniqueValuesPool {
 
     #[no_coverage]
     fn get_random_index(&mut self) -> Option<PoolStorageIndex> {
-        if self.ranked_inputs.len() == 0 {
-            return None;
-        }
-        let most = self.ranked_inputs.prefix_sum(self.ranked_inputs.len() - 1);
-        if most <= 0.0 {
-            return None;
-        }
-        let chosen_weight = gen_f64(&self.rng, 0.0..most);
-        let choice = self.ranked_inputs.first_index_past_prefix_sum(chosen_weight);
+        let choice = self.ranked_inputs.sample(&self.rng)?;
         let key = self.inputs.get_nth_key(choice);
 
         let input = &mut self.inputs[key];
@@ -243,10 +234,4 @@ impl CompatibleWithIteratorSensor for UniqueValuesPool {
             remove: removed_keys,
         }];
     }
-}
-
-#[inline(always)]
-#[no_coverage]
-fn gen_f64(rng: &fastrand::Rng, range: Range<f64>) -> f64 {
-    range.start + rng.f64() * (range.end - range.start)
 }

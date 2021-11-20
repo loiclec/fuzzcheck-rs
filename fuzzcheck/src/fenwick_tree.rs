@@ -1,5 +1,7 @@
 use std::cmp::Ordering;
 
+use crate::mutators::gen_f64;
+
 pub struct FenwickTree {
     storage: Vec<f64>,
 }
@@ -118,6 +120,23 @@ unsigned int rank_query(int value) {
     return i;
 }
 */
+
+impl FenwickTree {
+    pub fn sample(&self, rng: &fastrand::Rng) -> Option<usize> {
+        if self.len() == 0 {
+            return None;
+        }
+        let most = self.prefix_sum(self.len() - 1);
+        if most <= 0.0 {
+            return None;
+        }
+        let chosen_weight = gen_f64(rng, 0.0..most);
+
+        // Find the first item which has a weight *higher* than the chosen weight.
+        let choice = self.first_index_past_prefix_sum(chosen_weight);
+        Some(choice)
+    }
+}
 
 #[cfg(test)]
 mod tests {
