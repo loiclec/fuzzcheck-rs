@@ -15,6 +15,18 @@ fn main() -> Result<(), Box<dyn Error>> {
     parser.optopt("", "bin", "Test only the specified binary", "<NAME>");
     parser.optopt("", "test", "Test only the specified test target", "<NAME>");
 
+    parser.optflag(
+        "",
+        "instrument-only-root",
+        "Instrument only the current package, not any of the dependencies",
+    );
+    parser.optopt(
+        "",
+        "exec-name",
+        "The name of the test executable that will be created by cargo. Necessary when using --instrument-only-root",
+        "<NAME>",
+    );
+
     parser.opt(
         "",
         CARGO_ARGS_FLAG,
@@ -88,6 +100,14 @@ fn main() -> Result<(), Box<dyn Error>> {
         unreachable!();
     };
 
+    let instrument_only_root = matches.opt_present("instrument-only-root");
+    let name_exec = matches.opt_get::<String>("exec-name").unwrap();
+    if instrument_only_root && name_exec.is_none() {
+        return Err(Box::new(ArgumentsError::Validation(
+            "--exec-name must be provided when using --instrument-only-root".to_string(),
+        )));
+    }
+
     match args.command {
         FuzzerCommand::Fuzz => {
             if args.corpus_in.is_none() && matches.opt_present(NO_IN_CORPUS_FLAG) == false {
@@ -105,6 +125,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             let exec = launch_executable(
                 target_name,
                 &args,
+                if instrument_only_root { name_exec } else { None },
                 &compiled_target,
                 &cargo_args,
                 &process::Stdio::inherit,
@@ -124,6 +145,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             let exec = launch_executable(
                 target_name,
                 &args,
+                if instrument_only_root { name_exec } else { None },
                 &compiled_target,
                 &cargo_args,
                 &process::Stdio::inherit,
