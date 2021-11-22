@@ -1,19 +1,12 @@
-//! Fuzzing engine. Connects the CodeCoverageSensor
-//!to the [Pool] and uses an evolutionary algorithm using [Mutator] to find new interesting
-//! test inputs.
-
 use crate::code_coverage_sensor::CodeCoverageSensor;
 use crate::data_structures::RcSlab;
 use crate::sensors_and_pools::stats::EmptyStats;
-use crate::sensors_and_pools::NoopSensor;
-use crate::sensors_and_pools::SimplestToActivateCounterPool;
-use crate::sensors_and_pools::UnitPool;
-use crate::sensors_and_pools::{AndPool, AndSensor};
-use crate::sensors_and_pools::{TestFailure, TestFailurePool, TestFailureSensor, TEST_FAILURE};
+use crate::sensors_and_pools::{
+    AndPool, AndSensor, NoopSensor, SimplestToActivateCounterPool, TestFailure, TestFailurePool, TestFailureSensor,
+    UnitPool, TEST_FAILURE,
+};
 use crate::signals_handler::set_signal_handlers;
-use crate::traits::SaveToStatsFolder;
-use crate::traits::{CompatibleWithSensor, CorpusDelta, Pool, Sensor};
-use crate::traits::{Mutator, Serializer};
+use crate::traits::{CompatibleWithSensor, CorpusDelta, Mutator, Pool, SaveToStatsFolder, Sensor, Serializer};
 use crate::world::World;
 use crate::{CSVField, FuzzedInput, ToCSV};
 use fuzzcheck_common::arg::{Arguments, FuzzerCommand};
