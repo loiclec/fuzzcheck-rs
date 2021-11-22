@@ -96,9 +96,14 @@ impl Mutator<AST> for ASTMutator {
 
     #[doc(hidden)]
     #[no_coverage]
-    fn validate_value(&self, value: &AST) -> Option<(Self::Cache, Self::MutationStep)> {
-        let (cache, step) = self.inner.validate_value(value)?;
-        Some((Self::Cache::new(cache), Self::MutationStep::new(step)))
+    fn validate_value(&self, value: &AST) -> Option<Self::Cache> {
+        let cache = self.inner.validate_value(value)?;
+        Some(Self::Cache::new(cache))
+    }
+    #[doc(hidden)]
+    #[no_coverage]
+    fn default_mutation_step(&self, value: &AST, cache: &Self::Cache) -> Self::MutationStep {
+        Self::MutationStep::new(self.inner.default_mutation_step(value, &cache.inner))
     }
 
     #[doc(hidden)]

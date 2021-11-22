@@ -413,9 +413,9 @@ fn impl_mutator_trait(tb: &mut TokenBuilder, nbr_elements: usize) {
         }
         #[doc(hidden)]
         #[no_coverage]
-        fn validate_value<'a>(&self, value: " tuple_ref ") -> " cm.Option "<(Self::Cache, Self::MutationStep)> {"
+        fn validate_value<'a>(&self, value: " tuple_ref ") -> " cm.Option "<Self::Cache> {"
             join_ts!(0..nbr_elements, i,
-                "let (" ident!("c" i) ", " ident!("s" i) ") = self." mutator_i(i) ".validate_value(value." i ")?;"
+                "let" ident!("c" i) " = self." mutator_i(i) ".validate_value(value." i ")?;"
             )
             join_ts!(0..nbr_elements, i,
                 "let" ident!("cplx_" i) " = self." mutator_i(i) ".complexity(value." i ", &" ident!("c" i) ");"
@@ -435,19 +435,25 @@ fn impl_mutator_trait(tb: &mut TokenBuilder, nbr_elements: usize) {
             probabilities.iter_mut().for_each(#[no_coverage] |c| *c /= sum_prob);
             let vose_alias = " cm.VoseAlias "::new(probabilities);
 
-            let step = Self::MutationStep {"
-                join_ts!(0..nbr_elements, i, ti(i) ":" ident!("s" i) ",")
-                "inner: vec![" join_ts!(0..nbr_elements, i, "TupleIndex::" Ti(i), separator: ",") "] ,
-                vose_alias: Some(vose_alias.clone())
-            };
-
             let cache = Self::Cache {"
                 join_ts!(0..nbr_elements, i, ti(i) ":" ident!("c" i) ",")
                 "cplx: sum_cplx,
                 vose_alias,
             };
 
-            " cm.Some "((cache, step))
+            " cm.Some "(cache)
+        }
+        #[doc(hidden)]
+        #[no_coverage]
+        fn default_mutation_step<'a>(&self, value: " tuple_ref ", cache: &'a Self::Cache) -> Self::MutationStep {"
+            join_ts!(0..nbr_elements, i,
+                "let" ident!("s" i) " = self." mutator_i(i) ".default_mutation_step(value." i ", &cache. " ti(i) ");"
+            )"
+             Self::MutationStep {"
+                join_ts!(0..nbr_elements, i, ti(i) ":" ident!("s" i) ",")
+                "inner: vec![" join_ts!(0..nbr_elements, i, "TupleIndex::" Ti(i), separator: ",") "] ,
+                vose_alias: Some(cache.vose_alias.clone())
+            }
         }
         #[doc(hidden)]
         #[no_coverage]

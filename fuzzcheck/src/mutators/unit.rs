@@ -74,8 +74,14 @@ where
 
     #[doc(hidden)]
     #[no_coverage]
-    fn validate_value(&self, _value: &T) -> Option<(Self::Cache, Self::MutationStep)> {
-        Some(((), ()))
+    fn validate_value(&self, _value: &T) -> Option<Self::Cache> {
+        Some(())
+    }
+
+    #[doc(hidden)]
+    #[no_coverage]
+    fn default_mutation_step(&self, _value: &T, _cache: &Self::Cache) -> Self::MutationStep {
+        ()
     }
 
     #[doc(hidden)]

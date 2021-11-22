@@ -109,7 +109,8 @@ use std::path::PathBuf;
 # use fuzzcheck::DefaultMutator;
 # let m = bool::default_mutator();
 # let mut value = false;
-# let (mut cache, mut step) = m.validate_value(&value).unwrap();
+# let mut cache = m.validate_value(&value).unwrap();
+# let mut step = m.default_mutation_step(&value, &cache);
 # let max_cplx = 8.0;
 # fn test(x: &bool) {}
 //  value = [[1, 3], [5], [9, 8]];
@@ -157,9 +158,12 @@ pub trait Mutator<Value: Clone>: 'static {
     fn default_arbitrary_step(&self) -> Self::ArbitraryStep;
 
     /// Verifies that the value conforms to the mutator’s expectations and, if it does,
-    /// returns the [`Cache`](Mutator::Cache) and first [`MutationStep`](Mutator::MutationStep)
-    /// associated with that value.
-    fn validate_value(&self, value: &Value) -> Option<(Self::Cache, Self::MutationStep)>;
+    /// returns the [`Cache`](Mutator::Cache) with that value.
+    fn validate_value(&self, value: &Value) -> Option<Self::Cache>;
+
+    /// Returns the first [`MutationStep`](Mutator::MutationStep) associated with the value
+    /// and cache.
+    fn default_mutation_step(&self, value: &Value, cache: &Self::Cache) -> Self::MutationStep;
 
     /// The maximum complexity that a value can possibly have.
     ///
@@ -304,8 +308,14 @@ where
 
     #[doc(hidden)]
     #[no_coverage]
-    fn validate_value(&self, value: &T) -> Option<(Self::Cache, Self::MutationStep)> {
+    fn validate_value(&self, value: &T) -> Option<Self::Cache> {
         self.wrapped_mutator().validate_value(value)
+    }
+
+    #[doc(hidden)]
+    #[no_coverage]
+    fn default_mutation_step(&self, value: &T, cache: &Self::Cache) -> Self::MutationStep {
+        self.wrapped_mutator().default_mutation_step(value, cache)
     }
 
     #[doc(hidden)]
@@ -357,18 +367,18 @@ where
     }
 
     #[doc(hidden)]
+    type RecursingPartIndex = W::RecursingPartIndex;
+    #[doc(hidden)]
     #[no_coverage]
     fn unmutate(&self, value: &mut T, cache: &mut Self::Cache, t: Self::UnmutateToken) {
         self.wrapped_mutator().unmutate(value, cache, t)
     }
-
-    #[doc(hidden)]
-    type RecursingPartIndex = W::RecursingPartIndex;
     #[doc(hidden)]
     #[no_coverage]
     fn default_recursing_part_index(&self, value: &T, cache: &Self::Cache) -> Self::RecursingPartIndex {
         self.wrapped_mutator().default_recursing_part_index(value, cache)
     }
+
     #[doc(hidden)]
     #[no_coverage]
     fn recursing_part<'a, V, N>(&self, parent: &N, value: &'a T, index: &mut Self::RecursingPartIndex) -> Option<&'a V>

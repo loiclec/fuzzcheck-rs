@@ -173,18 +173,32 @@ pub fn make_single_variant_mutator(tb: &mut TokenBuilder, enu: &Enum) {
 
         #[doc(hidden)]
         #[no_coverage]
-        fn validate_value(&self, value: &" enu.ident enum_generics_no_bounds ") -> " cm.Option "<(Self::Cache, Self::MutationStep)> {
+        fn validate_value(&self, value: &" enu.ident enum_generics_no_bounds ") -> " cm.Option "<Self::Cache> {
             match (self, value) {"
             join_ts!(&enu.items, item,
                 "(" EnumSingleVariant "::" item.ident "(m)," item.pattern_match(&enu.ident, Some(pattern_match_binding_append.clone())) ") => {
-                    m.validate_value(" item_pattern_match_bindings_to_tuple(&item.ident, false) ").map(#[no_coverage] |(x, y)| {
-                        (" EnumSingleVariant "::" item.ident "(x), " EnumSingleVariant "::" item.ident "(y))
-                    })
+                    m.validate_value(" item_pattern_match_bindings_to_tuple(&item.ident, false) ").map(" EnumSingleVariant "::" item.ident ")
                 }"
             )" _ => " cm.None ",
             }
         }
-        
+
+        #[doc(hidden)]
+        #[no_coverage]
+        fn default_mutation_step(&self, value: &" enu.ident enum_generics_no_bounds ", cache: &Self::Cache) -> Self::MutationStep {
+            match (self, value, cache) {"
+            join_ts!(&enu.items, item,
+                "(
+                    " EnumSingleVariant ":: " item.ident " (m) ,
+                    " item.pattern_match(&enu.ident, Some(pattern_match_binding_append.clone())) ",
+                    " EnumSingleVariant ":: " item.ident " (c) 
+                 ) => {
+                     " EnumSingleVariant "::" item.ident "(m.default_mutation_step(" item_pattern_match_bindings_to_tuple(&item.ident, false) ", c))
+                 }"
+            )   "_ => unreachable!()
+            }
+        }
+
         #[doc(hidden)]
         #[no_coverage]
         fn max_complexity(&self) -> f64 {

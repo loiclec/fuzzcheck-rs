@@ -177,11 +177,11 @@ impl<T: Clone + 'static, M: Mutator<T>> Mutator<Vec<T>> for FixedLenVecMutator<T
 
     #[doc(hidden)]
     #[no_coverage]
-    fn validate_value(&self, value: &Vec<T>) -> Option<(Self::Cache, Self::MutationStep)> {
+    fn validate_value(&self, value: &Vec<T>) -> Option<Self::Cache> {
         if value.len() != self.mutators.len() {
             return None;
         }
-        let inner: Vec<_> = value
+        let inner_caches: Vec<_> = value
             .iter()
             .zip(self.mutators.iter())
             .map(
@@ -190,12 +190,6 @@ impl<T: Clone + 'static, M: Mutator<T>> Mutator<Vec<T>> for FixedLenVecMutator<T
             )
             .collect::<Option<_>>()?;
 
-        let mut inner_caches = Vec::with_capacity(inner.len());
-        let mut inner_steps = Vec::with_capacity(inner.len());
-        for (cache, step) in inner.into_iter() {
-            inner_caches.push(cache);
-            inner_steps.push(step);
-        }
         let sum_cplx = value.iter().zip(self.mutators.iter()).zip(inner_caches.iter()).fold(
             0.0,
             #[no_coverage]
@@ -206,12 +200,22 @@ impl<T: Clone + 'static, M: Mutator<T>> Mutator<Vec<T>> for FixedLenVecMutator<T
             inner: inner_caches,
             sum_cplx,
         };
-        let step = MutationStep {
-            inner: inner_steps,
-            element_step: 0,
-        };
+        Some(cache)
+    }
 
-        Some((cache, step))
+    #[doc(hidden)]
+    #[no_coverage]
+    fn default_mutation_step(&self, value: &Vec<T>, cache: &Self::Cache) -> Self::MutationStep {
+        let inner = value
+            .iter()
+            .zip(cache.inner.iter())
+            .zip(self.mutators.iter())
+            .map(
+                #[no_coverage]
+                |((v, c), m)| m.default_mutation_step(v, c),
+            )
+            .collect::<Vec<_>>();
+        MutationStep { inner, element_step: 0 }
     }
 
     #[doc(hidden)]

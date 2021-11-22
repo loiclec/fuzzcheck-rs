@@ -30,7 +30,9 @@ where
 
     fn complexity<'a>(&self, value: TupleKind::Ref<'a>, cache: &'a Self::Cache) -> f64;
 
-    fn validate_value<'a>(&self, value: TupleKind::Ref<'a>) -> Option<(Self::Cache, Self::MutationStep)>;
+    fn validate_value<'a>(&self, value: TupleKind::Ref<'a>) -> Option<Self::Cache>;
+
+    fn default_mutation_step<'a>(&self, value: TupleKind::Ref<'a>, cache: &'a Self::Cache) -> Self::MutationStep;
 
     fn max_complexity(&self) -> f64;
 
@@ -137,8 +139,13 @@ where
 
     #[doc(hidden)]
     #[no_coverage]
-    fn validate_value(&self, value: &T) -> Option<(Self::Cache, Self::MutationStep)> {
+    fn validate_value(&self, value: &T) -> Option<Self::Cache> {
         self.mutator.validate_value(value.get_ref())
+    }
+    #[doc(hidden)]
+    #[no_coverage]
+    fn default_mutation_step(&self, value: &T, cache: &Self::Cache) -> Self::MutationStep {
+        self.mutator.default_mutation_step(value.get_ref(), cache)
     }
 
     #[doc(hidden)]
@@ -263,8 +270,13 @@ mod tuple0 {
 
         #[doc(hidden)]
         #[no_coverage]
-        fn validate_value(&self, _value: ()) -> Option<(Self::Cache, Self::MutationStep)> {
-            Some(((), false))
+        fn validate_value(&self, _value: ()) -> Option<Self::Cache> {
+            Some(())
+        }
+        #[doc(hidden)]
+        #[no_coverage]
+        fn default_mutation_step<'a>(&self, _value: (), _cache: &'a Self::Cache) -> Self::MutationStep {
+            false
         }
 
         #[doc(hidden)]

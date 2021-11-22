@@ -66,12 +66,17 @@ impl Mutator<char> for CharWithinRangeMutator {
     }
     #[doc(hidden)]
     #[no_coverage]
-    fn validate_value(&self, value: &char) -> Option<(Self::Cache, Self::MutationStep)> {
+    fn validate_value(&self, value: &char) -> Option<Self::Cache> {
         if (self.start_range..=self.start_range + self.len_range).contains(&(*value as u32)) {
-            Some(((), INITIAL_MUTATION_STEP))
+            Some(())
         } else {
             None
         }
+    }
+    #[doc(hidden)]
+    #[no_coverage]
+    fn default_mutation_step(&self, _value: &char, _cache: &Self::Cache) -> Self::MutationStep {
+        INITIAL_MUTATION_STEP
     }
     #[doc(hidden)]
     #[no_coverage]

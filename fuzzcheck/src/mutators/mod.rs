@@ -128,7 +128,8 @@ pub mod testing_utilities {
                     let is_new = arbitraries.insert(x.clone());
                     assert!(is_new);
                 }
-                let (cache, mut mutation_step) = m.validate_value(&x).unwrap();
+                let cache = m.validate_value(&x).unwrap();
+                let mut mutation_step = m.default_mutation_step(&x, &cache);
                 let _other_cplx = m.complexity(&x, &cache);
                 // assert!((cplx - other_cplx).abs() < 0.01, "{:.3} != {:.3}", cplx, other_cplx);
 
@@ -152,7 +153,7 @@ pub mod testing_utilities {
                         }
 
                         let validated = m.validate_value(&x_mut).unwrap();
-                        let _other_cplx = m.complexity(&x_mut, &validated.0);
+                        let _other_cplx = m.complexity(&x_mut, &validated);
                         // assert!(
                         //     (cplx - other_cplx).abs() < 0.01,
                         //     "{:.3} != {:.3} for {:?}",
@@ -175,7 +176,8 @@ pub mod testing_utilities {
         }
         for _i in 0..nbr_arbitraries {
             let (x, _cplx) = m.random_arbitrary(maximum_complexity_arbitrary);
-            let (cache, _) = m.validate_value(&x).unwrap();
+            let cache = m.validate_value(&x).unwrap();
+            // let mutation_step = m.default_mutation_step(&x, &cache);
             let _other_cplx = m.complexity(&x, &cache);
             // assert!((cplx - other_cplx).abs() < 0.01, "{:.3} != {:.3}", cplx, other_cplx);
             let mut x_mut = x.clone();
@@ -183,7 +185,7 @@ pub mod testing_utilities {
             for _j in 0..nbr_mutations {
                 let (token, _cplx) = m.random_mutate(&mut x_mut, &mut cache_mut, maximum_complexity_mutate);
                 let validated = m.validate_value(&x_mut).unwrap();
-                let _other_cplx = m.complexity(&x_mut, &validated.0);
+                let _other_cplx = m.complexity(&x_mut, &validated);
                 // assert!((cplx - other_cplx).abs() < 0.01, "{:.3} != {:.3}", cplx, other_cplx);
                 m.unmutate(&mut x_mut, &mut cache_mut, token);
                 assert_eq!(x, x_mut);

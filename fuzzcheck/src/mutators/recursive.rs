@@ -161,8 +161,14 @@ where
 
     #[doc(hidden)]
     #[no_coverage]
-    fn validate_value(&self, value: &T) -> Option<(Self::Cache, Self::MutationStep)> {
+    fn validate_value(&self, value: &T) -> Option<Self::Cache> {
         self.reference.upgrade().unwrap().validate_value(value)
+    }
+
+    #[doc(hidden)]
+    #[no_coverage]
+    fn default_mutation_step(&self, value: &T, cache: &Self::Cache) -> Self::MutationStep {
+        self.reference.upgrade().unwrap().default_mutation_step(value, cache)
     }
 
     #[doc(hidden)]
@@ -301,18 +307,18 @@ where
 
     #[doc(hidden)]
     #[no_coverage]
-    fn validate_value(&self, value: &T) -> Option<(Self::Cache, Self::MutationStep)> {
-        if let Some((cache, mutation_step)) = self.mutator.validate_value(value) {
-            let recursing_part_index = Some(self.default_recursing_part_index(value, &cache));
-            Some((
-                cache,
-                RecursiveMutatorMutationStep {
-                    mutation_step,
-                    recursing_part_index,
-                },
-            ))
-        } else {
-            None
+    fn validate_value(&self, value: &T) -> Option<Self::Cache> {
+        self.mutator.validate_value(value)
+    }
+    #[doc(hidden)]
+    #[no_coverage]
+    fn default_mutation_step(&self, value: &T, cache: &Self::Cache) -> Self::MutationStep {
+        let mutation_step = self.mutator.default_mutation_step(value, cache);
+        let recursing_part_index = Some(self.default_recursing_part_index(value, &cache));
+
+        RecursiveMutatorMutationStep {
+            mutation_step,
+            recursing_part_index,
         }
     }
 
@@ -361,7 +367,7 @@ where
                 .recursing_part::<T, Self>(self, value, recursing_part_index)
             {
                 let mut new = new.clone();
-                let (cache, _) = self.validate_value(&new).unwrap();
+                let cache = self.validate_value(&new).unwrap();
                 let cplx = self.complexity(&new, &cache);
                 std::mem::swap(value, &mut new);
                 let token = RecursiveMutatorUnmutateToken::Replace(new);
@@ -392,7 +398,7 @@ where
                 .recursing_part::<T, Self>(self, value, &mut recursing_part_index)
             {
                 let mut new = new.clone();
-                let (cache, _) = self.validate_value(&new).unwrap();
+                let cache = self.validate_value(&new).unwrap();
                 let cplx = self.complexity(&new, &cache);
                 std::mem::swap(value, &mut new);
                 let token = RecursiveMutatorUnmutateToken::Replace(new);

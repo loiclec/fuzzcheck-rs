@@ -25,8 +25,8 @@ fn test_vector_explore() {
     let (mut x, cplx) = m.ordered_arbitrary(&mut step, 100.0).unwrap();
     println!("{:?}", x);
     println!("cplx: {}", cplx);
-    let (mut cache, mut step) = m.validate_value(&x).unwrap();
-
+    let mut cache = m.validate_value(&x).unwrap();
+    let mut step = m.default_mutation_step(&x, &cache);
     for _ in 0..100 {
         if let Some((token, _cplx)) = m.ordered_mutate(&mut x, &mut cache, &mut step, 4096.) {
             println!("{:?}", x);

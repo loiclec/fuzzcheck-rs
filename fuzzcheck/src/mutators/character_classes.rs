@@ -72,7 +72,7 @@ impl Mutator<char> for CharacterMutator {
     }
     #[doc(hidden)]
     #[no_coverage]
-    fn validate_value(&self, value: &char) -> Option<(Self::Cache, Self::MutationStep)> {
+    fn validate_value(&self, value: &char) -> Option<Self::Cache> {
         if self
             .ranges
             .iter()
@@ -82,11 +82,17 @@ impl Mutator<char> for CharacterMutator {
             )
             .is_some()
         {
-            Some(((), 0))
+            Some(())
         } else {
             None
         }
     }
+    #[doc(hidden)]
+    #[no_coverage]
+    fn default_mutation_step(&self, _value: &char, _cache: &Self::Cache) -> Self::MutationStep {
+        0
+    }
+
     #[doc(hidden)]
     #[no_coverage]
     fn max_complexity(&self) -> f64 {

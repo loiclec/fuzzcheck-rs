@@ -22,7 +22,7 @@ impl<T: Clone, M: Mutator<T>> DictionaryMutator<T, M> {
         let dictionary = dictionary
             .into_iter()
             .filter_map(|v| {
-                if let Some((cache, _)) = value_mutator.validate_value(&v) {
+                if let Some(cache) = value_mutator.validate_value(&v) {
                     let complexity = value_mutator.complexity(&v, &cache);
                     Some((v, complexity))
                 } else {
@@ -85,12 +85,17 @@ impl<T: Clone + 'static, M: Mutator<T>> Mutator<T> for DictionaryMutator<T, M> {
 
     #[doc(hidden)]
     #[no_coverage]
-    fn validate_value(&self, value: &T) -> Option<(Self::Cache, Self::MutationStep)> {
-        if let Some((cache, step)) = self.m.validate_value(value) {
-            Some((cache, Self::MutationStep::new(step)))
+    fn validate_value(&self, value: &T) -> Option<Self::Cache> {
+        if let Some(cache) = self.m.validate_value(value) {
+            Some(cache)
         } else {
             None
         }
+    }
+    #[doc(hidden)]
+    #[no_coverage]
+    fn default_mutation_step(&self, value: &T, cache: &Self::Cache) -> Self::MutationStep {
+        Self::MutationStep::new(self.m.default_mutation_step(value, cache))
     }
 
     #[doc(hidden)]

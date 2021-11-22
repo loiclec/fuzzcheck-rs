@@ -124,29 +124,29 @@ pub enum UnmutateToken<T, U> {
     Inner(usize, U),
 }
 
-impl<T, M> AlternationMutator<T, M>
-where
-    T: Clone,
-    M: Mutator<T>,
-{
-    #[no_coverage]
-    fn default_mutation_step(
-        &self,
-        inner: M::MutationStep,
-        idx: usize,
-    ) -> MutationStep<M::MutationStep, <Self as Mutator<T>>::ArbitraryStep> {
-        MutationStep {
-            step: 0,
-            mutator_idx: idx,
-            inner,
-            arbitrary: {
-                let mut step = self.default_arbitrary_step();
-                step.indices.remove(idx);
-                step
-            },
-        }
-    }
-}
+// impl<T, M> AlternationMutator<T, M>
+// where
+//     T: Clone,
+//     M: Mutator<T>,
+// {
+//     #[no_coverage]
+//     fn default_mutation_step(
+//         &self,
+//         inner: M::MutationStep,
+//         idx: usize,
+//     ) -> MutationStep<M::MutationStep, <Self as Mutator<T>>::ArbitraryStep> {
+//         MutationStep {
+//             step: 0,
+//             mutator_idx: idx,
+//             inner,
+//             arbitrary: {
+//                 let mut step = self.default_arbitrary_step();
+//                 step.indices.remove(idx);
+//                 step
+//             },
+//         }
+//     }
+// }
 impl<T, M> AlternationMutator<T, M>
 where
     T: Clone,
@@ -195,23 +195,41 @@ where
 
     #[doc(hidden)]
     #[no_coverage]
-    fn validate_value(&self, value: &T) -> Option<(Self::Cache, Self::MutationStep)> {
+    fn validate_value(&self, value: &T) -> Option<Self::Cache> {
         let mut caches = vec![];
-        let mut steps = vec![];
         for (idx, mutator) in self.mutators.iter().enumerate() {
-            if let Some((c, s)) = mutator.validate_value(value) {
+            if let Some(c) = mutator.validate_value(value) {
                 caches.push(Cache {
                     inner: c,
                     mutator_idx: idx,
                 });
-                steps.push(self.default_mutation_step(s, idx));
             }
         }
         if caches.is_empty() {
-            return None;
+            None
         } else {
-            Some((caches, steps))
+            Some(caches)
         }
+    }
+    #[doc(hidden)]
+    #[no_coverage]
+    fn default_mutation_step(&self, value: &T, cache: &Self::Cache) -> Self::MutationStep {
+        cache
+            .iter()
+            .map(|c| {
+                let m = &self.mutators[c.mutator_idx];
+                MutationStep {
+                    step: 0,
+                    mutator_idx: c.mutator_idx,
+                    inner: m.default_mutation_step(value, &c.inner),
+                    arbitrary: {
+                        let mut step = self.default_arbitrary_step();
+                        step.indices.remove(c.mutator_idx);
+                        step
+                    },
+                }
+            })
+            .collect()
     }
 
     #[doc(hidden)]

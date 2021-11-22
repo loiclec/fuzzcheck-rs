@@ -31,8 +31,13 @@ impl<T: Clone, M: Mutator<T>> Mutator<Box<T>> for BoxMutator<M> {
 
     #[doc(hidden)]
     #[no_coverage]
-    fn validate_value(&self, value: &Box<T>) -> Option<(Self::Cache, Self::MutationStep)> {
+    fn validate_value(&self, value: &Box<T>) -> Option<Self::Cache> {
         self.mutator.validate_value(value)
+    }
+    #[doc(hidden)]
+    #[no_coverage]
+    fn default_mutation_step(&self, value: &Box<T>, cache: &Self::Cache) -> Self::MutationStep {
+        self.mutator.default_mutation_step(value, cache)
     }
 
     #[doc(hidden)]

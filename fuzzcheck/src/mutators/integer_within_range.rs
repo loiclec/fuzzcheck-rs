@@ -59,31 +59,43 @@ macro_rules! impl_int_mutator_constrained {
             #[doc(hidden)]
             type UnmutateToken = $name; // old value
 
+            #[doc(hidden)]
             #[no_coverage]
             fn default_arbitrary_step(&self) -> Self::ArbitraryStep {
                 0
             }
 
+            #[doc(hidden)]
             #[no_coverage]
-            fn validate_value(&self, _value: &$name) -> Option<(Self::Cache, Self::MutationStep)> {
-                Some(((), INITIAL_MUTATION_STEP))
+            fn validate_value(&self, _value: &$name) -> Option<Self::Cache> {
+                Some(())
             }
 
+            #[doc(hidden)]
+            #[no_coverage]
+            fn default_mutation_step(&self, _value: &$name, _cache: &Self::Cache) -> Self::MutationStep {
+                INITIAL_MUTATION_STEP
+            }
+
+            #[doc(hidden)]
             #[no_coverage]
             fn max_complexity(&self) -> f64 {
                 <$name>::BITS as f64
             }
 
+            #[doc(hidden)]
             #[no_coverage]
             fn min_complexity(&self) -> f64 {
                 <$name>::BITS as f64
             }
 
+            #[doc(hidden)]
             #[no_coverage]
             fn complexity(&self, _value: &$name, _cache: &Self::Cache) -> f64 {
                 <$name>::BITS as f64
             }
 
+            #[doc(hidden)]
             #[no_coverage]
             fn ordered_arbitrary(&self, step: &mut Self::ArbitraryStep, max_cplx: f64) -> Option<($name, f64)> {
                 if max_cplx < self.min_complexity() {
@@ -101,6 +113,7 @@ macro_rules! impl_int_mutator_constrained {
                 }
             }
 
+            #[doc(hidden)]
             #[no_coverage]
             fn random_arbitrary(&self, _max_cplx: f64) -> ($name, f64) {
                 let value = self
@@ -109,6 +122,7 @@ macro_rules! impl_int_mutator_constrained {
                 (value, <$name>::BITS as f64)
             }
 
+            #[doc(hidden)]
             #[no_coverage]
             fn ordered_mutate(
                 &self,
@@ -132,6 +146,7 @@ macro_rules! impl_int_mutator_constrained {
                 Some((token, <$name>::BITS as f64))
             }
 
+            #[doc(hidden)]
             #[no_coverage]
             fn random_mutate(
                 &self,
@@ -149,6 +164,7 @@ macro_rules! impl_int_mutator_constrained {
                 )
             }
 
+            #[doc(hidden)]
             #[no_coverage]
             fn unmutate(&self, value: &mut $name, _cache: &mut Self::Cache, t: Self::UnmutateToken) {
                 *value = t;

@@ -344,7 +344,7 @@ impl<T: Clone, M: Mutator<T>> VecMutator<T, M> {
 
         for dic_idx in indices {
             let x = &self.dictionary[dic_idx];
-            if let Some((el_cache, _)) = self.validate_value(x) {
+            if let Some(el_cache) = self.validate_value(x) {
                 let added_complexity = self.complexity(x, &el_cache);
                 if added_complexity < spare_cplx {
                     insert_many(value, idx, x.iter().cloned());
@@ -493,21 +493,14 @@ impl<T: Clone + 'static, M: Mutator<T>> Mutator<Vec<T>> for VecMutator<T, M> {
 
     #[doc(hidden)]
     #[no_coverage]
-    fn validate_value(&self, value: &Vec<T>) -> Option<(Self::Cache, Self::MutationStep)> {
-        let inner: Vec<_> = value
+    fn validate_value(&self, value: &Vec<T>) -> Option<Self::Cache> {
+        let inner_caches: Vec<_> = value
             .iter()
             .map(
                 #[no_coverage]
                 |x| self.m.validate_value(x),
             )
             .collect::<Option<_>>()?;
-
-        let mut inner_caches = Vec::with_capacity(inner.len());
-        let mut inner_steps = Vec::with_capacity(inner.len());
-        for (cache, step) in inner.into_iter() {
-            inner_caches.push(cache);
-            inner_steps.push(step);
-        }
 
         let cplxs = value
             .iter()
@@ -547,22 +540,32 @@ impl<T: Clone + 'static, M: Mutator<T>> Mutator<Vec<T>> for VecMutator<T, M> {
             sum_cplx,
             alias: alias.clone(),
         };
-        let step = if self.m.max_complexity() == 0.0 {
+
+        Some(cache)
+    }
+
+    #[doc(hidden)]
+    #[no_coverage] 
+    fn default_mutation_step(&self, value: &Vec<T>, cache: &Self::Cache) -> Self::MutationStep {
+        if self.m.max_complexity() == 0.0 {
             Self::MutationStep::InnerMutatorIsUnit {
                 length_step: *self.len_range.start(),
             }
         } else {
+            let inner = value
+                .iter()
+                .zip(cache.inner.iter())
+                .map(|(v, c)| self.m.default_mutation_step(v, c))
+                .collect::<Vec<_>>();
             Self::MutationStep::Normal(MutationStep {
                 executed_mutations: ExecutedMutations {
                     make_empty: value.is_empty(),
                     remove_element: 0,
                 },
-                inner: inner_steps,
-                alias,
+                inner,
+                alias: cache.alias.clone(),
             })
-        };
-
-        Some((cache, step))
+        }
     }
 
     #[doc(hidden)]

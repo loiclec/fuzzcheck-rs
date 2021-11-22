@@ -20,7 +20,12 @@ impl<T: Clone> Mutator<T> for NeverMutator {
 
     #[doc(hidden)]
     #[no_coverage]
-    fn validate_value(&self, _value: &T) -> Option<(Self::Cache, Self::MutationStep)> {
+    fn validate_value(&self, _value: &T) -> Option<Self::Cache> {
+        unreachable!()
+    }
+    #[doc(hidden)]
+    #[no_coverage]
+    fn default_mutation_step(&self, _value: &T, _cache: &Self::Cache) -> Self::MutationStep {
         unreachable!()
     }
 
@@ -71,19 +76,19 @@ impl<T: Clone> Mutator<T> for NeverMutator {
     fn random_mutate(&self, _value: &mut T, _cache: &mut Self::Cache, _max_cplx: f64) -> (Self::UnmutateToken, f64) {
         unreachable!()
     }
-
+    #[doc(hidden)]
+    type RecursingPartIndex = ();
     #[doc(hidden)]
     #[no_coverage]
     fn unmutate(&self, _value: &mut T, _cache: &mut Self::Cache, _t: Self::UnmutateToken) {
         unreachable!()
     }
     #[doc(hidden)]
-    type RecursingPartIndex = ();
-    #[doc(hidden)]
     #[no_coverage]
     fn default_recursing_part_index(&self, _value: &T, _cache: &Self::Cache) -> Self::RecursingPartIndex {
         unreachable!()
     }
+
     #[doc(hidden)]
     #[no_coverage]
     fn recursing_part<'a, V, N>(
@@ -119,6 +124,7 @@ where
         unreachable!()
     }
 
+    #[doc(hidden)]
     #[no_coverage]
     fn complexity<'a>(&self, _value: TupleKind::Ref<'a>, _cache: &'a Self::Cache) -> f64 {
         unreachable!()
@@ -126,7 +132,12 @@ where
 
     #[doc(hidden)]
     #[no_coverage]
-    fn validate_value<'a>(&self, _value: TupleKind::Ref<'a>) -> Option<(Self::Cache, Self::MutationStep)> {
+    fn validate_value<'a>(&self, _value: TupleKind::Ref<'a>) -> Option<Self::Cache> {
+        unreachable!()
+    }
+    #[doc(hidden)]
+    #[no_coverage]
+    fn default_mutation_step<'a>(&self, _value: TupleKind::Ref<'a>, _cache: &'a Self::Cache) -> Self::MutationStep {
         unreachable!()
     }
 

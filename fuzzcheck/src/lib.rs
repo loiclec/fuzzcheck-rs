@@ -235,7 +235,8 @@ impl<T: Clone, Mut: Mutator<T>> FuzzedInput<T, Mut> {
 
     #[no_coverage]
     pub fn new_source(&self, m: &Mut) -> Self {
-        let (cache, mutation_step) = m.validate_value(&self.value).unwrap();
+        let cache = m.validate_value(&self.value).unwrap();
+        let mutation_step = m.default_mutation_step(&self.value, &cache);
         Self::new(self.value.clone(), cache, mutation_step, self.generation + 1)
     }
 

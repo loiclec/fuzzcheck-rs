@@ -86,10 +86,15 @@ where
 
     #[doc(hidden)]
     #[no_coverage]
-    fn validate_value(&self, to_value: &To) -> Option<(Self::Cache, Self::MutationStep)> {
+    fn validate_value(&self, to_value: &To) -> Option<Self::Cache> {
         let from_value = (self.parse)(to_value)?;
-        let (from_cache, step) = self.mutator.validate_value(&from_value)?;
-        Some((Cache { from_value, from_cache }, step))
+        let from_cache = self.mutator.validate_value(&from_value)?;
+        Some(Cache { from_value, from_cache })
+    }
+    #[doc(hidden)]
+    #[no_coverage]
+    fn default_mutation_step(&self, _value: &To, cache: &Self::Cache) -> Self::MutationStep {
+        self.mutator.default_mutation_step(&cache.from_value, &cache.from_cache)
     }
 
     #[doc(hidden)]

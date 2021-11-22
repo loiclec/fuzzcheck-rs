@@ -165,10 +165,14 @@ macro_rules! impl_int_mutator {
             }
             #[doc(hidden)]
             #[no_coverage]
-            fn validate_value(&self, _value: &$name) -> Option<(Self::Cache, Self::MutationStep)> {
-                Some(((), INITIAL_MUTATION_STEP))
+            fn validate_value(&self, _value: &$name) -> Option<Self::Cache> {
+                Some(())
             }
-
+            #[doc(hidden)]
+            #[no_coverage]
+            fn default_mutation_step(&self, _value: &$name, _cache: &Self::Cache) -> Self::MutationStep {
+                INITIAL_MUTATION_STEP
+            }
             /// The maximum complexity of an input of this type
             #[doc(hidden)]
             #[no_coverage]

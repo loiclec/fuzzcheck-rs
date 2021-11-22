@@ -172,7 +172,8 @@ where
             .mutator
             .ordered_arbitrary(&mut self.arbitrary_step, self.settings.max_input_cplx)
         {
-            let (cache, step) = self.mutator.validate_value(&v).unwrap();
+            let cache = self.mutator.validate_value(&v).unwrap();
+            let step = self.mutator.default_mutation_step(&v, &cache);
             Some((FuzzedInput::new(v, cache, step, 0), cplx))
         } else {
             None
@@ -413,7 +414,8 @@ where
                 #[no_coverage]
                 |value| {
                     let value = self.state.serializer.from_data(&value)?;
-                    let (cache, mutation_step) = self.state.mutator.validate_value(&value)?;
+                    let cache = self.state.mutator.validate_value(&value)?;
+                    let mutation_step = self.state.mutator.default_mutation_step(&value, &cache);
                     Some(FuzzedInput::new(value, cache, mutation_step, 0))
                 },
             )
@@ -563,7 +565,8 @@ where
             let world = World::new(args.clone()).expect(WORLD_NEW_ERROR);
             let value = world.read_input_file(input_file).expect(READ_INPUT_FILE_ERROR);
             let value = serializer.from_data(&value).expect(SERIALIZER_FROM_DATA_ERROR);
-            if let Some((cache, mutation_step)) = mutator.validate_value(&value) {
+            if let Some(cache) = mutator.validate_value(&value) {
+                let mutation_step = mutator.default_mutation_step(&value, &cache);
                 args.max_input_cplx = mutator.complexity(&value, &cache) - 0.01;
 
                 let sensor = AndSensor(sensor, NoopSensor);
@@ -590,7 +593,8 @@ where
             let mut world = World::new(args.clone()).expect(WORLD_NEW_ERROR);
             let value = world.read_input_file(input_file).expect(READ_INPUT_FILE_ERROR);
             let value = serializer.from_data(&value).expect(SERIALIZER_FROM_DATA_ERROR);
-            if let Some((cache, mutation_step)) = mutator.validate_value(&value) {
+            if let Some(cache) = mutator.validate_value(&value) {
+                let mutation_step = mutator.default_mutation_step(&value, &cache);
                 let input = FuzzedInput::new(value, cache, mutation_step, 0);
                 let cplx = input.complexity(&mutator);
 

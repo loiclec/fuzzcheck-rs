@@ -31,16 +31,25 @@ where
 
     #[doc(hidden)]
     #[no_coverage]
-    fn validate_value(&self, value: &T) -> Option<(Self::Cache, Self::MutationStep)> {
+    fn validate_value(&self, value: &T) -> Option<Self::Cache> {
         match self {
             Either::Left(m) => {
-                let (c, s) = m.validate_value(value)?;
-                Some((Either::Left(c), Either::Left(s)))
+                let c = m.validate_value(value)?;
+                Some(Either::Left(c))
             }
             Either::Right(m) => {
-                let (c, s) = m.validate_value(value)?;
-                Some((Either::Right(c), Either::Right(s)))
+                let c = m.validate_value(value)?;
+                Some(Either::Right(c))
             }
+        }
+    }
+    #[doc(hidden)]
+    #[no_coverage]
+    fn default_mutation_step(&self, value: &T, cache: &Self::Cache) -> Self::MutationStep {
+        match (self, cache) {
+            (Either::Left(m), Either::Left(c)) => Either::Left(m.default_mutation_step(value, c)),
+            (Either::Right(m), Either::Right(c)) => Either::Right(m.default_mutation_step(value, c)),
+            _ => panic!(),
         }
     }
 
