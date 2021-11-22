@@ -12,6 +12,7 @@ use crate::{CSVField, FuzzedInput, ToCSV};
 use fuzzcheck_common::arg::{Arguments, FuzzerCommand};
 use fuzzcheck_common::{FuzzerEvent, FuzzerStats};
 use libc::{SIGABRT, SIGALRM, SIGBUS, SIGFPE, SIGINT, SIGSEGV, SIGTERM, SIGTRAP};
+use serde::de::Visitor;
 use std::borrow::Borrow;
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
@@ -44,7 +45,7 @@ pub enum ReasonForStopping<T> {
 }
 
 /// The index to a test case in the fuzzer’s storage.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct PoolStorageIndex(usize);
 
 #[cfg(test)]
@@ -626,5 +627,37 @@ where
     FuzzingResult {
         found_test_failure,
         reason_for_stopping,
+    }
+}
+
+//
+
+impl serde::Serialize for PoolStorageIndex {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_u64(self.0 as u64)
+    }
+}
+impl<'de> serde::Deserialize<'de> for PoolStorageIndex {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        pub struct U64Visitor;
+        impl<'v> Visitor<'v> for U64Visitor {
+            type Value = PoolStorageIndex;
+            fn visit_u64<E>(self, v: u64) -> Result<Self::Value, E>
+            where
+                E: serde::de::Error,
+            {
+                Ok(PoolStorageIndex(v as usize))
+            }
+            fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+                write!(formatter, "an unsigned integer")
+            }
+        }
+        deserializer.deserialize_u64(U64Visitor)
     }
 }
