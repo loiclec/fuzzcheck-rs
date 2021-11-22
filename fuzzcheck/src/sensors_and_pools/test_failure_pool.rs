@@ -1,5 +1,5 @@
 use crate::fuzzer::PoolStorageIndex;
-use crate::traits::{CompatibleWithSensor, CorpusDelta, Pool, SaveToStatsFolder, Sensor};
+use crate::traits::{CompatibleWithSensor, CorpusDelta, Pool, SaveToStatsFolder, Sensor, Stats};
 use crate::{CSVField, ToCSV};
 use nu_ansi_term::Color;
 use std::fmt::Display;
@@ -79,6 +79,7 @@ impl ToCSV for TestFailurePoolStats {
         vec![CSVField::Integer(self.count as isize)]
     }
 }
+impl Stats for TestFailurePoolStats {}
 
 struct TestFailureList {
     error: TestFailure,

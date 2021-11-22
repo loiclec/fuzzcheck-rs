@@ -541,9 +541,9 @@ where
     F: Fn(&V) -> bool + 'static,
     V: Clone,
     M: Mutator<V>,
-    Sens: Sensor,
-    P: Pool + CompatibleWithSensor<Sens>,
-    Fuzzer<V, M, Sens, P>: 'static,
+    Sens: Sensor + 'static,
+    P: Pool + CompatibleWithSensor<Sens> + 'static,
+    Fuzzer<V, M>: 'static,
 {
     #[no_coverage]
     pub fn command(self, command: FuzzerCommand) -> Self {
@@ -618,7 +618,13 @@ where
             _phantom,
         } = self;
 
-        crate::fuzzer::launch(Box::new(test_function), mutator, serializer, sensor, pool, arguments)
+        crate::fuzzer::launch(
+            Box::new(test_function),
+            mutator,
+            serializer,
+            Box::new((sensor, pool)),
+            arguments,
+        )
     }
 }
 

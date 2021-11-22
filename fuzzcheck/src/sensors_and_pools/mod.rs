@@ -18,7 +18,7 @@ mod unit_pool;
 #[doc(inline)]
 pub use crate::code_coverage_sensor::CodeCoverageSensor;
 #[doc(inline)]
-pub use and_sensor_and_pool::{AndPool, AndSensor};
+pub use and_sensor_and_pool::{AndPool, AndSensor, AndSensorAndPool};
 #[doc(inline)]
 pub use array_of_counters::ArrayOfCounters;
 #[doc(inline)]
@@ -54,9 +54,9 @@ pub(crate) use test_failure_pool::TEST_FAILURE;
 
 /// Each pool has an associated `Stats` type. They're not very interesting, but I don't want to completely hide them, so I have gathered them here.
 pub mod stats {
-    use std::fmt::Display;
-
+    use crate::traits::Stats;
     use crate::{CSVField, ToCSV};
+    use std::fmt::Display;
 
     #[doc(inline)]
     pub use super::and_sensor_and_pool::AndPoolStats;
@@ -91,4 +91,5 @@ pub mod stats {
             vec![]
         }
     }
+    impl Stats for EmptyStats {}
 }

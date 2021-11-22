@@ -461,6 +461,58 @@ pub trait Sensor: SaveToStatsFolder {
     fn iterate_over_observations(&mut self, handler: Self::ObservationHandler<'_>);
 }
 
+pub trait Stats: Display + ToCSV + 'static {}
+
+pub trait SensorAndPool: SaveToStatsFolder {
+    fn stats(&self) -> Box<dyn Stats>;
+    fn start_recording(&mut self);
+    fn stop_recording(&mut self);
+    fn process(&mut self, input_id: PoolStorageIndex, cplx: f64) -> Vec<CorpusDelta>;
+    fn get_random_index(&mut self) -> Option<PoolStorageIndex>;
+    fn mark_test_case_as_dead_end(&mut self, idx: PoolStorageIndex);
+}
+impl<A, B> SaveToStatsFolder for (A, B)
+where
+    A: SaveToStatsFolder,
+    B: SaveToStatsFolder,
+{
+    fn save_to_stats_folder(&self) -> Vec<(PathBuf, Vec<u8>)> {
+        let mut x = self.0.save_to_stats_folder();
+        x.extend(self.1.save_to_stats_folder());
+        x
+    }
+}
+impl<S, P> SensorAndPool for (S, P)
+where
+    S: Sensor,
+    P: CompatibleWithSensor<S>,
+    S: SaveToStatsFolder,
+    P: SaveToStatsFolder,
+{
+    fn stats(&self) -> Box<dyn Stats> {
+        Box::new(self.1.stats())
+    }
+    fn start_recording(&mut self) {
+        self.0.start_recording();
+    }
+
+    fn stop_recording(&mut self) {
+        self.0.stop_recording();
+    }
+
+    fn process(&mut self, input_id: PoolStorageIndex, complexity: f64) -> Vec<CorpusDelta> {
+        self.1.process(input_id, &mut self.0, complexity)
+    }
+
+    fn get_random_index(&mut self) -> Option<PoolStorageIndex> {
+        self.1.get_random_index()
+    }
+
+    fn mark_test_case_as_dead_end(&mut self, idx: PoolStorageIndex) {
+        self.1.mark_test_case_as_dead_end(idx)
+    }
+}
+
 pub enum CSVField {
     Integer(isize),
     Float(f64),
@@ -521,7 +573,7 @@ observations made by the Sensor.
 pub trait Pool: SaveToStatsFolder {
     /// Statistics about the pool to be printed to the terminal as the fuzzer is running and
     /// saved to a .csv file after the run
-    type Stats: Display + ToCSV + Clone;
+    type Stats: Stats;
 
     /// The number of test cases in the pool
     fn len(&self) -> usize;

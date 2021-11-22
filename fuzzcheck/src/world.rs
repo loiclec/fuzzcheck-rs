@@ -1,8 +1,8 @@
 use crate::fuzzer::PoolStorageIndex;
 use crate::fuzzer::TerminationStatus;
-use crate::sensors_and_pools::stats::EmptyStats;
 use crate::traits::CorpusDelta;
 use crate::traits::SaveToStatsFolder;
+use crate::traits::Stats;
 use crate::CSVField;
 use crate::ToCSV;
 use fuzzcheck_common::arg::Arguments;
@@ -12,7 +12,6 @@ use nu_ansi_term::Color;
 use std::cell::RefCell;
 use std::collections::hash_map::DefaultHasher;
 use std::collections::HashMap;
-use std::fmt::Display;
 use std::fs;
 use std::fs::File;
 use std::fs::OpenOptions;
@@ -151,11 +150,7 @@ impl World {
     }
 
     #[no_coverage]
-    pub(crate) fn report_event<PoolStats: Display + ToCSV>(
-        &self,
-        event: FuzzerEvent,
-        stats: Option<(&FuzzerStats, &PoolStats)>,
-    ) {
+    pub(crate) fn report_event(&self, event: FuzzerEvent, stats: Option<(&FuzzerStats, &dyn Stats)>) {
         // println uses a lock, which may mess up the signal handling
         let time_since_start = self.initial_instant.elapsed();
         let time_since_start_display = {
@@ -322,7 +317,7 @@ This should never happen, and is probably a bug in fuzzcheck. Sorry :("#
 
     #[no_coverage]
     pub fn stop(&mut self) -> ! {
-        self.report_event::<EmptyStats>(FuzzerEvent::Stop, None);
+        self.report_event(FuzzerEvent::Stop, None);
         std::process::exit(TerminationStatus::Success as i32);
     }
 

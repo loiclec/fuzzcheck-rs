@@ -5,6 +5,7 @@ use std::{
 };
 
 use crate::{bitset::FixedBitSet, traits::SaveToStatsFolder};
+use crate::traits::Stats;
 
 use crate::{
     fenwick_tree::FenwickTree,
@@ -310,6 +311,7 @@ impl Display for MostNDiversePoolStats {
         write!(f, "{}({})", self.name, self.counters)
     }
 }
+impl Stats for MostNDiversePoolStats {}
 
 #[cfg(test)]
 mod tests {

@@ -2,7 +2,7 @@ use crate::data_structures::{Slab, SlabKey};
 use crate::fenwick_tree::FenwickTree;
 use crate::fuzzer::PoolStorageIndex;
 use crate::sensors_and_pools::compatible_with_iterator_sensor::CompatibleWithIteratorSensor;
-use crate::traits::{CorpusDelta, Pool, SaveToStatsFolder};
+use crate::traits::{CorpusDelta, Pool, SaveToStatsFolder, Stats};
 use crate::{CSVField, ToCSV};
 use ahash::AHashSet;
 use nu_ansi_term::Color;
@@ -27,6 +27,7 @@ impl Display for MaximiseCounterValuePoolStats {
         )
     }
 }
+
 impl ToCSV for MaximiseCounterValuePoolStats {
     #[no_coverage]
     fn csv_headers(&self) -> Vec<CSVField> {
@@ -43,6 +44,7 @@ impl ToCSV for MaximiseCounterValuePoolStats {
         ]
     }
 }
+impl Stats for MaximiseCounterValuePoolStats {}
 
 #[derive(Debug)]
 struct Input {

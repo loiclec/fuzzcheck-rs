@@ -22,7 +22,7 @@ use std::{fmt::Display, path::PathBuf};
 
 use crate::{
     fuzzer::PoolStorageIndex,
-    traits::{CompatibleWithSensor, CorpusDelta, Pool, SaveToStatsFolder, Sensor},
+    traits::{Stats, CompatibleWithSensor, CorpusDelta, Pool, SaveToStatsFolder, Sensor, SensorAndPool},
     CSVField, ToCSV,
 };
 
@@ -167,6 +167,7 @@ impl<S1: Display, S2: Display> Display for AndPoolStats<S1, S2> {
         write!(f, "{} {}", self.0, self.1)
     }
 }
+impl<S1: Display, S2: Display> Stats for AndPoolStats<S1, S2> where S1: Stats, S2: Stats {}
 
 impl<S1, S2, P1, P2> CompatibleWithSensor<AndSensor<S1, S2>> for AndPool<P1, P2>
 where
@@ -256,5 +257,71 @@ where
         let mut h = self.0.to_csv_record();
         h.extend(self.1.to_csv_record());
         h
+    }
+}
+
+pub struct AndSensorAndPool {
+    sap1: Box<dyn SensorAndPool>,
+    sap2: Box<dyn SensorAndPool>,
+    ratio_choose_first: u8,
+    rng: fastrand::Rng,
+}
+impl AndSensorAndPool {
+    pub fn new(sap1: Box<dyn SensorAndPool>, sap2: Box<dyn SensorAndPool>, ratio_choose_first: u8) -> Self {
+        Self {
+            sap1,
+            sap2,
+            ratio_choose_first,
+            rng: fastrand::Rng::new(),
+        }
+    }
+}
+impl SaveToStatsFolder for AndSensorAndPool {
+    fn save_to_stats_folder(&self) -> Vec<(PathBuf, Vec<u8>)> {
+        let mut x = self.sap1.save_to_stats_folder();
+        x.extend(self.sap2.save_to_stats_folder());
+        x
+    }
+}
+impl SensorAndPool for AndSensorAndPool {
+    fn stats(&self) -> Box<dyn crate::traits::Stats> {
+        todo!()
+    }
+
+    fn start_recording(&mut self) {
+        self.sap1.start_recording();
+        self.sap2.start_recording();
+    }
+
+    fn stop_recording(&mut self) {
+        self.sap1.stop_recording();
+        self.sap2.stop_recording();
+    }
+
+    fn process(&mut self, input_id: PoolStorageIndex, cplx: f64) -> Vec<CorpusDelta> {
+        let mut x = self.sap1.process(input_id, cplx);
+        x.extend(self.sap2.process(input_id, cplx));
+        x
+    }
+
+    fn get_random_index(&mut self) -> Option<PoolStorageIndex> {
+        if self.rng.u8(..) <= self.ratio_choose_first {
+            if let Some(idx) = self.sap1.get_random_index() {
+                Some(idx)
+            } else {
+                self.sap2.get_random_index()
+            }
+        } else {
+            if let Some(idx) = self.sap2.get_random_index() {
+                Some(idx)
+            } else {
+                self.sap1.get_random_index()
+            }
+        }
+    }
+
+    fn mark_test_case_as_dead_end(&mut self, idx: PoolStorageIndex) {
+        self.sap1.mark_test_case_as_dead_end(idx);
+        self.sap2.mark_test_case_as_dead_end(idx);
     }
 }

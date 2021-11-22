@@ -29,7 +29,7 @@ use super::compatible_with_iterator_sensor::CompatibleWithIteratorSensor;
 use crate::data_structures::{Slab, SlabKey};
 use crate::fenwick_tree::FenwickTree;
 use crate::fuzzer::PoolStorageIndex;
-use crate::traits::{CorpusDelta, Pool, SaveToStatsFolder};
+use crate::traits::{Stats, CorpusDelta, Pool, SaveToStatsFolder};
 use crate::{CSVField, ToCSV};
 use ahash::{AHashMap, AHashSet};
 use fastrand::Rng;
@@ -677,7 +677,7 @@ impl ToCSV for UniqueCoveragePoolStats {
         ]
     }
 }
-
+impl Stats for UniqueCoveragePoolStats {}
 #[derive(Default)]
 pub struct UniqueCoveragePoolObservationState {
     is_interesting: bool,

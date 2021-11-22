@@ -1,12 +1,11 @@
-use std::{fmt::Display, marker::PhantomData, path::PathBuf};
-
+use super::compatible_with_iterator_sensor::CompatibleWithIteratorSensor;
+use crate::traits::Stats;
 use crate::{
     fuzzer::PoolStorageIndex,
     traits::{CorpusDelta, Pool, SaveToStatsFolder},
     CSVField, ToCSV,
 };
-
-use super::compatible_with_iterator_sensor::CompatibleWithIteratorSensor;
+use std::{fmt::Display, marker::PhantomData, path::PathBuf};
 
 /// A strategy for [`OptimiseAggregateStatPool`] that maximises the total sum of all counters
 pub struct SumOfCounterValues;
@@ -38,16 +37,16 @@ pub struct OptimiseAggregateStatPool<Strategy> {
     _phantom: PhantomData<Strategy>,
 }
 #[derive(Clone)]
-pub struct Stats {
+pub struct OptimiseAggregateStatPoolStats {
     name: String,
     best: u64,
 }
-impl Display for Stats {
+impl Display for OptimiseAggregateStatPoolStats {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}({})", self.name, self.best)
     }
 }
-impl ToCSV for Stats {
+impl ToCSV for OptimiseAggregateStatPoolStats {
     fn csv_headers(&self) -> Vec<CSVField> {
         vec![CSVField::String(self.name.clone())]
     }
@@ -56,6 +55,8 @@ impl ToCSV for Stats {
         vec![CSVField::Integer(self.best as isize)]
     }
 }
+impl Stats for OptimiseAggregateStatPoolStats {}
+
 impl<Strategy> OptimiseAggregateStatPool<Strategy> {
     #[no_coverage]
     pub fn new(name: &str) -> Self {
@@ -68,14 +69,14 @@ impl<Strategy> OptimiseAggregateStatPool<Strategy> {
     }
 }
 impl<Strategy> Pool for OptimiseAggregateStatPool<Strategy> {
-    type Stats = Stats;
+    type Stats = OptimiseAggregateStatPoolStats;
     #[no_coverage]
     fn len(&self) -> usize {
         1
     }
     #[no_coverage]
     fn stats(&self) -> Self::Stats {
-        Stats {
+        OptimiseAggregateStatPoolStats {
             name: self.name.clone(),
             best: self.current_best.as_ref().map(|z| z.0).unwrap_or(0),
         }
