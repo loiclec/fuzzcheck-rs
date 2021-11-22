@@ -1,6 +1,10 @@
 use std::{fmt::Display, marker::PhantomData, path::PathBuf};
 
-use crate::{CSVField, ToCSV, fuzzer::PoolStorageIndex, traits::{CorpusDelta, Pool, SaveToStatsFolder}};
+use crate::{
+    fuzzer::PoolStorageIndex,
+    traits::{CorpusDelta, Pool, SaveToStatsFolder},
+    CSVField, ToCSV,
+};
 
 use super::compatible_with_iterator_sensor::CompatibleWithIteratorSensor;
 
