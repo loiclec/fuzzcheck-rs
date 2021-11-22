@@ -545,7 +545,7 @@ impl<T: Clone + 'static, M: Mutator<T>> Mutator<Vec<T>> for VecMutator<T, M> {
     }
 
     #[doc(hidden)]
-    #[no_coverage] 
+    #[no_coverage]
     fn default_mutation_step(&self, value: &Vec<T>, cache: &Self::Cache) -> Self::MutationStep {
         if self.m.max_complexity() == 0.0 {
             Self::MutationStep::InnerMutatorIsUnit {

@@ -1,12 +1,9 @@
 use crate::data_structures::RcSlab;
 use crate::sensors_and_pools::{
-    AndSensorAndPool, NoopSensor, TestFailure, TestFailurePool, TestFailureSensor, UnitPool,
-    TEST_FAILURE,
+    AndSensorAndPool, NoopSensor, TestFailure, TestFailurePool, TestFailureSensor, UnitPool, TEST_FAILURE,
 };
 use crate::signals_handler::set_signal_handlers;
-use crate::traits::{
-    CorpusDelta, Mutator, SaveToStatsFolder, SensorAndPool, Serializer,
-};
+use crate::traits::{CorpusDelta, Mutator, SaveToStatsFolder, SensorAndPool, Serializer};
 use crate::world::World;
 use crate::{CSVField, FuzzedInput, ToCSV};
 use fuzzcheck_common::arg::{Arguments, FuzzerCommand};

@@ -22,7 +22,7 @@ use std::{fmt::Display, path::PathBuf};
 
 use crate::{
     fuzzer::PoolStorageIndex,
-    traits::{Stats, CompatibleWithSensor, CorpusDelta, Pool, SaveToStatsFolder, Sensor, SensorAndPool},
+    traits::{CompatibleWithSensor, CorpusDelta, Pool, SaveToStatsFolder, Sensor, SensorAndPool, Stats},
     CSVField, ToCSV,
 };
 
@@ -167,7 +167,12 @@ impl<S1: Display, S2: Display> Display for AndPoolStats<S1, S2> {
         write!(f, "{} {}", self.0, self.1)
     }
 }
-impl<S1: Display, S2: Display> Stats for AndPoolStats<S1, S2> where S1: Stats, S2: Stats {}
+impl<S1: Display, S2: Display> Stats for AndPoolStats<S1, S2>
+where
+    S1: Stats,
+    S2: Stats,
+{
+}
 
 impl<S1, S2, P1, P2> CompatibleWithSensor<AndSensor<S1, S2>> for AndPool<P1, P2>
 where

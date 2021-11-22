@@ -29,7 +29,7 @@ use super::compatible_with_iterator_sensor::CompatibleWithIteratorSensor;
 use crate::data_structures::{Slab, SlabKey};
 use crate::fenwick_tree::FenwickTree;
 use crate::fuzzer::PoolStorageIndex;
-use crate::traits::{Stats, CorpusDelta, Pool, SaveToStatsFolder};
+use crate::traits::{CorpusDelta, Pool, SaveToStatsFolder, Stats};
 use crate::{CSVField, ToCSV};
 use ahash::{AHashMap, AHashSet};
 use fastrand::Rng;

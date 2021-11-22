@@ -4,8 +4,8 @@ use std::{
     path::PathBuf,
 };
 
-use crate::{bitset::FixedBitSet, traits::SaveToStatsFolder};
 use crate::traits::Stats;
+use crate::{bitset::FixedBitSet, traits::SaveToStatsFolder};
 
 use crate::{
     fenwick_tree::FenwickTree,
