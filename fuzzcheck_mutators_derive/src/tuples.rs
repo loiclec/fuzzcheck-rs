@@ -1,4 +1,5 @@
 use decent_synquote_alternative as synquote;
+use proc_macro2::Literal;
 use proc_macro2::{Ident, Span};
 
 use synquote::parser::*;
@@ -32,8 +33,10 @@ pub fn make_tuple_type_structure(tb: &mut TokenBuilder, nbr_elements: usize) {
     let PhantomData = ts!(cm.PhantomData "<(" type_params ",)>");
 
     extend_ts!(tb,
-        "#[doc(hidden)]
-        pub struct" cm.TupleN_ident "<" type_params_static_bound "> {
+        "#[doc = " Literal::string(
+            &format!("A marker type implementing [`RefTypes`](crate::mutators::tuples::RefTypes) indicating that a type has the [structure](crate::mutators::tuples::TupleStructure) of a {}-tuple.", nbr_elements)
+        ) "]"
+        "pub struct" cm.TupleN_ident "<" type_params_static_bound "> {
             _phantom: " PhantomData ",
         }
         impl<" type_params_static_bound "> " cm.RefTypes " for " cm.TupleN_ident "<" type_params "> {
@@ -235,6 +238,7 @@ fn declare_tuple_mutator(tb: &mut TokenBuilder, nbr_elements: usize) {
     let mutator_type_params = join_ts!(0..nbr_elements, i, ident!("M" i), separator: ",");
     let type_params = ts!(mutator_type_params);
     extend_ts!(tb,
+        format!("/// A `TupleMutator` for types that have a {n}-tuple structure", n=nbr_elements)
         "#[derive(" cm.Default ")]"
         "pub struct" cm.TupleNMutator_ident "<" type_params ">"
         "{"

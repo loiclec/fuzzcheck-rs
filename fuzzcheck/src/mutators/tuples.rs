@@ -1,8 +1,97 @@
+//! Mutators for tuple-like types
+//!
+//! This module contains the following traits and types:
+//! - [`RefTypes`] is a trait which essentially holds the types of a destructured tuple or structure.
+//!
+//! - `TupleN` is a marker type which implements [`RefTypes`] for tuples and structures of N elements.
+//!
+//!    In this module, `Tuple0` to `Tuple10` are defined.
+//!
+//! - [`TupleStructure`] is a trait that can actually perform the destructuring for tuples and structures.
+//!   For example, the code below shows how to implement `TupleStructure<Tuple2<A, B>>` for a struct `S`.
+//!   ```
+//!   use fuzzcheck::mutators::tuples::*;
+//!   struct S<A, B> {
+//!       x: A,
+//!       y: B
+//!   }
+//!   impl<A, B> TupleStructure<Tuple2<A, B>> for S<A, B> {
+//!       fn get_ref<'a>(&'a self) -> <Tuple2<A, B> as RefTypes>::Ref<'a> { // Ref is (&'a A, &'a B)
+//!           (&self.x, &self.y)
+//!       }
+//!       fn get_mut<'a>(&'a mut self) -> <Tuple2<A, B> as RefTypes>::Mut<'a> { // Mut is (&'a mut A, &'a mut B)
+//!           (&mut self.x, &mut self.y)
+//!       }
+//!       fn new(t: <Tuple2<A, B> as RefTypes>::Owned) -> Self { // Owned is (A, B)
+//!           S { x: t.0, y: t.1 }
+//!       }
+//!   }
+//!   let mut s = S { x: true, y: true };
+//!   let (x, y) = s.get_ref(); // : (&bool, &bool)
+//!   let (x, y) = s.get_mut(); // : (&mut bool, &mut bool)
+//!   let s = S::new((true, false));
+//!   ```
+//!   
+//! - [`TupleMutator`] is a trait that is exactly the same as [`Mutator`] except that it works on
+//!  the destructured form of types implementing [`TupleStructure`] instead.
+//!
+//! - [`TupleMutatorWrapper`] creates a [`Mutator`] from a [`TupleMutator`]
+//!
+//! - `TupleNMutator` is a [`TupleMutator`] for types that implememt `TupleStructure<TupleN<..>>`.
+//!   
+//!   In this module, `Tuple1Mutator` to `Tuple10Mutator` are defined.
+//!
+//! ### It seems convoluted, why does all of this exist?”
+//!
+//! To make the the [`#[derive(DefaultMutator)]`](derive@crate::DefaultMutator) procedural macro much simpler.
+//!
+//! First, it allows me to reuse a limited number of [`TupleMutator`](TupleMutator) implementations,
+//! paired with [`TupleMutatorWrapper`], to create mutators for any struct that implements `TupleStructure`. This makes the
+//! derive macro easier to write because now its job is mostly to implement `TupleStructure` for the struct, which is easy to do.
+//!
+//! Second, it also allows me to reuse the same tuple mutators to mutate the content of enum variants. For example,
+//! ```
+//! enum S {
+//!     A { x: u8, y: bool },
+//!     B(u8, bool),
+//!     C,
+//!     D
+//! }
+//! ```
+//! Here, the enum `S` is essentially a sum type of `(u8, bool)`, `(u8, bool)`, `()`, `()`.
+//! So I'd like to reuse the mutators I already have for `(u8, bool)` and `()` to mutate `S`. If `TupleMutator` didn't
+//! exist, then I would have to defer to a `Mutator<(u8, bool)>`. But that wouldn't be efficient, because when the enum
+//! is destructured through `match`, we get access to `(&u8, &bool)` or `(&mut u8, &mut bool)`, which cannot be handled
+//! by a `Mutator<(u8, bool)>`:
+//! ```
+//! # enum S {
+//! #     A { x: u8, y: bool },
+//! #     B(u8, bool),
+//! #     C,
+//! #     D { }
+//! # }
+//! let mut s = S::A { x: 7, y: true };
+//! match &mut s {
+//!     S::A { x, y } => {
+//!         // here we have access to (x, y): (&mut u8, &mut bool)
+//!         // but a Mutator<(u8, bool)> would ask for a &mut (u8, bool)
+//!         // there is no efficient way to convert between the two.
+//!         // By contrast, if I have a `Tuple2Mutator<U8Mutator, BoolMutator>`
+//!         // then I can write:
+//!         // mutator.random_mutate((x, y), ...)
+//!     }
+//!     _ => {}
+//! }
+//! ```
+//! None of it is *strictly* necessary since I could always write a brand new mutator for each type from scratch instead
+//! of trying to reuse mutators. But it would be a much larger amount of work, would probably increase compile times, and
+//! it would be more difficult to refactor and keep the implementations correct.
+use crate::Mutator;
 use std::marker::PhantomData;
 
-// use fuzzcheck_traits;
-use crate::Mutator;
-
+/// A trait which essentially holds the types of a destructured tuple or structure.
+///
+/// Read the [module documentation](crate::mutators::tuples) for more information about it.
 pub trait RefTypes {
     type Owned;
     type Ref<'a>: Copy;
@@ -10,12 +99,27 @@ pub trait RefTypes {
     fn get_ref_from_mut<'a>(v: &'a Self::Mut<'a>) -> Self::Ref<'a>;
 }
 
+/// Trait for types that have the same shape as tuples, such as tuples and structs.
+///
+/// For example, the tuple `(A, B)` implements `TupleStructure<Tuple2<A, B>>` since it is
+/// a 2-tuple with fields of type `A` and `B`. The struct `S { a: A, b: B }`
+/// also implements `TupleStructure<Tuple2<A, B>>`.
+///
+/// We can then write generic functions over both `(A, B)` and `S` using this trait.
+///
+/// * [`self.get_ref()`](TupleStructure::get_ref) returns immutable references to each of their fields (e.g. `(&A, &B)`)
+/// * [`self.get_mut()`](TupleStructure::get_mut) returns mutable references to each of their fields (e.g. `(&mut A, &mut B)`)
+/// * [`Self::new(..)`](TupleStructure::new) creates a new `Self` from a list of its fields (e.g. `Self::new((a, b))`)
 pub trait TupleStructure<TupleKind: RefTypes> {
     fn get_ref(&self) -> TupleKind::Ref<'_>;
     fn get_mut(&mut self) -> TupleKind::Mut<'_>;
     fn new(t: TupleKind::Owned) -> Self;
 }
 
+/// A trait equivalent in every way to [`Mutator`] except that it operates
+/// on the destructured form of types implementing [`TupleStructure`].
+///
+/// Defer to the documentation of [`Mutator`] to understand the purpose of each method.
 pub trait TupleMutator<T, TupleKind>: Sized + 'static
 where
     TupleKind: RefTypes,
@@ -76,6 +180,7 @@ where
         N: Mutator<V>;
 }
 
+/// A wrapper that transforms a [`TupleMutator`] into a [`Mutator`] of values [with a tuple structure](TupleStructure).
 pub struct TupleMutatorWrapper<M, TupleKind>
 where
     TupleKind: RefTypes,
@@ -223,6 +328,7 @@ mod tuple0 {
     use crate::mutators::tuples::TupleStructure;
     use crate::Mutator;
 
+    /// A marker type implementing [`RefTypes`] indicating that a type is equivalent to the unit type `()`
     pub struct Tuple0;
     impl RefTypes for Tuple0 {
         type Owned = ();
@@ -245,6 +351,7 @@ mod tuple0 {
             ()
         }
     }
+    /// A `TupleMutator` for types equivalent to the unit type `()`
     pub struct Tuple0Mutator;
     impl TupleMutator<(), Tuple0> for Tuple0Mutator {
         #[doc(hidden)]
