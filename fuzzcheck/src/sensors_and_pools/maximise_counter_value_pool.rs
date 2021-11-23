@@ -113,11 +113,6 @@ impl Pool for MaximiseCounterValuePool {
     }
 
     #[no_coverage]
-    fn len(&self) -> usize {
-        self.inputs.len()
-    }
-
-    #[no_coverage]
     fn get_random_index(&mut self) -> Option<PoolStorageIndex> {
         let choice = self.ranked_inputs.sample(&self.rng)?;
 

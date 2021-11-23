@@ -50,6 +50,10 @@ pub use crate::traits::CorpusDelta;
 pub use crate::traits::Pool;
 #[doc(inline)]
 pub use crate::traits::Sensor;
+#[doc(inline)]
+pub use crate::traits::SensorAndPool;
+#[doc(inline)]
+pub use crate::traits::Stats;
 
 #[doc(inline)]
 pub use crate::fuzzer::PoolStorageIndex;

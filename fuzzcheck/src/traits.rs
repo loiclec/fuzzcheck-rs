@@ -463,6 +463,20 @@ pub trait Sensor: SaveToStatsFolder {
 
 pub trait Stats: Display + ToCSV + 'static {}
 
+/// An object safe trait that combines the methods of the [`Sensor`], [`Pool`], and [`CompatibleWithSensor`] traits.
+///
+/// While it's often useful to work with the [`Sensor`] and [`Pool`] traits separately, the
+/// fuzzer doesn't actually need to know about the sensor and pool individually. By having
+/// this `SensorAndPool` trait, we can give the fuzzer a `Box<dyn SensorAndPool>` and get rid of
+/// two generic type parameters: `S: Sensor` and `P: Pool + CompatibleWithSensor<S>`.
+///
+/// This is better for compile times and simplifies the implementation of the fuzzer. Users of
+/// `fuzzcheck` should feel free to ignore this trait, as it is arguably more an implementation detail
+/// than a fundamental building block of the fuzzer.
+///
+/// Currently, there are two types implementing `SensorAndPool`:
+/// 1. `(S, P)` where `S: Sensor` and `P: Pool + CompatibleWithSensor<S>`
+/// 2. [`AndSensorAndPool`](crate::sensors_and_pools::AndSensorAndPool)
 pub trait SensorAndPool: SaveToStatsFolder {
     fn stats(&self) -> Box<dyn Stats>;
     fn start_recording(&mut self);
@@ -563,20 +577,17 @@ pub trait ToCSV {
 }
 
 /**
-A [Pool] ranks test cases based on observations recorded by a sensor.
+A [`Pool`] ranks test cases based on observations recorded by a sensor.
 
 The pool trait is divided into two parts:
-1. [Pool] contains general methods that are independent of the sensor used
-2. [CompatibleWithSensor<Sensor>] is a subtrait of [Pool]. It describes how the pool handles
-observations made by the Sensor.
+1. [`Pool`] contains general methods that are independent of the sensor used
+2. [`CompatibleWithSensor<Sensor>`] is a subtrait of [`Pool`]. It describes how the pool handles
+observations made by the [`Sensor`].
 */
 pub trait Pool: SaveToStatsFolder {
     /// Statistics about the pool to be printed to the terminal as the fuzzer is running and
     /// saved to a .csv file after the run
     type Stats: Stats;
-
-    /// The number of test cases in the pool
-    fn len(&self) -> usize;
 
     /// The pool’s statistics
     fn stats(&self) -> Self::Stats;

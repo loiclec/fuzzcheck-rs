@@ -10,8 +10,8 @@ use std::path::Path;
 
 #[derive(Clone, Default)]
 pub struct UniqueValuesPoolStats {
-    name: String,
-    size: usize,
+    pub name: String,
+    pub size: usize,
 }
 impl ToCSV for UniqueValuesPoolStats {
     fn csv_headers(&self) -> Vec<crate::CSVField> {
@@ -86,11 +86,6 @@ impl UniqueValuesPool {
 
 impl Pool for UniqueValuesPool {
     type Stats = UniqueValuesPoolStats;
-
-    #[no_coverage]
-    fn len(&self) -> usize {
-        self.inputs.len()
-    }
 
     #[no_coverage]
     fn stats(&self) -> Self::Stats {

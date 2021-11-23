@@ -57,7 +57,7 @@ impl SaveToStatsFolder for TestFailureSensor {
 
 #[derive(Clone, Copy)]
 pub struct TestFailurePoolStats {
-    count: usize,
+    pub count: usize,
 }
 impl Display for TestFailurePoolStats {
     #[no_coverage]
@@ -121,11 +121,6 @@ impl Pool for TestFailurePool {
         TestFailurePoolStats {
             count: self.inputs.len(),
         }
-    }
-
-    #[no_coverage]
-    fn len(&self) -> usize {
-        self.inputs.len()
     }
 
     #[no_coverage]

@@ -63,10 +63,6 @@ where
     type Stats = AndPoolStats<P1::Stats, P2::Stats>;
 
     #[no_coverage]
-    fn len(&self) -> usize {
-        self.p1.len() + self.p2.len()
-    }
-    #[no_coverage]
     fn stats(&self) -> Self::Stats {
         AndPoolStats(self.p1.stats(), self.p2.stats())
     }
@@ -265,6 +261,7 @@ where
     }
 }
 
+/// Combines two [`SensorAndPool`](crate::traits::SensorAndPool) trait objects into one.
 pub struct AndSensorAndPool {
     sap1: Box<dyn SensorAndPool>,
     sap2: Box<dyn SensorAndPool>,

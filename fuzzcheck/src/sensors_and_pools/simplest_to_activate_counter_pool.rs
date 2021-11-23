@@ -521,11 +521,6 @@ impl Pool for SimplestToActivateCounterPool {
     }
 
     #[no_coverage]
-    fn len(&self) -> usize {
-        self.slab_inputs.len()
-    }
-
-    #[no_coverage]
     fn get_random_index(&mut self) -> Option<PoolStorageIndex> {
         let choice = self.ranked_inputs.sample(&self.rng)?;
         let key = self.slab_inputs.get_nth_key(choice);

@@ -70,10 +70,7 @@ impl<Strategy> OptimiseAggregateStatPool<Strategy> {
 }
 impl<Strategy> Pool for OptimiseAggregateStatPool<Strategy> {
     type Stats = OptimiseAggregateStatPoolStats;
-    #[no_coverage]
-    fn len(&self) -> usize {
-        1
-    }
+
     #[no_coverage]
     fn stats(&self) -> Self::Stats {
         OptimiseAggregateStatPoolStats {

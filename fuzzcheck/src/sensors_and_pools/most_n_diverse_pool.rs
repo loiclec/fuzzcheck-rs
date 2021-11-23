@@ -42,8 +42,8 @@ pub struct MostNDiversePool {
 
 #[derive(Clone)]
 pub struct MostNDiversePoolStats {
-    name: String,
-    counters: usize,
+    pub name: String,
+    pub counters: usize,
 }
 impl MostNDiversePool {
     #[no_coverage]
@@ -64,10 +64,7 @@ impl MostNDiversePool {
 
 impl Pool for MostNDiversePool {
     type Stats = MostNDiversePoolStats;
-    #[no_coverage]
-    fn len(&self) -> usize {
-        self.inputs.len()
-    }
+
     #[no_coverage]
     fn stats(&self) -> Self::Stats {
         MostNDiversePoolStats {

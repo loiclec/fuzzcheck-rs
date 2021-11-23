@@ -31,10 +31,6 @@ impl Pool for UnitPool {
     }
 
     #[no_coverage]
-    fn len(&self) -> usize {
-        1
-    }
-    #[no_coverage]
     fn get_random_index(&mut self) -> Option<PoolStorageIndex> {
         if self.dead_end {
             None
