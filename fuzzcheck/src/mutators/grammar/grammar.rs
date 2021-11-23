@@ -4,6 +4,7 @@ use std::{
     rc::Weak,
 };
 
+#[cfg(feature = "regex_grammar")]
 use crate::mutators::grammar::regex::grammar_from_regex;
 
 #[derive(Clone, Debug)]
@@ -19,6 +20,8 @@ pub enum Grammar {
     Recursive(Rc<Grammar>),
 }
 
+#[cfg(feature = "regex_grammar")]
+#[doc(cfg(feature = "regex_grammar"))]
 #[no_coverage]
 pub fn regex(s: &str) -> Rc<Grammar> {
     grammar_from_regex(s)

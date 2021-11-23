@@ -335,7 +335,13 @@ This should never happen, and is probably a bug in fuzzcheck. Sorry :("#
 impl SaveToStatsFolder for World {
     #[no_coverage]
     fn save_to_stats_folder(&self) -> Vec<(PathBuf, Vec<u8>)> {
-        let content = serde_json::to_vec(&self.corpus.iter().collect::<Vec<_>>()).unwrap();
-        vec![(PathBuf::new().join("world.json"), content)]
+        cfg_if::cfg_if! {
+            if #[cfg(feature = "serde_json_serializer")] {
+                let content = serde_json::to_vec(&self.corpus.iter().collect::<Vec<_>>()).unwrap();
+                vec![(PathBuf::new().join("world.json"), content)]
+            } else {
+                vec![]
+            }
+        }
     }
 }

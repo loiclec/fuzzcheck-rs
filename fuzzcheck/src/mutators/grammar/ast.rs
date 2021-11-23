@@ -1,8 +1,11 @@
 extern crate self as fuzzcheck;
 
+#[cfg(feature = "serde_json_serializer")]
 use serde::{ser::SerializeTuple, Deserialize, Serialize};
 
 /// An abstract syntax tree.
+///
+/// It can be serialized with [`SerdeSerializer`](crate::SerdeSerializer)
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum AST {
     #[doc(hidden)]
@@ -122,6 +125,7 @@ impl AST {
 
 /// A type that is exactly the same as AST so that I can derive most of the
 /// Serialize/Deserialize implementation
+#[cfg(feature = "serde_json_serializer")]
 #[derive(Serialize, Deserialize)]
 enum __AST {
     Token(char),
@@ -129,6 +133,8 @@ enum __AST {
     Box(Box<__AST>),
 }
 
+#[cfg(feature = "serde_json_serializer")]
+#[doc(cfg(feature = "serde_json_serializer"))]
 impl Serialize for AST {
     #[no_coverage]
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
@@ -143,6 +149,8 @@ impl Serialize for AST {
         ser.end()
     }
 }
+#[cfg(feature = "serde_json_serializer")]
+#[doc(cfg(feature = "serde_json_serializer"))]
 impl<'de> Deserialize<'de> for AST {
     #[no_coverage]
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>

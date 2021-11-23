@@ -10,8 +10,7 @@ The idea is to help you specify each part of the fuzzer progressively:
 4. the [sensor](Sensor) to provide feedback after running the test function, and the [pool](Pool) to interpret the feedback from the sensor
 5. [other settings](Arguments) for the fuzzer, such as the maximum allowed complexity for the test cases, where to save the corpora or artifacts on the file system, etc.
 
-In most cases, you don't need to manually specify all these components. If the argument type of the function has a [default mutator](DefaultMutator) and is serializable
-with serde, then you can write:
+In most cases, you don't need to manually specify all these components. If the argument type of the function has a [default mutator](DefaultMutator) and is serializable with serde, then you can write:
 ```no_run
 # fn test_function(x: &bool) {}
 let _ = fuzzcheck::fuzz_test(test_function) // FuzzerBuilder1
@@ -67,7 +66,10 @@ use crate::sensors_and_pools::MostNDiversePool;
 use crate::sensors_and_pools::SimplestToActivateCounterPool;
 use crate::sensors_and_pools::{NumberOfActivatedCounters, OptimiseAggregateStatPool, SumOfCounterValues};
 use crate::traits::{CompatibleWithSensor, Mutator, Pool, Sensor, Serializer};
-use crate::{split_string_by_whitespace, DefaultMutator, SerdeSerializer};
+use crate::{split_string_by_whitespace, DefaultMutator};
+
+#[cfg(feature = "serde_json_serializer")]
+use crate::SerdeSerializer;
 
 use fuzzcheck_common::arg::{options_parser, ArgumentsError, COMMAND_FUZZ, COMMAND_MINIFY_INPUT, INPUT_FILE_FLAG};
 use fuzzcheck_common::arg::{Arguments, FuzzerCommand};
@@ -265,6 +267,7 @@ where
     }
 }
 
+#[cfg(feature = "serde_json_serializer")]
 impl<T, F> FuzzerBuilder1<T, F>
 where
     T: ?Sized + ToOwned + 'static,
@@ -274,6 +277,7 @@ where
     F: FuzzTestFunction<T::Owned, T, ReturnBool>,
 {
     /// Use the default mutator, serializer, sensor, pool, and arguments.
+    #[doc(cfg(feature = "serde_json_serializer"))]
     #[no_coverage]
     pub fn default_options(
         self,
@@ -403,6 +407,7 @@ where
     }
 }
 
+#[cfg(feature = "serde_json_serializer")]
 impl<F, M, V> FuzzerBuilder2<F, M, V>
 where
     F: Fn(&V) -> bool,

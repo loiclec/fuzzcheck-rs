@@ -2,6 +2,7 @@
 
 mod leb128;
 mod llvm_coverage;
+#[cfg(feature = "serde_json_serializer")]
 mod serialized;
 
 use crate::traits::{SaveToStatsFolder, Sensor};
@@ -138,8 +139,14 @@ impl Sensor for CodeCoverageSensor {
 impl SaveToStatsFolder for CodeCoverageSensor {
     #[no_coverage]
     fn save_to_stats_folder(&self) -> Vec<(PathBuf, Vec<u8>)> {
-        let coverage_map = self.coverage_map();
-        let content = serde_json::to_vec(&coverage_map).unwrap();
-        vec![(PathBuf::new().join("coverage_sensor.json"), content)]
+        cfg_if::cfg_if! {
+            if #[cfg(feature = "serde_json_serializer")] {
+                let coverage_map = self.coverage_map();
+                let content = serde_json::to_vec(&coverage_map).unwrap();
+                vec![(PathBuf::new().join("coverage_sensor.json"), content)]
+            } else {
+                vec![]
+            }
+        }
     }
 }

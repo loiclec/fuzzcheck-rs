@@ -6,7 +6,10 @@
 //!
 //!
 //! To specify a grammar, you should use the following functions:
-//! * [`regex`](crate::mutators::grammar::regex) to create a grammar from a regular expression
+#![cfg_attr(
+    feature = "regex_grammar",
+    doc = "* [`regex`](crate::mutators::grammar::regex) to create a grammar from a regular expression **(only supported on crate feature `regex_grammar`)**"
+)]
 //! * [`literal`] for a grammar that matches a single character
 //! * [`literal_ranges`] for a grammar matching a single character within a specified ranges
 //! * [`literal_ranges`] for a grammar matching a single character within any of multiple ranges
@@ -14,45 +17,47 @@
 //! * [`concatenation`] matching multiple grammar rules one after the other
 //! * [`repetition`] matching a grammar rule multiple times
 //! * [`recursive`] and [`recurse`] to create recursive grammar rules
-//!
-//! Examples:
-//! ```
-//! use fuzzcheck::mutators::grammar::{alternation, concatenation, literal, literal_range, recurse, recursive, regex, repetition};
-//!
-//! let rule = repetition(
-//!     concatenation([
-//!         alternation([
-//!             regex("hello[0-9]"),
-//!             regex("world[0-9]?")
-//!         ]),
-//!         literal(' '),
-//!     ]),
-//!     1..5
-//! );
-//! /* “rule” matches/generates:
-//!     hello1
-//!     hello2 hello6 world
-//!     world8 hello5 world7 world world
-//!     ...
-//! */
-//!
-//! let rule = recursive(|rule| {
-//!     alternation([
-//!         concatenation([
-//!             regex(r"\(|\["),
-//!             recurse(rule),
-//!             regex(r"\)|\]"),
-//!         ]),
-//!         literal_range('a' ..= 'z')
-//!     ])
-//! });
-//! /* rule matches/generates:
-//!     (([a)))
-//!     (([[d))])
-//!     z
-//!     ...
-//!  */
-//! ```
+#![cfg_attr(
+    feature = "regex_grammar",
+    doc = r###"
+Examples:
+```
+use fuzzcheck::mutators::grammar::{alternation, concatenation, literal, literal_range, recurse, recursive, regex, repetition};
+let rule = repetition(
+    concatenation([
+        alternation([
+            regex("hello[0-9]"),
+            regex("world[0-9]?")
+        ]),
+        literal(' '),
+    ]),
+    1..5
+);
+/* “rule” matches/generates:
+    hello1
+    hello2 hello6 world
+    world8 hello5 world7 world world
+    ...
+*/
+let rule = recursive(|rule| {
+    alternation([
+        concatenation([
+            regex(r"\(|\["),
+            recurse(rule),
+            regex(r"\)|\]"),
+        ]),
+        literal_range('a' ..= 'z')
+    ])
+});
+/* rule matches/generates:
+    (([a)))
+    (([[d))])
+    z
+    ...
+ */
+```
+"###
+)]
 #![allow(clippy::type_complexity)]
 #![allow(clippy::module_inception)]
 #![allow(clippy::nonstandard_macro_braces)]
@@ -63,6 +68,8 @@ mod grammar;
 // mod list;
 mod mutators;
 // mod parser;
+
+#[cfg(feature = "regex_grammar")]
 mod regex;
 
 #[doc(inline)]
@@ -70,9 +77,13 @@ pub use ast::AST;
 #[doc(inline)]
 pub use grammar::Grammar;
 #[doc(inline)]
-pub use grammar::{
-    alternation, concatenation, literal, literal_range, literal_ranges, recurse, recursive, regex, repetition,
-};
+pub use grammar::{alternation, concatenation, literal, literal_range, literal_ranges, recurse, recursive, repetition};
+
+#[cfg(feature = "regex_grammar")]
+#[doc(inline)]
+#[doc(cfg(feature = "regex_grammar"))]
+pub use grammar::regex;
+
 #[doc(inline)]
 pub use mutators::grammar_based_ast_mutator;
 

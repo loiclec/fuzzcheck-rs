@@ -34,7 +34,6 @@ use crate::{CSVField, ToCSV};
 use ahash::{AHashMap, AHashSet};
 use fastrand::Rng;
 use nu_ansi_term::Color;
-use std::cmp::Ordering;
 use std::fmt::Display;
 use std::hash::Hash;
 use std::path::{Path, PathBuf};
@@ -557,62 +556,70 @@ impl Pool for SimplestToActivateCounterPool {
 impl SaveToStatsFolder for SimplestToActivateCounterPool {
     #[no_coverage]
     fn save_to_stats_folder(&self) -> Vec<(PathBuf, Vec<u8>)> {
-        let path = PathBuf::new().join(format!("{}.json", &self.name));
+        cfg_if::cfg_if! {
+            if #[cfg(feature = "serde_json_serializer")]
+            {
+                let path = PathBuf::new().join(format!("{}.json", &self.name));
 
-        let all_hit_counters = self
-            .all_counters_ref
-            .iter()
-            .enumerate()
-            .filter(|(_, x)| x.least_complexity.is_some())
-            .map(|(idx, _)| idx)
-            .collect::<Vec<_>>();
+                let all_hit_counters = self
+                    .all_counters_ref
+                    .iter()
+                    .enumerate()
+                    .filter(|(_, x)| x.least_complexity.is_some())
+                    .map(|(idx, _)| idx)
+                    .collect::<Vec<_>>();
 
-        let best_for_counter = self
-            .all_counters_ref
-            .iter()
-            .enumerate()
-            .filter(|(_, x)| x.least_complexity.is_some())
-            .map(|(idx, _)| {
-                let f = &self.analysed_counters[&CounterIdx::new(idx)];
-                let key = f.least_complex_input;
-                let input = &self.slab_inputs[key].data;
-                (idx, *input)
-            })
-            .collect::<Vec<_>>();
+                let best_for_counter = self
+                    .all_counters_ref
+                    .iter()
+                    .enumerate()
+                    .filter(|(_, x)| x.least_complexity.is_some())
+                    .map(|(idx, _)| {
+                        let f = &self.analysed_counters[&CounterIdx::new(idx)];
+                        let key = f.least_complex_input;
+                        let input = &self.slab_inputs[key].data;
+                        (idx, *input)
+                    })
+                    .collect::<Vec<_>>();
 
-        let mut ranked_inputs = self
-            .slab_inputs
-            .keys()
-            .map(|key| {
-                let input = &self.slab_inputs[key];
-                (input.data, input.score)
-            })
-            .collect::<Vec<_>>();
-        ranked_inputs.sort_by(|x, y| x.1.partial_cmp(&y.1).unwrap_or(Ordering::Equal).reverse());
-        let ranked_inputs = ranked_inputs.into_iter().map(|x| x.0).collect();
+                let mut ranked_inputs = self
+                    .slab_inputs
+                    .keys()
+                    .map(|key| {
+                        let input = &self.slab_inputs[key];
+                        (input.data, input.score)
+                    })
+                    .collect::<Vec<_>>();
+                ranked_inputs.sort_by(|x, y| x.1.partial_cmp(&y.1).unwrap_or(std::cmp::Ordering::Equal).reverse());
+                let ranked_inputs = ranked_inputs.into_iter().map(|x| x.0).collect();
 
-        let counters_for_input = self
-            .slab_inputs
-            .keys()
-            .map(|key| {
-                let input = &self.slab_inputs[key];
-                (input.data, input.all_counters.iter().map(|x| x.0).collect())
-            })
-            .collect::<Vec<_>>();
+                let counters_for_input = self
+                    .slab_inputs
+                    .keys()
+                    .map(|key| {
+                        let input = &self.slab_inputs[key];
+                        (input.data, input.all_counters.iter().map(|x| x.0).collect())
+                    })
+                    .collect::<Vec<_>>();
 
-        let serialized = SerializedUniqCov {
-            all_hit_counters,
-            best_for_counter,
-            ranked_inputs,
-            counters_for_input,
-        };
+                let serialized = SerializedUniqCov {
+                    all_hit_counters,
+                    best_for_counter,
+                    ranked_inputs,
+                    counters_for_input,
+                };
 
-        let content = serde_json::to_vec(&serialized).unwrap();
+                let content = serde_json::to_vec(&serialized).unwrap();
 
-        vec![(path, content)]
+                vec![(path, content)]
+            } else {
+                vec![]
+            }
+        }
     }
 }
 
+#[cfg(feature="serde_json_serializer")]
 #[derive(serde::Serialize, serde::Deserialize)]
 struct SerializedUniqCov {
     all_hit_counters: Vec<usize>,

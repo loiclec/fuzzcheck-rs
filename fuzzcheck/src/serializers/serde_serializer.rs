@@ -3,6 +3,7 @@ use std::marker::PhantomData;
 /// A serializer that uses `serde` and `serde_json` to serialize the test
 /// inputs (of arbitrary type `T: Serializable + for<'e> Deserializable<'e>`)
 /// to a json file.
+#[doc(cfg(feature = "serde_json_serializer"))]
 pub struct SerdeSerializer<S> {
     phantom: PhantomData<S>,
 }

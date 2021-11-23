@@ -16,10 +16,17 @@ This module provides the following mutators:
 * procedural macros to generate mutators for custom types:
     * [`#[derive(DefaultMutator)]`](fuzzcheck_mutators_derive::DefaultMutator) which works on most structs and enums
     * [`make_mutator! { .. }`](fuzzcheck_mutators_derive::make_mutator) which works like `#[derive(DefaultMutator)]` but is customisable
-
-* grammar-based string and syntax tree mutators ([here](crate::mutators::grammar))
-
-* basic blocks to build more complex mutators:
+*/
+#![cfg_attr(
+    feature = "grammar_mutator",
+    doc = "* grammar-based string and syntax tree mutators ([here](crate::mutators::grammar)) __(supported on crate feature `grammar_mutator` only)__"
+)]
+#![cfg_attr(
+    not(feature = "grammar_mutator"),
+    doc = "* ~~grammar-based string and syntax tree mutators~~ (note: you are viewing the documentation of fuzzcheck without the `grammar_mutator` feature. Therefore, grammar-based mutators are not available)"
+)]
+/*!
+- basic blocks to build more complex mutators:
     * [`DictionaryMutator<_, M>`](crate::mutators::dictionary::DictionaryMutator) to wrap a mutator and prioritise the generation of a few given values
     * [`AlternationMutator<_, M>`](crate::mutators::alternation::AlternationMutator) to use multiple different mutators acting on the same test case type
     * [`Either<M1, M2>`](crate::mutators::either::Either) is the regular `Either` type, which also implements `Mutator<T>` if both `M1` and `M2` implement it too
@@ -35,6 +42,9 @@ pub mod dictionary;
 pub mod either;
 pub mod enums;
 pub mod fixed_len_vector;
+
+#[cfg(feature = "grammar_mutator")]
+#[doc(cfg(feature = "grammar_mutator"))]
 pub mod grammar;
 // pub mod incremental_map;
 pub mod arc;
@@ -68,7 +78,7 @@ pub trait DefaultMutator: Clone {
 /// This is a very naive implementation
 #[no_coverage]
 #[inline]
-pub fn gen_f64(rng: &fastrand::Rng, range: Range<f64>) -> f64 {
+pub(crate) fn gen_f64(rng: &fastrand::Rng, range: Range<f64>) -> f64 {
     range.start + rng.f64() * (range.end - range.start)
 }
 

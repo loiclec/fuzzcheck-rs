@@ -9,7 +9,7 @@
 //! The crate documentation contains information on how to set up and launch a fuzz-test ([here](crate::builder)) but
 //! also documents the core traits ([`Pool`], [`Sensor`], [`Mutator`], etc.) that are useful to understand how it works
 //! and to extend it.
-
+#![feature(doc_cfg)]
 #![feature(drain_filter)]
 #![feature(never_type)]
 #![feature(no_coverage)]
@@ -75,6 +75,7 @@ pub use serializers::ByteSerializer;
 #[doc(inline)]
 pub use serializers::StringSerializer;
 
+#[cfg(feature = "serde_json_serializer")]
 #[doc(inline)]
 pub use serializers::SerdeSerializer;
 

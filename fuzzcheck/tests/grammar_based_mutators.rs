@@ -1,3 +1,4 @@
+#![cfg(feature = "serde_json_serializer")]
 #![allow(unused_attributes)]
 #![feature(no_coverage)]
 
