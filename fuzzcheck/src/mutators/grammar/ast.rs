@@ -5,7 +5,14 @@ use serde::{ser::SerializeTuple, Deserialize, Serialize};
 
 /// An abstract syntax tree.
 ///
-/// It can be serialized with [`SerdeSerializer`](crate::SerdeSerializer)
+#[cfg_attr(
+    feature = "serde_json_serializer",
+    doc = "It can be serialized with [`SerdeSerializer`](crate::SerdeSerializer) on crate feature `serde_json_serializer`"
+)]
+#[cfg_attr(
+    not(feature = "serde_json_serializer"),
+    doc = "It can be serialized with `SerdeSerializer` on crate feature `serde_json_serializer`"
+)]
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum AST {
     #[doc(hidden)]

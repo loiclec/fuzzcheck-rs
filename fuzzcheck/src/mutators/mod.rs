@@ -42,20 +42,15 @@ pub mod dictionary;
 pub mod either;
 pub mod enums;
 pub mod fixed_len_vector;
-
 #[cfg(feature = "grammar_mutator")]
 #[doc(cfg(feature = "grammar_mutator"))]
 pub mod grammar;
-// pub mod incremental_map;
-pub mod arc;
-pub mod array;
 pub mod integer;
 pub mod integer_within_range;
 pub mod map;
 pub mod never;
 pub mod option;
 pub mod range;
-pub mod rc;
 pub mod recursive;
 pub mod result;
 pub mod tuples;
@@ -63,7 +58,7 @@ pub mod unit;
 pub mod vector;
 pub mod vose_alias;
 pub mod wrapper;
-
+pub mod operations;
 use crate::Mutator;
 use std::ops::Range;
 

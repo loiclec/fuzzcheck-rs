@@ -91,9 +91,9 @@ pub struct MutationStep<S> {
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct VecMutatorCache<C> {
-    inner: Vec<C>,
-    sum_cplx: f64,
-    alias: Option<VoseAlias>,
+    pub inner: Vec<C>,
+    pub sum_cplx: f64,
+    pub alias: Option<VoseAlias>,
 }
 
 #[doc(hidden)]

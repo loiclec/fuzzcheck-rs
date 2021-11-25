@@ -2,6 +2,7 @@ use std::cmp::Ordering;
 
 use crate::mutators::gen_f64;
 
+#[derive(Clone)]
 pub struct FenwickTree {
     storage: Vec<f64>,
 }
