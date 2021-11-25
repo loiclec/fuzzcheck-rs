@@ -33,8 +33,13 @@ impl<T: Clone, M: Mutator<T>> Mutator<Arc<T>> for ArcMutator<M> {
 
     #[doc(hidden)]
     #[no_coverage]
-    fn validate_value(&self, value: &Arc<T>) -> Option<(Self::Cache, Self::MutationStep)> {
+    fn validate_value(&self, value: &Arc<T>) -> Option<Self::Cache> {
         self.mutator.validate_value(value)
+    }
+    #[doc(hidden)]
+    #[no_coverage]
+    fn default_mutation_step(&self, value: &Arc<T>, cache: &Self::Cache) -> Self::MutationStep {
+        self.mutator.default_mutation_step(value.as_ref(), cache)
     }
 
     #[doc(hidden)]

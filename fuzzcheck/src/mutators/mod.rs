@@ -34,6 +34,8 @@ This module provides the following mutators:
     * [`MapMutator<..>`](crate::mutators::map::MapMutator) wraps a mutator and transforms the generated value using a user-provided function.
 */
 pub mod alternation;
+pub mod arc;
+pub mod array;
 pub mod bool;
 pub mod boxed;
 pub mod char;
@@ -49,8 +51,10 @@ pub mod integer;
 pub mod integer_within_range;
 pub mod map;
 pub mod never;
+pub mod operations;
 pub mod option;
 pub mod range;
+pub mod rc;
 pub mod recursive;
 pub mod result;
 pub mod tuples;
@@ -58,7 +62,6 @@ pub mod unit;
 pub mod vector;
 pub mod vose_alias;
 pub mod wrapper;
-pub mod operations;
 use crate::Mutator;
 use std::ops::Range;
 

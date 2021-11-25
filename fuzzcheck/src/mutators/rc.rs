@@ -33,8 +33,11 @@ impl<T: Clone, M: Mutator<T>> Mutator<Rc<T>> for RcMutator<M> {
 
     #[doc(hidden)]
     #[no_coverage]
-    fn validate_value(&self, value: &Rc<T>) -> Option<(Self::Cache, Self::MutationStep)> {
+    fn validate_value(&self, value: &Rc<T>) -> Option<Self::Cache> {
         self.mutator.validate_value(value)
+    }
+    fn default_mutation_step(&self, value: &Rc<T>, cache: &Self::Cache) -> Self::MutationStep {
+        self.mutator.default_mutation_step(value.as_ref(), cache)
     }
 
     #[doc(hidden)]

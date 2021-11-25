@@ -191,11 +191,11 @@ impl<M: Mutator<T>, T: Clone + 'static, const N: usize> Mutator<[T; N]> for Arra
 
     #[doc(hidden)]
     #[no_coverage]
-    fn validate_value(&self, value: &[T; N]) -> Option<(Self::Cache, Self::MutationStep)> {
+    fn validate_value(&self, value: &[T; N]) -> Option<Self::Cache> {
         if value.len() != self.mutators.len() {
             return None;
         }
-        let inner: Vec<_> = value
+        let inner_caches: Vec<_> = value
             .iter()
             .zip(self.mutators.iter())
             .map(
@@ -204,12 +204,6 @@ impl<M: Mutator<T>, T: Clone + 'static, const N: usize> Mutator<[T; N]> for Arra
             )
             .collect::<Option<_>>()?;
 
-        let mut inner_caches = Vec::with_capacity(inner.len());
-        let mut inner_steps = Vec::with_capacity(inner.len());
-        for (cache, step) in inner.into_iter() {
-            inner_caches.push(cache);
-            inner_steps.push(step);
-        }
         let sum_cplx = value.iter().zip(self.mutators.iter()).zip(inner_caches.iter()).fold(
             0.0,
             #[no_coverage]
@@ -220,12 +214,23 @@ impl<M: Mutator<T>, T: Clone + 'static, const N: usize> Mutator<[T; N]> for Arra
             inner: inner_caches,
             sum_cplx,
         };
-        let step = MutationStep {
-            inner: inner_steps,
-            element_step: 0,
-        };
 
-        Some((cache, step))
+        Some(cache)
+    }
+
+    #[doc(hidden)]
+    #[no_coverage]
+    fn default_mutation_step(&self, value: &[T; N], cache: &Self::Cache) -> Self::MutationStep {
+        let inner = value
+            .iter()
+            .zip(cache.inner.iter())
+            .zip(self.mutators.iter())
+            .map(
+                #[no_coverage]
+                |((v, c), m)| m.default_mutation_step(v, c),
+            )
+            .collect::<Vec<_>>();
+        MutationStep { inner, element_step: 0 }
     }
 
     #[doc(hidden)]
