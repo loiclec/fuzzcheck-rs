@@ -38,6 +38,7 @@ pub mod enums;
 pub mod fixed_len_vector;
 pub mod grammar;
 // pub mod incremental_map;
+pub mod array;
 pub mod integer;
 pub mod integer_within_range;
 pub mod map;
