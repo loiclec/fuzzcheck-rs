@@ -468,8 +468,184 @@ mod tuple0 {
 
 pub use tuple1::{Tuple1, Tuple1Mutator};
 mod tuple1 {
+    use fuzzcheck::mutators::tuples::RefTypes;
+
+    use super::{TupleMutator, TupleMutatorWrapper};
+
     extern crate self as fuzzcheck;
-    fuzzcheck_mutators_derive::make_basic_tuple_mutator!(1);
+
+    #[doc = "A marker type implementing [`RefTypes`](crate::mutators::tuples::RefTypes) indicating that a type has the [structure](crate::mutators::tuples::TupleStructure) of a 1-tuple."]
+    pub struct Tuple1<T0: 'static> {
+        _phantom: ::std::marker::PhantomData<(T0,)>,
+    }
+    impl<T0: 'static> RefTypes for Tuple1<T0> {
+        type Owned = (T0,);
+        type Ref<'a> = (&'a T0,);
+        type Mut<'a> = (&'a mut T0,);
+        #[no_coverage]
+        fn get_ref_from_mut<'a>(v: &'a Self::Mut<'a>) -> Self::Ref<'a> {
+            (v.0,)
+        }
+    }
+    impl<T0: 'static> fuzzcheck::mutators::tuples::TupleStructure<Tuple1<T0>> for (T0,) {
+        #[no_coverage]
+        fn get_ref<'a>(&'a self) -> (&'a T0,) {
+            (&self.0,)
+        }
+        #[no_coverage]
+        fn get_mut<'a>(&'a mut self) -> (&'a mut T0,) {
+            (&mut self.0,)
+        }
+        #[no_coverage]
+        fn new(t: (T0,)) -> Self {
+            t
+        }
+    }
+    #[doc = " A `TupleMutator` for types that have a 1-tuple structure"]
+    #[derive(::std::default::Default)]
+    pub struct Tuple1Mutator<M0> {
+        mutator_0: M0,
+    }
+    impl<M0> Tuple1Mutator<M0> {
+        #[no_coverage]
+        pub fn new(mutator_0: M0) -> Self {
+            Self { mutator_0 }
+        }
+    }
+
+    impl<T, T0, M0> TupleMutator<T, Tuple1<T0>> for Tuple1Mutator<M0>
+    where
+        T: ::std::clone::Clone + 'static,
+        T0: ::std::clone::Clone + 'static,
+        M0: fuzzcheck::Mutator<T0>,
+        T: fuzzcheck::mutators::tuples::TupleStructure<Tuple1<T0>>,
+    {
+        #[doc(hidden)]
+        type Cache = <M0 as fuzzcheck::Mutator<T0>>::Cache;
+        #[doc(hidden)]
+        type MutationStep = <M0 as fuzzcheck::Mutator<T0>>::MutationStep;
+        #[doc(hidden)]
+        type RecursingPartIndex = <M0 as fuzzcheck::Mutator<T0>>::RecursingPartIndex;
+        #[doc(hidden)]
+        type ArbitraryStep = <M0 as fuzzcheck::Mutator<T0>>::ArbitraryStep;
+        #[doc(hidden)]
+        type UnmutateToken = <M0 as fuzzcheck::Mutator<T0>>::UnmutateToken;
+        #[doc(hidden)]
+        #[no_coverage]
+        fn default_arbitrary_step(&self) -> Self::ArbitraryStep {
+            self.mutator_0.default_arbitrary_step()
+        }
+
+        #[doc(hidden)]
+        #[no_coverage]
+        fn max_complexity(&self) -> f64 {
+            self.mutator_0.max_complexity()
+        }
+        #[doc(hidden)]
+        #[no_coverage]
+        fn min_complexity(&self) -> f64 {
+            self.mutator_0.min_complexity()
+        }
+        #[doc(hidden)]
+        #[no_coverage]
+        fn complexity<'a>(&self, value: <Tuple1<T0> as RefTypes>::Ref<'a>, cache: &'a Self::Cache) -> f64 {
+            self.mutator_0.complexity(value.0, cache)
+        }
+        #[doc(hidden)]
+        #[no_coverage]
+        fn validate_value<'a>(&self, value: <Tuple1<T0> as RefTypes>::Ref<'a>) -> Option<Self::Cache> {
+            self.mutator_0.validate_value(value.0)
+        }
+        #[doc(hidden)]
+        #[no_coverage]
+        fn default_mutation_step<'a>(
+            &self,
+            value: <Tuple1<T0> as RefTypes>::Ref<'a>,
+            cache: &'a Self::Cache,
+        ) -> Self::MutationStep {
+            self.mutator_0.default_mutation_step(value.0, cache)
+        }
+        #[doc(hidden)]
+        #[no_coverage]
+        fn ordered_arbitrary(&self, step: &mut Self::ArbitraryStep, max_cplx: f64) -> Option<(T, f64)> {
+            self.mutator_0
+                .ordered_arbitrary(step, max_cplx)
+                .map(|(value, cplx)| (T::new((value,)), cplx))
+        }
+        #[doc(hidden)]
+        #[no_coverage]
+        fn random_arbitrary(&self, max_cplx: f64) -> (T, f64) {
+            let (value, cplx) = self.mutator_0.random_arbitrary(max_cplx);
+            (T::new((value,)), cplx)
+        }
+        #[doc(hidden)]
+        #[no_coverage]
+        fn ordered_mutate<'a>(
+            &self,
+            value: <Tuple1<T0> as RefTypes>::Mut<'a>,
+            cache: &'a mut Self::Cache,
+            step: &'a mut Self::MutationStep,
+            max_cplx: f64,
+        ) -> Option<(Self::UnmutateToken, f64)> {
+            self.mutator_0.ordered_mutate(value.0, cache, step, max_cplx)
+        }
+        #[doc(hidden)]
+        #[no_coverage]
+        fn random_mutate<'a>(
+            &self,
+            value: <Tuple1<T0> as RefTypes>::Mut<'a>,
+            cache: &'a mut Self::Cache,
+            max_cplx: f64,
+        ) -> (Self::UnmutateToken, f64) {
+            self.mutator_0.random_mutate(value.0, cache, max_cplx)
+        }
+        #[doc(hidden)]
+        #[no_coverage]
+        fn unmutate<'a>(
+            &'a self,
+            value: <Tuple1<T0> as RefTypes>::Mut<'a>,
+            cache: &'a mut Self::Cache,
+            t: Self::UnmutateToken,
+        ) {
+            self.mutator_0.unmutate(value.0, cache, t);
+        }
+        #[doc(hidden)]
+        #[no_coverage]
+        fn default_recursing_part_index<'a>(
+            &self,
+            value: <Tuple1<T0> as RefTypes>::Ref<'a>,
+            cache: &'a Self::Cache,
+        ) -> Self::RecursingPartIndex {
+            self.mutator_0.default_recursing_part_index(value.0, cache)
+        }
+        #[doc(hidden)]
+        #[no_coverage]
+        fn recursing_part<'a, ___V, ___N>(
+            &self,
+            parent: &___N,
+            value: <Tuple1<T0> as RefTypes>::Ref<'a>,
+            index: &mut Self::RecursingPartIndex,
+        ) -> Option<&'a ___V>
+        where
+            ___V: ::std::clone::Clone + 'static,
+            ___N: fuzzcheck::Mutator<___V>,
+        {
+            self.mutator_0.recursing_part::<___V, ___N>(parent, value.0, index)
+        }
+    }
+    impl<T0> fuzzcheck::mutators::DefaultMutator for (T0,)
+    where
+        T0: fuzzcheck::mutators::DefaultMutator + 'static,
+    {
+        type Mutator =
+            TupleMutatorWrapper<Tuple1Mutator<<T0 as fuzzcheck::mutators::DefaultMutator>::Mutator>, Tuple1<T0>>;
+        #[no_coverage]
+        fn default_mutator() -> Self::Mutator {
+            Self::Mutator::new(Tuple1Mutator::new(
+                <T0 as fuzzcheck::mutators::DefaultMutator>::default_mutator(),
+            ))
+        }
+    }
 }
 pub use tuple2::{Tuple2, Tuple2Mutator};
 mod tuple2 {
