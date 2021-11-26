@@ -51,16 +51,16 @@ impl VoseAlias {
         );
         #[allow(clippy::float_cmp)]
         if sum != 1.0 {
-            // hack, the whole of the extra probability is added to the first element
-            // if it happened due to numerical instability, it's fine, it doesn't
-            // bias the odds that much
-            // otherwise, it is a mistake from the caller.
-            // I check that the difference between sum and 1.0 is less than
-            // 0.1 to try and distinguish between the two cases
-            assert!((sum - 1.0).abs() < 0.1);
-            let add = 1.0 - sum;
-            probabilities[0] += add;
+            for p in &mut probabilities {
+                *p /= sum;
+            }
         }
+        let sum = probabilities.iter().fold(
+            0.0,
+            #[no_coverage]
+            |sum, p| sum + p,
+        );
+        assert!((sum - 1.0).abs() < 0.1);
 
         // Step 1 and 2
         let size = probabilities.len();
