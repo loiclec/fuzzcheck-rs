@@ -287,7 +287,7 @@ impl SaveToStatsFolder for AndSensorAndPool {
 }
 impl SensorAndPool for AndSensorAndPool {
     fn stats(&self) -> Box<dyn crate::traits::Stats> {
-        todo!()
+        Box::new(AndPoolStats(self.sap1.stats(), self.sap2.stats()))
     }
 
     fn start_recording(&mut self) {

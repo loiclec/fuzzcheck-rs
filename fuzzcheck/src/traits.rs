@@ -575,7 +575,16 @@ pub trait ToCSV {
     /// by [self.csv_headers\()](ToCSV::csv_headers)
     fn to_csv_record(&self) -> Vec<CSVField>;
 }
+impl ToCSV for Box<dyn Stats> {
+    fn csv_headers(&self) -> Vec<CSVField> {
+        self.as_ref().csv_headers()
+    }
 
+    fn to_csv_record(&self) -> Vec<CSVField> {
+        self.as_ref().to_csv_record()
+    }
+}
+impl Stats for Box<dyn Stats> {}
 /**
 A [`Pool`] ranks test cases based on observations recorded by a sensor.
 
