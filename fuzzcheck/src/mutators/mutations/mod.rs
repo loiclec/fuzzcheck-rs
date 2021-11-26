@@ -1,8 +1,5 @@
 use crate::Mutator;
 
-// pub mod vector;
-pub mod vector2;
-
 // maybe the mutator should be a generic type parameter of the MutateOperation trait, maybe the T and C should be too
 // but the step and revert should not
 pub trait Mutation<Value, M>: Sized
@@ -18,7 +15,7 @@ where
         Value: 'a;
     type Revert: RevertMutation<Value, M>;
 
-    fn default_random_step(mutator: &M, value: &Value) -> Option<Self::RandomStep>;
+    fn default_random_step(&self, mutator: &M, value: &Value) -> Option<Self::RandomStep>;
 
     fn random<'a>(
         mutator: &M,
@@ -28,7 +25,7 @@ where
         max_cplx: f64,
     ) -> Self::Concrete<'a>;
 
-    fn default_step(mutator: &M, value: &Value, cache: &M::Cache) -> Option<Self::Step>;
+    fn default_step(&self, mutator: &M, value: &Value, cache: &M::Cache) -> Option<Self::Step>;
     fn from_step<'a>(
         mutator: &M,
         value: &Value,

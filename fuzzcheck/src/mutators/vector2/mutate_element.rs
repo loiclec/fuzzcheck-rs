@@ -1,11 +1,11 @@
-use crate::{
-    mutators::operations::{Mutation, RevertMutation},
-    Mutator,
-};
-
-use super::VecM;
+use super::VecMutator;
+use crate::mutators::mutations::{Mutation, RevertMutation};
+use crate::Mutator;
 
 pub struct MutateElement;
+
+#[derive(Clone)]
+pub struct MutateElementRandomStep;
 
 #[derive(Clone)]
 pub struct MutateElementStep<S> {
@@ -27,12 +27,17 @@ pub struct RevertMutateElement<U> {
     pub unmutate_token: Option<U>,
 }
 
-impl<T, M> RevertMutation<Vec<T>, VecM<T, M>> for RevertMutateElement<M::UnmutateToken>
+impl<T, M> RevertMutation<Vec<T>, VecMutator<T, M>> for RevertMutateElement<M::UnmutateToken>
 where
     T: Clone + 'static,
     M: Mutator<T>,
 {
-    fn revert(self, mutator: &VecM<T, M>, value: &mut Vec<T>, cache: &mut <VecM<T, M> as Mutator<Vec<T>>>::Cache) {
+    fn revert(
+        self,
+        mutator: &VecMutator<T, M>,
+        value: &mut Vec<T>,
+        cache: &mut <VecMutator<T, M> as Mutator<Vec<T>>>::Cache,
+    ) {
         let Self { idx, unmutate_token } = self;
         if let Some(unmutate_token) = unmutate_token {
             mutator
@@ -42,28 +47,28 @@ where
     }
 }
 
-impl<T, M> Mutation<Vec<T>, VecM<T, M>> for MutateElement
+impl<T, M> Mutation<Vec<T>, VecMutator<T, M>> for MutateElement
 where
     T: Clone + 'static,
     M: Mutator<T>,
 {
-    type RandomStep = ();
+    type RandomStep = MutateElementRandomStep;
     type Step = MutateElementStep<M::MutationStep>;
     type Concrete<'a> = ConcreteMutateElement<'a, M::MutationStep>;
     type Revert = RevertMutateElement<M::UnmutateToken>;
 
-    fn default_random_step(_mutator: &VecM<T, M>, value: &Vec<T>) -> Option<Self::RandomStep> {
+    fn default_random_step(&self, _mutator: &VecMutator<T, M>, value: &Vec<T>) -> Option<Self::RandomStep> {
         if value.is_empty() {
             None
         } else {
-            Some(())
+            Some(MutateElementRandomStep)
         }
     }
 
     fn random<'a>(
-        mutator: &VecM<T, M>,
+        mutator: &VecMutator<T, M>,
         value: &Vec<T>,
-        _cache: &<VecM<T, M> as Mutator<Vec<T>>>::Cache,
+        _cache: &<VecMutator<T, M> as Mutator<Vec<T>>>::Cache,
         _random_step: &Self::RandomStep,
         _max_cplx: f64,
     ) -> Self::Concrete<'a> {
@@ -73,9 +78,10 @@ where
     }
 
     fn default_step(
-        mutator: &VecM<T, M>,
+        &self,
+        mutator: &VecMutator<T, M>,
         value: &Vec<T>,
-        cache: &<VecM<T, M> as Mutator<Vec<T>>>::Cache,
+        cache: &<VecMutator<T, M> as Mutator<Vec<T>>>::Cache,
     ) -> Option<Self::Step> {
         if value.is_empty() {
             None
@@ -93,9 +99,9 @@ where
     }
 
     fn from_step<'a>(
-        mutator: &VecM<T, M>,
+        mutator: &VecMutator<T, M>,
         _value: &Vec<T>,
-        _cache: &<VecM<T, M> as Mutator<Vec<T>>>::Cache,
+        _cache: &<VecMutator<T, M> as Mutator<Vec<T>>>::Cache,
         step: &'a mut Self::Step,
         _max_cplx: f64,
     ) -> Option<Self::Concrete<'a>> {
@@ -111,9 +117,9 @@ where
 
     fn apply<'a>(
         mutation: Self::Concrete<'a>,
-        mutator: &VecM<T, M>,
+        mutator: &VecMutator<T, M>,
         value: &mut Vec<T>,
-        cache: &mut <VecM<T, M> as Mutator<Vec<T>>>::Cache,
+        cache: &mut <VecMutator<T, M> as Mutator<Vec<T>>>::Cache,
         max_cplx: f64,
     ) -> (Self::Revert, f64) {
         let value_cplx = mutator.complexity(value, cache);

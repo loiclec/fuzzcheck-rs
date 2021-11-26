@@ -1,0 +1,501 @@
+use std::fmt::Debug;
+
+use super::insert_element;
+use super::insert_many_elements;
+use super::mutate_element;
+use super::remove;
+use super::swap_elements;
+use super::VecMutator;
+use crate::mutators::mutations::{Mutation, RevertMutation};
+use crate::mutators::vose_alias::VoseAlias;
+use crate::Mutator;
+
+pub struct WeightedMutation<M> {
+    mutation: M,
+    random_weight: f64,
+    ordered_weight: f64,
+}
+
+macro_rules! make_vec_mutation_types {
+    ($(($i:ident,$t:ty)),*) => {
+        pub enum InnerVectorMutation {
+            $($i($t),)*
+        }
+        pub struct VectorMutation {
+            mutations: Vec<WeightedMutation<InnerVectorMutation>>,
+        }
+        pub enum VectorMutationInnerStep<T, M>
+        where
+            T: Clone + 'static,
+            M: Mutator<T>,
+        {
+            $($i(< $t as Mutation<Vec<T>, VecMutator<T, M>>>::Step),)*
+        }
+        pub struct VectorMutationStep<T, M>
+        where
+            T: Clone + 'static,
+            M: Mutator<T>,
+        {
+            inner_steps: Vec<VectorMutationInnerStep<T, M>>,
+            weights: Vec<f64>,
+            sampling: VoseAlias,
+        }
+        pub enum VectorMutationInnerRandomStep<T, M>
+        where
+            T: Clone + 'static,
+            M: Mutator<T>,
+        {
+            $($i(< $t as Mutation<Vec<T>, VecMutator<T, M>>>::RandomStep),)*
+        }
+        pub struct VectorMutationRandomStep<T, M>
+        where
+            T: Clone + 'static,
+            M: Mutator<T>
+        {
+            inner_steps: Vec<VectorMutationInnerRandomStep<T, M>>,
+            sampling: VoseAlias,
+        }
+        pub enum ConcreteVectorMutation<'a, T, M>
+        where
+            T: Clone + 'static,
+            M: Mutator<T>,
+        {
+            $($i(< $t as Mutation<Vec<T>, VecMutator<T, M>>>::Concrete<'a>),)*
+        }
+        pub enum RevertVectorMutation<T, M>
+        where
+            T: Clone + 'static,
+            M: Mutator<T>,
+        {
+            $($i(< $t as Mutation<Vec<T>, VecMutator<T, M>>>::Revert),)*
+        }
+        impl<T, M> Clone for VectorMutationInnerStep<T, M>
+        where
+            T: Clone + 'static,
+            M: Mutator<T>,
+        {
+            fn clone(&self) -> Self {
+                match self {
+                    $(
+                        Self::$i(x) => Self::$i(x.clone())
+                    ),*
+                }
+            }
+        }
+
+        impl<T, M> Debug for VectorMutationInnerStep<T, M>
+        where
+            T: Clone + 'static,
+            M: Mutator<T>,
+            $(
+                < $t as Mutation<Vec<T>, VecMutator<T, M>>>::Step : Debug
+            ),*
+        {
+                fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                match self {
+                    $(
+                        Self::$i(arg0) => f.debug_tuple(stringify!($i)).field(arg0).finish()
+                    ),*
+                }
+            }
+        }
+        impl<T, M> PartialEq for VectorMutationInnerStep<T, M>
+        where
+            T: Clone + 'static,
+            M: Mutator<T>,
+            $(
+                < $t as Mutation<Vec<T>, VecMutator<T, M>>>::Step : PartialEq
+            ),*
+        {
+                fn eq(&self, other: &Self) -> bool {
+                match (self, other) {
+                    $(
+                        (Self::$i(l0),Self::$i(r0))  => l0 == r0
+                    ),*
+                    , _  => false
+                }
+            }
+        }
+        impl<T, M> Clone for VectorMutationStep<T, M>
+        where
+            T: Clone + 'static,
+            M: Mutator<T>,
+            VectorMutationInnerStep<T, M>: Clone
+        {
+            fn clone(&self) -> Self {
+                Self {
+                    inner_steps: self.inner_steps.clone(),
+                    weights: self.weights.clone(),
+                    sampling: self.sampling.clone(),
+                }
+            }
+        }
+
+        impl<T, M> Clone for VectorMutationInnerRandomStep<T, M>
+        where
+            T: Clone + 'static,
+            M: Mutator<T>,
+        {
+            fn clone(&self) -> Self {
+                match self {
+                    $(
+                        Self::$i(x) => Self::$i(x.clone())
+                    ),*
+                }
+            }
+        }
+
+        impl<T, M> Clone for VectorMutationRandomStep<T, M>
+        where
+            T: Clone + 'static,
+            M: Mutator<T>,
+            VectorMutationInnerRandomStep<T, M>: Clone
+        {
+            fn clone(&self) -> Self {
+                Self {
+                    inner_steps: self.inner_steps.clone(),
+                    sampling: self.sampling.clone(),
+                }
+            }
+        }
+    }
+}
+
+make_vec_mutation_types! {
+    (Remove, remove::Remove),
+    (MutateElement, mutate_element::MutateElement),
+    (InsertElement, insert_element::InsertElement),
+    (SwapElements, swap_elements::SwapElements),
+    (InsertManyElements, insert_many_elements::InsertManyElements)
+}
+
+impl<T, M> RevertMutation<Vec<T>, VecMutator<T, M>> for RevertVectorMutation<T, M>
+where
+    T: Clone + 'static,
+    M: Mutator<T>,
+{
+    fn revert(
+        self,
+        mutator: &VecMutator<T, M>,
+        value: &mut Vec<T>,
+        cache: &mut <VecMutator<T, M> as Mutator<Vec<T>>>::Cache,
+    ) {
+        match self {
+            RevertVectorMutation::Remove(r) => r.revert(mutator, value, cache),
+            RevertVectorMutation::MutateElement(r) => r.revert(mutator, value, cache),
+            RevertVectorMutation::InsertElement(r) => r.revert(mutator, value, cache),
+            RevertVectorMutation::SwapElements(r) => r.revert(mutator, value, cache),
+            RevertVectorMutation::InsertManyElements(r) => r.revert(mutator, value, cache),
+        }
+    }
+}
+
+impl<T, M> Mutation<Vec<T>, VecMutator<T, M>> for VectorMutation
+where
+    T: Clone + 'static,
+    M: Mutator<T>,
+{
+    type RandomStep = VectorMutationRandomStep<T, M>;
+    type Step = VectorMutationStep<T, M>;
+    type Concrete<'a> = ConcreteVectorMutation<'a, T, M>;
+    type Revert = RevertVectorMutation<T, M>;
+
+    fn default_random_step(&self, mutator: &VecMutator<T, M>, value: &Vec<T>) -> Option<Self::RandomStep> {
+        let inner_steps_and_weights: Vec<(_, f64)> = self
+            .mutations
+            .iter()
+            .filter_map(|mutation| {
+                match &mutation.mutation {
+                    InnerVectorMutation::Remove(r) => r
+                        .default_random_step(mutator, value)
+                        .map(VectorMutationInnerRandomStep::Remove),
+                    InnerVectorMutation::MutateElement(r) => r
+                        .default_random_step(mutator, value)
+                        .map(VectorMutationInnerRandomStep::MutateElement),
+                    InnerVectorMutation::InsertElement(r) => r
+                        .default_random_step(mutator, value)
+                        .map(VectorMutationInnerRandomStep::InsertElement),
+                    InnerVectorMutation::SwapElements(r) => r
+                        .default_random_step(mutator, value)
+                        .map(VectorMutationInnerRandomStep::SwapElements),
+                    InnerVectorMutation::InsertManyElements(r) => r
+                        .default_random_step(mutator, value)
+                        .map(VectorMutationInnerRandomStep::InsertManyElements),
+                }
+                .map(|inner| (inner, mutation.random_weight))
+            })
+            .collect::<Vec<_>>();
+
+        if inner_steps_and_weights.is_empty() {
+            return None;
+        }
+        let weights = inner_steps_and_weights.iter().map(|x| x.1).collect();
+        let sampling = VoseAlias::new(weights);
+        let inner_steps = inner_steps_and_weights.into_iter().map(|x| x.0).collect();
+
+        Some(VectorMutationRandomStep { inner_steps, sampling })
+    }
+
+    fn random<'a>(
+        mutator: &VecMutator<T, M>,
+        value: &Vec<T>,
+        cache: &<VecMutator<T, M> as Mutator<Vec<T>>>::Cache,
+        step: &Self::RandomStep,
+        max_cplx: f64,
+    ) -> Self::Concrete<'a> {
+        let inner_step_idx = step.sampling.sample();
+        let step = &step.inner_steps[inner_step_idx];
+        match step {
+            VectorMutationInnerRandomStep::Remove(s) => {
+                ConcreteVectorMutation::Remove(remove::Remove::random(mutator, value, cache, s, max_cplx))
+            }
+            VectorMutationInnerRandomStep::MutateElement(s) => ConcreteVectorMutation::MutateElement(
+                mutate_element::MutateElement::random(mutator, value, cache, s, max_cplx),
+            ),
+            VectorMutationInnerRandomStep::InsertElement(s) => ConcreteVectorMutation::InsertElement(
+                insert_element::InsertElement::random(mutator, value, cache, s, max_cplx),
+            ),
+            VectorMutationInnerRandomStep::SwapElements(s) => ConcreteVectorMutation::SwapElements(
+                swap_elements::SwapElements::random(mutator, value, cache, s, max_cplx),
+            ),
+            VectorMutationInnerRandomStep::InsertManyElements(s) => ConcreteVectorMutation::InsertManyElements(
+                insert_many_elements::InsertManyElements::random(mutator, value, cache, s, max_cplx),
+            ),
+        }
+    }
+
+    fn default_step(
+        &self,
+        mutator: &VecMutator<T, M>,
+        value: &Vec<T>,
+        cache: &<VecMutator<T, M> as Mutator<Vec<T>>>::Cache,
+    ) -> Option<Self::Step> {
+        let inner_steps_and_weights: Vec<(VectorMutationInnerStep<_, _>, f64)> = self
+            .mutations
+            .iter()
+            .filter_map(|mutation| {
+                match &mutation.mutation {
+                    InnerVectorMutation::Remove(r) => r
+                        .default_step(mutator, value, cache)
+                        .map(VectorMutationInnerStep::Remove),
+                    InnerVectorMutation::MutateElement(r) => r
+                        .default_step(mutator, value, cache)
+                        .map(VectorMutationInnerStep::MutateElement),
+                    InnerVectorMutation::InsertElement(r) => r
+                        .default_step(mutator, value, cache)
+                        .map(VectorMutationInnerStep::InsertElement),
+                    InnerVectorMutation::SwapElements(r) => r
+                        .default_step(mutator, value, cache)
+                        .map(VectorMutationInnerStep::SwapElements),
+                    InnerVectorMutation::InsertManyElements(r) => r
+                        .default_step(mutator, value, cache)
+                        .map(VectorMutationInnerStep::InsertManyElements),
+                }
+                .map(|inner| (inner, mutation.ordered_weight))
+            })
+            .collect::<Vec<_>>();
+
+        if inner_steps_and_weights.is_empty() {
+            return None;
+        }
+
+        let mut inner_steps = Vec::with_capacity(inner_steps_and_weights.len());
+        let mut weights = Vec::with_capacity(inner_steps_and_weights.len());
+        let mut probabilities = Vec::with_capacity(inner_steps_and_weights.len());
+        for (inner_step, weight) in inner_steps_and_weights {
+            inner_steps.push(inner_step);
+            probabilities.push(weight);
+            weights.push(weight);
+        }
+        let sampling = VoseAlias::new(probabilities);
+
+        Some(VectorMutationStep {
+            inner_steps,
+            weights,
+            sampling,
+        })
+    }
+
+    fn from_step<'a>(
+        mutator: &VecMutator<T, M>,
+        value: &Vec<T>,
+        cache: &<VecMutator<T, M> as Mutator<Vec<T>>>::Cache,
+        step: &'a mut Self::Step,
+        max_cplx: f64,
+    ) -> Option<Self::Concrete<'a>> {
+        if step.inner_steps.is_empty() {
+            return None;
+        }
+        let inner_step_idx = step.sampling.sample();
+        let step_raw = step as *mut Self::Step;
+        {
+            let inner_step = &mut step.inner_steps[inner_step_idx];
+
+            let concrete: Option<<VectorMutation as Mutation<Vec<T>, VecMutator<T, M>>>::Concrete<'a>> =
+                match inner_step {
+                    VectorMutationInnerStep::Remove(step) => {
+                        remove::Remove::from_step(mutator, value, cache, step, max_cplx)
+                            .map(ConcreteVectorMutation::Remove)
+                    }
+                    VectorMutationInnerStep::MutateElement(step) => {
+                        mutate_element::MutateElement::from_step(mutator, value, cache, step, max_cplx)
+                            .map(ConcreteVectorMutation::MutateElement)
+                    }
+                    VectorMutationInnerStep::InsertElement(step) => {
+                        insert_element::InsertElement::from_step(mutator, value, cache, step, max_cplx)
+                            .map(ConcreteVectorMutation::InsertElement)
+                    }
+                    VectorMutationInnerStep::SwapElements(step) => {
+                        swap_elements::SwapElements::from_step(mutator, value, cache, step, max_cplx)
+                            .map(ConcreteVectorMutation::SwapElements)
+                    }
+                    VectorMutationInnerStep::InsertManyElements(step) => {
+                        insert_many_elements::InsertManyElements::from_step(mutator, value, cache, step, max_cplx)
+                            .map(ConcreteVectorMutation::InsertManyElements)
+                    }
+                };
+            if let Some(concrete) = concrete {
+                return Some(concrete);
+            }
+        }
+        // See: https://stackoverflow.com/questions/50519147/double-mutable-borrow-error-in-a-loop-happens-even-with-nll-on/50570026#50570026 and https://twitter.com/m_ou_se/status/1463606672807632900 https://github.com/rust-lang/rfcs/blob/master/text/2094-nll.md#problem-case-3-conditional-control-flow-across-functions for why I had to lie to the borrow checker here
+        let step = unsafe { &mut *step_raw };
+        // remove the step from the array
+        step.weights.remove(inner_step_idx);
+        step.inner_steps.remove(inner_step_idx);
+        if step.weights.is_empty() {
+            None
+        } else {
+            step.sampling = VoseAlias::new(step.weights.clone());
+            Self::from_step(mutator, value, cache, step, max_cplx)
+        }
+    }
+
+    fn apply<'a>(
+        mutation: Self::Concrete<'a>,
+        mutator: &VecMutator<T, M>,
+        value: &mut Vec<T>,
+        cache: &mut <VecMutator<T, M> as Mutator<Vec<T>>>::Cache,
+        max_cplx: f64,
+    ) -> (Self::Revert, f64) {
+        match mutation {
+            ConcreteVectorMutation::Remove(mutation) => {
+                let (revert, cplx) = remove::Remove::apply(mutation, mutator, value, cache, max_cplx);
+                (RevertVectorMutation::Remove(revert), cplx)
+            }
+            ConcreteVectorMutation::MutateElement(mutation) => {
+                let (revert, cplx) = mutate_element::MutateElement::apply(mutation, mutator, value, cache, max_cplx);
+                (RevertVectorMutation::MutateElement(revert), cplx)
+            }
+            ConcreteVectorMutation::InsertElement(mutation) => {
+                let (revert, cplx) = insert_element::InsertElement::apply(mutation, mutator, value, cache, max_cplx);
+                (RevertVectorMutation::InsertElement(revert), cplx)
+            }
+            ConcreteVectorMutation::SwapElements(mutation) => {
+                let (revert, cplx) = swap_elements::SwapElements::apply(mutation, mutator, value, cache, max_cplx);
+                (RevertVectorMutation::SwapElements(revert), cplx)
+            }
+            ConcreteVectorMutation::InsertManyElements(mutation) => {
+                let (revert, cplx) =
+                    insert_many_elements::InsertManyElements::apply(mutation, mutator, value, cache, max_cplx);
+                (RevertVectorMutation::InsertManyElements(revert), cplx)
+            }
+        }
+    }
+}
+
+// ====== Default Vector Mutations =====
+
+impl Default for VectorMutation {
+    fn default() -> Self {
+        // use the same standard for all of them
+        Self {
+            mutations: vec![
+                WeightedMutation {
+                    mutation: InnerVectorMutation::Remove(remove::Remove),
+                    random_weight: 50.,
+                    ordered_weight: 50_000.,
+                },
+                WeightedMutation {
+                    mutation: InnerVectorMutation::MutateElement(mutate_element::MutateElement),
+                    random_weight: 500.,
+                    ordered_weight: 500.,
+                },
+                WeightedMutation {
+                    mutation: InnerVectorMutation::InsertElement(insert_element::InsertElement),
+                    random_weight: 50.,
+                    ordered_weight: 10.,
+                },
+                WeightedMutation {
+                    mutation: InnerVectorMutation::SwapElements(swap_elements::SwapElements),
+                    random_weight: 20.,
+                    ordered_weight: 500.,
+                },
+                WeightedMutation {
+                    mutation: InnerVectorMutation::InsertManyElements(insert_many_elements::InsertManyElements {
+                        nbr_added_elements: 2,
+                        repeated: false,
+                    }),
+                    random_weight: 10.,
+                    ordered_weight: 5.,
+                },
+                WeightedMutation {
+                    mutation: InnerVectorMutation::InsertManyElements(insert_many_elements::InsertManyElements {
+                        nbr_added_elements: 3,
+                        repeated: false,
+                    }),
+                    random_weight: 8.,
+                    ordered_weight: 4.,
+                },
+                WeightedMutation {
+                    mutation: InnerVectorMutation::InsertManyElements(insert_many_elements::InsertManyElements {
+                        nbr_added_elements: 4,
+                        repeated: false,
+                    }),
+                    random_weight: 6.,
+                    ordered_weight: 3.,
+                },
+                WeightedMutation {
+                    mutation: InnerVectorMutation::InsertManyElements(insert_many_elements::InsertManyElements {
+                        nbr_added_elements: 5,
+                        repeated: false,
+                    }),
+                    random_weight: 4.,
+                    ordered_weight: 2.,
+                },
+                WeightedMutation {
+                    mutation: InnerVectorMutation::InsertManyElements(insert_many_elements::InsertManyElements {
+                        nbr_added_elements: 2,
+                        repeated: true,
+                    }),
+                    random_weight: 10.,
+                    ordered_weight: 5.,
+                },
+                WeightedMutation {
+                    mutation: InnerVectorMutation::InsertManyElements(insert_many_elements::InsertManyElements {
+                        nbr_added_elements: 3,
+                        repeated: true,
+                    }),
+                    random_weight: 8.,
+                    ordered_weight: 4.,
+                },
+                WeightedMutation {
+                    mutation: InnerVectorMutation::InsertManyElements(insert_many_elements::InsertManyElements {
+                        nbr_added_elements: 4,
+                        repeated: true,
+                    }),
+                    random_weight: 6.,
+                    ordered_weight: 3.,
+                },
+                WeightedMutation {
+                    mutation: InnerVectorMutation::InsertManyElements(insert_many_elements::InsertManyElements {
+                        nbr_added_elements: 5,
+                        repeated: true,
+                    }),
+                    random_weight: 4.,
+                    ordered_weight: 2.,
+                },
+            ],
+        }
+    }
+}

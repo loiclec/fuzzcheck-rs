@@ -1,13 +1,10 @@
-use crate::{
-    mutators::operations::{Mutation, RevertMutation},
-    Mutator,
-};
-
-use super::VecM;
+use super::VecMutator;
+use crate::mutators::mutations::{Mutation, RevertMutation};
+use crate::Mutator;
 
 pub struct Remove;
 
-#[derive(Clone)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct RemoveStep {
     pub idx: usize,
 }
@@ -20,62 +17,68 @@ pub struct RevertRemove<T> {
     pub element: T,
 }
 
-impl<T, M> RevertMutation<Vec<T>, VecM<T, M>> for RevertRemove<T>
+impl<T, M> RevertMutation<Vec<T>, VecMutator<T, M>> for RevertRemove<T>
 where
     T: Clone + 'static,
     M: Mutator<T>,
 {
-    fn revert(self, _mutator: &VecM<T, M>, value: &mut Vec<T>, _cache: &mut <VecM<T, M> as Mutator<Vec<T>>>::Cache) {
+    fn revert(
+        self,
+        _mutator: &VecMutator<T, M>,
+        value: &mut Vec<T>,
+        _cache: &mut <VecMutator<T, M> as Mutator<Vec<T>>>::Cache,
+    ) {
         value.insert(self.idx, self.element);
     }
 }
 
-impl<T, M> Mutation<Vec<T>, VecM<T, M>> for Remove
+impl<T, M> Mutation<Vec<T>, VecMutator<T, M>> for Remove
 where
     T: Clone + 'static,
     M: Mutator<T>,
 {
-    type RandomStep = ();
+    type RandomStep = RemoveStep;
     type Step = RemoveStep;
     type Concrete<'a> = ConcreteRemove;
     type Revert = RevertRemove<T>;
 
-    fn default_random_step(_mutator: &VecM<T, M>, value: &Vec<T>) -> Option<Self::RandomStep> {
-        if value.is_empty() {
+    fn default_random_step(&self, mutator: &VecMutator<T, M>, value: &Vec<T>) -> Option<Self::RandomStep> {
+        if value.len() <= *mutator.len_range.start() {
             None
         } else {
-            Some(())
+            Some(RemoveStep {
+                idx: mutator.rng.usize(..value.len()),
+            })
         }
     }
 
     fn random<'a>(
-        mutator: &VecM<T, M>,
-        value: &Vec<T>,
-        _cache: &<VecM<T, M> as Mutator<Vec<T>>>::Cache,
-        _random_step: &Self::RandomStep,
+        _mutator: &VecMutator<T, M>,
+        _value: &Vec<T>,
+        _cache: &<VecMutator<T, M> as Mutator<Vec<T>>>::Cache,
+        random_step: &Self::RandomStep,
         _max_cplx: f64,
     ) -> Self::Concrete<'a> {
-        ConcreteRemove {
-            idx: mutator.rng.usize(..value.len()),
-        }
+        ConcreteRemove { idx: random_step.idx }
     }
 
     fn default_step(
-        mutator: &VecM<T, M>,
+        &self,
+        mutator: &VecMutator<T, M>,
         value: &Vec<T>,
-        _cache: &<VecM<T, M> as Mutator<Vec<T>>>::Cache,
+        _cache: &<VecMutator<T, M> as Mutator<Vec<T>>>::Cache,
     ) -> Option<Self::Step> {
-        if *mutator.len_range.start() < value.len() {
-            Some(RemoveStep { idx: 0 })
-        } else {
+        if value.len() <= *mutator.len_range.start() {
             None
+        } else {
+            Some(RemoveStep { idx: 0 })
         }
     }
 
     fn from_step<'a>(
-        _mutator: &VecM<T, M>,
+        _mutator: &VecMutator<T, M>,
         value: &Vec<T>,
-        _cache: &<VecM<T, M> as Mutator<Vec<T>>>::Cache,
+        _cache: &<VecMutator<T, M> as Mutator<Vec<T>>>::Cache,
         step: &'a mut Self::Step,
         _max_cplx: f64,
     ) -> Option<Self::Concrete<'a>> {
@@ -90,9 +93,9 @@ where
 
     fn apply<'a>(
         mutation: Self::Concrete<'a>,
-        mutator: &VecM<T, M>,
+        mutator: &VecMutator<T, M>,
         value: &mut Vec<T>,
-        cache: &mut <VecM<T, M> as Mutator<Vec<T>>>::Cache,
+        cache: &mut <VecMutator<T, M> as Mutator<Vec<T>>>::Cache,
         _max_cplx: f64,
     ) -> (Self::Revert, f64) {
         let removed = value.remove(mutation.idx);

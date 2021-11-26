@@ -1,33 +1,65 @@
-use crate::mutators::vector::VecArbitraryStep;
-use crate::{
-    mutators::operations::{Mutation, RevertMutation},
-    Mutator,
-};
+use crate::mutators::mutations::{Mutation, RevertMutation};
+use crate::{DefaultMutator, Mutator};
 use std::cmp;
 use std::marker::PhantomData;
 use std::ops::RangeInclusive;
 
-use self::mutation::{RevertVectorMutation, VectorMutation, VectorMutationRandomStep, VectorMutationStep};
+use self::vec_mutation::{RevertVectorMutation, VectorMutation, VectorMutationRandomStep, VectorMutationStep};
 
+pub mod insert_element;
+pub mod insert_many_elements;
 pub mod mutate_element;
-pub mod mutation;
 pub mod remove;
+pub mod swap_elements;
+pub mod vec_mutation;
+
+impl<T> DefaultMutator for Vec<T>
+where
+    T: DefaultMutator + 'static,
+{
+    type Mutator = VecMutator<T, T::Mutator>;
+    fn default_mutator() -> Self::Mutator {
+        VecMutator::new(T::default_mutator(), 0..=usize::MAX)
+    }
+}
+
+#[derive(Clone)]
+pub enum VecArbitraryStep {
+    InnerMutatorIsUnit { length_step: usize },
+    Normal { make_empty: bool },
+}
 
 #[doc(hidden)]
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone)]
 pub struct RecursingPartIndex<RPI> {
     inner: Vec<RPI>,
     indices: Vec<usize>,
 }
 
-#[derive(Clone)]
-pub struct VecMutatorCache<C> {
-    pub inner: Vec<C>,
+pub struct VecMutatorCache<T, M>
+where
+    T: 'static + Clone,
+    M: Mutator<T>,
+{
+    pub inner: Vec<<M as Mutator<T>>::Cache>,
     pub sum_cplx: f64,
-    pub random_mutation_step: VectorMutationRandomStep,
+    pub random_mutation_step: VectorMutationRandomStep<T, M>,
+}
+impl<T, M> Clone for VecMutatorCache<T, M>
+where
+    T: 'static + Clone,
+    M: Mutator<T>,
+{
+    fn clone(&self) -> Self {
+        Self {
+            inner: self.inner.clone(),
+            sum_cplx: self.sum_cplx.clone(),
+            random_mutation_step: self.random_mutation_step.clone(),
+        }
+    }
 }
 
-pub struct VecM<T, M>
+pub struct VecMutator<T, M>
 where
     T: Clone + 'static,
     M: Mutator<T>,
@@ -35,28 +67,39 @@ where
     m: M,
     len_range: RangeInclusive<usize>,
     rng: fastrand::Rng,
+    mutations: VectorMutation,
     _phantom: PhantomData<T>,
 }
 
-impl<T, M> VecM<T, M>
+impl<T, M> VecMutator<T, M>
 where
     T: Clone + 'static,
     M: Mutator<T>,
 {
+    pub fn new(m: M, len_range: RangeInclusive<usize>) -> Self {
+        Self {
+            m,
+            len_range,
+            rng: fastrand::Rng::new(),
+            mutations: VectorMutation::default(),
+            _phantom: PhantomData,
+        }
+    }
+
     #[no_coverage]
     fn complexity_from_inner(&self, cplx: f64, len: usize) -> f64 {
         1.0 + if cplx <= 0.0 { len as f64 } else { cplx }
     }
 }
-impl<T, M> Mutator<Vec<T>> for VecM<T, M>
+impl<T, M> Mutator<Vec<T>> for VecMutator<T, M>
 where
     T: Clone + 'static,
     M: Mutator<T>,
 {
-    type Cache = VecMutatorCache<M::Cache>;
-    type MutationStep = VectorMutationStep<M::MutationStep>;
+    type Cache = VecMutatorCache<T, M>;
+    type MutationStep = VectorMutationStep<T, M>;
     type ArbitraryStep = VecArbitraryStep;
-    type UnmutateToken = RevertVectorMutation<T, M::UnmutateToken>;
+    type UnmutateToken = RevertVectorMutation<T, M>;
 
     fn default_arbitrary_step(&self) -> Self::ArbitraryStep {
         if self.m.max_complexity() == 0.0 {
@@ -92,7 +135,7 @@ where
             |sum_cplx, c| sum_cplx + c,
         );
 
-        let random_mutation_step = VectorMutation::default_random_step(self, value).unwrap();
+        let random_mutation_step = self.mutations.default_random_step(self, value).unwrap();
 
         let cache = VecMutatorCache {
             inner: inner_caches,
@@ -103,7 +146,7 @@ where
     }
 
     fn default_mutation_step(&self, value: &Vec<T>, cache: &Self::Cache) -> Self::MutationStep {
-        VectorMutation::default_step(self, value, cache).unwrap()
+        self.mutations.default_step(self, value, cache).unwrap()
     }
 
     fn max_complexity(&self) -> f64 {
@@ -249,7 +292,7 @@ where
     }
 }
 
-impl<T, M> VecM<T, M>
+impl<T, M> VecMutator<T, M>
 where
     T: Clone + 'static,
     M: Mutator<T>,
