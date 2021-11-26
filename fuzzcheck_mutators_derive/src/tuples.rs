@@ -272,7 +272,7 @@ fn declare_tuple_mutator_helper_types(tb: &mut TokenBuilder, nbr_elements: usize
     extend_ts!(tb,
         "
         #[doc(hidden)]
-        #[derive(" cm.Clone ", " cm.Debug ", " cm.PartialEq ")]
+        #[derive(" cm.Clone ")]
         pub struct Cache <" tuple_type_params "> {"
             join_ts!(0..nbr_elements, i,
                 ti(i) ":" ident!("T" i) ","
@@ -281,14 +281,14 @@ fn declare_tuple_mutator_helper_types(tb: &mut TokenBuilder, nbr_elements: usize
             vose_alias : " cm.VoseAlias "
         }
         #[doc(hidden)]
-        #[derive(" cm.Clone ", " cm.Debug ", " cm.PartialEq ")]
+        #[derive(" cm.Clone ")]
         pub enum TupleIndex {"
             join_ts!(0..nbr_elements, i,
                 Ti(i)
             , separator: ",")
         "}
         #[doc(hidden)]
-        #[derive(" cm.Clone ", " cm.Debug ", " cm.PartialEq ")]
+        #[derive(" cm.Clone ")]
         pub struct MutationStep < " tuple_type_params " > {"
             join_ts!(0..nbr_elements, i,
                 ti(i) ":" Ti(i) ","
@@ -297,7 +297,7 @@ fn declare_tuple_mutator_helper_types(tb: &mut TokenBuilder, nbr_elements: usize
             vose_alias : Option<" cm.VoseAlias ">
         }
         #[doc(hidden)]
-        #[derive(" cm.Clone ", " cm.Debug ", " cm.PartialEq ")]
+        #[derive(" cm.Clone ")]
         pub struct RecursingPartIndex < " tuple_type_params " > {"
             join_ts!(0..nbr_elements, i,
                 ti(i) ":" Ti(i) ","
@@ -435,8 +435,6 @@ fn impl_mutator_trait(tb: &mut TokenBuilder, nbr_elements: usize) {
                     "10. +" ident!("cplx_" i)
                 , separator: ",") "
             ];
-            let sum_prob = probabilities.iter().sum::<f64>();
-            probabilities.iter_mut().for_each(#[no_coverage] |c| *c /= sum_prob);
             let vose_alias = " cm.VoseAlias "::new(probabilities);
 
             let cache = Self::Cache {"
@@ -548,7 +546,6 @@ fn impl_mutator_trait(tb: &mut TokenBuilder, nbr_elements: usize) {
             if sum == 0.0 {
                 step.vose_alias = " cm.None ";
             }  else {
-                prob.iter_mut().for_each(#[no_coverage] |c| *c /= sum );
                 step.vose_alias = " cm.Some "(" cm.VoseAlias "::new(prob));
             }
             " SelfAsTupleMutator "::ordered_mutate(self, value, cache, step, max_cplx)

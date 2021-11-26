@@ -39,7 +39,7 @@ type InnerASTMutator = Either<
 pub struct ASTMutator {
     inner: Box<InnerASTMutator>,
 }
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone)]
 pub struct ASTMutatorCache {
     inner: Box<<InnerASTMutator as Mutator<AST>>::Cache>,
 }
@@ -49,7 +49,7 @@ impl ASTMutatorCache {
         Self { inner: Box::new(inner) }
     }
 }
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone)]
 pub struct ASTMutatorMutationStep {
     inner: Box<<InnerASTMutator as Mutator<AST>>::MutationStep>,
 }
@@ -59,7 +59,7 @@ impl ASTMutatorMutationStep {
         Self { inner: Box::new(inner) }
     }
 }
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone)]
 pub struct ASTMutatorArbitraryStep {
     inner: Box<<InnerASTMutator as Mutator<AST>>::ArbitraryStep>,
 }
@@ -72,7 +72,7 @@ impl ASTMutatorUnmutateToken {
         Self { inner: Box::new(inner) }
     }
 }
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone)]
 pub struct ASTMutatorRecursingPartIndex {
     inner: Box<<InnerASTMutator as Mutator<AST>>::RecursingPartIndex>,
 }

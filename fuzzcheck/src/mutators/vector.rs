@@ -64,32 +64,32 @@ where
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone)]
 pub struct ExecutedMutations {
     make_empty: bool,      // true if it's been tried
     remove_element: usize, // index of removed element, starts at 0 and then get increased up to len, when equal to len, we stop trying
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone)]
 pub enum VecMutationStep<S> {
     InnerMutatorIsUnit { length_step: usize },
     Normal(MutationStep<S>),
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone)]
 pub enum VecArbitraryStep {
     InnerMutatorIsUnit { length_step: usize },
     Normal { make_empty: bool },
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone)]
 pub struct MutationStep<S> {
     executed_mutations: ExecutedMutations,
     inner: Vec<S>,
     alias: Option<VoseAlias>,
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone)]
 pub struct VecMutatorCache<C> {
     pub inner: Vec<C>,
     pub sum_cplx: f64,
@@ -115,7 +115,7 @@ pub enum UnmutateVecToken<T: Clone, M: Mutator<T>> {
 }
 
 #[doc(hidden)]
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone)]
 pub struct RecursingPartIndex<RPI> {
     inner: Vec<RPI>,
     indices: Vec<usize>,
@@ -525,11 +525,6 @@ impl<T: Clone + 'static, M: Mutator<T>> Mutator<Vec<T>> for VecMutator<T, M> {
                     |c| 10. + c,
                 )
                 .collect::<Vec<_>>();
-            let sum_prob = probabilities.iter().sum::<f64>();
-            probabilities.iter_mut().for_each(
-                #[no_coverage]
-                |c| *c /= sum_prob,
-            );
             Some(VoseAlias::new(probabilities))
         } else {
             None

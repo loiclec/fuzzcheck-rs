@@ -123,7 +123,7 @@ pub fn make_single_variant_mutator(tb: &mut TokenBuilder, enu: &Enum) {
 
     extend_ts!(tb,
     "
-    #[derive(" cm.Debug "," cm.Clone ", " cm.PartialEq ")]
+    #[derive(" cm.Clone ")]
     #[doc(hidden)]
     pub enum " EnumSingleVariant single_variant_generics.removing_eq_type() "{"
     join_ts!(&enu.items, item,

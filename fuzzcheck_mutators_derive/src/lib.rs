@@ -264,8 +264,6 @@ pub(crate) struct Common {
     Clone: TokenStream,
     Default: TokenStream,
     DefaultMutator: TokenStream,
-    Debug: TokenStream,
-    PartialEq: TokenStream,
     fastrand_Rng: TokenStream,
     mutators: TokenStream,
     // fuzzcheck_mutator_traits_Mutator: TokenStream,
@@ -325,9 +323,7 @@ impl Common {
         Self {
             AlternationMutator: ts!(mutators "::alternation::AlternationMutator"),
             Clone: ts!("::std::clone::Clone"),
-            Debug: ts!("::std::fmt::Debug"),
             Default: ts!("::std::default::Default"),
-            PartialEq: ts!("::std::cmp::PartialEq"),
             DefaultMutator: ts!(mutators "::DefaultMutator"),
             fastrand_Rng,
             mutators: mutators.clone(),
