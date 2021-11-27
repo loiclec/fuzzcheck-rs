@@ -614,7 +614,7 @@ impl SaveToStatsFolder for SimplestToActivateCounterPool {
     }
 }
 
-#[cfg(feature="serde_json_serializer")]
+#[cfg(feature = "serde_json_serializer")]
 #[derive(serde::Serialize, serde::Deserialize)]
 struct SerializedUniqCov {
     all_hit_counters: Vec<usize>,
