@@ -52,6 +52,9 @@ where
     type Revert = RevertInsertManyElements;
 
     fn default_random_step(&self, mutator: &VecMutator<T, M>, value: &Vec<T>) -> Option<Self::RandomStep> {
+        if mutator.m.max_complexity() == 0. {
+            return None;
+        }
         // e.g. value.len() == 3, mutator.len_range == 2 ..= 4
         // then 3+2 > 4 is true
         // so we can't add two more elements,
@@ -141,6 +144,9 @@ where
         value: &Vec<T>,
         _cache: &<VecMutator<T, M> as Mutator<Vec<T>>>::Cache,
     ) -> Option<Self::Step> {
+        if mutator.m.max_complexity() == 0. {
+            return None;
+        }
         self.default_random_step(mutator, value)
     }
 

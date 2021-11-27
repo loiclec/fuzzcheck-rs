@@ -46,6 +46,9 @@ where
     type Revert = RevertSwapElements;
 
     fn default_random_step(&self, mutator: &VecMutator<T, M>, value: &Vec<T>) -> Option<Self::RandomStep> {
+        if mutator.m.max_complexity() == 0. {
+            return None;
+        }
         if value.len() <= 1 {
             None
         } else {
@@ -75,10 +78,13 @@ where
 
     fn default_step(
         &self,
-        _mutator: &VecMutator<T, M>,
+        mutator: &VecMutator<T, M>,
         value: &Vec<T>,
         _cache: &<VecMutator<T, M> as Mutator<Vec<T>>>::Cache,
     ) -> Option<Self::Step> {
+        if mutator.m.max_complexity() == 0. {
+            return None;
+        }
         if value.len() <= 1 {
             None
         } else {

@@ -9,6 +9,7 @@ use self::vec_mutation::{RevertVectorMutation, VectorMutation, VectorMutationRan
 pub mod insert_element;
 pub mod insert_many_elements;
 pub mod mutate_element;
+pub mod only_choose_length;
 pub mod remove;
 pub mod swap_elements;
 pub mod vec_mutation;

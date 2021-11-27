@@ -4,7 +4,7 @@ use crate::Mutator;
 
 pub struct Remove;
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone)]
 pub struct RemoveStep {
     pub idx: usize,
 }
@@ -43,6 +43,9 @@ where
     type Revert = RevertRemove<T>;
 
     fn default_random_step(&self, mutator: &VecMutator<T, M>, value: &Vec<T>) -> Option<Self::RandomStep> {
+        if mutator.m.max_complexity() == 0. {
+            return None;
+        }
         if value.len() <= *mutator.len_range.start() {
             None
         } else {
@@ -68,6 +71,9 @@ where
         value: &Vec<T>,
         _cache: &<VecMutator<T, M> as Mutator<Vec<T>>>::Cache,
     ) -> Option<Self::Step> {
+        if mutator.m.max_complexity() == 0. {
+            return None;
+        }
         if value.len() <= *mutator.len_range.start() {
             None
         } else {

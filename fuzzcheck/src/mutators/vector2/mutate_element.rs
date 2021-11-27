@@ -57,7 +57,10 @@ where
     type Concrete<'a> = ConcreteMutateElement<'a, M::MutationStep>;
     type Revert = RevertMutateElement<M::UnmutateToken>;
 
-    fn default_random_step(&self, _mutator: &VecMutator<T, M>, value: &Vec<T>) -> Option<Self::RandomStep> {
+    fn default_random_step(&self, mutator: &VecMutator<T, M>, value: &Vec<T>) -> Option<Self::RandomStep> {
+        if mutator.m.max_complexity() == 0. {
+            return None;
+        }
         if value.is_empty() {
             None
         } else {
@@ -83,6 +86,9 @@ where
         value: &Vec<T>,
         cache: &<VecMutator<T, M> as Mutator<Vec<T>>>::Cache,
     ) -> Option<Self::Step> {
+        if mutator.m.max_complexity() == 0. {
+            return None;
+        }
         if value.is_empty() {
             None
         } else {

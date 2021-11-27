@@ -61,3 +61,29 @@ fn test_vector_explore() {
     }
     println!("{}", sum as f64 / total as f64);
 }
+
+#[test]
+fn test_vector_explore2() {
+    let m = VecMutator::new(<()>::default_mutator(), 0..=usize::MAX); //VecMutator::new(VecMutator::new(U8Mutator::default(), 0..=5), 0..=10);
+    let mut step = m.default_arbitrary_step();
+    for j in 0..36 {
+        if let Some((mut x, _cplx)) = m.ordered_arbitrary(&mut step, 32.0) {
+            println!("{} {:?}", x.len(), x);
+            let mut cache = m.validate_value(&x).unwrap();
+            let mut step = m.default_mutation_step(&x, &cache);
+            for i in 0..40 {
+                if let Some((token, _cplx)) = m.ordered_mutate(&mut x, &mut cache, &mut step, 32.) {
+                    println!("{} {:?}", x.len(), x);
+                    m.unmutate(&mut x, &mut cache, token);
+                } else {
+                    println!("!!!!!!! STOP at {} !!!!!!", i);
+                    break;
+                }
+            }
+            println!("===");
+        } else {
+            println!("no more arbitraries!! {}", j);
+            break;
+        }
+    }
+}
