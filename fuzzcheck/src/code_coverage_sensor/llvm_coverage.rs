@@ -3,6 +3,7 @@ use flate2::Status;
 use object::Object;
 use object::ObjectSection;
 use std::collections::HashMap;
+use std::collections::HashSet;
 use std::convert::TryFrom;
 use std::path::{Path, PathBuf};
 
@@ -447,14 +448,19 @@ pub fn process_function_records(
     let mut all_expressions = Vec::new();
     for function_counters in records {
         let mut expressions = vec![];
-        // let mut expressions = HashMap::<ExpandedExpression, MappingRegion>::new();
+        let mut expressions_set = HashSet::new();
         for (raw_counter, mapping_region) in function_counters.counters_list.iter() {
             let mut expanded = ExpandedExpression::default();
             expanded.push_counter(raw_counter, Sign::Positive, &function_counters);
-            expanded.sort(); // sort them so that their hash is the same if they are equal
-                             // expressions.insert(expanded, mapping_region.clone());
-            expressions.push((expanded, mapping_region.clone()));
+            expanded.sort(); // sort them to canonicalise their representation
+            if expressions_set.contains(&expanded) {
+                continue;
+            } else {
+                expressions_set.insert(expanded.clone());
+                expressions.push((expanded, mapping_region.clone()));
+            }
         }
+
         let name_function = (&prf_names[&function_counters.header.id.name_md5]).clone();
 
         let expressions = expressions.into_iter().collect::<Vec<_>>();
@@ -635,7 +641,7 @@ pub struct RawFunctionCounters {
     pub counters_list: Vec<(RawCounter, MappingRegion)>,
 }
 
-#[derive(Clone, Debug, Default, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct ExpandedExpression {
     pub add_terms: Vec<usize>, // Counter indices
     pub sub_terms: Vec<usize>, // Counter indices
@@ -690,8 +696,8 @@ impl ExpandedExpression {
     }
     #[no_coverage]
     pub fn sort(&mut self) {
-        self.add_terms.sort_unstable();
-        self.sub_terms.sort_unstable();
+        self.add_terms.sort();
+        self.sub_terms.sort();
     }
 }
 
