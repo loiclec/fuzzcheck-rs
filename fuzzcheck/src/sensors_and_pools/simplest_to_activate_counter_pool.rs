@@ -46,7 +46,7 @@ impl Clone for CounterIdx {
     #[inline(always)]
     #[no_coverage]
     fn clone(&self) -> Self {
-        Self(self.0.clone())
+        Self(self.0)
     }
 }
 impl Copy for CounterIdx {}
@@ -277,13 +277,7 @@ impl SimplestToActivateCounterPool {
 
         let mut affected_counters = AHashSet::<CounterIdx>::new();
 
-        let deleted_values: Vec<_> = to_delete
-            .iter()
-            .map(
-                #[no_coverage]
-                |&key| key,
-            )
-            .collect();
+        let deleted_values: Vec<_> = to_delete.iter().copied().collect();
         let deleted_pool_storage_indices = deleted_values
             .iter()
             .map(
@@ -886,9 +880,7 @@ mod tests {
         fn validate_value(&self, _value: &f64) -> Option<Self::Cache> {
             Some(())
         }
-        fn default_mutation_step(&self, _value: &f64, _cache: &Self::Cache) -> Self::MutationStep {
-            ()
-        }
+        fn default_mutation_step(&self, _value: &f64, _cache: &Self::Cache) -> Self::MutationStep {}
         #[no_coverage]
         fn max_complexity(&self) -> f64 {
             0.0

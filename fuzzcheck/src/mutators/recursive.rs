@@ -314,7 +314,7 @@ where
     #[no_coverage]
     fn default_mutation_step(&self, value: &T, cache: &Self::Cache) -> Self::MutationStep {
         let mutation_step = self.mutator.default_mutation_step(value, cache);
-        let recursing_part_index = Some(self.default_recursing_part_index(value, &cache));
+        let recursing_part_index = Some(self.default_recursing_part_index(value, cache));
 
         RecursiveMutatorMutationStep {
             mutation_step,
@@ -407,7 +407,7 @@ where
         }
         let (token, cplx) = self.mutator.random_mutate(value, cache, max_cplx);
         let token = RecursiveMutatorUnmutateToken::Token(token);
-        return (token, cplx);
+        (token, cplx)
     }
 
     #[doc(hidden)]

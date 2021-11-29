@@ -80,9 +80,7 @@ where
 
     #[doc(hidden)]
     #[no_coverage]
-    fn default_mutation_step(&self, _value: &T, _cache: &Self::Cache) -> Self::MutationStep {
-        ()
-    }
+    fn default_mutation_step(&self, _value: &T, _cache: &Self::Cache) -> Self::MutationStep {}
 
     #[doc(hidden)]
     #[no_coverage]

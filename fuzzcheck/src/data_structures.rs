@@ -133,7 +133,7 @@ impl<T> Slab<T> {
     #[no_coverage]
     pub fn remove(&mut self, key: SlabKey<T>) {
         self.available_slots.push(key.key);
-        self.available_slots.sort();
+        self.available_slots.sort_unstable();
     }
     // #[no_coverage]
     // pub fn next_key(&self) -> SlabKey<T> {
@@ -259,7 +259,7 @@ impl<T> RcSlab<T> {
         slot.ref_count -= 1;
         if slot.ref_count == 0 {
             self.available_slots.push(key);
-            self.available_slots.sort();
+            self.available_slots.sort_unstable();
         }
     }
     #[no_coverage]

@@ -94,6 +94,7 @@ impl AST {
     }
 
     /// Converts the AST to its `String` representation
+    #[allow(clippy::inherent_to_string)]
     #[no_coverage]
     pub fn to_string(&self) -> String {
         let mut s = String::with_capacity(64);

@@ -19,6 +19,13 @@
 #![feature(arc_new_cyclic)]
 #![allow(clippy::nonstandard_macro_braces)]
 #![allow(clippy::too_many_arguments)]
+#![allow(clippy::partialeq_ne_impl)]
+#![allow(clippy::collapsible_if)]
+#![allow(clippy::collapsible_else_if)]
+#![allow(clippy::len_without_is_empty)]
+#![allow(clippy::nonminimal_bool)]
+#![allow(clippy::comparison_chain)]
+#![allow(clippy::needless_lifetimes)]
 
 #[doc(hidden)]
 pub extern crate fastrand;
@@ -222,7 +229,7 @@ impl<T: Clone, Mut: Mutator<T>> Clone for FuzzedInput<T, Mut> {
             value: self.value.clone(),
             cache: self.cache.clone(),
             mutation_step: self.mutation_step.clone(),
-            generation: self.generation.clone(),
+            generation: self.generation,
         }
     }
 }

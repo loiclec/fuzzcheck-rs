@@ -54,7 +54,7 @@ where
     fn clone(&self) -> Self {
         Self {
             inner: self.inner.clone(),
-            sum_cplx: self.sum_cplx.clone(),
+            sum_cplx: self.sum_cplx,
             random_mutation_step: self.random_mutation_step.clone(),
         }
     }
@@ -158,7 +158,7 @@ where
     fn min_complexity(&self) -> f64 {
         let min_len = *self.len_range.start();
         if min_len == 0 {
-            return 1.0;
+            1.0
         } else {
             self.complexity_from_inner((min_len as f64) * self.m.min_complexity(), min_len)
         }

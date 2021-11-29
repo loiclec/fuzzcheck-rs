@@ -302,6 +302,7 @@ impl<'a> Iterator for Ones<'a> {
             self.remaining_blocks = &self.remaining_blocks[1..];
             self.block_idx += 1;
         }
+        #[allow(clippy::unnecessary_cast)]
         let t = self.bitset & (0 as Block).wrapping_sub(self.bitset);
         let r = self.bitset.trailing_zeros() as usize;
         self.bitset ^= t;

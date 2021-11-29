@@ -74,12 +74,10 @@ where
             } else {
                 self.p2.get_random_index()
             }
+        } else if let Some(idx) = self.p2.get_random_index() {
+            Some(idx)
         } else {
-            if let Some(idx) = self.p2.get_random_index() {
-                Some(idx)
-            } else {
-                self.p1.get_random_index()
-            }
+            self.p1.get_random_index()
         }
     }
 
@@ -313,12 +311,10 @@ impl SensorAndPool for AndSensorAndPool {
             } else {
                 self.sap2.get_random_index()
             }
+        } else if let Some(idx) = self.sap2.get_random_index() {
+            Some(idx)
         } else {
-            if let Some(idx) = self.sap2.get_random_index() {
-                Some(idx)
-            } else {
-                self.sap1.get_random_index()
-            }
+            self.sap1.get_random_index()
         }
     }
 

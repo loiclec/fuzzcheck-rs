@@ -92,13 +92,9 @@ pub fn make_single_variant_mutator(tb: &mut TokenBuilder, enu: &Enum) {
     ));
 
     let pattern_match_binding_append = ident!("__proc_macro__binding__");
-    let item_pattern_match_bindings_to_tuple = |item_ident, mutable| {
+    let item_pattern_match_bindings_to_tuple = |item_ident, _mutable| {
         if item_fields[item_ident].is_empty() {
-            if mutable {
-                ts!("()")
-            } else {
-                ts!("()")
-            }
+            ts!("()")
         } else {
             ts!("("
                 join_ts!(item_pattern_match_bindings[item_ident].iter(), binding,

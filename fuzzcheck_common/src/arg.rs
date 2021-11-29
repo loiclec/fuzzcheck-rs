@@ -159,15 +159,13 @@ impl Arguments {
             return Err(ArgumentsError::WantsHelp);
         }
 
-        if for_cargo_fuzzcheck {
-            if matches.free.is_empty() {
-                return Err(ArgumentsError::Validation(
-                    "A fuzz target must be given to cargo fuzzcheck.".to_string(),
-                ));
-            }
+        if for_cargo_fuzzcheck && matches.free.is_empty() {
+            return Err(ArgumentsError::Validation(
+                "A fuzz target must be given to cargo fuzzcheck.".to_string(),
+            ));
         }
 
-        let command = matches.opt_str(COMMAND_FLAG).unwrap_or(COMMAND_FUZZ.to_owned());
+        let command = matches.opt_str(COMMAND_FLAG).unwrap_or_else(|| COMMAND_FUZZ.to_owned());
 
         let command = command.as_str();
 
@@ -242,17 +240,21 @@ impl Arguments {
         let command = match command {
             COMMAND_FUZZ => FuzzerCommand::Fuzz,
             COMMAND_READ => {
-                let input_file = input_file.expect(&format!(
-                    "An input file must be provided when reading a test case. Use --{}",
-                    INPUT_FILE_FLAG
-                ));
+                let input_file = input_file.unwrap_or_else(|| {
+                    panic!(
+                        "An input file must be provided when reading a test case. Use --{}",
+                        INPUT_FILE_FLAG
+                    )
+                });
                 FuzzerCommand::Read { input_file }
             }
             COMMAND_MINIFY_INPUT => {
-                let input_file = input_file.expect(&format!(
-                    "An input file must be provided when minifying a test case. Use --{}",
-                    INPUT_FILE_FLAG
-                ));
+                let input_file = input_file.unwrap_or_else(|| {
+                    panic!(
+                        "An input file must be provided when minifying a test case. Use --{}",
+                        INPUT_FILE_FLAG
+                    )
+                });
                 FuzzerCommand::MinifyInput { input_file }
             }
             _ => unreachable!(),
@@ -280,23 +282,11 @@ impl Arguments {
         let defaults = DefaultArguments::default();
         let max_input_cplx: f64 = max_input_cplx.unwrap_or(defaults.max_input_cplx as f64);
 
-        let corpus_in: Option<PathBuf> = if no_in_corpus.is_some() {
-            None
-        } else {
-            corpus_in.clone()
-        };
-        let corpus_out: Option<PathBuf> = if no_out_corpus.is_some() {
-            None
-        } else {
-            corpus_out.clone()
-        };
+        let corpus_in: Option<PathBuf> = if no_in_corpus.is_some() { None } else { corpus_in };
+        let corpus_out: Option<PathBuf> = if no_out_corpus.is_some() { None } else { corpus_out };
 
-        let artifacts_folder: Option<PathBuf> = if no_artifacts.is_some() {
-            None
-        } else {
-            artifacts_folder.clone()
-        };
-        let stats_folder: Option<PathBuf> = if no_stats.is_some() { None } else { stats_folder.clone() };
+        let artifacts_folder: Option<PathBuf> = if no_artifacts.is_some() { None } else { artifacts_folder };
+        let stats_folder: Option<PathBuf> = if no_stats.is_some() { None } else { stats_folder };
 
         Ok(Arguments {
             command,
@@ -386,7 +376,7 @@ pub enum ArgumentsError {
 impl Debug for ArgumentsError {
     #[no_coverage]
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        <Self as Display>::fmt(&self, f)
+        <Self as Display>::fmt(self, f)
     }
 }
 impl Display for ArgumentsError {

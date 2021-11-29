@@ -334,22 +334,14 @@ mod tuple0 {
         type Owned = ();
         type Ref<'a> = ();
         type Mut<'a> = ();
-        fn get_ref_from_mut<'a>(_v: &'a Self::Mut<'a>) -> Self::Ref<'a> {
-            ()
-        }
+        fn get_ref_from_mut<'a>(_v: &'a Self::Mut<'a>) -> Self::Ref<'a> {}
     }
     impl TupleStructure<Tuple0> for () {
-        fn get_ref(&self) -> <Tuple0 as RefTypes>::Ref<'_> {
-            ()
-        }
+        fn get_ref(&self) -> <Tuple0 as RefTypes>::Ref<'_> {}
 
-        fn get_mut(&mut self) -> <Tuple0 as RefTypes>::Mut<'_> {
-            ()
-        }
+        fn get_mut(&mut self) -> <Tuple0 as RefTypes>::Mut<'_> {}
 
-        fn new(_t: <Tuple0 as RefTypes>::Owned) -> Self {
-            ()
-        }
+        fn new(_t: <Tuple0 as RefTypes>::Owned) -> Self {}
     }
     /// A `TupleMutator` for types equivalent to the unit type `()`
     pub struct Tuple0Mutator;

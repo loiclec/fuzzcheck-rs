@@ -89,7 +89,7 @@ impl World {
     pub fn append_stats_file(&self, fields: &[CSVField]) -> Result<()> {
         if let Some(stats) = &self.stats {
             let mut stats = stats.try_borrow_mut().unwrap();
-            stats.write(&CSVField::to_bytes(fields))?;
+            stats.write_all(&CSVField::to_bytes(fields))?;
         }
         Ok(())
     }
@@ -106,13 +106,13 @@ impl World {
             let CorpusDelta { path, add, remove } = delta;
             for to_remove_key in remove {
                 let hash = self.corpus.remove(&(path.to_path_buf(), *to_remove_key)).unwrap();
-                self.remove_from_output_corpus(&path, hash.clone(), extension)?;
+                self.remove_from_output_corpus(path, hash.clone(), extension)?;
             }
 
             if *add {
                 let hash = self.hash(&content);
                 let _old = self.corpus.insert((path.to_path_buf(), idx), hash.clone());
-                self.add_to_output_corpus(&path, hash.clone(), content.clone(), extension)?;
+                self.add_to_output_corpus(path, hash.clone(), content.clone(), extension)?;
             }
         }
 

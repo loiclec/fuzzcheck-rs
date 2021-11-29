@@ -1,3 +1,4 @@
+#![allow(clippy::bool_comparison)]
 extern crate cargo_fuzzcheck;
 use cargo_fuzzcheck::*;
 use fuzzcheck_common::arg::*;
@@ -48,10 +49,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         return Err(Box::new(ArgumentsError::NoArgumentsGiven(help(&parser))));
     }
 
-    let string_args = env_args[start_idx..]
-        .into_iter()
-        .map(|s| s.as_str())
-        .collect::<Vec<_>>();
+    let string_args = env_args[start_idx..].iter().map(|s| s.as_str()).collect::<Vec<_>>();
 
     let matches = parser.parse(string_args.clone()).map_err(ArgumentsError::Parsing)?;
 
@@ -73,7 +71,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let cargo_args = cargo_args
         .map(|x| x.split_ascii_whitespace().map(|s| s.to_string()).collect::<Vec<_>>())
-        .unwrap_or(vec![]);
+        .unwrap_or_default();
 
     let mut lib = matches.opt_present("lib");
     let bin = matches.opt_present("bin");

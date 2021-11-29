@@ -117,13 +117,7 @@ impl CompatibleWithIteratorSensor for OptimiseAggregateStatPool<SumOfCounterValu
     #[no_coverage]
     fn is_interesting(&self, observation_state: &Self::ObservationState, input_complexity: f64) -> bool {
         if let Some((counter, cur_input)) = &self.current_best {
-            if *observation_state > *counter {
-                true
-            } else if *observation_state == *counter && cur_input.complexity > input_complexity {
-                true
-            } else {
-                false
-            }
+            *observation_state > *counter || (*observation_state == *counter && cur_input.complexity > input_complexity)
         } else {
             true
         }
@@ -173,13 +167,7 @@ impl CompatibleWithIteratorSensor for OptimiseAggregateStatPool<NumberOfActivate
     #[no_coverage]
     fn is_interesting(&self, observation_state: &Self::ObservationState, input_complexity: f64) -> bool {
         if let Some((counter, cur_input)) = &self.current_best {
-            if *observation_state > *counter {
-                true
-            } else if *observation_state == *counter && cur_input.complexity > input_complexity {
-                true
-            } else {
-                false
-            }
+            *observation_state > *counter || (*observation_state == *counter && cur_input.complexity > input_complexity)
         } else {
             true
         }

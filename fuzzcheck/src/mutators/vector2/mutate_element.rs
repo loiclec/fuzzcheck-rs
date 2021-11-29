@@ -117,7 +117,7 @@ where
             // no! should be chosen from a vose alias!
             let step_idx = mutator.rng.usize(..step.indices.len());
 
-            Some(ConcreteMutateElement::Ordered { step_idx, step: step })
+            Some(ConcreteMutateElement::Ordered { step_idx, step })
         }
     }
 

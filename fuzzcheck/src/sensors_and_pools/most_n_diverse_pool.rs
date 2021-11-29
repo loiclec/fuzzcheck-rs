@@ -153,7 +153,7 @@ impl CompatibleWithIteratorSensor for MostNDiversePool {
         let mut common_unique_counters = FixedBitSet::with_capacity(counters.len());
         for input in &self.inputs {
             if *nbr_new_counters > 0 || input.cplx > input_complexity {
-                common_unique_counters.clone_from(&counters);
+                common_unique_counters.clone_from(counters);
                 common_unique_counters.intersect_with(&input.unique_counters);
                 let common_uniq_counters = common_unique_counters.count_ones();
                 let nbr_new_counters = common_uniq_counters + nbr_new_counters;
@@ -166,7 +166,7 @@ impl CompatibleWithIteratorSensor for MostNDiversePool {
             }
         }
 
-        return false;
+        false
     }
     #[no_coverage]
     fn add(

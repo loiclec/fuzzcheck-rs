@@ -1,3 +1,5 @@
+#![allow(clippy::collapsible_if)]
+
 use fuzzcheck_common::arg::*;
 use std::cmp::Ordering;
 use std::os::unix::fs::MetadataExt;
@@ -56,21 +58,19 @@ pub fn launch_executable(
             .join("deps");
         let files_inside_dep_folder = std::fs::read_dir(dep_folder)?;
         let mut executables = vec![];
-        for file in files_inside_dep_folder {
-            if let Ok(file) = file {
-                let metadata = file.metadata().unwrap();
-                let mode = metadata.mode();
-                if metadata.is_file() && mode & 0o111 != 0 {
-                    if file
-                        .file_name()
-                        .into_string()
-                        .unwrap()
-                        .as_str()
-                        .starts_with(name_package)
-                    {
-                        let time_created = metadata.ctime();
-                        executables.push((time_created, file.path()));
-                    }
+        for file in files_inside_dep_folder.flatten() {
+            let metadata = file.metadata().unwrap();
+            let mode = metadata.mode();
+            if metadata.is_file() && mode & 0o111 != 0 {
+                if file
+                    .file_name()
+                    .into_string()
+                    .unwrap()
+                    .as_str()
+                    .starts_with(name_package)
+                {
+                    let time_created = metadata.ctime();
+                    executables.push((time_created, file.path()));
                 }
             }
         }
@@ -188,17 +188,17 @@ pub fn string_from_args(args: &Arguments) -> String {
     let input_file = match &args.command {
         FuzzerCommand::Fuzz => {
             s.push_str(COMMAND_FUZZ);
-            s.push_str(" ");
+            s.push(' ');
             None
         }
         FuzzerCommand::Read { input_file } => {
             s.push_str(COMMAND_READ);
-            s.push_str(" ");
+            s.push(' ');
             Some(input_file.clone())
         }
         FuzzerCommand::MinifyInput { input_file } => {
             s.push_str(COMMAND_MINIFY_INPUT);
-            s.push_str(" ");
+            s.push(' ');
             Some(input_file.clone())
         }
     };
@@ -213,7 +213,7 @@ pub fn string_from_args(args: &Arguments) -> String {
         .unwrap_or_else(|| format!("--{} ", NO_IN_CORPUS_FLAG));
 
     s.push_str(&corpus_in_args);
-    s.push_str(" ");
+    s.push(' ');
 
     let corpus_out_args = args
         .corpus_out
@@ -222,7 +222,7 @@ pub fn string_from_args(args: &Arguments) -> String {
         .unwrap_or_else(|| format!("--{} ", NO_OUT_CORPUS_FLAG));
 
     s.push_str(&corpus_out_args);
-    s.push_str(" ");
+    s.push(' ');
 
     let artifacts_args = args
         .artifacts_folder
@@ -230,7 +230,7 @@ pub fn string_from_args(args: &Arguments) -> String {
         .map(|f| format!("--{} {} ", ARTIFACTS_FLAG, f.display()))
         .unwrap_or_else(|| format!("--{} ", NO_ARTIFACTS_FLAG));
     s.push_str(&artifacts_args);
-    s.push_str(" ");
+    s.push(' ');
 
     let stats_args = args
         .stats_folder
@@ -238,7 +238,7 @@ pub fn string_from_args(args: &Arguments) -> String {
         .map(|f| format!("--{} {} ", STATS_FLAG, f.display()))
         .unwrap_or_else(|| format!("--{} ", NO_STATS_FLAG));
     s.push_str(&stats_args);
-    s.push_str(" ");
+    s.push(' ');
 
     s.push_str(&format!("--{} {} ", MAX_INPUT_CPLX_FLAG, args.max_input_cplx as usize));
     s.push_str(&format!("--{} {} ", MAX_DURATION_FLAG, args.maximum_duration.as_secs()));

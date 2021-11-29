@@ -132,7 +132,7 @@ where
 
     #[doc(hidden)]
     #[no_coverage]
-    fn validate_value<'a>(&self, _value: TupleKind::Ref<'a>) -> Option<Self::Cache> {
+    fn validate_value(&self, _value: TupleKind::Ref<'_>) -> Option<Self::Cache> {
         unreachable!()
     }
     #[doc(hidden)]

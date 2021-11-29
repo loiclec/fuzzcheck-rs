@@ -73,15 +73,10 @@ impl Mutator<char> for CharacterMutator {
     #[doc(hidden)]
     #[no_coverage]
     fn validate_value(&self, value: &char) -> Option<Self::Cache> {
-        if self
-            .ranges
-            .iter()
-            .find(
-                #[no_coverage]
-                |range| range.contains(value),
-            )
-            .is_some()
-        {
+        if self.ranges.iter().any(
+            #[no_coverage]
+            |range| range.contains(value),
+        ) {
             Some(())
         } else {
             None

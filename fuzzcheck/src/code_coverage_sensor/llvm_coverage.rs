@@ -380,7 +380,6 @@ pub fn read_prf_data(prf_data: &[u8], idx: &mut usize) -> Result<Vec<PrfData>, R
     Ok(counts)
 }
 
-#[must_use]
 #[no_coverage]
 fn read_func_names(slice: &[u8], names: &mut Vec<String>) -> Result<(), ReadCovMapError> {
     let slices = slice.split(
@@ -696,8 +695,8 @@ impl ExpandedExpression {
     }
     #[no_coverage]
     pub fn sort(&mut self) {
-        self.add_terms.sort();
-        self.sub_terms.sort();
+        self.add_terms.sort_unstable();
+        self.sub_terms.sort_unstable();
     }
 }
 
@@ -813,7 +812,7 @@ impl Coverage {
                             continue;
                         } else if e.add_terms.len() == 1 && e.sub_terms.is_empty() {
                             single_counters.push(&mut slice[e.add_terms[0]] as *mut _);
-                        } else if e.add_terms.len() > 0 {
+                        } else if !e.add_terms.is_empty() {
                             expression_counters.push(e.optimised(slice));
                         } else {
                             panic!(
@@ -841,10 +840,11 @@ impl Coverage {
         all_self.drain_filter(
             #[no_coverage]
             |coverage| {
-                for filepath in &coverage.function_record.filenames {
-                    return !keep_f(filepath);
+                if let Some(filepath) = coverage.function_record.filenames.first() {
+                    !keep_f(filepath)
+                } else {
+                    false
                 }
-                return false;
             },
         );
     }

@@ -63,7 +63,7 @@ impl Display for TestFailurePoolStats {
     #[no_coverage]
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         if self.count == 0 {
-            write!(f, "{}", format!("failures({})", self.count))
+            write!(f, "failures({})", self.count)
         } else {
             write!(f, "{}", Color::Red.paint(format!("failures({})", self.count)))
         }
@@ -189,14 +189,10 @@ impl CompatibleWithSensor<TestFailureSensor> for TestFailurePool {
                         is_interesting = Some(PositionOfNewInput::ExistingErrorNewCplx(list_index));
                     } else if least_complex.cplx == complexity {
                         if least_complex.inputs.len() < NBR_ARTIFACTS_PER_ERROR_AND_CPLX
-                            && self
-                                .inputs
-                                .iter()
-                                .position(
-                                    #[no_coverage]
-                                    |xs| xs.error.display == error.display,
-                                )
-                                .is_none()
+                            && !self.inputs.iter().any(
+                                #[no_coverage]
+                                |xs| xs.error.display == error.display,
+                            )
                         {
                             is_interesting = Some(PositionOfNewInput::ExistingErrorAndCplx(list_index));
                         }

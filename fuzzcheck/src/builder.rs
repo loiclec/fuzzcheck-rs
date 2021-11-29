@@ -521,7 +521,7 @@ fuzzcheck {minify} --{input_file} "artifacts/crash.json"
 
         let arguments = std::env::var("FUZZCHECK_ARGS").unwrap();
         let arguments = split_string_by_whitespace(&arguments);
-        let matches = parser.parse(arguments).map_err(|e| ArgumentsError::from(e));
+        let matches = parser.parse(arguments).map_err(ArgumentsError::from);
         let arguments = match matches.and_then(|matches| Arguments::from_matches(&matches, false)) {
             Ok(r) => r,
             Err(e) => {

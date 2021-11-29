@@ -28,10 +28,7 @@ pub unsafe fn set_signal_handlers<F: 'static>(f: F)
 where
     F: Fn(libc::c_int) -> !,
 {
-    SIGNAL_HANDLER = Some(Box::new(
-        #[no_coverage]
-        move |x| (f)(x),
-    ));
+    SIGNAL_HANDLER = Some(Box::new(f));
 
     let stack_size = libc::SIGSTKSZ;
 

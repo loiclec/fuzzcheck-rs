@@ -86,11 +86,7 @@ impl<T: Clone + 'static, M: Mutator<T>> Mutator<T> for DictionaryMutator<T, M> {
     #[doc(hidden)]
     #[no_coverage]
     fn validate_value(&self, value: &T) -> Option<Self::Cache> {
-        if let Some(cache) = self.m.validate_value(value) {
-            Some(cache)
-        } else {
-            None
-        }
+        self.m.validate_value(value)
     }
     #[doc(hidden)]
     #[no_coverage]
