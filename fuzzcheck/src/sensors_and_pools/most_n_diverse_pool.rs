@@ -78,10 +78,6 @@ impl Pool for MostNDiversePool {
         let input = &self.inputs[choice];
         Some(input.pool_idx)
     }
-    #[no_coverage]
-    fn mark_test_case_as_dead_end(&mut self, _idx: PoolStorageIndex) {
-        // TODO
-    }
 }
 impl SaveToStatsFolder for MostNDiversePool {
     #[no_coverage]

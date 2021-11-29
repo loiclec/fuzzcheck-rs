@@ -138,20 +138,6 @@ impl Pool for TestFailurePool {
         let input_choice = self.rng.usize(0..least_complexity.inputs.len());
         Some(least_complexity.inputs[input_choice])
     }
-
-    #[no_coverage]
-    fn mark_test_case_as_dead_end(&mut self, idx: PoolStorageIndex) {
-        for x in self.inputs.iter_mut() {
-            for x in x.inputs.iter_mut() {
-                if let Some(i) = x.inputs.iter().position(
-                    #[no_coverage]
-                    |&x| x == idx,
-                ) {
-                    x.inputs.remove(i);
-                }
-            }
-        }
-    }
 }
 impl SaveToStatsFolder for TestFailurePool {
     #[no_coverage]

@@ -107,18 +107,6 @@ impl Pool for UniqueValuesPool {
         let data = self.inputs[key].data;
         Some(data)
     }
-
-    #[no_coverage]
-    fn mark_test_case_as_dead_end(&mut self, idx: PoolStorageIndex) {
-        for input_key in self.inputs.keys() {
-            let input = &mut self.inputs[input_key];
-            if input.data == idx {
-                input.score = 0.0;
-                break;
-            }
-        }
-        self.update_stats();
-    }
 }
 impl SaveToStatsFolder for UniqueValuesPool {
     #[no_coverage]

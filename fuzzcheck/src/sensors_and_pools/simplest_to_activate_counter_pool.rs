@@ -528,18 +528,6 @@ impl Pool for SimplestToActivateCounterPool {
         self.ranked_inputs.update(choice, delta);
         Some(input.data)
     }
-
-    #[no_coverage]
-    fn mark_test_case_as_dead_end(&mut self, idx: PoolStorageIndex) {
-        for input_key in self.slab_inputs.keys() {
-            let input = &mut self.slab_inputs[input_key];
-            if input.data == idx {
-                input.score = 0.0;
-                break;
-            }
-        }
-        self.update_self_stats()
-    }
 }
 
 impl SaveToStatsFolder for SimplestToActivateCounterPool {

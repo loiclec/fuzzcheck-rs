@@ -33,7 +33,6 @@ struct Input {
 pub struct OptimiseAggregateStatPool<Strategy> {
     name: String,
     current_best: Option<(u64, Input)>,
-    current_best_dead_end: bool,
     _phantom: PhantomData<Strategy>,
 }
 #[derive(Clone)]
@@ -63,7 +62,6 @@ impl<Strategy> OptimiseAggregateStatPool<Strategy> {
         Self {
             name: name.to_string(),
             current_best: None,
-            current_best_dead_end: false,
             _phantom: PhantomData,
         }
     }
@@ -81,15 +79,10 @@ impl<Strategy> Pool for OptimiseAggregateStatPool<Strategy> {
     #[no_coverage]
     fn get_random_index(&mut self) -> Option<PoolStorageIndex> {
         if let Some(best) = &self.current_best {
-            if !self.current_best_dead_end {
-                return Some(best.1.input_idx);
-            }
+            Some(best.1.input_idx)
+        } else {
+            None
         }
-        None
-    }
-    #[no_coverage]
-    fn mark_test_case_as_dead_end(&mut self, _idx: PoolStorageIndex) {
-        self.current_best_dead_end = true;
     }
 }
 impl<T> SaveToStatsFolder for OptimiseAggregateStatPool<T> {

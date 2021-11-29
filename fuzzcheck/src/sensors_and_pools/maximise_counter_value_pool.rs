@@ -127,18 +127,6 @@ impl Pool for MaximiseCounterValuePool {
         self.ranked_inputs.update(choice, delta);
         Some(input.idx)
     }
-
-    #[no_coverage]
-    fn mark_test_case_as_dead_end(&mut self, idx: PoolStorageIndex) {
-        for k in self.inputs.keys() {
-            let input = &mut self.inputs[k];
-            if input.idx == idx {
-                input.score = 0.0;
-                break;
-            }
-        }
-        self.update_stats();
-    }
 }
 
 impl SaveToStatsFolder for MaximiseCounterValuePool {

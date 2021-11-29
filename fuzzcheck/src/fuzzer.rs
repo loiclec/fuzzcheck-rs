@@ -359,8 +359,11 @@ where
 
                     break Ok(());
                 } else {
-                    sensor_and_pool.mark_test_case_as_dead_end(idx);
-                    continue;
+                    self.state.world.report_event(
+                        FuzzerEvent::End,
+                        Some((&self.state.fuzzer_stats, self.state.sensor_and_pool.stats().as_ref())),
+                    );
+                    break Err(ReasonForStopping::ExhaustedAllPossibleMutations);
                 }
             } else if let Some((input, cplx)) = self.state.arbitrary_input() {
                 self.state.input_idx = FuzzerInputIndex::Temporary(input);

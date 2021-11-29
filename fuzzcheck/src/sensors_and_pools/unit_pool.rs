@@ -11,15 +11,11 @@ use crate::traits::{CompatibleWithSensor, CorpusDelta, Pool, SaveToStatsFolder, 
 /// fuzzcheck can create. This will change at some point.
 pub struct UnitPool {
     input_index: PoolStorageIndex,
-    dead_end: bool,
 }
 impl UnitPool {
     #[no_coverage]
     pub(crate) fn new(input_index: PoolStorageIndex) -> Self {
-        Self {
-            input_index,
-            dead_end: false,
-        }
+        Self { input_index }
     }
 }
 
@@ -32,15 +28,7 @@ impl Pool for UnitPool {
 
     #[no_coverage]
     fn get_random_index(&mut self) -> Option<PoolStorageIndex> {
-        if self.dead_end {
-            None
-        } else {
-            Some(self.input_index)
-        }
-    }
-    #[no_coverage]
-    fn mark_test_case_as_dead_end(&mut self, _idx: PoolStorageIndex) {
-        self.dead_end = true
+        Some(self.input_index)
     }
 }
 impl SaveToStatsFolder for UnitPool {

@@ -483,7 +483,6 @@ pub trait SensorAndPool: SaveToStatsFolder {
     fn stop_recording(&mut self);
     fn process(&mut self, input_id: PoolStorageIndex, cplx: f64) -> Vec<CorpusDelta>;
     fn get_random_index(&mut self) -> Option<PoolStorageIndex>;
-    fn mark_test_case_as_dead_end(&mut self, idx: PoolStorageIndex);
 }
 impl<A, B> SaveToStatsFolder for (A, B)
 where
@@ -520,10 +519,6 @@ where
 
     fn get_random_index(&mut self) -> Option<PoolStorageIndex> {
         self.1.get_random_index()
-    }
-
-    fn mark_test_case_as_dead_end(&mut self, idx: PoolStorageIndex) {
-        self.1.mark_test_case_as_dead_end(idx)
     }
 }
 
@@ -606,12 +601,6 @@ pub trait Pool: SaveToStatsFolder {
     /// Most [Pool] implementations will want to prioritise certain test cases
     /// over others based on their associated observations.
     fn get_random_index(&mut self) -> Option<PoolStorageIndex>;
-
-    /// Mark a certain test case as a dead end.
-    ///
-    /// A test case is a dead end when its [Mutator] can no longer mutate it
-    /// to different values.
-    fn mark_test_case_as_dead_end(&mut self, idx: PoolStorageIndex);
 }
 
 /**

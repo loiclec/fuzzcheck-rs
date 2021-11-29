@@ -80,12 +80,6 @@ where
             self.p1.get_random_index()
         }
     }
-
-    #[no_coverage]
-    fn mark_test_case_as_dead_end(&mut self, idx: PoolStorageIndex) {
-        self.p1.mark_test_case_as_dead_end(idx);
-        self.p2.mark_test_case_as_dead_end(idx);
-    }
 }
 impl<P1, P2> SaveToStatsFolder for AndPool<P1, P2>
 where
@@ -267,6 +261,7 @@ pub struct AndSensorAndPool {
     rng: fastrand::Rng,
 }
 impl AndSensorAndPool {
+    #[no_coverage]
     pub fn new(sap1: Box<dyn SensorAndPool>, sap2: Box<dyn SensorAndPool>, ratio_choose_first: u8) -> Self {
         Self {
             sap1,
@@ -277,6 +272,7 @@ impl AndSensorAndPool {
     }
 }
 impl SaveToStatsFolder for AndSensorAndPool {
+    #[no_coverage]
     fn save_to_stats_folder(&self) -> Vec<(PathBuf, Vec<u8>)> {
         let mut x = self.sap1.save_to_stats_folder();
         x.extend(self.sap2.save_to_stats_folder());
@@ -284,26 +280,31 @@ impl SaveToStatsFolder for AndSensorAndPool {
     }
 }
 impl SensorAndPool for AndSensorAndPool {
+    #[no_coverage]
     fn stats(&self) -> Box<dyn crate::traits::Stats> {
         Box::new(AndPoolStats(self.sap1.stats(), self.sap2.stats()))
     }
 
+    #[no_coverage]
     fn start_recording(&mut self) {
         self.sap1.start_recording();
         self.sap2.start_recording();
     }
 
+    #[no_coverage]
     fn stop_recording(&mut self) {
         self.sap1.stop_recording();
         self.sap2.stop_recording();
     }
 
+    #[no_coverage]
     fn process(&mut self, input_id: PoolStorageIndex, cplx: f64) -> Vec<CorpusDelta> {
         let mut x = self.sap1.process(input_id, cplx);
         x.extend(self.sap2.process(input_id, cplx));
         x
     }
 
+    #[no_coverage]
     fn get_random_index(&mut self) -> Option<PoolStorageIndex> {
         if self.rng.u8(..) <= self.ratio_choose_first {
             if let Some(idx) = self.sap1.get_random_index() {
@@ -316,10 +317,5 @@ impl SensorAndPool for AndSensorAndPool {
         } else {
             self.sap1.get_random_index()
         }
-    }
-
-    fn mark_test_case_as_dead_end(&mut self, idx: PoolStorageIndex) {
-        self.sap1.mark_test_case_as_dead_end(idx);
-        self.sap2.mark_test_case_as_dead_end(idx);
     }
 }
