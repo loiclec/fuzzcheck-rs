@@ -1,8 +1,10 @@
+use super::arbitrary;
 use super::insert_element;
 use super::insert_many_elements;
 use super::mutate_element;
 use super::only_choose_length;
 use super::remove;
+use super::remove_and_insert_element;
 use super::swap_elements;
 use super::VecMutator;
 use crate::mutators::mutations::{Mutation, RevertMutation};
@@ -304,7 +306,9 @@ impl_vec_mutation! {
     (InsertElement, insert_element::InsertElement),
     (SwapElements, swap_elements::SwapElements),
     (InsertManyElements, insert_many_elements::InsertManyElements),
-    (OnlyChooseLength, only_choose_length::OnlyChooseLength)
+    (RemoveAndInsertElement, remove_and_insert_element::RemoveAndInsertElement),
+    (OnlyChooseLength, only_choose_length::OnlyChooseLength),
+    (Arbitrary, arbitrary::Arbitrary)
 }
 
 // ====== Default Vector Mutations =====
@@ -320,19 +324,31 @@ impl Default for VectorMutation {
                     ordered_weight: 1.,
                 },
                 WeightedMutation {
+                    mutation: InnerVectorMutation::Arbitrary(arbitrary::Arbitrary),
+                    random_weight: 1.,
+                    ordered_weight: 1.,
+                },
+                WeightedMutation {
                     mutation: InnerVectorMutation::Remove(remove::Remove),
                     random_weight: 50.,
                     ordered_weight: 50_000.,
                 },
                 WeightedMutation {
                     mutation: InnerVectorMutation::MutateElement(mutate_element::MutateElement),
-                    random_weight: 500.,
-                    ordered_weight: 500.,
+                    random_weight: 1000.,
+                    ordered_weight: 1000.,
                 },
                 WeightedMutation {
                     mutation: InnerVectorMutation::InsertElement(insert_element::InsertElement),
                     random_weight: 50.,
-                    ordered_weight: 10.,
+                    ordered_weight: 50.,
+                },
+                WeightedMutation {
+                    mutation: InnerVectorMutation::RemoveAndInsertElement(
+                        remove_and_insert_element::RemoveAndInsertElement,
+                    ),
+                    random_weight: 50.,
+                    ordered_weight: 30.,
                 },
                 WeightedMutation {
                     mutation: InnerVectorMutation::SwapElements(swap_elements::SwapElements),
@@ -387,22 +403,22 @@ impl Default for VectorMutation {
                     random_weight: 8.,
                     ordered_weight: 4.,
                 },
-                WeightedMutation {
-                    mutation: InnerVectorMutation::InsertManyElements(insert_many_elements::InsertManyElements {
-                        nbr_added_elements: 4,
-                        repeated: true,
-                    }),
-                    random_weight: 6.,
-                    ordered_weight: 3.,
-                },
-                WeightedMutation {
-                    mutation: InnerVectorMutation::InsertManyElements(insert_many_elements::InsertManyElements {
-                        nbr_added_elements: 5,
-                        repeated: true,
-                    }),
-                    random_weight: 4.,
-                    ordered_weight: 2.,
-                },
+                // WeightedMutation {
+                //     mutation: InnerVectorMutation::InsertManyElements(insert_many_elements::InsertManyElements {
+                //         nbr_added_elements: 4,
+                //         repeated: true,
+                //     }),
+                //     random_weight: 6.,
+                //     ordered_weight: 3.,
+                // },
+                // WeightedMutation {
+                //     mutation: InnerVectorMutation::InsertManyElements(insert_many_elements::InsertManyElements {
+                //         nbr_added_elements: 5,
+                //         repeated: true,
+                //     }),
+                //     random_weight: 4.,
+                //     ordered_weight: 2.,
+                // },
             ],
         }
     }

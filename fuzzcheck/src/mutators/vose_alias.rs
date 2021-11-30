@@ -64,8 +64,8 @@ impl VoseAlias {
 
         // Step 1 and 2
         let size = probabilities.len();
-        let mut small = Vec::new();
-        let mut large = Vec::new();
+        let mut small = Vec::with_capacity(size);
+        let mut large = Vec::with_capacity(size);
         let mut alias: Vec<usize> = vec![0; size];
         let mut prob: Vec<f64> = vec![0.0; size];
 

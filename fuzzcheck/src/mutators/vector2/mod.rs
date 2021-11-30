@@ -13,6 +13,8 @@ pub mod only_choose_length;
 pub mod remove;
 pub mod swap_elements;
 pub mod vec_mutation;
+pub mod remove_and_insert_element;
+pub mod arbitrary;
 
 impl<T> DefaultMutator for Vec<T>
 where

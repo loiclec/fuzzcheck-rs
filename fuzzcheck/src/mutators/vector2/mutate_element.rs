@@ -145,7 +145,7 @@ where
         match mutation {
             ConcreteMutateElement::Random { el_idx: _ } => {
                 let (t, new_el_cplx) = mutator.m.random_mutate(el, el_cache, max_el_cplx);
-                let new_cplx = mutator.complexity_from_inner(value_cplx - el_cplx + new_el_cplx, value.len());
+                let new_cplx = mutator.complexity_from_inner(cache.sum_cplx - el_cplx + new_el_cplx, value.len());
                 (
                     RevertMutateElement {
                         idx: el_idx,
@@ -163,7 +163,8 @@ where
                 // it has OrderedStep and Revert but is missing RandomStep (bad name) and ConcreteMutation
                 let el_step = &mut step.inner_steps[el_idx];
                 if let Some((t, new_el_cplx)) = mutator.m.ordered_mutate(el, el_cache, el_step, max_el_cplx) {
-                    let new_cplx = mutator.complexity_from_inner(value_cplx - el_cplx + new_el_cplx, value.len());
+                    let new_cplx = mutator.complexity_from_inner(cache.sum_cplx - el_cplx + new_el_cplx, value.len());
+
                     (
                         RevertMutateElement {
                             idx: el_idx,

@@ -134,16 +134,21 @@ pub mod testing_utilities {
 
         let mut arbitraries = HashSet::new();
         for _i in 0..nbr_arbitraries {
-            if let Some((x, _cplx)) = m.ordered_arbitrary(&mut arbitrary_step, maximum_complexity_arbitrary) {
-                // assert!(cplx <= maximum_complexity_mutate);
+            if let Some((x, cplx)) = m.ordered_arbitrary(&mut arbitrary_step, maximum_complexity_arbitrary) {
+                // assert!(
+                //     cplx <= maximum_complexity_arbitrary,
+                //     "{} {}",
+                //     cplx,
+                //     maximum_complexity_arbitrary
+                // );
                 if avoid_duplicates {
                     let is_new = arbitraries.insert(x.clone());
                     assert!(is_new);
                 }
                 let cache = m.validate_value(&x).unwrap();
                 let mut mutation_step = m.default_mutation_step(&x, &cache);
-                let _other_cplx = m.complexity(&x, &cache);
-                // assert!((cplx - other_cplx).abs() < 0.01, "{:.3} != {:.3}", cplx, other_cplx);
+                let other_cplx = m.complexity(&x, &cache);
+                assert!((cplx - other_cplx).abs() < 0.01, "{:.3} != {:.3}", cplx, other_cplx);
 
                 let mut mutated = HashSet::new();
                 if avoid_duplicates {
@@ -152,27 +157,32 @@ pub mod testing_utilities {
                 let mut x_mut = x.clone();
                 let mut cache_mut = cache.clone();
                 for _j in 0..nbr_mutations {
-                    if let Some((token, _cplx)) = m.ordered_mutate(
+                    if let Some((token, cplx)) = m.ordered_mutate(
                         &mut x_mut,
                         &mut cache_mut,
                         &mut mutation_step,
                         maximum_complexity_mutate,
                     ) {
-                        // assert!(cplx <= maximum_complexity_mutate);
+                        // assert!(
+                        //     cplx <= maximum_complexity_mutate,
+                        //     "{} {}",
+                        //     cplx,
+                        //     maximum_complexity_mutate
+                        // );
                         if avoid_duplicates {
                             let is_new = mutated.insert(x_mut.clone());
                             assert!(is_new);
                         }
 
                         let validated = m.validate_value(&x_mut).unwrap();
-                        let _other_cplx = m.complexity(&x_mut, &validated);
-                        // assert!(
-                        //     (cplx - other_cplx).abs() < 0.01,
-                        //     "{:.3} != {:.3} for {:?}",
-                        //     cplx,
-                        //     other_cplx,
-                        //     x_mut
-                        // );
+                        let other_cplx = m.complexity(&x_mut, &validated);
+                        assert!(
+                            (cplx - other_cplx).abs() < 0.01,
+                            "{:.3} != {:.3} for {:?}",
+                            cplx,
+                            other_cplx,
+                            x_mut
+                        );
                         m.unmutate(&mut x_mut, &mut cache_mut, token);
                         assert_eq!(x, x_mut);
                         // assert_eq!(cache, cache_mut);
@@ -202,6 +212,47 @@ pub mod testing_utilities {
                 m.unmutate(&mut x_mut, &mut cache_mut, token);
                 assert_eq!(x, x_mut);
                 // assert_eq!(cache, cache_mut);
+            }
+        }
+    }
+    #[no_coverage]
+    pub fn bench_mutator<T, M>(
+        m: M,
+        maximum_complexity_arbitrary: f64,
+        maximum_complexity_mutate: f64,
+        nbr_arbitraries: usize,
+        nbr_mutations: usize,
+    ) where
+        M: Mutator<T>,
+        T: Clone + Debug + PartialEq + Eq + Hash,
+        M::Cache: Clone,
+    {
+        let mut arbitrary_step = m.default_arbitrary_step();
+        for _i in 0..nbr_arbitraries {
+            if let Some((mut x, _cplx)) = m.ordered_arbitrary(&mut arbitrary_step, maximum_complexity_arbitrary) {
+                let mut cache = m.validate_value(&x).unwrap();
+                let mut mutation_step = m.default_mutation_step(&x, &cache);
+                let _other_cplx = m.complexity(&x, &cache);
+                for _j in 0..nbr_mutations {
+                    if let Some((token, _cplx)) =
+                        m.ordered_mutate(&mut x, &mut cache, &mut mutation_step, maximum_complexity_mutate)
+                    {
+                        m.unmutate(&mut x, &mut cache, token);
+                    } else {
+                        break;
+                    }
+                }
+            } else {
+                break;
+            }
+        }
+        for _i in 0..nbr_arbitraries {
+            let (mut x, _cplx) = m.random_arbitrary(maximum_complexity_arbitrary);
+            let mut cache = m.validate_value(&x).unwrap();
+            let _other_cplx = m.complexity(&x, &cache);
+            for _j in 0..nbr_mutations {
+                let (token, _cplx) = m.random_mutate(&mut x, &mut cache, maximum_complexity_mutate);
+                m.unmutate(&mut x, &mut cache, token);
             }
         }
     }
