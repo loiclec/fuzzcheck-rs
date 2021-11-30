@@ -109,20 +109,22 @@ impl Sensor for CodeCoverageSensor {
             let CodeCoverageSensor { coverage, .. } = self;
             let mut index = 0;
             for coverage in coverage {
-                let single = *coverage.single_counters.get_unchecked(0);
-                if *single == 0 {
-                    // that happens kind of a lot? not sure it is worth simplifying
-                    index += coverage.single_counters.len() + coverage.expression_counters.len();
-                    continue;
-                } else {
-                    handler((index, *single));
-                }
-                index += 1;
-                for &single in coverage.single_counters.iter().skip(1) {
-                    if *single != 0 {
+                if !coverage.single_counters.is_empty() {
+                    let single = *coverage.single_counters.get_unchecked(0);
+                    if *single == 0 {
+                        // that happens kind of a lot? not sure it is worth simplifying
+                        index += coverage.single_counters.len() + coverage.expression_counters.len();
+                        continue;
+                    } else {
                         handler((index, *single));
                     }
                     index += 1;
+                    for &single in coverage.single_counters.iter().skip(1) {
+                        if *single != 0 {
+                            handler((index, *single));
+                        }
+                        index += 1;
+                    }    
                 }
                 for expr in &coverage.expression_counters {
                     let computed = expr.compute();
