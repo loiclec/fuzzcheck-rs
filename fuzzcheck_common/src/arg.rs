@@ -309,7 +309,6 @@ pub fn help(parser: &Options) -> String {
         r##"
 USAGE:
     cargo-fuzzcheck <FUZZ_TEST> [OPTIONS]
-    => Execute the subcommand on the given fuzz test.
 
 FUZZ_TEST:
     The fuzz test is the exact path to the #[test] function that launches
@@ -325,14 +324,7 @@ FUZZ_TEST:
                 .launch();
         }}
     }}
-
-SUBCOMMANDS:
-    {fuzz}    Run the fuzz test
-    {minify}    Minify a crashing test input, requires --{input_file}
-"##,
-        fuzz = COMMAND_FUZZ,
-        minify = COMMAND_MINIFY_INPUT,
-        input_file = INPUT_FILE_FLAG,
+"##
     );
     help += parser.usage("").as_str();
     help += format!(
