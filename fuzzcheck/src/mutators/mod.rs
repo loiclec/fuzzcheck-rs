@@ -64,6 +64,7 @@ pub mod unit;
 pub mod vector;
 
 // pub use vector2 as vector;
+pub mod string;
 pub mod vose_alias;
 pub mod wrapper;
 use crate::Mutator;
