@@ -255,7 +255,9 @@ fn read_mapping_regions(
             let raw_header = read_leb_usize(covfun, idx);
             let header = read_counter(raw_header); //read_leb_usize(covfun, idx)); // counter or pseudo-counter
             match header {
-                RawCounter::Zero if raw_header != 0 => return Err(ReadCovMapError::PseudoCountersNotSupportedYet),
+                RawCounter::Zero if raw_header != 0 => {
+                    return Err(ReadCovMapError::PseudoCountersNotSupportedYet { raw_header })
+                }
                 _ => {}
             }
             let delta_line_start = read_leb_usize(covfun, idx);
@@ -508,7 +510,9 @@ pub enum ReadCovMapError {
     CannotFindSection {
         section: CovMapSection,
     },
-    PseudoCountersNotSupportedYet,
+    PseudoCountersNotSupportedYet {
+        raw_header: usize,
+    },
     FailedToDecompress {
         section: CovMapSection,
         decompress_result: Result<Status, flate2::DecompressError>,
@@ -534,7 +538,7 @@ pub fn read_covmap(covmap: &[u8], idx: &mut usize) -> Result<CovMap, ReadCovMapE
         let length_encoded_data = read_i32(covmap, idx) as usize;
         let _always_0 = read_i32(covmap, idx);
         let version = read_i32(covmap, idx);
-        if version != 3 {
+        if (3..=5).contains(&version) == false {
             return Err(ReadCovMapError::InvalidVersion(version));
         }
 
