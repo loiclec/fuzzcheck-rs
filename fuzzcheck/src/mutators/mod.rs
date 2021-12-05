@@ -57,14 +57,10 @@ pub mod range;
 pub mod rc;
 pub mod recursive;
 pub mod result;
+pub mod string;
 pub mod tuples;
 pub mod unit;
-// pub mod vector;
-#[path = "vector2/mod.rs"]
 pub mod vector;
-
-// pub use vector2 as vector;
-pub mod string;
 pub mod vose_alias;
 pub mod wrapper;
 use crate::Mutator;
