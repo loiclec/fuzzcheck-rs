@@ -513,7 +513,30 @@ fn impl_mutator_trait(tb: &mut TokenBuilder, nbr_elements: usize) {
         ) -> " cm.Option "<(Self::UnmutateToken, f64)> {
             if max_cplx < <Self as" cm.TupleMutator "<T , " cm.TupleN_ident "<" tuple_type_params "> > >::min_complexity(self) { return " cm.None " }
             if step.inner.is_empty() || step.vose_alias.is_none() {
-                return " cm.None ";
+                let idx1 = self.rng.usize(.." nbr_elements ");
+                let mut idx2 = self.rng.usize(.." nbr_elements " - 1);
+                if idx2 >= idx1 {
+                    idx2 += 1;
+                }
+                assert!(idx1 != idx2);
+                let mut whole_token = Self::UnmutateToken::default();
+                let mut current_cplx = " SelfAsTupleMutator "::complexity(self, " TupleNAsRefTypes "::get_ref_from_mut(&value), cache); 
+                for idx in [idx1, idx2] {
+                    match idx {"
+                    join_ts!(0..nbr_elements, i,
+                        i "=> {
+                            let old_field_cplx = self." mutator_i(i) ".complexity(value." i ", &cache." ti(i) ");
+                            let max_field_cplx = max_cplx - current_cplx + old_field_cplx;
+                            let (token, new_field_cplx) = self." mutator_i(i) "
+                                .random_mutate(value." i ", &mut cache." ti(i) ", max_field_cplx) ;
+                            whole_token. " ti(i) " = " cm.Some "(token);
+                            current_cplx = current_cplx - old_field_cplx + new_field_cplx;
+                        }"
+                    )
+                    "_ => unreachable!()"
+                    "}
+                }
+                return " cm.Some "( (whole_token, current_cplx) );
             }
             let vose_alias = step.vose_alias.as_ref().unwrap();
             let step_idx = vose_alias.sample();
