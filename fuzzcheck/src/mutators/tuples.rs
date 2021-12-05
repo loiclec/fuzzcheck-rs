@@ -15,7 +15,7 @@
 //!       x: A,
 //!       y: B
 //!   }
-//!   impl<A, B> TupleStructure<Tuple2<A, B>> for S<A, B> {
+//!   impl<A: 'static, B: 'static> TupleStructure<Tuple2<A, B>> for S<A, B> {
 //!       fn get_ref<'a>(&'a self) -> <Tuple2<A, B> as RefTypes>::Ref<'a> { // Ref is (&'a A, &'a B)
 //!           (&self.x, &self.y)
 //!       }
