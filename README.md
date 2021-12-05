@@ -36,7 +36,7 @@ cargo install cargo-fuzzcheck
 In your `Cargo.toml` file, add `fuzzcheck` as a dev-dependency:
 ```toml
 [dev-dependencies]
-fuzzcheck = "0.9"
+fuzzcheck = "0.10"
 ```
 
 Then, we need a way to serialize values. By default, fuzzcheck uses `serde_json`
