@@ -120,6 +120,7 @@ pub mod testing_utilities {
         maximum_complexity_arbitrary: f64,
         maximum_complexity_mutate: f64,
         avoid_duplicates: bool,
+        check_consistent_complexities: bool,
         nbr_arbitraries: usize,
         nbr_mutations: usize,
     ) where
@@ -145,7 +146,9 @@ pub mod testing_utilities {
                 let cache = m.validate_value(&x).unwrap();
                 let mut mutation_step = m.default_mutation_step(&x, &cache);
                 let other_cplx = m.complexity(&x, &cache);
-                assert!((cplx - other_cplx).abs() < 0.01, "{:.3} != {:.3}", cplx, other_cplx);
+                if check_consistent_complexities {
+                    assert!((cplx - other_cplx).abs() < 0.01, "{:.3} != {:.3}", cplx, other_cplx);
+                }
 
                 let mut mutated = HashSet::new();
                 if avoid_duplicates {
@@ -173,13 +176,15 @@ pub mod testing_utilities {
 
                         let validated = m.validate_value(&x_mut).unwrap();
                         let other_cplx = m.complexity(&x_mut, &validated);
-                        assert!(
-                            (cplx - other_cplx).abs() < 0.01,
-                            "{:.3} != {:.3} for {:?}",
-                            cplx,
-                            other_cplx,
-                            x_mut
-                        );
+                        if check_consistent_complexities {
+                            assert!(
+                                (cplx - other_cplx).abs() < 0.01,
+                                "{:.3} != {:.3} for {:?}",
+                                cplx,
+                                other_cplx,
+                                x_mut
+                            );
+                        }
                         m.unmutate(&mut x_mut, &mut cache_mut, token);
                         assert_eq!(x, x_mut);
                         // assert_eq!(cache, cache_mut);
@@ -202,10 +207,12 @@ pub mod testing_utilities {
             let mut x_mut = x.clone();
             let mut cache_mut = cache.clone();
             for _j in 0..nbr_mutations {
-                let (token, _cplx) = m.random_mutate(&mut x_mut, &mut cache_mut, maximum_complexity_mutate);
+                let (token, cplx) = m.random_mutate(&mut x_mut, &mut cache_mut, maximum_complexity_mutate);
                 let validated = m.validate_value(&x_mut).unwrap();
-                let _other_cplx = m.complexity(&x_mut, &validated);
-                // assert!((cplx - other_cplx).abs() < 0.01, "{:.3} != {:.3}", cplx, other_cplx);
+                let other_cplx = m.complexity(&x_mut, &validated);
+                if check_consistent_complexities {
+                    assert!((cplx - other_cplx).abs() < 0.01, "{:.3} != {:.3}", cplx, other_cplx);
+                }
                 m.unmutate(&mut x_mut, &mut cache_mut, token);
                 assert_eq!(x, x_mut);
                 // assert_eq!(cache, cache_mut);

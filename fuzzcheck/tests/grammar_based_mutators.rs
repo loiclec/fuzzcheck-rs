@@ -180,5 +180,5 @@ fn markdown() -> Rc<Grammar> {
 #[test]
 fn test_grammar_based_ast_mutator() {
     let mutator = grammar_based_ast_mutator(markdown());
-    test_mutator(mutator, 500., 500., false, 50, 50);
+    test_mutator(mutator, 500., 500., false, false, 50, 50);
 }

@@ -7,7 +7,7 @@
 //! use fuzzcheck::{Mutator, DefaultMutator};
 //! use fuzzcheck::mutators::vector::VecMutator;
 //!
-//! let m : impl Mutator<Vec<()> >= VecMutator::new(<()>::default_mutator(), 2..=5);
+//! let m /* : impl Mutator<Vec<()>> */ = VecMutator::new(<()>::default_mutator(), 2..=5);
 //! ```
 //! Then the values that `m` can produce are only:
 //! ```txt

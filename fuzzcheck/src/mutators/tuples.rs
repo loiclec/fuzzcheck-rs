@@ -460,11 +460,8 @@ mod tuple0 {
 
 pub use tuple1::{Tuple1, Tuple1Mutator};
 mod tuple1 {
-    use fuzzcheck::mutators::tuples::RefTypes;
-
     use super::{TupleMutator, TupleMutatorWrapper};
-
-    extern crate self as fuzzcheck;
+    use crate::mutators::tuples::RefTypes;
 
     #[doc = "A marker type implementing [`RefTypes`](crate::mutators::tuples::RefTypes) indicating that a type has the [structure](crate::mutators::tuples::TupleStructure) of a 1-tuple."]
     pub struct Tuple1<T0: 'static> {
@@ -479,7 +476,7 @@ mod tuple1 {
             (v.0,)
         }
     }
-    impl<T0: 'static> fuzzcheck::mutators::tuples::TupleStructure<Tuple1<T0>> for (T0,) {
+    impl<T0: 'static> crate::mutators::tuples::TupleStructure<Tuple1<T0>> for (T0,) {
         #[no_coverage]
         fn get_ref<'a>(&'a self) -> (&'a T0,) {
             (&self.0,)
@@ -509,19 +506,19 @@ mod tuple1 {
     where
         T: ::std::clone::Clone + 'static,
         T0: ::std::clone::Clone + 'static,
-        M0: fuzzcheck::Mutator<T0>,
-        T: fuzzcheck::mutators::tuples::TupleStructure<Tuple1<T0>>,
+        M0: crate::Mutator<T0>,
+        T: crate::mutators::tuples::TupleStructure<Tuple1<T0>>,
     {
         #[doc(hidden)]
-        type Cache = <M0 as fuzzcheck::Mutator<T0>>::Cache;
+        type Cache = <M0 as crate::Mutator<T0>>::Cache;
         #[doc(hidden)]
-        type MutationStep = <M0 as fuzzcheck::Mutator<T0>>::MutationStep;
+        type MutationStep = <M0 as crate::Mutator<T0>>::MutationStep;
         #[doc(hidden)]
-        type RecursingPartIndex = <M0 as fuzzcheck::Mutator<T0>>::RecursingPartIndex;
+        type RecursingPartIndex = <M0 as crate::Mutator<T0>>::RecursingPartIndex;
         #[doc(hidden)]
-        type ArbitraryStep = <M0 as fuzzcheck::Mutator<T0>>::ArbitraryStep;
+        type ArbitraryStep = <M0 as crate::Mutator<T0>>::ArbitraryStep;
         #[doc(hidden)]
-        type UnmutateToken = <M0 as fuzzcheck::Mutator<T0>>::UnmutateToken;
+        type UnmutateToken = <M0 as crate::Mutator<T0>>::UnmutateToken;
         #[doc(hidden)]
         #[no_coverage]
         fn default_arbitrary_step(&self) -> Self::ArbitraryStep {
@@ -620,21 +617,20 @@ mod tuple1 {
         ) -> Option<&'a ___V>
         where
             ___V: ::std::clone::Clone + 'static,
-            ___N: fuzzcheck::Mutator<___V>,
+            ___N: crate::Mutator<___V>,
         {
             self.mutator_0.recursing_part::<___V, ___N>(parent, value.0, index)
         }
     }
-    impl<T0> fuzzcheck::mutators::DefaultMutator for (T0,)
+    impl<T0> crate::mutators::DefaultMutator for (T0,)
     where
-        T0: fuzzcheck::mutators::DefaultMutator + 'static,
+        T0: crate::mutators::DefaultMutator + 'static,
     {
-        type Mutator =
-            TupleMutatorWrapper<Tuple1Mutator<<T0 as fuzzcheck::mutators::DefaultMutator>::Mutator>, Tuple1<T0>>;
+        type Mutator = TupleMutatorWrapper<Tuple1Mutator<<T0 as crate::mutators::DefaultMutator>::Mutator>, Tuple1<T0>>;
         #[no_coverage]
         fn default_mutator() -> Self::Mutator {
             Self::Mutator::new(Tuple1Mutator::new(
-                <T0 as fuzzcheck::mutators::DefaultMutator>::default_mutator(),
+                <T0 as crate::mutators::DefaultMutator>::default_mutator(),
             ))
         }
     }

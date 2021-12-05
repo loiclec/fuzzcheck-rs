@@ -66,7 +66,7 @@ make_mutator! {
 #[test]
 fn test_derived_struct() {
     let mutator = SampleStruct::<u8, u8>::default_mutator();
-    test_mutator(mutator, 1000., 1000., false, 50, 50);
+    test_mutator(mutator, 1000., 1000., false, true, 50, 50);
     let mutator = <Vec<SampleStruct<u8, u8>>>::default_mutator();
-    test_mutator(mutator, 500., 500., false, 50, 100);
+    test_mutator(mutator, 500., 500., false, true, 50, 100);
 }
