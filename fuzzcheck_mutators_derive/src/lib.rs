@@ -74,7 +74,7 @@ pub fn make_mutator(item: proc_macro::TokenStream) -> proc_macro::TokenStream {
     derive_default_mutator_(parser, settings).into()
 }
 
-#[proc_macro_derive(DefaultMutator)]
+#[proc_macro_derive(DefaultMutator, attributes(field_mutator))]
 pub fn derive_default_mutator(item: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let settings = MakeMutatorSettings::default();
     let item = proc_macro2::TokenStream::from(item);
