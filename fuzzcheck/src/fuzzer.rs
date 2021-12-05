@@ -423,7 +423,7 @@ where
             #[no_coverage]
             |i| i.complexity(&self.state.mutator) > self.state.settings.max_input_cplx,
         );
-        assert!(!inputs.is_empty());
+        // assert!(!inputs.is_empty());
 
         self.state.world.set_checkpoint_instant();
         for input in inputs {
@@ -436,19 +436,21 @@ where
     }
 
     #[no_coverage]
-    fn main_loop(&mut self) -> Result<!, ReasonForStopping<T>> {
+    fn main_loop(&mut self, minify: bool) -> Result<!, ReasonForStopping<T>> {
         self.state.world.report_event(
             FuzzerEvent::Start,
             Some((&self.state.fuzzer_stats, self.state.sensor_and_pool.stats().as_ref())),
         );
-        self.process_initial_inputs()?;
-        self.state.world.report_event(
-            FuzzerEvent::DidReadCorpus,
-            Some((&self.state.fuzzer_stats, self.state.sensor_and_pool.stats().as_ref())),
-        );
+        if !minify {
+            self.process_initial_inputs()?;
+            self.state.world.report_event(
+                FuzzerEvent::DidReadCorpus,
+                Some((&self.state.fuzzer_stats, self.state.sensor_and_pool.stats().as_ref())),
+            );
+        }
 
         self.state.world.set_checkpoint_instant();
-        let mut next_milestone = (self.state.fuzzer_stats.total_number_of_runs + 100_000) * 2;
+        let mut next_milestone = (self.state.fuzzer_stats.total_number_of_runs + 10) * 2;
         loop {
             let duration_since_beginning = self.state.world.elapsed_time_since_start();
             if duration_since_beginning > self.state.settings.maximum_duration {
@@ -517,7 +519,7 @@ where
                     .expect(WRITE_STATS_ERROR);
                 unsafe { fuzzer.state.set_up_signal_handler() };
 
-                let reason_for_stopping = fuzzer.main_loop().unwrap_err();
+                let reason_for_stopping = fuzzer.main_loop(false).unwrap_err();
                 fuzzer.state.write_stats().expect(WRITE_STATS_ERROR);
 
                 reason_for_stopping
@@ -540,7 +542,7 @@ where
                     .world
                     .append_stats_file(&stats_headers)
                     .expect(WRITE_STATS_ERROR);
-                let reason_for_stopping = fuzzer.main_loop().unwrap_err();
+                let reason_for_stopping = fuzzer.main_loop(false).unwrap_err();
                 fuzzer.state.write_stats().expect(WRITE_STATS_ERROR);
 
                 reason_for_stopping
@@ -556,7 +558,7 @@ where
 
                 let noop_sensor = NoopSensor;
                 let unit_pool = UnitPool::new(PoolStorageIndex(0));
-                let sensor_and_pool = AndSensorAndPool::new(sensor_and_pool, Box::new((noop_sensor, unit_pool)), 240);
+                let sensor_and_pool = AndSensorAndPool::new(sensor_and_pool, Box::new((noop_sensor, unit_pool)), 128);
                 let mut fuzzer = Fuzzer::new(
                     test,
                     mutator,
@@ -572,7 +574,7 @@ where
 
                 unsafe { fuzzer.state.set_up_signal_handler() };
 
-                fuzzer.main_loop().unwrap_err()
+                fuzzer.main_loop(true).unwrap_err()
             } else {
                 // TODO: send a better error message saying some inputs in the corpus cannot be read
                 // TODO: there should be an option to ignore invalid values
