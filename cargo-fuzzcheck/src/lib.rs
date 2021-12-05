@@ -167,6 +167,8 @@ pub fn input_minify_command(
         input_file: simplest.clone(),
     };
 
+    println!("launch with config: {:?}", string_from_args(&config));
+
     let child = launch_executable(target_name, &config, None, compiled_target, cargo_args, stdio)?;
     let o = child.wait_with_output()?;
 
@@ -177,6 +179,7 @@ pub fn input_minify_command(
         config.command = FuzzerCommand::MinifyInput {
             input_file: simplest.clone(),
         };
+        println!("launch with config: {:?}", string_from_args(&config));
         let mut c = launch_executable(target_name, &config, None, compiled_target, cargo_args, Stdio::inherit)?;
         c.wait()?;
     }
@@ -187,16 +190,19 @@ pub fn string_from_args(args: &Arguments) -> String {
 
     let input_file = match &args.command {
         FuzzerCommand::Fuzz => {
+            s.push_str("--command ");
             s.push_str(COMMAND_FUZZ);
             s.push(' ');
             None
         }
         FuzzerCommand::Read { input_file } => {
+            s.push_str("--command ");
             s.push_str(COMMAND_READ);
             s.push(' ');
             Some(input_file.clone())
         }
         FuzzerCommand::MinifyInput { input_file } => {
+            s.push_str("--command ");
             s.push_str(COMMAND_MINIFY_INPUT);
             s.push(' ');
             Some(input_file.clone())
