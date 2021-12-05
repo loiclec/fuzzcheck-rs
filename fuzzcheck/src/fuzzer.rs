@@ -25,6 +25,15 @@ static UPDATE_CORPUS_ERROR: &str = "the corpus could not be updated on the file 
 
 static mut DID_FIND_ANY_TEST_FAILURE: bool = false;
 
+/// The result of a fuzz test, if it ends.
+///
+/// It contains two fields:
+/// 1. [`found_test_failure`](Self::found_test_failure) is `true` if the fuzzer found any failing test case
+/// 2. [`reason_for_stopping`](Self::reason_for_stopping) gives the reason why the fuzzer stopped.
+///
+/// If the fuzzer stopped because it found a failing test case, then `reason_for_stopping` has the
+/// value [`ReasonForStopping::TestFailure(T)`](crate::ReasonForStopping::TestFailure) where `T` is the
+/// failing test case.
 #[derive(Debug, Clone)]
 pub struct FuzzingResult<T> {
     pub found_test_failure: bool,

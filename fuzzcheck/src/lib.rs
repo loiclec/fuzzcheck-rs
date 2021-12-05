@@ -51,6 +51,8 @@ pub use fuzzcheck_common::arg::Arguments;
 pub(crate) use split_string::split_string_by_whitespace;
 
 #[doc(inline)]
+pub use crate::fuzzer::FuzzingResult;
+#[doc(inline)]
 pub use crate::traits::CompatibleWithSensor;
 #[doc(inline)]
 pub use crate::traits::CorpusDelta;
