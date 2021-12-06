@@ -191,17 +191,15 @@ impl CompatibleWithIteratorSensor for MaximiseCounterValuePool {
     fn finish_observing(&mut self, _state: &mut Self::ObservationState, _input_complexity: f64) {}
 
     #[no_coverage]
-    fn is_interesting(&self, observation_state: &Self::ObservationState, _input_complexity: f64) -> bool {
-        !observation_state.is_empty()
-    }
-
-    #[no_coverage]
-    fn add(
+    fn add_if_interesting(
         &mut self,
         input_idx: PoolStorageIndex,
         complexity: f64,
         observation_state: Self::ObservationState,
     ) -> Vec<CorpusDelta> {
+        if observation_state.is_empty() {
+            return vec![];
+        }
         let highest_for_counters = observation_state;
         let cplx = complexity;
         let input = Input {
@@ -275,13 +273,19 @@ mod tests {
         let index = pool.get_random_index();
         println!("{:?}", index);
 
-        println!("event: {:?}", pool.add(PoolStorageIndex::mock(0), 1.21, vec![(1, 2)]));
+        println!(
+            "event: {:?}",
+            pool.add_if_interesting(PoolStorageIndex::mock(0), 1.21, vec![(1, 2)])
+        );
         println!("pool: {:?}", pool);
         let index = pool.get_random_index();
         println!("{:?}", index);
 
         // replace
-        println!("event: {:?}", pool.add(PoolStorageIndex::mock(0), 1.11, vec![(1, 2)]));
+        println!(
+            "event: {:?}",
+            pool.add_if_interesting(PoolStorageIndex::mock(0), 1.11, vec![(1, 2)])
+        );
 
         println!("pool: {:?}", pool);
         let index = pool.get_random_index();
@@ -292,9 +296,12 @@ mod tests {
     fn test_basic_pool_2() {
         let mut pool = MaximiseCounterValuePool::new("b", 5);
 
-        let _ = pool.add(PoolStorageIndex::mock(0), 1.21, vec![(1, 4)]);
-        let _ = pool.add(PoolStorageIndex::mock(1), 2.21, vec![(2, 2)]);
-        println!("event: {:?}", pool.add(PoolStorageIndex::mock(2), 3.21, vec![(3, 2)]));
+        let _ = pool.add_if_interesting(PoolStorageIndex::mock(0), 1.21, vec![(1, 4)]);
+        let _ = pool.add_if_interesting(PoolStorageIndex::mock(1), 2.21, vec![(2, 2)]);
+        println!(
+            "event: {:?}",
+            pool.add_if_interesting(PoolStorageIndex::mock(2), 3.21, vec![(3, 2)])
+        );
         println!("pool: {:?}", pool);
         let index = pool.get_random_index();
         println!("{:?}", index);
@@ -302,7 +309,7 @@ mod tests {
         // replace
         println!(
             "event: {:?}",
-            pool.add(PoolStorageIndex::mock(3), 1.11, vec![(2, 3), (3, 3)])
+            pool.add_if_interesting(PoolStorageIndex::mock(3), 1.11, vec![(2, 3), (3, 3)])
         );
         println!("pool: {:?}", pool);
 
@@ -316,7 +323,7 @@ mod tests {
         // replace
         println!(
             "event: {:?}",
-            pool.add(PoolStorageIndex::mock(5), 4.41, vec![(0, 3), (3, 4), (4, 1)])
+            pool.add_if_interesting(PoolStorageIndex::mock(5), 4.41, vec![(0, 3), (3, 4), (4, 1)])
         );
         println!("pool: {:?}", pool);
 
@@ -330,7 +337,7 @@ mod tests {
         // replace
         println!(
             "event: {:?}",
-            pool.add(
+            pool.add_if_interesting(
                 PoolStorageIndex::mock(6),
                 0.11,
                 vec![(0, 3), (3, 4), (4, 1), (1, 7), (2, 8)]
@@ -346,7 +353,10 @@ mod tests {
         println!("{:?}", map);
 
         // replace
-        println!("event: {:?}", pool.add(PoolStorageIndex::mock(7), 1.51, vec![(0, 10)]));
+        println!(
+            "event: {:?}",
+            pool.add_if_interesting(PoolStorageIndex::mock(7), 1.51, vec![(0, 10)])
+        );
         println!("pool: {:?}", pool);
 
         let mut map = HashMap::new();

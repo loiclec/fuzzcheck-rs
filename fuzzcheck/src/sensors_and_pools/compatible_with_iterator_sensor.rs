@@ -23,9 +23,9 @@ pub trait CompatibleWithIteratorSensor: Pool {
     fn start_observing(&mut self) -> Self::ObservationState;
     fn observe(&mut self, observation: &Self::Observation, input_complexity: f64, state: &mut Self::ObservationState);
     fn finish_observing(&mut self, state: &mut Self::ObservationState, input_complexity: f64);
-    fn is_interesting(&self, observation_state: &Self::ObservationState, input_complexity: f64) -> bool;
+    // fn is_interesting(&self, observation_state: &Self::ObservationState, input_complexity: f64) -> bool;
 
-    fn add(
+    fn add_if_interesting(
         &mut self,
         data: PoolStorageIndex,
         complexity: f64,
@@ -48,10 +48,7 @@ where
             },
         );
         self.finish_observing(&mut observation_state, complexity);
-        if self.is_interesting(&observation_state, complexity) {
-            self.add(input_id, complexity, observation_state)
-        } else {
-            vec![]
-        }
+
+        self.add_if_interesting(input_id, complexity, observation_state)
     }
 }

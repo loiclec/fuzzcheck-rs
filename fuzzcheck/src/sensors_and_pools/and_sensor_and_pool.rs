@@ -203,18 +203,14 @@ where
         self.p1.observe(observation, input_complexity, &mut state.0);
         self.p2.observe(observation, input_complexity, &mut state.1);
     }
-    #[no_coverage]
-    fn is_interesting(&self, observation_state: &Self::ObservationState, input_complexity: f64) -> bool {
-        self.p1.is_interesting(&observation_state.0, input_complexity)
-            || self.p2.is_interesting(&observation_state.1, input_complexity)
-    }
+
     #[no_coverage]
     fn finish_observing(&mut self, state: &mut Self::ObservationState, input_complexity: f64) {
         self.p1.finish_observing(&mut state.0, input_complexity);
         self.p2.finish_observing(&mut state.1, input_complexity);
     }
     #[no_coverage]
-    fn add(
+    fn add_if_interesting(
         &mut self,
         input_id: PoolStorageIndex,
         complexity: f64,
@@ -222,12 +218,8 @@ where
     ) -> Vec<CorpusDelta> {
         let (o1, o2) = observation_state;
         let mut deltas = vec![];
-        if self.p1.is_interesting(&o1, complexity) {
-            deltas.extend(self.p1.add(input_id, complexity, o1));
-        }
-        if self.p2.is_interesting(&o2, complexity) {
-            deltas.extend(self.p2.add(input_id, complexity, o2));
-        }
+        deltas.extend(self.p1.add_if_interesting(input_id, complexity, o1));
+        deltas.extend(self.p2.add_if_interesting(input_id, complexity, o2));
         deltas
     }
 }

@@ -710,17 +710,17 @@ impl CompatibleWithIteratorSensor for SimplestToActivateCounterPool {
         self.new_counters.clear();
         self.existing_counters.clear();
     }
+
     #[no_coverage]
-    fn is_interesting(&self, observation_state: &Self::ObservationState, _input_complexity: f64) -> bool {
-        observation_state.is_interesting
-    }
-    #[no_coverage]
-    fn add(
+    fn add_if_interesting(
         &mut self,
         data: PoolStorageIndex,
         complexity: f64,
         observation_state: Self::ObservationState,
     ) -> Vec<CorpusDelta> {
+        if !observation_state.is_interesting {
+            return vec![];
+        }
         let result = observation_state.analysis_result;
         self.add(data, complexity, result)
             .map(

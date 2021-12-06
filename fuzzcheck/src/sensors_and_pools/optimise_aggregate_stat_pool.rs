@@ -116,21 +116,23 @@ impl CompatibleWithIteratorSensor for OptimiseAggregateStatPool<SumOfCounterValu
     }
     #[no_coverage]
     fn finish_observing(&mut self, _state: &mut Self::ObservationState, _input_complexity: f64) {}
+
     #[no_coverage]
-    fn is_interesting(&self, observation_state: &Self::ObservationState, input_complexity: f64) -> bool {
-        if let Some((counter, cur_input)) = &self.current_best {
-            *observation_state > *counter || (*observation_state == *counter && cur_input.complexity > input_complexity)
-        } else {
-            true
-        }
-    }
-    #[no_coverage]
-    fn add(
+    fn add_if_interesting(
         &mut self,
         input_idx: PoolStorageIndex,
         complexity: f64,
         observation_state: Self::ObservationState,
     ) -> Vec<CorpusDelta> {
+        let is_interesting = if let Some((counter, cur_input)) = &self.current_best {
+            observation_state > *counter || (observation_state == *counter && cur_input.complexity > complexity)
+        } else {
+            true
+        };
+        if !is_interesting {
+            return vec![];
+        }
+
         let delta = CorpusDelta {
             path: PathBuf::new().join(&self.name),
             add: true,
@@ -166,21 +168,22 @@ impl CompatibleWithIteratorSensor for OptimiseAggregateStatPool<NumberOfActivate
     }
     #[no_coverage]
     fn finish_observing(&mut self, _state: &mut Self::ObservationState, _input_complexity: f64) {}
+
     #[no_coverage]
-    fn is_interesting(&self, observation_state: &Self::ObservationState, input_complexity: f64) -> bool {
-        if let Some((counter, cur_input)) = &self.current_best {
-            *observation_state > *counter || (*observation_state == *counter && cur_input.complexity > input_complexity)
-        } else {
-            true
-        }
-    }
-    #[no_coverage]
-    fn add(
+    fn add_if_interesting(
         &mut self,
         input_idx: PoolStorageIndex,
         complexity: f64,
         observation_state: Self::ObservationState,
     ) -> Vec<CorpusDelta> {
+        let is_interesting = if let Some((counter, cur_input)) = &self.current_best {
+            observation_state > *counter || (observation_state == *counter && cur_input.complexity > complexity)
+        } else {
+            true
+        };
+        if !is_interesting {
+            return vec![];
+        }
         let delta = CorpusDelta {
             path: PathBuf::new().join(&self.name),
             add: true,

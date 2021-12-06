@@ -91,43 +91,9 @@ pub struct ObservationState {
     nbr_new_counters: usize,
 }
 
-impl CompatibleWithIteratorSensor for MostNDiversePool {
-    type Observation = (usize, u64);
-    type ObservationState = ObservationState;
-
+impl MostNDiversePool {
     #[no_coverage]
-    fn start_observing(&mut self) -> Self::ObservationState {
-        ObservationState {
-            counters: FixedBitSet::with_capacity(self.nbr_counters + 1),
-            nbr_new_counters: 0,
-        }
-    }
-
-    #[no_coverage]
-    fn observe(&mut self, observation: &Self::Observation, _input_complexity: f64, state: &mut Self::ObservationState) {
-        let ObservationState {
-            counters,
-            nbr_new_counters: _,
-        } = state;
-        let (idx, _) = observation;
-        counters.insert(*idx);
-    }
-    #[no_coverage]
-    fn finish_observing(&mut self, state: &mut Self::ObservationState, _input_complexity: f64) {
-        let ObservationState {
-            counters,
-            nbr_new_counters,
-        } = state;
-        self.cache.clone_from(counters);
-        // let mut unique_counters = counters.clone();
-        self.cache.difference_with(&self.all_counters);
-
-        *nbr_new_counters = self.cache.count_ones();
-        self.cache.clear();
-    }
-
-    #[no_coverage]
-    fn is_interesting(&self, state: &Self::ObservationState, input_complexity: f64) -> bool {
+    fn is_interesting(&self, state: &ObservationState, input_complexity: f64) -> bool {
         let ObservationState {
             counters,
             nbr_new_counters,
@@ -164,13 +130,53 @@ impl CompatibleWithIteratorSensor for MostNDiversePool {
 
         false
     }
+}
+
+impl CompatibleWithIteratorSensor for MostNDiversePool {
+    type Observation = (usize, u64);
+    type ObservationState = ObservationState;
+
     #[no_coverage]
-    fn add(
+    fn start_observing(&mut self) -> Self::ObservationState {
+        ObservationState {
+            counters: FixedBitSet::with_capacity(self.nbr_counters + 1),
+            nbr_new_counters: 0,
+        }
+    }
+
+    #[no_coverage]
+    fn observe(&mut self, observation: &Self::Observation, _input_complexity: f64, state: &mut Self::ObservationState) {
+        let ObservationState {
+            counters,
+            nbr_new_counters: _,
+        } = state;
+        let (idx, _) = observation;
+        counters.insert(*idx);
+    }
+    #[no_coverage]
+    fn finish_observing(&mut self, state: &mut Self::ObservationState, _input_complexity: f64) {
+        let ObservationState {
+            counters,
+            nbr_new_counters,
+        } = state;
+        self.cache.clone_from(counters);
+        // let mut unique_counters = counters.clone();
+        self.cache.difference_with(&self.all_counters);
+
+        *nbr_new_counters = self.cache.count_ones();
+        self.cache.clear();
+    }
+
+    #[no_coverage]
+    fn add_if_interesting(
         &mut self,
         data: PoolStorageIndex,
         input_complexity: f64,
         state: Self::ObservationState,
     ) -> Vec<CorpusDelta> {
+        if !self.is_interesting(&state, input_complexity) {
+            return vec![];
+        }
         let ObservationState {
             counters,
             nbr_new_counters,
@@ -343,7 +349,7 @@ mod tests {
             pool.observe(&(*observation, 1), cplx, &mut obs_state);
         }
         if pool.is_interesting(&obs_state, cplx) {
-            pool.add(PoolStorageIndex::mock(0), cplx, obs_state);
+            pool.add_if_interesting(PoolStorageIndex::mock(0), cplx, obs_state);
             println!(
                 "input_count: {} worst_idx: {:?}, all_counters: {}",
                 pool.inputs.len(),
