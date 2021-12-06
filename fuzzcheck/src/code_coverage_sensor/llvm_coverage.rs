@@ -464,7 +464,46 @@ pub fn process_function_records(
 
         let name_function = (&prf_names[&function_counters.header.id.name_md5]).clone();
 
-        let expressions = expressions.into_iter().collect::<Vec<_>>();
+        let mut expressions = expressions.into_iter().collect::<Vec<_>>();
+
+        let mut to_delete = HashSet::new();
+        'outer: for (i, (e1, _)) in expressions.iter().enumerate() {
+            if to_delete.contains(&i) {
+                continue 'outer;
+            };
+            'inner: for (j, (e2, _)) in expressions.iter().enumerate() {
+                if i == j {
+                    continue 'inner;
+                }
+                if to_delete.contains(&j) {
+                    continue 'inner;
+                };
+
+                if e2.add_terms.len() == 1 && e2.sub_terms.is_empty() {
+                    continue 'inner;
+                }
+                for c1 in &e1.add_terms {
+                    if !e2.add_terms.contains(c1) {
+                        continue 'inner;
+                    }
+                }
+                for c2 in &e2.sub_terms {
+                    if !e1.sub_terms.contains(c2) {
+                        continue 'inner;
+                    }
+                }
+                to_delete.insert(j);
+            }
+        }
+
+        let mut to_delete = to_delete.into_iter().collect::<Vec<_>>();
+        to_delete.sort_by(
+            #[no_coverage]
+            |a, b| b.cmp(a),
+        );
+        for e_idx in to_delete {
+            expressions.remove(e_idx);
+        }
 
         let filenames = &covmap[&function_counters.header.hash_translation_unit];
         let mut filepaths = Vec::new();

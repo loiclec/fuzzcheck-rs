@@ -68,7 +68,10 @@ impl CodeCoverageSensor {
 
         let mut coverage = unsafe { Coverage::new(covfun, prf_data, get_counters()) }
             .expect("failed to properly link the different LLVM coverage sections");
-        coverage.drain_filter(|coverage| coverage.single_counters.is_empty());
+        coverage.drain_filter(|coverage| {
+            coverage.single_counters.is_empty()
+                || (coverage.single_counters.len() + coverage.expression_counters.len() <= 1)
+        });
         Coverage::filter_function_by_files(&mut coverage, keep);
 
         let mut count_instrumented = 0;

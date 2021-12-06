@@ -21,6 +21,7 @@ where
     type UnmutateToken = Either<M1::UnmutateToken, M2::UnmutateToken>;
 
     #[doc(hidden)]
+    #[inline]
     #[no_coverage]
     fn default_arbitrary_step(&self) -> Self::ArbitraryStep {
         match self {
@@ -30,6 +31,7 @@ where
     }
 
     #[doc(hidden)]
+    #[inline]
     #[no_coverage]
     fn validate_value(&self, value: &T) -> Option<Self::Cache> {
         match self {
@@ -44,16 +46,18 @@ where
         }
     }
     #[doc(hidden)]
+    #[inline]
     #[no_coverage]
     fn default_mutation_step(&self, value: &T, cache: &Self::Cache) -> Self::MutationStep {
         match (self, cache) {
             (Either::Left(m), Either::Left(c)) => Either::Left(m.default_mutation_step(value, c)),
             (Either::Right(m), Either::Right(c)) => Either::Right(m.default_mutation_step(value, c)),
-            _ => panic!(),
+            _ => unreachable!(),
         }
     }
 
     #[doc(hidden)]
+    #[inline]
     #[no_coverage]
     fn max_complexity(&self) -> f64 {
         match self {
@@ -63,6 +67,7 @@ where
     }
 
     #[doc(hidden)]
+    #[inline]
     #[no_coverage]
     fn min_complexity(&self) -> f64 {
         match self {
@@ -72,26 +77,29 @@ where
     }
 
     #[doc(hidden)]
+    #[inline]
     #[no_coverage]
     fn complexity(&self, value: &T, cache: &Self::Cache) -> f64 {
         match (self, cache) {
             (Either::Left(m), Either::Left(c)) => m.complexity(value, c),
             (Either::Right(m), Either::Right(c)) => m.complexity(value, c),
-            _ => panic!(),
+            _ => unreachable!(),
         }
     }
 
     #[doc(hidden)]
+    #[inline]
     #[no_coverage]
     fn ordered_arbitrary(&self, step: &mut Self::ArbitraryStep, max_cplx: f64) -> Option<(T, f64)> {
         match (self, step) {
             (Either::Left(m), Either::Left(s)) => m.ordered_arbitrary(s, max_cplx),
             (Either::Right(m), Either::Right(s)) => m.ordered_arbitrary(s, max_cplx),
-            _ => panic!(),
+            _ => unreachable!(),
         }
     }
 
     #[doc(hidden)]
+    #[inline]
     #[no_coverage]
     fn random_arbitrary(&self, max_cplx: f64) -> (T, f64) {
         match self {
@@ -101,6 +109,7 @@ where
     }
 
     #[doc(hidden)]
+    #[inline]
     #[no_coverage]
     fn ordered_mutate(
         &self,
@@ -118,11 +127,12 @@ where
                 let (t, cplx) = m.ordered_mutate(value, c, s, max_cplx)?;
                 Some((Either::Right(t), cplx))
             }
-            _ => panic!(),
+            _ => unreachable!(),
         }
     }
 
     #[doc(hidden)]
+    #[inline]
     #[no_coverage]
     fn random_mutate(&self, value: &mut T, cache: &mut Self::Cache, max_cplx: f64) -> (Self::UnmutateToken, f64) {
         match (self, cache) {
@@ -134,11 +144,12 @@ where
                 let (t, cplx) = m.random_mutate(value, c, max_cplx);
                 (Either::Right(t), cplx)
             }
-            _ => panic!(),
+            _ => unreachable!(),
         }
     }
 
     #[doc(hidden)]
+    #[inline]
     #[no_coverage]
     fn unmutate(&self, value: &mut T, cache: &mut Self::Cache, t: Self::UnmutateToken) {
         match (self, cache, t) {
@@ -148,13 +159,14 @@ where
             (Either::Right(m), Either::Right(c), Either::Right(t)) => {
                 m.unmutate(value, c, t);
             }
-            _ => panic!(),
+            _ => unreachable!(),
         }
     }
 
     #[doc(hidden)]
     type RecursingPartIndex = Either<M1::RecursingPartIndex, M2::RecursingPartIndex>;
     #[doc(hidden)]
+    #[inline]
     #[no_coverage]
     fn default_recursing_part_index(&self, value: &T, cache: &Self::Cache) -> Self::RecursingPartIndex {
         match (self, cache) {
@@ -164,6 +176,7 @@ where
         }
     }
     #[doc(hidden)]
+    #[inline]
     #[no_coverage]
     fn recursing_part<'a, V, N>(&self, parent: &N, value: &'a T, index: &mut Self::RecursingPartIndex) -> Option<&'a V>
     where
@@ -173,7 +186,7 @@ where
         match (self, index) {
             (Either::Left(m), Either::Left(i)) => m.recursing_part::<V, N>(parent, value, i),
             (Either::Right(m), Either::Right(i)) => m.recursing_part::<V, N>(parent, value, i),
-            _ => panic!(),
+            _ => unreachable!(),
         }
     }
 }
