@@ -284,7 +284,15 @@ impl MostNDiversePool {
                 #[no_coverage]
                 |x| x.0,
             );
-        self.fenwick_tree = FenwickTree::new(self.inputs.iter().map(|x| x.nbr_unique_counters as f64).collect());
+        self.fenwick_tree = FenwickTree::new(
+            self.inputs
+                .iter()
+                .map(
+                    #[no_coverage]
+                    |x| x.nbr_unique_counters as f64,
+                )
+                .collect(),
+        );
     }
 }
 

@@ -542,16 +542,16 @@ impl SaveToStatsFolder for SimplestToActivateCounterPool {
                     .all_counters_ref
                     .iter()
                     .enumerate()
-                    .filter(|(_, x)| x.least_complexity.is_some())
-                    .map(|(idx, _)| idx)
+                    .filter(#[no_coverage] |(_, x)| x.least_complexity.is_some())
+                    .map(#[no_coverage] |(idx, _)| idx)
                     .collect::<Vec<_>>();
 
                 let best_for_counter = self
                     .all_counters_ref
                     .iter()
                     .enumerate()
-                    .filter(|(_, x)| x.least_complexity.is_some())
-                    .map(|(idx, _)| {
+                    .filter(#[no_coverage] |(_, x)| x.least_complexity.is_some())
+                    .map(#[no_coverage] |(idx, _)| {
                         let f = &self.analysed_counters[&CounterIdx::new(idx)];
                         let key = f.least_complex_input;
                         let input = &self.slab_inputs[key].data;
@@ -562,20 +562,20 @@ impl SaveToStatsFolder for SimplestToActivateCounterPool {
                 let mut ranked_inputs = self
                     .slab_inputs
                     .keys()
-                    .map(|key| {
+                    .map(#[no_coverage] |key| {
                         let input = &self.slab_inputs[key];
                         (input.data, input.score)
                     })
                     .collect::<Vec<_>>();
-                ranked_inputs.sort_by(|x, y| x.1.partial_cmp(&y.1).unwrap_or(std::cmp::Ordering::Equal).reverse());
-                let ranked_inputs = ranked_inputs.into_iter().map(|x| x.0).collect();
+                ranked_inputs.sort_by(#[no_coverage] |x, y| x.1.partial_cmp(&y.1).unwrap_or(std::cmp::Ordering::Equal).reverse());
+                let ranked_inputs = ranked_inputs.into_iter().map(#[no_coverage] |x| x.0).collect();
 
                 let counters_for_input = self
                     .slab_inputs
                     .keys()
-                    .map(|key| {
+                    .map(#[no_coverage] |key| {
                         let input = &self.slab_inputs[key];
-                        (input.data, input.all_counters.iter().map(|x| x.0).collect())
+                        (input.data, input.all_counters.iter().map(#[no_coverage] |x| x.0).collect())
                     })
                     .collect::<Vec<_>>();
 

@@ -165,7 +165,10 @@ impl Arguments {
             ));
         }
 
-        let command = matches.opt_str(COMMAND_FLAG).unwrap_or_else(|| COMMAND_FUZZ.to_owned());
+        let command = matches.opt_str(COMMAND_FLAG).unwrap_or_else(
+            #[no_coverage]
+            || COMMAND_FUZZ.to_owned(),
+        );
 
         let command = command.as_str();
 
@@ -222,7 +225,10 @@ impl Arguments {
             None
         };
 
-        let stats_folder: Option<PathBuf> = matches.opt_str(STATS_FLAG).and_then(|x| x.parse::<PathBuf>().ok());
+        let stats_folder: Option<PathBuf> = matches.opt_str(STATS_FLAG).and_then(
+            #[no_coverage]
+            |x| x.parse::<PathBuf>().ok(),
+        );
 
         let no_stats = if matches.opt_present(NO_STATS_FLAG) {
             Some(())
@@ -240,21 +246,27 @@ impl Arguments {
         let command = match command {
             COMMAND_FUZZ => FuzzerCommand::Fuzz,
             COMMAND_READ => {
-                let input_file = input_file.unwrap_or_else(|| {
-                    panic!(
-                        "An input file must be provided when reading a test case. Use --{}",
-                        INPUT_FILE_FLAG
-                    )
-                });
+                let input_file = input_file.unwrap_or_else(
+                    #[no_coverage]
+                    || {
+                        panic!(
+                            "An input file must be provided when reading a test case. Use --{}",
+                            INPUT_FILE_FLAG
+                        )
+                    },
+                );
                 FuzzerCommand::Read { input_file }
             }
             COMMAND_MINIFY_INPUT => {
-                let input_file = input_file.unwrap_or_else(|| {
-                    panic!(
-                        "An input file must be provided when minifying a test case. Use --{}",
-                        INPUT_FILE_FLAG
-                    )
-                });
+                let input_file = input_file.unwrap_or_else(
+                    #[no_coverage]
+                    || {
+                        panic!(
+                            "An input file must be provided when minifying a test case. Use --{}",
+                            INPUT_FILE_FLAG
+                        )
+                    },
+                );
                 FuzzerCommand::MinifyInput { input_file }
             }
             _ => unreachable!(),

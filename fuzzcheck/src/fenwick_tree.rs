@@ -123,6 +123,7 @@ unsigned int rank_query(int value) {
 */
 
 impl FenwickTree {
+    #[no_coverage]
     pub fn sample(&self, rng: &fastrand::Rng) -> Option<usize> {
         if self.len() == 0 {
             return None;

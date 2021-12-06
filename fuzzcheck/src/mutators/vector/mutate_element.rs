@@ -32,6 +32,7 @@ where
     T: Clone + 'static,
     M: Mutator<T>,
 {
+    #[no_coverage]
     fn revert(
         self,
         mutator: &VecMutator<T, M>,
@@ -57,6 +58,7 @@ where
     type Concrete<'a> = ConcreteMutateElement<'a, M::MutationStep>;
     type Revert = RevertMutateElement<M::UnmutateToken>;
 
+    #[no_coverage]
     fn default_random_step(&self, mutator: &VecMutator<T, M>, value: &Vec<T>) -> Option<Self::RandomStep> {
         if mutator.m.max_complexity() == 0. {
             return None;
@@ -68,6 +70,7 @@ where
         }
     }
 
+    #[no_coverage]
     fn random<'a>(
         mutator: &VecMutator<T, M>,
         value: &Vec<T>,
@@ -80,6 +83,7 @@ where
         }
     }
 
+    #[no_coverage]
     fn default_step(
         &self,
         mutator: &VecMutator<T, M>,
@@ -95,7 +99,10 @@ where
             let inner_steps = value
                 .iter()
                 .zip(cache.inner.iter())
-                .map(|(v, c)| mutator.m.default_mutation_step(v, c))
+                .map(
+                    #[no_coverage]
+                    |(v, c)| mutator.m.default_mutation_step(v, c),
+                )
                 .collect();
             Some(MutateElementStep {
                 indices: (0..value.len()).collect(),
@@ -104,6 +111,7 @@ where
         }
     }
 
+    #[no_coverage]
     fn from_step<'a>(
         mutator: &VecMutator<T, M>,
         _value: &Vec<T>,
@@ -120,7 +128,7 @@ where
             Some(ConcreteMutateElement::Ordered { step_idx, step })
         }
     }
-
+    #[no_coverage]
     fn apply<'a>(
         mutation: Self::Concrete<'a>,
         mutator: &VecMutator<T, M>,

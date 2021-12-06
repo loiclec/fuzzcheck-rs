@@ -43,8 +43,16 @@ where
     #[no_coverage]
     pub fn new(mutators: Vec<M>) -> Self {
         assert!(!mutators.is_empty());
-        let max_complexity = mutators.iter().fold(0.0, |cplx, m| cplx + m.max_complexity());
-        let min_complexity = mutators.iter().fold(0.0, |cplx, m| cplx + m.min_complexity());
+        let max_complexity = mutators.iter().fold(
+            0.0,
+            #[no_coverage]
+            |cplx, m| cplx + m.max_complexity(),
+        );
+        let min_complexity = mutators.iter().fold(
+            0.0,
+            #[no_coverage]
+            |cplx, m| cplx + m.min_complexity(),
+        );
         Self {
             rng: Rng::default(),
             mutators,
@@ -349,7 +357,10 @@ impl<T: Clone + 'static, M: Mutator<T>> Mutator<Vec<T>> for FixedLenVecMutator<T
                 .iter()
                 .zip(cache.inner.iter())
                 .zip(self.mutators.iter())
-                .map(|((v, c), m)| m.default_recursing_part_index(v, c))
+                .map(
+                    #[no_coverage]
+                    |((v, c), m)| m.default_recursing_part_index(v, c),
+                )
                 .collect(),
             indices: (0..value.len()).collect(),
         }

@@ -21,7 +21,14 @@ pub fn grammar_from_regex_hir_kind(hir: &HirKind) -> Rc<Grammar> {
         },
         HirKind::Class(class) => match class {
             Class::Unicode(class) => {
-                let ranges = class.ranges().iter().map(|r| r.start()..=r.end()).collect::<Vec<_>>();
+                let ranges = class
+                    .ranges()
+                    .iter()
+                    .map(
+                        #[no_coverage]
+                        |r| r.start()..=r.end(),
+                    )
+                    .collect::<Vec<_>>();
                 literal_ranges(ranges)
             }
             Class::Bytes(_) => panic!("non-unicode regexes are not supported"),

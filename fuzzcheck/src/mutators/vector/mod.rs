@@ -6,21 +6,22 @@ use std::ops::RangeInclusive;
 
 use self::vec_mutation::{RevertVectorMutation, VectorMutation, VectorMutationRandomStep, VectorMutationStep};
 
+pub mod arbitrary;
 pub mod insert_element;
 pub mod insert_many_elements;
 pub mod mutate_element;
 pub mod only_choose_length;
 pub mod remove;
+pub mod remove_and_insert_element;
 pub mod swap_elements;
 pub mod vec_mutation;
-pub mod remove_and_insert_element;
-pub mod arbitrary;
 
 impl<T> DefaultMutator for Vec<T>
 where
     T: DefaultMutator + 'static,
 {
     type Mutator = VecMutator<T, T::Mutator>;
+    #[no_coverage]
     fn default_mutator() -> Self::Mutator {
         VecMutator::new(T::default_mutator(), 0..=usize::MAX)
     }
@@ -53,6 +54,7 @@ where
     T: 'static + Clone,
     M: Mutator<T>,
 {
+    #[no_coverage]
     fn clone(&self) -> Self {
         Self {
             inner: self.inner.clone(),
@@ -79,6 +81,7 @@ where
     T: Clone + 'static,
     M: Mutator<T>,
 {
+    #[no_coverage]
     pub fn new(m: M, len_range: RangeInclusive<usize>) -> Self {
         Self {
             m,
@@ -103,7 +106,8 @@ where
     type MutationStep = VectorMutationStep<T, M>;
     type ArbitraryStep = VecArbitraryStep;
     type UnmutateToken = RevertVectorMutation<T, M>;
-
+    #[doc(hidden)]
+    #[no_coverage]
     fn default_arbitrary_step(&self) -> Self::ArbitraryStep {
         if self.m.max_complexity() == 0.0 {
             Self::ArbitraryStep::InnerMutatorIsUnit {
@@ -113,7 +117,8 @@ where
             Self::ArbitraryStep::Normal { make_empty: false }
         }
     }
-
+    #[doc(hidden)]
+    #[no_coverage]
     fn validate_value(&self, value: &Vec<T>) -> Option<Self::Cache> {
         let inner_caches: Vec<_> = value
             .iter()
@@ -147,16 +152,19 @@ where
         };
         Some(cache)
     }
-
+    #[doc(hidden)]
+    #[no_coverage]
     fn default_mutation_step(&self, value: &Vec<T>, cache: &Self::Cache) -> Self::MutationStep {
         self.mutations.default_step(self, value, cache).unwrap()
     }
-
+    #[doc(hidden)]
+    #[no_coverage]
     fn max_complexity(&self) -> f64 {
         let max_len = *self.len_range.end();
         self.complexity_from_inner((max_len as f64) * self.m.max_complexity(), max_len.saturating_add(1))
     }
-
+    #[doc(hidden)]
+    #[no_coverage]
     fn min_complexity(&self) -> f64 {
         let min_len = *self.len_range.start();
         if min_len == 0 {
@@ -165,11 +173,13 @@ where
             self.complexity_from_inner((min_len as f64) * self.m.min_complexity(), min_len)
         }
     }
-
+    #[doc(hidden)]
+    #[no_coverage]
     fn complexity(&self, value: &Vec<T>, cache: &Self::Cache) -> f64 {
         self.complexity_from_inner(cache.sum_cplx, value.len())
     }
-
+    #[doc(hidden)]
+    #[no_coverage]
     fn ordered_arbitrary(&self, step: &mut Self::ArbitraryStep, max_cplx: f64) -> Option<(Vec<T>, f64)> {
         if max_cplx < self.min_complexity() {
             return None;
@@ -204,7 +214,8 @@ where
             }
         }
     }
-
+    #[doc(hidden)]
+    #[no_coverage]
     fn random_arbitrary(&self, max_cplx: f64) -> (Vec<T>, f64) {
         let min_cplx = self.min_complexity();
         if max_cplx <= min_cplx || self.rng.u8(..) == 0 {
@@ -227,7 +238,8 @@ where
 
         self.new_input_with_length_and_complexity(target_len, target_cplx)
     }
-
+    #[doc(hidden)]
+    #[no_coverage]
     fn ordered_mutate(
         &self,
         value: &mut Vec<T>,
@@ -242,11 +254,15 @@ where
         Some(VectorMutation::apply(mutation, self, value, cache, max_cplx))
     }
 
+    #[doc(hidden)]
+    #[no_coverage]
     fn random_mutate(&self, value: &mut Vec<T>, cache: &mut Self::Cache, max_cplx: f64) -> (Self::UnmutateToken, f64) {
         let mutation = VectorMutation::random(self, value, cache, &cache.random_mutation_step, max_cplx);
         VectorMutation::apply(mutation, self, value, cache, max_cplx)
     }
 
+    #[doc(hidden)]
+    #[no_coverage]
     fn unmutate(&self, value: &mut Vec<T>, cache: &mut Self::Cache, t: Self::UnmutateToken) {
         RevertVectorMutation::revert(t, self, value, cache)
     }

@@ -42,8 +42,8 @@ where
     fn process(&mut self, input_id: PoolStorageIndex, sensor: &mut S, complexity: f64) -> Vec<CorpusDelta> {
         let mut observation_state = self.start_observing();
         sensor.iterate_over_observations(
-            #[no_coverage]
-            &mut |o| {
+            &mut #[no_coverage]
+            |o| {
                 self.observe(&o, complexity, &mut observation_state);
             },
         );

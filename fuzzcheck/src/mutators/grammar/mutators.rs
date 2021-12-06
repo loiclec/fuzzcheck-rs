@@ -266,7 +266,12 @@ impl ASTMutator {
         match grammar.as_ref() {
             Grammar::Literal(l) => Self::token(CharacterMutator::new(l.clone())),
             Grammar::Alternation(gs) => Self::alternation(AlternationMutator::new(
-                gs.iter().map(|g| Self::from_grammar_rec(g.clone(), others)).collect(),
+                gs.iter()
+                    .map(
+                        #[no_coverage]
+                        |g| Self::from_grammar_rec(g.clone(), others),
+                    )
+                    .collect(),
             )),
             Grammar::Concatenation(gs) => {
                 let mut ms = Vec::<ASTMutator>::new();
@@ -287,11 +292,14 @@ impl ASTMutator {
                     panic!()
                 }
             }
-            Grammar::Recursive(g) => Self::recursive(|m| {
-                let weak_g = Rc::downgrade(g);
-                others.insert(weak_g.as_ptr(), m.clone());
-                Self::from_grammar_rec(g.clone(), others)
-            }),
+            Grammar::Recursive(g) => Self::recursive(
+                #[no_coverage]
+                |m| {
+                    let weak_g = Rc::downgrade(g);
+                    others.insert(weak_g.as_ptr(), m.clone());
+                    Self::from_grammar_rec(g.clone(), others)
+                },
+            ),
         }
     }
 }

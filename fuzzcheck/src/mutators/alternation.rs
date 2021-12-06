@@ -216,19 +216,22 @@ where
     fn default_mutation_step(&self, value: &T, cache: &Self::Cache) -> Self::MutationStep {
         cache
             .iter()
-            .map(|c| {
-                let m = &self.mutators[c.mutator_idx];
-                MutationStep {
-                    step: 0,
-                    mutator_idx: c.mutator_idx,
-                    inner: m.default_mutation_step(value, &c.inner),
-                    arbitrary: {
-                        let mut step = self.default_arbitrary_step();
-                        step.indices.remove(c.mutator_idx);
-                        step
-                    },
-                }
-            })
+            .map(
+                #[no_coverage]
+                |c| {
+                    let m = &self.mutators[c.mutator_idx];
+                    MutationStep {
+                        step: 0,
+                        mutator_idx: c.mutator_idx,
+                        inner: m.default_mutation_step(value, &c.inner),
+                        arbitrary: {
+                            let mut step = self.default_arbitrary_step();
+                            step.indices.remove(c.mutator_idx);
+                            step
+                        },
+                    }
+                },
+            )
             .collect()
     }
 
@@ -316,7 +319,13 @@ where
         }
 
         let mutator_idx = chosen_step.mutator_idx;
-        let chosen_cache = cache.iter_mut().find(|c| c.mutator_idx == mutator_idx).unwrap();
+        let chosen_cache = cache
+            .iter_mut()
+            .find(
+                #[no_coverage]
+                |c| c.mutator_idx == mutator_idx,
+            )
+            .unwrap();
 
         let idx = chosen_cache.mutator_idx;
         assert_eq!(idx, mutator_idx);
@@ -372,7 +381,13 @@ where
             }
             UnmutateToken::Inner(idx, t) => {
                 let mutator = &self.mutators[idx];
-                let cache = cache.iter_mut().find(|c| c.mutator_idx == idx).unwrap();
+                let cache = cache
+                    .iter_mut()
+                    .find(
+                        #[no_coverage]
+                        |c| c.mutator_idx == idx,
+                    )
+                    .unwrap();
                 mutator.unmutate(value, &mut cache.inner, t);
             }
         }
@@ -387,9 +402,18 @@ where
         Self::RecursingPartIndex {
             inner: cache
                 .iter()
-                .map(|c| self.mutators[c.mutator_idx].default_recursing_part_index(value, &c.inner))
+                .map(
+                    #[no_coverage]
+                    |c| self.mutators[c.mutator_idx].default_recursing_part_index(value, &c.inner),
+                )
                 .collect(),
-            indices: cache.iter().map(|c| c.mutator_idx).collect(),
+            indices: cache
+                .iter()
+                .map(
+                    #[no_coverage]
+                    |c| c.mutator_idx,
+                )
+                .collect(),
         }
     }
 

@@ -334,13 +334,15 @@ mod tuple0 {
         type Owned = ();
         type Ref<'a> = ();
         type Mut<'a> = ();
+        #[no_coverage]
         fn get_ref_from_mut<'a>(_v: &'a Self::Mut<'a>) -> Self::Ref<'a> {}
     }
     impl TupleStructure<Tuple0> for () {
+        #[no_coverage]
         fn get_ref(&self) -> <Tuple0 as RefTypes>::Ref<'_> {}
-
+        #[no_coverage]
         fn get_mut(&mut self) -> <Tuple0 as RefTypes>::Mut<'_> {}
-
+        #[no_coverage]
         fn new(_t: <Tuple0 as RefTypes>::Owned) -> Self {}
     }
     /// A `TupleMutator` for types equivalent to the unit type `()`
@@ -557,9 +559,10 @@ mod tuple1 {
         #[doc(hidden)]
         #[no_coverage]
         fn ordered_arbitrary(&self, step: &mut Self::ArbitraryStep, max_cplx: f64) -> Option<(T, f64)> {
-            self.mutator_0
-                .ordered_arbitrary(step, max_cplx)
-                .map(|(value, cplx)| (T::new((value,)), cplx))
+            self.mutator_0.ordered_arbitrary(step, max_cplx).map(
+                #[no_coverage]
+                |(value, cplx)| (T::new((value,)), cplx),
+            )
         }
         #[doc(hidden)]
         #[no_coverage]

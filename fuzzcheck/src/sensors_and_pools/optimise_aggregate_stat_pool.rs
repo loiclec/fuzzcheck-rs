@@ -41,15 +41,17 @@ pub struct OptimiseAggregateStatPoolStats {
     best: u64,
 }
 impl Display for OptimiseAggregateStatPoolStats {
+    #[no_coverage]
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}({})", self.name, self.best)
     }
 }
 impl ToCSV for OptimiseAggregateStatPoolStats {
+    #[no_coverage]
     fn csv_headers(&self) -> Vec<CSVField> {
         vec![CSVField::String(self.name.clone())]
     }
-
+    #[no_coverage]
     fn to_csv_record(&self) -> Vec<CSVField> {
         vec![CSVField::Integer(self.best as isize)]
     }
@@ -73,7 +75,14 @@ impl<Strategy> Pool for OptimiseAggregateStatPool<Strategy> {
     fn stats(&self) -> Self::Stats {
         OptimiseAggregateStatPoolStats {
             name: self.name.clone(),
-            best: self.current_best.as_ref().map(|z| z.0).unwrap_or(0),
+            best: self
+                .current_best
+                .as_ref()
+                .map(
+                    #[no_coverage]
+                    |z| z.0,
+                )
+                .unwrap_or(0),
         }
     }
     #[no_coverage]

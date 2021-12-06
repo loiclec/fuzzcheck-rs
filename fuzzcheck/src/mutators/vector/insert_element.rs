@@ -25,6 +25,7 @@ where
     T: Clone + 'static,
     M: Mutator<T>,
 {
+    #[no_coverage]
     fn revert(
         self,
         _mutator: &VecMutator<T, M>,
@@ -45,6 +46,7 @@ where
     type Concrete<'a> = ConcreteInsertElement<T>;
     type Revert = RevertInsertElement;
 
+    #[no_coverage]
     fn default_random_step(&self, mutator: &VecMutator<T, M>, value: &Vec<T>) -> Option<Self::RandomStep> {
         if mutator.m.max_complexity() == 0. {
             return None;
@@ -56,6 +58,7 @@ where
         }
     }
 
+    #[no_coverage]
     fn random<'a>(
         mutator: &VecMutator<T, M>,
         value: &Vec<T>,
@@ -74,6 +77,7 @@ where
         }
     }
 
+    #[no_coverage]
     fn default_step(
         &self,
         mutator: &VecMutator<T, M>,
@@ -88,12 +92,16 @@ where
         } else {
             Some(InsertElementStep {
                 arbitrary_steps: (0..=value.len())
-                    .map(|i| (i, mutator.m.default_arbitrary_step()))
+                    .map(
+                        #[no_coverage]
+                        |i| (i, mutator.m.default_arbitrary_step()),
+                    )
                     .collect(),
             })
         }
     }
 
+    #[no_coverage]
     fn from_step<'a>(
         mutator: &VecMutator<T, M>,
         value: &Vec<T>,
@@ -117,6 +125,7 @@ where
         }
     }
 
+    #[no_coverage]
     fn apply<'a>(
         mutation: Self::Concrete<'a>,
         mutator: &VecMutator<T, M>,

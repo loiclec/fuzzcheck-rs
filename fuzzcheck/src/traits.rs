@@ -489,6 +489,7 @@ where
     A: SaveToStatsFolder,
     B: SaveToStatsFolder,
 {
+    #[no_coverage]
     fn save_to_stats_folder(&self) -> Vec<(PathBuf, Vec<u8>)> {
         let mut x = self.0.save_to_stats_folder();
         x.extend(self.1.save_to_stats_folder());
@@ -502,21 +503,23 @@ where
     S: SaveToStatsFolder,
     P: SaveToStatsFolder,
 {
+    #[no_coverage]
     fn stats(&self) -> Box<dyn Stats> {
         Box::new(self.1.stats())
     }
+    #[no_coverage]
     fn start_recording(&mut self) {
         self.0.start_recording();
     }
-
+    #[no_coverage]
     fn stop_recording(&mut self) {
         self.0.stop_recording();
     }
-
+    #[no_coverage]
     fn process(&mut self, input_id: PoolStorageIndex, complexity: f64) -> Vec<CorpusDelta> {
         self.1.process(input_id, &mut self.0, complexity)
     }
-
+    #[no_coverage]
     fn get_random_index(&mut self) -> Option<PoolStorageIndex> {
         self.1.get_random_index()
     }
@@ -571,10 +574,12 @@ pub trait ToCSV {
     fn to_csv_record(&self) -> Vec<CSVField>;
 }
 impl ToCSV for Box<dyn Stats> {
+    #[no_coverage]
     fn csv_headers(&self) -> Vec<CSVField> {
         self.as_ref().csv_headers()
     }
 
+    #[no_coverage]
     fn to_csv_record(&self) -> Vec<CSVField> {
         self.as_ref().to_csv_record()
     }

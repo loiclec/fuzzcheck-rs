@@ -35,7 +35,10 @@ pub struct CodeCoverageSensor {
 impl CodeCoverageSensor {
     #[no_coverage]
     pub fn observing_only_files_from_current_dir() -> Self {
-        Self::new(|f| f.is_relative())
+        Self::new(
+            #[no_coverage]
+            |f| f.is_relative(),
+        )
     }
     #[no_coverage]
     pub fn new<K>(keep: K) -> Self

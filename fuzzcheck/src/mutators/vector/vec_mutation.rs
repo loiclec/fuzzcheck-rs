@@ -74,6 +74,7 @@ macro_rules! impl_vec_mutation {
             T: Clone + 'static,
             M: Mutator<T>,
         {
+            #[no_coverage]
             fn clone(&self) -> Self {
                 match self {
                     $(
@@ -89,6 +90,7 @@ macro_rules! impl_vec_mutation {
             M: Mutator<T>,
             VectorMutationInnerStep<T, M>: Clone
         {
+            #[no_coverage]
             fn clone(&self) -> Self {
                 Self {
                     inner_steps: self.inner_steps.clone(),
@@ -103,6 +105,7 @@ macro_rules! impl_vec_mutation {
             T: Clone + 'static,
             M: Mutator<T>,
         {
+            #[no_coverage]
             fn clone(&self) -> Self {
                 match self {
                     $(
@@ -118,6 +121,7 @@ macro_rules! impl_vec_mutation {
             M: Mutator<T>,
             VectorMutationInnerRandomStep<T, M>: Clone
         {
+            #[no_coverage]
             fn clone(&self) -> Self {
                 Self {
                     inner_steps: self.inner_steps.clone(),
@@ -131,6 +135,7 @@ macro_rules! impl_vec_mutation {
             T: Clone + 'static,
             M: Mutator<T>,
         {
+            #[no_coverage]
             fn revert(
                 self,
                 mutator: &VecMutator<T, M>,
@@ -154,12 +159,12 @@ macro_rules! impl_vec_mutation {
             type Step = VectorMutationStep<T, M>;
             type Concrete<'a> = ConcreteVectorMutation<'a, T, M>;
             type Revert = RevertVectorMutation<T, M>;
-
+            #[no_coverage]
             fn default_random_step(&self, mutator: &VecMutator<T, M>, value: &Vec<T>) -> Option<Self::RandomStep> {
                 let inner_steps_and_weights: Vec<(_, f64)> = self
                     .mutations
                     .iter()
-                    .filter_map(|mutation| {
+                    .filter_map(#[no_coverage] |mutation| {
                         match &mutation.mutation {
                             $(
                                 InnerVectorMutation::$i(r) => r
@@ -167,20 +172,20 @@ macro_rules! impl_vec_mutation {
                                     .map(VectorMutationInnerRandomStep::$i)
                             ),*
                         }
-                        .map(|inner| (inner, mutation.random_weight))
+                        .map(#[no_coverage] |inner| (inner, mutation.random_weight))
                     })
                     .collect::<Vec<_>>();
 
                 if inner_steps_and_weights.is_empty() {
                     return None;
                 }
-                let weights = inner_steps_and_weights.iter().map(|x| x.1).collect();
+                let weights = inner_steps_and_weights.iter().map(#[no_coverage] |x| x.1).collect();
                 let sampling = VoseAlias::new(weights);
-                let inner_steps = inner_steps_and_weights.into_iter().map(|x| x.0).collect();
+                let inner_steps = inner_steps_and_weights.into_iter().map(#[no_coverage] |x| x.0).collect();
 
                 Some(VectorMutationRandomStep { inner_steps, sampling })
             }
-
+            #[no_coverage]
             fn random<'a>(
                 mutator: &VecMutator<T, M>,
                 value: &Vec<T>,
@@ -197,7 +202,7 @@ macro_rules! impl_vec_mutation {
                     ),*
                 }
             }
-
+            #[no_coverage]
             fn default_step(
                 &self,
                 mutator: &VecMutator<T, M>,
@@ -207,7 +212,7 @@ macro_rules! impl_vec_mutation {
                 let inner_steps_and_weights: Vec<(VectorMutationInnerStep<_, _>, f64)> = self
                     .mutations
                     .iter()
-                    .filter_map(|mutation| {
+                    .filter_map(#[no_coverage] |mutation| {
                         match &mutation.mutation {
                             $(
                                 InnerVectorMutation::$i(r) =>
@@ -215,7 +220,7 @@ macro_rules! impl_vec_mutation {
                                     .map(VectorMutationInnerStep::$i)
                             ),*
                         }
-                        .map(|inner| (inner, mutation.ordered_weight))
+                        .map(#[no_coverage] |inner| (inner, mutation.ordered_weight))
                     })
                     .collect::<Vec<_>>();
 
@@ -239,7 +244,7 @@ macro_rules! impl_vec_mutation {
                     sampling,
                 })
             }
-
+            #[no_coverage]
             fn from_step<'a>(
                 mutator: &VecMutator<T, M>,
                 value: &Vec<T>,
@@ -279,7 +284,7 @@ macro_rules! impl_vec_mutation {
                     Self::from_step(mutator, value, cache, step, max_cplx)
                 }
             }
-
+            #[no_coverage]
             fn apply<'a>(
                 mutation: Self::Concrete<'a>,
                 mutator: &VecMutator<T, M>,
@@ -314,6 +319,7 @@ impl_vec_mutation! {
 // ====== Default Vector Mutations =====
 
 impl Default for VectorMutation {
+    #[no_coverage]
     fn default() -> Self {
         // use the same standard for all of them
         Self {

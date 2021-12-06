@@ -14,10 +14,12 @@ pub struct UniqueValuesPoolStats {
     pub size: usize,
 }
 impl ToCSV for UniqueValuesPoolStats {
+    #[no_coverage]
     fn csv_headers(&self) -> Vec<crate::CSVField> {
         vec![]
     }
 
+    #[no_coverage]
     fn to_csv_record(&self) -> Vec<crate::CSVField> {
         vec![]
     }
@@ -210,7 +212,13 @@ impl CompatibleWithIteratorSensor for UniqueValuesPool {
         for &removed_key in &removed_keys {
             self.inputs.remove(removed_key);
         }
-        let removed_keys = removed_keys.into_iter().map(|k| self.inputs[k].data).collect();
+        let removed_keys = removed_keys
+            .into_iter()
+            .map(
+                #[no_coverage]
+                |k| self.inputs[k].data,
+            )
+            .collect();
         self.update_stats();
         return vec![CorpusDelta {
             path: Path::new(&self.name).to_path_buf(),
