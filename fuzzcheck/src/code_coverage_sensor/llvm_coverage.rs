@@ -450,10 +450,13 @@ pub fn process_function_records(
     for function_counters in records {
         let mut expressions = vec![];
         let mut expressions_set = HashSet::new();
+        let mut unique_expressions = HashSet::new();
+
         for (raw_counter, mapping_region) in function_counters.counters_list.iter() {
             let mut expanded = ExpandedExpression::default();
-            expanded.push_counter(raw_counter, Sign::Positive, &function_counters);
+            expanded.push_counter(raw_counter, Sign::Positive, &function_counters, &mut unique_expressions);
             expanded.sort(); // sort them to canonicalise their representation
+            unique_expressions.insert(expanded.clone());
             if expressions_set.contains(&expanded) {
                 continue;
             } else {
@@ -462,6 +465,23 @@ pub fn process_function_records(
             }
         }
 
+        // for expanded in unique_expressions {
+        //     if expressions_set.contains(&expanded) {
+        //         continue;
+        //     } else {
+        //         expressions_set.insert(expanded.clone());
+        //         expressions.push((
+        //             expanded,
+        //             MappingRegion {
+        //                 filename_index: 0,
+        //                 line_start: 0,
+        //                 line_end: 0,
+        //                 col_start: 0,
+        //                 col_end: 0,
+        //             },
+        //         ));
+        //     }
+        // }
         let name_function = (&prf_names[&function_counters.header.id.name_md5]).clone();
 
         let mut expressions = expressions.into_iter().collect::<Vec<_>>();
@@ -479,9 +499,9 @@ pub fn process_function_records(
                     continue 'inner;
                 };
 
-                if e2.add_terms.len() == 1 && e2.sub_terms.is_empty() {
-                    continue 'inner;
-                }
+                // if e2.add_terms.len() == 1 && e2.sub_terms.is_empty() {
+                //     continue 'inner;
+                // }
                 for c1 in &e1.add_terms {
                     if !e2.add_terms.contains(c1) {
                         continue 'inner;
@@ -512,7 +532,6 @@ pub fn process_function_records(
             let filepath = Path::new(filename).to_path_buf();
             filepaths.push(filepath);
         }
-
         all_expressions.push(FunctionRecord {
             header: function_counters.header,
             file_id_mapping: function_counters.file_id_mapping,
@@ -669,7 +688,7 @@ pub enum RawCounter {
     Expression { operation_sign: Sign, idx: usize },
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Sign {
     Negative,
     Positive,
@@ -723,16 +742,27 @@ impl ExpandedExpression {
         }
     }
     #[no_coverage]
-    pub fn push_counter(&mut self, c: &RawCounter, sign: Sign, ctx: &RawFunctionCounters) {
+    pub fn push_counter(
+        &mut self,
+        c: &RawCounter,
+        sign: Sign,
+        ctx: &RawFunctionCounters,
+        expressions: &mut HashSet<ExpandedExpression>,
+    ) {
         match c {
             RawCounter::Zero => {}
-            RawCounter::Counter { idx } => self.push_leaf_counter(*idx, sign),
+            RawCounter::Counter { idx } => {
+                self.push_leaf_counter(*idx, sign);
+                let mut e = ExpandedExpression::default();
+                e.add_terms.push(*idx);
+                expressions.insert(e);
+            }
             RawCounter::Expression { operation_sign, idx } => {
                 let e = &ctx.expression_list[*idx];
                 let lhs = &e.lhs;
-                self.push_counter(lhs, sign, ctx);
+                self.push_counter(lhs, sign, ctx, expressions);
                 let rhs = &e.rhs;
-                self.push_counter(rhs, sign.and(*operation_sign), ctx);
+                self.push_counter(rhs, sign.and(*operation_sign), ctx, expressions);
             }
         }
     }
