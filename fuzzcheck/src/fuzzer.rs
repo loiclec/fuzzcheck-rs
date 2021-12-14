@@ -84,6 +84,12 @@ struct FuzzerState<T: Clone, M: Mutator<T>> {
     world: World,
 }
 
+impl<T: Clone, M: Mutator<T>> Drop for FuzzerState<T, M> {
+    fn drop(&mut self) {
+        unsafe { crate::signals_handler::reset_signal_handlers() };
+    }
+}
+
 impl<T: Clone, M: Mutator<T>> FuzzerState<T, M> {
     #[no_coverage]
     fn get_input<'a>(

@@ -61,7 +61,7 @@ where
 }
 
 #[no_coverage]
-unsafe fn reset_signal_handlers() {
+pub(crate) unsafe fn reset_signal_handlers() {
     let mut sa: sigaction = std::mem::zeroed();
     sigemptyset(&mut sa.sa_mask as *mut libc::sigset_t);
     sa.sa_sigaction = SIG_DFL;
