@@ -60,6 +60,8 @@ pub use crate::traits::CorpusDelta;
 #[doc(inline)]
 pub use crate::traits::Pool;
 #[doc(inline)]
+pub use crate::traits::SaveToStatsFolder;
+#[doc(inline)]
 pub use crate::traits::Sensor;
 #[doc(inline)]
 pub use crate::traits::SensorAndPool;
