@@ -1,11 +1,11 @@
 use crate::data_structures::{Slab, SlabKey};
 use crate::fenwick_tree::FenwickTree;
 use crate::fuzzer::PoolStorageIndex;
-use crate::sensors_and_pools::compatible_with_iterator_sensor::CompatibleWithIteratorSensor;
 use crate::traits::{CorpusDelta, Pool, SaveToStatsFolder, Stats};
-use crate::ToCSV;
+use crate::{CompatibleWithObservations, ToCSV};
 use ahash::{AHashMap, AHashSet};
 use std::fmt::{Debug, Display};
+use std::hash::Hash;
 use std::path::Path;
 
 #[derive(Clone, Default)]
@@ -38,24 +38,33 @@ impl Display for UniqueValuesPoolStats {
 impl Stats for UniqueValuesPoolStats {}
 
 #[derive(Debug)]
-struct Input {
-    best_for_values: AHashSet<(usize, u64)>,
+struct Input<T>
+where
+    T: Hash + Eq + Clone,
+{
+    best_for_values: AHashSet<(usize, T)>,
     data: PoolStorageIndex,
     score: f64,
     number_times_chosen: usize,
 }
 
 /// A pool that stores an input for each different value of each sensor counter
-pub struct UniqueValuesPool {
+pub struct UniqueValuesPool<T>
+where
+    T: Hash + Eq + Clone,
+{
     name: String,
-    complexities: Vec<AHashMap<u64, f64>>,
-    inputs: Slab<Input>,
-    best_input_for_value: Vec<AHashMap<u64, SlabKey<Input>>>,
+    complexities: Vec<AHashMap<T, f64>>,
+    inputs: Slab<Input<T>>,
+    best_input_for_value: Vec<AHashMap<T, SlabKey<Input<T>>>>,
     ranked_inputs: FenwickTree,
     stats: UniqueValuesPoolStats,
     rng: fastrand::Rng,
 }
-impl Debug for UniqueValuesPool {
+impl<T> Debug for UniqueValuesPool<T>
+where
+    T: Hash + Eq + Clone + Debug,
+{
     #[no_coverage]
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("UniqueValuesPool")
@@ -68,7 +77,10 @@ impl Debug for UniqueValuesPool {
     }
 }
 
-impl UniqueValuesPool {
+impl<T> UniqueValuesPool<T>
+where
+    T: Hash + Eq + Clone,
+{
     #[no_coverage]
     pub fn new(name: &str, size: usize) -> Self {
         Self {
@@ -86,7 +98,10 @@ impl UniqueValuesPool {
     }
 }
 
-impl Pool for UniqueValuesPool {
+impl<T> Pool for UniqueValuesPool<T>
+where
+    T: Hash + Eq + Clone,
+{
     type Stats = UniqueValuesPoolStats;
 
     #[no_coverage]
@@ -110,14 +125,20 @@ impl Pool for UniqueValuesPool {
         Some(data)
     }
 }
-impl SaveToStatsFolder for UniqueValuesPool {
+impl<T> SaveToStatsFolder for UniqueValuesPool<T>
+where
+    T: Hash + Eq + Clone,
+{
     #[no_coverage]
     fn save_to_stats_folder(&self) -> Vec<(std::path::PathBuf, Vec<u8>)> {
         vec![]
     }
 }
 
-impl UniqueValuesPool {
+impl<T> UniqueValuesPool<T>
+where
+    T: Hash + Eq + Clone,
+{
     #[no_coverage]
     fn update_stats(&mut self) {
         let inputs = &self.inputs;
@@ -139,62 +160,50 @@ impl UniqueValuesPool {
     }
 }
 
-impl CompatibleWithIteratorSensor for UniqueValuesPool {
-    type Observation = (usize, u64);
-    type ObservationState = Vec<(usize, u64)>;
-
+impl<T, I> CompatibleWithObservations<I> for UniqueValuesPool<T>
+where
+    I: IntoIterator<Item = (usize, T)>,
+    T: Hash + Eq + Clone,
+{
     #[no_coverage]
-    fn start_observing(&mut self) -> Self::ObservationState {
-        vec![]
-    }
-    #[no_coverage]
-    fn observe(
-        &mut self,
-        &(index, counter): &Self::Observation,
-        input_complexity: f64,
-        state: &mut Self::ObservationState,
-    ) {
-        if let Some(&previous_cplx) = self.complexities[index].get(&counter) {
-            if previous_cplx > input_complexity {
-                // already exists but this one is better
-                state.push((index, counter));
+    fn process(&mut self, input_id: PoolStorageIndex, observations: I, complexity: f64) -> Vec<CorpusDelta> {
+        let mut state = vec![];
+        for (index, v) in observations {
+            if let Some(&previous_cplx) = self.complexities[index].get(&v) {
+                if previous_cplx > complexity {
+                    // already exists but this one is better
+                    state.push((index, v));
+                }
+            } else {
+                state.push((index, v));
             }
-        } else {
-            state.push((index, counter));
         }
-    }
-
-    #[no_coverage]
-    fn add_if_interesting(
-        &mut self,
-        data: PoolStorageIndex,
-        complexity: f64,
-        observation_state: Self::ObservationState,
-        reiterate_over_observations: &[Self::Observation],
-    ) -> Vec<CorpusDelta> {
-        if observation_state.is_empty() {
+        if state.is_empty() {
             return vec![];
         }
-        let new_observations = observation_state;
+
+        let new_observations = state;
+        let score = new_observations.len() as f64;
         let cplx = complexity;
-        let input = data;
+        let input = input_id;
         let input = Input {
-            best_for_values: new_observations.iter().copied().collect(),
+            best_for_values: AHashSet::new(), // fill in later! with new_observations.into_iter().collect(),
             data: input,
-            score: new_observations.len() as f64,
+            score,
             number_times_chosen: 1,
         };
+
         let input_key = self.inputs.insert(input);
 
         let mut removed_keys = vec![];
 
-        for &(counter, id) in &new_observations {
-            self.complexities[counter].insert(id, cplx);
+        for (counter, id) in &new_observations {
+            self.complexities[*counter].insert(id.clone(), cplx);
 
-            let previous_best_key = self.best_input_for_value[counter].get_mut(&id);
+            let previous_best_key = self.best_input_for_value[*counter].get_mut(id);
             if let Some(previous_best_key) = previous_best_key {
                 let previous_best = &mut self.inputs[*previous_best_key];
-                let was_present_in_set = previous_best.best_for_values.remove(&(counter, id));
+                let was_present_in_set = previous_best.best_for_values.remove(&(*counter, id.clone()));
                 assert!(was_present_in_set);
                 previous_best.score = previous_best.best_for_values.len() as f64;
                 if previous_best.best_for_values.is_empty() {
@@ -202,7 +211,7 @@ impl CompatibleWithIteratorSensor for UniqueValuesPool {
                 }
                 *previous_best_key = input_key;
             } else {
-                self.best_input_for_value[counter].insert(id, input_key);
+                self.best_input_for_value[*counter].insert(id.clone(), input_key);
             }
         }
         for &removed_key in &removed_keys {
