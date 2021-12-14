@@ -18,18 +18,21 @@
 //!
 //! At every iteration of the fuzz test, both pools have a chance to provide a test case to mutate.
 //! After the test function is run, both sensors will collect data and feed them to their respective pool.
-use std::{fmt::Display, path::PathBuf};
+use std::{fmt::Display, marker::PhantomData, path::PathBuf};
 
 use crate::{
     fuzzer::PoolStorageIndex,
-    traits::{CompatibleWithSensor, CorpusDelta, Pool, SaveToStatsFolder, Sensor, SensorAndPool, Stats},
+    traits::{CompatibleWithObservations, CorpusDelta, Pool, SaveToStatsFolder, Sensor, SensorAndPool, Stats},
     CSVField, ToCSV,
 };
 
-use super::compatible_with_iterator_sensor::CompatibleWithIteratorSensor;
+// use super::compatible_with_iterator_sensor::CompatibleWithIteratorSensor;
+
+pub enum SameSensor {}
+pub enum DifferentSensors {}
 
 /// A pool that combines two pools
-pub struct AndPool<P1, P2>
+pub struct AndPool<P1, P2, SensorMarker>
 where
     P1: Pool,
     P2: Pool,
@@ -39,8 +42,9 @@ where
 
     pub ratio_choose_first: u8,
     rng: fastrand::Rng,
+    _phantom: PhantomData<SensorMarker>,
 }
-impl<P1, P2> AndPool<P1, P2>
+impl<P1, P2, SensorMarker> AndPool<P1, P2, SensorMarker>
 where
     P1: Pool,
     P2: Pool,
@@ -52,10 +56,11 @@ where
             p2,
             ratio_choose_first,
             rng: fastrand::Rng::new(),
+            _phantom: PhantomData,
         }
     }
 }
-impl<P1, P2> Pool for AndPool<P1, P2>
+impl<P1, P2, SensorMarker> Pool for AndPool<P1, P2, SensorMarker>
 where
     P1: Pool,
     P2: Pool,
@@ -81,7 +86,7 @@ where
         }
     }
 }
-impl<P1, P2> SaveToStatsFolder for AndPool<P1, P2>
+impl<P1, P2, SensorMarker> SaveToStatsFolder for AndPool<P1, P2, SensorMarker>
 where
     P1: Pool,
     P2: Pool,
@@ -114,7 +119,7 @@ where
     S1: Sensor,
     S2: Sensor,
 {
-    type ObservationHandler<'a> = (S1::ObservationHandler<'a>, S2::ObservationHandler<'a>);
+    type Observations<'a> = (S1::Observations<'a>, S2::Observations<'a>);
 
     #[no_coverage]
     fn start_recording(&mut self) {
@@ -127,9 +132,8 @@ where
         self.1.stop_recording();
     }
     #[no_coverage]
-    fn iterate_over_observations(&mut self, handler: Self::ObservationHandler<'_>) {
-        self.0.iterate_over_observations(handler.0);
-        self.1.iterate_over_observations(handler.1);
+    fn get_observations(&mut self) -> Self::Observations<'_> {
+        (self.0.get_observations(), self.1.get_observations())
     }
 }
 
@@ -162,67 +166,72 @@ where
 {
 }
 
-impl<S1, S2, P1, P2> CompatibleWithSensor<AndSensor<S1, S2>> for AndPool<P1, P2>
+impl<O1, O2, P1, P2> CompatibleWithObservations<(O1, O2)> for AndPool<P1, P2, DifferentSensors>
 where
-    S1: Sensor,
-    S2: Sensor,
     P1: Pool,
     P2: Pool,
-    P1: CompatibleWithSensor<S1>,
-    P2: CompatibleWithSensor<S2>,
+    P1: CompatibleWithObservations<O1>,
+    P2: CompatibleWithObservations<O2>,
 {
     #[no_coverage]
-    fn process(
-        &mut self,
-        input_id: PoolStorageIndex,
-        sensor: &mut AndSensor<S1, S2>,
-        complexity: f64,
-    ) -> Vec<CorpusDelta> {
+    fn process(&mut self, input_id: PoolStorageIndex, observations: (O1, O2), complexity: f64) -> Vec<CorpusDelta> {
         let AndPool { p1, p2, .. } = self;
-        let mut deltas = p1.process(input_id, &mut sensor.0, complexity);
-        deltas.extend(p2.process(input_id, &mut sensor.1, complexity));
+        let mut deltas = p1.process(input_id, observations.0, complexity);
+        deltas.extend(p2.process(input_id, observations.1, complexity));
         deltas
     }
 }
 
-impl<P1, P2> CompatibleWithIteratorSensor for AndPool<P1, P2>
+impl<P1, P2, O> CompatibleWithObservations<O> for AndPool<P1, P2, SameSensor>
 where
-    P1: CompatibleWithIteratorSensor,
-    P2: CompatibleWithIteratorSensor<Observation = P1::Observation>,
+    O: Clone,
+    P1: CompatibleWithObservations<O>,
+    P2: CompatibleWithObservations<O>,
 {
-    type Observation = P1::Observation;
-    type ObservationState = (P1::ObservationState, P2::ObservationState);
-
     #[no_coverage]
-    fn start_observing(&mut self) -> Self::ObservationState {
-        (self.p1.start_observing(), self.p2.start_observing())
-    }
-
-    #[no_coverage]
-    fn observe(&mut self, observation: &Self::Observation, input_complexity: f64, state: &mut Self::ObservationState) {
-        self.p1.observe(observation, input_complexity, &mut state.0);
-        self.p2.observe(observation, input_complexity, &mut state.1);
-    }
-
-    #[no_coverage]
-    fn finish_observing(&mut self, state: &mut Self::ObservationState, input_complexity: f64) {
-        self.p1.finish_observing(&mut state.0, input_complexity);
-        self.p2.finish_observing(&mut state.1, input_complexity);
-    }
-    #[no_coverage]
-    fn add_if_interesting(
-        &mut self,
-        input_id: PoolStorageIndex,
-        complexity: f64,
-        observation_state: Self::ObservationState,
-    ) -> Vec<CorpusDelta> {
-        let (o1, o2) = observation_state;
-        let mut deltas = vec![];
-        deltas.extend(self.p1.add_if_interesting(input_id, complexity, o1));
-        deltas.extend(self.p2.add_if_interesting(input_id, complexity, o2));
+    fn process(&mut self, input_id: PoolStorageIndex, observations: O, complexity: f64) -> Vec<CorpusDelta> {
+        let AndPool { p1, p2, .. } = self;
+        let mut deltas = p1.process(input_id, observations.clone(), complexity);
+        deltas.extend(p2.process(input_id, observations, complexity));
         deltas
     }
 }
+
+// impl<P1, P2> CompatibleWithIteratorSensor for AndPool<P1, P2>
+// where
+//     P1: CompatibleWithIteratorSensor,
+//     P2: CompatibleWithIteratorSensor<Observation = P1::Observation>,
+// {
+//     type Observation = P1::Observation;
+//     type ObservationState = (P1::ObservationState, P2::ObservationState);
+
+//     #[no_coverage]
+//     fn start_observing(&mut self) -> Self::ObservationState {
+//         (self.p1.start_observing(), self.p2.start_observing())
+//     }
+
+//     #[inline]
+//     #[no_coverage]
+//     fn observe(&mut self, observation: &Self::Observation, input_complexity: f64, state: &mut Self::ObservationState) {
+//         self.p1.observe(observation, input_complexity, &mut state.0);
+//         self.p2.observe(observation, input_complexity, &mut state.1);
+//     }
+
+//     #[no_coverage]
+//     fn add_if_interesting(
+//         &mut self,
+//         input_id: PoolStorageIndex,
+//         complexity: f64,
+//         observation_state: Self::ObservationState,
+//         observations: &[Self::Observation],
+//     ) -> Vec<CorpusDelta> {
+//         let (o1, o2) = observation_state;
+//         let mut deltas = vec![];
+//         deltas.extend(self.p1.add_if_interesting(input_id, complexity, o1, observations));
+//         deltas.extend(self.p2.add_if_interesting(input_id, complexity, o2, observations));
+//         deltas
+//     }
+// }
 impl<S1, S2> ToCSV for AndPoolStats<S1, S2>
 where
     S1: Display,

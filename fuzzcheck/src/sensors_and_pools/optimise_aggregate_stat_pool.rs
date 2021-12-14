@@ -1,5 +1,5 @@
-use super::compatible_with_iterator_sensor::CompatibleWithIteratorSensor;
 use crate::traits::Stats;
+use crate::CompatibleWithObservations;
 use crate::{
     fuzzer::PoolStorageIndex,
     traits::{CorpusDelta, Pool, SaveToStatsFolder},
@@ -16,7 +16,7 @@ pub struct NumberOfActivatedCounters;
 struct Unit;
 
 struct Input {
-    input_idx: PoolStorageIndex,
+    input_id: PoolStorageIndex,
     complexity: f64,
 }
 
@@ -88,7 +88,7 @@ impl<Strategy> Pool for OptimiseAggregateStatPool<Strategy> {
     #[no_coverage]
     fn get_random_index(&mut self) -> Option<PoolStorageIndex> {
         if let Some(best) = &self.current_best {
-            Some(best.1.input_idx)
+            Some(best.1.input_id)
         } else {
             None
         }
@@ -101,100 +101,49 @@ impl<T> SaveToStatsFolder for OptimiseAggregateStatPool<T> {
     }
 }
 
-impl CompatibleWithIteratorSensor for OptimiseAggregateStatPool<SumOfCounterValues> {
-    type Observation = (usize, u64);
-    type ObservationState = u64;
-
-    #[no_coverage]
-    fn start_observing(&mut self) -> Self::ObservationState {
-        <_>::default()
-    }
-
-    #[no_coverage]
-    fn observe(&mut self, observation: &Self::Observation, _input_complexity: f64, state: &mut Self::ObservationState) {
-        *state += observation.1;
-    }
-    #[no_coverage]
-    fn finish_observing(&mut self, _state: &mut Self::ObservationState, _input_complexity: f64) {}
-
-    #[no_coverage]
-    fn add_if_interesting(
-        &mut self,
-        input_idx: PoolStorageIndex,
-        complexity: f64,
-        observation_state: Self::ObservationState,
-    ) -> Vec<CorpusDelta> {
+impl<M> OptimiseAggregateStatPool<M> {
+    fn add_if_value_is_maximal(&mut self, value: u64, complexity: f64, input_id: PoolStorageIndex) -> Vec<CorpusDelta> {
         let is_interesting = if let Some((counter, cur_input)) = &self.current_best {
-            observation_state > *counter || (observation_state == *counter && cur_input.complexity > complexity)
+            value > *counter || (value == *counter && cur_input.complexity > complexity)
         } else {
             true
         };
         if !is_interesting {
             return vec![];
         }
-
         let delta = CorpusDelta {
             path: PathBuf::new().join(&self.name),
             add: true,
             remove: if let Some(best) = &self.current_best {
-                vec![best.1.input_idx]
+                vec![best.1.input_id]
             } else {
                 vec![]
             },
         };
-        let new = Input { input_idx, complexity };
-        self.current_best = Some((observation_state, new));
+        let new = Input { input_id, complexity };
+        self.current_best = Some((value, new));
         vec![delta]
     }
 }
 
-impl CompatibleWithIteratorSensor for OptimiseAggregateStatPool<NumberOfActivatedCounters> {
-    type Observation = (usize, u64);
-    type ObservationState = u64;
-
-    #[no_coverage]
-    fn start_observing(&mut self) -> Self::ObservationState {
-        <_>::default()
-    }
-
-    #[no_coverage]
-    fn observe(
-        &mut self,
-        _observation: &Self::Observation,
-        _input_complexity: f64,
-        state: &mut Self::ObservationState,
-    ) {
-        *state += 1;
-    }
-    #[no_coverage]
-    fn finish_observing(&mut self, _state: &mut Self::ObservationState, _input_complexity: f64) {}
-
-    #[no_coverage]
-    fn add_if_interesting(
-        &mut self,
-        input_idx: PoolStorageIndex,
-        complexity: f64,
-        observation_state: Self::ObservationState,
-    ) -> Vec<CorpusDelta> {
-        let is_interesting = if let Some((counter, cur_input)) = &self.current_best {
-            observation_state > *counter || (observation_state == *counter && cur_input.complexity > complexity)
-        } else {
-            true
-        };
-        if !is_interesting {
-            return vec![];
+impl<I> CompatibleWithObservations<I> for OptimiseAggregateStatPool<SumOfCounterValues>
+where
+    I: IntoIterator<Item = (usize, u64)>,
+{
+    fn process(&mut self, input_id: PoolStorageIndex, observations: I, complexity: f64) -> Vec<CorpusDelta> {
+        let mut sum_counters = 0;
+        for (_, counter) in observations.into_iter() {
+            sum_counters += counter;
         }
-        let delta = CorpusDelta {
-            path: PathBuf::new().join(&self.name),
-            add: true,
-            remove: if let Some(best) = &self.current_best {
-                vec![best.1.input_idx]
-            } else {
-                vec![]
-            },
-        };
-        let new = Input { input_idx, complexity };
-        self.current_best = Some((observation_state, new));
-        vec![delta]
+        self.add_if_value_is_maximal(sum_counters, complexity, input_id)
+    }
+}
+impl<I> CompatibleWithObservations<I> for OptimiseAggregateStatPool<NumberOfActivatedCounters>
+where
+    I: IntoIterator<Item = (usize, u64)>,
+{
+    fn process(&mut self, input_id: PoolStorageIndex, observations: I, complexity: f64) -> Vec<CorpusDelta> {
+        let nbr_activated_counters = observations.into_iter().count();
+        self.add_if_value_is_maximal(nbr_activated_counters as u64, complexity, input_id)
     }
 }

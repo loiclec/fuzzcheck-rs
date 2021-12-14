@@ -1,5 +1,5 @@
 use crate::fuzzer::PoolStorageIndex;
-use crate::traits::{CompatibleWithSensor, CorpusDelta, Pool, SaveToStatsFolder, Sensor, Stats};
+use crate::traits::{CompatibleWithObservations, CorpusDelta, Pool, SaveToStatsFolder, Sensor, Stats};
 use crate::{CSVField, ToCSV};
 use nu_ansi_term::Color;
 use std::fmt::Display;
@@ -26,7 +26,7 @@ pub struct TestFailureSensor {
     error: Option<TestFailure>,
 }
 impl Sensor for TestFailureSensor {
-    type ObservationHandler<'a> = &'a mut Option<TestFailure>;
+    type Observations<'a> = Option<TestFailure>;
 
     #[no_coverage]
     fn start_recording(&mut self) {
@@ -44,8 +44,8 @@ impl Sensor for TestFailureSensor {
     }
 
     #[no_coverage]
-    fn iterate_over_observations(&mut self, handler: Self::ObservationHandler<'_>) {
-        *handler = std::mem::take(&mut self.error);
+    fn get_observations(&mut self) -> Option<TestFailure> {
+        std::mem::take(&mut self.error)
     }
 }
 impl SaveToStatsFolder for TestFailureSensor {
@@ -146,16 +146,15 @@ impl SaveToStatsFolder for TestFailurePool {
     }
 }
 
-impl CompatibleWithSensor<TestFailureSensor> for TestFailurePool {
+impl CompatibleWithObservations<Option<TestFailure>> for TestFailurePool {
     #[no_coverage]
     fn process(
         &mut self,
         input_idx: PoolStorageIndex,
-        sensor: &mut TestFailureSensor,
+        observations: Option<TestFailure>,
         complexity: f64,
     ) -> Vec<CorpusDelta> {
-        let mut error = None;
-        sensor.iterate_over_observations(&mut error);
+        let error = observations;
 
         enum PositionOfNewInput {
             NewError,

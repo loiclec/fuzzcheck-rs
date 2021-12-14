@@ -53,19 +53,19 @@ let _ = fuzzcheck::fuzz_test(test_function)
 # }
 ```
 
-To build a custom sensor and pool, you may want to look at the [`Sensor`], [`Pool`], and [`CompatibleWithSensor`] traits.
+To build a custom sensor and pool, you may want to look at the [`Sensor`], [`Pool`], and [`CompatibleWithObservations`] traits.
 You can also look at the types provided in the [`sensors_and_pools`](crate::sensors_and_pools) module. But the easiest way to customize them
 is to use the [`CodeCoverageSensorAndPoolBuilder`], although it only offers a couple limited options.
 */
 
 use crate::code_coverage_sensor::CodeCoverageSensor;
 use crate::fuzzer::{Fuzzer, FuzzingResult};
-use crate::sensors_and_pools::AndPool;
 use crate::sensors_and_pools::MaximiseCounterValuePool;
 use crate::sensors_and_pools::MostNDiversePool;
 use crate::sensors_and_pools::SimplestToActivateCounterPool;
+use crate::sensors_and_pools::{AndPool, SameSensor};
 use crate::sensors_and_pools::{NumberOfActivatedCounters, OptimiseAggregateStatPool, SumOfCounterValues};
-use crate::traits::{CompatibleWithSensor, Mutator, Pool, Sensor, Serializer};
+use crate::traits::{CompatibleWithObservations, Mutator, Sensor, Serializer};
 use crate::{split_string_by_whitespace, DefaultMutator};
 
 #[cfg(feature = "serde_json_serializer")]
@@ -78,6 +78,8 @@ use std::marker::PhantomData;
 use std::path::Path;
 use std::result::Result;
 use std::time::Duration;
+
+type CodeCoverageObservations<'a> = std::iter::Copied<std::slice::Iter<'a, (usize, u64)>>;
 
 /** A function that can be fuzz-tested.
 
@@ -202,7 +204,7 @@ where
     V: Clone,
     M: Mutator<V>,
     Sens: Sensor,
-    P: Pool + CompatibleWithSensor<Sens>,
+    P: for<'a> CompatibleWithObservations<Sens::Observations<'a>>,
 {
     test_function: F,
     mutator: M,
@@ -231,7 +233,7 @@ where
     V: Clone,
     M: Mutator<V>,
     Sens: Sensor,
-    P: Pool + CompatibleWithSensor<Sens>,
+    P: for<'a> CompatibleWithObservations<Sens::Observations<'a>>,
 {
     test_function: F,
     mutator: M,
@@ -286,7 +288,7 @@ where
         <T::Owned as DefaultMutator>::Mutator,
         T::Owned,
         CodeCoverageSensor,
-        impl Pool + CompatibleWithSensor<CodeCoverageSensor>,
+        impl for<'a> CompatibleWithObservations<CodeCoverageObservations<'a>>,
     > {
         self.mutator(<T::Owned as DefaultMutator>::default_mutator())
             .serializer(SerdeSerializer::default())
@@ -434,7 +436,13 @@ where
     #[no_coverage]
     pub fn default_sensor_and_pool(
         self,
-    ) -> FuzzerBuilder4<F, M, V, CodeCoverageSensor, impl CompatibleWithSensor<CodeCoverageSensor>> {
+    ) -> FuzzerBuilder4<
+        F,
+        M,
+        V,
+        CodeCoverageSensor,
+        impl for<'a> CompatibleWithObservations<CodeCoverageObservations<'a>>,
+    > {
         let (sensor, pool) = default_sensor_and_pool().finish();
         FuzzerBuilder4 {
             test_function: self.test_function,
@@ -446,7 +454,7 @@ where
         }
     }
     #[no_coverage]
-    pub fn sensor_and_pool<Sens: Sensor, P: CompatibleWithSensor<Sens>>(
+    pub fn sensor_and_pool<Sens: Sensor, P: for<'a> CompatibleWithObservations<Sens::Observations<'a>>>(
         self,
         sensor: Sens,
         pool: P,
@@ -468,7 +476,7 @@ where
     V: Clone,
     M: Mutator<V>,
     Sens: Sensor,
-    P: Pool + CompatibleWithSensor<Sens>,
+    P: for<'a> CompatibleWithObservations<Sens::Observations<'a>>,
 {
     #[no_coverage]
     pub fn arguments(self, arguments: Arguments) -> FuzzerBuilder5<F, M, V, Sens, P> {
@@ -550,7 +558,7 @@ where
     V: Clone,
     M: Mutator<V>,
     Sens: Sensor + 'static,
-    P: Pool + CompatibleWithSensor<Sens> + 'static,
+    P: for<'a> CompatibleWithObservations<Sens::Observations<'a>> + 'static,
     Fuzzer<V, M>: 'static,
 {
     #[no_coverage]
@@ -639,16 +647,17 @@ where
 /// An alias for the basic pool chosen to handle the [`CodeCoverageSensor`]'s observations
 pub type BasicPool = SimplestToActivateCounterPool;
 /// An alias for the type of the pool which tries to find a fixed-length set of test cases which, together, activate the most counters.
-pub type DiversePool = AndPool<MostNDiversePool, OptimiseAggregateStatPool<NumberOfActivatedCounters>>;
+pub type DiversePool = AndPool<MostNDiversePool, OptimiseAggregateStatPool<NumberOfActivatedCounters>, SameSensor>;
 /// An alias for the type of the pool which tries to find test cases repeatedly hitting the same counters.
-pub type MaxHitsPool = AndPool<MaximiseCounterValuePool, OptimiseAggregateStatPool<SumOfCounterValues>>;
+pub type MaxHitsPool = AndPool<MaximiseCounterValuePool, OptimiseAggregateStatPool<SumOfCounterValues>, SameSensor>;
 
 /// An alias for the combination of the [`BasicPool`] and the [`DiversePool`]
-pub type BasicAndDiversePool = AndPool<SimplestToActivateCounterPool, DiversePool>;
+pub type BasicAndDiversePool = AndPool<SimplestToActivateCounterPool, DiversePool, SameSensor>;
 /// An alias for the combination of the [`BasicPool`] and the [`MaxHitsPool`]
-pub type BasicAndMaxHitsPool = AndPool<SimplestToActivateCounterPool, MaxHitsPool>;
+pub type BasicAndMaxHitsPool = AndPool<SimplestToActivateCounterPool, MaxHitsPool, SameSensor>;
 /// An alias for the combination of the [`BasicPool`], the [`DiversePool`], and the [`MaxHitsPool`]
-pub type BasicAndDiverseAndMaxHitsPool = AndPool<SimplestToActivateCounterPool, AndPool<DiversePool, MaxHitsPool>>;
+pub type BasicAndDiverseAndMaxHitsPool =
+    AndPool<SimplestToActivateCounterPool, AndPool<DiversePool, MaxHitsPool, SameSensor>, SameSensor>;
 
 #[no_coverage]
 pub fn max_cov_hits_sensor_and_pool() -> CodeCoverageSensorAndPoolBuilder<MaxHitsPool> {
@@ -703,7 +712,7 @@ pub fn default_sensor_and_pool() -> CodeCoverageSensorAndPoolBuilder<BasicAndDiv
 /// ```
 pub struct CodeCoverageSensorAndPoolBuilder<P>
 where
-    P: CompatibleWithSensor<CodeCoverageSensor>,
+    P: for<'a> CompatibleWithObservations<CodeCoverageObservations<'a>>,
 {
     sensor: CodeCoverageSensor,
     pool: P,
@@ -711,11 +720,11 @@ where
 
 impl<P> CodeCoverageSensorAndPoolBuilder<P>
 where
-    P: CompatibleWithSensor<CodeCoverageSensor>,
+    P: for<'a> CompatibleWithObservations<CodeCoverageObservations<'a>>,
 {
     /// Obtain the sensor and pool from the builder
     #[no_coverage]
-    pub fn finish(self) -> (CodeCoverageSensor, impl CompatibleWithSensor<CodeCoverageSensor>) {
+    pub fn finish(self) -> (CodeCoverageSensor, P) {
         (self.sensor, self.pool)
     }
 }

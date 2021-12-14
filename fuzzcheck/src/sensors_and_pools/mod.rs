@@ -3,30 +3,31 @@ Types implementing the [Sensor](crate::Sensor) and [Pool](crate::Pool) traits.
 */
 
 mod and_sensor_and_pool;
-mod array_of_counters;
-mod compatible_with_iterator_sensor;
+pub mod map_sensor;
+// mod array_of_counters;
+// mod compatible_with_iterator_sensor;
 mod maximise_counter_value_pool;
-mod merged_sensors;
+// mod merged_sensors;
 mod most_n_diverse_pool;
 mod noop_sensor;
 mod optimise_aggregate_stat_pool;
 mod simplest_to_activate_counter_pool;
 mod test_failure_pool;
-mod unique_values_pool;
+// mod unique_values_pool;
 mod unit_pool;
 
 #[doc(inline)]
 pub use crate::code_coverage_sensor::CodeCoverageSensor;
 #[doc(inline)]
-pub use and_sensor_and_pool::{AndPool, AndSensor, AndSensorAndPool};
-#[doc(inline)]
-pub use array_of_counters::ArrayOfCounters;
-#[doc(inline)]
-pub use compatible_with_iterator_sensor::CompatibleWithIteratorSensor;
+pub use and_sensor_and_pool::{AndPool, AndSensor, AndSensorAndPool, DifferentSensors, SameSensor};
+// #[doc(inline)]
+// pub use array_of_counters::ArrayOfCounters;
+// #[doc(inline)]
+// pub use compatible_with_iterator_sensor::CompatibleWithIteratorSensor;
 #[doc(inline)]
 pub use maximise_counter_value_pool::MaximiseCounterValuePool;
-#[doc(inline)]
-pub use merged_sensors::MergedSensors;
+// #[doc(inline)]
+// pub use merged_sensors::MergedSensors;
 #[doc(inline)]
 pub use most_n_diverse_pool::MostNDiversePool;
 #[doc(inline)]
@@ -45,8 +46,8 @@ pub use test_failure_pool::TestFailure;
 pub use test_failure_pool::TestFailurePool;
 #[doc(inline)]
 pub use test_failure_pool::TestFailureSensor;
-#[doc(inline)]
-pub use unique_values_pool::UniqueValuesPool;
+// #[doc(inline)]
+// pub use unique_values_pool::UniqueValuesPool;
 #[doc(inline)]
 pub use unit_pool::UnitPool;
 
@@ -68,8 +69,8 @@ pub mod stats {
     pub use super::simplest_to_activate_counter_pool::UniqueCoveragePoolStats;
     #[doc(inline)]
     pub use super::test_failure_pool::TestFailurePoolStats;
-    #[doc(inline)]
-    pub use super::unique_values_pool::UniqueValuesPoolStats;
+    // #[doc(inline)]
+    // pub use super::unique_values_pool::UniqueValuesPoolStats;
 
     /// An empty type that can be used for [`Pool::Stats`](crate::Pool::Stats)
     #[derive(Clone, Copy)]

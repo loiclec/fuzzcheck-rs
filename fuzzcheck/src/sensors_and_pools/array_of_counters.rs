@@ -55,7 +55,7 @@ impl<const N: usize> ArrayOfCounters<N> {
 }
 
 impl<const N: usize> Sensor for ArrayOfCounters<N> {
-    type ObservationHandler<'a> = &'a mut dyn FnMut((usize, u64));
+    type Observations<'a> = &'a [u64];
 
     #[no_coverage]
     fn start_recording(&mut self) {
@@ -71,15 +71,18 @@ impl<const N: usize> Sensor for ArrayOfCounters<N> {
     fn stop_recording(&mut self) {}
 
     #[no_coverage]
-    fn iterate_over_observations(&mut self, handler: Self::ObservationHandler<'_>) {
-        unsafe {
-            let slice = std::slice::from_raw_parts(self.start, N);
-            for (i, &x) in slice.iter().enumerate() {
-                if x != 0 {
-                    handler((self.offset + i, x))
-                }
-            }
-        }
+    fn get_observations(&mut self) -> Self::Observations<'_> {
+        unsafe { std::slice::from_raw_parts(self.start, N) }
+            .into_iter()
+            .copied()
+        // unsafe {
+        //     let slice = std::slice::from_raw_parts(self.start, N);
+        //     for (i, &x) in slice.iter().enumerate() {
+        //         if x != 0 {
+        //             handler((self.offset + i, x))
+        //         }
+        //     }
+        // }
     }
 }
 impl<const N: usize> SaveToStatsFolder for ArrayOfCounters<N> {

@@ -33,7 +33,7 @@ use std::ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign, BitXor, BitXorAssign};
 const BITS: usize = 64;
 type Block = u64;
 
-#[inline]
+#[inline(always)]
 #[no_coverage]
 fn div_rem(x: usize, d: usize) -> (usize, usize) {
     (x / d, x % d)
@@ -126,7 +126,7 @@ impl FixedBitSet {
     /// Enable `bit`.
     ///
     /// **Panics** if **bit** is out of bounds.
-    #[inline]
+    #[inline(always)]
     #[no_coverage]
     pub fn insert(&mut self, bit: usize) {
         assert!(

@@ -4,8 +4,8 @@ use std::{
     path::PathBuf,
 };
 
-use crate::traits::Stats;
 use crate::{bitset::FixedBitSet, traits::SaveToStatsFolder};
+use crate::{traits::Stats, CompatibleWithObservations};
 
 use crate::{
     fenwick_tree::FenwickTree,
@@ -14,7 +14,7 @@ use crate::{
     CSVField, ToCSV,
 };
 
-use super::compatible_with_iterator_sensor::CompatibleWithIteratorSensor;
+// use super::compatible_with_iterator_sensor::CompatibleWithIteratorSensor;
 
 #[derive(Clone)]
 struct Input {
@@ -132,49 +132,28 @@ impl MostNDiversePool {
     }
 }
 
-impl CompatibleWithIteratorSensor for MostNDiversePool {
-    type Observation = (usize, u64);
-    type ObservationState = ObservationState;
-
-    #[no_coverage]
-    fn start_observing(&mut self) -> Self::ObservationState {
-        ObservationState {
+impl<I> CompatibleWithObservations<I> for MostNDiversePool
+where
+    I: IntoIterator<Item = (usize, u64)>,
+{
+    fn process(&mut self, input_id: PoolStorageIndex, observations: I, complexity: f64) -> Vec<CorpusDelta> {
+        let mut state = ObservationState {
             counters: FixedBitSet::with_capacity(self.nbr_counters + 1),
             nbr_new_counters: 0,
-        }
-    }
+        };
 
-    #[no_coverage]
-    fn observe(&mut self, observation: &Self::Observation, _input_complexity: f64, state: &mut Self::ObservationState) {
-        let ObservationState {
-            counters,
-            nbr_new_counters: _,
-        } = state;
-        let (idx, _) = observation;
-        counters.insert(*idx);
-    }
-    #[no_coverage]
-    fn finish_observing(&mut self, state: &mut Self::ObservationState, _input_complexity: f64) {
-        let ObservationState {
-            counters,
-            nbr_new_counters,
-        } = state;
-        self.cache.clone_from(counters);
+        for (index, _counter) in observations.into_iter() {
+            state.counters.insert(index);
+        }
+
+        self.cache.clone_from(&state.counters);
         // let mut unique_counters = counters.clone();
         self.cache.difference_with(&self.all_counters);
 
-        *nbr_new_counters = self.cache.count_ones();
+        state.nbr_new_counters = self.cache.count_ones();
         self.cache.clear();
-    }
 
-    #[no_coverage]
-    fn add_if_interesting(
-        &mut self,
-        data: PoolStorageIndex,
-        input_complexity: f64,
-        state: Self::ObservationState,
-    ) -> Vec<CorpusDelta> {
-        if !self.is_interesting(&state, input_complexity) {
+        if !self.is_interesting(&state, complexity) {
             return vec![];
         }
         let ObservationState {
@@ -192,8 +171,8 @@ impl CompatibleWithIteratorSensor for MostNDiversePool {
             nbr_unique_counters: nbr_new_counters,
             unique_counters,
             counters: counters.clone(),
-            pool_idx: data,
-            cplx: input_complexity,
+            pool_idx: input_id,
+            cplx: complexity,
         };
 
         if self.inputs.len() < self.max_len && nbr_new_counters > 0 {
@@ -211,7 +190,7 @@ impl CompatibleWithIteratorSensor for MostNDiversePool {
             |idx| &mut self.inputs[idx],
         ) {
             if (nbr_new_counters > worst_input.nbr_unique_counters)
-                || (nbr_new_counters == worst_input.nbr_unique_counters && worst_input.cplx > input_complexity)
+                || (nbr_new_counters == worst_input.nbr_unique_counters && worst_input.cplx > complexity)
             {
                 let worst_input_data = worst_input.pool_idx;
                 *worst_input = new_input;
@@ -226,14 +205,14 @@ impl CompatibleWithIteratorSensor for MostNDiversePool {
 
         let mut common_unique_counters = FixedBitSet::with_capacity(counters.len());
         for input in &mut self.inputs {
-            if nbr_new_counters > 0 || input.cplx > input_complexity {
+            if nbr_new_counters > 0 || input.cplx > complexity {
                 common_unique_counters.clone_from(&counters);
                 common_unique_counters.intersect_with(&input.unique_counters);
                 let common_uniq_counters = common_unique_counters.count_ones();
                 let nbr_new_counters = common_uniq_counters + nbr_new_counters;
 
                 if (nbr_new_counters > input.nbr_unique_counters)
-                    || (nbr_new_counters == input.nbr_unique_counters && input.cplx > input_complexity)
+                    || (nbr_new_counters == input.nbr_unique_counters && input.cplx > complexity)
                 {
                     let input_data = input.pool_idx;
                     *input = new_input;
@@ -344,12 +323,9 @@ mod tests {
 
     #[no_coverage]
     fn run(pool: &mut MostNDiversePool, observations: Vec<usize>, cplx: f64) {
-        let mut obs_state = pool.start_observing();
-        for observation in &observations {
-            pool.observe(&(*observation, 1), cplx, &mut obs_state);
-        }
-        if pool.is_interesting(&obs_state, cplx) {
-            pool.add_if_interesting(PoolStorageIndex::mock(0), cplx, obs_state);
+        let corpus = pool.process(PoolStorageIndex::mock(0), observations.iter().map(|x| (*x, 1u64)), cplx);
+
+        if !corpus.is_empty() {
             println!(
                 "input_count: {} worst_idx: {:?}, all_counters: {}",
                 pool.inputs.len(),

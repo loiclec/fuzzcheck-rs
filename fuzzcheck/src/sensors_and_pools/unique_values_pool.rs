@@ -165,14 +165,12 @@ impl CompatibleWithIteratorSensor for UniqueValuesPool {
     }
 
     #[no_coverage]
-    fn finish_observing(&mut self, _state: &mut Self::ObservationState, _input_complexity: f64) {}
-
-    #[no_coverage]
     fn add_if_interesting(
         &mut self,
         data: PoolStorageIndex,
         complexity: f64,
         observation_state: Self::ObservationState,
+        reiterate_over_observations: &[Self::Observation],
     ) -> Vec<CorpusDelta> {
         if observation_state.is_empty() {
             return vec![];

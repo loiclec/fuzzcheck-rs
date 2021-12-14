@@ -25,12 +25,12 @@
 //! In short, an input’s final score is the sum of the score of each of its
 //! activated counters divided by their frequencies.
 //!
-use super::compatible_with_iterator_sensor::CompatibleWithIteratorSensor;
+
 use crate::data_structures::{Slab, SlabKey};
 use crate::fenwick_tree::FenwickTree;
 use crate::fuzzer::PoolStorageIndex;
 use crate::traits::{CorpusDelta, Pool, SaveToStatsFolder, Stats};
-use crate::{CSVField, ToCSV};
+use crate::{CSVField, CompatibleWithObservations, ToCSV};
 use ahash::{AHashMap, AHashSet};
 use fastrand::Rng;
 use nu_ansi_term::Color;
@@ -134,19 +134,6 @@ impl AnalysedCounter {
     }
 }
 
-/**
-    A subset of the data contained in a [AnalysedCounter] that can be used to quickly
-    iterate over the counters analysed by the pool.
-
-    It contains a single field, `least_complexity`, that is `None` is the counter has
-    never been activated before. Otherwise, it is `Some(cplx)` where `cplx` is the complexity
-    of the simplest input activating this counter.
-*/
-#[derive(Clone)]
-struct FastCounterRef {
-    least_complexity: Option<f64>,
-}
-
 /// A pool that tries to find a minimal test case activating each sensor counter.
 ///
 /// It is compatible with any sensor whose [observation handler](crate::Sensor::ObservationHandler)
@@ -155,7 +142,7 @@ struct FastCounterRef {
 pub struct SimplestToActivateCounterPool {
     pub name: String,
 
-    all_counters_ref: Vec<FastCounterRef>,
+    least_complexity_for_counter: Vec<f64>,
     analysed_counters: AHashMap<CounterIdx, AnalysedCounter>,
     slab_inputs: Slab<Input>,
 
@@ -164,9 +151,6 @@ pub struct SimplestToActivateCounterPool {
     pub ranked_inputs: FenwickTree,
 
     rng: Rng,
-
-    existing_counters: Vec<CounterIdx>,
-    new_counters: Vec<CounterIdx>,
 }
 
 impl SimplestToActivateCounterPool {
@@ -174,7 +158,7 @@ impl SimplestToActivateCounterPool {
     pub fn new(name: &str, nbr_counters: usize) -> Self {
         SimplestToActivateCounterPool {
             name: name.to_string(),
-            all_counters_ref: vec![FastCounterRef { least_complexity: None }; nbr_counters],
+            least_complexity_for_counter: vec![f64::INFINITY; nbr_counters],
             analysed_counters: AHashMap::with_hasher(ahash::RandomState::with_seeds(0, 0, 0, 0)),
 
             slab_inputs: Slab::new(),
@@ -184,9 +168,6 @@ impl SimplestToActivateCounterPool {
             ranked_inputs: FenwickTree::new(vec![]),
 
             rng: fastrand::Rng::new(),
-
-            existing_counters: vec![],
-            new_counters: vec![],
         }
     }
 
@@ -246,9 +227,7 @@ impl SimplestToActivateCounterPool {
 
             element.least_complex_for_counters.insert(*counter_key);
             counter.least_complex_input = element_key;
-            self.all_counters_ref[counter_key.0] = FastCounterRef {
-                least_complexity: Some(complexity),
-            };
+            self.least_complexity_for_counter[counter_key.0] = complexity;
             counter.least_complexity = complexity;
         }
 
@@ -263,10 +242,8 @@ impl SimplestToActivateCounterPool {
         // Now add in the new counters
         let element = &mut self.slab_inputs[element_key];
         for &f in new_counters.iter() {
-            let new_counter_for_iter = FastCounterRef {
-                least_complexity: Some(complexity),
-            };
-            self.all_counters_ref[f.0] = new_counter_for_iter;
+            let new_counter_for_iter = complexity;
+            self.least_complexity_for_counter[f.0] = new_counter_for_iter;
 
             let analyzed_f = AnalysedCounter::new(f, vec![element_key], element_key, complexity);
             self.analysed_counters.insert(f, analyzed_f);
@@ -286,7 +263,7 @@ impl SimplestToActivateCounterPool {
             )
             .collect::<Vec<_>>();
 
-        self.delete_elements(to_delete, &mut affected_counters, false);
+        self.delete_elements(to_delete, &mut affected_counters);
 
         // now track the counters whose scores are affected by the existing counters
         for counter_key in existing_counters.iter() {
@@ -329,12 +306,7 @@ impl SimplestToActivateCounterPool {
     }
 
     #[no_coverage]
-    fn delete_elements(
-        &mut self,
-        to_delete: AHashSet<SlabKey<Input>>,
-        affected_counters: &mut AHashSet<CounterIdx>,
-        may_remove_counter: bool,
-    ) {
+    fn delete_elements(&mut self, to_delete: AHashSet<SlabKey<Input>>, affected_counters: &mut AHashSet<CounterIdx>) {
         for &to_delete_key in &to_delete {
             let to_delete_el = &self.slab_inputs[to_delete_key];
 
@@ -354,22 +326,6 @@ impl SimplestToActivateCounterPool {
                     )
                     .unwrap();
                 analyzed_f.inputs.swap_remove(idx_to_delete_key);
-            }
-
-            if may_remove_counter {
-                // iter through all counters and, if they have no corresponding inputs, remove them from the pool
-                for &f_key in &to_delete_el.all_counters {
-                    let analyzed_f = &self.analysed_counters[&f_key];
-                    if !analyzed_f.inputs.is_empty() {
-                        continue;
-                    }
-                    // remove the counter from the list and the slab
-                    self.analysed_counters.remove(&f_key);
-                    self.all_counters_ref[f_key.0].least_complexity = None;
-
-                    // let analyzed_f = &self.slab_counters[&f_key];
-                    affected_counters.remove(&f_key);
-                }
             }
 
             self.slab_inputs.remove(to_delete_key);
@@ -510,7 +466,7 @@ impl Pool for SimplestToActivateCounterPool {
             score: self.score(),
             pool_size: self.slab_inputs.len(),
             avg_cplx: self.average_complexity,
-            coverage: (self.analysed_counters.len(), self.all_counters_ref.len()),
+            coverage: (self.analysed_counters.len(), self.least_complexity_for_counter.len()),
         }
     }
 
@@ -539,18 +495,18 @@ impl SaveToStatsFolder for SimplestToActivateCounterPool {
                 let path = PathBuf::new().join(format!("{}.json", &self.name));
 
                 let all_hit_counters = self
-                    .all_counters_ref
+                    .least_complexity_for_counter
                     .iter()
                     .enumerate()
-                    .filter(#[no_coverage] |(_, x)| x.least_complexity.is_some())
+                    .filter(#[no_coverage] |(_, x)| **x != f64::INFINITY)
                     .map(#[no_coverage] |(idx, _)| idx)
                     .collect::<Vec<_>>();
 
                 let best_for_counter = self
-                    .all_counters_ref
+                    .least_complexity_for_counter
                     .iter()
                     .enumerate()
-                    .filter(#[no_coverage] |(_, x)| x.least_complexity.is_some())
+                    .filter(#[no_coverage] |(_, x)| **x != f64::INFINITY)
                     .map(#[no_coverage] |(idx, _)| {
                         let f = &self.analysed_counters[&CounterIdx::new(idx)];
                         let key = f.least_complex_input;
@@ -665,7 +621,7 @@ impl Stats for UniqueCoveragePoolStats {}
 #[derive(Default)]
 pub struct UniqueCoveragePoolObservationState {
     is_interesting: bool,
-    analysis_result: AnalysisResult,
+    // analysis_result: AnalysisResult,
 }
 #[derive(Default)]
 struct AnalysisResult {
@@ -673,56 +629,33 @@ struct AnalysisResult {
     new_counters: Vec<CounterIdx>,
 }
 
-impl CompatibleWithIteratorSensor for SimplestToActivateCounterPool {
-    type Observation = (usize, u64);
-    type ObservationState = UniqueCoveragePoolObservationState;
+impl<I> CompatibleWithObservations<I> for SimplestToActivateCounterPool
+where
+    I: IntoIterator<Item = (usize, u64)> + Clone,
+{
+    fn process(&mut self, input_id: PoolStorageIndex, observations: I, complexity: f64) -> Vec<CorpusDelta> {
+        let mut state = UniqueCoveragePoolObservationState::default();
 
-    #[no_coverage]
-    fn start_observing(&mut self) -> Self::ObservationState {
-        <_>::default()
-    }
-
-    #[no_coverage]
-    fn observe(
-        &mut self,
-        &(index, _counter): &Self::Observation,
-        input_complexity: f64,
-        state: &mut Self::ObservationState,
-    ) {
-        let counter_idx = CounterIdx::new(index);
-        let FastCounterRef { least_complexity } = unsafe { self.all_counters_ref.get_unchecked(counter_idx.0) };
-        if let Some(prev_least_complexity) = least_complexity {
-            self.existing_counters.push(counter_idx);
-            if input_complexity < *prev_least_complexity {
-                state.is_interesting = true;
-            }
-        } else {
-            self.new_counters.push(counter_idx);
-            state.is_interesting = true;
+        for (index, _) in observations.clone().into_iter() {
+            let prev_least_complexity = *unsafe { self.least_complexity_for_counter.get_unchecked(index) };
+            state.is_interesting |= complexity < prev_least_complexity;
         }
-    }
-    #[no_coverage]
-    fn finish_observing(&mut self, state: &mut Self::ObservationState, _input_complexity: f64) {
-        if state.is_interesting {
-            state.analysis_result.new_counters = self.new_counters.clone();
-            state.analysis_result.existing_counters = self.existing_counters.clone();
-        }
-        self.new_counters.clear();
-        self.existing_counters.clear();
-    }
-
-    #[no_coverage]
-    fn add_if_interesting(
-        &mut self,
-        data: PoolStorageIndex,
-        complexity: f64,
-        observation_state: Self::ObservationState,
-    ) -> Vec<CorpusDelta> {
-        if !observation_state.is_interesting {
+        if !state.is_interesting {
             return vec![];
         }
-        let result = observation_state.analysis_result;
-        self.add(data, complexity, result)
+        let mut result = AnalysisResult::default();
+        for (index, _counter) in observations.into_iter() {
+            let counter_idx = CounterIdx::new(index);
+            let prev_least_complexity = *unsafe { self.least_complexity_for_counter.get_unchecked(counter_idx.0) };
+            if prev_least_complexity == f64::INFINITY {
+                result.new_counters.push(counter_idx);
+            } else {
+                result.existing_counters.push(counter_idx);
+            }
+        }
+
+        let result = result;
+        self.add(input_id, complexity, result)
             .map(
                 #[no_coverage]
                 |x| x.0,

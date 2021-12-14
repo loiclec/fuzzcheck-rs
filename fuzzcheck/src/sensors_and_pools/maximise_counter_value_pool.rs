@@ -1,9 +1,9 @@
 use crate::data_structures::{Slab, SlabKey};
 use crate::fenwick_tree::FenwickTree;
 use crate::fuzzer::PoolStorageIndex;
-use crate::sensors_and_pools::compatible_with_iterator_sensor::CompatibleWithIteratorSensor;
+// use crate::sensors_and_pools::compatible_with_iterator_sensor::CompatibleWithIteratorSensor;
 use crate::traits::{CorpusDelta, Pool, SaveToStatsFolder, Stats};
-use crate::{CSVField, ToCSV};
+use crate::{CSVField, CompatibleWithObservations, ToCSV};
 use ahash::AHashSet;
 use nu_ansi_term::Color;
 use std::fmt::{Debug, Display};
@@ -57,7 +57,7 @@ struct Input {
 
 /// A pool that tries to find test cases maximizing the value of each counter of a sensor.
 ///
-/// It is [compatible with](crate::CompatibleWithSensor) the following sensors:
+/// It is [compatible with](crate::CompatibleWithObservations) the following sensors:
 /// * [`CodeCoverageSensor`](crate::sensors_and_pools::CodeCoverageSensor)
 /// * [`ArrayOfCounters`](crate::sensors_and_pools::ArrayOfCounters)
 /// * any other sensor whose [observation handler](crate::Sensor::ObservationHandler) is a `&'a mut dyn FnMut((usize, u64))`
@@ -158,49 +158,28 @@ impl MaximiseCounterValuePool {
     }
 }
 
-impl CompatibleWithIteratorSensor for MaximiseCounterValuePool {
-    type Observation = (usize, u64);
-    type ObservationState = Vec<(usize, u64)>;
-
-    #[no_coverage]
-    fn start_observing(&mut self) -> Self::ObservationState {
-        <_>::default()
-    }
-
-    #[no_coverage]
-    fn observe(
-        &mut self,
-        &(index, counter): &Self::Observation,
-        input_complexity: f64,
-        state: &mut Self::ObservationState,
-    ) {
-        let pool_counter = self.highest_counts[index];
-        if pool_counter < counter {
-            state.push((index, counter));
-        } else if pool_counter == counter {
-            if let Some(candidate_key) = self.best_input_for_counter[index] {
-                if self.inputs[candidate_key].cplx > input_complexity {
-                    state.push((index, counter));
+impl<I> CompatibleWithObservations<I> for MaximiseCounterValuePool
+where
+    I: IntoIterator<Item = (usize, u64)>,
+{
+    fn process(&mut self, input_id: PoolStorageIndex, observations: I, complexity: f64) -> Vec<CorpusDelta> {
+        let mut state = vec![];
+        for (index, counter) in observations.into_iter() {
+            let pool_counter = self.highest_counts[index];
+            if pool_counter < counter {
+                state.push((index, counter));
+            } else if pool_counter == counter {
+                if let Some(candidate_key) = self.best_input_for_counter[index] {
+                    if self.inputs[candidate_key].cplx > complexity {
+                        state.push((index, counter));
+                    }
                 }
-            } else {
             }
         }
-    }
-
-    #[no_coverage]
-    fn finish_observing(&mut self, _state: &mut Self::ObservationState, _input_complexity: f64) {}
-
-    #[no_coverage]
-    fn add_if_interesting(
-        &mut self,
-        input_idx: PoolStorageIndex,
-        complexity: f64,
-        observation_state: Self::ObservationState,
-    ) -> Vec<CorpusDelta> {
-        if observation_state.is_empty() {
+        if state.is_empty() {
             return vec![];
         }
-        let highest_for_counters = observation_state;
+        let highest_for_counters = state;
         let cplx = complexity;
         let input = Input {
             best_for_counters: highest_for_counters
@@ -211,7 +190,7 @@ impl CompatibleWithIteratorSensor for MaximiseCounterValuePool {
                 )
                 .collect(),
             cplx,
-            idx: input_idx,
+            idx: input_id,
             score: highest_for_counters.len() as f64,
             number_times_chosen: 1,
         };
@@ -263,7 +242,8 @@ mod tests {
 
     use super::MaximiseCounterValuePool;
     use crate::fuzzer::PoolStorageIndex;
-    use crate::sensors_and_pools::compatible_with_iterator_sensor::CompatibleWithIteratorSensor;
+    // use crate::sensors_and_pools::compatible_with_iterator_sensor::CompatibleWithIteratorSensor;
+    use crate::traits::CompatibleWithObservations;
     use crate::traits::Pool;
 
     #[test]
@@ -275,7 +255,7 @@ mod tests {
 
         println!(
             "event: {:?}",
-            pool.add_if_interesting(PoolStorageIndex::mock(0), 1.21, vec![(1, 2)])
+            pool.process(PoolStorageIndex::mock(0), [(1, 2)].iter().copied(), 1.21)
         );
         println!("pool: {:?}", pool);
         let index = pool.get_random_index();
@@ -284,7 +264,7 @@ mod tests {
         // replace
         println!(
             "event: {:?}",
-            pool.add_if_interesting(PoolStorageIndex::mock(0), 1.11, vec![(1, 2)])
+            pool.process(PoolStorageIndex::mock(0), [(1, 2)].iter().copied(), 1.11)
         );
 
         println!("pool: {:?}", pool);
@@ -296,11 +276,11 @@ mod tests {
     fn test_basic_pool_2() {
         let mut pool = MaximiseCounterValuePool::new("b", 5);
 
-        let _ = pool.add_if_interesting(PoolStorageIndex::mock(0), 1.21, vec![(1, 4)]);
-        let _ = pool.add_if_interesting(PoolStorageIndex::mock(1), 2.21, vec![(2, 2)]);
+        let _ = pool.process(PoolStorageIndex::mock(0), [(1, 4)].iter().copied(), 1.21);
+        let _ = pool.process(PoolStorageIndex::mock(1), [(2, 2)].iter().copied(), 2.21);
         println!(
             "event: {:?}",
-            pool.add_if_interesting(PoolStorageIndex::mock(2), 3.21, vec![(3, 2)])
+            pool.process(PoolStorageIndex::mock(2), [(3, 2)].iter().copied(), 3.21)
         );
         println!("pool: {:?}", pool);
         let index = pool.get_random_index();
@@ -309,7 +289,7 @@ mod tests {
         // replace
         println!(
             "event: {:?}",
-            pool.add_if_interesting(PoolStorageIndex::mock(3), 1.11, vec![(2, 3), (3, 3)])
+            pool.process(PoolStorageIndex::mock(3), [(2, 3), (3, 3)].iter().copied(), 1.11)
         );
         println!("pool: {:?}", pool);
 
@@ -323,24 +303,10 @@ mod tests {
         // replace
         println!(
             "event: {:?}",
-            pool.add_if_interesting(PoolStorageIndex::mock(5), 4.41, vec![(0, 3), (3, 4), (4, 1)])
-        );
-        println!("pool: {:?}", pool);
-
-        let mut map = HashMap::new();
-        for _ in 0..10000 {
-            let index = pool.get_random_index().unwrap();
-            *map.entry(index).or_insert(0) += 1;
-        }
-        println!("{:?}", map);
-
-        // replace
-        println!(
-            "event: {:?}",
-            pool.add_if_interesting(
-                PoolStorageIndex::mock(6),
-                0.11,
-                vec![(0, 3), (3, 4), (4, 1), (1, 7), (2, 8)]
+            pool.process(
+                PoolStorageIndex::mock(5),
+                [(0, 3), (3, 4), (4, 1)].iter().copied(),
+                4.41
             )
         );
         println!("pool: {:?}", pool);
@@ -355,7 +321,25 @@ mod tests {
         // replace
         println!(
             "event: {:?}",
-            pool.add_if_interesting(PoolStorageIndex::mock(7), 1.51, vec![(0, 10)])
+            pool.process(
+                PoolStorageIndex::mock(6),
+                [(0, 3), (3, 4), (4, 1), (1, 7), (2, 8)].iter().copied(),
+                0.11,
+            )
+        );
+        println!("pool: {:?}", pool);
+
+        let mut map = HashMap::new();
+        for _ in 0..10000 {
+            let index = pool.get_random_index().unwrap();
+            *map.entry(index).or_insert(0) += 1;
+        }
+        println!("{:?}", map);
+
+        // replace
+        println!(
+            "event: {:?}",
+            pool.process(PoolStorageIndex::mock(7), [(0, 10)].iter().copied(), 1.51)
         );
         println!("pool: {:?}", pool);
 

@@ -22,7 +22,7 @@ pub trait CompatibleWithIteratorSensor: Pool {
 
     fn start_observing(&mut self) -> Self::ObservationState;
     fn observe(&mut self, observation: &Self::Observation, input_complexity: f64, state: &mut Self::ObservationState);
-    fn finish_observing(&mut self, state: &mut Self::ObservationState, input_complexity: f64);
+    // fn finish_observing(&mut self, state: &mut Self::ObservationState, input_complexity: f64);
     // fn is_interesting(&self, observation_state: &Self::ObservationState, input_complexity: f64) -> bool;
 
     fn add_if_interesting(
@@ -30,25 +30,23 @@ pub trait CompatibleWithIteratorSensor: Pool {
         data: PoolStorageIndex,
         complexity: f64,
         observation_state: Self::ObservationState,
+        observations: &[Self::Observation],
     ) -> Vec<CorpusDelta>;
 }
 
 impl<S, P> CompatibleWithSensor<S> for P
 where
-    S: for<'a> Sensor<ObservationHandler<'a> = &'a mut dyn FnMut(P::Observation)>,
+    S: for<'a> Sensor<Observations<'a> = &'a [P::Observation]>,
     P: CompatibleWithIteratorSensor,
 {
     #[no_coverage]
     fn process(&mut self, input_id: PoolStorageIndex, sensor: &mut S, complexity: f64) -> Vec<CorpusDelta> {
         let mut observation_state = self.start_observing();
-        sensor.iterate_over_observations(
-            &mut #[no_coverage]
-            |o| {
-                self.observe(&o, complexity, &mut observation_state);
-            },
-        );
-        self.finish_observing(&mut observation_state, complexity);
+        let observations = sensor.get_observations();
+        for o in observations {
+            self.observe(&o, complexity, &mut observation_state);
+        }
 
-        self.add_if_interesting(input_id, complexity, observation_state)
+        self.add_if_interesting(input_id, complexity, observation_state, observations)
     }
 }

@@ -10,14 +10,14 @@ use crate::traits::{SaveToStatsFolder, Sensor};
 pub struct NoopSensor;
 
 impl Sensor for NoopSensor {
-    type ObservationHandler<'a> = ();
+    type Observations<'a> = ();
     #[no_coverage]
     fn start_recording(&mut self) {}
     #[no_coverage]
     fn stop_recording(&mut self) {}
 
     #[no_coverage]
-    fn iterate_over_observations(&mut self, _handler: Self::ObservationHandler<'_>) {}
+    fn get_observations(&mut self) {}
 }
 impl SaveToStatsFolder for NoopSensor {
     #[no_coverage]

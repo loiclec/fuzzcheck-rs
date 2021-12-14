@@ -443,22 +443,18 @@ store the source location of a panic, measure the number of allocations made, et
 The observations made by a sensor are then assessed by a [Pool], which must be
 explicitly [compatible](CompatibleWithSensor) with the sensor.
 */
-pub trait Sensor: SaveToStatsFolder {
-    /**
-    A type that is used to retrieve the observations made by the sensor.
-
-    For example, if the sensor stores only one value of type `u8`, the
-    observation handler can be `&'a mut u8`. But if the observations are retrieved one-by-one, the observation handler may be `&'a mut dyn FnMut(T)`.
-    */
-    type ObservationHandler<'a>;
+pub trait Sensor: SaveToStatsFolder + 'static {
+    type Observations<'a>
+    where
+        Self: 'a;
 
     /// Signal to the sensor that it should prepare to record observations
     fn start_recording(&mut self);
     /// Signal to the sensor that it should stop recording observations
     fn stop_recording(&mut self);
 
-    /// Access the sensor's observations through the handler
-    fn iterate_over_observations(&mut self, handler: Self::ObservationHandler<'_>);
+    /// Access the sensor's observations
+    fn get_observations<'a>(&'a mut self) -> Self::Observations<'a>;
 }
 
 pub trait Stats: Display + ToCSV + 'static {}
@@ -499,7 +495,7 @@ where
 impl<S, P> SensorAndPool for (S, P)
 where
     S: Sensor,
-    P: CompatibleWithSensor<S>,
+    P: for<'a> CompatibleWithObservations<S::Observations<'a>>,
     S: SaveToStatsFolder,
     P: SaveToStatsFolder,
 {
@@ -517,7 +513,7 @@ where
     }
     #[no_coverage]
     fn process(&mut self, input_id: PoolStorageIndex, complexity: f64) -> Vec<CorpusDelta> {
-        self.1.process(input_id, &mut self.0, complexity)
+        self.1.process(input_id, self.0.get_observations(), complexity)
     }
     #[no_coverage]
     fn get_random_index(&mut self) -> Option<PoolStorageIndex> {
@@ -618,8 +614,8 @@ if they are. It communicates to the rest of the fuzzer what test cases were adde
 [CorpusDelta] type. This ensures that the right message can be printed to the terminal and that the corpus on the
 file system, which reflects the content of the pool, can be properly updated.
 */
-pub trait CompatibleWithSensor<S: Sensor>: Pool {
-    fn process(&mut self, input_id: PoolStorageIndex, sensor: &mut S, complexity: f64) -> Vec<CorpusDelta>;
+pub trait CompatibleWithObservations<Observations>: Pool {
+    fn process(&mut self, input_id: PoolStorageIndex, observations: Observations, complexity: f64) -> Vec<CorpusDelta>;
 }
 
 /// A trait for types that want to save their content to the `stats` folder which is created after a fuzzing run.
