@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use crate::traits::{SaveToStatsFolder, Sensor};
+use crate::traits::{Observations, SaveToStatsFolder, Sensor};
 
 /// A sensor that does nothing.
 ///
@@ -9,8 +9,14 @@ use crate::traits::{SaveToStatsFolder, Sensor};
 /// (test case minify) command is implemented.
 pub struct NoopSensor;
 
+pub enum NoObservations {}
+
+impl Observations for NoObservations {
+    type Concrete<'a> = ();
+}
+
 impl Sensor for NoopSensor {
-    type Observations<'a> = ();
+    type Observations = NoObservations;
     #[no_coverage]
     fn start_recording(&mut self) {}
     #[no_coverage]

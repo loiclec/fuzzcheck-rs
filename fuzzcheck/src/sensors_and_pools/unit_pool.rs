@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 use crate::fuzzer::PoolStorageIndex;
 use crate::sensors_and_pools::stats::EmptyStats;
-use crate::traits::{CorpusDelta, Pool, SaveToStatsFolder};
+use crate::traits::{CorpusDelta, Observations, Pool, SaveToStatsFolder};
 use crate::CompatibleWithObservations;
 
 /// A pool that stores only one given test case.
@@ -39,9 +39,17 @@ impl SaveToStatsFolder for UnitPool {
     }
 }
 
-impl<O> CompatibleWithObservations<O> for UnitPool {
+impl<O> CompatibleWithObservations<O> for UnitPool
+where
+    O: Observations,
+{
     #[no_coverage]
-    fn process(&mut self, _input_id: PoolStorageIndex, _observations: O, _complexity: f64) -> Vec<CorpusDelta> {
+    fn process<'a>(
+        &'a mut self,
+        _input_id: PoolStorageIndex,
+        _observations: O::Concrete<'a>,
+        _complexity: f64,
+    ) -> Vec<CorpusDelta> {
         vec![]
     }
 }

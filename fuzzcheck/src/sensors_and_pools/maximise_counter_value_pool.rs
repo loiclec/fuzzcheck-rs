@@ -1,8 +1,9 @@
+use crate::code_coverage_sensor::CopiedSliceIterObservations;
 use crate::data_structures::{Slab, SlabKey};
 use crate::fenwick_tree::FenwickTree;
 use crate::fuzzer::PoolStorageIndex;
 // use crate::sensors_and_pools::compatible_with_iterator_sensor::CompatibleWithIteratorSensor;
-use crate::traits::{CorpusDelta, Pool, SaveToStatsFolder, Stats};
+use crate::traits::{CorpusDelta, Observations, Pool, SaveToStatsFolder, Stats};
 use crate::{CSVField, CompatibleWithObservations, ToCSV};
 use ahash::AHashSet;
 use nu_ansi_term::Color;
@@ -60,7 +61,7 @@ struct Input {
 /// It is [compatible with](crate::CompatibleWithObservations) the following sensors:
 /// * [`CodeCoverageSensor`](crate::sensors_and_pools::CodeCoverageSensor)
 /// * [`ArrayOfCounters`](crate::sensors_and_pools::ArrayOfCounters)
-/// * any other sensor whose [observation handler](crate::Sensor::ObservationHandler) is a `&'a mut dyn FnMut((usize, u64))`
+/// * any other sensor whose [observations](crate::Sensor::Observations) are given by an iterator of `(usize, u64)`
 pub struct MaximiseCounterValuePool {
     name: String,
     complexities: Vec<f64>,
@@ -158,11 +159,13 @@ impl MaximiseCounterValuePool {
     }
 }
 
-impl<I> CompatibleWithObservations<I> for MaximiseCounterValuePool
-where
-    I: IntoIterator<Item = (usize, u64)>,
-{
-    fn process(&mut self, input_id: PoolStorageIndex, observations: I, complexity: f64) -> Vec<CorpusDelta> {
+impl CompatibleWithObservations<CopiedSliceIterObservations<(usize, u64)>> for MaximiseCounterValuePool {
+    fn process<'a>(
+        &'a mut self,
+        input_id: PoolStorageIndex,
+        observations: <CopiedSliceIterObservations<(usize, u64)> as Observations>::Concrete<'a>,
+        complexity: f64,
+    ) -> Vec<CorpusDelta> {
         let mut state = vec![];
         for (index, counter) in observations.into_iter() {
             let pool_counter = self.highest_counts[index];
@@ -242,6 +245,7 @@ mod tests {
 
     use super::MaximiseCounterValuePool;
     use crate::fuzzer::PoolStorageIndex;
+    // use crate::sensors_and_pools::IterObservations;
     // use crate::sensors_and_pools::compatible_with_iterator_sensor::CompatibleWithIteratorSensor;
     use crate::traits::CompatibleWithObservations;
     use crate::traits::Pool;

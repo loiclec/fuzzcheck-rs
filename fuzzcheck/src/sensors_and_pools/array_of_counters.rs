@@ -1,5 +1,5 @@
-use crate::traits::{SaveToStatsFolder, Sensor};
-use std::path::PathBuf;
+use crate::traits::{Observations, SaveToStatsFolder, Sensor};
+use std::{marker::PhantomData, path::PathBuf};
 
 /// A custom sensor consisting of an array of counters that can be manually set.
 ///
@@ -23,18 +23,19 @@ use std::path::PathBuf;
 ///     // ...
 /// }
 /// ```
-/// The [ObservationHandler](crate::Sensor::ObservationHandler) of this sensor has the same type as the one from
-/// the default [code coverage sensor](crate::sensors_and_pools::CodeCoverageSensor). Therefore, most [pools](crate::Pool)
-/// that are [compatible with](crate::CompatibleWithSensor) the code coverage sensor will also be compatible with
-/// the `ArrayOfCounters` sensor.
+/// The [Observations](crate::Sensor::Observations) of this sensor is an iterator over the values in the array.
+/// Note that most pools provided by fuzzcheck are compatible with iterators over values of type `(usize, u64)`
+/// where the first element of the tuple is strictly larger than its predecessors and the second element of the
+/// tuple is guaranteed to be greater than 0.
 ///
-/// You can also use a different pool such as the [`UniqueValuesPool`](crate::sensors_and_pools::UniqueValuesPool)
-pub struct ArrayOfCounters<const N: usize> {
-    start: *mut u64,
+/// Therefore, if you wish to use an `ArrayOfCounters` with these pools, you need to wrap it in a sensor that
+/// calls `enumerate()` on the observations and filter out its zero elements.
+pub struct ArrayOfCounters<T, const N: usize> {
+    start: *mut T,
 }
-impl<const N: usize> ArrayOfCounters<N> {
+impl<T, const N: usize> ArrayOfCounters<T, N> {
     #[no_coverage]
-    pub fn new(xs: &'static mut [u64; N]) -> Self {
+    pub fn new(xs: &'static mut [T; N]) -> Self {
         Self { start: xs.as_mut_ptr() }
     }
     #[no_coverage]
@@ -47,15 +48,27 @@ impl<const N: usize> ArrayOfCounters<N> {
     }
 }
 
-impl<const N: usize> Sensor for ArrayOfCounters<N> {
-    type Observations<'a> = std::iter::Copied<std::slice::Iter<'a, u64>>;
+#[derive(Clone, Copy)]
+pub struct SliceIterObservations<T> {
+    _phantom: PhantomData<T>,
+}
+
+impl<T: 'static> Observations for SliceIterObservations<T> {
+    type Concrete<'a> = std::slice::Iter<'a, T>;
+}
+
+impl<T, const N: usize> Sensor for ArrayOfCounters<T, N>
+where
+    T: 'static + Default,
+{
+    type Observations = SliceIterObservations<T>;
 
     #[no_coverage]
     fn start_recording(&mut self) {
         unsafe {
             let slice = std::slice::from_raw_parts_mut(self.start, N);
             for x in slice.iter_mut() {
-                *x = 0;
+                *x = T::default();
             }
         }
     }
@@ -64,13 +77,11 @@ impl<const N: usize> Sensor for ArrayOfCounters<N> {
     fn stop_recording(&mut self) {}
 
     #[no_coverage]
-    fn get_observations(&mut self) -> Self::Observations<'_> {
-        unsafe { std::slice::from_raw_parts(self.start, N) }
-            .into_iter()
-            .copied()
+    fn get_observations<'a>(&'a mut self) -> <Self::Observations as Observations>::Concrete<'a> {
+        unsafe { std::slice::from_raw_parts(self.start, N) }.iter()
     }
 }
-impl<const N: usize> SaveToStatsFolder for ArrayOfCounters<N> {
+impl<T, const N: usize> SaveToStatsFolder for ArrayOfCounters<T, N> {
     #[no_coverage]
     fn save_to_stats_folder(&self) -> Vec<(PathBuf, Vec<u8>)> {
         vec![]

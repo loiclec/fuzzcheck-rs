@@ -79,8 +79,6 @@ use std::path::Path;
 use std::result::Result;
 use std::time::Duration;
 
-type CodeCoverageObservations<'a> = std::iter::Copied<std::slice::Iter<'a, (usize, u64)>>;
-
 /** A function that can be fuzz-tested.
 
 Strictly speaking, fuzzcheck can only test functions of type `Fn(&T) -> bool`.
@@ -204,7 +202,7 @@ where
     V: Clone,
     M: Mutator<V>,
     Sens: Sensor,
-    P: for<'a> CompatibleWithObservations<Sens::Observations<'a>>,
+    P: CompatibleWithObservations<Sens::Observations>,
 {
     test_function: F,
     mutator: M,
@@ -233,7 +231,7 @@ where
     V: Clone,
     M: Mutator<V>,
     Sens: Sensor,
-    P: for<'a> CompatibleWithObservations<Sens::Observations<'a>>,
+    P: CompatibleWithObservations<Sens::Observations>,
 {
     test_function: F,
     mutator: M,
@@ -288,7 +286,7 @@ where
         <T::Owned as DefaultMutator>::Mutator,
         T::Owned,
         CodeCoverageSensor,
-        impl for<'a> CompatibleWithObservations<CodeCoverageObservations<'a>>,
+        impl CompatibleWithObservations<<CodeCoverageSensor as Sensor>::Observations>,
     > {
         self.mutator(<T::Owned as DefaultMutator>::default_mutator())
             .serializer(SerdeSerializer::default())
@@ -441,7 +439,7 @@ where
         M,
         V,
         CodeCoverageSensor,
-        impl for<'a> CompatibleWithObservations<CodeCoverageObservations<'a>>,
+        impl CompatibleWithObservations<<CodeCoverageSensor as Sensor>::Observations>,
     > {
         let (sensor, pool) = default_sensor_and_pool().finish();
         FuzzerBuilder4 {
@@ -454,7 +452,7 @@ where
         }
     }
     #[no_coverage]
-    pub fn sensor_and_pool<Sens: Sensor, P: for<'a> CompatibleWithObservations<Sens::Observations<'a>>>(
+    pub fn sensor_and_pool<Sens: Sensor, P: CompatibleWithObservations<Sens::Observations>>(
         self,
         sensor: Sens,
         pool: P,
@@ -476,7 +474,7 @@ where
     V: Clone,
     M: Mutator<V>,
     Sens: Sensor,
-    P: for<'a> CompatibleWithObservations<Sens::Observations<'a>>,
+    P: CompatibleWithObservations<Sens::Observations>,
 {
     #[no_coverage]
     pub fn arguments(self, arguments: Arguments) -> FuzzerBuilder5<F, M, V, Sens, P> {
@@ -558,7 +556,7 @@ where
     V: Clone,
     M: Mutator<V>,
     Sens: Sensor + 'static,
-    P: for<'a> CompatibleWithObservations<Sens::Observations<'a>> + 'static,
+    P: CompatibleWithObservations<Sens::Observations> + 'static,
     Fuzzer<V, M>: 'static,
 {
     #[no_coverage]
@@ -712,7 +710,7 @@ pub fn default_sensor_and_pool() -> CodeCoverageSensorAndPoolBuilder<BasicAndDiv
 /// ```
 pub struct CodeCoverageSensorAndPoolBuilder<P>
 where
-    P: for<'a> CompatibleWithObservations<CodeCoverageObservations<'a>>,
+    P: CompatibleWithObservations<<CodeCoverageSensor as Sensor>::Observations>,
 {
     sensor: CodeCoverageSensor,
     pool: P,
@@ -720,7 +718,7 @@ where
 
 impl<P> CodeCoverageSensorAndPoolBuilder<P>
 where
-    P: for<'a> CompatibleWithObservations<CodeCoverageObservations<'a>>,
+    P: CompatibleWithObservations<<CodeCoverageSensor as Sensor>::Observations>,
 {
     /// Obtain the sensor and pool from the builder
     #[no_coverage]

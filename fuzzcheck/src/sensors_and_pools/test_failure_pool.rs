@@ -1,5 +1,5 @@
 use crate::fuzzer::PoolStorageIndex;
-use crate::traits::{CompatibleWithObservations, CorpusDelta, Pool, SaveToStatsFolder, Sensor, Stats};
+use crate::traits::{CompatibleWithObservations, CorpusDelta, Observations, Pool, SaveToStatsFolder, Sensor, Stats};
 use crate::{CSVField, ToCSV};
 use nu_ansi_term::Color;
 use std::fmt::Display;
@@ -25,8 +25,15 @@ pub struct TestFailure {
 pub struct TestFailureSensor {
     error: Option<TestFailure>,
 }
+
+pub enum TestFailureObservations {}
+
+impl Observations for TestFailureObservations {
+    type Concrete<'a> = Option<TestFailure>;
+}
+
 impl Sensor for TestFailureSensor {
-    type Observations<'a> = Option<TestFailure>;
+    type Observations = TestFailureObservations;
 
     #[no_coverage]
     fn start_recording(&mut self) {
@@ -146,7 +153,7 @@ impl SaveToStatsFolder for TestFailurePool {
     }
 }
 
-impl CompatibleWithObservations<Option<TestFailure>> for TestFailurePool {
+impl CompatibleWithObservations<TestFailureObservations> for TestFailurePool {
     #[no_coverage]
     fn process(
         &mut self,

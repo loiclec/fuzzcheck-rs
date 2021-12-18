@@ -26,10 +26,11 @@
 //! activated counters divided by their frequencies.
 //!
 
+use crate::code_coverage_sensor::CopiedSliceIterObservations;
 use crate::data_structures::{Slab, SlabKey};
 use crate::fenwick_tree::FenwickTree;
 use crate::fuzzer::PoolStorageIndex;
-use crate::traits::{CorpusDelta, Pool, SaveToStatsFolder, Stats};
+use crate::traits::{CorpusDelta, Observations, Pool, SaveToStatsFolder, Stats};
 use crate::{CSVField, CompatibleWithObservations, ToCSV};
 use ahash::{AHashMap, AHashSet};
 use fastrand::Rng;
@@ -136,8 +137,8 @@ impl AnalysedCounter {
 
 /// A pool that tries to find a minimal test case activating each sensor counter.
 ///
-/// It is compatible with any sensor whose [observation handler](crate::Sensor::ObservationHandler)
-/// is `&'a mut dyn FnMut((usize, u64))`. In particular, it is recommended to use it
+/// It is compatible with any sensor whose [observations](crate::Sensor::Observations)
+/// are given by an iterator of `(usize, u64)`. In particular, it is recommended to use it
 /// with the [`CodeCoverageSensor`](crate::sensors_and_pools::CodeCoverageSensor).
 pub struct SimplestToActivateCounterPool {
     pub name: String,
@@ -629,11 +630,13 @@ struct AnalysisResult {
     new_counters: Vec<CounterIdx>,
 }
 
-impl<I> CompatibleWithObservations<I> for SimplestToActivateCounterPool
-where
-    I: IntoIterator<Item = (usize, u64)> + Clone,
-{
-    fn process(&mut self, input_id: PoolStorageIndex, observations: I, complexity: f64) -> Vec<CorpusDelta> {
+impl CompatibleWithObservations<CopiedSliceIterObservations<(usize, u64)>> for SimplestToActivateCounterPool {
+    fn process<'a>(
+        &'a mut self,
+        input_id: PoolStorageIndex,
+        observations: <CopiedSliceIterObservations<(usize, u64)> as Observations>::Concrete<'a>,
+        complexity: f64,
+    ) -> Vec<CorpusDelta> {
         let mut state = UniqueCoveragePoolObservationState::default();
 
         for (index, _) in observations.clone().into_iter() {

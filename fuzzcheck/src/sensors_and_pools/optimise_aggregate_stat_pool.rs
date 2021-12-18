@@ -1,4 +1,5 @@
-use crate::traits::Stats;
+use crate::code_coverage_sensor::CopiedSliceIterObservations;
+use crate::traits::{Observations, Stats};
 use crate::CompatibleWithObservations;
 use crate::{
     fuzzer::PoolStorageIndex,
@@ -26,8 +27,8 @@ struct Input {
 /// * [`SumOfCounterValues`] to maximise the total sum of all counters
 /// * [`NumberOfActivatedCounters`] to maximise the number of counters that are != 0
 ///
-/// Both strategies make the pool [compatible with](crate::CompatibleWithSensor) sensors whose
-/// [observation handler](crate::Sensor::ObservationHandler) is `&'a mut dyn FnMut((usize, u64))`,
+/// Both strategies make the pool [compatible with](crate::CompatibleWithSensor) sensors
+/// whose [observations](crate::Sensor::Observations) are given by an iterator of `(usize, u64)`
 /// such as [`CodeCoverageSensor`](crate::sensors_and_pools::CodeCoverageSensor) and
 /// [`ArrayOfCounters`](crate::sensors_and_pools::ArrayOfCounters).
 pub struct OptimiseAggregateStatPool<Strategy> {
@@ -126,11 +127,15 @@ impl<M> OptimiseAggregateStatPool<M> {
     }
 }
 
-impl<I> CompatibleWithObservations<I> for OptimiseAggregateStatPool<SumOfCounterValues>
-where
-    I: IntoIterator<Item = (usize, u64)>,
+impl CompatibleWithObservations<CopiedSliceIterObservations<(usize, u64)>>
+    for OptimiseAggregateStatPool<SumOfCounterValues>
 {
-    fn process(&mut self, input_id: PoolStorageIndex, observations: I, complexity: f64) -> Vec<CorpusDelta> {
+    fn process<'a>(
+        &'a mut self,
+        input_id: PoolStorageIndex,
+        observations: <CopiedSliceIterObservations<(usize, u64)> as Observations>::Concrete<'a>,
+        complexity: f64,
+    ) -> Vec<CorpusDelta> {
         let mut sum_counters = 0;
         for (_, counter) in observations.into_iter() {
             sum_counters += counter;
@@ -138,11 +143,15 @@ where
         self.add_if_value_is_maximal(sum_counters, complexity, input_id)
     }
 }
-impl<I> CompatibleWithObservations<I> for OptimiseAggregateStatPool<NumberOfActivatedCounters>
-where
-    I: IntoIterator<Item = (usize, u64)>,
+impl CompatibleWithObservations<CopiedSliceIterObservations<(usize, u64)>>
+    for OptimiseAggregateStatPool<NumberOfActivatedCounters>
 {
-    fn process(&mut self, input_id: PoolStorageIndex, observations: I, complexity: f64) -> Vec<CorpusDelta> {
+    fn process<'a>(
+        &'a mut self,
+        input_id: PoolStorageIndex,
+        observations: <CopiedSliceIterObservations<(usize, u64)> as Observations>::Concrete<'a>,
+        complexity: f64,
+    ) -> Vec<CorpusDelta> {
         let nbr_activated_counters = observations.into_iter().count();
         self.add_if_value_is_maximal(nbr_activated_counters as u64, complexity, input_id)
     }

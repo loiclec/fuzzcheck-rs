@@ -2,11 +2,10 @@
 Types implementing the [Sensor](crate::Sensor) and [Pool](crate::Pool) traits.
 */
 
+mod adapter_pool;
 mod and_sensor_and_pool;
 mod array_of_counters;
-pub mod map_sensor;
 mod maximise_counter_value_pool;
-// mod merged_sensors;
 mod most_n_diverse_pool;
 mod noop_sensor;
 mod optimise_aggregate_stat_pool;
@@ -16,17 +15,16 @@ mod unique_values_pool;
 mod unit_pool;
 
 #[doc(inline)]
+pub use array_of_counters::SliceIterObservations;
+
+#[doc(inline)]
 pub use crate::code_coverage_sensor::CodeCoverageSensor;
 #[doc(inline)]
 pub use and_sensor_and_pool::{AndPool, AndSensor, AndSensorAndPool, DifferentSensors, SameSensor};
 #[doc(inline)]
 pub use array_of_counters::ArrayOfCounters;
-// #[doc(inline)]
-// pub use compatible_with_iterator_sensor::CompatibleWithIteratorSensor;
 #[doc(inline)]
 pub use maximise_counter_value_pool::MaximiseCounterValuePool;
-// #[doc(inline)]
-// pub use merged_sensors::MergedSensors;
 #[doc(inline)]
 pub use most_n_diverse_pool::MostNDiversePool;
 #[doc(inline)]

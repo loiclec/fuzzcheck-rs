@@ -58,6 +58,8 @@ pub use crate::traits::CompatibleWithObservations;
 #[doc(inline)]
 pub use crate::traits::CorpusDelta;
 #[doc(inline)]
+pub use crate::traits::Observations;
+#[doc(inline)]
 pub use crate::traits::Pool;
 #[doc(inline)]
 pub use crate::traits::SaveToStatsFolder;

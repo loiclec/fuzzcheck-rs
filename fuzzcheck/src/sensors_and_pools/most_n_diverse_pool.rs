@@ -4,7 +4,11 @@ use std::{
     path::PathBuf,
 };
 
-use crate::{bitset::FixedBitSet, traits::SaveToStatsFolder};
+use crate::{
+    bitset::FixedBitSet,
+    code_coverage_sensor::CopiedSliceIterObservations,
+    traits::{Observations, SaveToStatsFolder},
+};
 use crate::{traits::Stats, CompatibleWithObservations};
 
 use crate::{
@@ -132,11 +136,13 @@ impl MostNDiversePool {
     }
 }
 
-impl<I> CompatibleWithObservations<I> for MostNDiversePool
-where
-    I: IntoIterator<Item = (usize, u64)>,
-{
-    fn process(&mut self, input_id: PoolStorageIndex, observations: I, complexity: f64) -> Vec<CorpusDelta> {
+impl CompatibleWithObservations<CopiedSliceIterObservations<(usize, u64)>> for MostNDiversePool {
+    fn process<'a>(
+        &'a mut self,
+        input_id: PoolStorageIndex,
+        observations: <CopiedSliceIterObservations<(usize, u64)> as Observations>::Concrete<'a>,
+        complexity: f64,
+    ) -> Vec<CorpusDelta> {
         let mut state = ObservationState {
             counters: FixedBitSet::with_capacity(self.nbr_counters + 1),
             nbr_new_counters: 0,
@@ -323,7 +329,8 @@ mod tests {
 
     #[no_coverage]
     fn run(pool: &mut MostNDiversePool, observations: Vec<usize>, cplx: f64) {
-        let corpus = pool.process(PoolStorageIndex::mock(0), observations.iter().map(|x| (*x, 1u64)), cplx);
+        let observations = observations.iter().map(|x| (*x, 1u64)).collect::<Vec<_>>();
+        let corpus = pool.process(PoolStorageIndex::mock(0), observations.iter().copied(), cplx);
 
         if !corpus.is_empty() {
             println!(

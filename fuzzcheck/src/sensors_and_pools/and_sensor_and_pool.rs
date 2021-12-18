@@ -22,7 +22,9 @@ use std::{fmt::Display, marker::PhantomData, path::PathBuf};
 
 use crate::{
     fuzzer::PoolStorageIndex,
-    traits::{CompatibleWithObservations, CorpusDelta, Pool, SaveToStatsFolder, Sensor, SensorAndPool, Stats},
+    traits::{
+        CompatibleWithObservations, CorpusDelta, Observations, Pool, SaveToStatsFolder, Sensor, SensorAndPool, Stats,
+    },
     CSVField, ToCSV,
 };
 
@@ -114,12 +116,28 @@ where
     S1: Sensor,
     S2: Sensor;
 
+pub struct Tuple2Observations<A, B>
+where
+    A: Observations,
+    B: Observations,
+{
+    _phantom: PhantomData<(A, B)>,
+}
+
+impl<A, B> Observations for Tuple2Observations<A, B>
+where
+    A: Observations,
+    B: Observations,
+{
+    type Concrete<'a> = (A::Concrete<'a>, B::Concrete<'a>);
+}
+
 impl<S1, S2> Sensor for AndSensor<S1, S2>
 where
     S1: Sensor,
     S2: Sensor,
 {
-    type Observations<'a> = (S1::Observations<'a>, S2::Observations<'a>);
+    type Observations = Tuple2Observations<S1::Observations, S2::Observations>;
 
     #[no_coverage]
     fn start_recording(&mut self) {
@@ -132,7 +150,7 @@ where
         self.1.stop_recording();
     }
     #[no_coverage]
-    fn get_observations(&mut self) -> Self::Observations<'_> {
+    fn get_observations<'a>(&'a mut self) -> <Self::Observations as Observations>::Concrete<'a> {
         (self.0.get_observations(), self.1.get_observations())
     }
 }
@@ -166,15 +184,22 @@ where
 {
 }
 
-impl<O1, O2, P1, P2> CompatibleWithObservations<(O1, O2)> for AndPool<P1, P2, DifferentSensors>
+impl<O1, O2, P1, P2> CompatibleWithObservations<Tuple2Observations<O1, O2>> for AndPool<P1, P2, DifferentSensors>
 where
+    O1: Observations,
+    O2: Observations,
     P1: Pool,
     P2: Pool,
     P1: CompatibleWithObservations<O1>,
     P2: CompatibleWithObservations<O2>,
 {
     #[no_coverage]
-    fn process(&mut self, input_id: PoolStorageIndex, observations: (O1, O2), complexity: f64) -> Vec<CorpusDelta> {
+    fn process<'a>(
+        &'a mut self,
+        input_id: PoolStorageIndex,
+        observations: (O1::Concrete<'a>, O2::Concrete<'a>),
+        complexity: f64,
+    ) -> Vec<CorpusDelta> {
         let AndPool { p1, p2, .. } = self;
         let mut deltas = p1.process(input_id, observations.0, complexity);
         deltas.extend(p2.process(input_id, observations.1, complexity));
@@ -184,12 +209,18 @@ where
 
 impl<P1, P2, O> CompatibleWithObservations<O> for AndPool<P1, P2, SameSensor>
 where
-    O: Clone,
+    O: Observations,
+    for<'a> O::Concrete<'a>: Clone,
     P1: CompatibleWithObservations<O>,
     P2: CompatibleWithObservations<O>,
 {
     #[no_coverage]
-    fn process(&mut self, input_id: PoolStorageIndex, observations: O, complexity: f64) -> Vec<CorpusDelta> {
+    fn process<'a>(
+        &'a mut self,
+        input_id: PoolStorageIndex,
+        observations: O::Concrete<'a>,
+        complexity: f64,
+    ) -> Vec<CorpusDelta> {
         let AndPool { p1, p2, .. } = self;
         let mut deltas = p1.process(input_id, observations.clone(), complexity);
         deltas.extend(p2.process(input_id, observations, complexity));

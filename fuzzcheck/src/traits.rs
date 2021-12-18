@@ -434,6 +434,10 @@ impl CorpusDelta {
     }
 }
 
+pub trait Observations {
+    type Concrete<'a>;
+}
+
 /**
 A [Sensor] records information when running the test function, which the
 fuzzer can use to determine the importance of a test case.
@@ -444,9 +448,7 @@ The observations made by a sensor are then assessed by a [Pool], which must be
 explicitly [compatible](CompatibleWithSensor) with the sensor.
 */
 pub trait Sensor: SaveToStatsFolder + 'static {
-    type Observations<'a>
-    where
-        Self: 'a;
+    type Observations: Observations;
 
     /// Signal to the sensor that it should prepare to record observations
     fn start_recording(&mut self);
@@ -454,7 +456,7 @@ pub trait Sensor: SaveToStatsFolder + 'static {
     fn stop_recording(&mut self);
 
     /// Access the sensor's observations
-    fn get_observations<'a>(&'a mut self) -> Self::Observations<'a>;
+    fn get_observations<'a>(&'a mut self) -> <Self::Observations as Observations>::Concrete<'a>;
 }
 
 pub trait Stats: Display + ToCSV + 'static {}
@@ -495,7 +497,7 @@ where
 impl<S, P> SensorAndPool for (S, P)
 where
     S: Sensor,
-    P: for<'a> CompatibleWithObservations<S::Observations<'a>>,
+    P: CompatibleWithObservations<S::Observations>,
     S: SaveToStatsFolder,
     P: SaveToStatsFolder,
 {
@@ -614,8 +616,16 @@ if they are. It communicates to the rest of the fuzzer what test cases were adde
 [CorpusDelta] type. This ensures that the right message can be printed to the terminal and that the corpus on the
 file system, which reflects the content of the pool, can be properly updated.
 */
-pub trait CompatibleWithObservations<Observations>: Pool {
-    fn process(&mut self, input_id: PoolStorageIndex, observations: Observations, complexity: f64) -> Vec<CorpusDelta>;
+pub trait CompatibleWithObservations<O>: Pool
+where
+    O: Observations,
+{
+    fn process<'a>(
+        &'a mut self,
+        input_id: PoolStorageIndex,
+        observations: O::Concrete<'a>,
+        complexity: f64,
+    ) -> Vec<CorpusDelta>;
 }
 
 /// A trait for types that want to save their content to the `stats` folder which is created after a fuzzing run.

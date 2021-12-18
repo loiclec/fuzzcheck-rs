@@ -1,7 +1,8 @@
+use crate::code_coverage_sensor::CopiedSliceIterObservations;
 use crate::data_structures::{Slab, SlabKey};
 use crate::fenwick_tree::FenwickTree;
 use crate::fuzzer::PoolStorageIndex;
-use crate::traits::{CorpusDelta, Pool, SaveToStatsFolder, Stats};
+use crate::traits::{CorpusDelta, Observations, Pool, SaveToStatsFolder, Stats};
 use crate::{CompatibleWithObservations, ToCSV};
 use ahash::{AHashMap, AHashSet};
 use std::fmt::{Debug, Display};
@@ -160,13 +161,17 @@ where
     }
 }
 
-impl<T, I> CompatibleWithObservations<I> for UniqueValuesPool<T>
+impl<T> CompatibleWithObservations<CopiedSliceIterObservations<(usize, T)>> for UniqueValuesPool<T>
 where
-    I: IntoIterator<Item = (usize, T)>,
-    T: Hash + Eq + Clone,
+    T: Hash + Eq + Clone + Copy + 'static,
 {
     #[no_coverage]
-    fn process(&mut self, input_id: PoolStorageIndex, observations: I, complexity: f64) -> Vec<CorpusDelta> {
+    fn process<'a>(
+        &'a mut self,
+        input_id: PoolStorageIndex,
+        observations: <CopiedSliceIterObservations<(usize, T)> as Observations>::Concrete<'a>,
+        complexity: f64,
+    ) -> Vec<CorpusDelta> {
         let mut state = vec![];
         for (index, v) in observations {
             if let Some(&previous_cplx) = self.complexities[index].get(&v) {

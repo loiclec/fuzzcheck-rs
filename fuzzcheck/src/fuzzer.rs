@@ -54,7 +54,7 @@ pub enum ReasonForStopping<T> {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct PoolStorageIndex(usize);
 
-#[cfg(test)]
+// #[cfg(test)]
 impl PoolStorageIndex {
     pub fn mock(idx: usize) -> Self {
         Self(idx)

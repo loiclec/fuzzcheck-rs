@@ -5,9 +5,10 @@ mod llvm_coverage;
 #[cfg(feature = "serde_json_serializer")]
 mod serialized;
 
-use crate::traits::{SaveToStatsFolder, Sensor};
+use crate::traits::{Observations, SaveToStatsFolder, Sensor};
 use std::convert::TryFrom;
 use std::iter;
+use std::marker::PhantomData;
 use std::path::Path;
 use std::{collections::HashMap, path::PathBuf};
 
@@ -104,12 +105,20 @@ impl CodeCoverageSensor {
         self.cached_observations.clear();
     }
 }
+
+pub struct CopiedSliceIterObservations<T> {
+    _phantom: PhantomData<T>,
+}
+impl<T: 'static> Observations for CopiedSliceIterObservations<T> {
+    type Concrete<'a> = iter::Copied<std::slice::Iter<'a, T>>;
+}
+
 impl Sensor for CodeCoverageSensor {
     /// A function to handle the observations made by the code coverage sensor
     ///
     /// An observation is a tuple. The first element is the index of a code region.
     /// The second element represents the number of times the code region was hit.
-    type Observations<'a> = iter::Copied<std::slice::Iter<'a, (usize, u64)>>;
+    type Observations = CopiedSliceIterObservations<(usize, u64)>;
 
     #[no_coverage]
     fn start_recording(&mut self) {
@@ -121,7 +130,7 @@ impl Sensor for CodeCoverageSensor {
     fn stop_recording(&mut self) {}
 
     #[no_coverage]
-    fn get_observations(&mut self) -> Self::Observations<'_> {
+    fn get_observations<'a>(&'a mut self) -> <Self::Observations as Observations>::Concrete<'a> {
         if self.observations_are_cached {
             self.cached_observations.as_slice().into_iter().copied()
         } else {
