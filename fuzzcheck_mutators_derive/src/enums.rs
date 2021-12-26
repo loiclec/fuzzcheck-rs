@@ -17,11 +17,28 @@ pub(crate) fn impl_default_mutator_for_enum(tb: &mut TokenBuilder, enu: &Enum, s
         .items
         .iter()
         .enumerate()
-        .map(|(i, item)| match item.get_struct_data() {
+        .map(|(index, item)| {
+            (
+                index,
+                item,
+                item.attributes
+                    .iter()
+                    .any(|attr| super::has_ignore_variant_attribute(attr.clone())),
+            )
+        })
+        .map(|(i, item, should_ignore)| match item.get_struct_data() {
             Some((_, fields)) if !fields.is_empty() => fields
                 .iter()
                 .enumerate()
                 .map(|(j, field)| {
+                    if should_ignore {
+                        return FieldMutator {
+                            i,
+                            j: Some(j),
+                            field: field.clone(),
+                            kind: FieldMutatorKind::Ignore,
+                        };
+                    }
                     let mut mutator = None;
                     for attribute in field.attributes.iter() {
                         if let Some((m, init)) = super::read_field_default_mutator_attribute(attribute.clone()) {
@@ -61,6 +78,12 @@ pub(crate) fn impl_default_mutator_for_enum(tb: &mut TokenBuilder, enu: &Enum, s
                 join_ts!(field_mutators.iter(), item_field_mutators,
                     if item_field_mutators.is_empty() {
                         ts!(TupleNMutator(0))
+                    } else if item_field_mutators.iter().any(|mutator| {
+                        mutator.kind.is_ignore()
+                    }) {
+                        ts!(
+                            "::fuzzcheck::mutators::never::NeverMutator"
+                        )
                     } else {
                         ts!(
                             TupleNMutator(item_field_mutators.len()) "<"
@@ -86,12 +109,18 @@ pub(crate) fn impl_default_mutator_for_enum(tb: &mut TokenBuilder, enu: &Enum, s
         new_impl: &ts!("
             #[no_coverage]
             pub fn new("
-            join_ts!(field_mutators.iter().filter(|fields| !fields.is_empty()).flatten(), field_mutator,
+            join_ts!(field_mutators.iter().filter(|fields|
+                !fields.is_empty() && fields.iter().all(|field| !field.kind.is_ignore())
+            ).flatten(), field_mutator,
                 ident!("mutator_" enu.items[field_mutator.i].ident "_" field_mutator.field.access()) ":" field_mutator.mutator_stream(&cm)
             , separator: ",") ") -> Self {
                 Self {
                     mutator: " cm.AlternationMutator "::new(vec!["
-                        join_ts!(enu.items.iter().enumerate(), (i, item),
+                        join_ts!(enu.items.iter().filter(|item| {
+                                    item.attributes.iter().all(|attr| {
+                                        !super::has_ignore_variant_attribute(attr.clone())
+                                    })
+                                }).enumerate(), (i, item),
                         EnumSingleVariant "::" item.ident "("
                         match item.get_struct_data() {
                             Some((_, fields)) if !fields.is_empty() =>
@@ -116,7 +145,11 @@ pub(crate) fn impl_default_mutator_for_enum(tb: &mut TokenBuilder, enu: &Enum, s
             #[no_coverage]
             fn default() -> Self {
                 Self::new("
-                join_ts!(&enu.items, item,
+                join_ts!(enu.items.iter().filter(|item| {
+                            item.attributes.iter().all(|attr| {
+                                !super::has_ignore_variant_attribute(attr.clone())
+                            })
+                        }), item,
                     match item.get_struct_data() {
                         Some((_, fields)) if !fields.is_empty() => join_ts!(fields, _, "<_>::default() ,"),
                         _ => ts!()
