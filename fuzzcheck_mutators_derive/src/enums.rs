@@ -81,9 +81,7 @@ pub(crate) fn impl_default_mutator_for_enum(tb: &mut TokenBuilder, enu: &Enum, s
                     } else if item_field_mutators.iter().any(|mutator| {
                         mutator.kind.is_ignore()
                     }) {
-                        ts!(
-                            "::fuzzcheck::mutators::never::NeverMutator"
-                        )
+                        cm.NeverMutator.clone()
                     } else {
                         ts!(
                             TupleNMutator(item_field_mutators.len()) "<"

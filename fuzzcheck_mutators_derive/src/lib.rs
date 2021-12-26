@@ -298,6 +298,7 @@ pub(crate) struct Common {
     VoseAlias: TokenStream,
     RecursiveMutator: TokenStream,
     Box: TokenStream,
+    NeverMutator: TokenStream,
 }
 impl Common {
     #[allow(non_snake_case)]
@@ -359,6 +360,7 @@ impl Common {
             VoseAlias: ts!(mutators "::vose_alias::VoseAlias"),
             RecursiveMutator: ts!(mutators "::recursive::RecursiveMutator"),
             Box: ts!("::std::boxed::Box"),
+            NeverMutator: ts!("::fuzzcheck::mutators::never::NeverMutator"),
         }
     }
 }
