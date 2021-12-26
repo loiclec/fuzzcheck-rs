@@ -5,3 +5,6 @@
 /usage_tests/*/
 Cargo.lock
 /fuzz_build_target
+
+.vscode
+.idea
