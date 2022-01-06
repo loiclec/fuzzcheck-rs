@@ -107,10 +107,6 @@ where
 /// It is most likely that you are also using two different pools to process
 /// each sensor’s observations. Then, you can use an [`AndPool`] to combine these
 /// two pools and make them compatible with this `AndSensor`.
-///
-/// If you'd like to extend the observations of one sensor with the observations
-/// of another and keep using the same pool, you may want to look at
-/// [`MergedSensors`](crate::sensors_and_pools::MergedSensors) instead.
 pub struct AndSensor<S1, S2>(pub S1, pub S2)
 where
     S1: Sensor,

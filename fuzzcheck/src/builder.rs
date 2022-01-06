@@ -5,12 +5,12 @@ This module contains 5 types to build a fuzz test: `FuzzerBuilder[1–5]`.
 
 The idea is to help you specify each part of the fuzzer progressively:
 1. the function to fuzz
-2. the [mutator](Mutator) to generate arguments to the test function (called “inputs” or “test cases”)
-3. the [serializer](Serializer) to save test cases to the file system
-4. the [sensor](Sensor) to provide feedback after running the test function, and the [pool](Pool) to interpret the feedback from the sensor
-5. [other settings](Arguments) for the fuzzer, such as the maximum allowed complexity for the test cases, where to save the corpora or artifacts on the file system, etc.
+2. the [mutator](crate::Mutator) to generate arguments to the test function (called “inputs” or “test cases”)
+3. the [serializer](crate::Serializer) to save test cases to the file system
+4. the [sensor](crate::Sensor) to provide feedback after running the test function, and the [pool](crate::Pool) to interpret the feedback from the sensor
+5. [other settings](crate::Arguments) for the fuzzer, such as the maximum allowed complexity for the test cases, where to save the corpora or artifacts on the file system, etc.
 
-In most cases, you don't need to manually specify all these components. If the argument type of the function has a [default mutator](DefaultMutator) and is serializable with serde, then you can write:
+In most cases, you don't need to manually specify all these components. If the argument type of the function has a [default mutator](crate::DefaultMutator) and is serializable with serde, then you can write:
 ```no_run
 # fn test_function(x: &bool) {}
 let _ = fuzzcheck::fuzz_test(test_function) // FuzzerBuilder1

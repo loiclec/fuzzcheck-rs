@@ -68,6 +68,8 @@ pub use crate::traits::Sensor;
 #[doc(inline)]
 pub use crate::traits::SensorAndPool;
 #[doc(inline)]
+pub use crate::traits::SensorExt;
+#[doc(inline)]
 pub use crate::traits::Stats;
 
 #[doc(inline)]

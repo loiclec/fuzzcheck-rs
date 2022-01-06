@@ -4,8 +4,10 @@ used by all fuzzcheck-related crates.
 */
 
 use crate::fuzzer::PoolStorageIndex;
+use crate::sensors_and_pools::MapSensor;
 use fuzzcheck_common::FuzzerEvent;
 use std::fmt::Display;
+use std::marker::PhantomData;
 use std::path::PathBuf;
 
 /**
@@ -434,6 +436,80 @@ impl CorpusDelta {
     }
 }
 
+/// A trait that all sensor [observations](crate::Sensor::Observations) must implement.
+///
+/// Its existence is unfortunate, but somewhat necessary if we want to be able to
+/// write things that look like:
+/// ```ignore
+/// let sensor = sensor.map(|observations| observations.sum());
+/// ```
+///
+/// The idea is that this trait is only implemented by “marker types”. For example,
+/// if a sensor's observation is a simple `&'a T`, then we create a marker type for it
+/// as follows:
+/// ```
+/// # #![feature(generic_associated_types)]
+/// # use std::marker::PhantomData;
+/// use fuzzcheck::Observations;
+///
+/// struct SingleValueRef<T> { _phantom: PhantomData<T> }
+///
+/// impl<T: 'static> Observations for SingleValueRef<T> {
+///     type Concrete<'a> = &'a T;
+/// }
+/// ```
+/// and then in the [`Sensor`](crate::Sensor) implementation, we write:
+/// ```
+/// # #![feature(generic_associated_types)]
+/// # use std::marker::PhantomData;
+/// # struct SingleValueRef<T> { _phantom: PhantomData<T> }
+/// # impl<T: 'static> Observations for SingleValueRef<T> {
+/// #     type Concrete<'a> = &'a T;
+/// # }
+/// # struct MySensor<T> {
+/// #     observation: T
+/// # }
+/// # impl<T: 'static> fuzzcheck::SaveToStatsFolder for MySensor<T> {
+/// #     fn save_to_stats_folder(&self) -> Vec<(std::path::PathBuf, Vec<u8>)> {
+/// #         todo!()
+/// #     }
+/// # }
+/// use fuzzcheck::{Sensor, Observations};
+///
+/// impl<T: 'static> Sensor for MySensor<T> {
+///     type Observations = SingleValueRef<T>;
+///     # fn start_recording(&mut self) { todo!() }
+///     # fn stop_recording(&mut self) { todo!() }
+///
+///     // ...
+///
+///     fn get_observations<'a>(&'a mut self) -> <Self::Observations as Observations>::Concrete<'a> {
+///         &self.observation    
+///     }
+/// }
+/// ```
+/// This allows us to write a `sensor.map` implementation that doesn't confuse the type system / borrow checker
+/// because we can unambiguously name the result of the transformation. For example, if we wanted to write a sensor
+/// whose observation is the sum of all coverage hits from a [`CodeCoverageSensor`](crate::sensors_and_pools::CodeCoverageSensor),
+/// then we could write:
+/// ```no_run
+/// # #![feature(generic_associated_types)]
+/// use fuzzcheck::{Sensor, SensorExt, Observations};
+/// use fuzzcheck::sensors_and_pools::CodeCoverageSensor;
+/// enum IntegerObservations {}
+/// impl Observations for IntegerObservations {
+///     type Concrete<'a> = u64;
+/// }
+/// let coverage_sensor: CodeCoverageSensor = todo!();
+/// let sensor = coverage_sensor.map::<IntegerObservations, _>(|_, obs|
+///     obs.map(|(idx, hit)| hit).sum::<u64>()
+/// );
+/// ```
+/// See the [`SensorExt::map`] documentation for more details.
+///
+/// I haven't found a way a way to write this `map` implementation without having to name
+/// the return type explicitly without the [`Observations`] trait. But let me know if you think
+/// there is a better solution!
 pub trait Observations {
     type Concrete<'a>;
 }
@@ -637,3 +713,18 @@ pub trait SaveToStatsFolder {
     /// it is relative to the `stats` folder path. The second element is the content of the file, as bytes.
     fn save_to_stats_folder(&self) -> Vec<(PathBuf, Vec<u8>)>;
 }
+
+pub trait SensorExt: Sensor {
+    fn map<ToObservations, F>(self, map_f: F) -> MapSensor<Self, ToObservations, F>
+    where
+        Self: Sized,
+        F: for<'a> Fn(
+            PhantomData<&'a ()>,
+            <Self::Observations as Observations>::Concrete<'a>,
+        ) -> <ToObservations as Observations>::Concrete<'a>,
+        ToObservations: Observations,
+    {
+        MapSensor::new(self, map_f)
+    }
+}
+impl<T> SensorExt for T where T: Sensor {}

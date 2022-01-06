@@ -12,6 +12,22 @@ where
     map_f: F,
     _phantom: PhantomData<ToObservations>,
 }
+
+impl<S, ToObservations, F> MapSensor<S, ToObservations, F>
+where
+    S: Sensor,
+    ToObservations: Observations,
+    F: for<'a> Fn(PhantomData<&'a ()>, <S::Observations as Observations>::Concrete<'a>) -> ToObservations::Concrete<'a>,
+    Self: 'static,
+{
+    pub fn new(sensor: S, map_f: F) -> Self {
+        Self {
+            sensor,
+            map_f,
+            _phantom: PhantomData,
+        }
+    }
+}
 impl<S, ToObservations, F> SaveToStatsFolder for MapSensor<S, ToObservations, F>
 where
     S: Sensor,
@@ -45,22 +61,3 @@ where
         (self.map_f)(PhantomData, observations)
     }
 }
-
-trait SensorExt: Sensor {
-    fn map<ToObservations, F>(self, map_f: F) -> MapSensor<Self, ToObservations, F>
-    where
-        Self: Sized,
-        F: for<'a> Fn(
-            PhantomData<&'a ()>,
-            <Self::Observations as Observations>::Concrete<'a>,
-        ) -> <ToObservations as Observations>::Concrete<'a>,
-        ToObservations: Observations,
-    {
-        MapSensor {
-            sensor: self,
-            map_f,
-            _phantom: PhantomData,
-        }
-    }
-}
-impl<T> SensorExt for T where T: Sensor {}
