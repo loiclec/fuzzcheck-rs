@@ -19,8 +19,6 @@ pub struct TestFailure {
 }
 
 /// A sensor that records test failures.
-///
-/// It is [compatible with](CompatibleWithSensor) [`TestFailurePool`].
 #[derive(Default)]
 pub struct TestFailureSensor {
     error: Option<TestFailure>,
@@ -101,8 +99,6 @@ struct TestFailureListForError {
 /// A pool that saves failing test cases.
 ///
 /// It categorizes the test cases by their failure information and sort them by complexity.
-///
-/// It is [compatible with](crate::CompatibleWithSensor) [`TestFailureSensor`]
 pub struct TestFailurePool {
     name: String,
     inputs: Vec<TestFailureList>,

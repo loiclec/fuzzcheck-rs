@@ -53,7 +53,7 @@ let _ = fuzzcheck::fuzz_test(test_function)
 # }
 ```
 
-To build a custom sensor and pool, you may want to look at the [`Sensor`], [`Pool`], and [`CompatibleWithObservations`] traits.
+To build a custom sensor and pool, you may want to look at the [`Sensor`], [`Pool`](crate::Pool), and [`CompatibleWithObservations`] traits.
 You can also look at the types provided in the [`sensors_and_pools`](crate::sensors_and_pools) module. But the easiest way to customize them
 is to use the [`SensorAndPoolBuilder`], although it only offers a couple limited options.
 */
@@ -174,7 +174,7 @@ where
 
 /// A fuzz-test builder that knows the function to fuzz-test, the mutator, and the serializer.
 ///
-/// Use [`self.sensor_and_pool(..)`](FuzzerBuilder3::sensor_and_pool) to specify the [sensor](Sensor) and [pool](Pool) and obtain a [FuzzerBuilder4].
+/// Use [`self.sensor_and_pool(..)`](FuzzerBuilder3::sensor_and_pool) to specify the [sensor](Sensor) and [pool](crate::Pool) and obtain a [FuzzerBuilder4].
 ///
 /// Alternatively, use [`self.default_sensor_and_pool(..)`](FuzzerBuilder3::default_sensor_and_pool) to use fuzzcheck’s
 /// default sensor, which monitors code coverage.
@@ -737,7 +737,7 @@ pub fn default_sensor_and_pool() -> SensorAndPoolBuilder<DiverseAndMaxHitsSensor
         .find_most_diverse_set_of_test_cases(20)
         .find_test_cases_repeatedly_hitting_coverage_counters()
 }
-/// A builder to create a [sensor](Sensor) and [pool](Pool) that can be given as argument to
+/// A builder to create a [sensor](Sensor) and [pool](crate::Pool) that can be given as argument to
 /// [`FuzzerBuilder3::sensor_and_pool`].
 ///
 /// # Usage

@@ -403,7 +403,7 @@ impl<M> MutatorWrapper for Box<M> {
 
 /// A [CorpusDelta] describes how to reflect a change in the pool’s content to the corpus on the file system.
 ///
-/// It is used as the return type to [`pool.process(..)`](CompatibleWithSensor::process) where a test case along
+/// It is used as the return type to [`pool.process(..)`](CompatibleWithObservations::process) where a test case along
 /// with its associated sensor observations is given to the pool. Thus, it is always implicitly associated with
 /// a specific pool and test case.
 #[derive(Debug)]
@@ -528,7 +528,7 @@ fuzzer can use to determine the importance of a test case.
 For example, the sensor can record the code coverage triggered by the test case,
 store the source location of a panic, measure the number of allocations made, etc.
 The observations made by a sensor are then assessed by a [Pool], which must be
-explicitly [compatible](CompatibleWithSensor) with the sensor.
+explicitly [compatible](CompatibleWithObservations) with the sensor’s observations.
 */
 pub trait Sensor: SaveToStatsFolder + 'static {
     type Observations: Observations;
@@ -544,19 +544,19 @@ pub trait Sensor: SaveToStatsFolder + 'static {
 
 pub trait Stats: Display + ToCSV + 'static {}
 
-/// An object safe trait that combines the methods of the [`Sensor`], [`Pool`], and [`CompatibleWithSensor`] traits.
+/// An object safe trait that combines the methods of the [`Sensor`], [`Pool`], and [`CompatibleWithObservations`] traits.
 ///
 /// While it's often useful to work with the [`Sensor`] and [`Pool`] traits separately, the
 /// fuzzer doesn't actually need to know about the sensor and pool individually. By having
 /// this `SensorAndPool` trait, we can give the fuzzer a `Box<dyn SensorAndPool>` and get rid of
-/// two generic type parameters: `S: Sensor` and `P: Pool + CompatibleWithSensor<S>`.
+/// two generic type parameters: `S: Sensor` and `P: Pool + CompatibleWithObservations<S::Observations>`.
 ///
 /// This is better for compile times and simplifies the implementation of the fuzzer. Users of
 /// `fuzzcheck` should feel free to ignore this trait, as it is arguably more an implementation detail
 /// than a fundamental building block of the fuzzer.
 ///
 /// Currently, there are two types implementing `SensorAndPool`:
-/// 1. `(S, P)` where `S: Sensor` and `P: Pool + CompatibleWithSensor<S>`
+/// 1. `(S, P)` where `S: Sensor` and `P: Pool + CompatibleWithObservations<S::Observations>`
 /// 2. [`AndSensorAndPool`](crate::sensors_and_pools::AndSensorAndPool)
 pub trait SensorAndPool: SaveToStatsFolder {
     fn stats(&self) -> Box<dyn Stats>;
@@ -671,7 +671,7 @@ A [`Pool`] ranks test cases based on observations recorded by a sensor.
 
 The pool trait is divided into two parts:
 1. [`Pool`] contains general methods that are independent of the sensor used
-2. [`CompatibleWithSensor<Sensor>`] is a subtrait of [`Pool`]. It describes how the pool handles
+2. [`CompatibleWithObservations<O>`] is a subtrait of [`Pool`]. It describes how the pool handles
 observations made by the [`Sensor`].
 */
 pub trait Pool: SaveToStatsFolder {
