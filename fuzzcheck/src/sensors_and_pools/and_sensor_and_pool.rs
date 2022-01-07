@@ -93,7 +93,13 @@ where
 }
 
 fn normalise_scores(r: &mut [(PoolStorageIndex, f64)], score: f64) {
-    let total_score = r.iter().map(|r| r.1).sum::<f64>();
+    let total_score = r
+        .iter()
+        .map(
+            #[no_coverage]
+            |r| r.1,
+        )
+        .sum::<f64>();
     let avg_score = total_score / r.len() as f64;
     let adjustment = avg_score / score;
     for (_, score) in r.iter_mut() {

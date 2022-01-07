@@ -136,6 +136,7 @@ impl MostNDiversePool {
 }
 
 impl CompatibleWithObservations<CopiedSliceIterObservations<(usize, u64)>> for MostNDiversePool {
+    #[no_coverage]
     fn process<'a>(
         &'a mut self,
         input_id: PoolStorageIndex,

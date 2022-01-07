@@ -724,6 +724,7 @@ pub trait SaveToStatsFolder {
 }
 
 pub trait SensorExt: Sensor {
+    #[no_coverage]
     fn map<ToObservations, F>(self, map_f: F) -> MapSensor<Self, ToObservations, F>
     where
         Self: Sized,

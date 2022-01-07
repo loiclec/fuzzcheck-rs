@@ -120,6 +120,7 @@ where
     O: Observations,
     for<'a> O::Concrete<'a>: Clone,
 {
+    #[no_coverage]
     fn clone<'a>(o: &Self::Concrete<'a>) -> Self::Concrete<'a> {
         o.clone()
     }

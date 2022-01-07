@@ -688,8 +688,15 @@ pub fn max_cov_hits_sensor_and_pool() -> SensorAndPoolBuilder<MaxHitsSensor, Max
     let nbr_counters = sensor.count_instrumented;
     let sensor = sensor
         .map::<Tuple2Observations<<CodeCoverageSensor as Sensor>::Observations, SingleValueObservations<u64>>, _>(
+            #[no_coverage]
             |_, o| {
-                let sum = o.clone().map(|(_, count)| count).sum::<u64>();
+                let sum = o
+                    .clone()
+                    .map(
+                        #[no_coverage]
+                        |(_, count)| count,
+                    )
+                    .sum::<u64>();
                 (o, sum)
             },
         );
@@ -778,10 +785,13 @@ impl SensorAndPoolBuilder<BasicSensor, BasicPool> {
         let sensor = self.sensor.map::<Tuple2Observations<
             <CodeCoverageSensor as Sensor>::Observations,
             SingleValueObservations<usize>,
-        >, _>(|_, o| {
-            let len = o.len();
-            (o, len)
-        });
+        >, _>(
+            #[no_coverage]
+            |_, o| {
+                let len = o.len();
+                (o, len)
+            },
+        );
         SensorAndPoolBuilder {
             sensor,
             pool: AndPool::new(
@@ -803,10 +813,19 @@ impl SensorAndPoolBuilder<BasicSensor, BasicPool> {
         self,
     ) -> SensorAndPoolBuilder<BasicAndMaxHitsSensor, BasicAndMaxHitsPool> {
         let nbr_counters = self.sensor.count_instrumented;
-        let sensor = self.sensor.map::<<MaxHitsSensor as Sensor>::Observations, _>(|_, o| {
-            let sum = o.clone().map(|(_, count)| count).sum::<u64>();
-            (o, sum)
-        });
+        let sensor = self.sensor.map::<<MaxHitsSensor as Sensor>::Observations, _>(
+            #[no_coverage]
+            |_, o| {
+                let sum = o
+                    .clone()
+                    .map(
+                        #[no_coverage]
+                        |(_, count)| count,
+                    )
+                    .sum::<u64>();
+                (o, sum)
+            },
+        );
         SensorAndPoolBuilder {
             sensor,
             pool: AndPool::new(
@@ -831,12 +850,19 @@ impl SensorAndPoolBuilder<DiverseSensor, BasicAndDiversePool> {
     ) -> SensorAndPoolBuilder<DiverseAndMaxHitsSensor, BasicAndDiverseAndMaxHitsPool> {
         let nbr_counters = self.sensor.wrapped().count_instrumented;
 
-        let sensor = self
-            .sensor
-            .map::<<DiverseAndMaxHitsSensor as Sensor>::Observations, _>(|_, o| {
-                let sum = o.0.clone().map(|(_, count)| count).sum::<u64>();
+        let sensor = self.sensor.map::<<DiverseAndMaxHitsSensor as Sensor>::Observations, _>(
+            #[no_coverage]
+            |_, o| {
+                let sum =
+                    o.0.clone()
+                        .map(
+                            #[no_coverage]
+                            |(_, count)| count,
+                        )
+                        .sum::<u64>();
                 (o.0, (o.1, sum))
-            });
+            },
+        );
 
         SensorAndPoolBuilder {
             sensor,

@@ -27,6 +27,7 @@ impl Pool for UnitPool {
         EmptyStats
     }
 
+    #[no_coverage]
     fn ranked_test_cases(&self) -> Vec<(PoolStorageIndex, f64)> {
         vec![(self.input_index, 1.)]
     }

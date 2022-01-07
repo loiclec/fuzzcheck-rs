@@ -20,6 +20,7 @@ where
     F: for<'a> Fn(PhantomData<&'a ()>, <S::Observations as Observations>::Concrete<'a>) -> ToObservations::Concrete<'a>,
     Self: 'static,
 {
+    #[no_coverage]
     pub fn new(sensor: S, map_f: F) -> Self {
         Self {
             sensor,
@@ -35,6 +36,7 @@ where
     F: for<'a> Fn(PhantomData<&'a ()>, <S::Observations as Observations>::Concrete<'a>) -> ToObservations::Concrete<'a>,
     Self: 'static,
 {
+    #[no_coverage]
     fn save_to_stats_folder(&self) -> Vec<(std::path::PathBuf, Vec<u8>)> {
         self.sensor.save_to_stats_folder()
     }
@@ -48,14 +50,17 @@ where
 {
     type Observations = ToObservations;
 
+    #[no_coverage]
     fn start_recording(&mut self) {
         self.sensor.start_recording();
     }
 
+    #[no_coverage]
     fn stop_recording(&mut self) {
         self.sensor.stop_recording();
     }
 
+    #[no_coverage]
     fn get_observations<'a>(&'a mut self) -> <Self::Observations as Observations>::Concrete<'a> {
         let observations = self.sensor.get_observations();
         (self.map_f)(PhantomData, observations)
@@ -74,6 +79,7 @@ where
     Self: 'static,
 {
     type Wrapped = S;
+    #[no_coverage]
     fn wrapped(&self) -> &S {
         &self.sensor
     }

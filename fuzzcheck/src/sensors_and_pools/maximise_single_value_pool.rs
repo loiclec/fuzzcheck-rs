@@ -97,6 +97,7 @@ where
     O: for<'a> Observations<Concrete<'a> = T>,
     T: Clone + Debug + PartialOrd + 'static,
 {
+    #[no_coverage]
     fn process<'a>(
         &'a mut self,
         input_id: PoolStorageIndex,

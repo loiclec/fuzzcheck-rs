@@ -515,15 +515,21 @@ fn ranked_test_cases_from_sensor_and_pool(
     let ranked_test_cases = sensor_and_pool.ranked_test_cases();
     let ranked_test_cases = ranked_test_cases
         .into_iter()
-        .map(|(index, weight)| RankedTestCase {
-            index,
-            weight,
-            times_chosen: 1,
-        })
+        .map(
+            #[no_coverage]
+            |(index, weight)| RankedTestCase {
+                index,
+                weight,
+                times_chosen: 1,
+            },
+        )
         .collect::<Vec<_>>();
     let weights = ranked_test_cases
         .iter()
-        .map(|rtc| rtc.weight / (rtc.times_chosen as f64))
+        .map(
+            #[no_coverage]
+            |rtc| rtc.weight / (rtc.times_chosen as f64),
+        )
         .collect::<Vec<_>>();
     let ranked_test_cases_fenwick = FenwickTree::new(weights);
     (ranked_test_cases, ranked_test_cases_fenwick)
