@@ -61,3 +61,20 @@ where
         (self.map_f)(PhantomData, observations)
     }
 }
+pub trait WrapperSensor: Sensor {
+    type Wrapped: Sensor;
+    fn wrapped(&self) -> &Self::Wrapped;
+}
+
+impl<S, ToObservations, F> WrapperSensor for MapSensor<S, ToObservations, F>
+where
+    S: Sensor,
+    ToObservations: Observations,
+    F: for<'a> Fn(PhantomData<&'a ()>, <S::Observations as Observations>::Concrete<'a>) -> ToObservations::Concrete<'a>,
+    Self: 'static,
+{
+    type Wrapped = S;
+    fn wrapped(&self) -> &S {
+        &self.sensor
+    }
+}

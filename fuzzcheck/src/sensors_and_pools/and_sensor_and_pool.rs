@@ -28,10 +28,12 @@ use crate::{
     CSVField, ToCSV,
 };
 
+use super::CloneObservations;
+
 // use super::compatible_with_iterator_sensor::CompatibleWithIteratorSensor;
 
-pub enum SameSensor {}
-pub enum DifferentSensors {}
+pub enum SameObservations {}
+pub enum DifferentObservations {}
 
 /// A pool that combines two pools
 pub struct AndPool<P1, P2, SensorMarker>
@@ -180,7 +182,7 @@ where
 {
 }
 
-impl<O1, O2, P1, P2> CompatibleWithObservations<Tuple2Observations<O1, O2>> for AndPool<P1, P2, DifferentSensors>
+impl<O1, O2, P1, P2> CompatibleWithObservations<Tuple2Observations<O1, O2>> for AndPool<P1, P2, DifferentObservations>
 where
     O1: Observations,
     O2: Observations,
@@ -203,10 +205,9 @@ where
     }
 }
 
-impl<P1, P2, O> CompatibleWithObservations<O> for AndPool<P1, P2, SameSensor>
+impl<P1, P2, O> CompatibleWithObservations<O> for AndPool<P1, P2, SameObservations>
 where
-    O: Observations,
-    for<'a> O::Concrete<'a>: Clone,
+    O: CloneObservations,
     P1: CompatibleWithObservations<O>,
     P2: CompatibleWithObservations<O>,
 {
@@ -218,7 +219,7 @@ where
         complexity: f64,
     ) -> Vec<CorpusDelta> {
         let AndPool { p1, p2, .. } = self;
-        let mut deltas = p1.process(input_id, observations.clone(), complexity);
+        let mut deltas = p1.process(input_id, O::clone(&observations), complexity);
         deltas.extend(p2.process(input_id, observations, complexity));
         deltas
     }

@@ -112,6 +112,18 @@ pub struct CopiedSliceIterObservations<T> {
 impl<T: 'static> Observations for CopiedSliceIterObservations<T> {
     type Concrete<'a> = iter::Copied<std::slice::Iter<'a, T>>;
 }
+pub trait CloneObservations: Observations {
+    fn clone<'a>(o: &Self::Concrete<'a>) -> Self::Concrete<'a>;
+}
+impl<O> CloneObservations for O
+where
+    O: Observations,
+    for<'a> O::Concrete<'a>: Clone,
+{
+    fn clone<'a>(o: &Self::Concrete<'a>) -> Self::Concrete<'a> {
+        o.clone()
+    }
+}
 
 impl Sensor for CodeCoverageSensor {
     /// A function to handle the observations made by the code coverage sensor

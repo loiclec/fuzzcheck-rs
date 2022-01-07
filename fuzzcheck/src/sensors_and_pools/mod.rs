@@ -6,18 +6,22 @@ mod and_sensor_and_pool;
 mod array_of_counters;
 mod map_sensor;
 mod maximise_counter_value_pool;
+mod maximise_single_value_pool;
 mod most_n_diverse_pool;
 mod noop_sensor;
-mod optimise_aggregate_stat_pool;
 mod simplest_to_activate_counter_pool;
 mod test_failure_pool;
 mod unique_values_pool;
 mod unit_pool;
 
 #[doc(inline)]
+pub use crate::code_coverage_sensor::CloneObservations;
+#[doc(inline)]
 pub use crate::code_coverage_sensor::CodeCoverageSensor;
 #[doc(inline)]
-pub use and_sensor_and_pool::{AndPool, AndSensor, AndSensorAndPool, DifferentSensors, SameSensor};
+pub use and_sensor_and_pool::Tuple2Observations;
+#[doc(inline)]
+pub use and_sensor_and_pool::{AndPool, AndSensor, AndSensorAndPool, DifferentObservations, SameObservations};
 #[doc(inline)]
 pub use array_of_counters::ArrayOfCounters;
 #[doc(inline)]
@@ -25,17 +29,15 @@ pub use array_of_counters::SliceIterObservations;
 #[doc(inline)]
 pub use map_sensor::MapSensor;
 #[doc(inline)]
+pub use map_sensor::WrapperSensor;
+#[doc(inline)]
 pub use maximise_counter_value_pool::MaximiseCounterValuePool;
+#[doc(inline)]
+pub use maximise_single_value_pool::MaximiseSingleValuePool;
 #[doc(inline)]
 pub use most_n_diverse_pool::MostNDiversePool;
 #[doc(inline)]
 pub use noop_sensor::NoopSensor;
-#[doc(inline)]
-pub use optimise_aggregate_stat_pool::NumberOfActivatedCounters;
-#[doc(inline)]
-pub use optimise_aggregate_stat_pool::OptimiseAggregateStatPool;
-#[doc(inline)]
-pub use optimise_aggregate_stat_pool::SumOfCounterValues;
 #[doc(inline)]
 pub use simplest_to_activate_counter_pool::SimplestToActivateCounterPool;
 #[doc(inline)]

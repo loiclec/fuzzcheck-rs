@@ -514,6 +514,13 @@ pub trait Observations {
     type Concrete<'a>;
 }
 
+pub struct SingleValueObservations<T> {
+    pub data: T,
+}
+impl<T> Observations for SingleValueObservations<T> {
+    type Concrete<'a> = T;
+}
+
 /**
 A [Sensor] records information when running the test function, which the
 fuzzer can use to determine the importance of a test case.

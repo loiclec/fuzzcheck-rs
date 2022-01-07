@@ -55,17 +55,18 @@ let _ = fuzzcheck::fuzz_test(test_function)
 
 To build a custom sensor and pool, you may want to look at the [`Sensor`], [`Pool`], and [`CompatibleWithObservations`] traits.
 You can also look at the types provided in the [`sensors_and_pools`](crate::sensors_and_pools) module. But the easiest way to customize them
-is to use the [`CodeCoverageSensorAndPoolBuilder`], although it only offers a couple limited options.
+is to use the [`SensorAndPoolBuilder`], although it only offers a couple limited options.
 */
 
 use crate::code_coverage_sensor::CodeCoverageSensor;
 use crate::fuzzer::{Fuzzer, FuzzingResult};
-use crate::sensors_and_pools::MaximiseCounterValuePool;
 use crate::sensors_and_pools::MostNDiversePool;
 use crate::sensors_and_pools::SimplestToActivateCounterPool;
-use crate::sensors_and_pools::{AndPool, SameSensor};
-use crate::sensors_and_pools::{NumberOfActivatedCounters, OptimiseAggregateStatPool, SumOfCounterValues};
-use crate::traits::{CompatibleWithObservations, Mutator, Sensor, Serializer};
+use crate::sensors_and_pools::WrapperSensor;
+use crate::sensors_and_pools::{AndPool, SameObservations};
+use crate::sensors_and_pools::{DifferentObservations, MaximiseSingleValuePool};
+use crate::sensors_and_pools::{MaximiseCounterValuePool, Tuple2Observations};
+use crate::traits::{CompatibleWithObservations, Mutator, Sensor, SensorExt, Serializer, SingleValueObservations};
 use crate::{split_string_by_whitespace, DefaultMutator};
 
 #[cfg(feature = "serde_json_serializer")]
@@ -285,8 +286,8 @@ where
         F::NormalizedFunction,
         <T::Owned as DefaultMutator>::Mutator,
         T::Owned,
-        CodeCoverageSensor,
-        impl CompatibleWithObservations<<CodeCoverageSensor as Sensor>::Observations>,
+        DiverseAndMaxHitsSensor,
+        BasicAndDiverseAndMaxHitsPool,
     > {
         self.mutator(<T::Owned as DefaultMutator>::default_mutator())
             .serializer(SerdeSerializer::default())
@@ -434,13 +435,7 @@ where
     #[no_coverage]
     pub fn default_sensor_and_pool(
         self,
-    ) -> FuzzerBuilder4<
-        F,
-        M,
-        V,
-        CodeCoverageSensor,
-        impl CompatibleWithObservations<<CodeCoverageSensor as Sensor>::Observations>,
-    > {
+    ) -> FuzzerBuilder4<F, M, V, DiverseAndMaxHitsSensor, BasicAndDiverseAndMaxHitsPool> {
         let (sensor, pool) = default_sensor_and_pool().finish();
         FuzzerBuilder4 {
             test_function: self.test_function,
@@ -642,56 +637,94 @@ where
     }
 }
 
-/// An alias for the basic pool chosen to handle the [`CodeCoverageSensor`]'s observations
-pub type BasicPool = SimplestToActivateCounterPool;
-/// An alias for the type of the pool which tries to find a fixed-length set of test cases which, together, activate the most counters.
-pub type DiversePool = AndPool<MostNDiversePool, OptimiseAggregateStatPool<NumberOfActivatedCounters>, SameSensor>;
-/// An alias for the type of the pool which tries to find test cases repeatedly hitting the same counters.
-pub type MaxHitsPool = AndPool<MaximiseCounterValuePool, OptimiseAggregateStatPool<SumOfCounterValues>, SameSensor>;
+pub type BasicSensor = CodeCoverageSensor;
+pub type DiverseSensor = impl WrapperSensor<
+    Wrapped = CodeCoverageSensor,
+    Observations = Tuple2Observations<<CodeCoverageSensor as Sensor>::Observations, SingleValueObservations<usize>>,
+>;
+pub type MaxHitsSensor = impl WrapperSensor<
+    Wrapped = CodeCoverageSensor,
+    Observations = Tuple2Observations<<CodeCoverageSensor as Sensor>::Observations, SingleValueObservations<u64>>,
+>;
+pub type BasicAndMaxHitsSensor = impl WrapperSensor<
+    Wrapped = CodeCoverageSensor,
+    Observations = Tuple2Observations<<CodeCoverageSensor as Sensor>::Observations, SingleValueObservations<u64>>,
+>;
 
-/// An alias for the combination of the [`BasicPool`] and the [`DiversePool`]
-pub type BasicAndDiversePool = AndPool<SimplestToActivateCounterPool, DiversePool, SameSensor>;
-/// An alias for the combination of the [`BasicPool`] and the [`MaxHitsPool`]
-pub type BasicAndMaxHitsPool = AndPool<SimplestToActivateCounterPool, MaxHitsPool, SameSensor>;
-/// An alias for the combination of the [`BasicPool`], the [`DiversePool`], and the [`MaxHitsPool`]
-pub type BasicAndDiverseAndMaxHitsPool =
-    AndPool<SimplestToActivateCounterPool, AndPool<DiversePool, MaxHitsPool, SameSensor>, SameSensor>;
+pub type DiverseAndMaxHitsSensor = impl Sensor<
+    Observations = Tuple2Observations<
+        <CodeCoverageSensor as Sensor>::Observations,
+        Tuple2Observations<SingleValueObservations<usize>, SingleValueObservations<u64>>,
+    >,
+>;
+
+pub type BasicPool = SimplestToActivateCounterPool;
+pub type DiversePool = AndPool<MostNDiversePool, MaximiseSingleValuePool<u64>, DifferentObservations>;
+pub type MaxHitsPool = AndPool<MaximiseCounterValuePool, MaximiseSingleValuePool<u64>, DifferentObservations>;
+pub type BasicAndDiversePool = AndPool<
+    AndPool<SimplestToActivateCounterPool, MostNDiversePool, SameObservations>,
+    MaximiseSingleValuePool<usize>,
+    DifferentObservations,
+>;
+pub type BasicAndMaxHitsPool = AndPool<
+    AndPool<SimplestToActivateCounterPool, MaximiseCounterValuePool, SameObservations>,
+    MaximiseSingleValuePool<u64>,
+    DifferentObservations,
+>;
+
+pub type BasicAndDiverseAndMaxHitsPool = AndPool<
+    AndPool<
+        SimplestToActivateCounterPool,
+        AndPool<MaximiseCounterValuePool, MostNDiversePool, SameObservations>,
+        SameObservations,
+    >,
+    AndPool<MaximiseSingleValuePool<usize>, MaximiseSingleValuePool<u64>, DifferentObservations>,
+    DifferentObservations,
+>;
 
 #[no_coverage]
-pub fn max_cov_hits_sensor_and_pool() -> CodeCoverageSensorAndPoolBuilder<MaxHitsPool> {
+pub fn max_cov_hits_sensor_and_pool() -> SensorAndPoolBuilder<MaxHitsSensor, MaxHitsPool> {
     let sensor = CodeCoverageSensor::observing_only_files_from_current_dir();
     let nbr_counters = sensor.count_instrumented;
-    CodeCoverageSensorAndPoolBuilder {
+    let sensor = sensor
+        .map::<Tuple2Observations<<CodeCoverageSensor as Sensor>::Observations, SingleValueObservations<u64>>, _>(
+            |_, o| {
+                let sum = o.clone().map(|(_, count)| count).sum::<u64>();
+                (o, sum)
+            },
+        );
+
+    SensorAndPoolBuilder {
         sensor,
-        pool: AndPool::new(
+        pool: AndPool::<_, _, DifferentObservations>::new(
             MaximiseCounterValuePool::new("max_each_cov_hits", nbr_counters),
-            OptimiseAggregateStatPool::<SumOfCounterValues>::new("max_total_cov_hits"),
+            MaximiseSingleValuePool::new("max_total_cov_hits"),
             192, // choose max_each_cov_hits ~75% of the time
         ),
     }
 }
 
-/// Create the initial [sensor and pool builder](CodeCoverageSensorAndPoolBuilder)
+/// Create the initial [sensor and pool builder](SensorAndPoolBuilder)
 ///
-/// Use [`.find_most_diverse_set_of_test_cases()`](CodeCoverageSensorAndPoolBuilder::<BasicPool>::find_most_diverse_set_of_test_cases)
-/// or [`.find_test_cases_repeatedly_hitting_coverage_counters()`](CodeCoverageSensorAndPoolBuilder::<BasicPool>::find_test_cases_repeatedly_hitting_coverage_counters)
-/// on the result to augment the pool. Or use [`.finish()`](CodeCoverageSensorAndPoolBuilder::finish) to obtain the concrete sensor and pool.
+/// Use [`.find_most_diverse_set_of_test_cases()`](SensorAndPoolBuilder::<BasicPool>::find_most_diverse_set_of_test_cases)
+/// or [`.find_test_cases_repeatedly_hitting_coverage_counters()`](SensorAndPoolBuilder::<BasicPool>::find_test_cases_repeatedly_hitting_coverage_counters)
+/// on the result to augment the pool. Or use [`.finish()`](SensorAndPoolBuilder::finish) to obtain the concrete sensor and pool.
 #[no_coverage]
-pub fn basic_sensor_and_pool() -> CodeCoverageSensorAndPoolBuilder<BasicPool> {
+pub fn basic_sensor_and_pool() -> SensorAndPoolBuilder<BasicSensor, BasicPool> {
     let sensor = CodeCoverageSensor::observing_only_files_from_current_dir();
     let nbr_counters = sensor.count_instrumented;
-    CodeCoverageSensorAndPoolBuilder {
+    SensorAndPoolBuilder {
         sensor,
         pool: SimplestToActivateCounterPool::new("simplest_cov", nbr_counters),
     }
 }
 
-/// Create the [sensor and pool builder](CodeCoverageSensorAndPoolBuilder) that is used by default by fuzzcheck
+/// Create the [sensor and pool builder](SensorAndPoolBuilder) that is used by default by fuzzcheck
 ///
 /// Currently, the result cannot be augmented any further. Thus, the only action you can take on the result is to
-/// use [`.finish()`](CodeCoverageSensorAndPoolBuilder::finish) to obtain the concrete sensor and pool.
+/// use [`.finish()`](SensorAndPoolBuilder::finish) to obtain the concrete sensor and pool.
 #[no_coverage]
-pub fn default_sensor_and_pool() -> CodeCoverageSensorAndPoolBuilder<BasicAndDiverseAndMaxHitsPool> {
+pub fn default_sensor_and_pool() -> SensorAndPoolBuilder<DiverseAndMaxHitsSensor, BasicAndDiverseAndMaxHitsPool> {
     basic_sensor_and_pool()
         .find_most_diverse_set_of_test_cases(20)
         .find_test_cases_repeatedly_hitting_coverage_counters()
@@ -708,26 +741,28 @@ pub fn default_sensor_and_pool() -> CodeCoverageSensorAndPoolBuilder<BasicAndDiv
 ///     .find_test_cases_repeatedly_hitting_coverage_counters() // optional
 ///     .finish(); // mandatory
 /// ```
-pub struct CodeCoverageSensorAndPoolBuilder<P>
+pub struct SensorAndPoolBuilder<S, P>
 where
-    P: CompatibleWithObservations<<CodeCoverageSensor as Sensor>::Observations>,
+    S: Sensor,
+    P: CompatibleWithObservations<S::Observations>,
 {
-    sensor: CodeCoverageSensor,
+    sensor: S,
     pool: P,
 }
 
-impl<P> CodeCoverageSensorAndPoolBuilder<P>
+impl<S, P> SensorAndPoolBuilder<S, P>
 where
-    P: CompatibleWithObservations<<CodeCoverageSensor as Sensor>::Observations>,
+    S: Sensor,
+    P: CompatibleWithObservations<S::Observations>,
 {
     /// Obtain the sensor and pool from the builder
     #[no_coverage]
-    pub fn finish(self) -> (CodeCoverageSensor, P) {
+    pub fn finish(self) -> (S, P) {
         (self.sensor, self.pool)
     }
 }
 
-impl CodeCoverageSensorAndPoolBuilder<BasicPool> {
+impl SensorAndPoolBuilder<BasicSensor, BasicPool> {
     /// Augment the current pool such that it also tries to find a fixed-length set of test cases which, together,
     /// trigger the most code coverage.
     ///
@@ -737,17 +772,24 @@ impl CodeCoverageSensorAndPoolBuilder<BasicPool> {
     pub fn find_most_diverse_set_of_test_cases(
         self,
         size: usize,
-    ) -> CodeCoverageSensorAndPoolBuilder<BasicAndDiversePool> {
+    ) -> SensorAndPoolBuilder<DiverseSensor, BasicAndDiversePool> {
         let nbr_counters = self.sensor.count_instrumented;
-        CodeCoverageSensorAndPoolBuilder {
-            sensor: self.sensor,
+        let sensor = self.sensor.map::<Tuple2Observations<
+            <CodeCoverageSensor as Sensor>::Observations,
+            SingleValueObservations<usize>,
+        >, _>(|_, o| {
+            let len = o.len();
+            (o, len)
+        });
+        SensorAndPoolBuilder {
+            sensor,
             pool: AndPool::new(
-                self.pool,
                 AndPool::new(
+                    self.pool,
                     MostNDiversePool::new(&format!("diverse_cov_{}", size), size, nbr_counters),
-                    OptimiseAggregateStatPool::<NumberOfActivatedCounters>::new("diverse_cov_1"),
-                    192, // choose most n diverse ~75% of the time
+                    128,
                 ),
+                MaximiseSingleValuePool::<usize>::new("diverse_cov_1"),
                 192, // 75% if the time
             ),
         }
@@ -756,75 +798,90 @@ impl CodeCoverageSensorAndPoolBuilder<BasicPool> {
     #[no_coverage]
     pub fn find_test_cases_repeatedly_hitting_coverage_counters(
         self,
-    ) -> CodeCoverageSensorAndPoolBuilder<BasicAndMaxHitsPool> {
+    ) -> SensorAndPoolBuilder<BasicAndMaxHitsSensor, BasicAndMaxHitsPool> {
         let nbr_counters = self.sensor.count_instrumented;
-        CodeCoverageSensorAndPoolBuilder {
-            sensor: self.sensor,
+        let sensor = self.sensor.map::<<MaxHitsSensor as Sensor>::Observations, _>(|_, o| {
+            let sum = o.clone().map(|(_, count)| count).sum::<u64>();
+            (o, sum)
+        });
+        SensorAndPoolBuilder {
+            sensor,
             pool: AndPool::new(
-                self.pool,
                 AndPool::new(
+                    self.pool,
                     MaximiseCounterValuePool::new("max_each_cov_hits", nbr_counters),
-                    OptimiseAggregateStatPool::<SumOfCounterValues>::new("max_total_cov_hits"),
-                    192, // choose max_each_cov_hits ~75% of the time
+                    128,
                 ),
-                217, // ~85% of the time
+                MaximiseSingleValuePool::<u64>::new("max_total_cov_hits"),
+                217,
             ),
         }
     }
 }
-impl CodeCoverageSensorAndPoolBuilder<BasicAndDiversePool> {
+impl SensorAndPoolBuilder<DiverseSensor, BasicAndDiversePool> {
     /// Augment the current pool such that it also tries to find test cases repeatedly hitting the same regions of code.
     #[no_coverage]
     pub fn find_test_cases_repeatedly_hitting_coverage_counters(
         self,
-    ) -> CodeCoverageSensorAndPoolBuilder<BasicAndDiverseAndMaxHitsPool> {
-        let nbr_counters = self.sensor.count_instrumented;
-        CodeCoverageSensorAndPoolBuilder {
-            sensor: self.sensor,
+    ) -> SensorAndPoolBuilder<DiverseAndMaxHitsSensor, BasicAndDiverseAndMaxHitsPool> {
+        let nbr_counters = self.sensor.wrapped().count_instrumented;
+
+        let sensor = self
+            .sensor
+            .map::<<DiverseAndMaxHitsSensor as Sensor>::Observations, _>(|_, o| {
+                let sum = o.0.clone().map(|(_, count)| count).sum::<u64>();
+                (o.0, (o.1, sum))
+            });
+
+        SensorAndPoolBuilder {
+            sensor,
             pool: AndPool::new(
-                self.pool.p1, // smallest to activate counter pool
                 AndPool::new(
-                    self.pool.p2, // diverse pool
+                    self.pool.p1.p1, // smallest to activate counter pool
                     AndPool::new(
-                        // in the end, the max_hits pool is chosen ~10% of the time
                         MaximiseCounterValuePool::new("max_each_cov_hits", nbr_counters),
-                        OptimiseAggregateStatPool::<SumOfCounterValues>::new("max_total_cov_hits"),
-                        192, // choose max_each_cov_hits ~75% of the time
+                        self.pool.p1.p2,
+                        128,
                     ),
-                    183, // choose diverse pool 71% of the time => in the end, chosen (100% - 65%) * 75% = ~25% of the time
+                    128,
                 ),
-                166, // 65% of the time
-            ),
-        }
-    }
-}
-impl CodeCoverageSensorAndPoolBuilder<BasicAndMaxHitsPool> {
-    /// Augment the current pool such that it also tries to find a fixed-length set of test cases which, together,
-    /// trigger the most code coverage.
-    ///
-    /// ### Argument
-    /// `size` : the size of the set of test cases to find
-    #[no_coverage]
-    pub fn find_most_diverse_set_of_test_cases(
-        self,
-        size: usize,
-    ) -> CodeCoverageSensorAndPoolBuilder<BasicAndDiverseAndMaxHitsPool> {
-        let nbr_counters = self.sensor.count_instrumented;
-        CodeCoverageSensorAndPoolBuilder {
-            sensor: self.sensor,
-            pool: AndPool::new(
-                self.pool.p1, // smallest to activate counter pool
                 AndPool::new(
-                    AndPool::new(
-                        MostNDiversePool::new(&format!("diverse_cov_{}", size), size, nbr_counters),
-                        OptimiseAggregateStatPool::<NumberOfActivatedCounters>::new("diverse_cov1"),
-                        192, // choose most n diverse ~75% of the time
-                    ),
-                    self.pool.p2, // diverse pool
-                    183, // choose diverse pool 71% of the time => in the end, chosen (100% - 65%) * 75% = ~25% of the time
+                    self.pool.p2,
+                    MaximiseSingleValuePool::<u64>::new("max_total_cov_hits"),
+                    128,
                 ),
-                166, // 65% of the time
+                128,
             ),
         }
     }
 }
+// impl SensorAndPoolBuilder<MaxHitsSensor, BasicAndMaxHitsPool> {
+//     /// Augment the current pool such that it also tries to find a fixed-length set of test cases which, together,
+//     /// trigger the most code coverage.
+//     ///
+//     /// ### Argument
+//     /// `size` : the size of the set of test cases to find
+//     #[no_coverage]
+//     pub fn find_most_diverse_set_of_test_cases(
+//         self,
+//         size: usize,
+//     ) -> SensorAndPoolBuilder<DiverseAndMaxHitsSensor, BasicAndDiverseAndMaxHitsPool> {
+//         let nbr_counters = self.sensor.count_instrumented;
+//         SensorAndPoolBuilder {
+//             sensor: self.sensor,
+//             pool: AndPool::new(
+//                 self.pool.p1, // smallest to activate counter pool
+//                 AndPool::new(
+//                     AndPool::new(
+//                         MostNDiversePool::new(&format!("diverse_cov_{}", size), size, nbr_counters),
+//                         MaximiseSingleValuePool::<usize>::new("diverse_cov1"),
+//                         192, // choose most n diverse ~75% of the time
+//                     ),
+//                     self.pool.p2, // diverse pool
+//                     183, // choose diverse pool 71% of the time => in the end, chosen (100% - 65%) * 75% = ~25% of the time
+//                 ),
+//                 166, // 65% of the time
+//             ),
+//         }
+//     }
+// }
