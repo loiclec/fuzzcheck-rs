@@ -108,16 +108,16 @@ impl<T> Slab<T> {
     // pub fn is_empty(&self) -> bool {
     //     self.len() == 0
     // }
-    #[no_coverage]
-    pub fn get_nth_key(&self, n: usize) -> SlabKey<T> {
-        let mut idx = n;
-        for &i in &self.available_slots {
-            if i <= idx {
-                idx += 1;
-            }
-        }
-        SlabKey::new(idx)
-    }
+    // #[no_coverage]
+    // pub fn get_nth_key(&self, n: usize) -> SlabKey<T> {
+    //     let mut idx = n;
+    //     for &i in &self.available_slots {
+    //         if i <= idx {
+    //             idx += 1;
+    //         }
+    //     }
+    //     SlabKey::new(idx)
+    // }
 
     #[no_coverage]
     pub fn insert(&mut self, x: T) -> SlabKey<T> {

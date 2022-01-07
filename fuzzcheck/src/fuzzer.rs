@@ -1,4 +1,5 @@
 use crate::data_structures::RcSlab;
+use crate::fenwick_tree::FenwickTree;
 use crate::sensors_and_pools::{
     AndSensorAndPool, NoopSensor, TestFailure, TestFailurePool, TestFailureSensor, UnitPool, TEST_FAILURE,
 };
@@ -67,10 +68,18 @@ enum FuzzerInputIndex<T> {
     Pool(PoolStorageIndex),
 }
 
+struct RankedTestCase {
+    index: PoolStorageIndex,
+    weight: f64,
+    times_chosen: usize,
+}
+
 struct FuzzerState<T: Clone, M: Mutator<T>> {
     mutator: M,
     sensor_and_pool: Box<dyn SensorAndPool>,
     pool_storage: RcSlab<FuzzedInput<T, M>>,
+    ranked_test_cases: Vec<RankedTestCase>,
+    ranked_test_cases_fenwick: FenwickTree,
     /// The step given to the mutator when the fuzzer wants to create a new arbitrary test case
     arbitrary_step: M::ArbitraryStep,
     /// The index of the test case that is being tested
@@ -82,6 +91,7 @@ struct FuzzerState<T: Clone, M: Mutator<T>> {
     serializer: Box<dyn Serializer<Value = T>>,
     /// The world handles effects
     world: World,
+    rng: fastrand::Rng,
 }
 
 impl<T: Clone, M: Mutator<T>> Drop for FuzzerState<T, M> {
@@ -189,6 +199,18 @@ where
             move |sig| (&mut *ptr).receive_signal(sig),
         );
     }
+
+    #[no_coverage]
+    fn get_random_test_case_index(&mut self) -> Option<PoolStorageIndex> {
+        let index = self.ranked_test_cases_fenwick.sample(&self.rng)?;
+        let ranked_test_case = &mut self.ranked_test_cases[index];
+        let old_weight = ranked_test_case.weight / (ranked_test_case.times_chosen as f64);
+        ranked_test_case.times_chosen += 1;
+        let new_weight = ranked_test_case.weight / (ranked_test_case.times_chosen as f64);
+        let delta = new_weight - old_weight;
+        self.ranked_test_cases_fenwick.update(index, delta);
+        Some(ranked_test_case.index)
+    }
 }
 
 pub struct Fuzzer<T, M>
@@ -217,9 +239,12 @@ where
         world: World,
     ) -> Self {
         let arbitrary_step = mutator.default_arbitrary_step();
+        let (ranked_test_cases, ranked_test_cases_fenwick) = ranked_test_cases_from_sensor_and_pool(&sensor_and_pool);
         Fuzzer {
             state: FuzzerState {
                 sensor_and_pool,
+                ranked_test_cases,
+                ranked_test_cases_fenwick,
                 pool_storage: RcSlab::new(),
                 mutator,
                 arbitrary_step,
@@ -228,6 +253,7 @@ where
                 settings,
                 serializer,
                 world,
+                rng: fastrand::Rng::default(),
             },
             test,
         }
@@ -311,6 +337,10 @@ where
         let deltas = sensor_and_pool.process(input_id, cplx);
 
         if !deltas.is_empty() {
+            let (ranked_test_cases, ranked_test_cases_fenwick) =
+                ranked_test_cases_from_sensor_and_pool(sensor_and_pool);
+            self.state.ranked_test_cases = ranked_test_cases;
+            self.state.ranked_test_cases_fenwick = ranked_test_cases_fenwick;
             let add_ref_count = deltas.iter().fold(
                 0,
                 #[no_coverage]
@@ -347,16 +377,16 @@ where
 
     #[no_coverage]
     fn process_next_input(&mut self) -> Result<(), ReasonForStopping<T>> {
+        let random_index = self.state.get_random_test_case_index();
         let FuzzerState {
             pool_storage,
-            sensor_and_pool,
             input_idx,
             mutator,
             settings,
             ..
         } = &mut self.state;
         loop {
-            if let Some(idx) = sensor_and_pool.get_random_index() {
+            if let Some(idx) = random_index {
                 *input_idx = FuzzerInputIndex::Pool(idx);
                 let input = &mut pool_storage[idx.0];
                 let generation = input.generation;
@@ -478,6 +508,27 @@ where
     }
 }
 
+#[no_coverage]
+fn ranked_test_cases_from_sensor_and_pool(
+    sensor_and_pool: &Box<dyn SensorAndPool>,
+) -> (Vec<RankedTestCase>, FenwickTree) {
+    let ranked_test_cases = sensor_and_pool.ranked_test_cases();
+    let ranked_test_cases = ranked_test_cases
+        .into_iter()
+        .map(|(index, weight)| RankedTestCase {
+            index,
+            weight,
+            times_chosen: 1,
+        })
+        .collect::<Vec<_>>();
+    let weights = ranked_test_cases
+        .iter()
+        .map(|rtc| rtc.weight / (rtc.times_chosen as f64))
+        .collect::<Vec<_>>();
+    let ranked_test_cases_fenwick = FenwickTree::new(weights);
+    (ranked_test_cases, ranked_test_cases_fenwick)
+}
+
 pub enum TerminationStatus {
     Success = 0,
     Crash = 1,
@@ -504,8 +555,12 @@ where
             if !args.stop_after_first_failure {
                 let test_failure_sensor = TestFailureSensor::default();
                 let test_failure_pool = TestFailurePool::new("test_failures");
-                let sensor_and_pool =
-                    AndSensorAndPool::new(sensor_and_pool, Box::new((test_failure_sensor, test_failure_pool)), 254);
+                let sensor_and_pool = AndSensorAndPool::new(
+                    sensor_and_pool,
+                    Box::new((test_failure_sensor, test_failure_pool)),
+                    Some(1.0),
+                    Some(10.0),
+                );
                 let mut fuzzer = Fuzzer::new(
                     test,
                     mutator,
@@ -564,7 +619,12 @@ where
 
                 let noop_sensor = NoopSensor;
                 let unit_pool = UnitPool::new(PoolStorageIndex(0));
-                let sensor_and_pool = AndSensorAndPool::new(sensor_and_pool, Box::new((noop_sensor, unit_pool)), 128);
+                let sensor_and_pool = AndSensorAndPool::new(
+                    sensor_and_pool,
+                    Box::new((noop_sensor, unit_pool)),
+                    Some(1.0),
+                    Some(100.0),
+                );
                 let mut fuzzer = Fuzzer::new(
                     test,
                     mutator,

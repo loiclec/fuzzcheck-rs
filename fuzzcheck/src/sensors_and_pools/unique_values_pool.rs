@@ -1,6 +1,5 @@
 use crate::code_coverage_sensor::CopiedSliceIterObservations;
 use crate::data_structures::{Slab, SlabKey};
-use crate::fenwick_tree::FenwickTree;
 use crate::fuzzer::PoolStorageIndex;
 use crate::traits::{CorpusDelta, Observations, Pool, SaveToStatsFolder, Stats};
 use crate::{CompatibleWithObservations, ToCSV};
@@ -46,7 +45,6 @@ where
     best_for_values: AHashSet<(usize, T)>,
     data: PoolStorageIndex,
     score: f64,
-    number_times_chosen: usize,
 }
 
 /// A pool that stores an input for each different value of each sensor counter
@@ -58,9 +56,7 @@ where
     complexities: Vec<AHashMap<T, f64>>,
     inputs: Slab<Input<T>>,
     best_input_for_value: Vec<AHashMap<T, SlabKey<Input<T>>>>,
-    ranked_inputs: FenwickTree,
     stats: UniqueValuesPoolStats,
-    rng: fastrand::Rng,
 }
 impl<T> Debug for UniqueValuesPool<T>
 where
@@ -89,12 +85,10 @@ where
             complexities: vec![AHashMap::new(); size],
             inputs: Slab::new(),
             best_input_for_value: vec![AHashMap::new(); size],
-            ranked_inputs: FenwickTree::new(vec![]),
             stats: UniqueValuesPoolStats {
                 name: name.to_string(),
                 size: 0,
             },
-            rng: fastrand::Rng::new(),
         }
     }
 }
@@ -111,19 +105,18 @@ where
     }
 
     #[no_coverage]
-    fn get_random_index(&mut self) -> Option<PoolStorageIndex> {
-        let choice = self.ranked_inputs.sample(&self.rng)?;
-        let key = self.inputs.get_nth_key(choice);
-
-        let input = &mut self.inputs[key];
-        let old_rank = input.score / (input.number_times_chosen as f64);
-        input.number_times_chosen += 1;
-        let new_rank = input.score / (input.number_times_chosen as f64);
-
-        let delta = new_rank - old_rank;
-        self.ranked_inputs.update(choice, delta);
-        let data = self.inputs[key].data;
-        Some(data)
+    fn ranked_test_cases(&self) -> Vec<(PoolStorageIndex, f64)> {
+        let inputs = &self.inputs;
+        self.inputs
+            .keys()
+            .map(
+                #[no_coverage]
+                |key| {
+                    let input = &inputs[key];
+                    (input.data, input.score)
+                },
+            )
+            .collect()
     }
 }
 impl<T> SaveToStatsFolder for UniqueValuesPool<T>
@@ -142,21 +135,6 @@ where
 {
     #[no_coverage]
     fn update_stats(&mut self) {
-        let inputs = &self.inputs;
-
-        let ranked_inputs = self
-            .inputs
-            .keys()
-            .map(
-                #[no_coverage]
-                |key| {
-                    let input = &inputs[key];
-                    input.score / (input.number_times_chosen as f64)
-                },
-            )
-            .collect();
-        self.ranked_inputs = FenwickTree::new(ranked_inputs);
-
         self.stats.size = self.inputs.len();
     }
 }
@@ -195,7 +173,6 @@ where
             best_for_values: AHashSet::new(), // fill in later! with new_observations.into_iter().collect(),
             data: input,
             score,
-            number_times_chosen: 1,
         };
 
         let input_key = self.inputs.insert(input);

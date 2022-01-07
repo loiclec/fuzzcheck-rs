@@ -563,7 +563,7 @@ pub trait SensorAndPool: SaveToStatsFolder {
     fn start_recording(&mut self);
     fn stop_recording(&mut self);
     fn process(&mut self, input_id: PoolStorageIndex, cplx: f64) -> Vec<CorpusDelta>;
-    fn get_random_index(&mut self) -> Option<PoolStorageIndex>;
+    fn ranked_test_cases(&self) -> Vec<(PoolStorageIndex, f64)>;
 }
 impl<A, B> SaveToStatsFolder for (A, B)
 where
@@ -601,8 +601,8 @@ where
         self.1.process(input_id, self.0.get_observations(), complexity)
     }
     #[no_coverage]
-    fn get_random_index(&mut self) -> Option<PoolStorageIndex> {
-        self.1.get_random_index()
+    fn ranked_test_cases(&self) -> Vec<(PoolStorageIndex, f64)> {
+        self.1.ranked_test_cases()
     }
 }
 
@@ -682,11 +682,13 @@ pub trait Pool: SaveToStatsFolder {
     /// The pool’s statistics
     fn stats(&self) -> Self::Stats;
 
-    /// Get the index of a random test case.
-    ///
-    /// Most [Pool] implementations will want to prioritise certain test cases
-    /// over others based on their associated observations.
-    fn get_random_index(&mut self) -> Option<PoolStorageIndex>;
+    // /// Get the index of a random test case.
+    // ///
+    // /// Most [Pool] implementations will want to prioritise certain test cases
+    // /// over others based on their associated observations.
+    // fn get_random_index(&mut self) -> Option<PoolStorageIndex>;
+
+    fn ranked_test_cases(&self) -> Vec<(PoolStorageIndex, f64)>;
 }
 
 /**

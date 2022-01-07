@@ -44,8 +44,8 @@ where
     pub p1: P1,
     pub p2: P2,
 
-    pub ratio_choose_first: u8,
-    rng: fastrand::Rng,
+    pub score_first: Option<f64>,
+    pub score_second: Option<f64>,
     _phantom: PhantomData<SensorMarker>,
 }
 impl<P1, P2, SensorMarker> AndPool<P1, P2, SensorMarker>
@@ -54,12 +54,12 @@ where
     P2: Pool,
 {
     #[no_coverage]
-    pub fn new(p1: P1, p2: P2, ratio_choose_first: u8) -> Self {
+    pub fn new(p1: P1, p2: P2, score_first: Option<f64>, score_second: Option<f64>) -> Self {
         Self {
             p1,
             p2,
-            ratio_choose_first,
-            rng: fastrand::Rng::new(),
+            score_first,
+            score_second,
             _phantom: PhantomData,
         }
     }
@@ -75,21 +75,32 @@ where
     fn stats(&self) -> Self::Stats {
         AndPoolStats(self.p1.stats(), self.p2.stats())
     }
+
     #[no_coverage]
-    fn get_random_index(&mut self) -> Option<PoolStorageIndex> {
-        if self.rng.u8(..) <= self.ratio_choose_first {
-            if let Some(idx) = self.p1.get_random_index() {
-                Some(idx)
-            } else {
-                self.p2.get_random_index()
-            }
-        } else if let Some(idx) = self.p2.get_random_index() {
-            Some(idx)
-        } else {
-            self.p1.get_random_index()
+    fn ranked_test_cases(&self) -> Vec<(PoolStorageIndex, f64)> {
+        let mut r1 = self.p1.ranked_test_cases();
+        if let Some(score_first) = self.score_first {
+            normalise_scores(&mut r1, score_first);
         }
+        let mut r2 = self.p2.ranked_test_cases();
+        if let Some(score_second) = self.score_second {
+            normalise_scores(&mut r2, score_second);
+        }
+        let mut r = r1;
+        r.extend(r2);
+        r
     }
 }
+
+fn normalise_scores(r: &mut [(PoolStorageIndex, f64)], score: f64) {
+    let total_score = r.iter().map(|r| r.1).sum::<f64>();
+    let avg_score = total_score / r.len() as f64;
+    let adjustment = avg_score / score;
+    for (_, score) in r.iter_mut() {
+        *score /= adjustment;
+    }
+}
+
 impl<P1, P2, SensorMarker> SaveToStatsFolder for AndPool<P1, P2, SensorMarker>
 where
     P1: Pool,
@@ -225,41 +236,6 @@ where
     }
 }
 
-// impl<P1, P2> CompatibleWithIteratorSensor for AndPool<P1, P2>
-// where
-//     P1: CompatibleWithIteratorSensor,
-//     P2: CompatibleWithIteratorSensor<Observation = P1::Observation>,
-// {
-//     type Observation = P1::Observation;
-//     type ObservationState = (P1::ObservationState, P2::ObservationState);
-
-//     #[no_coverage]
-//     fn start_observing(&mut self) -> Self::ObservationState {
-//         (self.p1.start_observing(), self.p2.start_observing())
-//     }
-
-//     #[inline]
-//     #[no_coverage]
-//     fn observe(&mut self, observation: &Self::Observation, input_complexity: f64, state: &mut Self::ObservationState) {
-//         self.p1.observe(observation, input_complexity, &mut state.0);
-//         self.p2.observe(observation, input_complexity, &mut state.1);
-//     }
-
-//     #[no_coverage]
-//     fn add_if_interesting(
-//         &mut self,
-//         input_id: PoolStorageIndex,
-//         complexity: f64,
-//         observation_state: Self::ObservationState,
-//         observations: &[Self::Observation],
-//     ) -> Vec<CorpusDelta> {
-//         let (o1, o2) = observation_state;
-//         let mut deltas = vec![];
-//         deltas.extend(self.p1.add_if_interesting(input_id, complexity, o1, observations));
-//         deltas.extend(self.p2.add_if_interesting(input_id, complexity, o2, observations));
-//         deltas
-//     }
-// }
 impl<S1, S2> ToCSV for AndPoolStats<S1, S2>
 where
     S1: Display,
@@ -286,17 +262,22 @@ where
 pub struct AndSensorAndPool {
     sap1: Box<dyn SensorAndPool>,
     sap2: Box<dyn SensorAndPool>,
-    ratio_choose_first: u8,
-    rng: fastrand::Rng,
+    score_first: Option<f64>,
+    score_second: Option<f64>,
 }
 impl AndSensorAndPool {
     #[no_coverage]
-    pub fn new(sap1: Box<dyn SensorAndPool>, sap2: Box<dyn SensorAndPool>, ratio_choose_first: u8) -> Self {
+    pub fn new(
+        sap1: Box<dyn SensorAndPool>,
+        sap2: Box<dyn SensorAndPool>,
+        score_first: Option<f64>,
+        score_second: Option<f64>,
+    ) -> Self {
         Self {
             sap1,
             sap2,
-            ratio_choose_first,
-            rng: fastrand::Rng::new(),
+            score_first,
+            score_second,
         }
     }
 }
@@ -334,17 +315,17 @@ impl SensorAndPool for AndSensorAndPool {
     }
 
     #[no_coverage]
-    fn get_random_index(&mut self) -> Option<PoolStorageIndex> {
-        if self.rng.u8(..) <= self.ratio_choose_first {
-            if let Some(idx) = self.sap1.get_random_index() {
-                Some(idx)
-            } else {
-                self.sap2.get_random_index()
-            }
-        } else if let Some(idx) = self.sap2.get_random_index() {
-            Some(idx)
-        } else {
-            self.sap1.get_random_index()
+    fn ranked_test_cases(&self) -> Vec<(PoolStorageIndex, f64)> {
+        let mut r1 = self.sap1.ranked_test_cases();
+        if let Some(score_first) = self.score_first {
+            normalise_scores(&mut r1, score_first);
         }
+        let mut r2 = self.sap2.ranked_test_cases();
+        if let Some(score_second) = self.score_second {
+            normalise_scores(&mut r2, score_second);
+        }
+        let mut r = r1;
+        r.extend(r2);
+        r
     }
 }

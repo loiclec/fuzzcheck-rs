@@ -12,7 +12,6 @@ use crate::{
 use crate::{traits::Stats, CompatibleWithObservations};
 
 use crate::{
-    fenwick_tree::FenwickTree,
     fuzzer::PoolStorageIndex,
     traits::{CorpusDelta, Pool},
     CSVField, ToCSV,
@@ -39,8 +38,6 @@ pub struct MostNDiversePool {
     inputs: Vec<Input>,
     all_counters: FixedBitSet,
     worst_input_idx: Option<usize>,
-    fenwick_tree: FenwickTree,
-    rng: fastrand::Rng,
     cache: FixedBitSet,
 }
 
@@ -59,8 +56,6 @@ impl MostNDiversePool {
             inputs: vec![],
             all_counters: FixedBitSet::new(),
             worst_input_idx: None,
-            rng: fastrand::Rng::new(),
-            fenwick_tree: FenwickTree::new(vec![]),
             cache: FixedBitSet::new(),
         }
     }
@@ -77,10 +72,14 @@ impl Pool for MostNDiversePool {
         }
     }
     #[no_coverage]
-    fn get_random_index(&mut self) -> Option<PoolStorageIndex> {
-        let choice = self.fenwick_tree.sample(&self.rng)?;
-        let input = &self.inputs[choice];
-        Some(input.pool_idx)
+    fn ranked_test_cases(&self) -> Vec<(PoolStorageIndex, f64)> {
+        self.inputs
+            .iter()
+            .map(
+                #[no_coverage]
+                |x| (x.pool_idx, x.nbr_unique_counters as f64),
+            )
+            .collect::<Vec<_>>()
     }
 }
 impl SaveToStatsFolder for MostNDiversePool {
@@ -275,15 +274,6 @@ impl MostNDiversePool {
                 #[no_coverage]
                 |x| x.0,
             );
-        self.fenwick_tree = FenwickTree::new(
-            self.inputs
-                .iter()
-                .map(
-                    #[no_coverage]
-                    |x| x.nbr_unique_counters as f64,
-                )
-                .collect(),
-        );
     }
 }
 

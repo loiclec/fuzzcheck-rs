@@ -27,9 +27,8 @@ impl Pool for UnitPool {
         EmptyStats
     }
 
-    #[no_coverage]
-    fn get_random_index(&mut self) -> Option<PoolStorageIndex> {
-        Some(self.input_index)
+    fn ranked_test_cases(&self) -> Vec<(PoolStorageIndex, f64)> {
+        vec![(self.input_index, 1.)]
     }
 }
 impl SaveToStatsFolder for UnitPool {

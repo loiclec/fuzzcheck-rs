@@ -75,12 +75,13 @@ where
             ),
         }
     }
+
     #[no_coverage]
-    fn get_random_index(&mut self) -> Option<PoolStorageIndex> {
+    fn ranked_test_cases(&self) -> Vec<(PoolStorageIndex, f64)> {
         if let Some(best) = &self.current_best {
-            Some(best.1.input_id)
+            vec![(best.1.input_id, 1.0)]
         } else {
-            None
+            vec![]
         }
     }
 }

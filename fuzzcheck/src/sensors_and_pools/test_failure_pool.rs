@@ -106,7 +106,6 @@ struct TestFailureListForError {
 pub struct TestFailurePool {
     name: String,
     inputs: Vec<TestFailureList>,
-    rng: fastrand::Rng,
 }
 
 impl TestFailurePool {
@@ -115,7 +114,6 @@ impl TestFailurePool {
         Self {
             name: name.to_string(),
             inputs: vec![],
-            rng: fastrand::Rng::new(),
         }
     }
 }
@@ -129,21 +127,17 @@ impl Pool for TestFailurePool {
             count: self.inputs.len(),
         }
     }
-
     #[no_coverage]
-    fn get_random_index(&mut self) -> Option<PoolStorageIndex> {
-        if self.inputs.is_empty() {
-            return None;
+    fn ranked_test_cases(&self) -> Vec<(PoolStorageIndex, f64)> {
+        let mut ranked_test_cases = vec![];
+        for error in self.inputs.iter() {
+            let complexity_choice = error.inputs.len() - 1;
+            let least_complexity = &error.inputs[complexity_choice];
+            for input in least_complexity.inputs.iter() {
+                ranked_test_cases.push((*input, 1.));
+            }
         }
-        let error_choice = self.rng.usize(0..self.inputs.len());
-        let list_for_error = &self.inputs[error_choice];
-        let complexity_choice = list_for_error.inputs.len() - 1;
-        let least_complexity = &list_for_error.inputs[complexity_choice];
-        if least_complexity.inputs.is_empty() {
-            return None;
-        }
-        let input_choice = self.rng.usize(0..least_complexity.inputs.len());
-        Some(least_complexity.inputs[input_choice])
+        ranked_test_cases
     }
 }
 impl SaveToStatsFolder for TestFailurePool {
