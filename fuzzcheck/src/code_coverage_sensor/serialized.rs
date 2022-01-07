@@ -24,7 +24,7 @@ pub struct Region {
 #[derive(Serialize, Deserialize)]
 pub struct Counter {
     id: usize,
-    region: Region,
+    regions: Vec<Region>,
 }
 
 impl CodeCoverageSensor {
@@ -56,23 +56,26 @@ impl CodeCoverageSensor {
                         }
                     }
 
-                    for (idx, region) in indices_and_regions {
+                    for (idx, regions) in indices_and_regions {
                         let file_idx = f_record
                             .file_id_mapping
                             .filename_indices
                             .iter()
                             .position(
                                 #[no_coverage]
-                                |idx| *idx == region.filename_index,
+                                |idx| *idx == regions[0].filename_index,
                             )
                             .unwrap();
                         let file = f_record.filenames[file_idx].clone();
                         let counter = Counter {
                             id: idx,
-                            region: Region {
-                                lines: (region.line_start, region.line_end),
-                                cols: (region.col_start, region.col_end),
-                            },
+                            regions: regions
+                                .iter()
+                                .map(|region| Region {
+                                    lines: (region.line_start, region.line_end),
+                                    cols: (region.col_start, region.col_end),
+                                })
+                                .collect(),
                         };
                         regions_by_file.entry(file).or_default().push(counter);
                     }

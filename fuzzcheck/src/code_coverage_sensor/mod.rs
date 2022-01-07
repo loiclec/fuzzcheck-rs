@@ -127,10 +127,6 @@ where
 }
 
 impl Sensor for CodeCoverageSensor {
-    /// A function to handle the observations made by the code coverage sensor
-    ///
-    /// An observation is a tuple. The first element is the index of a code region.
-    /// The second element represents the number of times the code region was hit.
     type Observations = CopiedSliceIterObservations<(usize, u64)>;
 
     #[no_coverage]

@@ -706,7 +706,7 @@ pub fn max_cov_hits_sensor_and_pool() -> SensorAndPoolBuilder<MaxHitsSensor, Max
         pool: AndPool::<_, _, DifferentObservations>::new(
             MaximiseCounterValuePool::new("max_each_cov_hits", nbr_counters),
             MaximiseSingleValuePool::new("max_total_cov_hits"),
-            Some(1.),
+            Some(10.),
             Some(1.),
         ),
     }
@@ -798,8 +798,8 @@ impl SensorAndPoolBuilder<BasicSensor, BasicPool> {
                 AndPool::new(
                     self.pool,
                     MostNDiversePool::new(&format!("diverse_cov_{}", size), size, nbr_counters),
-                    None,
-                    Some(1.0),
+                    Some(20.0),
+                    Some(5.0),
                 ),
                 MaximiseSingleValuePool::<usize>::new("diverse_cov_1"),
                 None,
@@ -832,8 +832,8 @@ impl SensorAndPoolBuilder<BasicSensor, BasicPool> {
                 AndPool::new(
                     self.pool,
                     MaximiseCounterValuePool::new("max_each_cov_hits", nbr_counters),
-                    None,
-                    Some(1.), // each input there is expensive to run and is not that important
+                    Some(20.),
+                    Some(5.), // each input there is expensive to run and is not that important
                 ),
                 MaximiseSingleValuePool::<u64>::new("max_total_cov_hits"),
                 None,
@@ -872,16 +872,16 @@ impl SensorAndPoolBuilder<DiverseSensor, BasicAndDiversePool> {
                     AndPool::new(
                         MaximiseCounterValuePool::new("max_each_cov_hits", nbr_counters),
                         self.pool.p1.p2,
-                        None,
-                        Some(1.),
+                        Some(5.),
+                        Some(5.),
                     ),
+                    Some(20.),
                     None,
-                    Some(1.),
                 ),
                 AndPool::new(
                     self.pool.p2,
                     MaximiseSingleValuePool::<u64>::new("max_total_cov_hits"),
-                    None,
+                    Some(1.),
                     Some(1.),
                 ),
                 None,

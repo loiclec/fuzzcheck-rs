@@ -1,7 +1,6 @@
 use super::leb128;
 use flate2::Status;
-use object::Object;
-use object::ObjectSection;
+use object::{Object, ObjectSection};
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::convert::TryFrom;
@@ -435,7 +434,7 @@ pub fn read_prf_names(slice: &[u8], idx: &mut usize) -> Result<Vec<String>, Read
 pub struct FunctionRecord {
     pub header: FunctionRecordHeader,
     pub file_id_mapping: FileIDMapping,
-    pub expressions: Vec<(ExpandedExpression, MappingRegion)>,
+    pub expressions: Vec<(ExpandedExpression, Vec<MappingRegion>)>,
     pub name_function: String,
     pub filenames: Vec<PathBuf>,
 }
@@ -448,43 +447,25 @@ pub fn process_function_records(
 ) -> Vec<FunctionRecord> {
     let mut all_expressions = Vec::new();
     for function_counters in records {
-        let mut expressions = vec![];
-        let mut expressions_set = HashSet::new();
-        let mut unique_expressions = HashSet::new();
+        let mut expressions: Vec<(ExpandedExpression, Vec<MappingRegion>)> = vec![];
+        // map from expanded expression to an index in `expressions`
+        let mut expressions_map: HashMap<ExpandedExpression, usize> = HashMap::new();
+        let mut all_subexpressions = HashSet::new();
 
+        // NOTE: the order with which the `expressions` variable is built matters
         for (raw_counter, mapping_region) in function_counters.counters_list.iter() {
             let mut expanded = ExpandedExpression::default();
-            expanded.push_counter(raw_counter, Sign::Positive, &function_counters, &mut unique_expressions);
+            expanded.push_counter(raw_counter, Sign::Positive, &function_counters, &mut all_subexpressions);
             expanded.sort(); // sort them to canonicalise their representation
-            unique_expressions.insert(expanded.clone());
-            if expressions_set.contains(&expanded) {
-                continue;
+            all_subexpressions.insert(expanded.clone());
+            if let Some(idx) = expressions_map.get(&expanded) {
+                expressions[*idx].1.push(mapping_region.clone());
             } else {
-                expressions_set.insert(expanded.clone());
-                expressions.push((expanded, mapping_region.clone()));
+                expressions_map.insert(expanded.clone(), expressions.len());
+                expressions.push((expanded, vec![mapping_region.clone()]));
             }
         }
-
-        // for expanded in unique_expressions {
-        //     if expressions_set.contains(&expanded) {
-        //         continue;
-        //     } else {
-        //         expressions_set.insert(expanded.clone());
-        //         expressions.push((
-        //             expanded,
-        //             MappingRegion {
-        //                 filename_index: 0,
-        //                 line_start: 0,
-        //                 line_end: 0,
-        //                 col_start: 0,
-        //                 col_end: 0,
-        //             },
-        //         ));
-        //     }
-        // }
         let name_function = (&prf_names[&function_counters.header.id.name_md5]).clone();
-
-        let mut expressions = expressions.into_iter().collect::<Vec<_>>();
 
         let mut to_delete = HashSet::new();
         'outer: for (i, (e1, _)) in expressions.iter().enumerate() {
