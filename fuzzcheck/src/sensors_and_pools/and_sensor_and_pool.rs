@@ -20,6 +20,7 @@
 //! After the test function is run, both sensors will collect data and feed them to their respective pool.
 use std::{fmt::Display, marker::PhantomData, path::PathBuf};
 
+use super::CloneObservations;
 use crate::{
     fuzzer::PoolStorageIndex,
     traits::{
@@ -27,11 +28,6 @@ use crate::{
     },
     CSVField, ToCSV,
 };
-
-use super::CloneObservations;
-
-// use super::compatible_with_iterator_sensor::CompatibleWithIteratorSensor;
-
 pub enum SameObservations {}
 pub enum DifferentObservations {}
 
@@ -100,8 +96,7 @@ fn normalise_scores(r: &mut [(PoolStorageIndex, f64)], score: f64) {
             |r| r.1,
         )
         .sum::<f64>();
-    let avg_score = total_score / r.len() as f64;
-    let adjustment = avg_score / score;
+    let adjustment = total_score / score;
     for (_, score) in r.iter_mut() {
         *score /= adjustment;
     }
