@@ -26,16 +26,17 @@
 //! activated counters divided by their frequencies.
 //!
 
-use crate::code_coverage_sensor::CopiedSliceIterObservations;
 use crate::data_structures::{Slab, SlabKey};
 use crate::fuzzer::PoolStorageIndex;
-use crate::traits::{CorpusDelta, Observations, Pool, SaveToStatsFolder, Stats};
+use crate::traits::{CorpusDelta, Pool, SaveToStatsFolder, Stats};
 use crate::{CSVField, CompatibleWithObservations, ToCSV};
 use ahash::{AHashMap, AHashSet};
 use nu_ansi_term::Color;
 use std::fmt::Display;
 use std::hash::Hash;
 use std::path::{Path, PathBuf};
+
+use super::CloneObservations;
 
 #[derive(Debug)]
 #[repr(transparent)]
@@ -603,16 +604,20 @@ struct AnalysisResult {
     new_counters: Vec<CounterIdx>,
 }
 
-impl CompatibleWithObservations<CopiedSliceIterObservations<(usize, u64)>> for SimplestToActivateCounterPool {
+impl<O> CompatibleWithObservations<O> for SimplestToActivateCounterPool
+where
+    O: CloneObservations,
+    for<'a> O::Concrete<'a>: IntoIterator<Item = (usize, u64)>,
+{
     fn process<'a>(
         &'a mut self,
         input_id: PoolStorageIndex,
-        observations: <CopiedSliceIterObservations<(usize, u64)> as Observations>::Concrete<'a>,
+        observations: O::Concrete<'a>,
         complexity: f64,
     ) -> Vec<CorpusDelta> {
         let mut state = UniqueCoveragePoolObservationState::default();
 
-        for (index, _) in observations.clone().into_iter() {
+        for (index, _) in O::clone(&observations).into_iter() {
             let prev_least_complexity = *unsafe { self.least_complexity_for_counter.get_unchecked(index) };
             state.is_interesting |= complexity < prev_least_complexity;
         }

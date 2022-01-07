@@ -1,4 +1,3 @@
-use crate::code_coverage_sensor::CopiedSliceIterObservations;
 use crate::data_structures::{Slab, SlabKey};
 use crate::fuzzer::PoolStorageIndex;
 use crate::traits::{CorpusDelta, Observations, Pool, SaveToStatsFolder, Stats};
@@ -137,11 +136,15 @@ impl MaximiseCounterValuePool {
     }
 }
 
-impl CompatibleWithObservations<CopiedSliceIterObservations<(usize, u64)>> for MaximiseCounterValuePool {
+impl<O> CompatibleWithObservations<O> for MaximiseCounterValuePool
+where
+    O: Observations,
+    for<'a> O::Concrete<'a>: IntoIterator<Item = (usize, u64)>,
+{
     fn process<'a>(
         &'a mut self,
         input_id: PoolStorageIndex,
-        observations: <CopiedSliceIterObservations<(usize, u64)> as Observations>::Concrete<'a>,
+        observations: O::Concrete<'a>,
         complexity: f64,
     ) -> Vec<CorpusDelta> {
         let mut state = vec![];

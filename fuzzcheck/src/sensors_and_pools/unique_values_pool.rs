@@ -1,4 +1,3 @@
-use crate::code_coverage_sensor::CopiedSliceIterObservations;
 use crate::data_structures::{Slab, SlabKey};
 use crate::fuzzer::PoolStorageIndex;
 use crate::traits::{CorpusDelta, Observations, Pool, SaveToStatsFolder, Stats};
@@ -139,15 +138,17 @@ where
     }
 }
 
-impl<T> CompatibleWithObservations<CopiedSliceIterObservations<(usize, T)>> for UniqueValuesPool<T>
+impl<T, O> CompatibleWithObservations<O> for UniqueValuesPool<T>
 where
+    O: Observations,
+    for<'a> O::Concrete<'a>: IntoIterator<Item = (usize, T)>,
     T: Hash + Eq + Clone + Copy + 'static,
 {
     #[no_coverage]
     fn process<'a>(
         &'a mut self,
         input_id: PoolStorageIndex,
-        observations: <CopiedSliceIterObservations<(usize, T)> as Observations>::Concrete<'a>,
+        observations: O::Concrete<'a>,
         complexity: f64,
     ) -> Vec<CorpusDelta> {
         let mut state = vec![];
