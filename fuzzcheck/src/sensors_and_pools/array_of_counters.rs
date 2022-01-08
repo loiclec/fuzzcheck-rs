@@ -1,5 +1,5 @@
-use crate::traits::{Observations, SaveToStatsFolder, Sensor};
-use std::{marker::PhantomData, path::PathBuf};
+use crate::traits::{SaveToStatsFolder, Sensor};
+use std::path::PathBuf;
 
 /// A custom sensor consisting of an array of counters that can be manually set.
 ///
@@ -48,20 +48,11 @@ impl<T, const N: usize> ArrayOfCounters<T, N> {
     }
 }
 
-#[derive(Clone, Copy)]
-pub struct SliceIterObservations<T> {
-    _phantom: PhantomData<T>,
-}
-
-impl<T: 'static> Observations for SliceIterObservations<T> {
-    type Concrete<'a> = std::slice::Iter<'a, T>;
-}
-
 impl<T, const N: usize> Sensor for ArrayOfCounters<T, N>
 where
-    T: 'static + Default,
+    T: 'static + Default + Copy,
 {
-    type Observations = SliceIterObservations<T>;
+    type Observations = Box<[T]>;
 
     #[no_coverage]
     fn start_recording(&mut self) {
@@ -77,8 +68,12 @@ where
     fn stop_recording(&mut self) {}
 
     #[no_coverage]
-    fn get_observations<'a>(&'a mut self) -> <Self::Observations as Observations>::Concrete<'a> {
-        unsafe { std::slice::from_raw_parts(self.start, N) }.iter()
+    fn get_observations<'a>(&'a mut self) -> Self::Observations {
+        let b = unsafe { std::slice::from_raw_parts(self.start, N) }
+            .into_iter()
+            .copied()
+            .collect::<Box<[T]>>();
+        b
     }
 }
 impl<T, const N: usize> SaveToStatsFolder for ArrayOfCounters<T, N> {

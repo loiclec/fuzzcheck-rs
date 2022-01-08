@@ -1,5 +1,5 @@
 use crate::fuzzer::PoolStorageIndex;
-use crate::traits::{CompatibleWithObservations, CorpusDelta, Observations, Pool, SaveToStatsFolder, Sensor, Stats};
+use crate::traits::{CompatibleWithObservations, CorpusDelta, Pool, SaveToStatsFolder, Sensor, Stats};
 use crate::{CSVField, ToCSV};
 use nu_ansi_term::Color;
 use std::fmt::Display;
@@ -24,14 +24,8 @@ pub struct TestFailureSensor {
     error: Option<TestFailure>,
 }
 
-pub enum TestFailureObservations {}
-
-impl Observations for TestFailureObservations {
-    type Concrete<'a> = Option<TestFailure>;
-}
-
 impl Sensor for TestFailureSensor {
-    type Observations = TestFailureObservations;
+    type Observations = Option<TestFailure>;
 
     #[no_coverage]
     fn start_recording(&mut self) {
@@ -143,12 +137,12 @@ impl SaveToStatsFolder for TestFailurePool {
     }
 }
 
-impl CompatibleWithObservations<TestFailureObservations> for TestFailurePool {
+impl CompatibleWithObservations<Option<TestFailure>> for TestFailurePool {
     #[no_coverage]
     fn process(
         &mut self,
         input_idx: PoolStorageIndex,
-        observations: Option<TestFailure>,
+        observations: &Option<TestFailure>,
         complexity: f64,
     ) -> Vec<CorpusDelta> {
         let error = observations;
@@ -195,7 +189,7 @@ impl CompatibleWithObservations<TestFailureObservations> for TestFailurePool {
                 match position {
                     PositionOfNewInput::NewError => {
                         self.inputs.push(TestFailureList {
-                            error,
+                            error: error.clone(),
                             inputs: vec![TestFailureListForError {
                                 cplx: complexity,
                                 inputs: vec![input_idx],

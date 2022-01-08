@@ -60,13 +60,13 @@ is to use the [`SensorAndPoolBuilder`], although it only offers a couple limited
 
 use crate::code_coverage_sensor::CodeCoverageSensor;
 use crate::fuzzer::{Fuzzer, FuzzingResult};
+use crate::sensors_and_pools::MaximiseCounterValuePool;
 use crate::sensors_and_pools::MostNDiversePool;
 use crate::sensors_and_pools::SimplestToActivateCounterPool;
 use crate::sensors_and_pools::WrapperSensor;
 use crate::sensors_and_pools::{AndPool, SameObservations};
 use crate::sensors_and_pools::{DifferentObservations, MaximiseSingleValuePool};
-use crate::sensors_and_pools::{MaximiseCounterValuePool, Tuple2Observations};
-use crate::traits::{CompatibleWithObservations, Mutator, Sensor, SensorExt, Serializer, SingleValueObservations};
+use crate::traits::{CompatibleWithObservations, Mutator, Sensor, SensorExt, Serializer};
 use crate::{split_string_by_whitespace, DefaultMutator};
 
 #[cfg(feature = "serde_json_serializer")]
@@ -640,23 +640,19 @@ where
 pub type BasicSensor = CodeCoverageSensor;
 pub type DiverseSensor = impl WrapperSensor<
     Wrapped = CodeCoverageSensor,
-    Observations = Tuple2Observations<<CodeCoverageSensor as Sensor>::Observations, SingleValueObservations<usize>>,
+    Observations = (<CodeCoverageSensor as Sensor>::Observations, usize),
 >;
 pub type MaxHitsSensor = impl WrapperSensor<
     Wrapped = CodeCoverageSensor,
-    Observations = Tuple2Observations<<CodeCoverageSensor as Sensor>::Observations, SingleValueObservations<u64>>,
+    Observations = (<CodeCoverageSensor as Sensor>::Observations, u64),
 >;
 pub type BasicAndMaxHitsSensor = impl WrapperSensor<
     Wrapped = CodeCoverageSensor,
-    Observations = Tuple2Observations<<CodeCoverageSensor as Sensor>::Observations, SingleValueObservations<u64>>,
+    Observations = (<CodeCoverageSensor as Sensor>::Observations, u64),
 >;
 
-pub type DiverseAndMaxHitsSensor = impl Sensor<
-    Observations = Tuple2Observations<
-        <CodeCoverageSensor as Sensor>::Observations,
-        Tuple2Observations<SingleValueObservations<usize>, SingleValueObservations<u64>>,
-    >,
->;
+pub type DiverseAndMaxHitsSensor =
+    impl Sensor<Observations = (<CodeCoverageSensor as Sensor>::Observations, (usize, u64))>;
 
 pub type BasicPool = SimplestToActivateCounterPool;
 pub type DiversePool = AndPool<MostNDiversePool, MaximiseSingleValuePool<u64>, DifferentObservations>;
@@ -686,20 +682,19 @@ pub type BasicAndDiverseAndMaxHitsPool = AndPool<
 pub fn max_cov_hits_sensor_and_pool() -> SensorAndPoolBuilder<MaxHitsSensor, MaxHitsPool> {
     let sensor = CodeCoverageSensor::observing_only_files_from_current_dir();
     let nbr_counters = sensor.count_instrumented;
-    let sensor = sensor
-        .map::<Tuple2Observations<<CodeCoverageSensor as Sensor>::Observations, SingleValueObservations<u64>>, _>(
-            #[no_coverage]
-            |_, o| {
-                let sum = o
-                    .clone()
-                    .map(
-                        #[no_coverage]
-                        |(_, count)| count,
-                    )
-                    .sum::<u64>();
-                (o, sum)
-            },
-        );
+    let sensor = sensor.map(
+        #[no_coverage]
+        |o| {
+            let sum = o
+                .iter()
+                .map(
+                    #[no_coverage]
+                    |(_, count)| count,
+                )
+                .sum::<u64>();
+            (o, sum)
+        },
+    );
 
     SensorAndPoolBuilder {
         sensor,
@@ -782,12 +777,9 @@ impl SensorAndPoolBuilder<BasicSensor, BasicPool> {
         size: usize,
     ) -> SensorAndPoolBuilder<DiverseSensor, BasicAndDiversePool> {
         let nbr_counters = self.sensor.count_instrumented;
-        let sensor = self.sensor.map::<Tuple2Observations<
-            <CodeCoverageSensor as Sensor>::Observations,
-            SingleValueObservations<usize>,
-        >, _>(
+        let sensor = self.sensor.map(
             #[no_coverage]
-            |_, o| {
+            |o| {
                 let len = o.len();
                 (o, len)
             },
@@ -813,11 +805,11 @@ impl SensorAndPoolBuilder<BasicSensor, BasicPool> {
         self,
     ) -> SensorAndPoolBuilder<BasicAndMaxHitsSensor, BasicAndMaxHitsPool> {
         let nbr_counters = self.sensor.count_instrumented;
-        let sensor = self.sensor.map::<<MaxHitsSensor as Sensor>::Observations, _>(
+        let sensor = self.sensor.map(
             #[no_coverage]
-            |_, o| {
+            |o| {
                 let sum = o
-                    .clone()
+                    .iter()
                     .map(
                         #[no_coverage]
                         |(_, count)| count,
@@ -850,11 +842,11 @@ impl SensorAndPoolBuilder<DiverseSensor, BasicAndDiversePool> {
     ) -> SensorAndPoolBuilder<DiverseAndMaxHitsSensor, BasicAndDiverseAndMaxHitsPool> {
         let nbr_counters = self.sensor.wrapped().count_instrumented;
 
-        let sensor = self.sensor.map::<<DiverseAndMaxHitsSensor as Sensor>::Observations, _>(
+        let sensor = self.sensor.map(
             #[no_coverage]
-            |_, o| {
+            |o| {
                 let sum =
-                    o.0.clone()
+                    o.0.iter()
                         .map(
                             #[no_coverage]
                             |(_, count)| count,
@@ -890,33 +882,3 @@ impl SensorAndPoolBuilder<DiverseSensor, BasicAndDiversePool> {
         }
     }
 }
-// impl SensorAndPoolBuilder<MaxHitsSensor, BasicAndMaxHitsPool> {
-//     /// Augment the current pool such that it also tries to find a fixed-length set of test cases which, together,
-//     /// trigger the most code coverage.
-//     ///
-//     /// ### Argument
-//     /// `size` : the size of the set of test cases to find
-//     #[no_coverage]
-//     pub fn find_most_diverse_set_of_test_cases(
-//         self,
-//         size: usize,
-//     ) -> SensorAndPoolBuilder<DiverseAndMaxHitsSensor, BasicAndDiverseAndMaxHitsPool> {
-//         let nbr_counters = self.sensor.count_instrumented;
-//         SensorAndPoolBuilder {
-//             sensor: self.sensor,
-//             pool: AndPool::new(
-//                 self.pool.p1, // smallest to activate counter pool
-//                 AndPool::new(
-//                     AndPool::new(
-//                         MostNDiversePool::new(&format!("diverse_cov_{}", size), size, nbr_counters),
-//                         MaximiseSingleValuePool::<usize>::new("diverse_cov1"),
-//                         192, // choose most n diverse ~75% of the time
-//                     ),
-//                     self.pool.p2, // diverse pool
-//                     183, // choose diverse pool 71% of the time => in the end, chosen (100% - 65%) * 75% = ~25% of the time
-//                 ),
-//                 166, // 65% of the time
-//             ),
-//         }
-//     }
-// }

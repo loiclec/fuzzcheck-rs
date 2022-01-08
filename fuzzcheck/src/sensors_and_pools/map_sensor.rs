@@ -1,12 +1,10 @@
-use crate::{Observations, SaveToStatsFolder, Sensor};
+use crate::{SaveToStatsFolder, Sensor};
 use std::marker::PhantomData;
 
 pub struct MapSensor<S, ToObservations, F>
 where
     S: Sensor,
-    ToObservations: Observations,
-    F: for<'a> Fn(PhantomData<&'a ()>, <S::Observations as Observations>::Concrete<'a>) -> ToObservations::Concrete<'a>,
-    Self: 'static,
+    F: Fn(S::Observations) -> ToObservations,
 {
     sensor: S,
     map_f: F,
@@ -16,9 +14,7 @@ where
 impl<S, ToObservations, F> MapSensor<S, ToObservations, F>
 where
     S: Sensor,
-    ToObservations: Observations,
-    F: for<'a> Fn(PhantomData<&'a ()>, <S::Observations as Observations>::Concrete<'a>) -> ToObservations::Concrete<'a>,
-    Self: 'static,
+    F: Fn(S::Observations) -> ToObservations,
 {
     #[no_coverage]
     pub fn new(sensor: S, map_f: F) -> Self {
@@ -32,9 +28,7 @@ where
 impl<S, ToObservations, F> SaveToStatsFolder for MapSensor<S, ToObservations, F>
 where
     S: Sensor,
-    ToObservations: Observations,
-    F: for<'a> Fn(PhantomData<&'a ()>, <S::Observations as Observations>::Concrete<'a>) -> ToObservations::Concrete<'a>,
-    Self: 'static,
+    F: Fn(S::Observations) -> ToObservations,
 {
     #[no_coverage]
     fn save_to_stats_folder(&self) -> Vec<(std::path::PathBuf, Vec<u8>)> {
@@ -44,8 +38,7 @@ where
 impl<S, ToObservations, F> Sensor for MapSensor<S, ToObservations, F>
 where
     S: Sensor,
-    ToObservations: Observations,
-    F: for<'a> Fn(PhantomData<&'a ()>, <S::Observations as Observations>::Concrete<'a>) -> ToObservations::Concrete<'a>,
+    F: Fn(S::Observations) -> ToObservations,
     Self: 'static,
 {
     type Observations = ToObservations;
@@ -61,9 +54,9 @@ where
     }
 
     #[no_coverage]
-    fn get_observations<'a>(&'a mut self) -> <Self::Observations as Observations>::Concrete<'a> {
+    fn get_observations(&mut self) -> Self::Observations {
         let observations = self.sensor.get_observations();
-        (self.map_f)(PhantomData, observations)
+        (self.map_f)(observations)
     }
 }
 pub trait WrapperSensor: Sensor {
@@ -74,8 +67,7 @@ pub trait WrapperSensor: Sensor {
 impl<S, ToObservations, F> WrapperSensor for MapSensor<S, ToObservations, F>
 where
     S: Sensor,
-    ToObservations: Observations,
-    F: for<'a> Fn(PhantomData<&'a ()>, <S::Observations as Observations>::Concrete<'a>) -> ToObservations::Concrete<'a>,
+    F: Fn(S::Observations) -> ToObservations,
     Self: 'static,
 {
     type Wrapped = S;

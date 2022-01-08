@@ -36,8 +36,6 @@ use std::fmt::Display;
 use std::hash::Hash;
 use std::path::{Path, PathBuf};
 
-use super::CloneObservations;
-
 #[derive(Debug)]
 #[repr(transparent)]
 struct CounterIdx(pub usize);
@@ -606,18 +604,12 @@ struct AnalysisResult {
 
 impl<O> CompatibleWithObservations<O> for SimplestToActivateCounterPool
 where
-    O: CloneObservations,
-    for<'a> O::Concrete<'a>: IntoIterator<Item = (usize, u64)>,
+    for<'a> &'a O: IntoIterator<Item = &'a (usize, u64)>,
 {
-    fn process<'a>(
-        &'a mut self,
-        input_id: PoolStorageIndex,
-        observations: O::Concrete<'a>,
-        complexity: f64,
-    ) -> Vec<CorpusDelta> {
+    fn process(&mut self, input_id: PoolStorageIndex, observations: &O, complexity: f64) -> Vec<CorpusDelta> {
         let mut state = UniqueCoveragePoolObservationState::default();
 
-        for (index, _) in O::clone(&observations).into_iter() {
+        for &(index, _) in observations.into_iter() {
             let prev_least_complexity = *unsafe { self.least_complexity_for_counter.get_unchecked(index) };
             state.is_interesting |= complexity < prev_least_complexity;
         }
@@ -625,7 +617,7 @@ where
             return vec![];
         }
         let mut result = AnalysisResult::default();
-        for (index, _counter) in observations.into_iter() {
+        for &(index, _counter) in observations.into_iter() {
             let counter_idx = CounterIdx::new(index);
             let prev_least_complexity = *unsafe { self.least_complexity_for_counter.get_unchecked(counter_idx.0) };
             if prev_least_complexity == f64::INFINITY {

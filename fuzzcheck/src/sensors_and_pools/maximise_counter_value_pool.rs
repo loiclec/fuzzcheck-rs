@@ -1,6 +1,6 @@
 use crate::data_structures::{Slab, SlabKey};
 use crate::fuzzer::PoolStorageIndex;
-use crate::traits::{CorpusDelta, Observations, Pool, SaveToStatsFolder, Stats};
+use crate::traits::{CorpusDelta, Pool, SaveToStatsFolder, Stats};
 use crate::{CSVField, CompatibleWithObservations, ToCSV};
 use ahash::AHashSet;
 use nu_ansi_term::Color;
@@ -138,17 +138,11 @@ impl MaximiseCounterValuePool {
 
 impl<O> CompatibleWithObservations<O> for MaximiseCounterValuePool
 where
-    O: Observations,
-    for<'a> O::Concrete<'a>: IntoIterator<Item = (usize, u64)>,
+    O: IntoIterator<Item = (usize, u64)> + Clone,
 {
-    fn process<'a>(
-        &'a mut self,
-        input_id: PoolStorageIndex,
-        observations: O::Concrete<'a>,
-        complexity: f64,
-    ) -> Vec<CorpusDelta> {
+    fn process(&mut self, input_id: PoolStorageIndex, observations: &O, complexity: f64) -> Vec<CorpusDelta> {
         let mut state = vec![];
-        for (index, counter) in observations.into_iter() {
+        for (index, counter) in observations.clone().into_iter() {
             let pool_counter = self.highest_counts[index];
             if pool_counter < counter {
                 state.push((index, counter));

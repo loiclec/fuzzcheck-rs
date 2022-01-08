@@ -15,17 +15,11 @@ mod unique_values_pool;
 mod unit_pool;
 
 #[doc(inline)]
-pub use crate::code_coverage_sensor::CloneObservations;
-#[doc(inline)]
 pub use crate::code_coverage_sensor::CodeCoverageSensor;
-#[doc(inline)]
-pub use and_sensor_and_pool::Tuple2Observations;
 #[doc(inline)]
 pub use and_sensor_and_pool::{AndPool, AndSensor, AndSensorAndPool, DifferentObservations, SameObservations};
 #[doc(inline)]
 pub use array_of_counters::ArrayOfCounters;
-#[doc(inline)]
-pub use array_of_counters::SliceIterObservations;
 #[doc(inline)]
 pub use map_sensor::MapSensor;
 #[doc(inline)]

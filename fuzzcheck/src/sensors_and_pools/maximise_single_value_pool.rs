@@ -1,4 +1,4 @@
-use crate::traits::{Observations, Stats};
+use crate::traits::Stats;
 use crate::CompatibleWithObservations;
 use crate::{
     fuzzer::PoolStorageIndex,
@@ -92,18 +92,13 @@ impl<T> SaveToStatsFolder for MaximiseSingleValuePool<T> {
     }
 }
 
-impl<T, O> CompatibleWithObservations<O> for MaximiseSingleValuePool<T>
+impl<T> CompatibleWithObservations<T> for MaximiseSingleValuePool<T>
 where
-    O: for<'a> Observations<Concrete<'a> = T>,
     T: Clone + Debug + PartialOrd + 'static,
 {
     #[no_coverage]
-    fn process<'a>(
-        &'a mut self,
-        input_id: PoolStorageIndex,
-        observations: O::Concrete<'a>,
-        complexity: f64,
-    ) -> Vec<CorpusDelta> {
+    fn process(&mut self, input_id: PoolStorageIndex, observations: &T, complexity: f64) -> Vec<CorpusDelta> {
+        let observations = observations.clone();
         let is_interesting = if let Some((counter, cur_input)) = &self.current_best {
             observations > *counter || (observations == *counter && cur_input.complexity > complexity)
         } else {

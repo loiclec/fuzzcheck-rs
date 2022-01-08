@@ -5,10 +5,8 @@ mod llvm_coverage;
 #[cfg(feature = "serde_json_serializer")]
 mod serialized;
 
-use crate::traits::{Observations, SaveToStatsFolder, Sensor};
+use crate::traits::{SaveToStatsFolder, Sensor};
 use std::convert::TryFrom;
-use std::iter;
-use std::marker::PhantomData;
 use std::path::Path;
 use std::{collections::HashMap, path::PathBuf};
 
@@ -32,8 +30,6 @@ pub struct CodeCoverageSensor {
     pub(crate) coverage: Vec<Coverage>,
     /// The number of code regions observed by the sensor
     pub count_instrumented: usize,
-    observations_are_cached: bool,
-    cached_observations: Vec<(usize, u64)>,
 }
 
 impl CodeCoverageSensor {
@@ -88,8 +84,6 @@ impl CodeCoverageSensor {
         CodeCoverageSensor {
             coverage,
             count_instrumented,
-            observations_are_cached: false,
-            cached_observations: Vec::with_capacity(count_instrumented),
         }
     }
 
@@ -101,33 +95,11 @@ impl CodeCoverageSensor {
                 *c = 0;
             }
         }
-        self.observations_are_cached = false;
-        self.cached_observations.clear();
-    }
-}
-
-pub struct CopiedSliceIterObservations<T> {
-    _phantom: PhantomData<T>,
-}
-impl<T: 'static> Observations for CopiedSliceIterObservations<T> {
-    type Concrete<'a> = iter::Copied<std::slice::Iter<'a, T>>;
-}
-pub trait CloneObservations: Observations {
-    fn clone<'a>(o: &Self::Concrete<'a>) -> Self::Concrete<'a>;
-}
-impl<O> CloneObservations for O
-where
-    O: Observations,
-    for<'a> O::Concrete<'a>: Clone,
-{
-    #[no_coverage]
-    fn clone<'a>(o: &Self::Concrete<'a>) -> Self::Concrete<'a> {
-        o.clone()
     }
 }
 
 impl Sensor for CodeCoverageSensor {
-    type Observations = CopiedSliceIterObservations<(usize, u64)>;
+    type Observations = Vec<(usize, u64)>;
 
     #[no_coverage]
     fn start_recording(&mut self) {
@@ -139,41 +111,37 @@ impl Sensor for CodeCoverageSensor {
     fn stop_recording(&mut self) {}
 
     #[no_coverage]
-    fn get_observations<'a>(&'a mut self) -> <Self::Observations as Observations>::Concrete<'a> {
-        if self.observations_are_cached {
-            self.cached_observations.as_slice().into_iter().copied()
-        } else {
-            unsafe {
-                let CodeCoverageSensor { coverage, .. } = self;
-                let mut index = 0;
-                for coverage in coverage {
-                    let single = coverage.single_counters[0];
-                    if *single == 0 {
-                        // that happens kind of a lot? not sure it is worth simplifying
-                        index += coverage.single_counters.len() + coverage.expression_counters.len();
-                        continue;
-                    } else {
-                        self.cached_observations.push((index, *single));
+    fn get_observations(&mut self) -> Self::Observations {
+        let mut observations = Vec::with_capacity(self.count_instrumented);
+        unsafe {
+            let CodeCoverageSensor { coverage, .. } = self;
+            let mut index = 0;
+            for coverage in coverage {
+                let single = coverage.single_counters[0];
+                if *single == 0 {
+                    // that happens kind of a lot? not sure it is worth simplifying
+                    index += coverage.single_counters.len() + coverage.expression_counters.len();
+                    continue;
+                } else {
+                    observations.push((index, *single));
+                }
+                index += 1;
+                for &single in coverage.single_counters.iter().skip(1) {
+                    if *single != 0 {
+                        observations.push((index, *single));
                     }
                     index += 1;
-                    for &single in coverage.single_counters.iter().skip(1) {
-                        if *single != 0 {
-                            self.cached_observations.push((index, *single));
-                        }
-                        index += 1;
+                }
+                for expr in &coverage.expression_counters {
+                    let computed = expr.compute();
+                    if computed != 0 {
+                        observations.push((index, computed));
                     }
-                    for expr in &coverage.expression_counters {
-                        let computed = expr.compute();
-                        if computed != 0 {
-                            self.cached_observations.push((index, computed));
-                        }
-                        index += 1;
-                    }
+                    index += 1;
                 }
             }
-            self.observations_are_cached = true;
-            self.cached_observations.as_slice().into_iter().copied()
         }
+        observations
     }
 }
 impl SaveToStatsFolder for CodeCoverageSensor {
