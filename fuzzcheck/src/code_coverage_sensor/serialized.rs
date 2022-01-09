@@ -13,6 +13,13 @@ pub struct Function {
     name: String,
     file: String,
     counters: Vec<Counter>,
+    inferred_counters: Vec<InferredCounter>,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct InferredCounter {
+    regions: Vec<Region>,
+    from_counter_ids: Vec<usize>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -40,23 +47,28 @@ impl CodeCoverageSensor {
                     let f_record = &coverage.function_record;
                     assert!(f_record.filenames.len() == 1);
                     let name = f_record.name_function.clone();
-                    let mut regions_by_file = HashMap::<PathBuf, Vec<Counter>>::new();
+                    let mut counters_by_file = HashMap::<PathBuf, Vec<Counter>>::new();
 
-                    let mut indices_and_regions = vec![];
-                    for (e, region) in &f_record.expressions {
+                    // need to map (expression_idx) -> counter_idx
+                    let mut expression_idx_to_counter_idx = HashMap::new();
+                    let mut counter_indices_and_regions = vec![];
+                    for (i, (e, regions)) in f_record.expressions.iter().enumerate() {
                         if e.add_terms.len() == 1 && e.sub_terms.is_empty() {
-                            indices_and_regions.push((idx, region));
+                            counter_indices_and_regions.push((idx, regions));
+                            expression_idx_to_counter_idx.insert(i, idx);
                             idx += 1;
                         }
                     }
-                    for (e, region) in &f_record.expressions {
+                    for (i, (e, regions)) in f_record.expressions.iter().enumerate() {
                         if !(e.add_terms.len() == 1 && e.sub_terms.is_empty()) && !e.add_terms.is_empty() {
-                            indices_and_regions.push((idx, region));
+                            counter_indices_and_regions.push((idx, regions));
+                            expression_idx_to_counter_idx.insert(i, idx);
                             idx += 1;
                         }
                     }
 
-                    for (idx, regions) in indices_and_regions {
+                    for (idx, regions) in counter_indices_and_regions {
+                        // assume that all regions are within one file
                         let file_idx = f_record
                             .file_id_mapping
                             .filename_indices
@@ -77,13 +89,32 @@ impl CodeCoverageSensor {
                                 })
                                 .collect(),
                         };
-                        regions_by_file.entry(file).or_default().push(counter);
+                        counters_by_file.entry(file).or_default().push(counter);
                     }
-                    let (file, counters) = regions_by_file.into_iter().next().unwrap();
+                    // assume there is only one file
+                    let (file, counters) = counters_by_file.into_iter().next().unwrap();
+                    let inferred_counters = f_record
+                        .inferred_expressions
+                        .iter()
+                        .map(|(regions, from_expr_idxs)| InferredCounter {
+                            regions: regions
+                                .iter()
+                                .map(|region| Region {
+                                    lines: (region.line_start, region.line_end),
+                                    cols: (region.col_start, region.col_end),
+                                })
+                                .collect(),
+                            from_counter_ids: from_expr_idxs
+                                .iter()
+                                .map(|idx| expression_idx_to_counter_idx[idx])
+                                .collect(),
+                        })
+                        .collect::<Vec<_>>();
                     Function {
                         name,
                         file: file.to_str().unwrap().to_owned(),
                         counters,
+                        inferred_counters,
                     }
                 },
             )

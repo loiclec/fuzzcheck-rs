@@ -117,16 +117,12 @@ impl Sensor for CodeCoverageSensor {
             let CodeCoverageSensor { coverage, .. } = self;
             let mut index = 0;
             for coverage in coverage {
-                let single = coverage.single_counters[0];
-                if *single == 0 {
+                if *coverage.start_counters == 0 {
                     // that happens kind of a lot? not sure it is worth simplifying
                     index += coverage.single_counters.len() + coverage.expression_counters.len();
                     continue;
-                } else {
-                    observations.push((index, *single));
                 }
-                index += 1;
-                for &single in coverage.single_counters.iter().skip(1) {
+                for &single in coverage.single_counters.iter() {
                     if *single != 0 {
                         observations.push((index, *single));
                     }

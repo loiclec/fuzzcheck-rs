@@ -435,6 +435,7 @@ pub struct FunctionRecord {
     pub header: FunctionRecordHeader,
     pub file_id_mapping: FileIDMapping,
     pub expressions: Vec<(ExpandedExpression, Vec<MappingRegion>)>,
+    pub inferred_expressions: Vec<(Vec<MappingRegion>, Vec<usize>)>,
     pub name_function: String,
     pub filenames: Vec<PathBuf>,
 }
@@ -467,44 +468,120 @@ pub fn process_function_records(
         }
         let name_function = (&prf_names[&function_counters.header.id.name_md5]).clone();
 
-        let mut to_delete = HashSet::new();
+        let mut to_delete: HashMap<usize, HashSet<ExpandedExpression>> = HashMap::new();
+
         'outer: for (i, (e1, _)) in expressions.iter().enumerate() {
-            if to_delete.contains(&i) {
+            if to_delete.contains_key(&i) {
                 continue 'outer;
             };
+            if e1.add_terms.is_empty() {
+                continue 'outer;
+            }
             'inner: for (j, (e2, _)) in expressions.iter().enumerate() {
                 if i == j {
                     continue 'inner;
                 }
-                if to_delete.contains(&j) {
-                    continue 'inner;
-                };
-
-                // if e2.add_terms.len() == 1 && e2.sub_terms.is_empty() {
-                //     continue 'inner;
-                // }
+                // the below means that every add_term in e1 is also included in e2
+                // in other words, the add_terms of e2 are a superset of those of e1
                 for c1 in &e1.add_terms {
                     if !e2.add_terms.contains(c1) {
                         continue 'inner;
                     }
                 }
+                // the below means that every sub_term in e2 is also included in e1
+                // in other words, the sub_terms of e1 are a superset of those of e2
+
                 for c2 in &e2.sub_terms {
                     if !e1.sub_terms.contains(c2) {
                         continue 'inner;
                     }
                 }
-                to_delete.insert(j);
+
+                // for example
+                // e1: [1, 2, 3] [4, 5]
+                // e2: [1, 2, 3, 6] [4]
+
+                // so if e1 > 0, it follows that e2 > 0
+                // so reaching e1 is a sufficient condition to reaching e2
+
+                // we keep track of all sufficient conditions for all deleted expressions
+                let mut sufficient_expressions = vec![e1.clone()];
+                // also take into consideration the difference of sub terms between e1 and e2
+                // e.g. e1 = [c1] [c3, diff_sub_terms]
+                //      e2 = [c1, diff_add_terms] [c3]
+                // whenever e1 > 0, then e2 > 0
+                // diff_sub_terms = [diff_sub_terms]
+                // whenever e1 = 0 && diff_sub_terms > 0, then we know e2 > 0 as well
+                // otherwise, if e1 = 0 && diff_sub_terms > 0 and e2 = 0, we have:
+                // e1 = c1 - c3 - diff_sub_terms = 0 => c1 = c3 + diff_sub_terms
+                // e2 = c1 + diff_add_terms - c3 = 0 => diff_add_terms + diff_sub_terms = 0
+                // but diff_sub_terms > 0 and diff_add_terms >= 0 ! ---> contradiction
+                let mut diff_sub_terms = ExpandedExpression::default();
+                for &sub_term in &e1.sub_terms {
+                    if !e2.sub_terms.contains(&sub_term) {
+                        diff_sub_terms.add_terms.push(sub_term);
+                    }
+                }
+                'q: for (e_suff, _) in expressions.iter() {
+                    if e_suff.add_terms.is_empty() {
+                        continue 'q;
+                    }
+                    if !e_suff.sub_terms.is_empty() {
+                        continue 'q;
+                    }
+                    // all terms in e_suff.add_terms must be in diff_sub_terms.add_terms
+                    // at least one term in diff_sub_terms.add_terms must be in e_suff.add_terms
+                    // e.g.
+                    // diff_sub_terms : [c4]
+                    // e_suff : [c4]
+                    // or
+                    // diff_sub_terms: [c4, c5]
+                    // e_suff: [c5]
+                    for c1 in &e_suff.add_terms {
+                        if !diff_sub_terms.add_terms.contains(c1) {
+                            continue 'q;
+                        }
+                    }
+                    sufficient_expressions.push(e_suff.clone());
+                }
+                to_delete.entry(j).or_default().extend(sufficient_expressions);
             }
         }
 
         let mut to_delete = to_delete.into_iter().collect::<Vec<_>>();
         to_delete.sort_by(
             #[no_coverage]
-            |a, b| b.cmp(a),
+            |a, b| b.0.cmp(&a.0),
         );
-        for e_idx in to_delete {
-            expressions.remove(e_idx);
+        let mut deleted = vec![];
+        for (e_idx, sufficient_expressions) in to_delete {
+            deleted.push((expressions.remove(e_idx).1, sufficient_expressions));
         }
+
+        let mut expression_to_index = HashMap::new();
+        for (i, (e, _)) in expressions.iter().enumerate() {
+            expression_to_index.insert(e, i);
+        }
+        let inferred_expressions = deleted
+            .into_iter()
+            .filter(
+                #[no_coverage]
+                |(regions, _)| !regions.is_empty(),
+            )
+            .map(
+                #[no_coverage]
+                |(regions, suff_expressions)| {
+                    let suff_expressions = suff_expressions
+                        .into_iter()
+                        .filter_map(
+                            #[no_coverage]
+                            |e| expression_to_index.get(&e).copied(),
+                        )
+                        .collect::<Vec<_>>();
+                    (regions, suff_expressions)
+                },
+            )
+            .collect::<Vec<_>>();
 
         let filenames = &covmap[&function_counters.header.hash_translation_unit];
         let mut filepaths = Vec::new();
@@ -517,6 +594,7 @@ pub fn process_function_records(
             header: function_counters.header,
             file_id_mapping: function_counters.file_id_mapping,
             expressions,
+            inferred_expressions,
             name_function,
             filenames: filepaths,
         });
