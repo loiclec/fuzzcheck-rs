@@ -72,7 +72,7 @@ impl CodeCoverageSensor {
             #[no_coverage]
             |coverage| {
                 coverage.single_counters.is_empty()
-                    || (coverage.single_counters.len() + coverage.expression_counters.len() <= 1)
+                    || (coverage.single_counters.len() + coverage.expression_counters.len() < 1)
             },
         );
         Coverage::filter_function_by_files(&mut coverage, keep);
