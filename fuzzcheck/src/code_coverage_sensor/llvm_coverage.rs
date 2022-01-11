@@ -463,7 +463,7 @@ pub fn process_function_records(
                 expressions[*idx].1.push(mapping_region.clone());
             } else {
                 expressions_map.insert(expanded.clone(), expressions.len());
-                expressions.push((expanded, vec![mapping_region.clone()]));
+                expressions.push((expanded.clone(), vec![mapping_region.clone()]));
             }
         }
         let name_function = (&prf_names[&function_counters.header.id.name_md5]).clone();
@@ -874,12 +874,6 @@ impl OptimisedExpandedExpression {
 impl ExpandedExpression {
     #[no_coverage]
     fn optimised(&self, counters: &[u64]) -> OptimisedExpandedExpression {
-        // assert!(
-        //     self.add_terms.len() > 1 || !self.sub_terms.is_empty(),
-        //     "{} {}",
-        //     self.add_terms.len(),
-        //     self.sub_terms.len()
-        // );
         let mut add_terms = Vec::new();
         let mut sub_terms = Vec::new();
         for &add_term in &self.add_terms {
@@ -900,17 +894,7 @@ pub struct Coverage {
     pub counters_len: usize,
     pub single_counters: Vec<*mut u64>,
     pub expression_counters: Vec<OptimisedExpandedExpression>,
-    // pub(crate) computed_expressions: Vec<u64>,
 }
-
-// impl Coverage {
-//     #[no_coverage]
-//     pub(crate) fn compute_expressions(&mut self) {
-//         for expr_counter in &self.expression_counters {
-//             self.computed_expressions.push(expr_counter.compute());
-//         }
-//     }
-// }
 
 impl Coverage {
     #[no_coverage]

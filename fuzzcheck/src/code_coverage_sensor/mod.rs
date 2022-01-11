@@ -28,6 +28,7 @@ use self::llvm_coverage::{get_counters, get_prf_data, read_covmap, Coverage, LLV
 /// ```
 pub struct CodeCoverageSensor {
     pub(crate) coverage: Vec<Coverage>,
+    needs_clearing: Vec<usize>,
     /// The number of code regions observed by the sensor
     pub count_instrumented: usize,
 }
@@ -81,20 +82,24 @@ impl CodeCoverageSensor {
         for coverage in coverage.iter() {
             count_instrumented += coverage.single_counters.len() + coverage.expression_counters.len();
         }
+        let needs_clearing = (0..coverage.len()).collect();
         CodeCoverageSensor {
             coverage,
+            needs_clearing,
             count_instrumented,
         }
     }
 
     #[no_coverage]
     unsafe fn clear(&mut self) {
-        for coverage in &mut self.coverage {
+        for &coverage_idx in &self.needs_clearing {
+            let coverage = &self.coverage[coverage_idx];
             let slice = std::slice::from_raw_parts_mut(coverage.start_counters, coverage.counters_len);
             for c in slice.iter_mut() {
                 *c = 0;
             }
         }
+        self.needs_clearing.clear();
     }
 }
 
@@ -112,16 +117,13 @@ impl Sensor for CodeCoverageSensor {
 
     #[no_coverage]
     fn get_observations(&mut self) -> Self::Observations {
+        self.needs_clearing.clear();
         let mut observations = Vec::with_capacity(self.count_instrumented);
         unsafe {
             let CodeCoverageSensor { coverage, .. } = self;
             let mut index = 0;
-            for coverage in coverage {
-                if *coverage.start_counters == 0 {
-                    // that happens kind of a lot? not sure it is worth simplifying
-                    index += coverage.single_counters.len() + coverage.expression_counters.len();
-                    continue;
-                }
+            let mut old_observations_len = 0;
+            for (i, coverage) in coverage.iter().enumerate() {
                 for &single in coverage.single_counters.iter() {
                     if *single != 0 {
                         observations.push((index, *single));
@@ -134,6 +136,10 @@ impl Sensor for CodeCoverageSensor {
                         observations.push((index, computed));
                     }
                     index += 1;
+                }
+                if observations.len() != old_observations_len {
+                    self.needs_clearing.push(i);
+                    old_observations_len = observations.len();
                 }
             }
         }
