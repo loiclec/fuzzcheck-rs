@@ -23,16 +23,33 @@ use std::path::PathBuf;
 ///     // ...
 /// }
 /// ```
-/// The [Observations](crate::Sensor::Observations) of this sensor is an iterator over the values in the array.
-/// Note that most pools provided by fuzzcheck are compatible with iterators over values of type `(usize, u64)`
+/// The [Observations](crate::Sensor::Observations) of this sensor is a reference to the array.
+/// Note that most pools provided by fuzzcheck are compatible with iterators over values of type `&'a (usize, u64)`
 /// where the first element of the tuple is strictly larger than its predecessors and the second element of the
 /// tuple is guaranteed to be greater than 0.
 ///
 /// Therefore, if you wish to use an `ArrayOfCounters` with these pools, you need to wrap it in a sensor that
-/// calls `enumerate()` on the observations and filter out its zero elements.
+/// calls `enumerate()` on the observations and filter out its zero elements. You can do so as follows:
+/// ```
+/// use fuzzcheck::SensorExt;
+/// use fuzzcheck::sensors_and_pools::ArrayOfCounters;
+/// use fuzzcheck::sensors_and_pools::SimplestToActivateCounterPool;
+/// // the “counters” array must be a static item
+/// static mut COUNTERS: [u64; 2] = [0; 2];
+///
+/// // inside the fuzz test, you can create the sensor as follows
+/// let sensor = ArrayOfCounters::new(unsafe { &mut COUNTERS });
+///
+/// let sensor = sensor.map(|o| o.into_iter().copied().filter(|&o| o != 0).enumerate().collect::<Vec<_>>());
+/// // now this sensor is compatible with `SimplestToActivateCounterPool`:
+/// let pool = SimplestToActivateCounterPool::new("simplest_cov_custom", 2);
+/// # let sensor_and_pool: Box<dyn fuzzcheck::SensorAndPool> = Box::new((sensor, pool));
+/// ```
+///
 pub struct ArrayOfCounters<T, const N: usize> {
     start: *mut T,
 }
+
 impl<T, const N: usize> ArrayOfCounters<T, N> {
     #[no_coverage]
     pub fn new(xs: &'static mut [T; N]) -> Self {
@@ -52,7 +69,7 @@ impl<T, const N: usize> Sensor for ArrayOfCounters<T, N>
 where
     T: 'static + Default + Copy,
 {
-    type Observations = Box<[T]>;
+    type Observations = &'static [T];
 
     #[no_coverage]
     fn start_recording(&mut self) {
@@ -68,12 +85,8 @@ where
     fn stop_recording(&mut self) {}
 
     #[no_coverage]
-    fn get_observations<'a>(&'a mut self) -> Self::Observations {
-        let b = unsafe { std::slice::from_raw_parts(self.start, N) }
-            .into_iter()
-            .copied()
-            .collect::<Box<[T]>>();
-        b
+    fn get_observations(&mut self) -> Self::Observations {
+        unsafe { std::slice::from_raw_parts(self.start, N) }
     }
 }
 impl<T, const N: usize> SaveToStatsFolder for ArrayOfCounters<T, N> {

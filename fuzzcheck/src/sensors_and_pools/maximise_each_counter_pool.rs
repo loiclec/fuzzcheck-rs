@@ -56,7 +56,6 @@ struct Input {
 ///
 /// It is [compatible with](crate::CompatibleWithObservations) the following sensors:
 /// * [`CodeCoverageSensor`](crate::sensors_and_pools::CodeCoverageSensor)
-/// * [`ArrayOfCounters`](crate::sensors_and_pools::ArrayOfCounters)
 /// * any other sensor whose [observations](crate::Sensor::Observations) are given by an iterator of `(usize, u64)`
 pub struct MaximiseEachCounterPool {
     name: String,
@@ -138,11 +137,11 @@ impl MaximiseEachCounterPool {
 
 impl<O> CompatibleWithObservations<O> for MaximiseEachCounterPool
 where
-    O: IntoIterator<Item = (usize, u64)> + Clone,
+    for<'a> &'a O: IntoIterator<Item = &'a (usize, u64)>,
 {
     fn process(&mut self, input_id: PoolStorageIndex, observations: &O, complexity: f64) -> Vec<CorpusDelta> {
         let mut state = vec![];
-        for (index, counter) in observations.clone().into_iter() {
+        for &(index, counter) in observations.into_iter() {
             let pool_counter = self.highest_counts[index];
             if pool_counter < counter {
                 state.push((index, counter));

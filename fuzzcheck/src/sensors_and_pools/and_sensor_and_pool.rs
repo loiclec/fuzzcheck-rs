@@ -141,7 +141,7 @@ where
         self.1.stop_recording();
     }
     #[no_coverage]
-    fn get_observations<'a>(&'a mut self) -> Self::Observations {
+    fn get_observations(&mut self) -> Self::Observations {
         (self.0.get_observations(), self.1.get_observations())
     }
 }

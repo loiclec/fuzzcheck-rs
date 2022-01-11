@@ -24,7 +24,7 @@ pub struct MaximiseObservationPool<T> {
 #[derive(Clone)]
 pub struct MaximiseObservationPoolStats<T> {
     name: String,
-    best: Option<T>,
+    best: T,
 }
 impl<T> Display for MaximiseObservationPoolStats<T>
 where
@@ -48,7 +48,7 @@ where
         vec![CSVField::String(format!("{:?}", self.best))]
     }
 }
-impl<T> Stats for MaximiseObservationPoolStats<T> where T: Debug + 'static {}
+impl<T> Stats for MaximiseObservationPoolStats<T> where T: Debug + Default + 'static {}
 
 impl<T> MaximiseObservationPool<T> {
     #[no_coverage]
@@ -61,7 +61,7 @@ impl<T> MaximiseObservationPool<T> {
 }
 impl<T> Pool for MaximiseObservationPool<T>
 where
-    T: Clone + Debug + 'static,
+    T: Clone + Debug + Default + 'static,
 {
     type Stats = MaximiseObservationPoolStats<T>;
 
@@ -69,10 +69,14 @@ where
     fn stats(&self) -> Self::Stats {
         MaximiseObservationPoolStats {
             name: self.name.clone(),
-            best: self.current_best.as_ref().map(
-                #[no_coverage]
-                |z| z.0.clone(),
-            ),
+            best: self
+                .current_best
+                .as_ref()
+                .map(
+                    #[no_coverage]
+                    |z| z.0.clone(),
+                )
+                .unwrap_or_default(),
         }
     }
 
@@ -94,7 +98,7 @@ impl<T> SaveToStatsFolder for MaximiseObservationPool<T> {
 
 impl<T> CompatibleWithObservations<T> for MaximiseObservationPool<T>
 where
-    T: Clone + Debug + PartialOrd + 'static,
+    T: Clone + Debug + Default + PartialOrd + 'static,
 {
     #[no_coverage]
     fn process(&mut self, input_id: PoolStorageIndex, observations: &T, complexity: f64) -> Vec<CorpusDelta> {
