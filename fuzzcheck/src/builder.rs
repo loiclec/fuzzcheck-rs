@@ -32,7 +32,7 @@ let _ = fuzzcheck::fuzz_test(test_function)
     .launch();
 # }
 ```
-If you'd like to use a custom mutator, serializer, sensor and pool, or argumemts, you can write:
+If you'd like to use a custom mutator, serializer, sensor and pool, or arguments, you can write:
 ```no_run
 # use fuzzcheck::DefaultMutator;
 # use fuzzcheck::builder::default_sensor_and_pool;
@@ -60,12 +60,12 @@ is to use the [`SensorAndPoolBuilder`], although it only offers a couple limited
 
 use crate::code_coverage_sensor::CodeCoverageSensor;
 use crate::fuzzer::{Fuzzer, FuzzingResult};
-use crate::sensors_and_pools::MaximiseCounterValuePool;
+use crate::sensors_and_pools::MaximiseEachCounterPool;
 use crate::sensors_and_pools::MostNDiversePool;
 use crate::sensors_and_pools::SimplestToActivateCounterPool;
 use crate::sensors_and_pools::WrapperSensor;
 use crate::sensors_and_pools::{AndPool, SameObservations};
-use crate::sensors_and_pools::{DifferentObservations, MaximiseSingleValuePool};
+use crate::sensors_and_pools::{DifferentObservations, MaximiseObservationPool};
 use crate::traits::{CompatibleWithObservations, Mutator, Sensor, SensorExt, Serializer};
 use crate::{split_string_by_whitespace, DefaultMutator};
 
@@ -655,26 +655,26 @@ pub type DiverseAndMaxHitsSensor =
     impl Sensor<Observations = (<CodeCoverageSensor as Sensor>::Observations, (usize, u64))>;
 
 pub type BasicPool = SimplestToActivateCounterPool;
-pub type DiversePool = AndPool<MostNDiversePool, MaximiseSingleValuePool<u64>, DifferentObservations>;
-pub type MaxHitsPool = AndPool<MaximiseCounterValuePool, MaximiseSingleValuePool<u64>, DifferentObservations>;
+pub type DiversePool = AndPool<MostNDiversePool, MaximiseObservationPool<u64>, DifferentObservations>;
+pub type MaxHitsPool = AndPool<MaximiseEachCounterPool, MaximiseObservationPool<u64>, DifferentObservations>;
 pub type BasicAndDiversePool = AndPool<
     AndPool<SimplestToActivateCounterPool, MostNDiversePool, SameObservations>,
-    MaximiseSingleValuePool<usize>,
+    MaximiseObservationPool<usize>,
     DifferentObservations,
 >;
 pub type BasicAndMaxHitsPool = AndPool<
-    AndPool<SimplestToActivateCounterPool, MaximiseCounterValuePool, SameObservations>,
-    MaximiseSingleValuePool<u64>,
+    AndPool<SimplestToActivateCounterPool, MaximiseEachCounterPool, SameObservations>,
+    MaximiseObservationPool<u64>,
     DifferentObservations,
 >;
 
 pub type BasicAndDiverseAndMaxHitsPool = AndPool<
     AndPool<
         SimplestToActivateCounterPool,
-        AndPool<MaximiseCounterValuePool, MostNDiversePool, SameObservations>,
+        AndPool<MaximiseEachCounterPool, MostNDiversePool, SameObservations>,
         SameObservations,
     >,
-    AndPool<MaximiseSingleValuePool<usize>, MaximiseSingleValuePool<u64>, DifferentObservations>,
+    AndPool<MaximiseObservationPool<usize>, MaximiseObservationPool<u64>, DifferentObservations>,
     DifferentObservations,
 >;
 
@@ -699,8 +699,8 @@ pub fn max_cov_hits_sensor_and_pool() -> SensorAndPoolBuilder<MaxHitsSensor, Max
     SensorAndPoolBuilder {
         sensor,
         pool: AndPool::<_, _, DifferentObservations>::new(
-            MaximiseCounterValuePool::new("max_each_cov_hits", nbr_counters),
-            MaximiseSingleValuePool::new("max_total_cov_hits"),
+            MaximiseEachCounterPool::new("max_each_cov_hits", nbr_counters),
+            MaximiseObservationPool::new("max_total_cov_hits"),
             Some(10.),
             Some(1.),
         ),
@@ -793,7 +793,7 @@ impl SensorAndPoolBuilder<BasicSensor, BasicPool> {
                     Some(20.0),
                     Some(5.0),
                 ),
-                MaximiseSingleValuePool::<usize>::new("diverse_cov_1"),
+                MaximiseObservationPool::<usize>::new("diverse_cov_1"),
                 None,
                 Some(1.0),
             ),
@@ -823,11 +823,11 @@ impl SensorAndPoolBuilder<BasicSensor, BasicPool> {
             pool: AndPool::new(
                 AndPool::new(
                     self.pool,
-                    MaximiseCounterValuePool::new("max_each_cov_hits", nbr_counters),
+                    MaximiseEachCounterPool::new("max_each_cov_hits", nbr_counters),
                     Some(20.),
                     Some(5.), // each input there is expensive to run and is not that important
                 ),
-                MaximiseSingleValuePool::<u64>::new("max_total_cov_hits"),
+                MaximiseObservationPool::<u64>::new("max_total_cov_hits"),
                 None,
                 Some(1.), // expensive and not that important as well, but there is only one of it
             ),
@@ -862,7 +862,7 @@ impl SensorAndPoolBuilder<DiverseSensor, BasicAndDiversePool> {
                 AndPool::new(
                     self.pool.p1.p1, // smallest to activate counter pool
                     AndPool::new(
-                        MaximiseCounterValuePool::new("max_each_cov_hits", nbr_counters),
+                        MaximiseEachCounterPool::new("max_each_cov_hits", nbr_counters),
                         self.pool.p1.p2,
                         Some(5.),
                         Some(5.),
@@ -872,7 +872,7 @@ impl SensorAndPoolBuilder<DiverseSensor, BasicAndDiversePool> {
                 ),
                 AndPool::new(
                     self.pool.p2,
-                    MaximiseSingleValuePool::<u64>::new("max_total_cov_hits"),
+                    MaximiseObservationPool::<u64>::new("max_total_cov_hits"),
                     Some(1.),
                     Some(1.),
                 ),

@@ -17,16 +17,16 @@ struct Input {
 }
 
 /// A pool that finds a single test case maximising a value given by a sensor.
-pub struct MaximiseSingleValuePool<T> {
+pub struct MaximiseObservationPool<T> {
     name: String,
     current_best: Option<(T, Input)>,
 }
 #[derive(Clone)]
-pub struct OptimiseAggregateStatPoolStats<T> {
+pub struct MaximiseObservationPoolStats<T> {
     name: String,
     best: Option<T>,
 }
-impl<T> Display for OptimiseAggregateStatPoolStats<T>
+impl<T> Display for MaximiseObservationPoolStats<T>
 where
     T: Debug,
 {
@@ -35,7 +35,7 @@ where
         write!(f, "{}({:?})", self.name, self.best)
     }
 }
-impl<T> ToCSV for OptimiseAggregateStatPoolStats<T>
+impl<T> ToCSV for MaximiseObservationPoolStats<T>
 where
     T: Debug,
 {
@@ -48,9 +48,9 @@ where
         vec![CSVField::String(format!("{:?}", self.best))]
     }
 }
-impl<T> Stats for OptimiseAggregateStatPoolStats<T> where T: Debug + 'static {}
+impl<T> Stats for MaximiseObservationPoolStats<T> where T: Debug + 'static {}
 
-impl<T> MaximiseSingleValuePool<T> {
+impl<T> MaximiseObservationPool<T> {
     #[no_coverage]
     pub fn new(name: &str) -> Self {
         Self {
@@ -59,15 +59,15 @@ impl<T> MaximiseSingleValuePool<T> {
         }
     }
 }
-impl<T> Pool for MaximiseSingleValuePool<T>
+impl<T> Pool for MaximiseObservationPool<T>
 where
     T: Clone + Debug + 'static,
 {
-    type Stats = OptimiseAggregateStatPoolStats<T>;
+    type Stats = MaximiseObservationPoolStats<T>;
 
     #[no_coverage]
     fn stats(&self) -> Self::Stats {
-        OptimiseAggregateStatPoolStats {
+        MaximiseObservationPoolStats {
             name: self.name.clone(),
             best: self.current_best.as_ref().map(
                 #[no_coverage]
@@ -85,14 +85,14 @@ where
         }
     }
 }
-impl<T> SaveToStatsFolder for MaximiseSingleValuePool<T> {
+impl<T> SaveToStatsFolder for MaximiseObservationPool<T> {
     #[no_coverage]
     fn save_to_stats_folder(&self) -> Vec<(PathBuf, Vec<u8>)> {
         vec![]
     }
 }
 
-impl<T> CompatibleWithObservations<T> for MaximiseSingleValuePool<T>
+impl<T> CompatibleWithObservations<T> for MaximiseObservationPool<T>
 where
     T: Clone + Debug + PartialOrd + 'static,
 {

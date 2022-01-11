@@ -7,7 +7,7 @@ use nu_ansi_term::Color;
 use std::fmt::{Debug, Display};
 use std::path::Path;
 
-/// The statistics of a [MaximiseCounterValuePool]
+/// The statistics of a [MaximiseEachCounterPool]
 #[derive(Clone)]
 pub struct MaximiseCounterValuePoolStats {
     name: String,
@@ -58,7 +58,7 @@ struct Input {
 /// * [`CodeCoverageSensor`](crate::sensors_and_pools::CodeCoverageSensor)
 /// * [`ArrayOfCounters`](crate::sensors_and_pools::ArrayOfCounters)
 /// * any other sensor whose [observations](crate::Sensor::Observations) are given by an iterator of `(usize, u64)`
-pub struct MaximiseCounterValuePool {
+pub struct MaximiseEachCounterPool {
     name: String,
     complexities: Vec<f64>,
     highest_counts: Vec<u64>,
@@ -66,7 +66,7 @@ pub struct MaximiseCounterValuePool {
     best_input_for_counter: Vec<Option<SlabKey<Input>>>,
     stats: MaximiseCounterValuePoolStats,
 }
-impl Debug for MaximiseCounterValuePool {
+impl Debug for MaximiseEachCounterPool {
     #[no_coverage]
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("CounterMaximizingPool")
@@ -79,7 +79,7 @@ impl Debug for MaximiseCounterValuePool {
     }
 }
 
-impl MaximiseCounterValuePool {
+impl MaximiseEachCounterPool {
     #[no_coverage]
     pub fn new(name: &str, size: usize) -> Self {
         Self {
@@ -97,7 +97,7 @@ impl MaximiseCounterValuePool {
     }
 }
 
-impl Pool for MaximiseCounterValuePool {
+impl Pool for MaximiseEachCounterPool {
     type Stats = MaximiseCounterValuePoolStats;
 
     #[no_coverage]
@@ -121,14 +121,14 @@ impl Pool for MaximiseCounterValuePool {
     }
 }
 
-impl SaveToStatsFolder for MaximiseCounterValuePool {
+impl SaveToStatsFolder for MaximiseEachCounterPool {
     #[no_coverage]
     fn save_to_stats_folder(&self) -> Vec<(std::path::PathBuf, Vec<u8>)> {
         vec![]
     }
 }
 
-impl MaximiseCounterValuePool {
+impl MaximiseEachCounterPool {
     #[no_coverage]
     fn update_stats(&mut self) {
         self.stats.size = self.inputs.len();
@@ -136,7 +136,7 @@ impl MaximiseCounterValuePool {
     }
 }
 
-impl<O> CompatibleWithObservations<O> for MaximiseCounterValuePool
+impl<O> CompatibleWithObservations<O> for MaximiseEachCounterPool
 where
     O: IntoIterator<Item = (usize, u64)> + Clone,
 {

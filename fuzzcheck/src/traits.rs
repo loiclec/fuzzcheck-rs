@@ -612,7 +612,7 @@ This trait is separate from [Pool] because a single pool type may handle multipl
 
 It is responsible for judging whether the observations are interesting, and then adding the test case to the pool
 if they are. It communicates to the rest of the fuzzer what test cases were added or removed from the pool via the
-[CorpusDelta] type. This ensures that the right message can be printed to the terminal and that the corpus on the
+[`CorpusDelta`] type. This ensures that the right message can be printed to the terminal and that the corpus on the
 file system, which reflects the content of the pool, can be properly updated.
 */
 pub trait CompatibleWithObservations<O>: Pool {
@@ -629,7 +629,25 @@ pub trait SaveToStatsFolder {
     fn save_to_stats_folder(&self) -> Vec<(PathBuf, Vec<u8>)>;
 }
 
+/// A trait for convenience methods automatically implemented
+/// for all types that conform to [`Sensor`].
 pub trait SensorExt: Sensor {
+    /// Maps the observations of the sensor using the given closure.
+    ///
+    /// For example, if a sensor has observations of type `Vec<u64>`, then we
+    /// can create a sensor with observations `(Vec<u64>, u64)`, where the
+    /// second element of the tuple is the sum of all observations:
+    /// ```
+    /// use fuzzcheck::SensorExt;
+    /// # use fuzzcheck::sensors_and_pools::ArrayOfCounters;
+    /// # static mut COUNTERS: [u64; 2] = [0; 2];
+    /// # // inside the fuzz test, you can create the sensor as follows
+    /// # let sensor = ArrayOfCounters::new(unsafe { &mut COUNTERS });
+    /// let sensor = sensor.map(|observations| {
+    ///    let sum = observations.iter().sum::<u64>();
+    ///    (observations, sum)
+    /// });
+    /// ```
     #[no_coverage]
     fn map<ToObservations, F>(self, map_f: F) -> MapSensor<Self, ToObservations, F>
     where

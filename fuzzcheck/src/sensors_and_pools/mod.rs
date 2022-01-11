@@ -5,8 +5,8 @@ Types implementing the [Sensor](crate::Sensor) and [Pool](crate::Pool) traits.
 mod and_sensor_and_pool;
 mod array_of_counters;
 mod map_sensor;
-mod maximise_counter_value_pool;
-mod maximise_single_value_pool;
+mod maximise_each_counter_pool;
+mod maximise_observation_pool;
 mod most_n_diverse_pool;
 mod noop_sensor;
 mod simplest_to_activate_counter_pool;
@@ -25,9 +25,9 @@ pub use map_sensor::MapSensor;
 #[doc(inline)]
 pub use map_sensor::WrapperSensor;
 #[doc(inline)]
-pub use maximise_counter_value_pool::MaximiseCounterValuePool;
+pub use maximise_each_counter_pool::MaximiseEachCounterPool;
 #[doc(inline)]
-pub use maximise_single_value_pool::MaximiseSingleValuePool;
+pub use maximise_observation_pool::MaximiseObservationPool;
 #[doc(inline)]
 pub use most_n_diverse_pool::MostNDiversePool;
 #[doc(inline)]
@@ -56,7 +56,7 @@ pub mod stats {
     #[doc(inline)]
     pub use super::and_sensor_and_pool::AndPoolStats;
     #[doc(inline)]
-    pub use super::maximise_counter_value_pool::MaximiseCounterValuePoolStats;
+    pub use super::maximise_each_counter_pool::MaximiseCounterValuePoolStats;
     #[doc(inline)]
     pub use super::most_n_diverse_pool::MostNDiversePoolStats;
     #[doc(inline)]
