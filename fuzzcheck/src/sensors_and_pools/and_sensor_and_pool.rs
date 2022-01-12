@@ -24,8 +24,8 @@ use crate::{
     traits::{CompatibleWithObservations, CorpusDelta, Pool, SaveToStatsFolder, Sensor, SensorAndPool, Stats},
     CSVField, PoolStorageIndex, ToCSV,
 };
-pub enum SameObservations {}
-pub enum DifferentObservations {}
+pub struct SameObservations;
+pub struct DifferentObservations;
 
 /// A pool that combines two pools
 pub struct AndPool<P1, P2, SensorMarker>
@@ -36,7 +36,12 @@ where
     pub p1: P1,
     pub p2: P2,
 
-    pub ratio_choose_first: u8,
+    pub p1_weight: f64,
+    pub p2_weight: f64,
+
+    p1_number_times_chosen_since_last_progress: usize,
+    p2_number_times_chosen_since_last_progress: usize,
+
     rng: fastrand::Rng,
     _phantom: PhantomData<SensorMarker>,
 }
@@ -46,14 +51,29 @@ where
     P2: Pool,
 {
     #[no_coverage]
-    pub fn new(p1: P1, p2: P2, ratio_choose_first: u8) -> Self {
+    pub fn new(p1: P1, p2: P2, p1_weight: f64, p2_weight: f64) -> Self {
         Self {
             p1,
             p2,
-            ratio_choose_first,
+            p1_weight,
+            p2_weight,
+            p1_number_times_chosen_since_last_progress: 1,
+            p2_number_times_chosen_since_last_progress: 1,
             rng: fastrand::Rng::new(),
             _phantom: PhantomData,
         }
+    }
+}
+impl<P1, P2, SensorMarker> AndPool<P1, P2, SensorMarker>
+where
+    P1: Pool,
+    P2: Pool,
+{
+    fn p1_weight(&self) -> f64 {
+        self.p1_weight / self.p1_number_times_chosen_since_last_progress as f64
+    }
+    fn p2_weight(&self) -> f64 {
+        self.p2_weight / self.p2_number_times_chosen_since_last_progress as f64
     }
 }
 impl<P1, P2, SensorMarker> Pool for AndPool<P1, P2, SensorMarker>
@@ -69,19 +89,29 @@ where
     }
     #[no_coverage]
     fn get_random_index(&mut self) -> Option<PoolStorageIndex> {
-        if self.rng.u8(..) <= self.ratio_choose_first {
+        let choice = self.rng.f64() * self.weight();
+        if choice <= self.p1_weight() {
             if let Some(idx) = self.p1.get_random_index() {
+                self.p1_number_times_chosen_since_last_progress += 1;
                 Some(idx)
             } else {
+                self.p2_number_times_chosen_since_last_progress += 1;
                 self.p2.get_random_index()
             }
         } else if let Some(idx) = self.p2.get_random_index() {
+            self.p2_number_times_chosen_since_last_progress += 1;
             Some(idx)
         } else {
+            self.p1_number_times_chosen_since_last_progress += 1;
             self.p1.get_random_index()
         }
     }
+
+    fn weight(&self) -> f64 {
+        self.p1_weight() + self.p2_weight()
+    }
 }
+
 impl<P1, P2, SensorMarker> SaveToStatsFolder for AndPool<P1, P2, SensorMarker>
 where
     P1: Pool,
@@ -167,9 +197,23 @@ where
 {
     #[no_coverage]
     fn process(&mut self, input_id: PoolStorageIndex, observations: &(O1, O2), complexity: f64) -> Vec<CorpusDelta> {
-        let AndPool { p1, p2, .. } = self;
-        let mut deltas = p1.process(input_id, &observations.0, complexity);
-        deltas.extend(p2.process(input_id, &observations.1, complexity));
+        let AndPool {
+            p1,
+            p2,
+            p1_number_times_chosen_since_last_progress,
+            p2_number_times_chosen_since_last_progress,
+            ..
+        } = self;
+        let deltas_1 = p1.process(input_id, &observations.0, complexity);
+        if !deltas_1.is_empty() {
+            *p1_number_times_chosen_since_last_progress = 1;
+        }
+        let deltas_2 = p2.process(input_id, &observations.1, complexity);
+        if !deltas_2.is_empty() {
+            *p2_number_times_chosen_since_last_progress = 1;
+        }
+        let mut deltas = deltas_1;
+        deltas.extend(deltas_2);
         deltas
     }
 }
@@ -181,9 +225,23 @@ where
 {
     #[no_coverage]
     fn process(&mut self, input_id: PoolStorageIndex, observations: &O, complexity: f64) -> Vec<CorpusDelta> {
-        let AndPool { p1, p2, .. } = self;
-        let mut deltas = p1.process(input_id, observations, complexity);
-        deltas.extend(p2.process(input_id, observations, complexity));
+        let AndPool {
+            p1,
+            p2,
+            p1_number_times_chosen_since_last_progress,
+            p2_number_times_chosen_since_last_progress,
+            ..
+        } = self;
+        let deltas_1 = p1.process(input_id, observations, complexity);
+        if !deltas_1.is_empty() {
+            *p1_number_times_chosen_since_last_progress = 1;
+        }
+        let deltas_2 = p2.process(input_id, observations, complexity);
+        if !deltas_2.is_empty() {
+            *p2_number_times_chosen_since_last_progress = 1;
+        }
+        let mut deltas = deltas_1;
+        deltas.extend(deltas_2);
         deltas
     }
 }
@@ -214,16 +272,22 @@ where
 pub struct AndSensorAndPool {
     sap1: Box<dyn SensorAndPool>,
     sap2: Box<dyn SensorAndPool>,
-    ratio_choose_first: u8,
+    sap1_weight: f64,
+    sap2_weight: f64,
+    sap1_number_times_chosen_since_last_progress: usize,
+    sap2_number_times_chosen_since_last_progress: usize,
     rng: fastrand::Rng,
 }
 impl AndSensorAndPool {
     #[no_coverage]
-    pub fn new(sap1: Box<dyn SensorAndPool>, sap2: Box<dyn SensorAndPool>, ratio_choose_first: u8) -> Self {
+    pub fn new(sap1: Box<dyn SensorAndPool>, sap2: Box<dyn SensorAndPool>, sap1_weight: f64, sap2_weight: f64) -> Self {
         Self {
             sap1,
             sap2,
-            ratio_choose_first,
+            sap1_weight,
+            sap2_weight,
+            sap1_number_times_chosen_since_last_progress: 1,
+            sap2_number_times_chosen_since_last_progress: 1,
             rng: fastrand::Rng::new(),
         }
     }
@@ -256,22 +320,42 @@ impl SensorAndPool for AndSensorAndPool {
 
     #[no_coverage]
     fn process(&mut self, input_id: PoolStorageIndex, cplx: f64) -> Vec<CorpusDelta> {
-        let mut x = self.sap1.process(input_id, cplx);
-        x.extend(self.sap2.process(input_id, cplx));
-        x
+        let AndSensorAndPool {
+            sap1,
+            sap2,
+            sap1_number_times_chosen_since_last_progress,
+            sap2_number_times_chosen_since_last_progress,
+            ..
+        } = self;
+        let deltas_1 = sap1.process(input_id, cplx);
+        if !deltas_1.is_empty() {
+            *sap1_number_times_chosen_since_last_progress = 1;
+        }
+        let deltas_2 = sap2.process(input_id, cplx);
+        if !deltas_2.is_empty() {
+            *sap2_number_times_chosen_since_last_progress = 1;
+        }
+        let mut deltas = deltas_1;
+        deltas.extend(deltas_2);
+        deltas
     }
 
     #[no_coverage]
     fn get_random_index(&mut self) -> Option<PoolStorageIndex> {
-        if self.rng.u8(..) <= self.ratio_choose_first {
+        let sum_weight = self.sap1_weight + self.sap2_weight;
+        if self.rng.f64() <= sum_weight {
             if let Some(idx) = self.sap1.get_random_index() {
+                self.sap1_number_times_chosen_since_last_progress += 1;
                 Some(idx)
             } else {
+                self.sap2_number_times_chosen_since_last_progress += 1;
                 self.sap2.get_random_index()
             }
         } else if let Some(idx) = self.sap2.get_random_index() {
+            self.sap2_number_times_chosen_since_last_progress += 1;
             Some(idx)
         } else {
+            self.sap1_number_times_chosen_since_last_progress += 1;
             self.sap1.get_random_index()
         }
     }

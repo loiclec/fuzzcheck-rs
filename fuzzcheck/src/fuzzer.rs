@@ -504,8 +504,12 @@ where
             if !args.stop_after_first_failure {
                 let test_failure_sensor = TestFailureSensor::default();
                 let test_failure_pool = TestFailurePool::new("test_failures");
-                let sensor_and_pool =
-                    AndSensorAndPool::new(sensor_and_pool, Box::new((test_failure_sensor, test_failure_pool)), 254);
+                let sensor_and_pool = AndSensorAndPool::new(
+                    sensor_and_pool,
+                    Box::new((test_failure_sensor, test_failure_pool)),
+                    10.0,
+                    1.0,
+                );
                 let mut fuzzer = Fuzzer::new(
                     test,
                     mutator,
@@ -564,7 +568,12 @@ where
 
                 let noop_sensor = NoopSensor;
                 let unit_pool = UnitPool::new(PoolStorageIndex(0));
-                let sensor_and_pool = AndSensorAndPool::new(sensor_and_pool, Box::new((noop_sensor, unit_pool)), 128);
+                let sensor_and_pool =
+                    // 100:1 might seem like an excessive ratio, but the second pool will never make progress,
+                    // therefore its relative weight willl diminish over time
+                    // if after 100 iterations, the first pool makes progress, then the ratio will be 1:1
+                    // what the exact value should be and how the ratio should evolve is an open question to me
+                    AndSensorAndPool::new(sensor_and_pool, Box::new((noop_sensor, unit_pool)), 1.0, 100.0);
                 let mut fuzzer = Fuzzer::new(
                     test,
                     mutator,

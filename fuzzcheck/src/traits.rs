@@ -4,7 +4,7 @@ used by all fuzzcheck-related crates.
 */
 
 use crate::fuzzer::PoolStorageIndex;
-use crate::sensors_and_pools::MapSensor;
+use crate::sensors_and_pools::{AndPool, MapSensor};
 use fuzzcheck_common::FuzzerEvent;
 use std::fmt::Display;
 use std::path::PathBuf;
@@ -601,7 +601,27 @@ pub trait Pool: SaveToStatsFolder {
     /// Most [Pool] implementations will want to prioritise certain test cases
     /// over others based on their associated observations.
     fn get_random_index(&mut self) -> Option<PoolStorageIndex>;
+
+    /// Gives the relative importance of the pool. It must be a positive number.
+    ///
+    /// The value is 1.0 by default.
+    fn weight(&self) -> f64 {
+        1.0
+    }
 }
+
+pub trait PoolExt: Pool + Sized {
+    fn and<P, SM>(self, p: P, override_weight: Option<f64>, _sensor_marker: SM) -> AndPool<Self, P, SM>
+    where
+        P: Pool,
+    {
+        let self_weight = self.weight();
+        let p_weight = p.weight();
+        AndPool::<_, _, SM>::new(self, p, self_weight, override_weight.unwrap_or(p_weight))
+    }
+}
+
+impl<P> PoolExt for P where P: Pool {}
 
 /**
 A subtrait of [Pool] describing how the pool handles observations made by a sensor.
