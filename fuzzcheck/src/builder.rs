@@ -701,8 +701,7 @@ pub fn max_cov_hits_sensor_and_pool() -> SensorAndPoolBuilder<MaxHitsSensor, Max
         pool: AndPool::<_, _, DifferentObservations>::new(
             MaximiseEachCounterPool::new("max_each_cov_hits", nbr_counters),
             MaximiseObservationPool::new("max_total_cov_hits"),
-            Some(10.),
-            Some(1.),
+            192, // choose max_each_cov_hits ~75% of the time
         ),
     }
 }
@@ -790,12 +789,10 @@ impl SensorAndPoolBuilder<BasicSensor, BasicPool> {
                 AndPool::new(
                     self.pool,
                     MostNDiversePool::new(&format!("diverse_cov_{}", size), size, nbr_counters),
-                    Some(20.0),
-                    Some(5.0),
+                    128,
                 ),
                 MaximiseObservationPool::<usize>::new("diverse_cov_1"),
-                None,
-                Some(1.0),
+                192, // 75% if the time
             ),
         }
     }
@@ -824,12 +821,10 @@ impl SensorAndPoolBuilder<BasicSensor, BasicPool> {
                 AndPool::new(
                     self.pool,
                     MaximiseEachCounterPool::new("max_each_cov_hits", nbr_counters),
-                    Some(20.),
-                    Some(5.), // each input there is expensive to run and is not that important
+                    128,
                 ),
                 MaximiseObservationPool::<u64>::new("max_total_cov_hits"),
-                None,
-                Some(1.), // expensive and not that important as well, but there is only one of it
+                217,
             ),
         }
     }
@@ -864,20 +859,16 @@ impl SensorAndPoolBuilder<DiverseSensor, BasicAndDiversePool> {
                     AndPool::new(
                         MaximiseEachCounterPool::new("max_each_cov_hits", nbr_counters),
                         self.pool.p1.p2,
-                        Some(5.),
-                        Some(5.),
+                        128,
                     ),
-                    Some(20.),
-                    None,
+                    128,
                 ),
                 AndPool::new(
                     self.pool.p2,
                     MaximiseObservationPool::<u64>::new("max_total_cov_hits"),
-                    Some(1.),
-                    Some(1.),
+                    128,
                 ),
-                None,
-                None,
+                128,
             ),
         }
     }

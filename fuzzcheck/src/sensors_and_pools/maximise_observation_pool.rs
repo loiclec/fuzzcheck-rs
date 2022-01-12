@@ -1,9 +1,8 @@
 use crate::traits::Stats;
 use crate::CompatibleWithObservations;
 use crate::{
-    fuzzer::PoolStorageIndex,
     traits::{CorpusDelta, Pool, SaveToStatsFolder},
-    CSVField, ToCSV,
+    CSVField, PoolStorageIndex, ToCSV,
 };
 use std::fmt::Display;
 use std::{fmt::Debug, path::PathBuf};
@@ -79,13 +78,12 @@ where
                 .unwrap_or_default(),
         }
     }
-
     #[no_coverage]
-    fn ranked_test_cases(&self) -> Vec<(PoolStorageIndex, f64)> {
+    fn get_random_index(&mut self) -> Option<PoolStorageIndex> {
         if let Some(best) = &self.current_best {
-            vec![(best.1.input_id, 1.0)]
+            Some(best.1.input_id)
         } else {
-            vec![]
+            None
         }
     }
 }

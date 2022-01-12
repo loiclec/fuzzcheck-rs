@@ -27,10 +27,12 @@
 //!
 
 use crate::data_structures::{Slab, SlabKey};
-use crate::fuzzer::PoolStorageIndex;
+use crate::fenwick_tree::FenwickTree;
 use crate::traits::{CorpusDelta, Pool, SaveToStatsFolder, Stats};
+use crate::PoolStorageIndex;
 use crate::{CSVField, CompatibleWithObservations, ToCSV};
 use ahash::{AHashMap, AHashSet};
+use fastrand::Rng;
 use nu_ansi_term::Color;
 use std::fmt::Display;
 use std::hash::Hash;
@@ -93,6 +95,10 @@ struct Input {
     data: PoolStorageIndex,
     /// Cached complexity of the value.
     complexity: f64,
+    /// The number of times that this input was fed to the test function.
+    ///
+    /// This is used to prioritise new inputs over old ones.
+    number_times_chosen: usize,
 }
 
 /**
@@ -142,6 +148,9 @@ pub struct SimplestToActivateCounterPool {
 
     pub average_complexity: f64,
     pub total_score: f64,
+    pub ranked_inputs: FenwickTree,
+
+    rng: Rng,
 }
 
 impl SimplestToActivateCounterPool {
@@ -156,6 +165,9 @@ impl SimplestToActivateCounterPool {
 
             average_complexity: 0.0,
             total_score: 0.0,
+            ranked_inputs: FenwickTree::new(vec![]),
+
+            rng: fastrand::Rng::new(),
         }
     }
 
@@ -187,6 +199,7 @@ impl SimplestToActivateCounterPool {
             score: 0.0,
             data,
             complexity,
+            number_times_chosen: 1,
         };
         let element_key = self.slab_inputs.insert(element);
 
@@ -329,6 +342,19 @@ impl SimplestToActivateCounterPool {
     fn update_self_stats(&mut self) {
         let slab = &self.slab_inputs;
 
+        let ranked_inputs = self
+            .slab_inputs
+            .keys()
+            .map(
+                #[no_coverage]
+                |key| {
+                    let input = &slab[key];
+                    input.score / (input.number_times_chosen as f64)
+                },
+            )
+            .collect();
+        self.ranked_inputs = FenwickTree::new(ranked_inputs);
+
         self.total_score = self
             .slab_inputs
             .keys()
@@ -443,19 +469,20 @@ impl Pool for SimplestToActivateCounterPool {
             coverage: (self.analysed_counters.len(), self.least_complexity_for_counter.len()),
         }
     }
+
     #[no_coverage]
-    fn ranked_test_cases(&self) -> Vec<(PoolStorageIndex, f64)> {
-        let slab = &self.slab_inputs;
-        self.slab_inputs
-            .keys()
-            .map(
-                #[no_coverage]
-                |key| {
-                    let input = &slab[key];
-                    (input.data, input.score)
-                },
-            )
-            .collect()
+    fn get_random_index(&mut self) -> Option<PoolStorageIndex> {
+        let choice = self.ranked_inputs.sample(&self.rng)?;
+        let key = self.slab_inputs.get_nth_key(choice);
+
+        let input = &mut self.slab_inputs[key];
+        let old_rank = input.score / (input.number_times_chosen as f64);
+        input.number_times_chosen += 1;
+        let new_rank = input.score / (input.number_times_chosen as f64);
+
+        let delta = new_rank - old_rank;
+        self.ranked_inputs.update(choice, delta);
+        Some(input.data)
     }
 }
 
@@ -496,7 +523,7 @@ impl SaveToStatsFolder for SimplestToActivateCounterPool {
                         (input.data, input.score)
                     })
                     .collect::<Vec<_>>();
-                ranked_inputs.sort_by(#[no_coverage] |x, y| x.1.partial_cmp(&y.1).unwrap_or(std::cmp::Ordering::Equal).reverse());
+                ranked_inputs.sort_by(#[no_coverage] |&x, y| x.1.partial_cmp(&y.1).unwrap_or(std::cmp::Ordering::Equal).reverse());
                 let ranked_inputs = ranked_inputs.into_iter().map(#[no_coverage] |x| x.0).collect();
 
                 let counters_for_input = self

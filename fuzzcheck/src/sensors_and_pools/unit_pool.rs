@@ -1,9 +1,9 @@
 use std::path::PathBuf;
 
-use crate::fuzzer::PoolStorageIndex;
 use crate::sensors_and_pools::stats::EmptyStats;
 use crate::traits::{CorpusDelta, Pool, SaveToStatsFolder};
 use crate::CompatibleWithObservations;
+use crate::PoolStorageIndex;
 
 /// A pool that stores only one given test case.
 ///
@@ -28,8 +28,8 @@ impl Pool for UnitPool {
     }
 
     #[no_coverage]
-    fn ranked_test_cases(&self) -> Vec<(PoolStorageIndex, f64)> {
-        vec![(self.input_index, 1.)]
+    fn get_random_index(&mut self) -> Option<PoolStorageIndex> {
+        Some(self.input_index)
     }
 }
 impl SaveToStatsFolder for UnitPool {

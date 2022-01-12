@@ -56,7 +56,7 @@ pub mod stats {
     #[doc(inline)]
     pub use super::and_sensor_and_pool::AndPoolStats;
     #[doc(inline)]
-    pub use super::maximise_each_counter_pool::MaximiseCounterValuePoolStats;
+    pub use super::maximise_each_counter_pool::MaximiseEachCounterPoolStats;
     #[doc(inline)]
     pub use super::most_n_diverse_pool::MostNDiversePoolStats;
     #[doc(inline)]

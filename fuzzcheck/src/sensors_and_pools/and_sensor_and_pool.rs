@@ -6,12 +6,12 @@
 //!
 //! Then we can combine them into a single sensor and pool as follows:
 //! ```
-//! use fuzzcheck::sensors_and_pools::{AndSensor, AndPool};
+//! use fuzzcheck::sensors_and_pools::{AndSensor, AndPool, DifferentObservations};
 //! # use fuzzcheck::sensors_and_pools::{NoopSensor, UniqueValuesPool};
 //! # let (s1, s2) = (NoopSensor, NoopSensor);
-//! # let (p1, p2) = (UniqueValuesPool::new("a", 0), UniqueValuesPool::new("b", 0));
+//! # let (p1, p2) = (UniqueValuesPool::<u8>::new("a", 0), UniqueValuesPool::<bool>::new("b", 0));
 //! let s = AndSensor(s1, s2);
-//! let p = AndPool::new(p1, p2, 128);
+//! let p = AndPool::<_, _, DifferentObservations>::new(p1, p2, 128);
 //! // 128 is the ratio of times the first pool is chosen when selecting a test case to mutate.
 //! // The implicit denominator is 256. So the first pool is chosen 128 / 256 = 50% of the time.
 //! ```
@@ -21,9 +21,8 @@
 use std::{fmt::Display, marker::PhantomData, path::PathBuf};
 
 use crate::{
-    fuzzer::PoolStorageIndex,
     traits::{CompatibleWithObservations, CorpusDelta, Pool, SaveToStatsFolder, Sensor, SensorAndPool, Stats},
-    CSVField, ToCSV,
+    CSVField, PoolStorageIndex, ToCSV,
 };
 pub enum SameObservations {}
 pub enum DifferentObservations {}
@@ -37,8 +36,8 @@ where
     pub p1: P1,
     pub p2: P2,
 
-    pub score_first: Option<f64>,
-    pub score_second: Option<f64>,
+    pub ratio_choose_first: u8,
+    rng: fastrand::Rng,
     _phantom: PhantomData<SensorMarker>,
 }
 impl<P1, P2, SensorMarker> AndPool<P1, P2, SensorMarker>
@@ -47,12 +46,12 @@ where
     P2: Pool,
 {
     #[no_coverage]
-    pub fn new(p1: P1, p2: P2, score_first: Option<f64>, score_second: Option<f64>) -> Self {
+    pub fn new(p1: P1, p2: P2, ratio_choose_first: u8) -> Self {
         Self {
             p1,
             p2,
-            score_first,
-            score_second,
+            ratio_choose_first,
+            rng: fastrand::Rng::new(),
             _phantom: PhantomData,
         }
     }
@@ -68,37 +67,21 @@ where
     fn stats(&self) -> Self::Stats {
         AndPoolStats(self.p1.stats(), self.p2.stats())
     }
-
     #[no_coverage]
-    fn ranked_test_cases(&self) -> Vec<(PoolStorageIndex, f64)> {
-        let mut r1 = self.p1.ranked_test_cases();
-        if let Some(score_first) = self.score_first {
-            normalise_scores(&mut r1, score_first);
+    fn get_random_index(&mut self) -> Option<PoolStorageIndex> {
+        if self.rng.u8(..) <= self.ratio_choose_first {
+            if let Some(idx) = self.p1.get_random_index() {
+                Some(idx)
+            } else {
+                self.p2.get_random_index()
+            }
+        } else if let Some(idx) = self.p2.get_random_index() {
+            Some(idx)
+        } else {
+            self.p1.get_random_index()
         }
-        let mut r2 = self.p2.ranked_test_cases();
-        if let Some(score_second) = self.score_second {
-            normalise_scores(&mut r2, score_second);
-        }
-        let mut r = r1;
-        r.extend(r2);
-        r
     }
 }
-
-fn normalise_scores(r: &mut [(PoolStorageIndex, f64)], score: f64) {
-    let total_score = r
-        .iter()
-        .map(
-            #[no_coverage]
-            |r| r.1,
-        )
-        .sum::<f64>();
-    let adjustment = total_score / score;
-    for (_, score) in r.iter_mut() {
-        *score /= adjustment;
-    }
-}
-
 impl<P1, P2, SensorMarker> SaveToStatsFolder for AndPool<P1, P2, SensorMarker>
 where
     P1: Pool,
@@ -231,22 +214,17 @@ where
 pub struct AndSensorAndPool {
     sap1: Box<dyn SensorAndPool>,
     sap2: Box<dyn SensorAndPool>,
-    score_first: Option<f64>,
-    score_second: Option<f64>,
+    ratio_choose_first: u8,
+    rng: fastrand::Rng,
 }
 impl AndSensorAndPool {
     #[no_coverage]
-    pub fn new(
-        sap1: Box<dyn SensorAndPool>,
-        sap2: Box<dyn SensorAndPool>,
-        score_first: Option<f64>,
-        score_second: Option<f64>,
-    ) -> Self {
+    pub fn new(sap1: Box<dyn SensorAndPool>, sap2: Box<dyn SensorAndPool>, ratio_choose_first: u8) -> Self {
         Self {
             sap1,
             sap2,
-            score_first,
-            score_second,
+            ratio_choose_first,
+            rng: fastrand::Rng::new(),
         }
     }
 }
@@ -284,17 +262,17 @@ impl SensorAndPool for AndSensorAndPool {
     }
 
     #[no_coverage]
-    fn ranked_test_cases(&self) -> Vec<(PoolStorageIndex, f64)> {
-        let mut r1 = self.sap1.ranked_test_cases();
-        if let Some(score_first) = self.score_first {
-            normalise_scores(&mut r1, score_first);
+    fn get_random_index(&mut self) -> Option<PoolStorageIndex> {
+        if self.rng.u8(..) <= self.ratio_choose_first {
+            if let Some(idx) = self.sap1.get_random_index() {
+                Some(idx)
+            } else {
+                self.sap2.get_random_index()
+            }
+        } else if let Some(idx) = self.sap2.get_random_index() {
+            Some(idx)
+        } else {
+            self.sap1.get_random_index()
         }
-        let mut r2 = self.sap2.ranked_test_cases();
-        if let Some(score_second) = self.score_second {
-            normalise_scores(&mut r2, score_second);
-        }
-        let mut r = r1;
-        r.extend(r2);
-        r
     }
 }
