@@ -249,16 +249,11 @@ pub trait Mutator<Value: Clone>: 'static {
         M: Mutator<T>;
 }
 
-/**
- * A [Serializer] is used to encode and decode values into bytes.
- *
- * One possible implementation would be to use `serde` to implement
- * both required functions. But we also want to be able to fuzz-test
- * types that are not serializable with `serde`, which is why this
- * trait exists.
-*/
+/// A [Serializer] is used to encode and decode test cases into bytes.
+///
+/// It is used to transfer test cases between the corpus on the file system and the fuzzer’s storage.
 pub trait Serializer {
-    /// The type of the valeu to be serialized
+    /// The type of the value to be serialized
     type Value;
 
     /// The extension of the file containing the serialized value
@@ -456,6 +451,15 @@ pub trait Sensor: SaveToStatsFolder + 'static {
     fn get_observations(&mut self) -> Self::Observations;
 }
 
+/// A trait implemented by the [statistics of a pool](crate::Pool::Stats)
+///
+/// The types implementing `Stats` must be displayable in the terminal and must be
+/// [convertable to CSV fields](crate::ToCSV). However, note that at the moment some pools
+/// choose to produce empty CSV values for their statistics. Consequently, their statistics
+/// will not be available in the `fuzz/stats/<id>/events.csv` file written by fuzzcheck
+/// at the end of a fuzz test.
+///
+/// Some pools may choose not to display their statistics in the terminal.
 pub trait Stats: Display + ToCSV + 'static {}
 
 /// An object safe trait that combines the methods of the [`Sensor`], [`Pool`], and [`CompatibleWithObservations`] traits.
@@ -604,13 +608,25 @@ pub trait Pool: SaveToStatsFolder {
 
     /// Gives the relative importance of the pool. It must be a positive number.
     ///
+    /// The weight of the pool is not used by the fuzzer directly, but can be used
+    /// by types such as [`AndPool`](crate::sensors_and_pools::AndPool).
+    ///
     /// The value is 1.0 by default.
     fn weight(&self) -> f64 {
         1.0
     }
 }
 
+/// A trait for convenience methods automatically implemented for all types that conform to Pool.
 pub trait PoolExt: Pool + Sized {
+    /// Create an [`AndPool`](crate::sensors_and_pools::AndPool) from both `Self` and `P`.
+    ///
+    /// ## Arguments
+    /// - `p` is the other pool to combine with `self`
+    /// - `override_weight` determines the relative chance of selecting `p` when the resulting [`AndPool`](crate::sensors_and_pools::AndPool)
+    /// is asked to provide a test case. If `None`, [`p.weight()`](crate::Pool::weight) will be used. The weight of `self` is always `self.weight()`.
+    /// - `_sensor_marker` tells whether `self` and `p` operate on the same observations or not. If they do, pass [`SameObservations`](crate::sensors_and_pools::SameObservations).
+    /// Otherwise, pass [`DifferentObservations`](`crate::sensors_and_pools::DifferentObservations`). See the documentation of [`AndPool`](crate::sensors_and_pools::AndPool) for more details.
     fn and<P, SM>(self, p: P, override_weight: Option<f64>, _sensor_marker: SM) -> AndPool<Self, P, SM>
     where
         P: Pool,

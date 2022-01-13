@@ -7,28 +7,68 @@
 //! Then we can combine them into a single sensor and pool as follows:
 //! ```
 //! use fuzzcheck::sensors_and_pools::{AndSensor, AndPool, DifferentObservations};
+//! use fuzzcheck::PoolExt;
 //! # use fuzzcheck::sensors_and_pools::{NoopSensor, UniqueValuesPool};
 //! # let (s1, s2) = (NoopSensor, NoopSensor);
 //! # let (p1, p2) = (UniqueValuesPool::<u8>::new("a", 0), UniqueValuesPool::<bool>::new("b", 0));
 //! let s = AndSensor(s1, s2);
-//! let p = AndPool::<_, _, DifferentObservations>::new(p1, p2, 128);
-//! // 128 is the ratio of times the first pool is chosen when selecting a test case to mutate.
-//! // The implicit denominator is 256. So the first pool is chosen 128 / 256 = 50% of the time.
+//! let p = p1.and(p2, Some(2.0), DifferentObservations);
+//! // 1.0 overrides the weight of `p2`, which influences how often the fuzzer will choose a test case
+//! // from that pool. By default, all pools have a weight of 1.0. Therefore, in this case, asssuming
+//! // `p1` has a weight of 1.0, then test cases will chosen from `p2` as often as `p1`. We can keep
+//! // `p2`s original weight using:
+//! # let (p1, p2) = (UniqueValuesPool::<u8>::new("a", 0), UniqueValuesPool::<bool>::new("b", 0));
+//! let p = p1.and(p2, None, DifferentObservations);
+//! // Note that the weight of `p` is the weight of `p1` plus the weight of `p2`.
 //! ```
-//!
 //! At every iteration of the fuzz test, both pools have a chance to provide a test case to mutate.
 //! After the test function is run, both sensors will collect data and feed them to their respective pool.
+//!
+//! It is also possible to use two pools processing the observations of a single sensor. This is done
+//! as follows:
+//! ```
+//! use fuzzcheck::sensors_and_pools::{AndSensor, AndPool, SameObservations};
+//! use fuzzcheck::PoolExt;
+//! # use fuzzcheck::sensors_and_pools::{NoopSensor, UniqueValuesPool};
+//! # let s = NoopSensor;
+//! # let (p1, p2) = (UniqueValuesPool::<u8>::new("a", 0), UniqueValuesPool::<u8>::new("b", 0));
+//! let p = p1.and(p2, Some(2.0), SameObservations);
+//! // if both `p1` and `p2` are compatible with the observations from sensor `s`,
+//! // then (s, p) is a valid combination of sensor and pool
+//! ```
 use std::{fmt::Display, marker::PhantomData, path::PathBuf};
 
 use crate::{
     traits::{CompatibleWithObservations, CorpusDelta, Pool, SaveToStatsFolder, Sensor, SensorAndPool, Stats},
     CSVField, PoolStorageIndex, ToCSV,
 };
+/// Marker type used by [`AndPool`] to signal that all sub-pools are compatible with the same observations.
 pub struct SameObservations;
+
+/// Marker type used by [`AndPool`] to signal that each sub-pool works is compatible with different observations.
 pub struct DifferentObservations;
 
 /// A pool that combines two pools
-pub struct AndPool<P1, P2, SensorMarker>
+///
+/// A convenient way to create an `AndPool` is to use [`p1.and(p2, ..)`](crate::PoolExt::and), but you
+/// are free to use [`AndPool::new`](AndPool::new) as well.
+///
+/// If the two pools act on the same observations , then the `ObservationsMarker` generic type
+/// parameter should be [`SameObservations`]. However, if they act on different observations,
+/// then this type parameter should be [`DifferentObservations`]. This will influence what
+/// observations the `AndPool` is [compatible with](crate::CompatibleWithObservations).
+///
+/// If both `P1` and `P2` are [`CompatibleWithObservations<O>`], then
+/// `AndPool<P1, P2, SameObservations>` will be `CompatibleWithObservations<O>` as well.
+///
+/// If `P1` is [`CompatibleWithObservations<O1>`] and `P2` is [`CompatibleWithObservations<O2>`], then
+/// `AndPool<P1, P2, DifferentObservations>` will be `CompatibleWithObservations<(O1, O2)>`.
+///
+/// When the `AndPool` is [asked to provide a test case](crate::Pool::get_random_index), it will
+/// choose between `p1` and `p2` randomly based on their weights, given by `self.p1_weight` and `self.p2_weight`,
+/// and based on how recently `p1` or `p2` made some progress. Pools that make progress will be prefered
+/// over pools that do not.
+pub struct AndPool<P1, P2, ObservationsMarker>
 where
     P1: Pool,
     P2: Pool,
@@ -43,9 +83,9 @@ where
     p2_number_times_chosen_since_last_progress: usize,
 
     rng: fastrand::Rng,
-    _phantom: PhantomData<SensorMarker>,
+    _phantom: PhantomData<ObservationsMarker>,
 }
-impl<P1, P2, SensorMarker> AndPool<P1, P2, SensorMarker>
+impl<P1, P2, ObservationsMarker> AndPool<P1, P2, ObservationsMarker>
 where
     P1: Pool,
     P2: Pool,
@@ -64,7 +104,7 @@ where
         }
     }
 }
-impl<P1, P2, SensorMarker> AndPool<P1, P2, SensorMarker>
+impl<P1, P2, ObservationsMarker> AndPool<P1, P2, ObservationsMarker>
 where
     P1: Pool,
     P2: Pool,
@@ -76,7 +116,7 @@ where
         self.p2_weight / self.p2_number_times_chosen_since_last_progress as f64
     }
 }
-impl<P1, P2, SensorMarker> Pool for AndPool<P1, P2, SensorMarker>
+impl<P1, P2, ObservationsMarker> Pool for AndPool<P1, P2, ObservationsMarker>
 where
     P1: Pool,
     P2: Pool,
@@ -112,7 +152,7 @@ where
     }
 }
 
-impl<P1, P2, SensorMarker> SaveToStatsFolder for AndPool<P1, P2, SensorMarker>
+impl<P1, P2, ObservationsMarker> SaveToStatsFolder for AndPool<P1, P2, ObservationsMarker>
 where
     P1: Pool,
     P2: Pool,
@@ -127,10 +167,12 @@ where
 
 /// A sensor that combines two sensors
 ///
-/// This type assumes nothing about the relationship between the two sensors.
-/// It is most likely that you are also using two different pools to process
-/// each sensor’s observations. Then, you can use an [`AndPool`] to combine these
-/// two pools and make them compatible with this `AndSensor`.
+/// The [`observations`](crate::Sensor::Observations) from this sensor are the combination
+/// of the observations of both `S1` and `S2`.
+/// So `AndSensor<S1, S2>` implements `Sensor<Observations = (S1::Observations, S2::Observations)>`.
+///
+/// To create a pool that is compatible with an `AndSensor`, use an [`AndPool`] with the [`DifferentObservations`]
+/// marker type.
 pub struct AndSensor<S1, S2>(pub S1, pub S2)
 where
     S1: Sensor,
@@ -268,7 +310,14 @@ where
     }
 }
 
-/// Combines two [`SensorAndPool`](crate::traits::SensorAndPool) trait objects into one.
+/// Combines two [`SensorAndPool`](crate::SensorAndPool) trait objects into one.
+///
+/// You probably won't need to use this type directly because the
+/// [`SensorAndPool`](crate::SensorAndPool) trait is mainly used by fuzzcheck itself
+/// and not its users. Instead, it is more likely that you are working with types implementing
+/// [`Sensor`](crate::Sensor) and [`Pool`](crate::Pool). If that is the case, then you will
+/// want to look at [`AndSensor`] and [`AndPool`] (as well as the convenience method to
+/// create an `AndPool`: [`p1.and(p2, ..)`](crate::PoolExt::and)).
 pub struct AndSensorAndPool {
     sap1: Box<dyn SensorAndPool>,
     sap2: Box<dyn SensorAndPool>,
