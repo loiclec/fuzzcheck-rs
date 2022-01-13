@@ -47,7 +47,7 @@ pub fn launch_executable(
             .arg("--")
             .arg("--test")
             .args(["--cfg", "test"])
-            .args(["-Zinstrument-coverage=except-unused-functions", "-Zno-profiler-runtime"])
+            .args(["-Zinstrument-coverage", "-Zno-profiler-runtime"])
             .stdout(stdio())
             .stderr(stdio())
             .spawn()?
@@ -99,7 +99,7 @@ pub fn launch_executable(
             .env("FUZZCHECK_ARGS", args)
             .env(
                 "RUSTFLAGS",
-                "-Zinstrument-coverage=except-unused-functions -Zno-profiler-runtime --cfg fuzzing -Ccodegen-units=1",
+                "-Zinstrument-coverage -Zno-profiler-runtime --cfg fuzzing -Ccodegen-units=1",
             )
             .arg("test")
             .args(compiled_target.to_args())
