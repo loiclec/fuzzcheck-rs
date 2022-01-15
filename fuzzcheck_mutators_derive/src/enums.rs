@@ -85,7 +85,9 @@ pub(crate) fn impl_default_mutator_for_enum(tb: &mut TokenBuilder, enu: &Enum, s
                     } else {
                         ts!(
                             TupleNMutator(item_field_mutators.len()) "<"
-                                join_ts!(item_field_mutators.iter(), fm,
+                                join_ts!(item_field_mutators.iter().filter(|mutator| {
+                                    !mutator.kind.is_ignore()
+                                }), fm,
                                     fm.mutator_stream(&cm)
                                 , separator: ",")
                             ">"

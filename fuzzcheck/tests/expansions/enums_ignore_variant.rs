@@ -3,9 +3,13 @@ use fuzzcheck::Mutator;
 use fuzzcheck_mutators_derive::make_mutator;
 
 #[derive(Clone)]
-enum WithIgnore {
+enum WithIgnore<T> {
     CanMutate(u8),
     CannotMutate(CannotMutate),
+    X,
+    Y,
+    Z,
+    A { flag: bool, item: T },
 }
 
 #[derive(Clone)]
@@ -16,16 +20,27 @@ make_mutator! {
     recursive: false,
     default: true,
     type:
-        enum WithIgnore {
+        enum WithIgnore<T> {
             CanMutate(u8),
             #[ignore_variant]
-            CannotMutate(CannotMutate)
+            CannotMutate(CannotMutate),
+            #[ignore_variant]
+            X,
+            #[ignore_variant]
+            Y,
+            #[ignore_variant]
+            Z,
+            #[ignore_variant]
+            A {
+                flag: bool,
+                item: T
+            }
         }
 }
 
 #[test]
 #[no_coverage]
 fn test_compile() {
-    let m = WithIgnore::default_mutator();
+    let m = WithIgnore::<bool>::default_mutator();
     let _ = m.random_arbitrary(10.0);
 }
