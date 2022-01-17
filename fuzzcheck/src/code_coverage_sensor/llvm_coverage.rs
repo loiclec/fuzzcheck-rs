@@ -245,8 +245,11 @@ fn read_mapping_regions(
     filename_indices: &[usize],
 ) -> Result<Vec<(RawCounter, MappingRegion)>, ReadCovMapError> {
     assert!(!covfun.is_empty());
-
     let mut result = Vec::new();
+    // the reference says we should read this number, but it doesn't actually exist
+    // and their example doesn't have it either, so I have included here and commented it out
+    // let num_regions_arrays = read_leb_usize(covfun, idx);
+    // assert_eq!(num_regions_arrays, filename_indices.len());
     for &filename_index in filename_indices {
         let num_regions = read_leb_usize(covfun, idx);
         let mut prev_line_start = 0;
@@ -255,7 +258,8 @@ fn read_mapping_regions(
             let header = read_counter(raw_header); //read_leb_usize(covfun, idx)); // counter or pseudo-counter
             match header {
                 RawCounter::Zero if raw_header != 0 => {
-                    return Err(ReadCovMapError::PseudoCountersNotSupportedYet { raw_header })
+                    // TODO: interpret the pseudo counter
+                    return Err(ReadCovMapError::PseudoCountersNotSupportedYet { raw_header });
                 }
                 _ => {}
             }
@@ -288,9 +292,22 @@ pub fn read_covfun(covfun: &[u8], idx: &mut usize) -> Result<Vec<RawFunctionCoun
     while *idx < covfun.len() {
         let function_record_header = read_first_function_record_fields(covfun, idx);
         let idx_before_encoding_data = *idx;
-        let file_id_mapping = read_file_id_mapping(covfun, idx);
-        let expressions = read_coverage_expressions(covfun, idx);
-        let counters = read_mapping_regions(covfun, idx, &file_id_mapping.filename_indices)?;
+
+        // somehow, length_encoded_data == 0 is possible!
+        let (file_id_mapping, expressions, counters) = if function_record_header.length_encoded_data == 0 {
+            (
+                FileIDMapping {
+                    filename_indices: vec![],
+                },
+                vec![],
+                vec![],
+            )
+        } else {
+            let file_id_mapping = read_file_id_mapping(covfun, idx);
+            let expressions = read_coverage_expressions(covfun, idx);
+            let counters = read_mapping_regions(covfun, idx, &file_id_mapping.filename_indices)?;
+            (file_id_mapping, expressions, counters)
+        };
 
         if idx_before_encoding_data + function_record_header.length_encoded_data != *idx {
             return Err(ReadCovMapError::InconsistentLengthOfEncodedData {
@@ -305,6 +322,9 @@ pub fn read_covfun(covfun: &[u8], idx: &mut usize) -> Result<Vec<RawFunctionCoun
         };
         *idx += padding;
 
+        if function_record_header.length_encoded_data == 0 {
+            assert_eq!(function_record_header.id.structural_hash, 0);
+        }
         if function_record_header.id.structural_hash == 0 {
             // dummy function, ignore
             continue;
