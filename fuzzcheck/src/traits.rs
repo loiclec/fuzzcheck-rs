@@ -159,7 +159,7 @@ pub trait Mutator<Value: Clone>: 'static {
     fn default_arbitrary_step(&self) -> Self::ArbitraryStep;
 
     /// Verifies that the value conforms to the mutator’s expectations and, if it does,
-    /// returns the [`Cache`](Mutator::Cache) with that value.
+    /// returns the [`Cache`](Mutator::Cache) associated with that value.
     fn validate_value(&self, value: &Value) -> Option<Self::Cache>;
 
     /// Returns the first [`MutationStep`](Mutator::MutationStep) associated with the value
