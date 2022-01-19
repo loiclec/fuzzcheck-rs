@@ -1,4 +1,5 @@
 use super::arbitrary;
+use super::copy_element;
 use super::insert_element;
 use super::insert_many_elements;
 use super::mutate_element;
@@ -306,6 +307,7 @@ macro_rules! impl_vec_mutation {
 }
 
 impl_vec_mutation! {
+    (CopyElement, copy_element::CopyElement),
     (Remove, remove::Remove),
     (MutateElement, mutate_element::MutateElement),
     (InsertElement, insert_element::InsertElement),
@@ -324,6 +326,11 @@ impl Default for VectorMutation {
         // use the same standard for all of them
         Self {
             mutations: vec![
+                WeightedMutation {
+                    mutation: InnerVectorMutation::CopyElement(copy_element::CopyElement),
+                    random_weight: 50.,
+                    ordered_weight: 500.,
+                },
                 WeightedMutation {
                     mutation: InnerVectorMutation::OnlyChooseLength(only_choose_length::OnlyChooseLength),
                     random_weight: 1., // doesn't matter, it's the only mutation when relevant!

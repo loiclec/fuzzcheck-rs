@@ -7,6 +7,7 @@ use std::ops::RangeInclusive;
 use self::vec_mutation::{RevertVectorMutation, VectorMutation, VectorMutationRandomStep, VectorMutationStep};
 
 pub mod arbitrary;
+pub mod copy_element;
 pub mod insert_element;
 pub mod insert_many_elements;
 pub mod mutate_element;
