@@ -63,6 +63,21 @@ pub struct Arguments {
     pub artifacts_folder: Option<PathBuf>,
     pub stats_folder: Option<PathBuf>,
 }
+impl Arguments {
+    pub fn for_internal_documentation_test() -> Self {
+        Self {
+            command: FuzzerCommand::Fuzz,
+            max_input_cplx: 256.,
+            maximum_duration: Duration::MAX,
+            maximum_iterations: usize::MAX,
+            stop_after_first_failure: true,
+            corpus_in: None,
+            corpus_out: None,
+            artifacts_folder: None,
+            stats_folder: None,
+        }
+    }
+}
 
 /// The command line argument parser used by the fuzz target and `cargo fuzzcheck`
 #[must_use]

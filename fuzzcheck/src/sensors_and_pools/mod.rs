@@ -10,6 +10,7 @@ mod maximise_observation_pool;
 mod most_n_diverse_pool;
 mod noop_sensor;
 mod simplest_to_activate_counter_pool;
+mod static_value_sensor;
 mod test_failure_pool;
 mod unique_values_pool;
 mod unit_pool;
@@ -34,6 +35,8 @@ pub use most_n_diverse_pool::MostNDiversePool;
 pub use noop_sensor::NoopSensor;
 #[doc(inline)]
 pub use simplest_to_activate_counter_pool::SimplestToActivateCounterPool;
+#[doc(inline)]
+pub use static_value_sensor::StaticValueSensor;
 #[doc(inline)]
 pub use test_failure_pool::TestFailure;
 #[doc(inline)]
