@@ -38,7 +38,7 @@ use crate::{SaveToStatsFolder, Sensor};
 ///
 /// // The sensor can be paired with any pool which is compatible with
 /// // observations of type `usize`. For example, we can use:
-/// let pool = MaximiseObservationPool::new("maximise_count");
+/// let pool = MaximiseObservationPool::<usize>::new("maximise_count");
 ///
 /// // then launch fuzzcheck with this sensor and pool
 /// let result = fuzzcheck::fuzz_test(test_function)

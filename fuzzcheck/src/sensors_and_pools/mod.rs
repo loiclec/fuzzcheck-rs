@@ -3,7 +3,6 @@ Types implementing the [Sensor](crate::Sensor) and [Pool](crate::Pool) traits.
 */
 
 mod and_sensor_and_pool;
-mod array_of_counters;
 mod map_sensor;
 mod maximise_each_counter_pool;
 mod maximise_observation_pool;
@@ -19,8 +18,6 @@ mod unit_pool;
 pub use crate::code_coverage_sensor::CodeCoverageSensor;
 #[doc(inline)]
 pub use and_sensor_and_pool::{AndPool, AndSensor, AndSensorAndPool, DifferentObservations, SameObservations};
-#[doc(inline)]
-pub use array_of_counters::ArrayOfCounters;
 #[doc(inline)]
 pub use map_sensor::MapSensor;
 #[doc(inline)]
@@ -66,8 +63,8 @@ pub mod stats {
     pub use super::simplest_to_activate_counter_pool::UniqueCoveragePoolStats;
     #[doc(inline)]
     pub use super::test_failure_pool::TestFailurePoolStats;
-    // #[doc(inline)]
-    // pub use super::unique_values_pool::UniqueValuesPoolStats;
+    #[doc(inline)]
+    pub use super::unique_values_pool::UniqueValuesPoolStats;
 
     /// An empty type that can be used for [`Pool::Stats`](crate::Pool::Stats)
     #[derive(Clone, Copy)]
