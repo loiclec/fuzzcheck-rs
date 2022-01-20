@@ -408,7 +408,7 @@ impl SimplestToActivateCounterPool {
         for (f_key, f) in &self.analysed_counters {
             for input_key in &f.inputs {
                 let input = &self.slab_inputs[*input_key];
-                assert!(input.all_counters.contains(&f_key));
+                assert!(input.all_counters.contains(f_key));
             }
         }
 

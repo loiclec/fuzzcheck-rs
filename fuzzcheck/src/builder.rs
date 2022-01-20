@@ -554,48 +554,56 @@ where
     P: CompatibleWithObservations<Sens::Observations> + 'static,
     Fuzzer<V, M>: 'static,
 {
+    #[must_use]
     #[no_coverage]
     pub fn command(self, command: FuzzerCommand) -> Self {
         let mut x = self;
         x.arguments.command = command;
         x
     }
+    #[must_use]
     #[no_coverage]
     pub fn in_corpus(self, path: Option<&Path>) -> Self {
         let mut x = self;
         x.arguments.corpus_in = path.map(Path::to_path_buf);
         x
     }
+    #[must_use]
     #[no_coverage]
     pub fn out_corpus(self, path: Option<&Path>) -> Self {
         let mut x = self;
         x.arguments.corpus_out = path.map(Path::to_path_buf);
         x
     }
+    #[must_use]
     #[no_coverage]
     pub fn artifacts_folder(self, path: Option<&Path>) -> Self {
         let mut x = self;
         x.arguments.artifacts_folder = path.map(Path::to_path_buf);
         x
     }
+    #[must_use]
     #[no_coverage]
     pub fn maximum_complexity(self, max_input_cplx: f64) -> Self {
         let mut x = self;
         x.arguments.max_input_cplx = max_input_cplx;
         x
     }
+    #[must_use]
     #[no_coverage]
     pub fn stop_after_iterations(self, number_of_iterations: usize) -> Self {
         let mut x = self;
         x.arguments.maximum_iterations = number_of_iterations;
         x
     }
+    #[must_use]
     #[no_coverage]
     pub fn stop_after_duration(self, duration: Duration) -> Self {
         let mut x = self;
         x.arguments.maximum_duration = duration;
         x
     }
+    #[must_use]
     #[no_coverage]
     pub fn stop_after_first_test_failure(self, stop_after_first_test_failure: bool) -> Self {
         let mut x = self;

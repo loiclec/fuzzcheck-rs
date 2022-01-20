@@ -28,6 +28,8 @@
 #![allow(clippy::nonminimal_bool)]
 #![allow(clippy::comparison_chain)]
 #![allow(clippy::needless_lifetimes)]
+#![allow(clippy::manual_map)]
+#![allow(clippy::bool_comparison)]
 
 #[doc(hidden)]
 pub extern crate fastrand;

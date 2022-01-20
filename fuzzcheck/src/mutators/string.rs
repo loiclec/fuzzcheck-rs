@@ -26,7 +26,7 @@ pub fn string_mutator() -> StringMutator {
         |string: &String| Some(string.as_bytes().to_vec()),
         // the map function: how can I get a string from a vector?
         #[no_coverage]
-        |xs| String::from_utf8_lossy(&xs).to_string(),
+        |xs| String::from_utf8_lossy(xs).to_string(),
         // the complexity function
         #[no_coverage]
         |_, cplx| cplx,

@@ -1,4 +1,5 @@
 #![allow(unused_attributes)]
+#![allow(clippy::type_complexity)]
 #![feature(no_coverage)]
 
 use fuzzcheck::make_mutator;

@@ -198,12 +198,12 @@ where
         let mut removed_keys = vec![];
 
         for (counter, id) in &new_observations {
-            self.complexities[*counter].insert(id.clone(), cplx);
+            self.complexities[*counter].insert(*id, cplx);
 
             let previous_best_key = self.best_input_for_value[*counter].get_mut(id);
             if let Some(previous_best_key) = previous_best_key {
                 let previous_best = &mut self.inputs[*previous_best_key];
-                let was_present_in_set = previous_best.best_for_values.remove(&(*counter, id.clone()));
+                let was_present_in_set = previous_best.best_for_values.remove(&(*counter, *id));
                 assert!(was_present_in_set);
                 previous_best.score = previous_best.best_for_values.len() as f64;
                 if previous_best.best_for_values.is_empty() {
@@ -211,7 +211,7 @@ where
                 }
                 *previous_best_key = input_key;
             } else {
-                self.best_input_for_value[*counter].insert(id.clone(), input_key);
+                self.best_input_for_value[*counter].insert(*id, input_key);
             }
         }
         for &removed_key in &removed_keys {

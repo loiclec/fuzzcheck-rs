@@ -355,46 +355,44 @@ where
             settings,
             ..
         } = &mut self.state;
-        loop {
-            if let Some(idx) = sensor_and_pool.get_random_index() {
-                *input_idx = FuzzerInputIndex::Pool(idx);
-                let input = &mut pool_storage[idx.0];
-                let generation = input.generation;
-                if let Some((unmutate_token, cplx)) = input.mutate(mutator, settings.max_input_cplx) {
-                    if cplx < self.state.settings.max_input_cplx {
-                        self.test_and_process_input(cplx)?;
-                    }
-
-                    // Retrieving the input may fail because the input may have been deleted
-                    if let Some(input) = self.state.pool_storage.get_mut(idx.0) {
-                        if input.generation == generation {
-                            input.unmutate(&self.state.mutator, unmutate_token);
-                        }
-                    }
-
-                    break Ok(());
-                } else {
-                    self.state.world.report_event(
-                        FuzzerEvent::End,
-                        Some((&self.state.fuzzer_stats, self.state.sensor_and_pool.stats().as_ref())),
-                    );
-                    break Err(ReasonForStopping::ExhaustedAllPossibleMutations);
-                }
-            } else if let Some((input, cplx)) = self.state.arbitrary_input() {
-                self.state.input_idx = FuzzerInputIndex::Temporary(input);
-
+        if let Some(idx) = sensor_and_pool.get_random_index() {
+            *input_idx = FuzzerInputIndex::Pool(idx);
+            let input = &mut pool_storage[idx.0];
+            let generation = input.generation;
+            if let Some((unmutate_token, cplx)) = input.mutate(mutator, settings.max_input_cplx) {
                 if cplx < self.state.settings.max_input_cplx {
                     self.test_and_process_input(cplx)?;
                 }
 
-                break Ok(());
+                // Retrieving the input may fail because the input may have been deleted
+                if let Some(input) = self.state.pool_storage.get_mut(idx.0) {
+                    if input.generation == generation {
+                        input.unmutate(&self.state.mutator, unmutate_token);
+                    }
+                }
+
+                Ok(())
             } else {
                 self.state.world.report_event(
                     FuzzerEvent::End,
                     Some((&self.state.fuzzer_stats, self.state.sensor_and_pool.stats().as_ref())),
                 );
-                break Err(ReasonForStopping::ExhaustedAllPossibleMutations);
+                Err(ReasonForStopping::ExhaustedAllPossibleMutations)
             }
+        } else if let Some((input, cplx)) = self.state.arbitrary_input() {
+            self.state.input_idx = FuzzerInputIndex::Temporary(input);
+
+            if cplx < self.state.settings.max_input_cplx {
+                self.test_and_process_input(cplx)?;
+            }
+
+            Ok(())
+        } else {
+            self.state.world.report_event(
+                FuzzerEvent::End,
+                Some((&self.state.fuzzer_stats, self.state.sensor_and_pool.stats().as_ref())),
+            );
+            Err(ReasonForStopping::ExhaustedAllPossibleMutations)
         }
     }
 

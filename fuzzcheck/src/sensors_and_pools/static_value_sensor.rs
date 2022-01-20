@@ -69,7 +69,7 @@ impl<T> StaticValueSensor<T>
 where
     T: 'static + Clone,
 {
-    pub unsafe fn new(value: &'static mut T, default_value: T) -> Self {
+    pub fn new(value: &'static mut T, default_value: T) -> Self {
         Self { value, default_value }
     }
 }

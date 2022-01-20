@@ -1,3 +1,4 @@
+#![allow(clippy::type_complexity)]
 use fuzzcheck::make_mutator;
 use fuzzcheck::mutators::bool::BoolMutator;
 use fuzzcheck::mutators::boxed::BoxMutator;

@@ -17,7 +17,7 @@ impl Sensor for NoopSensor {
     fn stop_recording(&mut self) {}
 
     #[no_coverage]
-    fn get_observations(&mut self) -> () {}
+    fn get_observations(&mut self) {}
 }
 impl SaveToStatsFolder for NoopSensor {
     #[no_coverage]

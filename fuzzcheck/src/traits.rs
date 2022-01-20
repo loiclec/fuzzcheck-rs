@@ -259,6 +259,7 @@ pub trait Serializer {
     /// The extension of the file containing the serialized value
     fn extension(&self) -> &str;
 
+    #[allow(clippy::wrong_self_convention)]
     /// Deserialize the bytes into the value.
     ///
     /// This method can fail by returning `None`
