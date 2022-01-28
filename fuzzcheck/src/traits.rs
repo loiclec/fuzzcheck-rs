@@ -1,8 +1,3 @@
-/*!
-The fuzzcheck_traits crate defines the `Mutator` and `Serializer` traits
-used by all fuzzcheck-related crates.
-*/
-
 use crate::fuzzer::PoolStorageIndex;
 use crate::mutators::filter::FilterMutator;
 use crate::mutators::map::MapMutator;
