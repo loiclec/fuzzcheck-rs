@@ -84,6 +84,8 @@ pub use mutators::DefaultMutator;
 #[doc(inline)]
 pub use traits::Mutator;
 #[doc(inline)]
+pub use traits::MutatorExt;
+#[doc(inline)]
 pub use traits::MutatorWrapper;
 #[doc(inline)]
 pub use traits::Serializer;

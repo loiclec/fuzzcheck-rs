@@ -28,8 +28,6 @@ pub fn string_mutator() -> StringMutator {
         #[no_coverage]
         |xs| String::from_utf8_lossy(xs).to_string(),
         // the complexity function
-        #[no_coverage]
-        |_, cplx| cplx,
     )
 }
 impl DefaultMutator for String {

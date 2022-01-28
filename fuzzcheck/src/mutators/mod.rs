@@ -43,6 +43,7 @@ pub mod character_classes;
 pub mod dictionary;
 pub mod either;
 pub mod enums;
+pub mod filter;
 pub mod fixed_len_vector;
 #[cfg(feature = "grammar_mutator")]
 #[doc(cfg(feature = "grammar_mutator"))]
