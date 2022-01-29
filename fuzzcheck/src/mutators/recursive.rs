@@ -112,7 +112,6 @@ let s_mutator = RecursiveMutator::new(|mutator| {
 */
 pub struct RecursiveMutator<M> {
     pub mutator: Rc<M>,
-    rng: fastrand::Rng,
 }
 impl<M> RecursiveMutator<M> {
     /// Create a new `RecursiveMutator` using a weak reference to itself.
@@ -120,7 +119,6 @@ impl<M> RecursiveMutator<M> {
     pub fn new(data_fn: impl FnOnce(&Weak<M>) -> M) -> Self {
         Self {
             mutator: Rc::new_cyclic(data_fn),
-            rng: fastrand::Rng::new(),
         }
     }
 }
@@ -245,39 +243,6 @@ where
         self.reference.upgrade().unwrap().unmutate(value, cache, t)
     }
 
-    #[doc(hidden)]
-    type RecursingPartIndex = bool;
-    #[doc(hidden)]
-    #[no_coverage]
-    fn default_recursing_part_index(&self, _value: &T, _cache: &Self::Cache) -> Self::RecursingPartIndex {
-        false
-    }
-    #[doc(hidden)]
-    #[no_coverage]
-    fn recursing_part<'a, V, N>(&self, parent: &N, value: &'a T, index: &mut Self::RecursingPartIndex) -> Option<&'a V>
-    where
-        V: Clone + 'static,
-        N: Mutator<V>,
-    {
-        if *index {
-            None
-        } else {
-            *index = true;
-            let parent_any: &dyn Any = parent;
-            if let Some(parent) = parent_any.downcast_ref::<RecursiveMutator<M>>() {
-                if Rc::downgrade(&parent.mutator).ptr_eq(&self.reference) {
-                    let v: &dyn Any = value;
-                    let v = v.downcast_ref::<V>().unwrap();
-                    Some(v)
-                } else {
-                    None
-                }
-            } else {
-                None
-            }
-        }
-    }
-
     type LensPath = <M as Mutator<T>>::LensPath;
 
     fn lens<'a>(&self, value: &'a T, cache: &Self::Cache, path: &Self::LensPath) -> &'a dyn Any {
@@ -305,8 +270,7 @@ where
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct RecursiveMutatorMutationStep<MS, RPI> {
-    recursing_part_index: Option<RPI>,
+pub struct RecursiveMutatorMutationStep<MS> {
     mutation_step: MS,
 }
 
@@ -320,7 +284,7 @@ where
     M: Mutator<T>,
 {
     type Cache = M::Cache;
-    type MutationStep = RecursiveMutatorMutationStep<M::MutationStep, M::RecursingPartIndex>;
+    type MutationStep = RecursiveMutatorMutationStep<M::MutationStep>;
     type ArbitraryStep = M::ArbitraryStep;
     type UnmutateToken = RecursiveMutatorUnmutateToken<T, M::UnmutateToken>;
 
@@ -339,12 +303,8 @@ where
     #[no_coverage]
     fn default_mutation_step(&self, value: &T, cache: &Self::Cache) -> Self::MutationStep {
         let mutation_step = self.mutator.default_mutation_step(value, cache);
-        let recursing_part_index = Some(self.default_recursing_part_index(value, cache));
 
-        RecursiveMutatorMutationStep {
-            mutation_step,
-            recursing_part_index,
-        }
+        RecursiveMutatorMutationStep { mutation_step }
     }
 
     #[doc(hidden)]
@@ -386,50 +346,19 @@ where
         step: &mut Self::MutationStep,
         max_cplx: f64,
     ) -> Option<(Self::UnmutateToken, f64)> {
-        if let Some(recursing_part_index) = &mut step.recursing_part_index {
-            if let Some(new) = self
-                .mutator
-                .recursing_part::<T, Self>(self, value, recursing_part_index)
-            {
-                let mut new = new.clone();
-                let cache = self.validate_value(&new).unwrap();
-                let cplx = self.complexity(&new, &cache);
-                std::mem::swap(value, &mut new);
-                let token = RecursiveMutatorUnmutateToken::Replace(new);
-                Some((token, cplx))
-            } else {
-                step.recursing_part_index = None;
-                self.ordered_mutate(value, cache, step, max_cplx)
-            }
+        if let Some((token, cplx)) = self
+            .mutator
+            .ordered_mutate(value, cache, &mut step.mutation_step, max_cplx)
+        {
+            Some((RecursiveMutatorUnmutateToken::Token(token), cplx))
         } else {
-            if let Some((token, cplx)) = self
-                .mutator
-                .ordered_mutate(value, cache, &mut step.mutation_step, max_cplx)
-            {
-                Some((RecursiveMutatorUnmutateToken::Token(token), cplx))
-            } else {
-                None
-            }
+            None
         }
     }
 
     #[doc(hidden)]
     #[no_coverage]
     fn random_mutate(&self, value: &mut T, cache: &mut Self::Cache, max_cplx: f64) -> (Self::UnmutateToken, f64) {
-        if self.rng.usize(..100) == 0 {
-            let mut recursing_part_index = self.default_recursing_part_index(value, cache);
-            if let Some(new) = self
-                .mutator
-                .recursing_part::<T, Self>(self, value, &mut recursing_part_index)
-            {
-                let mut new = new.clone();
-                let cache = self.validate_value(&new).unwrap();
-                let cplx = self.complexity(&new, &cache);
-                std::mem::swap(value, &mut new);
-                let token = RecursiveMutatorUnmutateToken::Replace(new);
-                return (token, cplx);
-            }
-        }
         let (token, cplx) = self.mutator.random_mutate(value, cache, max_cplx);
         let token = RecursiveMutatorUnmutateToken::Token(token);
         (token, cplx)
@@ -444,25 +373,6 @@ where
             }
             RecursiveMutatorUnmutateToken::Token(t) => self.mutator.unmutate(value, cache, t),
         }
-    }
-
-    #[doc(hidden)]
-    type RecursingPartIndex = M::RecursingPartIndex;
-
-    #[doc(hidden)]
-    #[no_coverage]
-    fn default_recursing_part_index(&self, value: &T, cache: &Self::Cache) -> Self::RecursingPartIndex {
-        self.mutator.default_recursing_part_index(value, cache)
-    }
-
-    #[doc(hidden)]
-    #[no_coverage]
-    fn recursing_part<'a, V, N>(&self, parent: &N, value: &'a T, index: &mut Self::RecursingPartIndex) -> Option<&'a V>
-    where
-        V: Clone + 'static,
-        N: Mutator<V>,
-    {
-        self.mutator.recursing_part::<V, N>(parent, value, index)
     }
 
     type LensPath = <M as Mutator<T>>::LensPath;

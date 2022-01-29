@@ -37,13 +37,6 @@ pub enum VecArbitraryStep {
     Normal { make_empty: bool },
 }
 
-#[doc(hidden)]
-#[derive(Clone)]
-pub struct RecursingPartIndex<RPI> {
-    inner: Vec<RPI>,
-    indices: Vec<usize>,
-}
-
 pub struct VecMutatorCache<T, M>
 where
     T: 'static + Clone,
@@ -270,49 +263,7 @@ where
     fn unmutate(&self, value: &mut Vec<T>, cache: &mut Self::Cache, t: Self::UnmutateToken) {
         RevertVectorMutation::revert(t, self, value, cache)
     }
-    #[doc(hidden)]
-    type RecursingPartIndex = RecursingPartIndex<M::RecursingPartIndex>;
-    #[doc(hidden)]
-    #[no_coverage]
-    fn default_recursing_part_index(&self, value: &Vec<T>, cache: &Self::Cache) -> Self::RecursingPartIndex {
-        RecursingPartIndex {
-            inner: value
-                .iter()
-                .zip(cache.inner.iter())
-                .map(|(v, c)| self.m.default_recursing_part_index(v, c))
-                .collect(),
-            indices: (0..value.len()).collect(),
-        }
-    }
-    #[doc(hidden)]
-    #[no_coverage]
-    fn recursing_part<'a, V, N>(
-        &self,
-        parent: &N,
-        value: &'a Vec<T>,
-        index: &mut Self::RecursingPartIndex,
-    ) -> Option<&'a V>
-    where
-        V: Clone + 'static,
-        N: Mutator<V>,
-    {
-        assert_eq!(index.inner.len(), index.indices.len());
-        if index.inner.is_empty() {
-            return None;
-        }
-        let choice = self.rng.usize(..index.inner.len());
-        let subindex = &mut index.inner[choice];
-        let value_index = index.indices[choice];
-        let v = &value[value_index];
-        let result = self.m.recursing_part(parent, v, subindex);
-        if result.is_none() {
-            index.inner.remove(choice);
-            index.indices.remove(choice);
-            self.recursing_part::<V, N>(parent, value, index)
-        } else {
-            result
-        }
-    }
+
     #[doc(hidden)]
     type LensPath = (usize, Option<M::LensPath>);
     #[doc(hidden)]

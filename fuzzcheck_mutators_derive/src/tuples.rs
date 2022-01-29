@@ -304,14 +304,6 @@ fn declare_tuple_mutator_helper_types(tb: &mut TokenBuilder, nbr_elements: usize
             vose_alias : Option<" cm.VoseAlias ">
         }
         #[doc(hidden)]
-        #[derive(" cm.Clone ")]
-        pub struct RecursingPartIndex < " tuple_type_params " > {"
-            join_ts!(0..nbr_elements, i,
-                ti(i) ":" Ti(i) ","
-            )
-            "inner : " cm.Vec " < TupleIndex >
-        }
-        #[doc(hidden)]
         pub struct UnmutateToken < " tuple_type_params " > {"
             join_ts!(0..nbr_elements, i,
                 "pub" ti(i) ":" cm.Option "<" Ti(i) "> ,"
@@ -381,12 +373,6 @@ fn impl_mutator_trait(tb: &mut TokenBuilder, nbr_elements: usize) {
         type MutationStep = MutationStep <"
             join_ts!(0..nbr_elements, i,
                 "<" Mi(i) "as" cm.fuzzcheck_traits_Mutator "<" Ti(i) "> >::MutationStep "
-            , separator: ",")
-        ">;
-        #[doc(hidden)]
-        type RecursingPartIndex = RecursingPartIndex <"
-            join_ts!(0..nbr_elements, i,
-                "<" Mi(i) "as" cm.fuzzcheck_traits_Mutator "<" Ti(i) "> >::RecursingPartIndex "
             , separator: ",")
         ">;
 
@@ -610,42 +596,7 @@ fn impl_mutator_trait(tb: &mut TokenBuilder, nbr_elements: usize) {
                 }"
             )
         "}
-        #[doc(hidden)]
-        #[no_coverage]
-        fn default_recursing_part_index<'a>(&self, value:" tuple_ref ", cache: &'a Self::Cache) -> Self::RecursingPartIndex {
-            Self::RecursingPartIndex {"
-                join_ts!(0..nbr_elements, i,
-                    ti(i) ": self. " mutator_i(i) ".default_recursing_part_index(value." i ", &cache." ti(i) ") ,"
-                )
-                "inner: vec![" join_ts!(0..nbr_elements, i, "TupleIndex::" Ti(i), separator: ",") "]
-            }
-        }
-        #[doc(hidden)]
-        #[no_coverage]
-        fn recursing_part<'a, ___V, ___N>(&self, parent: &___N, value:" tuple_ref ", index: &mut Self::RecursingPartIndex) -> " cm.Option " <&'a ___V>
-        where
-            ___V: " cm.Clone " + 'static,
-            ___N: " cm.fuzzcheck_traits_Mutator " <___V>
-        {
-            if index.inner.is_empty() {
-                return " cm.None "
-            }
-            let choice = self.rng.usize(..index.inner.len());
-            let tuple_index = &index.inner[choice];
-            match tuple_index {
-            " join_ts!(0..nbr_elements, i,
-                "TupleIndex::" Ti(i) "=> {
-                    let result = self. " mutator_i(i) ".recursing_part::<___V, ___N>(parent, value." i ", &mut index." ti(i) ");
-                    if result.is_none() {
-                        index.inner.remove(choice);
-                        " SelfAsTupleMutator "::recursing_part::<___V, ___N>(self, parent, value, index)
-                    } else {
-                        result
-                    }
-                }"
-            )"
-            }
-        }
+
         #[doc(hidden)]
         type LensPath = LensPath <"
             join_ts!(0..nbr_elements, i,

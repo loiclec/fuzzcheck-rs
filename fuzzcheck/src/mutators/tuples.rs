@@ -167,22 +167,6 @@ where
 
     fn unmutate<'a>(&self, value: TupleKind::Mut<'a>, cache: &'a mut Self::Cache, t: Self::UnmutateToken);
 
-    type RecursingPartIndex: Clone;
-    fn default_recursing_part_index<'a>(
-        &self,
-        value: TupleKind::Ref<'a>,
-        cache: &Self::Cache,
-    ) -> Self::RecursingPartIndex;
-    fn recursing_part<'a, V, N>(
-        &self,
-        parent: &N,
-        value: TupleKind::Ref<'a>,
-        index: &mut Self::RecursingPartIndex,
-    ) -> Option<&'a V>
-    where
-        V: Clone + 'static,
-        N: Mutator<V>;
-
     type LensPath: Clone;
     fn lens<'a>(&self, value: TupleKind::Ref<'a>, cache: &Self::Cache, path: &Self::LensPath) -> &'a dyn Any;
 
@@ -318,25 +302,6 @@ where
     }
 
     #[doc(hidden)]
-    type RecursingPartIndex = M::RecursingPartIndex;
-
-    #[doc(hidden)]
-    #[no_coverage]
-    fn default_recursing_part_index(&self, value: &T, cache: &Self::Cache) -> Self::RecursingPartIndex {
-        self.mutator.default_recursing_part_index(value.get_ref(), cache)
-    }
-
-    #[doc(hidden)]
-    #[no_coverage]
-    fn recursing_part<'a, V, N>(&self, parent: &N, value: &'a T, index: &mut Self::RecursingPartIndex) -> Option<&'a V>
-    where
-        V: Clone + 'static,
-        N: Mutator<V>,
-    {
-        self.mutator.recursing_part::<V, N>(parent, value.get_ref(), index)
-    }
-
-    #[doc(hidden)]
     type LensPath = M::LensPath;
     #[doc(hidden)]
     #[no_coverage]
@@ -367,7 +332,6 @@ mod tuple0 {
     use super::TupleMutator;
     use crate::mutators::tuples::RefTypes;
     use crate::mutators::tuples::TupleStructure;
-    use crate::Mutator;
 
     /// A marker type implementing [`RefTypes`] indicating that a type is equivalent to the unit type `()`
     pub struct Tuple0;
@@ -477,28 +441,6 @@ mod tuple0 {
         #[no_coverage]
         fn unmutate(&self, _value: (), _cache: &mut Self::Cache, _t: Self::UnmutateToken) {}
 
-        #[doc(hidden)]
-        type RecursingPartIndex = ();
-
-        #[doc(hidden)]
-        #[no_coverage]
-        fn default_recursing_part_index(&self, _value: (), _cache: &Self::Cache) -> Self::RecursingPartIndex {}
-
-        #[doc(hidden)]
-        #[no_coverage]
-        fn recursing_part<'a, V, N>(
-            &self,
-            _parent: &N,
-            _value: (),
-            _index: &mut Self::RecursingPartIndex,
-        ) -> Option<&'a V>
-        where
-            V: Clone + 'static,
-            N: Mutator<V>,
-        {
-            None
-        }
-
         type LensPath = !;
 
         fn lens<'a>(&self, _value: (), _cache: &Self::Cache, _path: &Self::LensPath) -> &'a dyn std::any::Any {
@@ -584,8 +526,7 @@ mod tuple1 {
         type Cache = <M0 as crate::Mutator<T0>>::Cache;
         #[doc(hidden)]
         type MutationStep = <M0 as crate::Mutator<T0>>::MutationStep;
-        #[doc(hidden)]
-        type RecursingPartIndex = <M0 as crate::Mutator<T0>>::RecursingPartIndex;
+
         #[doc(hidden)]
         type ArbitraryStep = <M0 as crate::Mutator<T0>>::ArbitraryStep;
         #[doc(hidden)]
@@ -669,29 +610,6 @@ mod tuple1 {
             t: Self::UnmutateToken,
         ) {
             self.mutator_0.unmutate(value.0, cache, t);
-        }
-        #[doc(hidden)]
-        #[no_coverage]
-        fn default_recursing_part_index<'a>(
-            &self,
-            value: <Tuple1<T0> as RefTypes>::Ref<'a>,
-            cache: &'a Self::Cache,
-        ) -> Self::RecursingPartIndex {
-            self.mutator_0.default_recursing_part_index(value.0, cache)
-        }
-        #[doc(hidden)]
-        #[no_coverage]
-        fn recursing_part<'a, ___V, ___N>(
-            &self,
-            parent: &___N,
-            value: <Tuple1<T0> as RefTypes>::Ref<'a>,
-            index: &mut Self::RecursingPartIndex,
-        ) -> Option<&'a ___V>
-        where
-            ___V: ::std::clone::Clone + 'static,
-            ___N: crate::Mutator<___V>,
-        {
-            self.mutator_0.recursing_part::<___V, ___N>(parent, value.0, index)
         }
 
         #[doc(hidden)]

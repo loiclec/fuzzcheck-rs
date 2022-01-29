@@ -234,20 +234,8 @@ pub trait Mutator<Value: Clone>: 'static {
     /// the given [`UnmutateToken`](Mutator::UnmutateToken).
     fn unmutate(&self, value: &mut Value, cache: &mut Self::Cache, t: Self::UnmutateToken);
 
-    type RecursingPartIndex: Clone;
-
-    fn default_recursing_part_index(&self, value: &Value, cache: &Self::Cache) -> Self::RecursingPartIndex;
-    fn recursing_part<'a, T, M>(
-        &self,
-        parent: &M,
-        value: &'a Value,
-        index: &mut Self::RecursingPartIndex,
-    ) -> Option<&'a T>
-    where
-        T: Clone + 'static,
-        M: Mutator<T>;
-
     type LensPath: Clone;
+
     fn lens<'a>(&self, value: &'a Value, cache: &Self::Cache, path: &Self::LensPath) -> &'a dyn Any;
 
     fn all_paths(&self, value: &Value, cache: &Self::Cache) -> HashMap<TypeId, Vec<Self::LensPath>>;
@@ -258,7 +246,22 @@ pub trait Mutator<Value: Clone>: 'static {
         max_cplx_from_crossover: f64,
         max_cplx: f64,
     ) -> CrossoverArbitraryResult<Value>;
+
+    // fn crossover_mutate(
+    //     &self,
+    //     value: &mut Value,
+    //     cache: &mut Self::Cache,
+    //     subvalue_provider: &dyn SubValueProvider,
+    //     max_cplx_from_crossover: f64,
+    //     max_cplx: f64,
+    // ) -> CrossoverMutateResult<Self::UnmutateToken>;
 }
+
+// pub struct CrossoverMutateResult<Unmutate> {
+//     pub unmutate: Unmutate,
+//     pub complexity: f64,
+//     pub complexity_from_crossover: f64,
+// }
 
 pub struct CrossoverArbitraryResult<Value> {
     pub value: Value,
@@ -437,27 +440,9 @@ where
     }
 
     #[doc(hidden)]
-    type RecursingPartIndex = W::RecursingPartIndex;
-    #[doc(hidden)]
     #[no_coverage]
     fn unmutate(&self, value: &mut T, cache: &mut Self::Cache, t: Self::UnmutateToken) {
         self.wrapped_mutator().unmutate(value, cache, t)
-    }
-    #[doc(hidden)]
-    #[no_coverage]
-    fn default_recursing_part_index(&self, value: &T, cache: &Self::Cache) -> Self::RecursingPartIndex {
-        self.wrapped_mutator().default_recursing_part_index(value, cache)
-    }
-
-    #[doc(hidden)]
-    #[no_coverage]
-    fn recursing_part<'a, V, N>(&self, parent: &N, value: &'a T, index: &mut Self::RecursingPartIndex) -> Option<&'a V>
-    where
-        V: Clone + 'static,
-        N: Mutator<V>,
-    {
-        let m = self.wrapped_mutator();
-        m.recursing_part::<V, N>(parent, value, index)
     }
 
     #[doc(hidden)]

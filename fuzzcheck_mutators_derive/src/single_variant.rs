@@ -150,12 +150,6 @@ pub fn make_single_variant_mutator(tb: &mut TokenBuilder, enu: &Enum) {
             single_variant_generics.mutating_type_params(|tp| {
                 tp.type_ident = ts!(tp.type_ident "::UnmutateToken")
             }) ";
-        
-        #[doc(hidden)]
-        type RecursingPartIndex = " EnumSingleVariant
-            single_variant_generics.mutating_type_params(|tp| {
-                tp.type_ident = ts!(tp.type_ident "::RecursingPartIndex")
-            }) ";
         #[doc(hidden)]
         type LensPath = " EnumSingleVariant
             single_variant_generics.mutating_type_params(|tp| {
@@ -325,41 +319,6 @@ pub fn make_single_variant_mutator(tb: &mut TokenBuilder, enu: &Enum) {
                     " EnumSingleVariant "::" item.ident "(t)
                 ) => {"
                     "m.unmutate(" item_pattern_match_bindings_to_tuple(&item.ident, true) ", c, t)"
-                "}"
-            )" _ => unreachable!()
-            }
-        }
-
-        #[doc(hidden)]
-        #[no_coverage]
-        fn default_recursing_part_index(&self, value: &" enu.ident enum_generics_no_bounds ", cache: &Self::Cache) -> Self::RecursingPartIndex {
-            match (self, value, cache) {"
-                join_ts!(&enu.items, item,
-                    "(" EnumSingleVariant "::" item.ident "(m), " 
-                    item.pattern_match(&enu.ident, Some(pattern_match_binding_append.clone())) ", " 
-                    EnumSingleVariant "::" item.ident "(c)" ") =>" 
-                    EnumSingleVariant "::" item.ident "(m.default_recursing_part_index(" item_pattern_match_bindings_to_tuple(&item.ident, true) ", c)),"
-                )"
-                _ => unreachable!()
-            }
-        }
-        #[doc(hidden)]
-        #[no_coverage]
-        fn recursing_part<'a, ___V, ___N>(&self, parent: &___N, value: &'a " enu.ident enum_generics_no_bounds ", index: &mut Self::RecursingPartIndex) -> " cm.Option "<&'a ___V>
-        where
-            ___V: " cm.Clone " + 'static,
-            ___N: " cm.fuzzcheck_traits_Mutator "<___V>,
-        {
-            match (self, value, index) {"
-            join_ts!(&enu.items, item,
-                "(
-                    " EnumSingleVariant "::" item.ident "(m) ,
-                    " item.pattern_match(&enu.ident, Some(pattern_match_binding_append.clone())) ",
-                    " EnumSingleVariant "::" item.ident "(index) ,
-                ) => {"
-                    "
-                    m.recursing_part::<___V, ___N>(parent, " item_pattern_match_bindings_to_tuple(&item.ident, true) ", index)
-                    "
                 "}"
             )" _ => unreachable!()
             }

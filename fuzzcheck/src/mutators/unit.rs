@@ -142,26 +142,6 @@ where
     #[no_coverage]
     fn unmutate(&self, _value: &mut T, _cache: &mut Self::Cache, _t: Self::UnmutateToken) {}
 
-    #[doc(hidden)]
-    type RecursingPartIndex = ();
-    #[doc(hidden)]
-    #[no_coverage]
-    fn default_recursing_part_index(&self, _value: &T, _cache: &Self::Cache) -> Self::RecursingPartIndex {}
-    #[doc(hidden)]
-    #[no_coverage]
-    fn recursing_part<'a, V, N>(
-        &self,
-        _parent: &N,
-        _value: &'a T,
-        _index: &mut Self::RecursingPartIndex,
-    ) -> Option<&'a V>
-    where
-        V: Clone + 'static,
-        N: Mutator<V>,
-    {
-        None
-    }
-
     type LensPath = !;
 
     fn lens<'a>(&self, _value: &'a T, _cache: &Self::Cache, _path: &Self::LensPath) -> &'a dyn std::any::Any {

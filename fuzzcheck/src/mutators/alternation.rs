@@ -102,13 +102,6 @@ pub struct ArbitraryStep<AS> {
 
 #[doc(hidden)]
 #[derive(Clone)]
-pub struct RecursingPartIndex<RPI> {
-    inner: Vec<RPI>,
-    indices: Vec<usize>,
-}
-
-#[doc(hidden)]
-#[derive(Clone)]
 pub struct MutationStep<MS, AS> {
     step: usize,
     mutator_idx: usize,
@@ -398,59 +391,6 @@ where
         }
     }
 
-    #[doc(hidden)]
-    type RecursingPartIndex = RecursingPartIndex<M::RecursingPartIndex>;
-
-    #[doc(hidden)]
-    #[no_coverage]
-    fn default_recursing_part_index(&self, value: &T, cache: &Self::Cache) -> Self::RecursingPartIndex {
-        Self::RecursingPartIndex {
-            inner: cache
-                .iter()
-                .map(
-                    #[no_coverage]
-                    |c| self.mutators[c.mutator_idx].default_recursing_part_index(value, &c.inner),
-                )
-                .collect(),
-            indices: cache
-                .iter()
-                .map(
-                    #[no_coverage]
-                    |c| c.mutator_idx,
-                )
-                .collect(),
-        }
-    }
-
-    #[doc(hidden)]
-    #[no_coverage]
-    fn recursing_part<'a, V, N>(&self, parent: &N, value: &'a T, index: &mut Self::RecursingPartIndex) -> Option<&'a V>
-    where
-        V: Clone + 'static,
-        N: Mutator<V>,
-    {
-        // if vector is empty, return Nlne
-        if index.inner.is_empty() {
-            return None;
-        }
-
-        // choose a recursing part randomly
-        let choice = self.rng.usize(..index.inner.len());
-        let subindex = &mut index.inner[choice];
-        let mutator_index = index.indices[choice];
-
-        // call it
-        let result = self.mutators[mutator_index].recursing_part::<V, N>(parent, value, subindex);
-
-        // if none, remove it from the vector and call the function again
-        if result.is_none() {
-            index.inner.remove(choice);
-            index.indices.remove(choice);
-            self.recursing_part::<V, N>(parent, value, index)
-        } else {
-            result
-        }
-    }
     #[doc(hidden)]
     type LensPath = (usize, M::LensPath);
     #[doc(hidden)]

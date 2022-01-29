@@ -131,26 +131,6 @@ impl Mutator<bool> for BoolMutator {
     }
 
     #[doc(hidden)]
-    type RecursingPartIndex = ();
-    #[doc(hidden)]
-    #[no_coverage]
-    fn default_recursing_part_index(&self, _value: &bool, _cache: &Self::Cache) -> Self::RecursingPartIndex {}
-    #[doc(hidden)]
-    #[no_coverage]
-    fn recursing_part<'a, T, M>(
-        &self,
-        _parent: &M,
-        _value: &'a bool,
-        _index: &mut Self::RecursingPartIndex,
-    ) -> Option<&'a T>
-    where
-        T: Clone,
-        M: Mutator<T>,
-    {
-        None
-    }
-
-    #[doc(hidden)]
     type LensPath = !;
     #[doc(hidden)]
     #[no_coverage]
