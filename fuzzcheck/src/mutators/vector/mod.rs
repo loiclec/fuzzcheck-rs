@@ -281,16 +281,18 @@ where
     #[no_coverage]
     fn all_paths(&self, value: &Vec<T>, cache: &Self::Cache) -> HashMap<TypeId, Vec<Self::LensPath>> {
         let mut r = HashMap::<TypeId, Vec<Self::LensPath>>::default();
-        let t_entry = r.entry(TypeId::of::<T>()).or_default();
-        for idx in 0..value.len() {
-            t_entry.push((idx, None));
-        }
-        for (idx, (el, el_cache)) in value.iter().zip(cache.inner.iter()).enumerate() {
-            let subpaths = self.m.all_paths(el, el_cache);
-            for (typeid, subpaths) in subpaths {
-                r.entry(typeid)
-                    .or_default()
-                    .extend(subpaths.into_iter().map(|p| (idx, Some(p))));
+        if !value.is_empty() {
+            let t_entry = r.entry(TypeId::of::<T>()).or_default();
+            for idx in 0..value.len() {
+                t_entry.push((idx, None));
+            }
+            for (idx, (el, el_cache)) in value.iter().zip(cache.inner.iter()).enumerate() {
+                let subpaths = self.m.all_paths(el, el_cache);
+                for (typeid, subpaths) in subpaths {
+                    r.entry(typeid)
+                        .or_default()
+                        .extend(subpaths.into_iter().map(|p| (idx, Some(p))));
+                }
             }
         }
         r

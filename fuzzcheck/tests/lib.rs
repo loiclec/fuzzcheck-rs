@@ -16,12 +16,14 @@ use fuzzcheck::{CrossoverArbitraryResult, CrossoverSubValueProvider, DefaultMuta
 
 #[test]
 fn test_crossover_vec() {
-    let m = VecMutator::new(u8::default_mutator(), 0..=10);
-    let (value, _) = m.random_arbitrary(100.0);
+    let m = VecMutator::<(u8, u16), _>::new(<(u8, u16)>::default_mutator(), 5..=10);
+    let (value, _) = m.random_arbitrary(1000.0);
     let cache = m.validate_value(&value).unwrap();
     println!("{:?}", value);
-
     let all_paths = m.all_paths(&value, &cache);
+    for (key, subpaths) in all_paths.iter() {
+        println!("{:?} : {:?}", key, subpaths.len());
+    }
     let mut subvalue_provider = CrossoverSubValueProvider::from(&m, &value, &cache, &all_paths);
 
     for _ in 0..10 {
@@ -29,7 +31,7 @@ fn test_crossover_vec() {
             value,
             complexity,
             complexity_from_crossover,
-        } = m.crossover_arbitrary(&mut subvalue_provider, 100.0, 200.0);
+        } = m.crossover_arbitrary(&mut subvalue_provider, 1000.0, 2000.0);
         println!("{value:?} {complexity:.2} {complexity_from_crossover:.2}");
     }
 }
