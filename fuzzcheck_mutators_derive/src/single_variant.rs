@@ -156,6 +156,11 @@ pub fn make_single_variant_mutator(tb: &mut TokenBuilder, enu: &Enum) {
             single_variant_generics.mutating_type_params(|tp| {
                 tp.type_ident = ts!(tp.type_ident "::RecursingPartIndex")
             }) ";
+        #[doc(hidden)]
+        type LensPath = " EnumSingleVariant
+            single_variant_generics.mutating_type_params(|tp| {
+                tp.type_ident = ts!(tp.type_ident "::LensPath")
+            }) ";
 
         #[doc(hidden)]
         #[no_coverage]
@@ -354,6 +359,49 @@ pub fn make_single_variant_mutator(tb: &mut TokenBuilder, enu: &Enum) {
                 ) => {"
                     "
                     m.recursing_part::<___V, ___N>(parent, " item_pattern_match_bindings_to_tuple(&item.ident, true) ", index)
+                    "
+                "}"
+            )" _ => unreachable!()
+            }
+        }
+        #[doc(hidden)]
+        #[no_coverage]
+        fn lens<'a>(&self, value: &'a " enu.ident enum_generics_no_bounds ", cache: &Self::Cache, path: &Self::LensPath) -> &'a dyn" cm.Any " 
+        {
+            match (self, value, cache, path) {"
+            join_ts!(&enu.items, item,
+                "(
+                    " EnumSingleVariant "::" item.ident "(m) ,
+                    " item.pattern_match(&enu.ident, Some(pattern_match_binding_append.clone())) ",
+                    " EnumSingleVariant "::" item.ident "(cache) ,
+                    " EnumSingleVariant "::" item.ident "(path) ,
+                ) => {"
+                    "
+                    m.lens(" item_pattern_match_bindings_to_tuple(&item.ident, true) ", cache, path)
+                    "
+                "}"
+            )" _ => unreachable!()
+            }
+        }
+        #[doc(hidden)]
+        #[no_coverage]
+        fn all_paths<'a>(&self, value: &'a" enu.ident enum_generics_no_bounds ", cache: &'a Self::Cache) -> " cm.HashMap "<" cm.TypeId ", " cm.Vec "<Self::LensPath>> {
+            match (self, value, cache) {"
+            join_ts!(&enu.items, item,
+                "(
+                    " EnumSingleVariant "::" item.ident "(m) ,
+                    " item.pattern_match(&enu.ident, Some(pattern_match_binding_append.clone())) ",
+                    " EnumSingleVariant "::" item.ident "(cache)
+                ) => {"
+                    "
+                    let subr = m.all_paths(" item_pattern_match_bindings_to_tuple(&item.ident, true) ", cache);
+                    let mut r: " cm.HashMap "<" cm.TypeId ", " cm.Vec "<Self::LensPath>> = <_>::default();
+                    for (typeid, paths) in subr {
+                        r.insert(typeid, paths.into_iter().map(|p| {"
+                            EnumSingleVariant "::" item.ident "(p)
+                        }).collect());
+                    }
+                    r
                     "
                 "}"
             )" _ => unreachable!()

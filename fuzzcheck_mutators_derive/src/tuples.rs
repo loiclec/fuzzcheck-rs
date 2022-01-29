@@ -275,11 +275,18 @@ fn declare_tuple_mutator_helper_types(tb: &mut TokenBuilder, nbr_elements: usize
         #[derive(" cm.Clone ")]
         pub struct Cache <" tuple_type_params "> {"
             join_ts!(0..nbr_elements, i,
-                ti(i) ":" ident!("T" i) ","
+                ti(i) ":" Ti(i) ","
             )
             "cplx : f64,
             vose_alias : " cm.VoseAlias "
         }
+        #[doc(hidden)]
+        #[derive(" cm.Clone ")]
+        pub enum LensPath<" tuple_type_params "> {"
+            join_ts!(0..nbr_elements, i,
+                Ti(i) "(" cm.Option "<" Ti(i) ">)"
+            , separator: ",")
+        "}
         #[doc(hidden)]
         #[derive(" cm.Clone ")]
         pub enum TupleIndex {"
@@ -608,7 +615,7 @@ fn impl_mutator_trait(tb: &mut TokenBuilder, nbr_elements: usize) {
         fn default_recursing_part_index<'a>(&self, value:" tuple_ref ", cache: &'a Self::Cache) -> Self::RecursingPartIndex {
             Self::RecursingPartIndex {"
                 join_ts!(0..nbr_elements, i,
-                    ti(i) ": self. " mutator_i(i) ".default_recursing_part_index(&value." i ", &cache." ti(i) ") ,"
+                    ti(i) ": self. " mutator_i(i) ".default_recursing_part_index(value." i ", &cache." ti(i) ") ,"
                 )
                 "inner: vec![" join_ts!(0..nbr_elements, i, "TupleIndex::" Ti(i), separator: ",") "]
             }
@@ -628,7 +635,7 @@ fn impl_mutator_trait(tb: &mut TokenBuilder, nbr_elements: usize) {
             match tuple_index {
             " join_ts!(0..nbr_elements, i,
                 "TupleIndex::" Ti(i) "=> {
-                    let result = self. " mutator_i(i) ".recursing_part::<___V, ___N>(parent, &value." i ", &mut index." ti(i) ");
+                    let result = self. " mutator_i(i) ".recursing_part::<___V, ___N>(parent, value." i ", &mut index." ti(i) ");
                     if result.is_none() {
                         index.inner.remove(choice);
                         " SelfAsTupleMutator "::recursing_part::<___V, ___N>(self, parent, value, index)
@@ -639,8 +646,44 @@ fn impl_mutator_trait(tb: &mut TokenBuilder, nbr_elements: usize) {
             )"
             }
         }
-    }
-    "
+        #[doc(hidden)]
+        type LensPath = LensPath <"
+            join_ts!(0..nbr_elements, i,
+                "<" Mi(i) "as" cm.fuzzcheck_traits_Mutator "<" Ti(i) "> >::LensPath "
+            , separator: ",")
+        ">;
+        #[doc(hidden)]
+        #[no_coverage]
+        fn lens<'a>(&self, value: " tuple_ref ", cache: &Self::Cache, path: &Self::LensPath) -> &'a dyn " cm.Any " {
+            match path {"
+                join_ts!(0..nbr_elements, i,
+                    "LensPath::" Ti(i) "(" cm.Some "(path))=> {
+                        self." mutator_i(i) ".lens(value. " i ", &cache. " ti(i) ", path)
+                    }"
+                    "LensPath::" Ti(i) "(" cm.None ")=> {
+                        value." i "
+                    }"
+                )
+            "}
+        }
+
+        #[doc(hidden)]
+        #[no_coverage]
+        fn all_paths<'a>(&self, value: " tuple_ref ", cache: &'a Self::Cache) -> " cm.HashMap "<" cm.TypeId ", " cm.Vec "<Self::LensPath>> {
+            let mut r:" cm.HashMap "<" cm.TypeId ", " cm.Vec "<Self::LensPath>> = <_>::default();"
+            join_ts!(0..nbr_elements, i,
+                "r.entry(" cm.TypeId "::of::<" Ti(i) ">()).or_default().push(LensPath::" Ti(i) "(" cm.None "));"
+                "for (typeid, subpaths) in self." mutator_i(i) ".all_paths(value." i ", &cache. " ti(i) ") {
+                    r.entry(typeid).or_default().extend(subpaths.into_iter().map(|p| {
+                        LensPath::" Ti(i) "(" cm.Some "(p))
+                    }));
+                }
+                "
+            )
+            "
+            r
+        }
+    }"
     )
 }
 

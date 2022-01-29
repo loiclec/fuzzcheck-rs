@@ -870,5 +870,19 @@ mod tests {
         {
             None
         }
+
+        type LensPath = !;
+
+        fn lens<'a>(&self, _value: &'a f64, _cache: &Self::Cache, _path: &Self::LensPath) -> &'a dyn std::any::Any {
+            unreachable!()
+        }
+
+        fn all_paths(
+            &self,
+            value: &f64,
+            cache: &Self::Cache,
+        ) -> std::collections::HashMap<std::any::TypeId, Vec<Self::LensPath>> {
+            <_>::default()
+        }
     }
 }

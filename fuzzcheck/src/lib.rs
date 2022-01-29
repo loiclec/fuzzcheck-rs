@@ -19,6 +19,7 @@
 #![feature(arc_new_cyclic)]
 #![feature(trivial_bounds)]
 #![feature(stmt_expr_attributes)]
+#![feature(box_syntax)]
 #![allow(clippy::nonstandard_macro_braces)]
 #![allow(clippy::too_many_arguments)]
 #![allow(clippy::partialeq_ne_impl)]
@@ -83,8 +84,8 @@ pub use fuzzer::ReasonForStopping;
 pub use mutators::DefaultMutator;
 #[doc(inline)]
 pub use traits::Mutator;
-#[doc(inline)]
-pub use traits::MutatorExt;
+// #[doc(inline)]
+// pub use traits::MutatorExt;
 #[doc(inline)]
 pub use traits::MutatorWrapper;
 #[doc(inline)]

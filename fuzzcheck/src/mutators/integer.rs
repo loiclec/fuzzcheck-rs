@@ -279,6 +279,28 @@ macro_rules! impl_int_mutator {
             {
                 None
             }
+
+            #[doc(hidden)]
+            type LensPath = !;
+            #[doc(hidden)]
+            #[no_coverage]
+            fn lens<'a>(
+                &self,
+                _value: &'a $name,
+                _cache: &Self::Cache,
+                _path: &Self::LensPath,
+            ) -> &'a dyn std::any::Any {
+                unreachable!()
+            }
+            #[doc(hidden)]
+            #[no_coverage]
+            fn all_paths(
+                &self,
+                value: &$name,
+                cache: &Self::Cache,
+            ) -> std::collections::HashMap<std::any::TypeId, Vec<Self::LensPath>> {
+                <_>::default()
+            }
         }
 
         impl DefaultMutator for $name {

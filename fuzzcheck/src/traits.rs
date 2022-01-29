@@ -1,8 +1,10 @@
 use crate::fuzzer::PoolStorageIndex;
-use crate::mutators::filter::FilterMutator;
-use crate::mutators::map::MapMutator;
+// use crate::mutators::filter::FilterMutator;
+// use crate::mutators::map::MapMutator;
 use crate::sensors_and_pools::{AndPool, MapSensor};
 use fuzzcheck_common::FuzzerEvent;
+use std::any::{Any, TypeId};
+use std::collections::HashMap;
 use std::fmt::Display;
 use std::path::PathBuf;
 
@@ -244,6 +246,67 @@ pub trait Mutator<Value: Clone>: 'static {
     where
         T: Clone + 'static,
         M: Mutator<T>;
+
+    type LensPath: Clone;
+    fn lens<'a>(&self, value: &'a Value, cache: &Self::Cache, path: &Self::LensPath) -> &'a dyn Any;
+
+    fn all_paths(&self, value: &Value, cache: &Self::Cache) -> HashMap<TypeId, Vec<Self::LensPath>>;
+}
+
+trait SubValueProvider {
+    // TODO: consider adding a verification closure here
+    fn get_subvalue(&self, typeid: TypeId) -> Option<&dyn Any>;
+}
+struct CrossoverSubValueProvider<'a, M, T>
+where
+    T: Clone + 'static,
+    M: Mutator<T>,
+{
+    mutator: &'a M,
+    value: &'a T,
+    cache: &'a M::Cache,
+    all_paths: &'a HashMap<TypeId, Vec<M::LensPath>>,
+    rng: fastrand::Rng,
+}
+impl<'a, M, Value> CrossoverSubValueProvider<'a, M, Value>
+where
+    Value: Clone + 'static,
+    M: Mutator<Value>,
+{
+    #[no_coverage]
+    fn from(
+        mutator: &'a M,
+        value: &'a Value,
+        cache: &'a M::Cache,
+        all_paths: &'a HashMap<TypeId, Vec<M::LensPath>>,
+    ) -> Self {
+        Self {
+            mutator,
+            value,
+            cache,
+            all_paths,
+            rng: fastrand::Rng::new(),
+        }
+    }
+}
+impl<'a, M, Value> SubValueProvider for CrossoverSubValueProvider<'a, M, Value>
+where
+    Value: Clone + 'static,
+    M: Mutator<Value>,
+{
+    // TODO: consider adding a verification closure here
+    #[no_coverage]
+    fn get_subvalue(&self, typeid: TypeId) -> Option<&dyn Any> {
+        if let Some(all_paths) = self.all_paths.get(&typeid) {
+            assert!(!all_paths.is_empty());
+            let path_idx = self.rng.usize(..all_paths.len());
+            let path = &all_paths[path_idx];
+            let subvalue = self.mutator.lens(self.value, self.cache, path);
+            Some(subvalue)
+        } else {
+            None
+        }
+    }
 }
 
 /// A [Serializer] is used to encode and decode test cases into bytes.
@@ -382,6 +445,20 @@ where
     {
         let m = self.wrapped_mutator();
         m.recursing_part::<V, N>(parent, value, index)
+    }
+
+    #[doc(hidden)]
+    type LensPath = W::LensPath;
+    #[doc(hidden)]
+    #[no_coverage]
+    fn lens<'a>(&self, value: &'a T, cache: &Self::Cache, path: &Self::LensPath) -> &'a dyn Any {
+        self.wrapped_mutator().lens(value, cache, path)
+    }
+
+    #[doc(hidden)]
+    #[no_coverage]
+    fn all_paths(&self, value: &T, cache: &Self::Cache) -> HashMap<TypeId, Vec<Self::LensPath>> {
+        self.wrapped_mutator().all_paths(value, cache)
     }
 }
 
@@ -691,28 +768,28 @@ pub trait SensorExt: Sensor {
 }
 impl<T> SensorExt for T where T: Sensor {}
 
-pub trait MutatorExt<T>: Mutator<T> + Sized
-where
-    T: Clone + 'static,
-{
-    fn filter<F>(self, filter: F) -> FilterMutator<Self, F>
-    where
-        F: Fn(&T) -> bool,
-    {
-        FilterMutator { mutator: self, filter }
-    }
-    fn map<To, Map, Parse>(self, map: Map, parse: Parse) -> MapMutator<T, To, Self, Parse, Map>
-    where
-        To: Clone + 'static,
-        Map: Fn(&T) -> To,
-        Parse: Fn(&To) -> Option<T>,
-    {
-        MapMutator::new(self, parse, map)
-    }
-}
-impl<T, M> MutatorExt<T> for M
-where
-    M: Mutator<T>,
-    T: Clone + 'static,
-{
-}
+// pub trait MutatorExt<T>: Mutator<T> + Sized
+// where
+//     T: Clone + 'static,
+// {
+//     fn filter<F>(self, filter: F) -> FilterMutator<Self, F>
+//     where
+//         F: Fn(&T) -> bool,
+//     {
+//         FilterMutator { mutator: self, filter }
+//     }
+//     fn map<To, Map, Parse>(self, map: Map, parse: Parse) -> MapMutator<T, To, Self, Parse, Map>
+//     where
+//         To: Clone + 'static,
+//         Map: Fn(&T) -> To,
+//         Parse: Fn(&To) -> Option<T>,
+//     {
+//         MapMutator::new(self, parse, map)
+//     }
+// }
+// impl<T, M> MutatorExt<T> for M
+// where
+//     M: Mutator<T>,
+//     T: Clone + 'static,
+// {
+// }

@@ -261,6 +261,8 @@ impl Default for MakeMutatorSettings {
 #[allow(non_snake_case)]
 pub(crate) struct Common {
     AlternationMutator: TokenStream,
+    Any: TokenStream,
+    TypeId: TokenStream,
     Clone: TokenStream,
     Default: TokenStream,
     DefaultMutator: TokenStream,
@@ -292,6 +294,7 @@ pub(crate) struct Common {
     VoseAlias: TokenStream,
     RecursiveMutator: TokenStream,
     Box: TokenStream,
+    HashMap: TokenStream,
 }
 impl Common {
     #[allow(non_snake_case)]
@@ -322,6 +325,8 @@ impl Common {
 
         Self {
             AlternationMutator: ts!(mutators "::alternation::AlternationMutator"),
+            Any: ts!("::std::any::Any"),
+            TypeId: ts!("::std::any::TypeId"),
             Clone: ts!("::std::clone::Clone"),
             Default: ts!("::std::default::Default"),
             DefaultMutator: ts!(mutators "::DefaultMutator"),
@@ -353,6 +358,7 @@ impl Common {
             VoseAlias: ts!(mutators "::vose_alias::VoseAlias"),
             RecursiveMutator: ts!(mutators "::recursive::RecursiveMutator"),
             Box: ts!("::std::boxed::Box"),
+            HashMap: ts!("::std::collections::HashMap"),
         }
     }
 }

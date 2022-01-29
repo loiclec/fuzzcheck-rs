@@ -277,6 +277,22 @@ where
             }
         }
     }
+
+    type LensPath = <M as Mutator<T>>::LensPath;
+
+    fn lens<'a>(&self, value: &'a T, cache: &Self::Cache, path: &Self::LensPath) -> &'a dyn Any {
+        self.reference.upgrade().unwrap().lens(value, cache, path)
+    }
+
+    #[doc(hidden)]
+    #[no_coverage]
+    fn all_paths(
+        &self,
+        value: &T,
+        cache: &Self::Cache,
+    ) -> std::collections::HashMap<std::any::TypeId, Vec<Self::LensPath>> {
+        self.reference.upgrade().unwrap().all_paths(value, cache)
+    }
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -438,5 +454,21 @@ where
         N: Mutator<V>,
     {
         self.mutator.recursing_part::<V, N>(parent, value, index)
+    }
+
+    type LensPath = <M as Mutator<T>>::LensPath;
+
+    fn lens<'a>(&self, value: &'a T, cache: &Self::Cache, path: &Self::LensPath) -> &'a dyn Any {
+        self.mutator.lens(value, cache, path)
+    }
+
+    #[doc(hidden)]
+    #[no_coverage]
+    fn all_paths(
+        &self,
+        value: &T,
+        cache: &Self::Cache,
+    ) -> std::collections::HashMap<std::any::TypeId, Vec<Self::LensPath>> {
+        self.mutator.all_paths(value, cache)
     }
 }

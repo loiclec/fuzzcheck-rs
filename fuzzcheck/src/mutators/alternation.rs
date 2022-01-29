@@ -1,5 +1,10 @@
 use crate::Mutator;
-use std::{cmp::Ordering, marker::PhantomData};
+use std::{
+    any::{Any, TypeId},
+    cmp::Ordering,
+    collections::HashMap,
+    marker::PhantomData,
+};
 
 /**
 A mutator that wraps multiple different mutators of the same type.
@@ -445,5 +450,33 @@ where
         } else {
             result
         }
+    }
+    #[doc(hidden)]
+    type LensPath = (usize, M::LensPath);
+    #[doc(hidden)]
+    #[no_coverage]
+    fn lens<'a>(&self, value: &'a T, cache: &Self::Cache, path: &Self::LensPath) -> &'a dyn Any {
+        let cache = &cache[path.0];
+        let idx = cache.mutator_idx;
+        let mutator = &self.mutators[idx];
+        mutator.lens(value, &cache.inner, &path.1)
+    }
+
+    #[doc(hidden)]
+    #[no_coverage]
+    fn all_paths(&self, value: &T, cache: &Self::Cache) -> HashMap<TypeId, Vec<Self::LensPath>> {
+        let mut result: HashMap<TypeId, Vec<Self::LensPath>> = HashMap::default();
+        for (cache_idx, cache) in cache.iter().enumerate() {
+            let mutator_idx = cache.mutator_idx;
+            let mutator = &self.mutators[mutator_idx];
+            let subpaths = mutator.all_paths(value, &cache.inner);
+            for (type_id, subpaths) in subpaths {
+                result
+                    .entry(type_id)
+                    .or_default()
+                    .extend(subpaths.into_iter().map(|p| (cache_idx, p)));
+            }
+        }
+        result
     }
 }

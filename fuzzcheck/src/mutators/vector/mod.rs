@@ -1,6 +1,8 @@
 use crate::mutators::mutations::{Mutation, RevertMutation};
 use crate::{DefaultMutator, Mutator};
+use std::any::{Any, TypeId};
 use std::cmp;
+use std::collections::HashMap;
 use std::marker::PhantomData;
 use std::ops::RangeInclusive;
 
@@ -309,6 +311,37 @@ where
         } else {
             result
         }
+    }
+    #[doc(hidden)]
+    type LensPath = (usize, Option<M::LensPath>);
+    #[doc(hidden)]
+    #[no_coverage]
+    fn lens<'a>(&self, value: &'a Vec<T>, cache: &Self::Cache, path: &Self::LensPath) -> &'a dyn Any {
+        let value = &value[path.0];
+        if let Some(subpath) = &path.1 {
+            let cache = &cache.inner[path.0];
+            self.m.lens(value, cache, subpath)
+        } else {
+            value
+        }
+    }
+    #[doc(hidden)]
+    #[no_coverage]
+    fn all_paths(&self, value: &Vec<T>, cache: &Self::Cache) -> HashMap<TypeId, Vec<Self::LensPath>> {
+        let mut r = HashMap::<TypeId, Vec<Self::LensPath>>::default();
+        let t_entry = r.entry(TypeId::of::<T>()).or_default();
+        for idx in 0..value.len() {
+            t_entry.push((idx, None));
+        }
+        for (idx, (el, el_cache)) in value.iter().zip(cache.inner.iter()).enumerate() {
+            let subpaths = self.m.all_paths(el, el_cache);
+            for (typeid, subpaths) in subpaths {
+                r.entry(typeid)
+                    .or_default()
+                    .extend(subpaths.into_iter().map(|p| (idx, Some(p))));
+            }
+        }
+        r
     }
 }
 

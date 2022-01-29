@@ -1,3 +1,5 @@
+use std::any::TypeId;
+use std::collections::HashMap;
 use std::marker::PhantomData;
 
 use crate::DefaultMutator;
@@ -157,5 +159,16 @@ where
         N: Mutator<V>,
     {
         None
+    }
+
+    type LensPath = !;
+
+    fn lens<'a>(&self, _value: &'a T, _cache: &Self::Cache, _path: &Self::LensPath) -> &'a dyn std::any::Any {
+        unreachable!()
+    }
+    #[doc(hidden)]
+    #[no_coverage]
+    fn all_paths(&self, value: &T, cache: &Self::Cache) -> HashMap<TypeId, Vec<Self::LensPath>> {
+        <_>::default()
     }
 }

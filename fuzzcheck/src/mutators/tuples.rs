@@ -87,7 +87,11 @@
 //! of trying to reuse mutators. But it would be a much larger amount of work, would probably increase compile times, and
 //! it would be more difficult to refactor and keep the implementations correct.
 use crate::Mutator;
-use std::marker::PhantomData;
+use std::{
+    any::{Any, TypeId},
+    collections::HashMap,
+    marker::PhantomData,
+};
 
 /// A trait which essentially holds the types of a destructured tuple or structure.
 ///
@@ -178,6 +182,11 @@ where
     where
         V: Clone + 'static,
         N: Mutator<V>;
+
+    type LensPath: Clone;
+    fn lens<'a>(&self, value: TupleKind::Ref<'a>, cache: &Self::Cache, path: &Self::LensPath) -> &'a dyn Any;
+
+    fn all_paths<'a>(&self, value: TupleKind::Ref<'a>, cache: &'a Self::Cache) -> HashMap<TypeId, Vec<Self::LensPath>>;
 }
 
 /// A wrapper that transforms a [`TupleMutator`] into a [`Mutator`] of values [with a tuple structure](TupleStructure).
@@ -319,6 +328,20 @@ where
     {
         self.mutator.recursing_part::<V, N>(parent, value.get_ref(), index)
     }
+
+    #[doc(hidden)]
+    type LensPath = M::LensPath;
+    #[doc(hidden)]
+    #[no_coverage]
+    fn lens<'a>(&self, value: &'a T, cache: &Self::Cache, path: &Self::LensPath) -> &'a dyn Any {
+        self.mutator.lens(value.get_ref(), cache, path)
+    }
+
+    #[doc(hidden)]
+    #[no_coverage]
+    fn all_paths<'a>(&self, value: &'a T, cache: &Self::Cache) -> HashMap<TypeId, Vec<Self::LensPath>> {
+        self.mutator.all_paths(value.get_ref(), cache)
+    }
 }
 
 pub use tuple0::{Tuple0, Tuple0Mutator};
@@ -457,6 +480,20 @@ mod tuple0 {
         {
             None
         }
+
+        type LensPath = !;
+
+        fn lens<'a>(&self, _value: (), _cache: &Self::Cache, _path: &Self::LensPath) -> &'a dyn std::any::Any {
+            unreachable!()
+        }
+
+        fn all_paths<'a>(
+            &self,
+            value: (),
+            cache: &'a Self::Cache,
+        ) -> std::collections::HashMap<std::any::TypeId, Vec<Self::LensPath>> {
+            <_>::default()
+        }
     }
 }
 
@@ -529,16 +566,6 @@ mod tuple1 {
 
         #[doc(hidden)]
         #[no_coverage]
-        fn max_complexity(&self) -> f64 {
-            self.mutator_0.max_complexity()
-        }
-        #[doc(hidden)]
-        #[no_coverage]
-        fn min_complexity(&self) -> f64 {
-            self.mutator_0.min_complexity()
-        }
-        #[doc(hidden)]
-        #[no_coverage]
         fn complexity<'a>(&self, value: <Tuple1<T0> as RefTypes>::Ref<'a>, cache: &'a Self::Cache) -> f64 {
             self.mutator_0.complexity(value.0, cache)
         }
@@ -555,6 +582,16 @@ mod tuple1 {
             cache: &'a Self::Cache,
         ) -> Self::MutationStep {
             self.mutator_0.default_mutation_step(value.0, cache)
+        }
+        #[doc(hidden)]
+        #[no_coverage]
+        fn max_complexity(&self) -> f64 {
+            self.mutator_0.max_complexity()
+        }
+        #[doc(hidden)]
+        #[no_coverage]
+        fn min_complexity(&self) -> f64 {
+            self.mutator_0.min_complexity()
         }
         #[doc(hidden)]
         #[no_coverage]
@@ -623,6 +660,30 @@ mod tuple1 {
             ___N: crate::Mutator<___V>,
         {
             self.mutator_0.recursing_part::<___V, ___N>(parent, value.0, index)
+        }
+
+        #[doc(hidden)]
+        type LensPath = M0::LensPath;
+
+        #[doc(hidden)]
+        #[no_coverage]
+        fn lens<'a>(
+            &self,
+            value: <Tuple1<T0> as RefTypes>::Ref<'a>,
+            cache: &Self::Cache,
+            path: &Self::LensPath,
+        ) -> &'a dyn std::any::Any {
+            self.mutator_0.lens(value.0, cache, path)
+        }
+
+        #[doc(hidden)]
+        #[no_coverage]
+        fn all_paths<'a>(
+            &self,
+            value: <Tuple1<T0> as RefTypes>::Ref<'a>,
+            cache: &'a Self::Cache,
+        ) -> std::collections::HashMap<std::any::TypeId, Vec<Self::LensPath>> {
+            self.mutator_0.all_paths(value.0, cache)
         }
     }
     impl<T0> crate::mutators::DefaultMutator for (T0,)

@@ -50,18 +50,6 @@ impl Mutator<bool> for BoolMutator {
 
     #[doc(hidden)]
     #[no_coverage]
-    fn max_complexity(&self) -> f64 {
-        BOOL_COMPLEXITY
-    }
-
-    #[doc(hidden)]
-    #[no_coverage]
-    fn min_complexity(&self) -> f64 {
-        BOOL_COMPLEXITY
-    }
-
-    #[doc(hidden)]
-    #[no_coverage]
     fn validate_value(&self, _value: &bool) -> Option<Self::Cache> {
         Some(())
     }
@@ -70,6 +58,18 @@ impl Mutator<bool> for BoolMutator {
     #[no_coverage]
     fn default_mutation_step(&self, _value: &bool, _cache: &Self::Cache) -> Self::MutationStep {
         INITIAL_MUTATION_STEP
+    }
+
+    #[doc(hidden)]
+    #[no_coverage]
+    fn max_complexity(&self) -> f64 {
+        BOOL_COMPLEXITY
+    }
+
+    #[doc(hidden)]
+    #[no_coverage]
+    fn min_complexity(&self) -> f64 {
+        BOOL_COMPLEXITY
     }
     #[doc(hidden)]
     #[no_coverage]
@@ -147,5 +147,23 @@ impl Mutator<bool> for BoolMutator {
         M: Mutator<T>,
     {
         None
+    }
+
+    #[doc(hidden)]
+    type LensPath = !;
+    #[doc(hidden)]
+    #[no_coverage]
+    fn lens<'a>(&self, _value: &'a bool, _cache: &Self::Cache, _path: &Self::LensPath) -> &'a dyn std::any::Any {
+        unreachable!()
+    }
+
+    #[doc(hidden)]
+    #[no_coverage]
+    fn all_paths(
+        &self,
+        value: &bool,
+        cache: &Self::Cache,
+    ) -> std::collections::HashMap<std::any::TypeId, Vec<Self::LensPath>> {
+        <_>::default()
     }
 }
