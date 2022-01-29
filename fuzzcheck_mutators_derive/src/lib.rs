@@ -295,6 +295,8 @@ pub(crate) struct Common {
     RecursiveMutator: TokenStream,
     Box: TokenStream,
     HashMap: TokenStream,
+    SubValueProvider: TokenStream,
+    CrossoverArbitraryResult: TokenStream,
 }
 impl Common {
     #[allow(non_snake_case)]
@@ -359,6 +361,8 @@ impl Common {
             RecursiveMutator: ts!(mutators "::recursive::RecursiveMutator"),
             Box: ts!("::std::boxed::Box"),
             HashMap: ts!("::std::collections::HashMap"),
+            SubValueProvider: ts!("fuzzcheck::SubValueProvider"),
+            CrossoverArbitraryResult: ts!("fuzzcheck::CrossoverArbitraryResult"),
         }
     }
 }

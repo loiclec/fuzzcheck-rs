@@ -61,6 +61,10 @@ pub use crate::traits::CompatibleWithObservations;
 #[doc(inline)]
 pub use crate::traits::CorpusDelta;
 #[doc(inline)]
+pub use crate::traits::CrossoverArbitraryResult;
+#[doc(inline)]
+pub use crate::traits::CrossoverSubValueProvider;
+#[doc(inline)]
 pub use crate::traits::Pool;
 #[doc(inline)]
 pub use crate::traits::PoolExt;
@@ -74,6 +78,8 @@ pub use crate::traits::SensorAndPool;
 pub use crate::traits::SensorExt;
 #[doc(inline)]
 pub use crate::traits::Stats;
+#[doc(inline)]
+pub use crate::traits::SubValueProvider;
 
 #[doc(inline)]
 pub use crate::fuzzer::PoolStorageIndex;

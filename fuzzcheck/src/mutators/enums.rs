@@ -167,9 +167,23 @@ where
     #[no_coverage]
     fn all_paths(
         &self,
-        value: &T,
-        cache: &Self::Cache,
+        _value: &T,
+        _cache: &Self::Cache,
     ) -> std::collections::HashMap<std::any::TypeId, Vec<Self::LensPath>> {
         <_>::default()
+    }
+
+    fn crossover_arbitrary(
+        &self,
+        _subvalue_provider: &dyn fuzzcheck::SubValueProvider,
+        _max_cplx_from_crossover: f64,
+        max_cplx: f64,
+    ) -> fuzzcheck::CrossoverArbitraryResult<T> {
+        let (value, complexity) = self.random_arbitrary(max_cplx);
+        fuzzcheck::CrossoverArbitraryResult {
+            value,
+            complexity,
+            complexity_from_crossover: 0.0,
+        }
     }
 }

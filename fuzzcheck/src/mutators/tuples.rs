@@ -187,6 +187,13 @@ where
     fn lens<'a>(&self, value: TupleKind::Ref<'a>, cache: &Self::Cache, path: &Self::LensPath) -> &'a dyn Any;
 
     fn all_paths<'a>(&self, value: TupleKind::Ref<'a>, cache: &'a Self::Cache) -> HashMap<TypeId, Vec<Self::LensPath>>;
+
+    fn crossover_arbitrary(
+        &self,
+        subvalue_provider: &dyn crate::SubValueProvider,
+        max_cplx_from_crossover: f64,
+        max_cplx: f64,
+    ) -> crate::CrossoverArbitraryResult<T>;
 }
 
 /// A wrapper that transforms a [`TupleMutator`] into a [`Mutator`] of values [with a tuple structure](TupleStructure).
@@ -342,6 +349,17 @@ where
     fn all_paths<'a>(&self, value: &'a T, cache: &Self::Cache) -> HashMap<TypeId, Vec<Self::LensPath>> {
         self.mutator.all_paths(value.get_ref(), cache)
     }
+    #[doc(hidden)]
+    #[no_coverage]
+    fn crossover_arbitrary(
+        &self,
+        subvalue_provider: &dyn crate::SubValueProvider,
+        max_cplx_from_crossover: f64,
+        max_cplx: f64,
+    ) -> crate::CrossoverArbitraryResult<T> {
+        self.mutator
+            .crossover_arbitrary(subvalue_provider, max_cplx_from_crossover, max_cplx)
+    }
 }
 
 pub use tuple0::{Tuple0, Tuple0Mutator};
@@ -489,10 +507,24 @@ mod tuple0 {
 
         fn all_paths<'a>(
             &self,
-            value: (),
-            cache: &'a Self::Cache,
+            _value: (),
+            _cache: &'a Self::Cache,
         ) -> std::collections::HashMap<std::any::TypeId, Vec<Self::LensPath>> {
             <_>::default()
+        }
+        #[doc(hidden)]
+        #[no_coverage]
+        fn crossover_arbitrary(
+            &self,
+            _subvalue_provider: &dyn crate::SubValueProvider,
+            _max_cplx_from_crossover: f64,
+            _max_cplx: f64,
+        ) -> crate::CrossoverArbitraryResult<()> {
+            crate::CrossoverArbitraryResult {
+                value: (),
+                complexity: 0.0,
+                complexity_from_crossover: 0.0,
+            }
         }
     }
 }
@@ -500,7 +532,7 @@ mod tuple0 {
 pub use tuple1::{Tuple1, Tuple1Mutator};
 mod tuple1 {
     use super::{TupleMutator, TupleMutatorWrapper};
-    use crate::mutators::tuples::RefTypes;
+    use crate::{mutators::tuples::RefTypes, CrossoverArbitraryResult};
 
     #[doc = "A marker type implementing [`RefTypes`](crate::mutators::tuples::RefTypes) indicating that a type has the [structure](crate::mutators::tuples::TupleStructure) of a 1-tuple."]
     pub struct Tuple1<T0: 'static> {
@@ -684,6 +716,27 @@ mod tuple1 {
             cache: &'a Self::Cache,
         ) -> std::collections::HashMap<std::any::TypeId, Vec<Self::LensPath>> {
             self.mutator_0.all_paths(value.0, cache)
+        }
+        #[doc(hidden)]
+        #[no_coverage]
+        fn crossover_arbitrary(
+            &self,
+            subvalue_provider: &dyn crate::SubValueProvider,
+            max_cplx_from_crossover: f64,
+            max_cplx: f64,
+        ) -> crate::CrossoverArbitraryResult<T> {
+            let CrossoverArbitraryResult {
+                value,
+                complexity,
+                complexity_from_crossover,
+            } = self
+                .mutator_0
+                .crossover_arbitrary(subvalue_provider, max_cplx_from_crossover, max_cplx);
+            CrossoverArbitraryResult {
+                value: T::new((value,)),
+                complexity,
+                complexity_from_crossover,
+            }
         }
     }
     impl<T0> crate::mutators::DefaultMutator for (T0,)

@@ -407,6 +407,26 @@ pub fn make_single_variant_mutator(tb: &mut TokenBuilder, enu: &Enum) {
             )" _ => unreachable!()
             }
         }
+        #[doc(hidden)]
+        #[no_coverage]
+        fn crossover_arbitrary(
+            &self,
+            subvalue_provider: &dyn " cm.SubValueProvider ",
+            max_cplx_from_crossover: f64,
+            max_cplx: f64,
+        ) -> " cm.CrossoverArbitraryResult "<" enu.ident enum_generics_no_bounds "> {
+            match self {"
+            join_ts!(&enu.items, item,
+                EnumSingleVariant "::" item.ident "(m) => {
+                    let " cm.CrossoverArbitraryResult "  { value: v, complexity: c1, complexity_from_crossover: c2 } = m.crossover_arbitrary(subvalue_provider, max_cplx_from_crossover, max_cplx);
+                    " cm.CrossoverArbitraryResult "{
+                        value: " item_pattern_match_bindings_to_enum_item(item) ",
+                        complexity: c1,
+                        complexity_from_crossover: c2
+                    }
+                }"
+            )"}
+        }
     }
     ");
 }

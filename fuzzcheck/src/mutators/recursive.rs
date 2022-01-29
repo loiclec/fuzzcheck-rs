@@ -293,6 +293,15 @@ where
     ) -> std::collections::HashMap<std::any::TypeId, Vec<Self::LensPath>> {
         self.reference.upgrade().unwrap().all_paths(value, cache)
     }
+
+    fn crossover_arbitrary(
+        &self,
+        _subvalue_provider: &dyn crate::SubValueProvider,
+        _max_cplx_from_crossover: f64,
+        _max_cplx: f64,
+    ) -> crate::CrossoverArbitraryResult<T> {
+        todo!()
+    }
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -470,5 +479,14 @@ where
         cache: &Self::Cache,
     ) -> std::collections::HashMap<std::any::TypeId, Vec<Self::LensPath>> {
         self.mutator.all_paths(value, cache)
+    }
+
+    fn crossover_arbitrary(
+        &self,
+        _subvalue_provider: &dyn crate::SubValueProvider,
+        _max_cplx_from_crossover: f64,
+        _max_cplx: f64,
+    ) -> crate::CrossoverArbitraryResult<T> {
+        todo!()
     }
 }

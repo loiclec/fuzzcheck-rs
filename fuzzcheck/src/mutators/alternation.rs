@@ -1,4 +1,4 @@
-use crate::Mutator;
+use crate::{CrossoverArbitraryResult, Mutator, SubValueProvider};
 use std::{
     any::{Any, TypeId},
     cmp::Ordering,
@@ -478,5 +478,24 @@ where
             }
         }
         result
+    }
+
+    #[doc(hidden)]
+    #[no_coverage]
+    fn crossover_arbitrary(
+        &self,
+        subvalue_provider: &dyn SubValueProvider,
+        max_cplx_from_crossover: f64,
+        max_cplx: f64,
+    ) -> CrossoverArbitraryResult<T> {
+        let idx = self.rng.usize(..self.mutators.len());
+        let mutator = &self.mutators[idx];
+
+        let result = mutator.crossover_arbitrary(subvalue_provider, max_cplx_from_crossover, max_cplx);
+        CrossoverArbitraryResult {
+            value: result.value,
+            complexity: self.complexity_from_inner(result.complexity),
+            complexity_from_crossover: result.complexity_from_crossover,
+        }
     }
 }

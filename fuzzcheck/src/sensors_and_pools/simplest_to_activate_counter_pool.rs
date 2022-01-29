@@ -879,10 +879,19 @@ mod tests {
 
         fn all_paths(
             &self,
-            value: &f64,
-            cache: &Self::Cache,
+            _value: &f64,
+            _cache: &Self::Cache,
         ) -> std::collections::HashMap<std::any::TypeId, Vec<Self::LensPath>> {
             <_>::default()
+        }
+
+        fn crossover_arbitrary(
+            &self,
+            _subvalue_provider: &dyn crate::SubValueProvider,
+            _max_cplx_from_crossover: f64,
+            _max_cplx: f64,
+        ) -> crate::CrossoverArbitraryResult<f64> {
+            todo!()
         }
     }
 }

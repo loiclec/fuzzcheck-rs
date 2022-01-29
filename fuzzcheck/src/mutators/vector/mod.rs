@@ -1,11 +1,12 @@
 use crate::mutators::mutations::{Mutation, RevertMutation};
-use crate::{DefaultMutator, Mutator};
+use crate::{CrossoverArbitraryResult, DefaultMutator, Mutator, SubValueProvider};
 use std::any::{Any, TypeId};
 use std::cmp;
 use std::collections::HashMap;
 use std::marker::PhantomData;
 use std::ops::RangeInclusive;
 
+use self::insert_many_elements::insert_many;
 use self::vec_mutation::{RevertVectorMutation, VectorMutation, VectorMutationRandomStep, VectorMutationStep};
 
 pub mod arbitrary;
@@ -239,7 +240,7 @@ where
         let upperbound_max_len = std::cmp::min(*len_range.end(), (max_cplx / self.m.min_complexity()).ceil() as usize);
         let target_len = self.rng.usize(0..=upperbound_max_len);
 
-        self.new_input_with_length_and_complexity(target_len, target_cplx)
+        self.new_input_with_length_and_complexity(*self.len_range.start(), target_len, target_cplx)
     }
     #[doc(hidden)]
     #[no_coverage]
@@ -343,6 +344,85 @@ where
         }
         r
     }
+
+    #[doc(hidden)]
+    #[no_coverage]
+    fn crossover_arbitrary(
+        &self,
+        subvalue_provider: &dyn crate::SubValueProvider,
+        max_cplx_from_crossover: f64,
+        max_cplx: f64,
+    ) -> crate::CrossoverArbitraryResult<Vec<T>> {
+        /*
+            * toin coss
+                -> check if value is vector
+                -> if it is not, try and get a vector through lens
+                -> if we could get a vector, then slice it and build a value on top of it
+        */
+        let slice = if self.rng.bool() {
+            // try and get a Vec<T> from the crossover value and slice it
+            if let Some(crossover_value) = subvalue_provider.get_subvalue(TypeId::of::<Vec<T>>()).and_then(
+                #[no_coverage]
+                |x| x.downcast_ref::<Vec<T>>(),
+            ) {
+                if crossover_value.is_empty() {
+                    None
+                } else {
+                    let start_index = self.rng.usize(..crossover_value.len());
+                    Some(&crossover_value[start_index..])
+                }
+            } else {
+                None
+            }
+        } else {
+            None
+        };
+        let min_cplx = self.min_complexity();
+        if max_cplx <= min_cplx {
+            // return the least complex value possible
+            let (v, c) = self.random_arbitrary(max_cplx);
+            return CrossoverArbitraryResult {
+                value: v,
+                complexity: c,
+                complexity_from_crossover: 0.0,
+            };
+        }
+
+        let target_cplx = crate::mutators::gen_f64(&self.rng, min_cplx..max_cplx);
+        let len_range = self.choose_slice_length(target_cplx);
+        let upperbound_max_len = std::cmp::min(*len_range.end(), (max_cplx / self.m.min_complexity()).ceil() as usize);
+        let target_len = self.rng.usize(0..=upperbound_max_len);
+
+        if let Some(slice) = slice {
+            let result = self.new_vector_with_target_length_and_complexity_from_crossover_slice(
+                subvalue_provider,
+                target_len,
+                target_cplx,
+                max_cplx_from_crossover,
+                slice,
+            );
+            let cplx = self.complexity_from_inner(result.complexity, result.value.len());
+            CrossoverArbitraryResult {
+                value: result.value,
+                complexity: cplx,
+                complexity_from_crossover: result.complexity_from_crossover,
+            }
+        } else {
+            let (v, sum_cplx, sum_crossover_cplx) = self
+                .new_vector_with_target_length_and_complexity_from_crossover_arbitrary(
+                    subvalue_provider,
+                    max_cplx_from_crossover,
+                    target_len,
+                    target_cplx,
+                );
+            let cplx = self.complexity_from_inner(sum_cplx, v.len());
+            CrossoverArbitraryResult {
+                value: v,
+                complexity: cplx,
+                complexity_from_crossover: sum_crossover_cplx,
+            }
+        }
+    }
 }
 
 impl<T, M> VecMutator<T, M>
@@ -380,7 +460,12 @@ where
     }
 
     #[no_coverage]
-    fn new_input_with_length_and_complexity(&self, target_len: usize, target_cplx: f64) -> (Vec<T>, f64) {
+    fn new_input_with_length_and_complexity(
+        &self,
+        min_len: usize,
+        target_len: usize,
+        target_cplx: f64,
+    ) -> (Vec<T>, f64) {
         let mut v = Vec::with_capacity(target_len);
         let mut sum_cplx = 0.0;
 
@@ -397,6 +482,80 @@ where
             v.push(x);
             remaining_cplx -= x_cplx;
         }
+        if v.len() < min_len {
+            // at this point it is smaller than it must be, so we add new, minimal, elements
+            let remaining = min_len - v.len();
+            for _ in 0..remaining {
+                let (x, x_cplx) = self.m.random_arbitrary(0.0);
+                v.push(x);
+                sum_cplx += x_cplx;
+            }
+        }
+        self.rng.shuffle(&mut v);
+        // let cplx = self.complexity_from_inner(sum_cplx, v.len());
+        (v, sum_cplx)
+    }
+    #[no_coverage]
+    fn new_vector_with_target_length_and_complexity_from_crossover_arbitrary(
+        &self,
+        subvalue_provider: &dyn SubValueProvider,
+        max_complexity_from_crossover: f64,
+        target_len: usize,
+        target_cplx: f64,
+    ) -> (Vec<T>, f64, f64) {
+        let mut v = Vec::with_capacity(target_len);
+        let mut sum_cplx = 0.0;
+        let mut sum_crossover_cplx = 0.0;
+
+        let mut remaining_cplx = target_cplx;
+
+        for i in 0..target_len {
+            let max_cplx_element = remaining_cplx / ((target_len - i) as f64);
+            let min_cplx_el = self.m.min_complexity();
+
+            if min_cplx_el >= max_cplx_element {
+                break;
+            }
+            if sum_crossover_cplx > max_complexity_from_crossover {
+                let (x, x_cplx) = self.m.random_arbitrary(max_cplx_element);
+                sum_cplx += x_cplx;
+                v.push(x);
+                remaining_cplx -= x_cplx;
+            } else {
+                // half the time, try and get a T with lens
+                let el = if self.rng.bool() {
+                    if let Some(el) = subvalue_provider
+                        .get_subvalue(TypeId::of::<T>())
+                        .and_then(|x| x.downcast_ref::<T>())
+                    {
+                        if let Some(el_cache) = self.m.validate_value(el) {
+                            let el_cplx = self.m.complexity(el, &el_cache);
+                            Some((el, el_cplx))
+                        } else {
+                            None
+                        }
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                };
+                let el_crossover = if let Some((el, el_cplx)) = el {
+                    CrossoverArbitraryResult {
+                        value: el.clone(),
+                        complexity: el_cplx,
+                        complexity_from_crossover: el_cplx,
+                    }
+                } else {
+                    self.m
+                        .crossover_arbitrary(subvalue_provider, max_cplx_element, max_cplx_element)
+                };
+                sum_cplx += el_crossover.complexity;
+                sum_crossover_cplx += el_crossover.complexity_from_crossover;
+                remaining_cplx -= el_crossover.complexity;
+                v.push(el_crossover.value);
+            }
+        }
         if self.len_range.contains(&v.len()) {
         } else {
             // at this point it is smaller than it must be, so we add new, minimal, elements
@@ -409,7 +568,86 @@ where
         }
         self.rng.shuffle(&mut v);
         let cplx = self.complexity_from_inner(sum_cplx, v.len());
-        (v, cplx)
+        (v, cplx, sum_crossover_cplx)
+    }
+    #[no_coverage]
+    fn new_vector_with_target_length_and_complexity_from_crossover_slice(
+        &self,
+        subvalue_provider: &dyn SubValueProvider,
+        target_len: usize,
+        target_cplx: f64,
+        max_complexity_from_crossover: f64,
+        mut slice: &[T],
+    ) -> CrossoverArbitraryResult<Vec<T>> {
+        let mut v = Vec::with_capacity(target_len);
+        let mut sum_cplx = 0.0;
+        let mut sum_crossover_cplx = 0.0;
+
+        for i in 0..target_len {
+            if !slice.is_empty() && sum_cplx < target_cplx && sum_crossover_cplx < max_complexity_from_crossover {
+                let el = &slice[0];
+                if let Some(el_cache) = self.m.validate_value(el) {
+                    let el_cplx = self.m.complexity(el, &el_cache);
+                    v.push(el.clone());
+                    sum_cplx += el_cplx;
+                    sum_crossover_cplx += el_cplx;
+                    slice = &slice[1..];
+                } else {
+                    let max_el_crossover_cplx =
+                        (max_complexity_from_crossover - sum_crossover_cplx) / (target_len - i) as f64;
+                    let max_el_cplx = (target_cplx - sum_cplx) / (target_len - i) as f64;
+                    let result = self
+                        .m
+                        .crossover_arbitrary(subvalue_provider, max_el_crossover_cplx, max_el_cplx);
+                    v.push(result.value);
+                    sum_cplx += result.complexity;
+                    sum_crossover_cplx += result.complexity_from_crossover;
+                    slice = &slice[1..];
+                }
+            } else {
+                break;
+            }
+        }
+        if v.len() < target_len && sum_cplx < target_cplx {
+            let (v2, cplx) = self.new_input_with_length_and_complexity(
+                self.len_range.start().saturating_sub(v.len()),
+                target_len.saturating_sub(v.len()),
+                if target_cplx - sum_cplx < 0. {
+                    0.
+                } else {
+                    target_cplx - sum_cplx
+                },
+            );
+            match self.rng.u8(..3) {
+                0 => {
+                    // add v2 to the end of v
+                    v.extend(v2);
+                    sum_cplx += cplx;
+                }
+                1 => {
+                    // add v to the end of v2
+                    let mut v3 = v2;
+                    v3.extend(v);
+                    v = v3;
+                    sum_cplx += cplx;
+                }
+                2 => {
+                    // insert v2 in the middle of v
+                    let insertion_idx = self.rng.usize(..v.len());
+                    insert_many(&mut v, insertion_idx, v2.into_iter());
+                    sum_cplx += cplx;
+                }
+                _ => {
+                    unreachable!()
+                }
+            }
+        }
+
+        CrossoverArbitraryResult {
+            value: v,
+            complexity: sum_cplx,
+            complexity_from_crossover: sum_crossover_cplx,
+        }
     }
 }
 #[no_coverage]

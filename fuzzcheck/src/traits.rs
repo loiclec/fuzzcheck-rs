@@ -251,13 +251,26 @@ pub trait Mutator<Value: Clone>: 'static {
     fn lens<'a>(&self, value: &'a Value, cache: &Self::Cache, path: &Self::LensPath) -> &'a dyn Any;
 
     fn all_paths(&self, value: &Value, cache: &Self::Cache) -> HashMap<TypeId, Vec<Self::LensPath>>;
+
+    fn crossover_arbitrary(
+        &self,
+        subvalue_provider: &dyn SubValueProvider,
+        max_cplx_from_crossover: f64,
+        max_cplx: f64,
+    ) -> CrossoverArbitraryResult<Value>;
 }
 
-trait SubValueProvider {
+pub struct CrossoverArbitraryResult<Value> {
+    pub value: Value,
+    pub complexity: f64,
+    pub complexity_from_crossover: f64,
+}
+
+pub trait SubValueProvider {
     // TODO: consider adding a verification closure here
     fn get_subvalue(&self, typeid: TypeId) -> Option<&dyn Any>;
 }
-struct CrossoverSubValueProvider<'a, M, T>
+pub struct CrossoverSubValueProvider<'a, M, T>
 where
     T: Clone + 'static,
     M: Mutator<T>,
@@ -274,7 +287,7 @@ where
     M: Mutator<Value>,
 {
     #[no_coverage]
-    fn from(
+    pub fn from(
         mutator: &'a M,
         value: &'a Value,
         cache: &'a M::Cache,
@@ -459,6 +472,18 @@ where
     #[no_coverage]
     fn all_paths(&self, value: &T, cache: &Self::Cache) -> HashMap<TypeId, Vec<Self::LensPath>> {
         self.wrapped_mutator().all_paths(value, cache)
+    }
+
+    #[doc(hidden)]
+    #[no_coverage]
+    fn crossover_arbitrary(
+        &self,
+        subvalue_provider: &dyn SubValueProvider,
+        max_cplx_from_crossover: f64,
+        max_cplx: f64,
+    ) -> CrossoverArbitraryResult<T> {
+        self.wrapped_mutator()
+            .crossover_arbitrary(subvalue_provider, max_cplx_from_crossover, max_cplx)
     }
 }
 
