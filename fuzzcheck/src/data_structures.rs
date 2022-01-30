@@ -279,6 +279,29 @@ impl<T> RcSlab<T> {
             Some(&mut self.storage[key].data)
         }
     }
+
+    #[no_coverage]
+    pub fn get_mut_and_ref(&mut self, key1: usize, key2: usize) -> Option<(&mut T, &T)> {
+        if key1 == key2 {
+            panic!("key1 must be different than key2");
+        }
+        if self.available_slots.contains(&key1) || self.available_slots.contains(&key2) {
+            None
+        } else {
+            if key1 < key2 {
+                let (slice1, slice2) = self.storage.split_at_mut(key1 + 1);
+                let a = &mut slice1[key1].data;
+                let b = &mut slice2[key2 - key1 - 1].data;
+                Some((a, b))
+            } else {
+                // key1 > key2
+                let (slice1, slice2) = self.storage.split_at_mut(key2 + 1);
+                let b = &mut slice1[key2].data;
+                let a = &mut slice2[key1 - key2 - 1].data;
+                Some((a, b))
+            }
+        }
+    }
 }
 
 impl<T> Index<usize> for RcSlab<T> {

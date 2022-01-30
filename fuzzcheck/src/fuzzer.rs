@@ -5,13 +5,16 @@ use crate::sensors_and_pools::{
 use crate::signals_handler::set_signal_handlers;
 use crate::traits::{CorpusDelta, Mutator, SaveToStatsFolder, SensorAndPool, Serializer};
 use crate::world::World;
-use crate::{CSVField, FuzzedInput, ToCSV};
+use crate::{CSVField, CrossoverMutateResult, CrossoverSubValueProvider, FuzzedInput, SubValueProvider, ToCSV};
 use fuzzcheck_common::arg::{Arguments, FuzzerCommand};
 use fuzzcheck_common::{FuzzerEvent, FuzzerStats};
 use libc::{SIGABRT, SIGALRM, SIGBUS, SIGFPE, SIGINT, SIGSEGV, SIGTERM, SIGTRAP};
+use std::any::TypeId;
 use std::borrow::Borrow;
 use std::collections::hash_map::DefaultHasher;
+use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
+use std::mem::MaybeUninit;
 use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::process::exit;
 use std::result::Result;
@@ -67,10 +70,19 @@ enum FuzzerInputIndex<T> {
     Pool(PoolStorageIndex),
 }
 
+struct StoredFuzzedInput<T, M>
+where
+    T: Clone,
+    M: Mutator<T>,
+{
+    input: FuzzedInput<T, M>,
+    lens_paths: HashMap<TypeId, Vec<M::LensPath>>,
+}
+
 struct FuzzerState<T: Clone, M: Mutator<T>> {
     mutator: M,
     sensor_and_pool: Box<dyn SensorAndPool>,
-    pool_storage: RcSlab<FuzzedInput<T, M>>,
+    pool_storage: RcSlab<StoredFuzzedInput<T, M>>,
     /// The step given to the mutator when the fuzzer wants to create a new arbitrary test case
     arbitrary_step: M::ArbitraryStep,
     /// The index of the test case that is being tested
@@ -82,6 +94,7 @@ struct FuzzerState<T: Clone, M: Mutator<T>> {
     serializer: Box<dyn Serializer<Value = T>>,
     /// The world handles effects
     world: World,
+    rng: fastrand::Rng,
 }
 
 impl<T: Clone, M: Mutator<T>> Drop for FuzzerState<T, M> {
@@ -94,12 +107,12 @@ impl<T: Clone, M: Mutator<T>> FuzzerState<T, M> {
     #[no_coverage]
     fn get_input<'a>(
         fuzzer_input_idx: &'a FuzzerInputIndex<FuzzedInput<T, M>>,
-        pool_storage: &'a RcSlab<FuzzedInput<T, M>>,
+        pool_storage: &'a RcSlab<StoredFuzzedInput<T, M>>,
     ) -> Option<&'a FuzzedInput<T, M>> {
         match fuzzer_input_idx {
             FuzzerInputIndex::None => None,
             FuzzerInputIndex::Temporary(input) => Some(input),
-            FuzzerInputIndex::Pool(idx) => Some(&pool_storage[idx.0]),
+            FuzzerInputIndex::Pool(idx) => Some(&pool_storage[idx.0].input),
         }
     }
 }
@@ -109,8 +122,9 @@ fn update_fuzzer_stats(stats: &mut FuzzerStats, world: &mut World) {
     let microseconds = world.elapsed_time_since_last_checkpoint();
     let nbr_runs = stats.total_number_of_runs - stats.number_of_runs_since_last_reset_time;
     let nbr_runs_times_million = nbr_runs * 1_000_000;
-    stats.exec_per_s = nbr_runs_times_million / microseconds;
-
+    if microseconds != 0 {
+        stats.exec_per_s = nbr_runs_times_million / microseconds;
+    }
     if microseconds > 1_000_000 {
         world.set_checkpoint_instant();
         stats.number_of_runs_since_last_reset_time = stats.total_number_of_runs;
@@ -228,6 +242,7 @@ where
                 settings,
                 serializer,
                 world,
+                rng: fastrand::Rng::new(),
             },
             test,
         }
@@ -333,7 +348,12 @@ where
                 // but because of the way mutators work (real possibility of
                 // inconsistent complexities), then its complexity may be higher
                 // than the maximum allowed one
-                pool_storage.insert(new_input, add_ref_count);
+                let lens_paths = mutator.all_paths(&input.value, &input.cache);
+                let stored_new_input = StoredFuzzedInput {
+                    input: new_input,
+                    lens_paths,
+                };
+                pool_storage.insert(stored_new_input, add_ref_count);
             }
             for delta in deltas {
                 for r in delta.remove {
@@ -346,6 +366,42 @@ where
     }
 
     #[no_coverage]
+    fn get_input_and_subvalue_provider<'a>(
+        pool_storage: &'a mut RcSlab<StoredFuzzedInput<T, M>>,
+        sensor_and_pool: &mut dyn SensorAndPool,
+        mutator: &'a M,
+        rng: &fastrand::Rng,
+        idx: PoolStorageIndex,
+        storage_for_cloned_input: &'a mut MaybeUninit<(T, M::Cache)>,
+    ) -> (&'a mut FuzzedInput<T, M>, impl SubValueProvider + 'a) {
+        let idx_cross = sensor_and_pool.get_random_index().unwrap();
+
+        if idx == idx_cross || rng.u8(..10) == 0 {
+            let input = &mut pool_storage[idx.0];
+            let cloned_input = storage_for_cloned_input.write((input.input.value.clone(), input.input.cache.clone()));
+            let StoredFuzzedInput { input, lens_paths } = &mut pool_storage[idx.0];
+            // self-crossover
+            (
+                input,
+                CrossoverSubValueProvider::from(mutator, &cloned_input.0, &cloned_input.1, lens_paths),
+            )
+        } else {
+            // crossover of two different test cases
+            let (
+                input,
+                StoredFuzzedInput {
+                    input: input_cross,
+                    lens_paths,
+                },
+            ) = pool_storage.get_mut_and_ref(idx.0, idx_cross.0).unwrap();
+            (
+                &mut input.input,
+                CrossoverSubValueProvider::from(mutator, &input_cross.value, &input_cross.cache, lens_paths),
+            )
+        }
+    }
+
+    #[no_coverage]
     fn process_next_input(&mut self) -> Result<(), ReasonForStopping<T>> {
         let FuzzerState {
             pool_storage,
@@ -353,31 +409,70 @@ where
             input_idx,
             mutator,
             settings,
+            rng,
             ..
         } = &mut self.state;
+
         if let Some(idx) = sensor_and_pool.get_random_index() {
             *input_idx = FuzzerInputIndex::Pool(idx);
-            let input = &mut pool_storage[idx.0];
-            let generation = input.generation;
-            if let Some((unmutate_token, cplx)) = input.mutate(mutator, settings.max_input_cplx) {
-                if cplx < self.state.settings.max_input_cplx {
-                    self.test_and_process_input(cplx)?;
+            assert!(settings.crossover_rate < 1.0);
+            if rng.f64() < settings.crossover_rate {
+                let mut storage = MaybeUninit::uninit();
+                let (input, subvalue_provider) = Self::get_input_and_subvalue_provider(
+                    pool_storage,
+                    sensor_and_pool.as_mut(),
+                    mutator,
+                    rng,
+                    idx,
+                    &mut storage,
+                );
+                let generation = input.generation;
+                let CrossoverMutateResult {
+                    unmutate, complexity, ..
+                } = mutator.crossover_mutate(
+                    &mut input.value,
+                    &mut input.cache,
+                    &subvalue_provider,
+                    0.0,
+                    settings.max_input_cplx,
+                );
+                drop(subvalue_provider);
+                if complexity < settings.max_input_cplx {
+                    self.test_and_process_input(complexity)?;
                 }
 
                 // Retrieving the input may fail because the input may have been deleted
-                if let Some(input) = self.state.pool_storage.get_mut(idx.0) {
+                if let Some(input) = self.state.pool_storage.get_mut(idx.0).map(|x| &mut x.input) {
                     if input.generation == generation {
-                        input.unmutate(&self.state.mutator, unmutate_token);
+                        input.unmutate(&self.state.mutator, unmutate);
                     }
                 }
-
                 Ok(())
             } else {
-                self.state.world.report_event(
-                    FuzzerEvent::End,
-                    Some((&self.state.fuzzer_stats, self.state.sensor_and_pool.stats().as_ref())),
-                );
-                Err(ReasonForStopping::ExhaustedAllPossibleMutations)
+                let input = &mut self.state.pool_storage[idx.0].input;
+                let generation = input.generation;
+                if let Some((unmutate_token, cplx)) =
+                    input.mutate(&mut self.state.mutator, self.state.settings.max_input_cplx)
+                {
+                    if cplx < self.state.settings.max_input_cplx {
+                        self.test_and_process_input(cplx)?;
+                    }
+
+                    // Retrieving the input may fail because the input may have been deleted
+                    if let Some(input) = self.state.pool_storage.get_mut(idx.0).map(|x| &mut x.input) {
+                        if input.generation == generation {
+                            input.unmutate(&self.state.mutator, unmutate_token);
+                        }
+                    }
+
+                    Ok(())
+                } else {
+                    self.state.world.report_event(
+                        FuzzerEvent::End,
+                        Some((&self.state.fuzzer_stats, self.state.sensor_and_pool.stats().as_ref())),
+                    );
+                    Err(ReasonForStopping::ExhaustedAllPossibleMutations)
+                }
             }
         } else if let Some((input, cplx)) = self.state.arbitrary_input() {
             self.state.input_idx = FuzzerInputIndex::Temporary(input);
@@ -580,10 +675,12 @@ where
                     args.clone(),
                     world,
                 );
-                fuzzer
-                    .state
-                    .pool_storage
-                    .insert(FuzzedInput::new(value, cache, mutation_step, 0), 1);
+                let lens_paths = fuzzer.state.mutator.all_paths(&value, &cache);
+                let stored_input = StoredFuzzedInput {
+                    input: FuzzedInput::new(value, cache, mutation_step, 0),
+                    lens_paths,
+                };
+                fuzzer.state.pool_storage.insert(stored_input, 1);
 
                 unsafe { fuzzer.state.set_up_signal_handler() };
 

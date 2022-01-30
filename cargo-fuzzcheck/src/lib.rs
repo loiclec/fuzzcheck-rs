@@ -249,6 +249,11 @@ pub fn string_from_args(args: &Arguments) -> String {
     s.push(' ');
 
     s.push_str(&format!("--{} {} ", MAX_INPUT_CPLX_FLAG, args.max_input_cplx as usize));
+    s.push_str(&format!(
+        "--{} {} ",
+        CROSSOVER_RATE_FLAG,
+        (args.crossover_rate * 100.) as usize
+    ));
     s.push_str(&format!("--{} {} ", MAX_DURATION_FLAG, args.maximum_duration.as_secs()));
     s.push_str(&format!("--{} {} ", MAX_ITERATIONS_FLAG, args.maximum_iterations));
     if args.stop_after_first_failure {
