@@ -168,7 +168,7 @@ where
     fn unmutate<'a>(&self, value: TupleKind::Mut<'a>, cache: &'a mut Self::Cache, t: Self::UnmutateToken);
 
     type LensPath: Clone;
-    fn lens<'a>(&self, value: TupleKind::Ref<'a>, cache: &Self::Cache, path: &Self::LensPath) -> &'a dyn Any;
+    fn lens<'a>(&self, value: TupleKind::Ref<'a>, cache: &'a Self::Cache, path: &Self::LensPath) -> &'a dyn Any;
 
     fn all_paths<'a>(&self, value: TupleKind::Ref<'a>, cache: &'a Self::Cache) -> HashMap<TypeId, Vec<Self::LensPath>>;
 
@@ -313,7 +313,7 @@ where
     type LensPath = M::LensPath;
     #[doc(hidden)]
     #[no_coverage]
-    fn lens<'a>(&self, value: &'a T, cache: &Self::Cache, path: &Self::LensPath) -> &'a dyn Any {
+    fn lens<'a>(&self, value: &'a T, cache: &'a Self::Cache, path: &Self::LensPath) -> &'a dyn Any {
         self.mutator.lens(value.get_ref(), cache, path)
     }
 
@@ -462,7 +462,7 @@ mod tuple0 {
 
         type LensPath = !;
 
-        fn lens<'a>(&self, _value: (), _cache: &Self::Cache, _path: &Self::LensPath) -> &'a dyn std::any::Any {
+        fn lens<'a>(&self, _value: (), _cache: &'a Self::Cache, _path: &Self::LensPath) -> &'a dyn std::any::Any {
             unreachable!()
         }
 
@@ -649,7 +649,7 @@ mod tuple1 {
         fn lens<'a>(
             &self,
             value: <Tuple1<T0> as RefTypes>::Ref<'a>,
-            cache: &Self::Cache,
+            cache: &'a Self::Cache,
             path: &Self::LensPath,
         ) -> &'a dyn std::any::Any {
             self.mutator_0.lens(value.0, cache, path)

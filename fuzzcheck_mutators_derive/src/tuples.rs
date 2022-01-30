@@ -619,7 +619,7 @@ fn impl_mutator_trait(tb: &mut TokenBuilder, nbr_elements: usize) {
         ">;
         #[doc(hidden)]
         #[no_coverage]
-        fn lens<'a>(&self, value: " tuple_ref ", cache: &Self::Cache, path: &Self::LensPath) -> &'a dyn " cm.Any " {
+        fn lens<'a>(&self, value: " tuple_ref ", cache: &'a Self::Cache, path: &Self::LensPath) -> &'a dyn " cm.Any " {
             match path {"
                 join_ts!(0..nbr_elements, i,
                     "LensPath::" Ti(i) "(" cm.Some "(path))=> {

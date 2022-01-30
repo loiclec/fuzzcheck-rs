@@ -1,6 +1,6 @@
 use std::marker::PhantomData;
 
-use crate::Mutator;
+use crate::{CrossoverArbitraryResult, Mutator};
 
 pub struct MapMutator<From, To, M, Parse, Map>
 where
@@ -159,23 +159,51 @@ where
         *value = (self.map)(&cache.from_value);
     }
 
-    // TODO: Not yet supported for MapMutator
-    // it would require `recursing_part` to take the `cache` value as argument as well
-    // maybe I should do that, but I haven't thought about it yet
-    type RecursingPartIndex = ();
+    type LensPath = M::LensPath;
 
-    fn default_recursing_part_index(&self, _value: &To, _cache: &Self::Cache) -> Self::RecursingPartIndex {}
+    fn lens<'a>(&self, value: &'a To, cache: &'a Self::Cache, path: &Self::LensPath) -> &'a dyn std::any::Any {
+        self.mutator.lens(&cache.from_value, &cache.from_cache, path)
+    }
 
-    fn recursing_part<'a, V, N>(
+    fn all_paths(
         &self,
-        _parent: &N,
-        _value: &'a To,
-        _index: &mut Self::RecursingPartIndex,
-    ) -> Option<&'a V>
-    where
-        V: Clone + 'static,
-        N: Mutator<V>,
-    {
-        None
+        value: &To,
+        cache: &Self::Cache,
+    ) -> std::collections::HashMap<std::any::TypeId, Vec<Self::LensPath>> {
+        self.mutator.all_paths(&cache.from_value, &cache.from_cache)
+    }
+
+    fn crossover_arbitrary(
+        &self,
+        subvalue_provider: &dyn crate::SubValueProvider,
+        max_cplx_from_crossover: f64,
+        max_cplx: f64,
+    ) -> crate::CrossoverArbitraryResult<To> {
+        let result = self
+            .mutator
+            .crossover_arbitrary(subvalue_provider, max_cplx_from_crossover, max_cplx);
+        let to_value = (self.map)(&result.value);
+        CrossoverArbitraryResult {
+            value: to_value,
+            complexity: result.complexity,
+            complexity_from_crossover: result.complexity_from_crossover,
+        }
+    }
+
+    fn crossover_mutate(
+        &self,
+        value: &mut To,
+        cache: &mut Self::Cache,
+        subvalue_provider: &dyn crate::SubValueProvider,
+        max_cplx: f64,
+    ) -> (Self::UnmutateToken, f64) {
+        let (token, cplx) = self.mutator.crossover_mutate(
+            &mut cache.from_value,
+            &mut cache.from_cache,
+            subvalue_provider,
+            max_cplx,
+        );
+        *value = (self.map)(&cache.from_value);
+        (token, cplx)
     }
 }

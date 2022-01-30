@@ -272,7 +272,7 @@ where
     type LensPath = (usize, Option<M::LensPath>);
     #[doc(hidden)]
     #[no_coverage]
-    fn lens<'a>(&self, value: &'a Vec<T>, cache: &Self::Cache, path: &Self::LensPath) -> &'a dyn Any {
+    fn lens<'a>(&self, value: &'a Vec<T>, cache: &'a Self::Cache, path: &Self::LensPath) -> &'a dyn Any {
         let value = &value[path.0];
         if let Some(subpath) = &path.1 {
             let cache = &cache.inner[path.0];

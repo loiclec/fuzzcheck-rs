@@ -1,14 +1,7 @@
-use std::marker::PhantomData;
+use std::{any::TypeId, collections::HashMap, marker::PhantomData};
 
 use crate::{DefaultMutator, Mutator};
 use fastrand::Rng;
-
-#[doc(hidden)]
-#[derive(Clone, Debug, PartialEq)]
-pub struct RecursingPartIndex<RPI> {
-    inner: Vec<RPI>,
-    indices: Vec<usize>,
-}
 
 /// A mutator for fixed-size arrays `[T; N]`.
 ///
@@ -18,22 +11,11 @@ where
     T: Clone,
     M: Mutator<T>,
 {
-    pub rng: Rng,
-    mutators: [M; N],
+    mutator: M,
     min_complexity: f64,
     max_complexity: f64,
+    pub rng: Rng,
     _phantom: PhantomData<T>,
-}
-
-impl<M, T, const N: usize> ArrayMutator<M, T, N>
-where
-    T: Clone + 'static,
-    M: Mutator<T> + Clone,
-{
-    #[no_coverage]
-    pub fn new_with_repeated_mutator(mutator: M) -> Self {
-        Self::new(vec![mutator; N].try_into().ok().unwrap())
-    }
 }
 
 impl<M, T, const N: usize> ArrayMutator<M, T, N>
@@ -42,15 +24,14 @@ where
     M: Mutator<T>,
 {
     #[no_coverage]
-    pub fn new(mutators: [M; N]) -> Self {
-        assert!(!mutators.is_empty());
-        let max_complexity = mutators.iter().fold(0.0, |cplx, m| cplx + m.max_complexity());
-        let min_complexity = mutators.iter().fold(0.0, |cplx, m| cplx + m.min_complexity());
+    pub fn new(mutator: M) -> Self {
+        let max_complexity = mutator.max_complexity() * N as f64;
+        let min_complexity = mutator.min_complexity() * N as f64;
         Self {
-            rng: Rng::default(),
-            mutators,
+            mutator,
             min_complexity,
             max_complexity,
+            rng: Rng::default(),
             _phantom: PhantomData,
         }
     }
@@ -65,7 +46,7 @@ where
 
     #[no_coverage]
     fn default_mutator() -> Self::Mutator {
-        Self::Mutator::new_with_repeated_mutator(T::default_mutator())
+        Self::Mutator::new(T::default_mutator())
     }
 }
 
@@ -114,7 +95,7 @@ impl<M: Mutator<T>, T: Clone + 'static, const N: usize> ArrayMutator<M, T, N> {
         let mut tokens = vec![];
         for &idx in idcs {
             let spare_cplx = max_cplx - cplx;
-            let mutator = &self.mutators[idx];
+            let mutator = &self.mutator;
             let el = &mut value[idx];
             let el_cache = &mut cache.inner[idx];
 
@@ -136,7 +117,7 @@ impl<M: Mutator<T>, T: Clone + 'static, const N: usize> ArrayMutator<M, T, N> {
         current_cplx: f64,
         spare_cplx: f64,
     ) -> Option<(UnmutateArrayToken<M, T, N>, f64)> {
-        let mutator = &self.mutators[idx];
+        let mutator = &self.mutator;
         let el = &mut value[idx];
         let el_cache = &mut cache.inner[idx];
         let el_step = &mut step.inner[idx];
@@ -325,8 +306,8 @@ impl<M: Mutator<T>, T: Clone + 'static, const N: usize> Mutator<[T; N]> for Arra
         let el = &mut value[idx];
         let el_cache = &mut cache.inner[idx];
 
-        let old_el_cplx = self.mutators[idx].complexity(el, el_cache);
-        let (token, new_el_cplx) = self.mutators[idx].random_mutate(el, el_cache, spare_cplx + old_el_cplx);
+        let old_el_cplx = self.mutator.complexity(el, el_cache);
+        let (token, new_el_cplx) = self.mutator.random_mutate(el, el_cache, spare_cplx + old_el_cplx);
 
         (
             UnmutateArrayToken::Element(idx, token),
@@ -340,12 +321,12 @@ impl<M: Mutator<T>, T: Clone + 'static, const N: usize> Mutator<[T; N]> for Arra
         match t {
             UnmutateArrayToken::Element(idx, inner_t) => {
                 let el = &mut value[idx];
-                self.mutators[idx].unmutate(el, &mut cache.inner[idx], inner_t);
+                self.mutator.unmutate(el, &mut cache.inner[idx], inner_t);
             }
             UnmutateArrayToken::Elements(tokens) => {
                 for (idx, token) in tokens {
                     let el = &mut value[idx];
-                    self.mutators[idx].unmutate(el, &mut cache.inner[idx], token);
+                    self.mutator.unmutate(el, &mut cache.inner[idx], token);
                 }
             }
             UnmutateArrayToken::Replace(new_value) => {
@@ -354,49 +335,55 @@ impl<M: Mutator<T>, T: Clone + 'static, const N: usize> Mutator<[T; N]> for Arra
         }
     }
 
-    #[doc(hidden)]
-    type RecursingPartIndex = RecursingPartIndex<M::RecursingPartIndex>;
-    #[doc(hidden)]
-    #[no_coverage]
-    fn default_recursing_part_index(&self, value: &[T; N], cache: &Self::Cache) -> Self::RecursingPartIndex {
-        RecursingPartIndex {
-            inner: value
-                .iter()
-                .zip(cache.inner.iter())
-                .zip(self.mutators.iter())
-                .map(|((v, c), m)| m.default_recursing_part_index(v, c))
-                .collect(),
-            indices: (0..value.len()).collect(),
+    type LensPath = (usize, Option<M::LensPath>);
+
+    fn lens<'a>(&self, value: &'a [T; N], cache: &'a Self::Cache, path: &Self::LensPath) -> &'a dyn std::any::Any {
+        let el = &value[path.0];
+
+        if let Some(subpath) = &path.1 {
+            let el_cache = &cache.inner[path.0];
+            self.mutator.lens(el, el_cache, subpath)
+        } else {
+            el
         }
     }
-    #[doc(hidden)]
-    #[no_coverage]
-    fn recursing_part<'a, V, P>(
+
+    fn all_paths(&self, value: &[T; N], cache: &Self::Cache) -> HashMap<TypeId, Vec<Self::LensPath>> {
+        let mut r = HashMap::<TypeId, Vec<Self::LensPath>>::default();
+        if !value.is_empty() {
+            let t_entry = r.entry(TypeId::of::<T>()).or_default();
+            for idx in 0..value.len() {
+                t_entry.push((idx, None));
+            }
+            for (idx, (el, el_cache)) in value.iter().zip(cache.inner.iter()).enumerate() {
+                let subpaths = self.mutator.all_paths(el, el_cache);
+                for (typeid, subpaths) in subpaths {
+                    r.entry(typeid)
+                        .or_default()
+                        .extend(subpaths.into_iter().map(|p| (idx, Some(p))));
+                }
+            }
+        }
+        r
+    }
+
+    fn crossover_arbitrary(
         &self,
-        parent: &P,
-        value: &'a [T; N],
-        index: &mut Self::RecursingPartIndex,
-    ) -> Option<&'a V>
-    where
-        V: Clone + 'static,
-        P: Mutator<V>,
-    {
-        assert_eq!(index.inner.len(), index.indices.len());
-        if index.inner.is_empty() {
-            return None;
-        }
-        let choice = self.rng.usize(..index.inner.len());
-        let subindex = &mut index.inner[choice];
-        let value_index = index.indices[choice];
-        let v = &value[value_index];
-        let result = self.mutators[value_index].recursing_part(parent, v, subindex);
-        if result.is_none() {
-            index.inner.remove(choice);
-            index.indices.remove(choice);
-            self.recursing_part::<V, P>(parent, value, index)
-        } else {
-            result
-        }
+        subvalue_provider: &dyn crate::SubValueProvider,
+        max_cplx_from_crossover: f64,
+        max_cplx: f64,
+    ) -> crate::CrossoverArbitraryResult<[T; N]> {
+        todo!()
+    }
+
+    fn crossover_mutate(
+        &self,
+        value: &mut [T; N],
+        cache: &mut Self::Cache,
+        subvalue_provider: &dyn crate::SubValueProvider,
+        max_cplx: f64,
+    ) -> (Self::UnmutateToken, f64) {
+        todo!()
     }
 }
 
@@ -409,7 +396,7 @@ mod tests {
     #[test]
     #[no_coverage]
     fn test_array_mutator() {
-        let m = ArrayMutator::<U8Mutator, u8, 32>::new_with_repeated_mutator(U8Mutator::default());
+        let m = ArrayMutator::<U8Mutator, u8, 32>::new(U8Mutator::default());
         for _ in 0..100 {
             let (x, _) = m.ordered_arbitrary(&mut (), 800.0).unwrap();
             eprintln!("{:?}", x);

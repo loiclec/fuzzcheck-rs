@@ -35,7 +35,7 @@ This module provides the following mutators:
 */
 pub mod alternation;
 // pub mod arc;
-// pub mod array;
+pub mod array;
 pub mod bool;
 // pub mod boxed;
 // pub mod char;
@@ -43,14 +43,14 @@ pub mod bool;
 // pub mod dictionary;
 // pub mod either;
 pub mod enums;
-// pub mod filter;
+pub mod filter;
 // pub mod fixed_len_vector;
 // #[cfg(feature = "grammar_mutator")]
 // #[doc(cfg(feature = "grammar_mutator"))]
 // pub mod grammar;
 pub mod integer;
 // pub mod integer_within_range;
-// pub mod map;
+pub mod map;
 pub mod mutations;
 // pub mod never;
 pub mod option;

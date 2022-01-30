@@ -245,7 +245,7 @@ where
 
     type LensPath = <M as Mutator<T>>::LensPath;
 
-    fn lens<'a>(&self, value: &'a T, cache: &Self::Cache, path: &Self::LensPath) -> &'a dyn Any {
+    fn lens<'a>(&self, value: &'a T, cache: &'a Self::Cache, path: &Self::LensPath) -> &'a dyn Any {
         self.reference.upgrade().unwrap().lens(value, cache, path)
     }
 
@@ -387,7 +387,7 @@ where
 
     type LensPath = <M as Mutator<T>>::LensPath;
 
-    fn lens<'a>(&self, value: &'a T, cache: &Self::Cache, path: &Self::LensPath) -> &'a dyn Any {
+    fn lens<'a>(&self, value: &'a T, cache: &'a Self::Cache, path: &Self::LensPath) -> &'a dyn Any {
         self.mutator.lens(value, cache, path)
     }
 

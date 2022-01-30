@@ -395,7 +395,7 @@ where
     type LensPath = (usize, M::LensPath);
     #[doc(hidden)]
     #[no_coverage]
-    fn lens<'a>(&self, value: &'a T, cache: &Self::Cache, path: &Self::LensPath) -> &'a dyn Any {
+    fn lens<'a>(&self, value: &'a T, cache: &'a Self::Cache, path: &Self::LensPath) -> &'a dyn Any {
         let cache = &cache[path.0];
         let idx = cache.mutator_idx;
         let mutator = &self.mutators[idx];

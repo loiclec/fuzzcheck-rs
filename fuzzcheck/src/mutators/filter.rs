@@ -1,4 +1,4 @@
-use crate::Mutator;
+use crate::{CrossoverArbitraryResult, Mutator};
 
 pub struct FilterMutator<M, F> {
     pub mutator: M,
@@ -122,21 +122,47 @@ where
         self.mutator.unmutate(value, cache, t)
     }
 
-    type RecursingPartIndex = <M as Mutator<T>>::RecursingPartIndex;
+    type LensPath = M::LensPath;
 
-    #[doc(hidden)]
-    #[no_coverage]
-    fn default_recursing_part_index(&self, value: &T, cache: &Self::Cache) -> Self::RecursingPartIndex {
-        self.mutator.default_recursing_part_index(value, cache)
+    fn lens<'a>(&self, value: &'a T, cache: &'a Self::Cache, path: &Self::LensPath) -> &'a dyn std::any::Any {
+        self.lens(value, cache, path)
     }
 
-    #[doc(hidden)]
-    #[no_coverage]
-    fn recursing_part<'a, V, N>(&self, parent: &N, value: &'a T, index: &mut Self::RecursingPartIndex) -> Option<&'a V>
-    where
-        V: Clone + 'static,
-        N: Mutator<V>,
-    {
-        self.mutator.recursing_part(parent, value, index)
+    fn all_paths(
+        &self,
+        value: &T,
+        cache: &Self::Cache,
+    ) -> std::collections::HashMap<std::any::TypeId, Vec<Self::LensPath>> {
+        self.all_paths(value, cache)
+    }
+
+    fn crossover_arbitrary(
+        &self,
+        subvalue_provider: &dyn crate::SubValueProvider,
+        max_cplx_from_crossover: f64,
+        max_cplx: f64,
+    ) -> crate::CrossoverArbitraryResult<T> {
+        let result = self.crossover_arbitrary(subvalue_provider, max_cplx_from_crossover, max_cplx);
+        if (self.filter)(&result.value) {
+            result
+        } else {
+            self.crossover_arbitrary(subvalue_provider, max_cplx_from_crossover, max_cplx)
+        }
+    }
+
+    fn crossover_mutate(
+        &self,
+        value: &mut T,
+        cache: &mut Self::Cache,
+        subvalue_provider: &dyn crate::SubValueProvider,
+        max_cplx: f64,
+    ) -> (Self::UnmutateToken, f64) {
+        let (t, cplx) = self.mutator.crossover_mutate(value, cache, subvalue_provider, max_cplx);
+        if (self.filter)(value) {
+            (t, cplx)
+        } else {
+            self.mutator.unmutate(value, cache, t);
+            self.crossover_mutate(value, cache, subvalue_provider, max_cplx)
+        }
     }
 }

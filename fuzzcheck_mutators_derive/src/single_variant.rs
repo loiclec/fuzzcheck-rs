@@ -325,7 +325,7 @@ pub fn make_single_variant_mutator(tb: &mut TokenBuilder, enu: &Enum) {
         }
         #[doc(hidden)]
         #[no_coverage]
-        fn lens<'a>(&self, value: &'a " enu.ident enum_generics_no_bounds ", cache: &Self::Cache, path: &Self::LensPath) -> &'a dyn" cm.Any " 
+        fn lens<'a>(&self, value: &'a " enu.ident enum_generics_no_bounds ", cache: &'a Self::Cache, path: &Self::LensPath) -> &'a dyn" cm.Any " 
         {
             match (self, value, cache, path) {"
             join_ts!(&enu.items, item,
