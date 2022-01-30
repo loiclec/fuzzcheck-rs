@@ -14,9 +14,9 @@ pub struct ConcreteRemoveAndInsertElement<T> {
     new_cplx: f64,
 }
 pub struct RevertRemoveAndInsertElement<T> {
-    remove_at_idx: usize,
-    insert_at_idx: usize,
-    insert_el: T,
+    pub remove_at_idx: usize,
+    pub insert_at_idx: usize,
+    pub insert_el: T,
 }
 
 impl<T, M> RevertMutation<Vec<T>, VecMutator<T, M>> for RevertRemoveAndInsertElement<T>

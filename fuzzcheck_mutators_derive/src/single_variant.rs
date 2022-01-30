@@ -386,6 +386,34 @@ pub fn make_single_variant_mutator(tb: &mut TokenBuilder, enu: &Enum) {
                 }"
             )"}
         }
+         fn crossover_mutate<'a>(
+            &self,
+            value: &mut " enu.ident enum_generics_no_bounds ", 
+            cache: &mut Self::Cache,
+            subvalue_provider: &dyn " cm.SubValueProvider ",
+            max_cplx_from_crossover: f64,
+            max_cplx: f64,
+        ) -> " cm.CrossoverMutateResult "<Self::UnmutateToken> {
+            match (self, value, cache) {"
+            join_ts!(&enu.items, item,
+                "(
+                    " EnumSingleVariant "::" item.ident "(m) ,
+                    " item.pattern_match(&enu.ident, Some(pattern_match_binding_append.clone())) ",
+                    " EnumSingleVariant "::" item.ident "(c)
+                ) => {
+                    let result = m.crossover_mutate(" 
+                        item_pattern_match_bindings_to_tuple(&item.ident, true) ", c, subvalue_provider, max_cplx_from_crossover, max_cplx"
+                    ");
+                    "
+                    cm.CrossoverMutateResult " {
+                        unmutate: " EnumSingleVariant "::" item.ident "(result.unmutate),
+                        complexity: result.complexity,
+                        complexity_from_crossover: result.complexity_from_crossover
+                    }
+                }"
+            )   "_ => unreachable!()"
+            "}
+        }
     }
     ");
 }

@@ -297,6 +297,7 @@ pub(crate) struct Common {
     HashMap: TokenStream,
     SubValueProvider: TokenStream,
     CrossoverArbitraryResult: TokenStream,
+    CrossoverMutateResult: TokenStream,
 }
 impl Common {
     #[allow(non_snake_case)]
@@ -363,6 +364,7 @@ impl Common {
             HashMap: ts!("::std::collections::HashMap"),
             SubValueProvider: ts!("fuzzcheck::SubValueProvider"),
             CrossoverArbitraryResult: ts!("fuzzcheck::CrossoverArbitraryResult"),
+            CrossoverMutateResult: ts!("fuzzcheck::CrossoverMutateResult"),
         }
     }
 }

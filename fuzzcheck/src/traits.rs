@@ -247,21 +247,21 @@ pub trait Mutator<Value: Clone>: 'static {
         max_cplx: f64,
     ) -> CrossoverArbitraryResult<Value>;
 
-    // fn crossover_mutate(
-    //     &self,
-    //     value: &mut Value,
-    //     cache: &mut Self::Cache,
-    //     subvalue_provider: &dyn SubValueProvider,
-    //     max_cplx_from_crossover: f64,
-    //     max_cplx: f64,
-    // ) -> CrossoverMutateResult<Self::UnmutateToken>;
+    fn crossover_mutate(
+        &self,
+        value: &mut Value,
+        cache: &mut Self::Cache,
+        subvalue_provider: &dyn SubValueProvider,
+        max_cplx_from_crossover: f64,
+        max_cplx: f64,
+    ) -> CrossoverMutateResult<Self::UnmutateToken>;
 }
 
-// pub struct CrossoverMutateResult<Unmutate> {
-//     pub unmutate: Unmutate,
-//     pub complexity: f64,
-//     pub complexity_from_crossover: f64,
-// }
+pub struct CrossoverMutateResult<Unmutate> {
+    pub unmutate: Unmutate,
+    pub complexity: f64,
+    pub complexity_from_crossover: f64,
+}
 
 pub struct CrossoverArbitraryResult<Value> {
     pub value: Value,
@@ -469,6 +469,18 @@ where
     ) -> CrossoverArbitraryResult<T> {
         self.wrapped_mutator()
             .crossover_arbitrary(subvalue_provider, max_cplx_from_crossover, max_cplx)
+    }
+
+    fn crossover_mutate(
+        &self,
+        value: &mut T,
+        cache: &mut Self::Cache,
+        subvalue_provider: &dyn SubValueProvider,
+        max_cplx_from_crossover: f64,
+        max_cplx: f64,
+    ) -> CrossoverMutateResult<Self::UnmutateToken> {
+        self.wrapped_mutator()
+            .crossover_mutate(value, cache, subvalue_provider, max_cplx_from_crossover, max_cplx)
     }
 }
 

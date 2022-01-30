@@ -1,4 +1,8 @@
 use crate::mutators::mutations::{Mutation, RevertMutation};
+use crate::mutators::vector::insert_element::RevertInsertElement;
+use crate::mutators::vector::mutate_element::{MutateElement, RevertMutateElement};
+use crate::mutators::vector::remove_and_insert_element::RevertRemoveAndInsertElement;
+use crate::traits::CrossoverMutateResult;
 use crate::{CrossoverArbitraryResult, DefaultMutator, Mutator, SubValueProvider};
 use std::any::{Any, TypeId};
 use std::cmp;
@@ -6,7 +10,7 @@ use std::collections::HashMap;
 use std::marker::PhantomData;
 use std::ops::RangeInclusive;
 
-use self::insert_many_elements::insert_many;
+use self::insert_many_elements::{insert_many, RevertInsertManyElements};
 use self::vec_mutation::{RevertVectorMutation, VectorMutation, VectorMutationRandomStep, VectorMutationStep};
 
 pub mod arbitrary;
@@ -306,12 +310,19 @@ where
         max_cplx_from_crossover: f64,
         max_cplx: f64,
     ) -> crate::CrossoverArbitraryResult<Vec<T>> {
-        /*
-            * toin coss
-                -> check if value is vector
-                -> if it is not, try and get a vector through lens
-                -> if we could get a vector, then slice it and build a value on top of it
-        */
+        let min_cplx = self.min_complexity();
+        if max_cplx <= min_cplx {
+            // return the least complex value possible
+            let (v, c) = self.random_arbitrary(max_cplx);
+            return CrossoverArbitraryResult {
+                value: v,
+                complexity: c,
+                complexity_from_crossover: 0.0,
+            };
+        }
+
+        // half the time we try to get a slice
+        // half the time we use crossover_arbirary from the submutator instead
         let slice = if self.rng.bool() {
             // try and get a Vec<T> from the crossover value and slice it
             if let Some(crossover_value) = subvalue_provider.get_subvalue(TypeId::of::<Vec<T>>()).and_then(
@@ -330,17 +341,6 @@ where
         } else {
             None
         };
-        let min_cplx = self.min_complexity();
-        if max_cplx <= min_cplx {
-            // return the least complex value possible
-            let (v, c) = self.random_arbitrary(max_cplx);
-            return CrossoverArbitraryResult {
-                value: v,
-                complexity: c,
-                complexity_from_crossover: 0.0,
-            };
-        }
-
         let target_cplx = crate::mutators::gen_f64(&self.rng, min_cplx..max_cplx);
         let len_range = self.choose_slice_length(target_cplx);
         let upperbound_max_len = std::cmp::min(*len_range.end(), (max_cplx / self.m.min_complexity()).ceil() as usize);
@@ -375,6 +375,142 @@ where
                 complexity_from_crossover: sum_crossover_cplx,
             }
         }
+    }
+
+    fn crossover_mutate(
+        &self,
+        value: &mut Vec<T>,
+        cache: &mut Self::Cache,
+        subvalue_provider: &dyn SubValueProvider,
+        max_cplx_from_crossover: f64,
+        max_cplx: f64,
+    ) -> CrossoverMutateResult<Self::UnmutateToken> {
+        let cplx_before = self.complexity(value, cache);
+        let len_before = value.len();
+
+        // half the time we try to get a slice
+        let slice = if !value.is_empty() && *self.len_range.end() > value.len() && self.rng.bool() {
+            // try and get a Vec<T> from the crossover value and slice it
+            if let Some(crossover_value) = subvalue_provider.get_subvalue(TypeId::of::<Vec<T>>()).and_then(
+                #[no_coverage]
+                |x| x.downcast_ref::<Vec<T>>(),
+            ) {
+                if crossover_value.is_empty() {
+                    None
+                } else {
+                    let start_index = self.rng.usize(..crossover_value.len());
+                    Some(&crossover_value[start_index..])
+                }
+            } else {
+                None
+            }
+        } else {
+            None
+        };
+        if let Some(slice) = slice {
+            let start_index = self.rng.usize(..value.len());
+            let mut sum_cplx = cache.sum_cplx;
+            let mut sum_crossover_cplx = 0.0;
+            let mut slice_to_add = vec![];
+            for el in slice {
+                if value.len() == *self.len_range.end() {
+                    break;
+                }
+                if let Some(el_cache) = self.m.validate_value(el) {
+                    let el_cplx = self.m.complexity(el, &el_cache);
+                    let next_cplx = self.complexity_from_inner(cache.sum_cplx + el_cplx, value.len() + 1);
+                    let next_crossover_cplx = sum_crossover_cplx + el_cplx;
+                    if next_cplx > max_cplx || next_crossover_cplx > max_cplx_from_crossover {
+                        break;
+                    }
+                    slice_to_add.push(el.clone());
+                    sum_cplx += el_cplx;
+                    sum_crossover_cplx += el_cplx;
+                } else {
+                    continue;
+                }
+            }
+
+            let token = RevertVectorMutation::InsertManyElements(RevertInsertManyElements {
+                idcs: start_index..start_index + slice_to_add.len(),
+            });
+            let cplx_after = self.complexity_from_inner(sum_cplx, value.len());
+            if len_before != value.len() {
+                return CrossoverMutateResult {
+                    unmutate: token,
+                    complexity: self.complexity_from_inner(sum_cplx, value.len()),
+                    complexity_from_crossover: cplx_after - cplx_before,
+                };
+            }
+        }
+        // half the remaining time we try to get an element and insert it somewhere, maybe changing the length of the vector or
+        // replacing an existing element
+        if self.rng.bool() {
+            if let Some((el, el_cache)) = subvalue_provider
+                .get_subvalue(TypeId::of::<T>())
+                .and_then(|x| x.downcast_ref::<T>())
+                .and_then(|el| self.m.validate_value(el).map(|c| (el, c)))
+            {
+                let el_cplx = self.m.complexity(el, &el_cache);
+
+                let next_complexity_if_adding = self.complexity_from_inner(cache.sum_cplx + el_cplx, value.len() + 1);
+                // half the remaining time, try to insert it somewhere
+                // TODO: max_cplx from crossover?
+                if *self.len_range.end() > value.len() && next_complexity_if_adding < max_cplx && self.rng.bool() {
+                    let insert_idx = self.rng.usize(..=value.len());
+                    value.insert(insert_idx, el.clone());
+                    let token = RevertVectorMutation::InsertElement(RevertInsertElement { idx: insert_idx });
+                    return CrossoverMutateResult {
+                        unmutate: token,
+                        complexity: next_complexity_if_adding,
+                        complexity_from_crossover: next_complexity_if_adding - cplx_before,
+                    };
+                }
+                // otherwise, replace an existing element by the new one
+                let replaced_el_idx = self.rng.usize(..value.len());
+                let (replaced_el, replaced_el_cache) = (&mut value[replaced_el_idx], &cache.inner[replaced_el_idx]);
+                let replaced_el_cplx = self.m.complexity(replaced_el, replaced_el_cache);
+                let next_complexity_if_replacing =
+                    self.complexity_from_inner(cache.sum_cplx - replaced_el_cplx + el_cplx, len_before);
+                if next_complexity_if_replacing < max_cplx {
+                    let mut swapped = el.clone();
+                    std::mem::swap(replaced_el, &mut swapped);
+                    let token = RevertVectorMutation::RemoveAndInsertElement(RevertRemoveAndInsertElement {
+                        remove_at_idx: replaced_el_idx,
+                        insert_at_idx: replaced_el_idx,
+                        insert_el: swapped,
+                    });
+                    return CrossoverMutateResult {
+                        unmutate: token,
+                        complexity: next_complexity_if_replacing,
+                        complexity_from_crossover: next_complexity_if_replacing - cplx_before,
+                    };
+                }
+            }
+        }
+
+        let idx = self.rng.usize(..value.len());
+        let (el, el_cache) = (&mut value[idx], &mut cache.inner[idx]);
+        let el_cplx = self.m.complexity(el, el_cache);
+        let max_el_cplx = max_cplx - (cplx_before - el_cplx);
+        let result = self.m.crossover_mutate(
+            &mut value[idx],
+            &mut cache.inner[idx],
+            subvalue_provider,
+            max_cplx_from_crossover,
+            max_el_cplx,
+        );
+
+        let token = RevertVectorMutation::MutateElement(RevertMutateElement {
+            idx,
+            unmutate_token: Some(result.unmutate),
+        });
+
+        return CrossoverMutateResult {
+            unmutate: token,
+            complexity: self.complexity_from_inner(cache.sum_cplx - el_cplx + result.complexity, value.len()),
+            complexity_from_crossover: result.complexity_from_crossover,
+        };
     }
 }
 

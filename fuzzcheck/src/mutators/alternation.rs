@@ -438,4 +438,31 @@ where
             complexity_from_crossover: result.complexity_from_crossover,
         }
     }
+
+    fn crossover_mutate(
+        &self,
+        value: &mut T,
+        cache: &mut Self::Cache,
+        subvalue_provider: &dyn SubValueProvider,
+        max_cplx_from_crossover: f64,
+        max_cplx: f64,
+    ) -> crate::traits::CrossoverMutateResult<Self::UnmutateToken> {
+        let cache_idx = self.rng.usize(..cache.len());
+        let cache = &mut cache[cache_idx];
+        let mutator_idx = cache.mutator_idx;
+        let mutator = &self.mutators[mutator_idx];
+
+        let result = mutator.crossover_mutate(
+            value,
+            &mut cache.inner,
+            subvalue_provider,
+            max_cplx_from_crossover,
+            max_cplx,
+        );
+        crate::traits::CrossoverMutateResult {
+            unmutate: UnmutateToken::Inner(mutator_idx, result.unmutate),
+            complexity: self.complexity_from_inner(result.complexity),
+            complexity_from_crossover: result.complexity_from_crossover,
+        }
+    }
 }

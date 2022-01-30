@@ -17,7 +17,7 @@ pub struct ConcreteInsertElement<T> {
     idx: usize,
 }
 pub struct RevertInsertElement {
-    idx: usize,
+    pub idx: usize,
 }
 
 impl<T, M> RevertMutation<Vec<T>, VecMutator<T, M>> for RevertInsertElement

@@ -86,7 +86,7 @@
 //! None of it is *strictly* necessary since I could always write a brand new mutator for each type from scratch instead
 //! of trying to reuse mutators. But it would be a much larger amount of work, would probably increase compile times, and
 //! it would be more difficult to refactor and keep the implementations correct.
-use crate::Mutator;
+use crate::{CrossoverMutateResult, Mutator};
 use std::{
     any::{Any, TypeId},
     collections::HashMap,
@@ -178,6 +178,15 @@ where
         max_cplx_from_crossover: f64,
         max_cplx: f64,
     ) -> crate::CrossoverArbitraryResult<T>;
+
+    fn crossover_mutate<'a>(
+        &self,
+        value: TupleKind::Mut<'a>,
+        cache: &'a mut Self::Cache,
+        subvalue_provider: &dyn crate::SubValueProvider,
+        max_cplx_from_crossover: f64,
+        max_cplx: f64,
+    ) -> CrossoverMutateResult<Self::UnmutateToken>;
 }
 
 /// A wrapper that transforms a [`TupleMutator`] into a [`Mutator`] of values [with a tuple structure](TupleStructure).
@@ -325,6 +334,23 @@ where
         self.mutator
             .crossover_arbitrary(subvalue_provider, max_cplx_from_crossover, max_cplx)
     }
+
+    fn crossover_mutate(
+        &self,
+        value: &mut T,
+        cache: &mut Self::Cache,
+        subvalue_provider: &dyn crate::SubValueProvider,
+        max_cplx_from_crossover: f64,
+        max_cplx: f64,
+    ) -> CrossoverMutateResult<Self::UnmutateToken> {
+        self.mutator.crossover_mutate(
+            value.get_mut(),
+            cache,
+            subvalue_provider,
+            max_cplx_from_crossover,
+            max_cplx,
+        )
+    }
 }
 
 pub use tuple0::{Tuple0, Tuple0Mutator};
@@ -464,6 +490,21 @@ mod tuple0 {
         ) -> crate::CrossoverArbitraryResult<()> {
             crate::CrossoverArbitraryResult {
                 value: (),
+                complexity: 0.0,
+                complexity_from_crossover: 0.0,
+            }
+        }
+
+        fn crossover_mutate<'a>(
+            &self,
+            value: <Tuple0 as RefTypes>::Mut<'a>,
+            cache: &'a mut Self::Cache,
+            subvalue_provider: &dyn crate::SubValueProvider,
+            max_cplx_from_crossover: f64,
+            max_cplx: f64,
+        ) -> crate::CrossoverMutateResult<Self::UnmutateToken> {
+            crate::CrossoverMutateResult {
+                unmutate: (),
                 complexity: 0.0,
                 complexity_from_crossover: 0.0,
             }
@@ -656,6 +697,18 @@ mod tuple1 {
                 complexity_from_crossover,
             }
         }
+
+        fn crossover_mutate<'a>(
+            &self,
+            value: <Tuple1<T0> as RefTypes>::Mut<'a>,
+            cache: &'a mut Self::Cache,
+            subvalue_provider: &dyn crate::SubValueProvider,
+            max_cplx_from_crossover: f64,
+            max_cplx: f64,
+        ) -> crate::CrossoverMutateResult<Self::UnmutateToken> {
+            self.mutator_0
+                .crossover_mutate(value.0, cache, subvalue_provider, max_cplx_from_crossover, max_cplx)
+        }
     }
     impl<T0> crate::mutators::DefaultMutator for (T0,)
     where
@@ -675,43 +728,43 @@ mod tuple2 {
     extern crate self as fuzzcheck;
     fuzzcheck_mutators_derive::make_basic_tuple_mutator!(2);
 }
-pub use tuple3::{Tuple3, Tuple3Mutator};
-mod tuple3 {
-    extern crate self as fuzzcheck;
-    fuzzcheck_mutators_derive::make_basic_tuple_mutator!(3);
-}
-pub use tuple4::{Tuple4, Tuple4Mutator};
-mod tuple4 {
-    extern crate self as fuzzcheck;
-    fuzzcheck_mutators_derive::make_basic_tuple_mutator!(4);
-}
-pub use tuple5::{Tuple5, Tuple5Mutator};
-mod tuple5 {
-    extern crate self as fuzzcheck;
-    fuzzcheck_mutators_derive::make_basic_tuple_mutator!(5);
-}
-pub use tuple6::{Tuple6, Tuple6Mutator};
-mod tuple6 {
-    extern crate self as fuzzcheck;
-    fuzzcheck_mutators_derive::make_basic_tuple_mutator!(6);
-}
-pub use tuple7::{Tuple7, Tuple7Mutator};
-mod tuple7 {
-    extern crate self as fuzzcheck;
-    fuzzcheck_mutators_derive::make_basic_tuple_mutator!(7);
-}
-pub use tuple8::{Tuple8, Tuple8Mutator};
-mod tuple8 {
-    extern crate self as fuzzcheck;
-    fuzzcheck_mutators_derive::make_basic_tuple_mutator!(8);
-}
-pub use tuple9::{Tuple9, Tuple9Mutator};
-mod tuple9 {
-    extern crate self as fuzzcheck;
-    fuzzcheck_mutators_derive::make_basic_tuple_mutator!(9);
-}
-pub use tuple10::{Tuple10, Tuple10Mutator};
-mod tuple10 {
-    extern crate self as fuzzcheck;
-    fuzzcheck_mutators_derive::make_basic_tuple_mutator!(10);
-}
+// pub use tuple3::{Tuple3, Tuple3Mutator};
+// mod tuple3 {
+//     extern crate self as fuzzcheck;
+//     fuzzcheck_mutators_derive::make_basic_tuple_mutator!(3);
+// }
+// pub use tuple4::{Tuple4, Tuple4Mutator};
+// mod tuple4 {
+//     extern crate self as fuzzcheck;
+//     fuzzcheck_mutators_derive::make_basic_tuple_mutator!(4);
+// }
+// pub use tuple5::{Tuple5, Tuple5Mutator};
+// mod tuple5 {
+//     extern crate self as fuzzcheck;
+//     fuzzcheck_mutators_derive::make_basic_tuple_mutator!(5);
+// }
+// pub use tuple6::{Tuple6, Tuple6Mutator};
+// mod tuple6 {
+//     extern crate self as fuzzcheck;
+//     fuzzcheck_mutators_derive::make_basic_tuple_mutator!(6);
+// }
+// pub use tuple7::{Tuple7, Tuple7Mutator};
+// mod tuple7 {
+//     extern crate self as fuzzcheck;
+//     fuzzcheck_mutators_derive::make_basic_tuple_mutator!(7);
+// }
+// pub use tuple8::{Tuple8, Tuple8Mutator};
+// mod tuple8 {
+//     extern crate self as fuzzcheck;
+//     fuzzcheck_mutators_derive::make_basic_tuple_mutator!(8);
+// }
+// pub use tuple9::{Tuple9, Tuple9Mutator};
+// mod tuple9 {
+//     extern crate self as fuzzcheck;
+//     fuzzcheck_mutators_derive::make_basic_tuple_mutator!(9);
+// }
+// pub use tuple10::{Tuple10, Tuple10Mutator};
+// mod tuple10 {
+//     extern crate self as fuzzcheck;
+//     fuzzcheck_mutators_derive::make_basic_tuple_mutator!(10);
+// }

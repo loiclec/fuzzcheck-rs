@@ -7,8 +7,6 @@ pub trait BasicEnumStructure {
     fn get_item_index(&self) -> usize;
 }
 
-extern crate self as fuzzcheck;
-
 /// A mutator used for enums implementing [BasicEnumStructure]
 pub struct BasicEnumMutator {
     rng: fastrand::Rng,
@@ -155,14 +153,30 @@ where
 
     fn crossover_arbitrary(
         &self,
-        _subvalue_provider: &dyn fuzzcheck::SubValueProvider,
+        _subvalue_provider: &dyn crate::SubValueProvider,
         _max_cplx_from_crossover: f64,
         max_cplx: f64,
-    ) -> fuzzcheck::CrossoverArbitraryResult<T> {
+    ) -> crate::CrossoverArbitraryResult<T> {
         let (value, complexity) = self.random_arbitrary(max_cplx);
-        fuzzcheck::CrossoverArbitraryResult {
+        crate::CrossoverArbitraryResult {
             value,
             complexity,
+            complexity_from_crossover: 0.0,
+        }
+    }
+
+    fn crossover_mutate(
+        &self,
+        value: &mut T,
+        cache: &mut Self::Cache,
+        subvalue_provider: &dyn crate::SubValueProvider,
+        max_cplx_from_crossover: f64,
+        max_cplx: f64,
+    ) -> crate::traits::CrossoverMutateResult<Self::UnmutateToken> {
+        let (token, cplx) = self.random_mutate(value, cache, max_cplx);
+        crate::traits::CrossoverMutateResult {
+            unmutate: token,
+            complexity: cplx,
             complexity_from_crossover: 0.0,
         }
     }

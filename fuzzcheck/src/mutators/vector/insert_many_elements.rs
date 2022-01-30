@@ -23,7 +23,7 @@ pub struct ConcreteInsertManyElements<T> {
     idx: usize,
 }
 pub struct RevertInsertManyElements {
-    idcs: Range<usize>,
+    pub idcs: Range<usize>,
 }
 
 impl<T, M> RevertMutation<Vec<T>, VecMutator<T, M>> for RevertInsertManyElements

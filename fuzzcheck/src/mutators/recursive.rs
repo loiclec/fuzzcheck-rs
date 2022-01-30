@@ -267,6 +267,17 @@ where
     ) -> crate::CrossoverArbitraryResult<T> {
         todo!()
     }
+
+    fn crossover_mutate(
+        &self,
+        value: &mut T,
+        cache: &mut Self::Cache,
+        subvalue_provider: &dyn crate::SubValueProvider,
+        max_cplx_from_crossover: f64,
+        max_cplx: f64,
+    ) -> crate::traits::CrossoverMutateResult<Self::UnmutateToken> {
+        todo!()
+    }
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -397,6 +408,17 @@ where
         _max_cplx_from_crossover: f64,
         _max_cplx: f64,
     ) -> crate::CrossoverArbitraryResult<T> {
+        todo!()
+    }
+
+    fn crossover_mutate(
+        &self,
+        value: &mut T,
+        cache: &mut Self::Cache,
+        subvalue_provider: &dyn crate::SubValueProvider,
+        max_cplx_from_crossover: f64,
+        max_cplx: f64,
+    ) -> crate::traits::CrossoverMutateResult<Self::UnmutateToken> {
         todo!()
     }
 }
