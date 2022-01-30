@@ -5,7 +5,7 @@ use crate::sensors_and_pools::{
 use crate::signals_handler::set_signal_handlers;
 use crate::traits::{CorpusDelta, Mutator, SaveToStatsFolder, SensorAndPool, Serializer};
 use crate::world::World;
-use crate::{CSVField, CrossoverMutateResult, CrossoverSubValueProvider, FuzzedInput, SubValueProvider, ToCSV};
+use crate::{CSVField, CrossoverSubValueProvider, FuzzedInput, SubValueProvider, ToCSV};
 use fuzzcheck_common::arg::{Arguments, FuzzerCommand};
 use fuzzcheck_common::{FuzzerEvent, FuzzerStats};
 use libc::{SIGABRT, SIGALRM, SIGBUS, SIGFPE, SIGINT, SIGSEGV, SIGTERM, SIGTRAP};

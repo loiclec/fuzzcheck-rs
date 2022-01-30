@@ -1,6 +1,6 @@
 use std::marker::PhantomData;
 
-use crate::{CrossoverArbitraryResult, Mutator};
+use crate::Mutator;
 
 pub struct MapMutator<From, To, M, Parse, Map>
 where
@@ -171,23 +171,6 @@ where
         cache: &Self::Cache,
     ) -> std::collections::HashMap<std::any::TypeId, Vec<Self::LensPath>> {
         self.mutator.all_paths(&cache.from_value, &cache.from_cache)
-    }
-
-    fn crossover_arbitrary(
-        &self,
-        subvalue_provider: &dyn crate::SubValueProvider,
-        max_cplx_from_crossover: f64,
-        max_cplx: f64,
-    ) -> crate::CrossoverArbitraryResult<To> {
-        let result = self
-            .mutator
-            .crossover_arbitrary(subvalue_provider, max_cplx_from_crossover, max_cplx);
-        let to_value = (self.map)(&result.value);
-        CrossoverArbitraryResult {
-            value: to_value,
-            complexity: result.complexity,
-            complexity_from_crossover: result.complexity_from_crossover,
-        }
     }
 
     fn crossover_mutate(

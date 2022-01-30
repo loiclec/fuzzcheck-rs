@@ -2,7 +2,7 @@
 #![feature(trivial_bounds)]
 
 use fuzzcheck::mutators::vector::VecMutator;
-use fuzzcheck::{CrossoverArbitraryResult, CrossoverSubValueProvider, DefaultMutator, Mutator};
+use fuzzcheck::{CrossoverSubValueProvider, DefaultMutator, Mutator};
 // mod alternation_char_mutators;
 // mod char_mutators;
 // mod constrained_integer;
@@ -25,13 +25,4 @@ fn test_crossover_vec() {
         println!("{:?} : {:?}", key, subpaths.len());
     }
     let mut subvalue_provider = CrossoverSubValueProvider::from(&m, &value, &cache, &all_paths);
-
-    for _ in 0..10 {
-        let CrossoverArbitraryResult {
-            value,
-            complexity,
-            complexity_from_crossover,
-        } = m.crossover_arbitrary(&mut subvalue_provider, 1000.0, 2000.0);
-        println!("{value:?} {complexity:.2} {complexity_from_crossover:.2}");
-    }
 }

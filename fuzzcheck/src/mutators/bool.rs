@@ -1,4 +1,3 @@
-use crate::CrossoverArbitraryResult;
 use crate::DefaultMutator;
 use crate::Mutator;
 
@@ -146,22 +145,6 @@ impl Mutator<bool> for BoolMutator {
         _cache: &Self::Cache,
     ) -> std::collections::HashMap<std::any::TypeId, Vec<Self::LensPath>> {
         <_>::default()
-    }
-
-    #[doc(hidden)]
-    #[no_coverage]
-    fn crossover_arbitrary(
-        &self,
-        _subvalue_provider: &dyn crate::SubValueProvider,
-        _max_cplx_from_crossover: f64,
-        max_cplx: f64,
-    ) -> crate::CrossoverArbitraryResult<bool> {
-        let (value, cplx) = self.random_arbitrary(max_cplx);
-        CrossoverArbitraryResult {
-            value,
-            complexity: cplx,
-            complexity_from_crossover: 0.0,
-        }
     }
 
     fn crossover_mutate(

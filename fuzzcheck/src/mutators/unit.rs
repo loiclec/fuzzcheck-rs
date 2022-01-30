@@ -1,8 +1,6 @@
 use std::any::TypeId;
 use std::collections::HashMap;
 use std::marker::PhantomData;
-
-use crate::CrossoverArbitraryResult;
 use crate::DefaultMutator;
 use crate::Mutator;
 
@@ -151,19 +149,6 @@ where
     #[no_coverage]
     fn all_paths(&self, _value: &T, _cache: &Self::Cache) -> HashMap<TypeId, Vec<Self::LensPath>> {
         <_>::default()
-    }
-
-    fn crossover_arbitrary(
-        &self,
-        _subvalue_provider: &dyn crate::SubValueProvider,
-        _max_cplx_from_crossover: f64,
-        _max_cplx: f64,
-    ) -> crate::CrossoverArbitraryResult<T> {
-        CrossoverArbitraryResult {
-            value: self.value.clone(),
-            complexity: 0.0,
-            complexity_from_crossover: 0.0,
-        }
     }
 
     fn crossover_mutate(

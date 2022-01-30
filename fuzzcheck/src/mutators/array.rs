@@ -80,7 +80,7 @@ pub enum UnmutateArrayToken<M: Mutator<T>, T: Clone, const N: usize> {
 impl<M: Mutator<T>, T: Clone + 'static, const N: usize> ArrayMutator<M, T, N> {
     #[no_coverage]
     fn len(&self) -> usize {
-        self.mutators.len()
+        N
     }
     #[no_coverage]
     fn mutate_elements(
@@ -140,17 +140,17 @@ impl<M: Mutator<T>, T: Clone + 'static, const N: usize> ArrayMutator<M, T, N> {
         let mut sum_cplx = 0.0;
         let mut remaining_cplx = target_cplx;
         let mut remaining_min_complexity = self.min_complexity();
-        for (i, mutator) in self.mutators.iter().enumerate() {
+        for i in 0 .. N {
             let mut max_cplx_element = (remaining_cplx / ((self.len() - i) as f64)) - remaining_min_complexity;
-            let min_cplx_el = mutator.min_complexity();
+            let min_cplx_el = self.mutator.min_complexity();
             if min_cplx_el >= max_cplx_element {
                 max_cplx_element = min_cplx_el;
             }
-            let (x, x_cplx) = mutator.random_arbitrary(max_cplx_element);
+            let (x, x_cplx) = self.mutator.random_arbitrary(max_cplx_element);
             v.push(x);
             sum_cplx += x_cplx;
             remaining_cplx -= x_cplx;
-            remaining_min_complexity -= mutator.min_complexity();
+            remaining_min_complexity -= self.mutator.min_complexity();
         }
         (v.try_into().ok().unwrap(), self.min_complexity + sum_cplx)
     }
@@ -173,22 +173,21 @@ impl<M: Mutator<T>, T: Clone + 'static, const N: usize> Mutator<[T; N]> for Arra
     #[doc(hidden)]
     #[no_coverage]
     fn validate_value(&self, value: &[T; N]) -> Option<Self::Cache> {
-        if value.len() != self.mutators.len() {
+        if value.len() != N {
             return None;
         }
         let inner_caches: Vec<_> = value
             .iter()
-            .zip(self.mutators.iter())
             .map(
                 #[no_coverage]
-                |(x, mutator)| mutator.validate_value(x),
+                |x| self.mutator.validate_value(x),
             )
             .collect::<Option<_>>()?;
 
-        let sum_cplx = value.iter().zip(self.mutators.iter()).zip(inner_caches.iter()).fold(
+        let sum_cplx = value.iter().zip(inner_caches.iter()).fold(
             0.0,
             #[no_coverage]
-            |cplx, ((v, mutator), cache)| cplx + mutator.complexity(v, cache),
+            |cplx, (v, cache)| cplx + self.mutator.complexity(v, cache),
         );
 
         let cache = ArrayMutatorCache {
@@ -205,10 +204,9 @@ impl<M: Mutator<T>, T: Clone + 'static, const N: usize> Mutator<[T; N]> for Arra
         let inner = value
             .iter()
             .zip(cache.inner.iter())
-            .zip(self.mutators.iter())
             .map(
                 #[no_coverage]
-                |((v, c), m)| m.default_mutation_step(v, c),
+                |(v, c)| self.mutator.default_mutation_step(v, c),
             )
             .collect::<Vec<_>>();
         MutationStep { inner, element_step: 0 }
@@ -365,15 +363,6 @@ impl<M: Mutator<T>, T: Clone + 'static, const N: usize> Mutator<[T; N]> for Arra
             }
         }
         r
-    }
-
-    fn crossover_arbitrary(
-        &self,
-        subvalue_provider: &dyn crate::SubValueProvider,
-        max_cplx_from_crossover: f64,
-        max_cplx: f64,
-    ) -> crate::CrossoverArbitraryResult<[T; N]> {
-        todo!()
     }
 
     fn crossover_mutate(

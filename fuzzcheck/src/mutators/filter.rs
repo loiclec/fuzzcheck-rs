@@ -1,4 +1,4 @@
-use crate::{CrossoverArbitraryResult, Mutator};
+use crate::Mutator;
 
 pub struct FilterMutator<M, F> {
     pub mutator: M,
@@ -134,20 +134,6 @@ where
         cache: &Self::Cache,
     ) -> std::collections::HashMap<std::any::TypeId, Vec<Self::LensPath>> {
         self.all_paths(value, cache)
-    }
-
-    fn crossover_arbitrary(
-        &self,
-        subvalue_provider: &dyn crate::SubValueProvider,
-        max_cplx_from_crossover: f64,
-        max_cplx: f64,
-    ) -> crate::CrossoverArbitraryResult<T> {
-        let result = self.crossover_arbitrary(subvalue_provider, max_cplx_from_crossover, max_cplx);
-        if (self.filter)(&result.value) {
-            result
-        } else {
-            self.crossover_arbitrary(subvalue_provider, max_cplx_from_crossover, max_cplx)
-        }
     }
 
     fn crossover_mutate(

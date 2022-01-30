@@ -865,15 +865,6 @@ mod tests {
             <_>::default()
         }
 
-        fn crossover_arbitrary(
-            &self,
-            _subvalue_provider: &dyn crate::SubValueProvider,
-            _max_cplx_from_crossover: f64,
-            _max_cplx: f64,
-        ) -> crate::CrossoverArbitraryResult<f64> {
-            todo!()
-        }
-
         fn crossover_mutate(
             &self,
             value: &mut f64,

@@ -60,10 +60,6 @@ pub use crate::traits::CompatibleWithObservations;
 #[doc(inline)]
 pub use crate::traits::CorpusDelta;
 #[doc(inline)]
-pub use crate::traits::CrossoverArbitraryResult;
-#[doc(inline)]
-pub use crate::traits::CrossoverMutateResult;
-#[doc(inline)]
 pub use crate::traits::CrossoverSubValueProvider;
 #[doc(inline)]
 pub use crate::traits::Pool;

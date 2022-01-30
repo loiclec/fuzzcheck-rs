@@ -151,20 +151,6 @@ where
         <_>::default()
     }
 
-    fn crossover_arbitrary(
-        &self,
-        _subvalue_provider: &dyn crate::SubValueProvider,
-        _max_cplx_from_crossover: f64,
-        max_cplx: f64,
-    ) -> crate::CrossoverArbitraryResult<T> {
-        let (value, complexity) = self.random_arbitrary(max_cplx);
-        crate::CrossoverArbitraryResult {
-            value,
-            complexity,
-            complexity_from_crossover: 0.0,
-        }
-    }
-
     fn crossover_mutate(
         &self,
         value: &mut T,
