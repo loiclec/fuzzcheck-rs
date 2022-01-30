@@ -273,9 +273,8 @@ where
         value: &mut T,
         cache: &mut Self::Cache,
         subvalue_provider: &dyn crate::SubValueProvider,
-        max_cplx_from_crossover: f64,
         max_cplx: f64,
-    ) -> crate::traits::CrossoverMutateResult<Self::UnmutateToken> {
+    ) -> (Self::UnmutateToken, f64) {
         todo!()
     }
 }
@@ -416,9 +415,8 @@ where
         value: &mut T,
         cache: &mut Self::Cache,
         subvalue_provider: &dyn crate::SubValueProvider,
-        max_cplx_from_crossover: f64,
         max_cplx: f64,
-    ) -> crate::traits::CrossoverMutateResult<Self::UnmutateToken> {
+    ) -> (Self::UnmutateToken, f64) {
         todo!()
     }
 }

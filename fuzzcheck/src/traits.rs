@@ -252,9 +252,8 @@ pub trait Mutator<Value: Clone>: 'static {
         value: &mut Value,
         cache: &mut Self::Cache,
         subvalue_provider: &dyn SubValueProvider,
-        max_cplx_from_crossover: f64,
         max_cplx: f64,
-    ) -> CrossoverMutateResult<Self::UnmutateToken>;
+    ) -> (Self::UnmutateToken, f64);
 }
 
 pub struct CrossoverMutateResult<Unmutate> {
@@ -476,11 +475,10 @@ where
         value: &mut T,
         cache: &mut Self::Cache,
         subvalue_provider: &dyn SubValueProvider,
-        max_cplx_from_crossover: f64,
         max_cplx: f64,
-    ) -> CrossoverMutateResult<Self::UnmutateToken> {
+    ) -> (Self::UnmutateToken, f64) {
         self.wrapped_mutator()
-            .crossover_mutate(value, cache, subvalue_provider, max_cplx_from_crossover, max_cplx)
+            .crossover_mutate(value, cache, subvalue_provider, max_cplx)
     }
 }
 

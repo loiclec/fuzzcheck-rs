@@ -427,13 +427,10 @@ where
                     &mut storage,
                 );
                 let generation = input.generation;
-                let CrossoverMutateResult {
-                    unmutate, complexity, ..
-                } = mutator.crossover_mutate(
+                let (unmutate, complexity) = mutator.crossover_mutate(
                     &mut input.value,
                     &mut input.cache,
                     &subvalue_provider,
-                    0.0,
                     settings.max_input_cplx,
                 );
                 drop(subvalue_provider);

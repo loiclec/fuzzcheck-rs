@@ -729,12 +729,10 @@ fn impl_mutator_trait(tb: &mut TokenBuilder, nbr_elements: usize) {
             value: " tuple_mut ",
             cache: &'a mut Self::Cache,
             subvalue_provider: &dyn " cm.SubValueProvider ",
-            max_cplx_from_crossover: f64,
             max_cplx: f64,
-        ) -> " cm.CrossoverMutateResult "<Self::UnmutateToken> {
+        ) -> (Self::UnmutateToken, f64) {
             let current_cplx = " SelfAsTupleMutator "::complexity(self, " TupleNAsRefTypes "::get_ref_from_mut(&value), cache);
             let mut new_cplx = current_cplx;
-            let mut cplx_from_crossover = 0.0;
             let mut token = Self::UnmutateToken::default();
             "
             // possibly do the block below in a loop with a max iteration to ensure *something* is done at all
@@ -760,35 +758,27 @@ fn impl_mutator_trait(tb: &mut TokenBuilder, nbr_elements: usize) {
                                 let old_el_cplx = self." mutator_i(i) ".complexity(value." i ", &cache." ti(i) ");
                                 let new_el_cplx = self." mutator_i(i) ".complexity(subvalue, &subcache);
                                 let next_cplx = current_cplx - old_el_cplx + new_el_cplx;
-                                let next_cplx_from_crossover = cplx_from_crossover + new_el_cplx;
-                                if next_cplx < max_cplx && next_cplx_from_crossover < max_cplx_from_crossover {
+                                if next_cplx < max_cplx {
                                     replaced = true;
                                     let mut swapped = subvalue.clone();
                                     ::std::mem::swap(value." i ", &mut swapped);
                                     token." ti(i) " = Some(UnmutateElementToken::Replace(swapped));
                                     new_cplx = next_cplx;
-                                    cplx_from_crossover = next_cplx_from_crossover;
                                 }
                             }
                         }
                     }
                     if !replaced {
                         let max_el_cplx = max_cplx - (current_cplx - old_el_cplx);
-                        let max_el_cplx_from_crossover = max_cplx_from_crossover - cplx_from_crossover;
-                        let result = self. " mutator_i(i) ".crossover_mutate(value." i ", &mut cache." ti(i) ", subvalue_provider, max_el_cplx, max_el_cplx_from_crossover);
-                        token." ti(i) " = Some(UnmutateElementToken::Unmutate(result.unmutate));
-                        new_cplx = new_cplx - old_el_cplx + result.complexity;
-                        cplx_from_crossover += result.complexity_from_crossover;
+                        let (el_token, new_el_cplx) = self. " mutator_i(i) ".crossover_mutate(value." i ", &mut cache." ti(i) ", subvalue_provider, max_el_cplx);
+                        token." ti(i) " = Some(UnmutateElementToken::Unmutate(el_token));
+                        new_cplx = new_cplx - old_el_cplx + new_el_cplx;
                     }
                 }"
             )
                 "_ => unreachable!()"
             "}
-            " cm.CrossoverMutateResult " {
-                unmutate: token,
-                complexity: new_cplx,
-                complexity_from_crossover: cplx_from_crossover
-            }
+            (token, new_cplx)
         }
     }"
     )

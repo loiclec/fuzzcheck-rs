@@ -382,9 +382,8 @@ where
         value: &mut Vec<T>,
         cache: &mut Self::Cache,
         subvalue_provider: &dyn SubValueProvider,
-        max_cplx_from_crossover: f64,
         max_cplx: f64,
-    ) -> CrossoverMutateResult<Self::UnmutateToken> {
+    ) -> (Self::UnmutateToken, f64) {
         let cplx_before = self.complexity(value, cache);
         let len_before = value.len();
 
@@ -420,7 +419,7 @@ where
                     let el_cplx = self.m.complexity(el, &el_cache);
                     let next_cplx = self.complexity_from_inner(cache.sum_cplx + el_cplx, value.len() + 1);
                     let next_crossover_cplx = sum_crossover_cplx + el_cplx;
-                    if next_cplx > max_cplx || next_crossover_cplx > max_cplx_from_crossover {
+                    if next_cplx > max_cplx {
                         break;
                     }
                     slice_to_add.push(el.clone());
@@ -436,11 +435,7 @@ where
             });
             let cplx_after = self.complexity_from_inner(sum_cplx, value.len());
             if len_before != value.len() {
-                return CrossoverMutateResult {
-                    unmutate: token,
-                    complexity: self.complexity_from_inner(sum_cplx, value.len()),
-                    complexity_from_crossover: cplx_after - cplx_before,
-                };
+                return (token, self.complexity_from_inner(sum_cplx, value.len()));
             }
         }
         // half the remaining time we try to get an element and insert it somewhere, maybe changing the length of the vector or
@@ -460,11 +455,7 @@ where
                     let insert_idx = self.rng.usize(..=value.len());
                     value.insert(insert_idx, el.clone());
                     let token = RevertVectorMutation::InsertElement(RevertInsertElement { idx: insert_idx });
-                    return CrossoverMutateResult {
-                        unmutate: token,
-                        complexity: next_complexity_if_adding,
-                        complexity_from_crossover: next_complexity_if_adding - cplx_before,
-                    };
+                    return (token, next_complexity_if_adding);
                 }
                 // otherwise, replace an existing element by the new one
                 let replaced_el_idx = self.rng.usize(..value.len());
@@ -480,11 +471,7 @@ where
                         insert_at_idx: replaced_el_idx,
                         insert_el: swapped,
                     });
-                    return CrossoverMutateResult {
-                        unmutate: token,
-                        complexity: next_complexity_if_replacing,
-                        complexity_from_crossover: next_complexity_if_replacing - cplx_before,
-                    };
+                    return (token, next_complexity_if_replacing);
                 }
             }
         }
@@ -493,24 +480,19 @@ where
         let (el, el_cache) = (&mut value[idx], &mut cache.inner[idx]);
         let el_cplx = self.m.complexity(el, el_cache);
         let max_el_cplx = max_cplx - (cplx_before - el_cplx);
-        let result = self.m.crossover_mutate(
-            &mut value[idx],
-            &mut cache.inner[idx],
-            subvalue_provider,
-            max_cplx_from_crossover,
-            max_el_cplx,
-        );
+        let (unmutate, new_el_cplx) =
+            self.m
+                .crossover_mutate(&mut value[idx], &mut cache.inner[idx], subvalue_provider, max_el_cplx);
 
         let token = RevertVectorMutation::MutateElement(RevertMutateElement {
             idx,
-            unmutate_token: Some(result.unmutate),
+            unmutate_token: Some(unmutate),
         });
 
-        return CrossoverMutateResult {
-            unmutate: token,
-            complexity: self.complexity_from_inner(cache.sum_cplx - el_cplx + result.complexity, value.len()),
-            complexity_from_crossover: result.complexity_from_crossover,
-        };
+        (
+            token,
+            self.complexity_from_inner(cache.sum_cplx - el_cplx + new_el_cplx, value.len()),
+        )
     }
 }
 

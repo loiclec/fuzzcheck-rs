@@ -184,9 +184,8 @@ where
         value: TupleKind::Mut<'a>,
         cache: &'a mut Self::Cache,
         subvalue_provider: &dyn crate::SubValueProvider,
-        max_cplx_from_crossover: f64,
         max_cplx: f64,
-    ) -> CrossoverMutateResult<Self::UnmutateToken>;
+    ) -> (Self::UnmutateToken, f64);
 }
 
 /// A wrapper that transforms a [`TupleMutator`] into a [`Mutator`] of values [with a tuple structure](TupleStructure).
@@ -340,16 +339,10 @@ where
         value: &mut T,
         cache: &mut Self::Cache,
         subvalue_provider: &dyn crate::SubValueProvider,
-        max_cplx_from_crossover: f64,
         max_cplx: f64,
-    ) -> CrossoverMutateResult<Self::UnmutateToken> {
-        self.mutator.crossover_mutate(
-            value.get_mut(),
-            cache,
-            subvalue_provider,
-            max_cplx_from_crossover,
-            max_cplx,
-        )
+    ) -> (Self::UnmutateToken, f64) {
+        self.mutator
+            .crossover_mutate(value.get_mut(), cache, subvalue_provider, max_cplx)
     }
 }
 
@@ -500,14 +493,9 @@ mod tuple0 {
             value: <Tuple0 as RefTypes>::Mut<'a>,
             cache: &'a mut Self::Cache,
             subvalue_provider: &dyn crate::SubValueProvider,
-            max_cplx_from_crossover: f64,
             max_cplx: f64,
-        ) -> crate::CrossoverMutateResult<Self::UnmutateToken> {
-            crate::CrossoverMutateResult {
-                unmutate: (),
-                complexity: 0.0,
-                complexity_from_crossover: 0.0,
-            }
+        ) -> (Self::UnmutateToken, f64) {
+            ((), 0.0)
         }
     }
 }
@@ -703,11 +691,10 @@ mod tuple1 {
             value: <Tuple1<T0> as RefTypes>::Mut<'a>,
             cache: &'a mut Self::Cache,
             subvalue_provider: &dyn crate::SubValueProvider,
-            max_cplx_from_crossover: f64,
             max_cplx: f64,
-        ) -> crate::CrossoverMutateResult<Self::UnmutateToken> {
+        ) -> (Self::UnmutateToken, f64) {
             self.mutator_0
-                .crossover_mutate(value.0, cache, subvalue_provider, max_cplx_from_crossover, max_cplx)
+                .crossover_mutate(value.0, cache, subvalue_provider, max_cplx)
         }
     }
     impl<T0> crate::mutators::DefaultMutator for (T0,)

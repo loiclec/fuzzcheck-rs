@@ -299,15 +299,9 @@ macro_rules! impl_int_mutator {
                 value: &mut $name,
                 cache: &mut Self::Cache,
                 subvalue_provider: &dyn crate::SubValueProvider,
-                max_cplx_from_crossover: f64,
                 max_cplx: f64,
-            ) -> crate::traits::CrossoverMutateResult<Self::UnmutateToken> {
-                let (token, cplx) = self.random_mutate(value, cache, max_cplx);
-                crate::traits::CrossoverMutateResult {
-                    unmutate: token,
-                    complexity: cplx,
-                    complexity_from_crossover: 0.0,
-                }
+            ) -> (Self::UnmutateToken, f64) {
+                self.random_mutate(value, cache, max_cplx)
             }
         }
 
