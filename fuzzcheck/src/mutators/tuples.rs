@@ -470,6 +470,8 @@ mod tuple0 {
 
 pub use tuple1::{Tuple1, Tuple1Mutator};
 mod tuple1 {
+    use std::{any::TypeId, borrow::Borrow};
+
     use super::{TupleMutator, TupleMutatorWrapper};
     use crate::mutators::tuples::RefTypes;
 
@@ -500,15 +502,25 @@ mod tuple1 {
             t
         }
     }
+
+    pub enum UnmutateTuple1Token<T, U> {
+        Replace(T),
+        Inner(U),
+    }
+
     #[doc = " A `TupleMutator` for types that have a 1-tuple structure"]
     #[derive(::std::default::Default)]
     pub struct Tuple1Mutator<M0> {
         mutator_0: M0,
+        rng: fastrand::Rng,
     }
     impl<M0> Tuple1Mutator<M0> {
         #[no_coverage]
         pub fn new(mutator_0: M0) -> Self {
-            Self { mutator_0 }
+            Self {
+                mutator_0,
+                rng: fastrand::Rng::new(),
+            }
         }
     }
 
@@ -527,7 +539,7 @@ mod tuple1 {
         #[doc(hidden)]
         type ArbitraryStep = <M0 as crate::Mutator<T0>>::ArbitraryStep;
         #[doc(hidden)]
-        type UnmutateToken = <M0 as crate::Mutator<T0>>::UnmutateToken;
+        type UnmutateToken = UnmutateTuple1Token<T0, <M0 as crate::Mutator<T0>>::UnmutateToken>;
         #[doc(hidden)]
         #[no_coverage]
         fn default_arbitrary_step(&self) -> Self::ArbitraryStep {
@@ -586,7 +598,11 @@ mod tuple1 {
             step: &'a mut Self::MutationStep,
             max_cplx: f64,
         ) -> Option<(Self::UnmutateToken, f64)> {
-            self.mutator_0.ordered_mutate(value.0, cache, step, max_cplx)
+            if let Some((token, cplx)) = self.mutator_0.ordered_mutate(value.0, cache, step, max_cplx) {
+                Some((UnmutateTuple1Token::Inner(token), cplx))
+            } else {
+                None
+            }
         }
         #[doc(hidden)]
         #[no_coverage]
@@ -596,7 +612,8 @@ mod tuple1 {
             cache: &'a mut Self::Cache,
             max_cplx: f64,
         ) -> (Self::UnmutateToken, f64) {
-            self.mutator_0.random_mutate(value.0, cache, max_cplx)
+            let (token, cplx) = self.mutator_0.random_mutate(value.0, cache, max_cplx);
+            (UnmutateTuple1Token::Inner(token), cplx)
         }
         #[doc(hidden)]
         #[no_coverage]
@@ -606,7 +623,12 @@ mod tuple1 {
             cache: &'a mut Self::Cache,
             t: Self::UnmutateToken,
         ) {
-            self.mutator_0.unmutate(value.0, cache, t);
+            match t {
+                UnmutateTuple1Token::Replace(x) => {
+                    *value.0 = x;
+                }
+                UnmutateTuple1Token::Inner(t) => self.mutator_0.unmutate(value.0, cache, t),
+            }
         }
 
         #[doc(hidden)]
@@ -632,7 +654,8 @@ mod tuple1 {
         ) -> std::collections::HashMap<std::any::TypeId, Vec<Self::LensPath>> {
             self.mutator_0.all_paths(value.0, cache)
         }
-
+        #[doc(hidden)]
+        #[no_coverage]
         fn crossover_mutate<'a>(
             &self,
             value: <Tuple1<T0> as RefTypes>::Mut<'a>,
@@ -640,8 +663,35 @@ mod tuple1 {
             subvalue_provider: &dyn crate::SubValueProvider,
             max_cplx: f64,
         ) -> (Self::UnmutateToken, f64) {
-            self.mutator_0
-                .crossover_mutate(value.0, cache, subvalue_provider, max_cplx)
+            if self.rng.bool() {
+                if let Some((subvalue, subcache)) = subvalue_provider
+                    .get_subvalue(TypeId::of::<T0>())
+                    .and_then(
+                        #[no_coverage]
+                        |x| x.downcast_ref::<T0>(),
+                    )
+                    .and_then(
+                        #[no_coverage]
+                        |v| {
+                            self.mutator_0.validate_value(&v).map(
+                                #[no_coverage]
+                                |c| (v, c),
+                            )
+                        },
+                    )
+                {
+                    let cplx = self.mutator_0.complexity(&subvalue, &subcache);
+                    if cplx < max_cplx {
+                        let mut swapped = subvalue.clone();
+                        std::mem::swap(value.0, &mut swapped);
+                        return (UnmutateTuple1Token::Replace(swapped), cplx);
+                    }
+                }
+            }
+            let (token, cplx) = self
+                .mutator_0
+                .crossover_mutate(value.0, cache, subvalue_provider, max_cplx);
+            (UnmutateTuple1Token::Inner(token), cplx)
         }
     }
     impl<T0> crate::mutators::DefaultMutator for (T0,)
@@ -662,6 +712,40 @@ mod tuple2 {
     extern crate self as fuzzcheck;
     fuzzcheck_mutators_derive::make_basic_tuple_mutator!(2);
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{mutators::vector::vec_mutation::RevertVectorMutation, CrossoverSubValueProvider, DefaultMutator};
+
+    #[test]
+    fn test_tuple_2() {
+        let m = <Vec<Option<bool>>>::default_mutator();
+        let mut value = vec![Some(true), None];
+        let mut cache = m.validate_value(&value).unwrap();
+        let cloned_v = value.clone();
+        let mut other_v = vec![None, Some(false), None];
+
+        let mut other_c = m.validate_value(&other_v).unwrap();
+        let mut paths = m.all_paths(&other_v, &other_c);
+
+        let mut subvalue_provider = CrossoverSubValueProvider::from(&m, &other_v, &other_c, &paths);
+        for _ in 0..200000 {
+            let (token, _) = m.crossover_mutate(&mut value, &mut cache, &subvalue_provider, 1000.);
+
+            // if fastrand::u8(..10) == 0 {
+            other_v = value.clone();
+            other_c = m.validate_value(&value).unwrap();
+            paths = m.all_paths(&other_v, &other_c);
+            subvalue_provider = CrossoverSubValueProvider::from(&m, &other_v, &other_c, &paths);
+            // }
+
+            m.unmutate(&mut value, &mut cache, token);
+            assert_eq!(value, cloned_v);
+        }
+    }
+}
+
 // pub use tuple3::{Tuple3, Tuple3Mutator};
 // mod tuple3 {
 //     extern crate self as fuzzcheck;

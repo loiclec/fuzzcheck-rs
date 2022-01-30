@@ -323,7 +323,13 @@ mod tests {
 
     #[no_coverage]
     fn run(pool: &mut MostNDiversePool, observations: Vec<usize>, cplx: f64) {
-        let observations = observations.iter().map(|x| (*x, 1u64)).collect::<Vec<_>>();
+        let observations = observations
+            .iter()
+            .map(
+                #[no_coverage]
+                |x| (*x, 1u64),
+            )
+            .collect::<Vec<_>>();
         let corpus = pool.process(PoolStorageIndex::mock(0), &observations, cplx);
 
         if !corpus.is_empty() {

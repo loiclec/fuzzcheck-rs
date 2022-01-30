@@ -852,25 +852,6 @@ impl ExpandedExpression {
     }
 }
 
-// impl FunctionRecord {
-//     #[no_coverage]
-//     pub fn filter_trivial_expressions(&mut self) -> Vec<(usize, MappingRegion)> {
-//         // filtered represent all the (unique) expressions that consist of only one positive term
-//         // that term is necessarily a reference to one of the “physical” counters in __llvm_prf_cnts
-//         let filtered = self
-//             .expressions
-//             .drain_filter(|(e, _)| e.add_terms.len() <= 1 && e.sub_terms.is_empty())
-//             .filter_map(|(e, mapping_region)| {
-//                 e.add_terms.get(0).map(
-//                     #[no_coverage]
-//                     |c| (*c, mapping_region),
-//                 )
-//             })
-//             .collect::<Vec<_>>();
-//         filtered
-//     }
-// }
-
 pub struct OptimisedExpandedExpression {
     add_terms: Vec<*const u64>,
     sub_terms: Vec<*const u64>,

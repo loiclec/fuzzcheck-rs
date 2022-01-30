@@ -8,7 +8,7 @@ use super::remove;
 use super::remove_and_insert_element;
 use super::swap_elements;
 use super::VecMutator;
-use crate::mutators::mutations::{Mutation, RevertMutation};
+use crate::mutators::mutations::{Mutation, NoMutation, RevertMutation};
 use crate::mutators::vose_alias::VoseAlias;
 use crate::Mutator;
 
@@ -307,6 +307,7 @@ macro_rules! impl_vec_mutation {
 }
 
 impl_vec_mutation! {
+    (NoMutation, NoMutation),
     (CopyElement, copy_element::CopyElement),
     (Remove, remove::Remove),
     (MutateElement, mutate_element::MutateElement),

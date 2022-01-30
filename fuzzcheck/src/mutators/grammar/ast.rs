@@ -165,7 +165,10 @@ impl<'de> Deserialize<'de> for AST {
     where
         D: serde::Deserializer<'de>,
     {
-        let ast = <(String, __AST)>::deserialize(deserializer).map(|x| x.1)?;
+        let ast = <(String, __AST)>::deserialize(deserializer).map(
+            #[no_coverage]
+            |x| x.1,
+        )?;
         Ok(unsafe { std::mem::transmute::<__AST, AST>(ast) })
     }
 }

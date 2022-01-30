@@ -83,10 +83,13 @@ impl CodeCoverageSensor {
                             id: idx,
                             regions: regions
                                 .iter()
-                                .map(|region| Region {
-                                    lines: (region.line_start, region.line_end),
-                                    cols: (region.col_start, region.col_end),
-                                })
+                                .map(
+                                    #[no_coverage]
+                                    |region| Region {
+                                        lines: (region.line_start, region.line_end),
+                                        cols: (region.col_start, region.col_end),
+                                    },
+                                )
                                 .collect(),
                         };
                         counters_by_file.entry(file).or_default().push(counter);
@@ -96,19 +99,28 @@ impl CodeCoverageSensor {
                     let inferred_counters = f_record
                         .inferred_expressions
                         .iter()
-                        .map(|(regions, from_expr_idxs)| InferredCounter {
-                            regions: regions
-                                .iter()
-                                .map(|region| Region {
-                                    lines: (region.line_start, region.line_end),
-                                    cols: (region.col_start, region.col_end),
-                                })
-                                .collect(),
-                            from_counter_ids: from_expr_idxs
-                                .iter()
-                                .map(|idx| expression_idx_to_counter_idx[idx])
-                                .collect(),
-                        })
+                        .map(
+                            #[no_coverage]
+                            |(regions, from_expr_idxs)| InferredCounter {
+                                regions: regions
+                                    .iter()
+                                    .map(
+                                        #[no_coverage]
+                                        |region| Region {
+                                            lines: (region.line_start, region.line_end),
+                                            cols: (region.col_start, region.col_end),
+                                        },
+                                    )
+                                    .collect(),
+                                from_counter_ids: from_expr_idxs
+                                    .iter()
+                                    .map(
+                                        #[no_coverage]
+                                        |idx| expression_idx_to_counter_idx[idx],
+                                    )
+                                    .collect(),
+                            },
+                        )
                         .collect::<Vec<_>>();
                     Function {
                         name,

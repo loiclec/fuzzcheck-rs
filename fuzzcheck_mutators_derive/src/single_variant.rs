@@ -356,7 +356,7 @@ pub fn make_single_variant_mutator(tb: &mut TokenBuilder, enu: &Enum) {
                     let subr = m.all_paths(" item_pattern_match_bindings_to_tuple(&item.ident, true) ", cache);
                     let mut r: " cm.HashMap "<" cm.TypeId ", " cm.Vec "<Self::LensPath>> = <_>::default();
                     for (typeid, paths) in subr {
-                        r.insert(typeid, paths.into_iter().map(|p| {"
+                        r.insert(typeid, paths.into_iter().map(#[no_coverage] |p| {"
                             EnumSingleVariant "::" item.ident "(p)
                         }).collect());
                     }
@@ -366,6 +366,8 @@ pub fn make_single_variant_mutator(tb: &mut TokenBuilder, enu: &Enum) {
             )" _ => unreachable!()
             }
         }
+        #[doc(hidden)]
+        #[no_coverage]
         fn crossover_mutate<'a>(
             &self,
             value: &mut " enu.ident enum_generics_no_bounds ", 

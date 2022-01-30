@@ -649,6 +649,8 @@ fn impl_mutator_trait(tb: &mut TokenBuilder, nbr_elements: usize) {
             r
         }
 
+        #[doc(hidden)]
+        #[no_coverage]
         fn crossover_mutate<'a>(
             &self,
             value: " tuple_mut ",
@@ -676,7 +678,7 @@ fn impl_mutator_trait(tb: &mut TokenBuilder, nbr_elements: usize) {
                     // 4. replace it
                     "
                     if self.rng.bool() {
-                        if let Some(subvalue) = subvalue_provider.get_subvalue(" cm.TypeId "::of::<" Ti(i) ">()).and_then(|x| x.downcast_ref::<" Ti(i) ">()) {"
+                        if let Some(subvalue) = subvalue_provider.get_subvalue(" cm.TypeId "::of::<" Ti(i) ">()).and_then(#[no_coverage] |x| x.downcast_ref::<" Ti(i) ">()) {"
                             // check that the subvalue is valid and that it fits the complexity budget
                             "
                             if let Some(subcache) = self." mutator_i(i) ".validate_value(subvalue) {

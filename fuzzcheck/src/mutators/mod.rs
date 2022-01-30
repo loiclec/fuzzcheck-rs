@@ -54,7 +54,7 @@ pub mod map;
 pub mod mutations;
 // pub mod never;
 pub mod option;
-// pub mod range;
+pub mod range;
 // pub mod rc;
 pub mod recursive;
 // pub mod result;

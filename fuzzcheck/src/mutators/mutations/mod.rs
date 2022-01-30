@@ -49,3 +49,65 @@ where
 {
     fn revert(self, mutator: &M, value: &mut Value, cache: &mut M::Cache);
 }
+
+pub struct NoMutation;
+impl<Value, M> RevertMutation<Value, M> for NoMutation
+where
+    Value: Clone + 'static,
+    M: Mutator<Value>,
+{
+    fn revert(self, _mutator: &M, _value: &mut Value, _cache: &mut M::Cache) {}
+}
+impl<Value, M> Mutation<Value, M> for NoMutation
+where
+    Value: Clone + 'static,
+    M: Mutator<Value>,
+{
+    type RandomStep = ();
+    type Step = ();
+    type Concrete<'a>
+    where
+        M: 'a,
+        Value: 'a,
+    = ();
+
+    type Revert = NoMutation;
+
+    fn default_random_step(&self, _mutator: &M, _value: &Value) -> Option<Self::RandomStep> {
+        None
+    }
+
+    fn random<'a>(
+        _mutator: &M,
+        _value: &Value,
+        _cache: &M::Cache,
+        _random_step: &Self::RandomStep,
+        _max_cplx: f64,
+    ) -> Self::Concrete<'a> {
+        ()
+    }
+
+    fn default_step(&self, _mutator: &M, _value: &Value, _cache: &M::Cache) -> Option<Self::Step> {
+        None
+    }
+
+    fn from_step<'a>(
+        _mutator: &M,
+        _value: &Value,
+        _cache: &M::Cache,
+        _step: &'a mut Self::Step,
+        _max_cplx: f64,
+    ) -> Option<Self::Concrete<'a>> {
+        None
+    }
+
+    fn apply<'a>(
+        _mutation: Self::Concrete<'a>,
+        mutator: &M,
+        value: &mut Value,
+        cache: &mut M::Cache,
+        _max_cplx: f64,
+    ) -> (Self::Revert, f64) {
+        (NoMutation, mutator.complexity(value, cache))
+    }
+}

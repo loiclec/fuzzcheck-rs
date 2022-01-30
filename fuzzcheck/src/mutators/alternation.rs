@@ -411,10 +411,10 @@ where
             let mutator = &self.mutators[mutator_idx];
             let subpaths = mutator.all_paths(value, &cache.inner);
             for (type_id, subpaths) in subpaths {
-                result
-                    .entry(type_id)
-                    .or_default()
-                    .extend(subpaths.into_iter().map(|p| (cache_idx, p)));
+                result.entry(type_id).or_default().extend(subpaths.into_iter().map(
+                    #[no_coverage]
+                    |p| (cache_idx, p),
+                ));
             }
         }
         result

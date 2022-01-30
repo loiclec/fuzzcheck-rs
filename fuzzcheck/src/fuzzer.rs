@@ -59,6 +59,7 @@ pub struct PoolStorageIndex(usize);
 
 // #[cfg(test)]
 impl PoolStorageIndex {
+    #[no_coverage] 
     pub fn mock(idx: usize) -> Self {
         Self(idx)
     }
@@ -98,6 +99,7 @@ struct FuzzerState<T: Clone, M: Mutator<T>> {
 }
 
 impl<T: Clone, M: Mutator<T>> Drop for FuzzerState<T, M> {
+    #[no_coverage] 
     fn drop(&mut self) {
         unsafe { crate::signals_handler::reset_signal_handlers() };
     }
@@ -348,7 +350,7 @@ where
                 // but because of the way mutators work (real possibility of
                 // inconsistent complexities), then its complexity may be higher
                 // than the maximum allowed one
-                let lens_paths = mutator.all_paths(&input.value, &input.cache);
+                let lens_paths = mutator.all_paths(&new_input.value, &new_input.cache);
                 let stored_new_input = StoredFuzzedInput {
                     input: new_input,
                     lens_paths,
@@ -376,7 +378,7 @@ where
     ) -> (&'a mut FuzzedInput<T, M>, impl SubValueProvider + 'a) {
         let idx_cross = sensor_and_pool.get_random_index().unwrap();
 
-        if idx == idx_cross || rng.u8(..10) == 0 {
+        if idx == idx_cross || rng.u8(..5) == 0 {
             let input = &mut pool_storage[idx.0];
             let cloned_input = storage_for_cloned_input.write((input.input.value.clone(), input.input.cache.clone()));
             let StoredFuzzedInput { input, lens_paths } = &mut pool_storage[idx.0];
@@ -439,7 +441,10 @@ where
                 }
 
                 // Retrieving the input may fail because the input may have been deleted
-                if let Some(input) = self.state.pool_storage.get_mut(idx.0).map(|x| &mut x.input) {
+                if let Some(input) = self.state.pool_storage.get_mut(idx.0).map(
+                    #[no_coverage]
+                    |x| &mut x.input,
+                ) {
                     if input.generation == generation {
                         input.unmutate(&self.state.mutator, unmutate);
                     }
@@ -456,7 +461,10 @@ where
                     }
 
                     // Retrieving the input may fail because the input may have been deleted
-                    if let Some(input) = self.state.pool_storage.get_mut(idx.0).map(|x| &mut x.input) {
+                    if let Some(input) = self.state.pool_storage.get_mut(idx.0).map(
+                        #[no_coverage]
+                        |x| &mut x.input,
+                    ) {
                         if input.generation == generation {
                             input.unmutate(&self.state.mutator, unmutate_token);
                         }

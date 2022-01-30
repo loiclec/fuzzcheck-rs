@@ -140,7 +140,7 @@ impl<M: Mutator<T>, T: Clone + 'static, const N: usize> ArrayMutator<M, T, N> {
         let mut sum_cplx = 0.0;
         let mut remaining_cplx = target_cplx;
         let mut remaining_min_complexity = self.min_complexity();
-        for i in 0 .. N {
+        for i in 0..N {
             let mut max_cplx_element = (remaining_cplx / ((self.len() - i) as f64)) - remaining_min_complexity;
             let min_cplx_el = self.mutator.min_complexity();
             if min_cplx_el >= max_cplx_element {
@@ -333,8 +333,11 @@ impl<M: Mutator<T>, T: Clone + 'static, const N: usize> Mutator<[T; N]> for Arra
         }
     }
 
+    #[doc(hidden)]
     type LensPath = (usize, Option<M::LensPath>);
 
+    #[doc(hidden)]
+    #[no_coverage]
     fn lens<'a>(&self, value: &'a [T; N], cache: &'a Self::Cache, path: &Self::LensPath) -> &'a dyn std::any::Any {
         let el = &value[path.0];
 
@@ -346,6 +349,8 @@ impl<M: Mutator<T>, T: Clone + 'static, const N: usize> Mutator<[T; N]> for Arra
         }
     }
 
+    #[doc(hidden)]
+    #[no_coverage]
     fn all_paths(&self, value: &[T; N], cache: &Self::Cache) -> HashMap<TypeId, Vec<Self::LensPath>> {
         let mut r = HashMap::<TypeId, Vec<Self::LensPath>>::default();
         if !value.is_empty() {
@@ -356,15 +361,18 @@ impl<M: Mutator<T>, T: Clone + 'static, const N: usize> Mutator<[T; N]> for Arra
             for (idx, (el, el_cache)) in value.iter().zip(cache.inner.iter()).enumerate() {
                 let subpaths = self.mutator.all_paths(el, el_cache);
                 for (typeid, subpaths) in subpaths {
-                    r.entry(typeid)
-                        .or_default()
-                        .extend(subpaths.into_iter().map(|p| (idx, Some(p))));
+                    r.entry(typeid).or_default().extend(subpaths.into_iter().map(
+                        #[no_coverage]
+                        |p| (idx, Some(p)),
+                    ));
                 }
             }
         }
         r
     }
 
+    #[doc(hidden)]
+    #[no_coverage]
     fn crossover_mutate(
         &self,
         value: &mut [T; N],
@@ -372,7 +380,19 @@ impl<M: Mutator<T>, T: Clone + 'static, const N: usize> Mutator<[T; N]> for Arra
         subvalue_provider: &dyn crate::SubValueProvider,
         max_cplx: f64,
     ) -> (Self::UnmutateToken, f64) {
-        todo!()
+        let cplx_before = self.complexity(value, cache);
+
+        let idx = self.rng.usize(..value.len());
+        let (el, el_cache) = (&mut value[idx], &mut cache.inner[idx]);
+        let el_cplx = self.mutator.complexity(el, el_cache);
+        let max_el_cplx = max_cplx - (cplx_before - el_cplx);
+        let (unmutate, new_el_cplx) =
+            self.mutator
+                .crossover_mutate(&mut value[idx], &mut cache.inner[idx], subvalue_provider, max_el_cplx);
+
+        let token = UnmutateArrayToken::Element(idx, unmutate);
+
+        (token, cache.sum_cplx - el_cplx + new_el_cplx)
     }
 }
 

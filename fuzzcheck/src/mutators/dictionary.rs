@@ -21,14 +21,17 @@ impl<T: Clone, M: Mutator<T>> DictionaryMutator<T, M> {
     pub fn new(value_mutator: M, dictionary: impl IntoIterator<Item = T>) -> Self {
         let dictionary = dictionary
             .into_iter()
-            .filter_map(|v| {
-                if let Some(cache) = value_mutator.validate_value(&v) {
-                    let complexity = value_mutator.complexity(&v, &cache);
-                    Some((v, complexity))
-                } else {
-                    None
-                }
-            })
+            .filter_map(
+                #[no_coverage]
+                |v| {
+                    if let Some(cache) = value_mutator.validate_value(&v) {
+                        let complexity = value_mutator.complexity(&v, &cache);
+                        Some((v, complexity))
+                    } else {
+                        None
+                    }
+                },
+            )
             .collect();
         Self {
             m: value_mutator,

@@ -83,8 +83,15 @@ pub struct Slab<T> {
 }
 
 impl<T: Debug> Debug for Slab<T> {
+    #[no_coverage]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let storage = self.keys().map(|k| &self[k]).collect::<Vec<_>>();
+        let storage = self
+            .keys()
+            .map(
+                #[no_coverage]
+                |k| &self[k],
+            )
+            .collect::<Vec<_>>();
         f.debug_struct("Slab")
             .field("storage", &storage)
             .field("available_slots", &self.available_slots.len())
@@ -205,8 +212,15 @@ pub struct RcSlab<T> {
 }
 
 impl<T: Debug> Debug for RcSlab<T> {
+    #[no_coverage]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let storage = self.keys().map(|k| &self[k]).collect::<Vec<_>>();
+        let storage = self
+            .keys()
+            .map(
+                #[no_coverage]
+                |k| &self[k],
+            )
+            .collect::<Vec<_>>();
         f.debug_struct("Slab")
             .field("storage", &storage)
             .field("available_slots", &self.available_slots.len())

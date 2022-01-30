@@ -702,7 +702,13 @@ mod tests {
                     fastrand::usize(0..new_counters.len())
                 };
                 let new_counters_1: Vec<_> = {
-                    let mut fs = new_counters.iter().map(|&&f| f).collect::<Vec<_>>();
+                    let mut fs = new_counters
+                        .iter()
+                        .map(
+                            #[no_coverage]
+                            |&&f| f,
+                        )
+                        .collect::<Vec<_>>();
 
                     fastrand::shuffle(&mut fs);
                     fs[0..nbr_new_counters].to_vec()
@@ -733,7 +739,10 @@ mod tests {
                     let idx = fastrand::usize(0..existing_counters_1.len());
                     let fs = existing_counters_1
                         .iter()
-                        .map(|&f_key| pool.analysed_counters[&f_key].least_complexity)
+                        .map(
+                            #[no_coverage]
+                            |&f_key| pool.analysed_counters[&f_key].least_complexity,
+                        )
                         .collect::<Vec<_>>();
                     fs[idx]
                 } else {

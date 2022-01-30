@@ -12,6 +12,8 @@ use std::ops::RangeInclusive;
 use self::insert_many_elements::{insert_many, RevertInsertManyElements};
 use self::vec_mutation::{RevertVectorMutation, VectorMutation, VectorMutationRandomStep, VectorMutationStep};
 
+use super::mutations::NoMutation;
+
 pub mod arbitrary;
 pub mod copy_element;
 pub mod insert_element;
@@ -292,15 +294,18 @@ where
             for (idx, (el, el_cache)) in value.iter().zip(cache.inner.iter()).enumerate() {
                 let subpaths = self.m.all_paths(el, el_cache);
                 for (typeid, subpaths) in subpaths {
-                    r.entry(typeid)
-                        .or_default()
-                        .extend(subpaths.into_iter().map(|p| (idx, Some(p))));
+                    r.entry(typeid).or_default().extend(subpaths.into_iter().map(
+                        #[no_coverage]
+                        |p| (idx, Some(p)),
+                    ));
                 }
             }
         }
         r
     }
 
+    #[doc(hidden)]
+    #[no_coverage]
     fn crossover_mutate(
         &self,
         value: &mut Vec<T>,
@@ -311,8 +316,8 @@ where
         let cplx_before = self.complexity(value, cache);
         let len_before = value.len();
 
-        // half the time we try to get a slice
-        let slice = if !value.is_empty() && *self.len_range.end() > value.len() && self.rng.bool() {
+        // 1/5 of the time we try to get a slice
+        let slice = if !value.is_empty() && *self.len_range.end() > value.len() && self.rng.u8(..5) == 0 {
             // try and get a Vec<T> from the crossover value and slice it
             if let Some(crossover_value) = subvalue_provider.get_subvalue(TypeId::of::<Vec<T>>()).and_then(
                 #[no_coverage]
@@ -333,7 +338,6 @@ where
         if let Some(slice) = slice {
             let start_index = self.rng.usize(..value.len());
             let mut sum_cplx = cache.sum_cplx;
-            let mut sum_crossover_cplx = 0.0;
             let mut slice_to_add = vec![];
             for el in slice {
                 if value.len() == *self.len_range.end() {
@@ -342,39 +346,47 @@ where
                 if let Some(el_cache) = self.m.validate_value(el) {
                     let el_cplx = self.m.complexity(el, &el_cache);
                     let next_cplx = self.complexity_from_inner(cache.sum_cplx + el_cplx, value.len() + 1);
-                    let next_crossover_cplx = sum_crossover_cplx + el_cplx;
                     if next_cplx > max_cplx {
                         break;
                     }
                     slice_to_add.push(el.clone());
                     sum_cplx += el_cplx;
-                    sum_crossover_cplx += el_cplx;
                 } else {
                     continue;
                 }
             }
-
+            let length_added = slice_to_add.len();
+            insert_many(value, start_index, slice_to_add.into_iter());
             let token = RevertVectorMutation::InsertManyElements(RevertInsertManyElements {
-                idcs: start_index..start_index + slice_to_add.len(),
+                idcs: start_index..start_index + length_added,
             });
-            let cplx_after = self.complexity_from_inner(sum_cplx, value.len());
             if len_before != value.len() {
                 return (token, self.complexity_from_inner(sum_cplx, value.len()));
             }
         }
-        // half the remaining time we try to get an element and insert it somewhere, maybe changing the length of the vector or
+        // 1/5 of the remaining time we try to get an element and insert it somewhere, maybe changing the length of the vector or
         // replacing an existing element
-        if self.rng.bool() {
+        if self.rng.u8(..5) == 0 {
             if let Some((el, el_cache)) = subvalue_provider
                 .get_subvalue(TypeId::of::<T>())
-                .and_then(|x| x.downcast_ref::<T>())
-                .and_then(|el| self.m.validate_value(el).map(|c| (el, c)))
+                .and_then(
+                    #[no_coverage]
+                    |x| x.downcast_ref::<T>(),
+                )
+                .and_then(
+                    #[no_coverage]
+                    |el| {
+                        self.m.validate_value(el).map(
+                            #[no_coverage]
+                            |c| (el, c),
+                        )
+                    },
+                )
             {
                 let el_cplx = self.m.complexity(el, &el_cache);
 
                 let next_complexity_if_adding = self.complexity_from_inner(cache.sum_cplx + el_cplx, value.len() + 1);
                 // half the remaining time, try to insert it somewhere
-                // TODO: max_cplx from crossover?
                 if *self.len_range.end() > value.len() && next_complexity_if_adding < max_cplx && self.rng.bool() {
                     let insert_idx = self.rng.usize(..=value.len());
                     value.insert(insert_idx, el.clone());
@@ -382,41 +394,46 @@ where
                     return (token, next_complexity_if_adding);
                 }
                 // otherwise, replace an existing element by the new one
-                let replaced_el_idx = self.rng.usize(..value.len());
-                let (replaced_el, replaced_el_cache) = (&mut value[replaced_el_idx], &cache.inner[replaced_el_idx]);
-                let replaced_el_cplx = self.m.complexity(replaced_el, replaced_el_cache);
-                let next_complexity_if_replacing =
-                    self.complexity_from_inner(cache.sum_cplx - replaced_el_cplx + el_cplx, len_before);
-                if next_complexity_if_replacing < max_cplx {
-                    let mut swapped = el.clone();
-                    std::mem::swap(replaced_el, &mut swapped);
-                    let token = RevertVectorMutation::RemoveAndInsertElement(RevertRemoveAndInsertElement {
-                        remove_at_idx: replaced_el_idx,
-                        insert_at_idx: replaced_el_idx,
-                        insert_el: swapped,
-                    });
-                    return (token, next_complexity_if_replacing);
+                if !value.is_empty() {
+                    let replaced_el_idx = self.rng.usize(..value.len());
+                    let (replaced_el, replaced_el_cache) = (&mut value[replaced_el_idx], &cache.inner[replaced_el_idx]);
+                    let replaced_el_cplx = self.m.complexity(replaced_el, replaced_el_cache);
+                    let next_complexity_if_replacing =
+                        self.complexity_from_inner(cache.sum_cplx - replaced_el_cplx + el_cplx, len_before);
+                    if next_complexity_if_replacing < max_cplx {
+                        let mut swapped = el.clone();
+                        std::mem::swap(replaced_el, &mut swapped);
+                        let token = RevertVectorMutation::RemoveAndInsertElement(RevertRemoveAndInsertElement {
+                            remove_at_idx: replaced_el_idx,
+                            insert_at_idx: replaced_el_idx,
+                            insert_el: swapped,
+                        });
+                        return (token, next_complexity_if_replacing);
+                    }
                 }
             }
         }
+        if !value.is_empty() {
+            let idx = self.rng.usize(..value.len());
+            let (el, el_cache) = (&mut value[idx], &mut cache.inner[idx]);
+            let el_cplx = self.m.complexity(el, el_cache);
+            let max_el_cplx = max_cplx - (cplx_before - el_cplx);
+            let (unmutate, new_el_cplx) =
+                self.m
+                    .crossover_mutate(&mut value[idx], &mut cache.inner[idx], subvalue_provider, max_el_cplx);
 
-        let idx = self.rng.usize(..value.len());
-        let (el, el_cache) = (&mut value[idx], &mut cache.inner[idx]);
-        let el_cplx = self.m.complexity(el, el_cache);
-        let max_el_cplx = max_cplx - (cplx_before - el_cplx);
-        let (unmutate, new_el_cplx) =
-            self.m
-                .crossover_mutate(&mut value[idx], &mut cache.inner[idx], subvalue_provider, max_el_cplx);
+            let token = RevertVectorMutation::MutateElement(RevertMutateElement {
+                idx,
+                unmutate_token: Some(unmutate),
+            });
 
-        let token = RevertVectorMutation::MutateElement(RevertMutateElement {
-            idx,
-            unmutate_token: Some(unmutate),
-        });
+            return (
+                token,
+                self.complexity_from_inner(cache.sum_cplx - el_cplx + new_el_cplx, value.len()),
+            );
+        }
 
-        (
-            token,
-            self.complexity_from_inner(cache.sum_cplx - el_cplx + new_el_cplx, value.len()),
-        )
+        (Self::UnmutateToken::NoMutation(NoMutation), cplx_before)
     }
 }
 
