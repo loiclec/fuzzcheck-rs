@@ -244,7 +244,10 @@ where
         let upperbound_max_len = std::cmp::min(*len_range.end(), (max_cplx / self.m.min_complexity()).ceil() as usize);
         let target_len = self.rng.usize(0..=upperbound_max_len);
 
-        self.new_input_with_length_and_complexity(*self.len_range.start(), target_len, target_cplx)
+        let (v, inner_cplx) =
+            self.new_input_with_length_and_complexity(*self.len_range.start(), target_len, target_cplx);
+        let cplx = self.complexity_from_inner(inner_cplx, v.len());
+        (v, cplx)
     }
     #[doc(hidden)]
     #[no_coverage]

@@ -158,7 +158,7 @@ impl<T: Clone + 'static, M: Mutator<T>> FixedLenVecMutator<T, M> {
             remaining_cplx -= x_cplx;
             remaining_min_complexity -= mutator.min_complexity();
         }
-        (v, self.min_complexity + sum_cplx)
+        (v, sum_cplx)
     }
 }
 
