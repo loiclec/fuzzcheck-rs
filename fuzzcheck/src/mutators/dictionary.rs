@@ -99,6 +99,24 @@ impl<T: Clone + 'static, M: Mutator<T>> Mutator<T> for DictionaryMutator<T, M> {
 
     #[doc(hidden)]
     #[no_coverage]
+    fn max_complexity(&self) -> f64 {
+        self.m.max_complexity()
+    }
+
+    #[doc(hidden)]
+    #[no_coverage]
+    fn min_complexity(&self) -> f64 {
+        self.m.min_complexity()
+    }
+
+    #[doc(hidden)]
+    #[no_coverage]
+    fn complexity(&self, value: &T, cache: &Self::Cache) -> f64 {
+        self.m.complexity(value, cache)
+    }
+
+    #[doc(hidden)]
+    #[no_coverage]
     fn ordered_arbitrary(&self, step: &mut Self::ArbitraryStep, max_cplx: f64) -> Option<(T, f64)> {
         match step {
             ArbitraryStep::Dictionary(inner_step) => {
@@ -129,24 +147,6 @@ impl<T: Clone + 'static, M: Mutator<T>> Mutator<T> for DictionaryMutator<T, M> {
             self.m.random_arbitrary(max_cplx)
         };
         (v, c)
-    }
-
-    #[doc(hidden)]
-    #[no_coverage]
-    fn max_complexity(&self) -> f64 {
-        self.m.max_complexity()
-    }
-
-    #[doc(hidden)]
-    #[no_coverage]
-    fn min_complexity(&self) -> f64 {
-        self.m.min_complexity()
-    }
-
-    #[doc(hidden)]
-    #[no_coverage]
-    fn complexity(&self, value: &T, cache: &Self::Cache) -> f64 {
-        self.m.complexity(value, cache)
     }
 
     #[doc(hidden)]
@@ -210,12 +210,9 @@ impl<T: Clone + 'static, M: Mutator<T>> Mutator<T> for DictionaryMutator<T, M> {
 
     #[doc(hidden)]
     #[no_coverage]
-    fn all_paths(
-        &self,
-        value: &T,
-        cache: &Self::Cache,
-    ) -> std::collections::HashMap<std::any::TypeId, Vec<Self::LensPath>> {
-        self.m.all_paths(value, cache)
+    fn all_paths(&self, value: &T, cache: &Self::Cache, register_path: &mut dyn FnMut(std::any::TypeId, Self::LensPath))
+    {
+        self.m.all_paths(value, cache, register_path)
     }
 
     #[doc(hidden)]

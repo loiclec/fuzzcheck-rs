@@ -1,4 +1,4 @@
-use std::{any::TypeId, collections::HashMap};
+use std::any::TypeId;
 
 use crate::Mutator;
 
@@ -178,30 +178,32 @@ where
             _ => unreachable!(),
         }
     }
+
     #[doc(hidden)]
     #[inline]
     #[no_coverage]
-    fn all_paths(&self, value: &T, cache: &Self::Cache) -> HashMap<TypeId, Vec<Self::LensPath>> {
+    fn all_paths(&self, value: &T, cache: &Self::Cache, register_path: &mut dyn FnMut(TypeId, Self::LensPath)) {
         match (self, cache) {
             (Either::Left(m), Either::Left(cache)) => {
-                let mut r: HashMap<TypeId, Vec<Self::LensPath>> = <_>::default();
-                let paths = m.all_paths(value, cache);
-                for (key, paths) in paths {
-                    r.entry(key).or_default().extend(paths.into_iter().map(Either::Left));
-                }
-                r
+                m.all_paths(
+                    value,
+                    cache,
+                    #[no_coverage]
+                    &mut |typeid, path| register_path(typeid, Either::Left(path)),
+                );
             }
             (Either::Right(m), Either::Right(cache)) => {
-                let mut r: HashMap<TypeId, Vec<Self::LensPath>> = <_>::default();
-                let paths = m.all_paths(value, cache);
-                for (key, paths) in paths {
-                    r.entry(key).or_default().extend(paths.into_iter().map(Either::Right));
-                }
-                r
+                m.all_paths(
+                    value,
+                    cache,
+                    #[no_coverage]
+                    &mut |typeid, path| register_path(typeid, Either::Right(path)),
+                );
             }
             _ => unreachable!(),
         }
     }
+
     #[doc(hidden)]
     #[inline]
     #[no_coverage]

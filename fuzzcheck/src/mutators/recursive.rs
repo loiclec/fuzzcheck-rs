@@ -49,6 +49,7 @@
 use crate::Mutator;
 use std::{
     any::Any,
+    any::TypeId,
     fmt::Debug,
     rc::{Rc, Weak},
 };
@@ -253,12 +254,9 @@ where
 
     #[doc(hidden)]
     #[no_coverage]
-    fn all_paths(
-        &self,
-        value: &T,
-        cache: &Self::Cache,
-    ) -> std::collections::HashMap<std::any::TypeId, Vec<Self::LensPath>> {
-        self.reference.upgrade().unwrap().all_paths(value, cache)
+    fn all_paths(&self, value: &T, cache: &Self::Cache, register_path: &mut dyn FnMut(TypeId, Self::LensPath))
+    {
+        self.reference.upgrade().unwrap().all_paths(value, cache, register_path)
     }
 
     #[doc(hidden)]
@@ -383,20 +381,20 @@ where
         }
     }
 
+    #[doc(hidden)]
     type LensPath = <M as Mutator<T>>::LensPath;
 
+    #[doc(hidden)]
+    #[no_coverage]
     fn lens<'a>(&self, value: &'a T, cache: &'a Self::Cache, path: &Self::LensPath) -> &'a dyn Any {
         self.mutator.lens(value, cache, path)
     }
 
     #[doc(hidden)]
     #[no_coverage]
-    fn all_paths(
-        &self,
-        value: &T,
-        cache: &Self::Cache,
-    ) -> std::collections::HashMap<std::any::TypeId, Vec<Self::LensPath>> {
-        self.mutator.all_paths(value, cache)
+    fn all_paths(&self, value: &T, cache: &Self::Cache, register_path: &mut dyn FnMut(TypeId, Self::LensPath))
+    {
+        self.mutator.all_paths(value, cache, register_path)
     }
 
     #[doc(hidden)]

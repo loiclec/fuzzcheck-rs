@@ -2,7 +2,6 @@ use crate::{Mutator, SubValueProvider};
 use std::{
     any::{Any, TypeId},
     cmp::Ordering,
-    collections::HashMap,
     marker::PhantomData,
 };
 
@@ -404,20 +403,17 @@ where
 
     #[doc(hidden)]
     #[no_coverage]
-    fn all_paths(&self, value: &T, cache: &Self::Cache) -> HashMap<TypeId, Vec<Self::LensPath>> {
-        let mut result: HashMap<TypeId, Vec<Self::LensPath>> = HashMap::default();
+    fn all_paths(&self, value: &T, cache: &Self::Cache, register_path: &mut dyn FnMut(TypeId, Self::LensPath)) {
         for (cache_idx, cache) in cache.iter().enumerate() {
             let mutator_idx = cache.mutator_idx;
             let mutator = &self.mutators[mutator_idx];
-            let subpaths = mutator.all_paths(value, &cache.inner);
-            for (type_id, subpaths) in subpaths {
-                result.entry(type_id).or_default().extend(subpaths.into_iter().map(
-                    #[no_coverage]
-                    |p| (cache_idx, p),
-                ));
-            }
+            mutator.all_paths(
+                value,
+                &cache.inner,
+                #[no_coverage]
+                &mut |typeid, path| register_path(typeid, (cache_idx, path)),
+            );
         }
-        result
     }
 
     fn crossover_mutate(

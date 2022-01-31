@@ -138,12 +138,9 @@ impl<T: Clone + 'static, M: Mutator<T>> Mutator<Arc<T>> for ArcMutator<M> {
 
     #[doc(hidden)]
     #[no_coverage]
-    fn all_paths(
-        &self,
-        value: &Arc<T>,
-        cache: &Self::Cache,
-    ) -> std::collections::HashMap<std::any::TypeId, Vec<Self::LensPath>> {
-        self.mutator.all_paths(value, cache)
+    fn all_paths(&self, value: &Arc<T>, cache: &Self::Cache, register_path: &mut dyn FnMut(TypeId, Self::LensPath))
+    {
+        self.mutator.all_paths(value, cache, register_path)
     }
 
     #[doc(hidden)]

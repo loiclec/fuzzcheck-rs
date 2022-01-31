@@ -136,8 +136,9 @@ where
         &self,
         value: &T,
         cache: &Self::Cache,
-    ) -> std::collections::HashMap<std::any::TypeId, Vec<Self::LensPath>> {
-        self.mutator.all_paths(value, cache)
+        register_path: &mut dyn FnMut(std::any::TypeId, Self::LensPath),
+    ) {
+        self.mutator.all_paths(value, cache, register_path)
     }
 
     #[doc(hidden)]

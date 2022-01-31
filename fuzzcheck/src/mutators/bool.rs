@@ -1,5 +1,6 @@
 use crate::DefaultMutator;
 use crate::Mutator;
+use std::any::TypeId;
 
 /// Default mutator for `bool`
 #[derive(Default)]
@@ -139,12 +140,8 @@ impl Mutator<bool> for BoolMutator {
 
     #[doc(hidden)]
     #[no_coverage]
-    fn all_paths(
-        &self,
-        _value: &bool,
-        _cache: &Self::Cache,
-    ) -> std::collections::HashMap<std::any::TypeId, Vec<Self::LensPath>> {
-        <_>::default()
+    fn all_paths(&self, _value: &bool, _cache: &Self::Cache, _register_path: &mut dyn FnMut(TypeId, Self::LensPath))
+    {
     }
 
     #[doc(hidden)]

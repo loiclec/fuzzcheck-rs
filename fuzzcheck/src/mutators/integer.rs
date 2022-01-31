@@ -278,8 +278,8 @@ macro_rules! impl_int_mutator {
                 &self,
                 _value: &$name,
                 _cache: &Self::Cache,
-            ) -> std::collections::HashMap<std::any::TypeId, Vec<Self::LensPath>> {
-                <_>::default()
+                _register_path: &mut dyn FnMut(std::any::TypeId, Self::LensPath),
+            ) {
             }
 
             fn crossover_mutate(

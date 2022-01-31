@@ -1,14 +1,7 @@
-use std::{any::TypeId, collections::HashMap, marker::PhantomData};
+use std::{any::TypeId, marker::PhantomData};
 
 use crate::Mutator;
 use fastrand::Rng;
-
-#[doc(hidden)]
-#[derive(Clone)]
-pub struct RecursingPartIndex<RPI> {
-    inner: Vec<RPI>,
-    indices: Vec<usize>,
-}
 
 /// A mutator for vectors of a specific length
 ///
@@ -365,12 +358,12 @@ impl<T: Clone + 'static, M: Mutator<T>> Mutator<Vec<T>> for FixedLenVecMutator<T
 
     #[doc(hidden)]
     #[no_coverage]
-    fn all_paths(&self, value: &Vec<T>, cache: &Self::Cache) -> HashMap<TypeId, Vec<Self::LensPath>> {
-        let mut r = HashMap::<TypeId, Vec<Self::LensPath>>::default();
+    fn all_paths(&self, value: &Vec<T>, cache: &Self::Cache, register_path: &mut dyn FnMut(TypeId, Self::LensPath))
+    {
         if !value.is_empty() {
-            let t_entry = r.entry(TypeId::of::<T>()).or_default();
+            let typeid = TypeId::of::<T>();
             for idx in 0..value.len() {
-                t_entry.push((idx, None));
+                register_path(typeid, (idx, None));
             }
             for (idx, ((el, el_cache), mutator)) in value
                 .iter()
@@ -378,16 +371,14 @@ impl<T: Clone + 'static, M: Mutator<T>> Mutator<Vec<T>> for FixedLenVecMutator<T
                 .zip(self.mutators.iter())
                 .enumerate()
             {
-                let subpaths = mutator.all_paths(el, el_cache);
-                for (typeid, subpaths) in subpaths {
-                    r.entry(typeid).or_default().extend(subpaths.into_iter().map(
-                        #[no_coverage]
-                        |p| (idx, Some(p)),
-                    ));
-                }
+                mutator.all_paths(
+                    el,
+                    el_cache,
+                    #[no_coverage]
+                    &mut |typeid, subpath| register_path(typeid, (idx, Some(subpath))),
+                );
             }
         }
-        r
     }
 
     #[doc(hidden)]

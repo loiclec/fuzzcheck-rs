@@ -1,4 +1,5 @@
 use crate::Mutator;
+use std::any::TypeId;
 
 /// Trait used by the [DefaultMutator derive macro](fuzzcheck_mutators_derive::DefaultMutator)
 /// for enums without associated data
@@ -143,14 +144,9 @@ where
 
     #[doc(hidden)]
     #[no_coverage]
-    fn all_paths(
-        &self,
-        _value: &T,
-        _cache: &Self::Cache,
-    ) -> std::collections::HashMap<std::any::TypeId, Vec<Self::LensPath>> {
-        <_>::default()
+    fn all_paths(&self, _value: &T, _cache: &Self::Cache, _register_path: &mut dyn FnMut(TypeId, Self::LensPath))
+    {
     }
-
     fn crossover_mutate(
         &self,
         value: &mut T,

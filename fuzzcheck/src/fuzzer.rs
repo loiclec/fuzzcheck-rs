@@ -59,7 +59,7 @@ pub struct PoolStorageIndex(usize);
 
 // #[cfg(test)]
 impl PoolStorageIndex {
-    #[no_coverage] 
+    #[no_coverage]
     pub fn mock(idx: usize) -> Self {
         Self(idx)
     }
@@ -99,7 +99,7 @@ struct FuzzerState<T: Clone, M: Mutator<T>> {
 }
 
 impl<T: Clone, M: Mutator<T>> Drop for FuzzerState<T, M> {
-    #[no_coverage] 
+    #[no_coverage]
     fn drop(&mut self) {
         unsafe { crate::signals_handler::reset_signal_handlers() };
     }
@@ -350,7 +350,16 @@ where
                 // but because of the way mutators work (real possibility of
                 // inconsistent complexities), then its complexity may be higher
                 // than the maximum allowed one
-                let lens_paths = mutator.all_paths(&new_input.value, &new_input.cache);
+                let mut lens_paths: HashMap<TypeId, Vec<M::LensPath>> = HashMap::default();
+                mutator.all_paths(
+                    &new_input.value,
+                    &new_input.cache,
+                    #[no_coverage]
+                    &mut |typeid, path| {
+                        lens_paths.entry(typeid).or_default().push(path);
+                    },
+                );
+
                 let stored_new_input = StoredFuzzedInput {
                     input: new_input,
                     lens_paths,
@@ -680,7 +689,17 @@ where
                     args.clone(),
                     world,
                 );
-                let lens_paths = fuzzer.state.mutator.all_paths(&value, &cache);
+
+                let mut lens_paths: HashMap<TypeId, Vec<M::LensPath>> = HashMap::default();
+                fuzzer.state.mutator.all_paths(
+                    &value,
+                    &cache,
+                    #[no_coverage]
+                    &mut |typeid, path| {
+                        lens_paths.entry(typeid).or_default().push(path);
+                    },
+                );
+
                 let stored_input = StoredFuzzedInput {
                     input: FuzzedInput::new(value, cache, mutation_step, 0),
                     lens_paths,

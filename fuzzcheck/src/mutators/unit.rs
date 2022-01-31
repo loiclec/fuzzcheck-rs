@@ -1,7 +1,6 @@
 use crate::DefaultMutator;
 use crate::Mutator;
 use std::any::TypeId;
-use std::collections::HashMap;
 use std::marker::PhantomData;
 
 pub type VoidMutator = UnitMutator<()>;
@@ -149,8 +148,8 @@ where
     }
     #[doc(hidden)]
     #[no_coverage]
-    fn all_paths(&self, _value: &T, _cache: &Self::Cache) -> HashMap<TypeId, Vec<Self::LensPath>> {
-        <_>::default()
+    fn all_paths(&self, _value: &T, _cache: &Self::Cache, _register_path: &mut dyn FnMut(TypeId, Self::LensPath))
+    {
     }
     #[doc(hidden)]
     #[no_coverage]

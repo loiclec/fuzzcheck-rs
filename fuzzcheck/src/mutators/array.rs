@@ -1,4 +1,4 @@
-use std::{any::TypeId, collections::HashMap, marker::PhantomData};
+use std::{any::TypeId, marker::PhantomData};
 
 use crate::{DefaultMutator, Mutator};
 use fastrand::Rng;
@@ -351,24 +351,22 @@ impl<M: Mutator<T>, T: Clone + 'static, const N: usize> Mutator<[T; N]> for Arra
 
     #[doc(hidden)]
     #[no_coverage]
-    fn all_paths(&self, value: &[T; N], cache: &Self::Cache) -> HashMap<TypeId, Vec<Self::LensPath>> {
-        let mut r = HashMap::<TypeId, Vec<Self::LensPath>>::default();
+    fn all_paths(&self, value: &[T; N], cache: &Self::Cache, register_path: &mut dyn FnMut(TypeId, Self::LensPath))
+    {
         if !value.is_empty() {
-            let t_entry = r.entry(TypeId::of::<T>()).or_default();
+            let type_of_element = TypeId::of::<T>();
             for idx in 0..value.len() {
-                t_entry.push((idx, None));
+                register_path(type_of_element, (idx, None));
             }
             for (idx, (el, el_cache)) in value.iter().zip(cache.inner.iter()).enumerate() {
-                let subpaths = self.mutator.all_paths(el, el_cache);
-                for (typeid, subpaths) in subpaths {
-                    r.entry(typeid).or_default().extend(subpaths.into_iter().map(
-                        #[no_coverage]
-                        |p| (idx, Some(p)),
-                    ));
-                }
+                self.mutator.all_paths(
+                    el,
+                    el_cache,
+                    #[no_coverage]
+                    &mut |typeid, subpath| register_path(typeid, (idx, Some(subpath))),
+                );
             }
         }
-        r
     }
 
     #[doc(hidden)]

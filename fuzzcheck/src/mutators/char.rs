@@ -189,12 +189,8 @@ impl Mutator<char> for CharWithinRangeMutator {
 
     #[doc(hidden)]
     #[no_coverage]
-    fn all_paths(
-        &self,
-        _value: &char,
-        _cache: &Self::Cache,
-    ) -> std::collections::HashMap<std::any::TypeId, Vec<Self::LensPath>> {
-        <_>::default()
+    fn all_paths(&self, _value: &char, _cache: &Self::Cache, _register_path: &mut dyn FnMut(std::any::TypeId, Self::LensPath))
+    {
     }
 
     #[doc(hidden)]

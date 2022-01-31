@@ -872,8 +872,8 @@ mod tests {
             &self,
             _value: &f64,
             _cache: &Self::Cache,
-        ) -> std::collections::HashMap<std::any::TypeId, Vec<Self::LensPath>> {
-            <_>::default()
+            _register_path: &mut dyn FnMut(std::any::TypeId, Self::LensPath),
+        ) {
         }
 
         #[no_coverage]

@@ -1,6 +1,6 @@
 use crate::fuzzer::PoolStorageIndex;
-use crate::mutators::filter::FilterMutator;
-use crate::mutators::map::MapMutator;
+// use crate::mutators::filter::FilterMutator;
+// use crate::mutators::map::MapMutator;
 use crate::sensors_and_pools::{AndPool, MapSensor};
 use fuzzcheck_common::FuzzerEvent;
 use std::any::{Any, TypeId};
@@ -238,7 +238,7 @@ pub trait Mutator<Value: Clone>: 'static {
 
     fn lens<'a>(&self, value: &'a Value, cache: &'a Self::Cache, path: &Self::LensPath) -> &'a dyn Any;
 
-    fn all_paths(&self, value: &Value, cache: &Self::Cache) -> HashMap<TypeId, Vec<Self::LensPath>>;
+    fn all_paths(&self, value: &Value, cache: &Self::Cache, register_path: &mut dyn FnMut(TypeId, Self::LensPath));
 
     fn crossover_mutate(
         &self,
@@ -435,8 +435,9 @@ where
 
     #[doc(hidden)]
     #[no_coverage]
-    fn all_paths(&self, value: &T, cache: &Self::Cache) -> HashMap<TypeId, Vec<Self::LensPath>> {
-        self.wrapped_mutator().all_paths(value, cache)
+    fn all_paths(&self, value: &T, cache: &Self::Cache, register_path: &mut dyn FnMut(TypeId, Self::LensPath))
+    {
+        self.wrapped_mutator().all_paths(value, cache, register_path)
     }
 
     fn crossover_mutate(
@@ -757,28 +758,28 @@ pub trait SensorExt: Sensor {
 }
 impl<T> SensorExt for T where T: Sensor {}
 
-pub trait MutatorExt<T>: Mutator<T> + Sized
-where
-    T: Clone + 'static,
-{
-    fn filter<F>(self, filter: F) -> FilterMutator<Self, F>
-    where
-        F: Fn(&T) -> bool,
-    {
-        FilterMutator { mutator: self, filter }
-    }
-    fn map<To, Map, Parse>(self, map: Map, parse: Parse) -> MapMutator<T, To, Self, Parse, Map>
-    where
-        To: Clone + 'static,
-        Map: Fn(&T) -> To,
-        Parse: Fn(&To) -> Option<T>,
-    {
-        MapMutator::new(self, parse, map)
-    }
-}
-impl<T, M> MutatorExt<T> for M
-where
-    M: Mutator<T>,
-    T: Clone + 'static,
-{
-}
+// pub trait MutatorExt<T>: Mutator<T> + Sized
+// where
+//     T: Clone + 'static,
+// {
+//     fn filter<F>(self, filter: F) -> FilterMutator<Self, F>
+//     where
+//         F: Fn(&T) -> bool,
+//     {
+//         FilterMutator { mutator: self, filter }
+//     }
+//     fn map<To, Map, Parse>(self, map: Map, parse: Parse) -> MapMutator<T, To, Self, Parse, Map>
+//     where
+//         To: Clone + 'static,
+//         Map: Fn(&T) -> To,
+//         Parse: Fn(&To) -> Option<T>,
+//     {
+//         MapMutator::new(self, parse, map)
+//     }
+// }
+// impl<T, M> MutatorExt<T> for M
+// where
+//     M: Mutator<T>,
+//     T: Clone + 'static,
+// {
+// }

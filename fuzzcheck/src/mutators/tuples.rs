@@ -89,7 +89,6 @@
 use crate::Mutator;
 use std::{
     any::{Any, TypeId},
-    collections::HashMap,
     marker::PhantomData,
 };
 
@@ -170,7 +169,12 @@ where
     type LensPath: Clone;
     fn lens<'a>(&self, value: TupleKind::Ref<'a>, cache: &'a Self::Cache, path: &Self::LensPath) -> &'a dyn Any;
 
-    fn all_paths<'a>(&self, value: TupleKind::Ref<'a>, cache: &'a Self::Cache) -> HashMap<TypeId, Vec<Self::LensPath>>;
+    fn all_paths<'a>(
+        &self,
+        value: TupleKind::Ref<'a>,
+        cache: &'a Self::Cache,
+        register_path: &mut dyn FnMut(TypeId, Self::LensPath),
+    );
 
     fn crossover_mutate<'a>(
         &self,
@@ -312,10 +316,17 @@ where
 
     #[doc(hidden)]
     #[no_coverage]
-    fn all_paths<'a>(&self, value: &'a T, cache: &Self::Cache) -> HashMap<TypeId, Vec<Self::LensPath>> {
-        self.mutator.all_paths(value.get_ref(), cache)
+    fn all_paths<'a>(
+        &self,
+        value: &'a T,
+        cache: &'a Self::Cache,
+        register_path: &mut dyn FnMut(TypeId, Self::LensPath),
+    ) {
+        self.mutator.all_paths(value.get_ref(), cache, register_path)
     }
 
+    #[doc(hidden)]
+    #[no_coverage]
     fn crossover_mutate(
         &self,
         value: &mut T,
@@ -330,6 +341,8 @@ where
 
 pub use tuple0::{Tuple0, Tuple0Mutator};
 mod tuple0 {
+    use std::any::TypeId;
+
     use super::TupleMutator;
     use crate::mutators::tuples::RefTypes;
     use crate::mutators::tuples::TupleStructure;
@@ -442,20 +455,25 @@ mod tuple0 {
         #[no_coverage]
         fn unmutate(&self, _value: (), _cache: &mut Self::Cache, _t: Self::UnmutateToken) {}
 
+        #[doc(hidden)]
         type LensPath = !;
 
+        #[doc(hidden)]
+        #[no_coverage]
         fn lens<'a>(&self, _value: (), _cache: &'a Self::Cache, _path: &Self::LensPath) -> &'a dyn std::any::Any {
             unreachable!()
         }
-
+        #[doc(hidden)]
+        #[no_coverage]
         fn all_paths<'a>(
             &self,
             _value: (),
             _cache: &'a Self::Cache,
-        ) -> std::collections::HashMap<std::any::TypeId, Vec<Self::LensPath>> {
-            <_>::default()
+            _register_path: &mut dyn FnMut(TypeId, Self::LensPath),
+        ) {
         }
-
+        #[doc(hidden)]
+        #[no_coverage]
         fn crossover_mutate<'a>(
             &self,
             _value: <Tuple0 as RefTypes>::Mut<'a>,
@@ -651,8 +669,9 @@ mod tuple1 {
             &self,
             value: <Tuple1<T0> as RefTypes>::Ref<'a>,
             cache: &'a Self::Cache,
-        ) -> std::collections::HashMap<std::any::TypeId, Vec<Self::LensPath>> {
-            self.mutator_0.all_paths(value.0, cache)
+            register_path: &mut dyn FnMut(TypeId, Self::LensPath),
+        ) {
+            self.mutator_0.all_paths(value.0, cache, register_path)
         }
         #[doc(hidden)]
         #[no_coverage]

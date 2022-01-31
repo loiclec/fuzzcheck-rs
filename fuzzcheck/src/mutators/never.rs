@@ -1,3 +1,5 @@
+use std::any::TypeId;
+
 use crate::mutators::tuples::{RefTypes, TupleMutator, TupleStructure};
 use crate::Mutator;
 
@@ -98,7 +100,8 @@ impl<T: Clone> Mutator<T> for NeverMutator {
         &self,
         _value: &T,
         _cache: &Self::Cache,
-    ) -> std::collections::HashMap<std::any::TypeId, Vec<Self::LensPath>> {
+        _register_path: &mut dyn FnMut(std::any::TypeId, Self::LensPath),
+    ) {
         unreachable!()
     }
 
@@ -224,7 +227,8 @@ where
         &self,
         _value: TupleKind::Ref<'a>,
         _cache: &'a Self::Cache,
-    ) -> std::collections::HashMap<std::any::TypeId, Vec<Self::LensPath>> {
+        _register_path: &mut dyn FnMut(TypeId, Self::LensPath),
+    ) {
         unreachable!()
     }
 

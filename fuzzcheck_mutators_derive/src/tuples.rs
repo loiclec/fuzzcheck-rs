@@ -634,19 +634,16 @@ fn impl_mutator_trait(tb: &mut TokenBuilder, nbr_elements: usize) {
 
         #[doc(hidden)]
         #[no_coverage]
-        fn all_paths<'a>(&self, value: " tuple_ref ", cache: &'a Self::Cache) -> " cm.HashMap "<" cm.TypeId ", " cm.Vec "<Self::LensPath>> {
-            let mut r:" cm.HashMap "<" cm.TypeId ", " cm.Vec "<Self::LensPath>> = <_>::default();"
+        fn all_paths<'a>(&self, value: " tuple_ref ", cache: &'a Self::Cache, register_path: &mut dyn FnMut(" cm.TypeId ", Self::LensPath)) {"
             join_ts!(0..nbr_elements, i,
-                "r.entry(" cm.TypeId "::of::<" Ti(i) ">()).or_default().push(LensPath::" Ti(i) "(" cm.None "));"
-                "for (typeid, subpaths) in self." mutator_i(i) ".all_paths(value." i ", &cache. " ti(i) ") {
-                    r.entry(typeid).or_default().extend(subpaths.into_iter().map(|p| {
-                        LensPath::" Ti(i) "(" cm.Some "(p))
-                    }));
-                }
+                "
+                register_path(" cm.TypeId "::of::<" Ti(i) ">(), LensPath::" Ti(i) "(" cm.None "));
+                self." mutator_i(i) ".all_paths(value." i ", &cache. " ti(i) ", #[no_coverage] &mut |typeid, subpath| {
+                    register_path(typeid, LensPath::" Ti(i) "(" cm.Some "(subpath)));
+                });
                 "
             )
             "
-            r
         }
 
         #[doc(hidden)]

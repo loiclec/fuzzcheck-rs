@@ -294,7 +294,6 @@ pub(crate) struct Common {
     VoseAlias: TokenStream,
     RecursiveMutator: TokenStream,
     Box: TokenStream,
-    HashMap: TokenStream,
     SubValueProvider: TokenStream,
 }
 impl Common {
@@ -359,7 +358,6 @@ impl Common {
             VoseAlias: ts!(mutators "::vose_alias::VoseAlias"),
             RecursiveMutator: ts!(mutators "::recursive::RecursiveMutator"),
             Box: ts!("::std::boxed::Box"),
-            HashMap: ts!("::std::collections::HashMap"),
             SubValueProvider: ts!("fuzzcheck::SubValueProvider"),
         }
     }
