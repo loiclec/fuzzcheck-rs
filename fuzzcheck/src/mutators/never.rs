@@ -5,7 +5,7 @@ use crate::Mutator;
 
 pub enum NeverMutator {}
 
-impl<T: Clone> Mutator<T> for NeverMutator {
+impl<T: Clone + 'static> Mutator<T> for NeverMutator {
     #[doc(hidden)]
     type Cache = ();
     #[doc(hidden)]
@@ -118,7 +118,7 @@ impl<T: Clone> Mutator<T> for NeverMutator {
     }
 }
 
-impl<T: Clone, TupleKind: RefTypes> TupleMutator<T, TupleKind> for NeverMutator
+impl<T: Clone + 'static, TupleKind: RefTypes> TupleMutator<T, TupleKind> for NeverMutator
 where
     T: TupleStructure<TupleKind>,
 {

@@ -9,7 +9,7 @@ pub enum Either<L, R> {
 }
 impl<T, M1, M2> Mutator<T> for Either<M1, M2>
 where
-    T: Clone,
+    T: Clone + 'static,
     M1: Mutator<T>,
     M2: Mutator<T>,
 {

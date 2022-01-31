@@ -22,7 +22,7 @@ let m = AlternationMutator::new(vec![m1, m2]);
 */
 pub struct AlternationMutator<T, M>
 where
-    T: Clone,
+    T: Clone + 'static,
     M: Mutator<T>,
 {
     mutators: Vec<M>,
@@ -35,7 +35,7 @@ where
 
 impl<T, M> AlternationMutator<T, M>
 where
-    T: Clone,
+    T: Clone + 'static,
     M: Mutator<T>,
 {
     #[no_coverage]
@@ -123,7 +123,7 @@ pub enum UnmutateToken<T, U> {
 
 // impl<T, M> AlternationMutator<T, M>
 // where
-//     T: Clone,
+//     T: Clone + 'static,
 //     M: Mutator<T>,
 // {
 //     #[no_coverage]
@@ -146,7 +146,7 @@ pub enum UnmutateToken<T, U> {
 // }
 impl<T, M> AlternationMutator<T, M>
 where
-    T: Clone,
+    T: Clone + 'static,
     M: Mutator<T>,
 {
     #[no_coverage]
@@ -161,7 +161,7 @@ where
 
 impl<T, M> Mutator<T> for AlternationMutator<T, M>
 where
-    T: Clone + 'static,
+    T: Clone + 'static + 'static,
     M: Mutator<T>,
 {
     #[doc(hidden)]

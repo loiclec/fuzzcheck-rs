@@ -4,8 +4,8 @@ use crate::Mutator;
 
 pub struct MapMutator<From, To, M, Parse, Map>
 where
-    From: Clone,
-    To: Clone,
+    From: Clone + 'static,
+    To: Clone + 'static,
     M: Mutator<From>,
     Parse: Fn(&To) -> Option<From>,
     Map: Fn(&From) -> To,
@@ -17,8 +17,8 @@ where
 }
 impl<From, To, M, Parse, Map> MapMutator<From, To, M, Parse, Map>
 where
-    From: Clone,
-    To: Clone,
+    From: Clone + 'static,
+    To: Clone + 'static,
     M: Mutator<From>,
     Parse: Fn(&To) -> Option<From>,
     Map: Fn(&From) -> To,
@@ -36,7 +36,7 @@ where
 
 pub struct Cache<From, M>
 where
-    From: Clone,
+    From: Clone + 'static,
     M: Mutator<From>,
 {
     from_value: From,
@@ -44,7 +44,7 @@ where
 }
 impl<From, M> Clone for Cache<From, M>
 where
-    From: Clone,
+    From: Clone + 'static,
     M: Mutator<From>,
 {
     fn clone(&self) -> Self {
@@ -57,8 +57,8 @@ where
 
 impl<From, To, M, Parse, Map> Mutator<To> for MapMutator<From, To, M, Parse, Map>
 where
-    From: Clone,
-    To: Clone,
+    From: Clone + 'static,
+    To: Clone + 'static,
     M: Mutator<From>,
     Parse: Fn(&To) -> Option<From>,
     Map: Fn(&From) -> To,
@@ -170,8 +170,12 @@ where
 
     #[doc(hidden)]
     #[no_coverage]
-    fn all_paths(&self, _value: &To, cache: &Self::Cache, register_path: &mut dyn FnMut(std::any::TypeId, Self::LensPath))
-    {
+    fn all_paths(
+        &self,
+        _value: &To,
+        cache: &Self::Cache,
+        register_path: &mut dyn FnMut(std::any::TypeId, Self::LensPath),
+    ) {
         self.mutator
             .all_paths(&cache.from_value, &cache.from_cache, register_path)
     }

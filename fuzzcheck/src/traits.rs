@@ -144,7 +144,7 @@ Note that in most cases, it is completely fine to never mutate a value’s cache
 since it is recomputed by [`validate_value`](crate::Mutator::validate_value) when
 needed.
 **/
-pub trait Mutator<Value: Clone>: 'static {
+pub trait Mutator<Value: Clone + 'static>: 'static {
     /// Accompanies each value to help compute its complexity and mutate it efficiently.
     type Cache: Clone;
     /// Contains information about what mutations have already been tried.
@@ -338,7 +338,7 @@ pub trait MutatorWrapper {
     fn wrapped_mutator(&self) -> &Self::Wrapped;
 }
 
-impl<T: Clone, W, M> Mutator<T> for M
+impl<T: Clone + 'static, W, M> Mutator<T> for M
 where
     M: MutatorWrapper<Wrapped = W>,
     W: Mutator<T>,

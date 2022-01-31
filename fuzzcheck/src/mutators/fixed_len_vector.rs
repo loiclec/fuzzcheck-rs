@@ -8,7 +8,7 @@ use fastrand::Rng;
 /// A different mutator is used for each element of the vector
 pub struct FixedLenVecMutator<T, M>
 where
-    T: Clone,
+    T: Clone + 'static,
     M: Mutator<T>,
 {
     pub rng: Rng,
@@ -77,7 +77,7 @@ impl<C> Default for VecMutatorCache<C> {
     }
 }
 
-pub enum UnmutateVecToken<T: Clone, M: Mutator<T>> {
+pub enum UnmutateVecToken<T: Clone + 'static, M: Mutator<T>> {
     Element(usize, M::UnmutateToken),
     Elements(Vec<(usize, M::UnmutateToken)>),
     Replace(Vec<T>),
@@ -358,8 +358,7 @@ impl<T: Clone + 'static, M: Mutator<T>> Mutator<Vec<T>> for FixedLenVecMutator<T
 
     #[doc(hidden)]
     #[no_coverage]
-    fn all_paths(&self, value: &Vec<T>, cache: &Self::Cache, register_path: &mut dyn FnMut(TypeId, Self::LensPath))
-    {
+    fn all_paths(&self, value: &Vec<T>, cache: &Self::Cache, register_path: &mut dyn FnMut(TypeId, Self::LensPath)) {
         if !value.is_empty() {
             let typeid = TypeId::of::<T>();
             for idx in 0..value.len() {

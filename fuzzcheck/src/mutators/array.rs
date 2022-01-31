@@ -8,7 +8,7 @@ use fastrand::Rng;
 /// A different mutator can be used for each element of the array.
 pub struct ArrayMutator<M, T, const N: usize>
 where
-    T: Clone,
+    T: Clone + 'static,
     M: Mutator<T>,
 {
     mutator: M,
@@ -71,7 +71,7 @@ impl<C> Default for ArrayMutatorCache<C> {
     }
 }
 
-pub enum UnmutateArrayToken<M: Mutator<T>, T: Clone, const N: usize> {
+pub enum UnmutateArrayToken<M: Mutator<T>, T: Clone + 'static, const N: usize> {
     Element(usize, M::UnmutateToken),
     Elements(Vec<(usize, M::UnmutateToken)>),
     Replace([T; N]),
@@ -351,8 +351,7 @@ impl<M: Mutator<T>, T: Clone + 'static, const N: usize> Mutator<[T; N]> for Arra
 
     #[doc(hidden)]
     #[no_coverage]
-    fn all_paths(&self, value: &[T; N], cache: &Self::Cache, register_path: &mut dyn FnMut(TypeId, Self::LensPath))
-    {
+    fn all_paths(&self, value: &[T; N], cache: &Self::Cache, register_path: &mut dyn FnMut(TypeId, Self::LensPath)) {
         if !value.is_empty() {
             let type_of_element = TypeId::of::<T>();
             for idx in 0..value.len() {

@@ -27,7 +27,7 @@ const INITIAL_MUTATION_STEP: usize = 1;
 
 impl<T> Mutator<T> for BasicEnumMutator
 where
-    T: Clone + BasicEnumStructure,
+    T: Clone + BasicEnumStructure + 'static,
 {
     #[doc(hidden)]
     type Cache = ();
@@ -144,9 +144,7 @@ where
 
     #[doc(hidden)]
     #[no_coverage]
-    fn all_paths(&self, _value: &T, _cache: &Self::Cache, _register_path: &mut dyn FnMut(TypeId, Self::LensPath))
-    {
-    }
+    fn all_paths(&self, _value: &T, _cache: &Self::Cache, _register_path: &mut dyn FnMut(TypeId, Self::LensPath)) {}
     fn crossover_mutate(
         &self,
         value: &mut T,

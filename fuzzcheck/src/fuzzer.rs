@@ -73,14 +73,14 @@ enum FuzzerInputIndex<T> {
 
 struct StoredFuzzedInput<T, M>
 where
-    T: Clone,
+    T: Clone + 'static,
     M: Mutator<T>,
 {
     input: FuzzedInput<T, M>,
     lens_paths: HashMap<TypeId, Vec<M::LensPath>>,
 }
 
-struct FuzzerState<T: Clone, M: Mutator<T>> {
+struct FuzzerState<T: Clone + 'static, M: Mutator<T>> {
     mutator: M,
     sensor_and_pool: Box<dyn SensorAndPool>,
     pool_storage: RcSlab<StoredFuzzedInput<T, M>>,
@@ -98,14 +98,14 @@ struct FuzzerState<T: Clone, M: Mutator<T>> {
     rng: fastrand::Rng,
 }
 
-impl<T: Clone, M: Mutator<T>> Drop for FuzzerState<T, M> {
+impl<T: Clone + 'static, M: Mutator<T>> Drop for FuzzerState<T, M> {
     #[no_coverage]
     fn drop(&mut self) {
         unsafe { crate::signals_handler::reset_signal_handlers() };
     }
 }
 
-impl<T: Clone, M: Mutator<T>> FuzzerState<T, M> {
+impl<T: Clone + 'static, M: Mutator<T>> FuzzerState<T, M> {
     #[no_coverage]
     fn get_input<'a>(
         fuzzer_input_idx: &'a FuzzerInputIndex<FuzzedInput<T, M>>,
@@ -133,7 +133,7 @@ fn update_fuzzer_stats(stats: &mut FuzzerStats, world: &mut World) {
     }
 }
 
-impl<T: Clone, M: Mutator<T>> SaveToStatsFolder for FuzzerState<T, M>
+impl<T: Clone + 'static, M: Mutator<T>> SaveToStatsFolder for FuzzerState<T, M>
 where
     Self: 'static,
 {
@@ -145,7 +145,7 @@ where
     }
 }
 
-impl<T: Clone, M: Mutator<T>> FuzzerState<T, M>
+impl<T: Clone + 'static, M: Mutator<T>> FuzzerState<T, M>
 where
     Self: 'static,
 {
@@ -209,7 +209,7 @@ where
 
 pub struct Fuzzer<T, M>
 where
-    T: Clone,
+    T: Clone + 'static,
     M: Mutator<T>,
     Self: 'static,
 {
@@ -219,7 +219,7 @@ where
 
 impl<T, M> Fuzzer<T, M>
 where
-    T: Clone,
+    T: Clone + 'static,
     M: Mutator<T>,
     Self: 'static,
 {
@@ -601,7 +601,7 @@ pub fn launch<T, M>(
     mut args: Arguments,
 ) -> FuzzingResult<T>
 where
-    T: Clone,
+    T: Clone + 'static,
     M: Mutator<T>,
     Fuzzer<T, M>: 'static,
 {

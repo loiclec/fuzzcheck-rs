@@ -11,12 +11,12 @@ let m = DictionaryMutator::new(m, [256, 65_536, 1_000_000]);
 // and will then use usize’s default mutator
 ```
 */
-pub struct DictionaryMutator<T: Clone, M: Mutator<T>> {
+pub struct DictionaryMutator<T: Clone + 'static, M: Mutator<T>> {
     m: M,
     dictionary: Vec<(T, f64)>,
     rng: fastrand::Rng,
 }
-impl<T: Clone, M: Mutator<T>> DictionaryMutator<T, M> {
+impl<T: Clone + 'static, M: Mutator<T>> DictionaryMutator<T, M> {
     #[no_coverage]
     pub fn new(value_mutator: M, dictionary: impl IntoIterator<Item = T>) -> Self {
         let dictionary = dictionary
@@ -53,7 +53,7 @@ impl<T> MutationStep<T> {
     }
 }
 
-pub enum UnmutateToken<T: Clone, M: Mutator<T>> {
+pub enum UnmutateToken<T: Clone + 'static, M: Mutator<T>> {
     Replace(T),
     Unmutate(M::UnmutateToken),
 }
@@ -210,8 +210,12 @@ impl<T: Clone + 'static, M: Mutator<T>> Mutator<T> for DictionaryMutator<T, M> {
 
     #[doc(hidden)]
     #[no_coverage]
-    fn all_paths(&self, value: &T, cache: &Self::Cache, register_path: &mut dyn FnMut(std::any::TypeId, Self::LensPath))
-    {
+    fn all_paths(
+        &self,
+        value: &T,
+        cache: &Self::Cache,
+        register_path: &mut dyn FnMut(std::any::TypeId, Self::LensPath),
+    ) {
         self.m.all_paths(value, cache, register_path)
     }
 

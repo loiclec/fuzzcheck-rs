@@ -164,7 +164,7 @@ where
 pub struct FuzzerBuilder2<F, M, V>
 where
     F: Fn(&V) -> bool + 'static,
-    V: Clone,
+    V: Clone + 'static,
     M: Mutator<V>,
 {
     test_function: F,
@@ -181,7 +181,7 @@ where
 pub struct FuzzerBuilder3<F, M, V>
 where
     F: Fn(&V) -> bool + 'static,
-    V: Clone,
+    V: Clone + 'static,
     M: Mutator<V>,
 {
     test_function: F,
@@ -200,7 +200,7 @@ where
 pub struct FuzzerBuilder4<F, M, V, Sens, P>
 where
     F: Fn(&V) -> bool + 'static,
-    V: Clone,
+    V: Clone + 'static,
     M: Mutator<V>,
     Sens: Sensor,
     P: CompatibleWithObservations<Sens::Observations>,
@@ -229,7 +229,7 @@ where
 pub struct FuzzerBuilder5<F, M, V, Sens, P>
 where
     F: Fn(&V) -> bool + 'static,
-    V: Clone,
+    V: Clone + 'static,
     M: Mutator<V>,
     Sens: Sensor,
     P: CompatibleWithObservations<Sens::Observations>,
@@ -374,7 +374,7 @@ where
 impl<F, M, V> FuzzerBuilder2<F, M, V>
 where
     F: Fn(&V) -> bool,
-    V: Clone,
+    V: Clone + 'static,
     M: Mutator<V>,
 {
     /**
@@ -429,7 +429,7 @@ where
 impl<F, M, V> FuzzerBuilder3<F, M, V>
 where
     F: Fn(&V) -> bool,
-    V: Clone,
+    V: Clone + 'static,
     M: Mutator<V>,
 {
     #[no_coverage]
@@ -466,7 +466,7 @@ where
 impl<F, M, V, Sens, P> FuzzerBuilder4<F, M, V, Sens, P>
 where
     F: Fn(&V) -> bool,
-    V: Clone,
+    V: Clone + 'static,
     M: Mutator<V>,
     Sens: Sensor,
     P: CompatibleWithObservations<Sens::Observations>,
@@ -548,7 +548,7 @@ fuzzcheck {minify} --{input_file} "artifacts/crash.json"
 impl<F, M, V, Sens, P> FuzzerBuilder5<F, M, V, Sens, P>
 where
     F: Fn(&V) -> bool + 'static,
-    V: Clone,
+    V: Clone + 'static,
     M: Mutator<V>,
     Sens: Sensor + 'static,
     P: CompatibleWithObservations<Sens::Observations> + 'static,

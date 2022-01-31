@@ -68,7 +68,7 @@ use crate::Mutator;
 use std::ops::Range;
 
 /// A trait for giving a type a default [Mutator]
-pub trait DefaultMutator: Clone {
+pub trait DefaultMutator: Clone + 'static {
     type Mutator: Mutator<Self>;
     fn default_mutator() -> Self::Mutator;
 }
@@ -126,7 +126,7 @@ pub mod testing_utilities {
         nbr_mutations: usize,
     ) where
         M: Mutator<T>,
-        T: Clone + Debug + PartialEq + Eq + Hash,
+        T: Clone + Debug + PartialEq + Eq + Hash + 'static,
         M::Cache: Clone,
     {
         let mut arbitrary_step = m.default_arbitrary_step();
@@ -229,7 +229,7 @@ pub mod testing_utilities {
         nbr_mutations: usize,
     ) where
         M: Mutator<T>,
-        T: Clone + Debug + PartialEq + Eq + Hash,
+        T: Clone + Debug + PartialEq + Eq + Hash + 'static,
         M::Cache: Clone,
     {
         let mut arbitrary_step = m.default_arbitrary_step();

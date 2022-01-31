@@ -235,13 +235,13 @@ pub use fuzzcheck_mutators_derive::make_mutator;
  * A struct that stores the value, cache, and mutation step of an input.
  * It is used for convenience.
  */
-pub(crate) struct FuzzedInput<T: Clone, Mut: Mutator<T>> {
+pub(crate) struct FuzzedInput<T: Clone + 'static, Mut: Mutator<T>> {
     pub value: T,
     pub cache: Mut::Cache,
     pub mutation_step: Mut::MutationStep,
     pub generation: usize,
 }
-impl<T: Clone, Mut: Mutator<T>> Clone for FuzzedInput<T, Mut> {
+impl<T: Clone + 'static, Mut: Mutator<T>> Clone for FuzzedInput<T, Mut> {
     fn clone(&self) -> Self {
         Self {
             value: self.value.clone(),
@@ -252,7 +252,7 @@ impl<T: Clone, Mut: Mutator<T>> Clone for FuzzedInput<T, Mut> {
     }
 }
 
-impl<T: Clone, Mut: Mutator<T>> FuzzedInput<T, Mut> {
+impl<T: Clone + 'static, Mut: Mutator<T>> FuzzedInput<T, Mut> {
     #[no_coverage]
     pub fn new(value: T, cache: Mut::Cache, mutation_step: Mut::MutationStep, generation: usize) -> Self {
         Self {
