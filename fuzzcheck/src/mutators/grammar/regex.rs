@@ -14,7 +14,7 @@ pub(crate) fn grammar_from_regex(regex: &str) -> Rc<Grammar> {
 #[no_coverage]
 pub fn grammar_from_regex_hir_kind(hir: &HirKind) -> Rc<Grammar> {
     match hir {
-        HirKind::Empty => panic!("emoty regexes are not supported"),
+        HirKind::Empty => panic!("empty regexes are not supported"),
         HirKind::Literal(l) => match l {
             Literal::Unicode(l) => literal(*l),
             Literal::Byte(_) => panic!("non-unicode regexes are not supported"),
@@ -61,20 +61,3 @@ pub fn grammar_from_regex_hir_kind(hir: &HirKind) -> Rc<Grammar> {
         )),
     }
 }
-
-// #[cfg(test)]
-// mod tests {
-//     use crate::Mutator;
-
-//     use super::*;
-//     #[no_coverage]
-//     #[test]
-//     fn t() {
-//         let s = "[0-9]{4}-[0-9]{2}-[0-9]{2}";
-//         let g = grammar_from_regex(s);
-//         println!("{:?}", g);
-//         let mutator = crate::mutators::grammar::grammar_based_string_mutator(g);
-//         let (s, cplx) = mutator.random_arbitrary(1000.0);
-//         println!("\n{}\n{}", s, cplx);
-//     }
-// }

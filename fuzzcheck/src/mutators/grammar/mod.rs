@@ -64,10 +64,7 @@ let rule = recursive(|rule| {
 
 mod ast;
 mod grammar;
-// mod incremental_map_conformance;
-// mod list;
 mod mutators;
-// mod parser;
 
 #[cfg(feature = "regex_grammar")]
 mod regex;
@@ -88,6 +85,4 @@ pub use grammar::regex;
 pub use mutators::grammar_based_ast_mutator;
 
 #[doc(inline)]
-// pub use mutators::grammar_based_string_mutator;
 pub use mutators::GrammarBasedASTMutator;
-// pub use mutators::GrammarBasedStringMutator;
