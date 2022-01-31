@@ -44,10 +44,10 @@ pub mod dictionary;
 pub mod either;
 pub mod enums;
 pub mod filter;
-// pub mod fixed_len_vector;
+pub mod fixed_len_vector;
 // #[cfg(feature = "grammar_mutator")]
 // #[doc(cfg(feature = "grammar_mutator"))]
-// pub mod grammar;
+pub mod grammar;
 pub mod integer;
 pub mod integer_within_range;
 pub mod map;

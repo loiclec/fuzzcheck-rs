@@ -63,6 +63,13 @@ impl ASTMutatorMutationStep {
 pub struct ASTMutatorArbitraryStep {
     inner: Box<<InnerASTMutator as Mutator<AST>>::ArbitraryStep>,
 }
+#[derive(Clone)]
+pub struct ASTMutatorLensPath {
+    pub(crate) inner: Box<<InnerASTMutator as Mutator<AST>>::LensPath>,
+}
+pub struct ASTMutatorUnmutateToken {
+    pub(crate) inner: Box<<InnerASTMutator as Mutator<AST>>::UnmutateToken>,
+}
 pub struct ASTMutatorUnmutateToken {
     pub(crate) inner: Box<<InnerASTMutator as Mutator<AST>>::UnmutateToken>,
 }
@@ -72,10 +79,7 @@ impl ASTMutatorUnmutateToken {
         Self { inner: Box::new(inner) }
     }
 }
-#[derive(Clone)]
-pub struct ASTMutatorRecursingPartIndex {
-    inner: Box<<InnerASTMutator as Mutator<AST>>::RecursingPartIndex>,
-}
+
 impl Mutator<AST> for ASTMutator {
     #[doc(hidden)]
     type Cache = ASTMutatorCache;
@@ -165,29 +169,33 @@ impl Mutator<AST> for ASTMutator {
     }
 
     #[doc(hidden)]
-    type RecursingPartIndex = ASTMutatorRecursingPartIndex;
+    type LensPath = ASTMutatorLensPath;
 
     #[doc(hidden)]
     #[no_coverage]
-    fn default_recursing_part_index(&self, value: &AST, cache: &Self::Cache) -> Self::RecursingPartIndex {
-        Self::RecursingPartIndex {
-            inner: Box::new(self.inner.default_recursing_part_index(value, &cache.inner)),
-        }
+    fn lens<'a>(&self, value: &'a AST, cache: &'a Self::Cache, path: &Self::LensPath) -> &'a dyn std::any::Any {
+        self.inner.lens(value, &cache.inner, &path.inner)
     }
 
     #[doc(hidden)]
     #[no_coverage]
-    fn recursing_part<'a, T, M>(
+    fn all_paths(&self, value: &AST, cache: &Self::Cache) -> HashMap<std::any::TypeId, Vec<Self::LensPath>> {
+        compile_error!("TODO: all_paths implementation for grammar mutator")
+    }
+
+    #[doc(hidden)]
+    #[no_coverage]
+    fn crossover_mutate(
         &self,
-        parent: &M,
-        value: &'a AST,
-        index: &mut Self::RecursingPartIndex,
-    ) -> Option<&'a T>
-    where
-        T: Clone + 'static,
-        M: Mutator<T>,
-    {
-        self.inner.recursing_part::<T, M>(parent, value, &mut index.inner)
+        value: &mut AST,
+        cache: &mut Self::Cache,
+        subvalue_provider: &dyn fuzzcheck::SubValueProvider,
+        max_cplx: f64,
+    ) -> (Self::UnmutateToken, f64) {
+        let (token, cplx) = self
+            .inner
+            .crossover_mutate(value, &mut cache.inner, subvalue_provider, max_cplx);
+        (Self::UnmutateToken::new(token), cplx)
     }
 }
 

@@ -1,4 +1,4 @@
-use std::marker::PhantomData;
+use std::{any::TypeId, collections::HashMap, marker::PhantomData};
 
 use crate::Mutator;
 use fastrand::Rng;
@@ -348,51 +348,69 @@ impl<T: Clone + 'static, M: Mutator<T>> Mutator<Vec<T>> for FixedLenVecMutator<T
     }
 
     #[doc(hidden)]
-    type RecursingPartIndex = RecursingPartIndex<M::RecursingPartIndex>;
+    type LensPath = (usize, Option<M::LensPath>);
+
     #[doc(hidden)]
     #[no_coverage]
-    fn default_recursing_part_index(&self, value: &Vec<T>, cache: &Self::Cache) -> Self::RecursingPartIndex {
-        RecursingPartIndex {
-            inner: value
+    fn lens<'a>(&self, value: &'a Vec<T>, cache: &'a Self::Cache, path: &Self::LensPath) -> &'a dyn std::any::Any {
+        let el = &value[path.0];
+
+        if let Some(subpath) = &path.1 {
+            let el_cache = &cache.inner[path.0];
+            self.mutators[path.0].lens(el, el_cache, subpath)
+        } else {
+            el
+        }
+    }
+
+    #[doc(hidden)]
+    #[no_coverage]
+    fn all_paths(&self, value: &Vec<T>, cache: &Self::Cache) -> HashMap<TypeId, Vec<Self::LensPath>> {
+        let mut r = HashMap::<TypeId, Vec<Self::LensPath>>::default();
+        if !value.is_empty() {
+            let t_entry = r.entry(TypeId::of::<T>()).or_default();
+            for idx in 0..value.len() {
+                t_entry.push((idx, None));
+            }
+            for (idx, ((el, el_cache), mutator)) in value
                 .iter()
                 .zip(cache.inner.iter())
                 .zip(self.mutators.iter())
-                .map(
-                    #[no_coverage]
-                    |((v, c), m)| m.default_recursing_part_index(v, c),
-                )
-                .collect(),
-            indices: (0..value.len()).collect(),
+                .enumerate()
+            {
+                let subpaths = mutator.all_paths(el, el_cache);
+                for (typeid, subpaths) in subpaths {
+                    r.entry(typeid).or_default().extend(subpaths.into_iter().map(
+                        #[no_coverage]
+                        |p| (idx, Some(p)),
+                    ));
+                }
+            }
         }
+        r
     }
+
     #[doc(hidden)]
     #[no_coverage]
-    fn recursing_part<'a, V, N>(
+    fn crossover_mutate(
         &self,
-        parent: &N,
-        value: &'a Vec<T>,
-        index: &mut Self::RecursingPartIndex,
-    ) -> Option<&'a V>
-    where
-        V: Clone + 'static,
-        N: Mutator<V>,
-    {
-        assert_eq!(index.inner.len(), index.indices.len());
-        if index.inner.is_empty() {
-            return None;
-        }
-        let choice = self.rng.usize(..index.inner.len());
-        let subindex = &mut index.inner[choice];
-        let value_index = index.indices[choice];
-        let v = &value[value_index];
-        let result = self.mutators[value_index].recursing_part(parent, v, subindex);
-        if result.is_none() {
-            index.inner.remove(choice);
-            index.indices.remove(choice);
-            self.recursing_part::<V, N>(parent, value, index)
-        } else {
-            result
-        }
+        value: &mut Vec<T>,
+        cache: &mut Self::Cache,
+        subvalue_provider: &dyn crate::SubValueProvider,
+        max_cplx: f64,
+    ) -> (Self::UnmutateToken, f64) {
+        let cplx_before = self.complexity(value, cache);
+
+        let idx = self.rng.usize(..value.len());
+        let (el, el_cache) = (&mut value[idx], &mut cache.inner[idx]);
+        let el_cplx = self.mutators[idx].complexity(el, el_cache);
+        let max_el_cplx = max_cplx - (cplx_before - el_cplx);
+        let (unmutate, new_el_cplx) =
+            self.mutators[idx].crossover_mutate(&mut value[idx], &mut cache.inner[idx], subvalue_provider, max_el_cplx);
+
+        let token = UnmutateVecToken::Element(idx, unmutate);
+
+        (token, cache.sum_cplx - el_cplx + new_el_cplx)
     }
 }
 #[cfg(test)]
