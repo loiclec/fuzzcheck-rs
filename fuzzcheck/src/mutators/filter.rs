@@ -124,18 +124,24 @@ where
 
     type LensPath = M::LensPath;
 
+    #[doc(hidden)]
+    #[no_coverage]
     fn lens<'a>(&self, value: &'a T, cache: &'a Self::Cache, path: &Self::LensPath) -> &'a dyn std::any::Any {
-        self.lens(value, cache, path)
+        self.mutator.lens(value, cache, path)
     }
 
+    #[doc(hidden)]
+    #[no_coverage]
     fn all_paths(
         &self,
         value: &T,
         cache: &Self::Cache,
     ) -> std::collections::HashMap<std::any::TypeId, Vec<Self::LensPath>> {
-        self.all_paths(value, cache)
+        self.mutator.all_paths(value, cache)
     }
 
+    #[doc(hidden)]
+    #[no_coverage]
     fn crossover_mutate(
         &self,
         value: &mut T,

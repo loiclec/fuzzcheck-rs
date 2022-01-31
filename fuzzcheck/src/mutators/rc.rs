@@ -1,3 +1,4 @@
+use std::any::TypeId;
 use std::rc::Rc;
 
 use crate::DefaultMutator;
@@ -7,15 +8,24 @@ use crate::Mutator;
 #[derive(Default)]
 pub struct RcMutator<M> {
     mutator: M,
+    rng: fastrand::Rng,
 }
 impl<M> RcMutator<M> {
     #[no_coverage]
     pub fn new(mutator: M) -> Self {
-        Self { mutator }
+        Self {
+            mutator,
+            rng: fastrand::Rng::new(),
+        }
     }
 }
 
-impl<T: Clone, M: Mutator<T>> Mutator<Rc<T>> for RcMutator<M> {
+pub enum UnmutateToken<T, U> {
+    Replace(T),
+    Inner(U),
+}
+
+impl<T: Clone + 'static, M: Mutator<T>> Mutator<Rc<T>> for RcMutator<M> {
     #[doc(hidden)]
     type Cache = M::Cache;
     #[doc(hidden)]
@@ -23,7 +33,7 @@ impl<T: Clone, M: Mutator<T>> Mutator<Rc<T>> for RcMutator<M> {
     #[doc(hidden)]
     type ArbitraryStep = M::ArbitraryStep;
     #[doc(hidden)]
-    type UnmutateToken = M::UnmutateToken;
+    type UnmutateToken = UnmutateToken<T, M::UnmutateToken>;
 
     #[doc(hidden)]
     #[no_coverage]
@@ -85,54 +95,105 @@ impl<T: Clone, M: Mutator<T>> Mutator<Rc<T>> for RcMutator<M> {
         max_cplx: f64,
     ) -> Option<(Self::UnmutateToken, f64)> {
         let mut v = value.as_ref().clone();
-        let res = self.mutator.ordered_mutate(&mut v, cache, step, max_cplx);
-        *value = Rc::new(v);
-        res
+        if let Some((t, cplx)) = self.mutator.ordered_mutate(&mut v, cache, step, max_cplx) {
+            *value = Rc::new(v);
+            Some((UnmutateToken::Inner(t), cplx))
+        } else {
+            None
+        }
     }
 
     #[doc(hidden)]
     #[no_coverage]
     fn random_mutate(&self, value: &mut Rc<T>, cache: &mut Self::Cache, max_cplx: f64) -> (Self::UnmutateToken, f64) {
         let mut v = value.as_ref().clone();
-        let res = self.mutator.random_mutate(&mut v, cache, max_cplx);
+        let (t, cplx) = self.mutator.random_mutate(&mut v, cache, max_cplx);
         *value = Rc::new(v);
-        res
+        (UnmutateToken::Inner(t), cplx)
     }
 
     #[doc(hidden)]
     #[no_coverage]
     fn unmutate(&self, value: &mut Rc<T>, cache: &mut Self::Cache, t: Self::UnmutateToken) {
-        let mut v = value.as_ref().clone();
-        self.mutator.unmutate(&mut v, cache, t);
-        *value = Rc::new(v);
+        match t {
+            UnmutateToken::Replace(x) => {
+                *value = Rc::new(x);
+            }
+            UnmutateToken::Inner(t) => {
+                let mut v = value.as_ref().clone();
+                self.mutator.unmutate(&mut v, cache, t);
+                *value = Rc::new(v);
+            }
+        }
     }
 
     #[doc(hidden)]
-    type RecursingPartIndex = M::RecursingPartIndex;
+    type LensPath = M::LensPath;
+
     #[doc(hidden)]
     #[no_coverage]
-    fn default_recursing_part_index(&self, value: &Rc<T>, cache: &Self::Cache) -> Self::RecursingPartIndex {
-        self.mutator.default_recursing_part_index(value, cache)
+    fn lens<'a>(&self, value: &'a Rc<T>, cache: &'a Self::Cache, path: &Self::LensPath) -> &'a dyn std::any::Any {
+        self.mutator.lens(value, cache, path)
     }
+
     #[doc(hidden)]
     #[no_coverage]
-    fn recursing_part<'a, V, N>(
+    fn all_paths(
         &self,
-        parent: &N,
-        value: &'a Rc<T>,
-        index: &mut Self::RecursingPartIndex,
-    ) -> Option<&'a V>
-    where
-        V: Clone + 'static,
-        N: Mutator<V>,
-    {
-        self.mutator.recursing_part::<V, N>(parent, value, index)
+        value: &Rc<T>,
+        cache: &Self::Cache,
+    ) -> std::collections::HashMap<std::any::TypeId, Vec<Self::LensPath>> {
+        self.mutator.all_paths(value, cache)
+    }
+
+    #[doc(hidden)]
+    #[no_coverage]
+    fn crossover_mutate(
+        &self,
+        value: &mut Rc<T>,
+        cache: &mut Self::Cache,
+        subvalue_provider: &dyn crate::SubValueProvider,
+        max_cplx: f64,
+    ) -> (Self::UnmutateToken, f64) {
+        if self.rng.bool() {
+            if let Some((subvalue, subcache)) = subvalue_provider
+                .get_subvalue(TypeId::of::<T>())
+                .and_then(
+                    #[no_coverage]
+                    |x| x.downcast_ref::<T>(),
+                )
+                .and_then(
+                    #[no_coverage]
+                    |v| {
+                        self.mutator.validate_value(&v).map(
+                            #[no_coverage]
+                            |c| (v, c),
+                        )
+                    },
+                )
+            {
+                let cplx = self.mutator.complexity(&subvalue, &subcache);
+                if cplx < max_cplx {
+                    let mut swapped = subvalue.clone();
+                    let mut v = value.as_ref().clone();
+                    std::mem::swap(&mut v, &mut swapped);
+                    *value = Rc::new(v);
+                    return (UnmutateToken::Replace(swapped), cplx);
+                }
+            }
+        }
+        let mut v = value.as_ref().clone();
+        let (token, cplx) = self
+            .mutator
+            .crossover_mutate(&mut v, cache, subvalue_provider, max_cplx);
+        *value = Rc::new(v);
+        (UnmutateToken::Inner(token), cplx)
     }
 }
 
 impl<T> DefaultMutator for Rc<T>
 where
-    T: DefaultMutator,
+    T: DefaultMutator + 'static,
 {
     #[doc(hidden)]
     type Mutator = RcMutator<<T as DefaultMutator>::Mutator>;

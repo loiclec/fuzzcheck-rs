@@ -245,6 +245,8 @@ where
 
     type LensPath = <M as Mutator<T>>::LensPath;
 
+    #[doc(hidden)]
+    #[no_coverage]
     fn lens<'a>(&self, value: &'a T, cache: &'a Self::Cache, path: &Self::LensPath) -> &'a dyn Any {
         self.reference.upgrade().unwrap().lens(value, cache, path)
     }
@@ -259,6 +261,8 @@ where
         self.reference.upgrade().unwrap().all_paths(value, cache)
     }
 
+    #[doc(hidden)]
+    #[no_coverage]
     fn crossover_mutate(
         &self,
         value: &mut T,
@@ -266,7 +270,10 @@ where
         subvalue_provider: &dyn crate::SubValueProvider,
         max_cplx: f64,
     ) -> (Self::UnmutateToken, f64) {
-        todo!()
+        self.reference
+            .upgrade()
+            .unwrap()
+            .crossover_mutate(value, cache, subvalue_provider, max_cplx)
     }
 }
 
@@ -392,6 +399,8 @@ where
         self.mutator.all_paths(value, cache)
     }
 
+    #[doc(hidden)]
+    #[no_coverage]
     fn crossover_mutate(
         &self,
         value: &mut T,
@@ -399,6 +408,7 @@ where
         subvalue_provider: &dyn crate::SubValueProvider,
         max_cplx: f64,
     ) -> (Self::UnmutateToken, f64) {
-        todo!()
+        let (token, cplx) = self.mutator.crossover_mutate(value, cache, subvalue_provider, max_cplx);
+        (RecursiveMutatorUnmutateToken::Token(token), cplx)
     }
 }

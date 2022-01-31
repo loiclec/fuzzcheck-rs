@@ -34,14 +34,14 @@ This module provides the following mutators:
     * [`MapMutator<..>`](crate::mutators::map::MapMutator) wraps a mutator and transforms the generated value using a user-provided function.
 */
 pub mod alternation;
-// pub mod arc;
+pub mod arc;
 pub mod array;
 pub mod bool;
-// pub mod boxed;
-// pub mod char;
-// pub mod character_classes;
-// pub mod dictionary;
-// pub mod either;
+pub mod boxed;
+pub mod char;
+pub mod character_classes;
+pub mod dictionary;
+pub mod either;
 pub mod enums;
 pub mod filter;
 // pub mod fixed_len_vector;
@@ -49,16 +49,16 @@ pub mod filter;
 // #[doc(cfg(feature = "grammar_mutator"))]
 // pub mod grammar;
 pub mod integer;
-// pub mod integer_within_range;
+pub mod integer_within_range;
 pub mod map;
 pub mod mutations;
-// pub mod never;
+pub mod never;
 pub mod option;
 pub mod range;
-// pub mod rc;
+pub mod rc;
 pub mod recursive;
-// pub mod result;
-// pub mod string;
+pub mod result;
+pub mod string;
 pub mod tuples;
 pub mod unit;
 pub mod vector;

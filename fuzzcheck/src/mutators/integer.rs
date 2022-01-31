@@ -286,7 +286,7 @@ macro_rules! impl_int_mutator {
                 &self,
                 value: &mut $name,
                 cache: &mut Self::Cache,
-                subvalue_provider: &dyn crate::SubValueProvider,
+                _subvalue_provider: &dyn crate::SubValueProvider,
                 max_cplx: f64,
             ) -> (Self::UnmutateToken, f64) {
                 self.random_mutate(value, cache, max_cplx)

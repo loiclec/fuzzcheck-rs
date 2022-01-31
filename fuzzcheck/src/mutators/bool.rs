@@ -147,11 +147,13 @@ impl Mutator<bool> for BoolMutator {
         <_>::default()
     }
 
+    #[doc(hidden)]
+    #[no_coverage]
     fn crossover_mutate(
         &self,
         value: &mut bool,
         cache: &mut Self::Cache,
-        subvalue_provider: &dyn crate::SubValueProvider,
+        _subvalue_provider: &dyn crate::SubValueProvider,
         max_cplx: f64,
     ) -> (Self::UnmutateToken, f64) {
         self.random_mutate(value, cache, max_cplx)

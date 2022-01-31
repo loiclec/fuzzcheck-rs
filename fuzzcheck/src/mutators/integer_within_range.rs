@@ -171,23 +171,35 @@ macro_rules! impl_int_mutator_constrained {
             }
 
             #[doc(hidden)]
-            type RecursingPartIndex = ();
+            type LensPath = !;
             #[doc(hidden)]
             #[no_coverage]
-            fn default_recursing_part_index(&self, _value: &$name, _cache: &Self::Cache) -> Self::RecursingPartIndex {}
-            #[doc(hidden)]
-            #[no_coverage]
-            fn recursing_part<'a, V, N>(
+            fn lens<'a>(
                 &self,
-                _parent: &N,
                 _value: &'a $name,
-                _index: &mut Self::RecursingPartIndex,
-            ) -> Option<&'a V>
-            where
-                V: Clone + 'static,
-                N: Mutator<V>,
-            {
-                None
+                _cache: &Self::Cache,
+                _path: &Self::LensPath,
+            ) -> &'a dyn std::any::Any {
+                unreachable!()
+            }
+            #[doc(hidden)]
+            #[no_coverage]
+            fn all_paths(
+                &self,
+                _value: &$name,
+                _cache: &Self::Cache,
+            ) -> std::collections::HashMap<std::any::TypeId, Vec<Self::LensPath>> {
+                <_>::default()
+            }
+
+            fn crossover_mutate(
+                &self,
+                value: &mut $name,
+                cache: &mut Self::Cache,
+                _subvalue_provider: &dyn crate::SubValueProvider,
+                max_cplx: f64,
+            ) -> (Self::UnmutateToken, f64) {
+                self.random_mutate(value, cache, max_cplx)
             }
         }
     };

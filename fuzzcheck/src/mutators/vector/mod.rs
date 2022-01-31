@@ -1,6 +1,6 @@
 use crate::mutators::mutations::{Mutation, RevertMutation};
 use crate::mutators::vector::insert_element::RevertInsertElement;
-use crate::mutators::vector::mutate_element::{MutateElement, RevertMutateElement};
+use crate::mutators::vector::mutate_element::RevertMutateElement;
 use crate::mutators::vector::remove_and_insert_element::RevertRemoveAndInsertElement;
 use crate::{DefaultMutator, Mutator, SubValueProvider};
 use std::any::{Any, TypeId};

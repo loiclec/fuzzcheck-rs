@@ -1,3 +1,5 @@
+use std::{any::TypeId, collections::HashMap};
+
 use crate::Mutator;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -164,28 +166,61 @@ where
     }
 
     #[doc(hidden)]
-    type RecursingPartIndex = Either<M1::RecursingPartIndex, M2::RecursingPartIndex>;
+    type LensPath = Either<M1::LensPath, M2::LensPath>;
+
     #[doc(hidden)]
     #[inline]
     #[no_coverage]
-    fn default_recursing_part_index(&self, value: &T, cache: &Self::Cache) -> Self::RecursingPartIndex {
-        match (self, cache) {
-            (Either::Left(m), Either::Left(c)) => Either::Left(m.default_recursing_part_index(value, c)),
-            (Either::Right(m), Either::Right(c)) => Either::Right(m.default_recursing_part_index(value, c)),
+    fn lens<'a>(&self, value: &'a T, cache: &'a Self::Cache, path: &Self::LensPath) -> &'a dyn std::any::Any {
+        match (self, cache, path) {
+            (Either::Left(m), Either::Left(cache), Either::Left(path)) => m.lens(value, cache, path),
+            (Either::Right(m), Either::Right(cache), Either::Right(path)) => m.lens(value, cache, path),
             _ => unreachable!(),
         }
     }
     #[doc(hidden)]
     #[inline]
     #[no_coverage]
-    fn recursing_part<'a, V, N>(&self, parent: &N, value: &'a T, index: &mut Self::RecursingPartIndex) -> Option<&'a V>
-    where
-        V: Clone + 'static,
-        N: Mutator<V>,
-    {
-        match (self, index) {
-            (Either::Left(m), Either::Left(i)) => m.recursing_part::<V, N>(parent, value, i),
-            (Either::Right(m), Either::Right(i)) => m.recursing_part::<V, N>(parent, value, i),
+    fn all_paths(&self, value: &T, cache: &Self::Cache) -> HashMap<TypeId, Vec<Self::LensPath>> {
+        match (self, cache) {
+            (Either::Left(m), Either::Left(cache)) => {
+                let mut r: HashMap<TypeId, Vec<Self::LensPath>> = <_>::default();
+                let paths = m.all_paths(value, cache);
+                for (key, paths) in paths {
+                    r.entry(key).or_default().extend(paths.into_iter().map(Either::Left));
+                }
+                r
+            }
+            (Either::Right(m), Either::Right(cache)) => {
+                let mut r: HashMap<TypeId, Vec<Self::LensPath>> = <_>::default();
+                let paths = m.all_paths(value, cache);
+                for (key, paths) in paths {
+                    r.entry(key).or_default().extend(paths.into_iter().map(Either::Right));
+                }
+                r
+            }
+            _ => unreachable!(),
+        }
+    }
+    #[doc(hidden)]
+    #[inline]
+    #[no_coverage]
+    fn crossover_mutate(
+        &self,
+        value: &mut T,
+        cache: &mut Self::Cache,
+        subvalue_provider: &dyn crate::SubValueProvider,
+        max_cplx: f64,
+    ) -> (Self::UnmutateToken, f64) {
+        match (self, cache) {
+            (Either::Left(m), Either::Left(cache)) => {
+                let (t, cplx) = m.crossover_mutate(value, cache, subvalue_provider, max_cplx);
+                (Either::Left(t), cplx)
+            }
+            (Either::Right(m), Either::Right(cache)) => {
+                let (t, cplx) = m.crossover_mutate(value, cache, subvalue_provider, max_cplx);
+                (Either::Right(t), cplx)
+            }
             _ => unreachable!(),
         }
     }

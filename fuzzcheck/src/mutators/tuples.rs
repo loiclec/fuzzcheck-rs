@@ -458,10 +458,10 @@ mod tuple0 {
 
         fn crossover_mutate<'a>(
             &self,
-            value: <Tuple0 as RefTypes>::Mut<'a>,
-            cache: &'a mut Self::Cache,
-            subvalue_provider: &dyn crate::SubValueProvider,
-            max_cplx: f64,
+            _value: <Tuple0 as RefTypes>::Mut<'a>,
+            _cache: &'a mut Self::Cache,
+            _subvalue_provider: &dyn crate::SubValueProvider,
+            _max_cplx: f64,
         ) -> (Self::UnmutateToken, f64) {
             ((), 0.0)
         }
@@ -470,7 +470,7 @@ mod tuple0 {
 
 pub use tuple1::{Tuple1, Tuple1Mutator};
 mod tuple1 {
-    use std::{any::TypeId, borrow::Borrow};
+    use std::any::TypeId;
 
     use super::{TupleMutator, TupleMutatorWrapper};
     use crate::mutators::tuples::RefTypes;
@@ -712,77 +712,43 @@ mod tuple2 {
     extern crate self as fuzzcheck;
     fuzzcheck_mutators_derive::make_basic_tuple_mutator!(2);
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::{mutators::vector::vec_mutation::RevertVectorMutation, CrossoverSubValueProvider, DefaultMutator};
-
-    #[test]
-    fn test_tuple_2() {
-        let m = <Vec<Option<bool>>>::default_mutator();
-        let mut value = vec![Some(true), None];
-        let mut cache = m.validate_value(&value).unwrap();
-        let cloned_v = value.clone();
-        let mut other_v = vec![None, Some(false), None];
-
-        let mut other_c = m.validate_value(&other_v).unwrap();
-        let mut paths = m.all_paths(&other_v, &other_c);
-
-        let mut subvalue_provider = CrossoverSubValueProvider::from(&m, &other_v, &other_c, &paths);
-        for _ in 0..200000 {
-            let (token, _) = m.crossover_mutate(&mut value, &mut cache, &subvalue_provider, 1000.);
-
-            // if fastrand::u8(..10) == 0 {
-            other_v = value.clone();
-            other_c = m.validate_value(&value).unwrap();
-            paths = m.all_paths(&other_v, &other_c);
-            subvalue_provider = CrossoverSubValueProvider::from(&m, &other_v, &other_c, &paths);
-            // }
-
-            m.unmutate(&mut value, &mut cache, token);
-            assert_eq!(value, cloned_v);
-        }
-    }
+pub use tuple3::{Tuple3, Tuple3Mutator};
+mod tuple3 {
+    extern crate self as fuzzcheck;
+    fuzzcheck_mutators_derive::make_basic_tuple_mutator!(3);
 }
-
-// pub use tuple3::{Tuple3, Tuple3Mutator};
-// mod tuple3 {
-//     extern crate self as fuzzcheck;
-//     fuzzcheck_mutators_derive::make_basic_tuple_mutator!(3);
-// }
-// pub use tuple4::{Tuple4, Tuple4Mutator};
-// mod tuple4 {
-//     extern crate self as fuzzcheck;
-//     fuzzcheck_mutators_derive::make_basic_tuple_mutator!(4);
-// }
-// pub use tuple5::{Tuple5, Tuple5Mutator};
-// mod tuple5 {
-//     extern crate self as fuzzcheck;
-//     fuzzcheck_mutators_derive::make_basic_tuple_mutator!(5);
-// }
-// pub use tuple6::{Tuple6, Tuple6Mutator};
-// mod tuple6 {
-//     extern crate self as fuzzcheck;
-//     fuzzcheck_mutators_derive::make_basic_tuple_mutator!(6);
-// }
-// pub use tuple7::{Tuple7, Tuple7Mutator};
-// mod tuple7 {
-//     extern crate self as fuzzcheck;
-//     fuzzcheck_mutators_derive::make_basic_tuple_mutator!(7);
-// }
-// pub use tuple8::{Tuple8, Tuple8Mutator};
-// mod tuple8 {
-//     extern crate self as fuzzcheck;
-//     fuzzcheck_mutators_derive::make_basic_tuple_mutator!(8);
-// }
-// pub use tuple9::{Tuple9, Tuple9Mutator};
-// mod tuple9 {
-//     extern crate self as fuzzcheck;
-//     fuzzcheck_mutators_derive::make_basic_tuple_mutator!(9);
-// }
-// pub use tuple10::{Tuple10, Tuple10Mutator};
-// mod tuple10 {
-//     extern crate self as fuzzcheck;
-//     fuzzcheck_mutators_derive::make_basic_tuple_mutator!(10);
-// }
+pub use tuple4::{Tuple4, Tuple4Mutator};
+mod tuple4 {
+    extern crate self as fuzzcheck;
+    fuzzcheck_mutators_derive::make_basic_tuple_mutator!(4);
+}
+pub use tuple5::{Tuple5, Tuple5Mutator};
+mod tuple5 {
+    extern crate self as fuzzcheck;
+    fuzzcheck_mutators_derive::make_basic_tuple_mutator!(5);
+}
+pub use tuple6::{Tuple6, Tuple6Mutator};
+mod tuple6 {
+    extern crate self as fuzzcheck;
+    fuzzcheck_mutators_derive::make_basic_tuple_mutator!(6);
+}
+pub use tuple7::{Tuple7, Tuple7Mutator};
+mod tuple7 {
+    extern crate self as fuzzcheck;
+    fuzzcheck_mutators_derive::make_basic_tuple_mutator!(7);
+}
+pub use tuple8::{Tuple8, Tuple8Mutator};
+mod tuple8 {
+    extern crate self as fuzzcheck;
+    fuzzcheck_mutators_derive::make_basic_tuple_mutator!(8);
+}
+pub use tuple9::{Tuple9, Tuple9Mutator};
+mod tuple9 {
+    extern crate self as fuzzcheck;
+    fuzzcheck_mutators_derive::make_basic_tuple_mutator!(9);
+}
+pub use tuple10::{Tuple10, Tuple10Mutator};
+mod tuple10 {
+    extern crate self as fuzzcheck;
+    fuzzcheck_mutators_derive::make_basic_tuple_mutator!(10);
+}

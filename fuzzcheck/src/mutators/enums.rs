@@ -155,7 +155,7 @@ where
         &self,
         value: &mut T,
         cache: &mut Self::Cache,
-        subvalue_provider: &dyn crate::SubValueProvider,
+        _subvalue_provider: &dyn crate::SubValueProvider,
         max_cplx: f64,
     ) -> (Self::UnmutateToken, f64) {
         self.random_mutate(value, cache, max_cplx)

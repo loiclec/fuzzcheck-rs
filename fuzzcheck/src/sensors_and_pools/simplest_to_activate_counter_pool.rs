@@ -862,10 +862,12 @@ mod tests {
 
         type LensPath = !;
 
+        #[no_coverage]
         fn lens<'a>(&self, _value: &'a f64, _cache: &Self::Cache, _path: &Self::LensPath) -> &'a dyn std::any::Any {
             unreachable!()
         }
 
+        #[no_coverage]
         fn all_paths(
             &self,
             _value: &f64,
@@ -874,12 +876,13 @@ mod tests {
             <_>::default()
         }
 
+        #[no_coverage]
         fn crossover_mutate(
             &self,
-            value: &mut f64,
-            cache: &mut Self::Cache,
-            subvalue_provider: &dyn crate::SubValueProvider,
-            max_cplx: f64,
+            _value: &mut f64,
+            _cache: &mut Self::Cache,
+            _subvalue_provider: &dyn crate::SubValueProvider,
+            _max_cplx: f64,
         ) -> (Self::UnmutateToken, f64) {
             todo!()
         }

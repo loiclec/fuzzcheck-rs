@@ -1,8 +1,8 @@
+use crate::DefaultMutator;
+use crate::Mutator;
 use std::any::TypeId;
 use std::collections::HashMap;
 use std::marker::PhantomData;
-use crate::DefaultMutator;
-use crate::Mutator;
 
 pub type VoidMutator = UnitMutator<()>;
 
@@ -142,6 +142,8 @@ where
 
     type LensPath = !;
 
+    #[doc(hidden)]
+    #[no_coverage]
     fn lens<'a>(&self, _value: &'a T, _cache: &Self::Cache, _path: &Self::LensPath) -> &'a dyn std::any::Any {
         unreachable!()
     }
@@ -150,13 +152,14 @@ where
     fn all_paths(&self, _value: &T, _cache: &Self::Cache) -> HashMap<TypeId, Vec<Self::LensPath>> {
         <_>::default()
     }
-
+    #[doc(hidden)]
+    #[no_coverage]
     fn crossover_mutate(
         &self,
-        value: &mut T,
-        cache: &mut Self::Cache,
-        subvalue_provider: &dyn crate::SubValueProvider,
-        max_cplx: f64,
+        _value: &mut T,
+        _cache: &mut Self::Cache,
+        _subvalue_provider: &dyn crate::SubValueProvider,
+        _max_cplx: f64,
     ) -> (Self::UnmutateToken, f64) {
         ((), 0.0)
     }

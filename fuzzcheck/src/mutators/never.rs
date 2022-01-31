@@ -76,31 +76,41 @@ impl<T: Clone> Mutator<T> for NeverMutator {
     fn random_mutate(&self, _value: &mut T, _cache: &mut Self::Cache, _max_cplx: f64) -> (Self::UnmutateToken, f64) {
         unreachable!()
     }
-    #[doc(hidden)]
-    type RecursingPartIndex = ();
+
     #[doc(hidden)]
     #[no_coverage]
     fn unmutate(&self, _value: &mut T, _cache: &mut Self::Cache, _t: Self::UnmutateToken) {
         unreachable!()
     }
+
+    #[doc(hidden)]
+    type LensPath = !;
+
     #[doc(hidden)]
     #[no_coverage]
-    fn default_recursing_part_index(&self, _value: &T, _cache: &Self::Cache) -> Self::RecursingPartIndex {
+    fn lens<'a>(&self, _value: &'a T, _cache: &'a Self::Cache, _path: &Self::LensPath) -> &'a dyn std::any::Any {
         unreachable!()
     }
 
     #[doc(hidden)]
     #[no_coverage]
-    fn recursing_part<'a, V, N>(
+    fn all_paths(
         &self,
-        _parent: &N,
-        _value: &'a T,
-        _index: &mut Self::RecursingPartIndex,
-    ) -> Option<&'a V>
-    where
-        V: Clone + 'static,
-        N: Mutator<V>,
-    {
+        _value: &T,
+        _cache: &Self::Cache,
+    ) -> std::collections::HashMap<std::any::TypeId, Vec<Self::LensPath>> {
+        unreachable!()
+    }
+
+    #[doc(hidden)]
+    #[no_coverage]
+    fn crossover_mutate(
+        &self,
+        _value: &mut T,
+        _cache: &mut Self::Cache,
+        _subvalue_provider: &dyn crate::SubValueProvider,
+        _max_cplx: f64,
+    ) -> (Self::UnmutateToken, f64) {
         unreachable!()
     }
 }
@@ -194,29 +204,39 @@ where
         unreachable!()
     }
 
-    type RecursingPartIndex = ();
+    #[doc(hidden)]
+    type LensPath = !;
 
     #[doc(hidden)]
     #[no_coverage]
-    fn default_recursing_part_index<'a>(
+    fn lens<'a>(
         &self,
         _value: TupleKind::Ref<'a>,
-        _cache: &Self::Cache,
-    ) -> Self::RecursingPartIndex {
+        _cache: &'a Self::Cache,
+        _path: &Self::LensPath,
+    ) -> &'a dyn std::any::Any {
+        unreachable!()
     }
 
     #[doc(hidden)]
     #[no_coverage]
-    fn recursing_part<'a, V, N>(
+    fn all_paths<'a>(
         &self,
-        _parent: &N,
         _value: TupleKind::Ref<'a>,
-        _index: &mut Self::RecursingPartIndex,
-    ) -> Option<&'a V>
-    where
-        V: Clone + 'static,
-        N: Mutator<V>,
-    {
-        None
+        _cache: &'a Self::Cache,
+    ) -> std::collections::HashMap<std::any::TypeId, Vec<Self::LensPath>> {
+        unreachable!()
+    }
+
+    #[doc(hidden)]
+    #[no_coverage]
+    fn crossover_mutate<'a>(
+        &self,
+        _value: TupleKind::Mut<'a>,
+        _cache: &'a mut Self::Cache,
+        _subvalue_provider: &dyn crate::SubValueProvider,
+        _max_cplx: f64,
+    ) -> (Self::UnmutateToken, f64) {
+        unreachable!()
     }
 }

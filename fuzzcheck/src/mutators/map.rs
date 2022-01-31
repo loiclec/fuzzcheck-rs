@@ -161,13 +161,13 @@ where
 
     type LensPath = M::LensPath;
 
-    fn lens<'a>(&self, value: &'a To, cache: &'a Self::Cache, path: &Self::LensPath) -> &'a dyn std::any::Any {
+    fn lens<'a>(&self, _value: &'a To, cache: &'a Self::Cache, path: &Self::LensPath) -> &'a dyn std::any::Any {
         self.mutator.lens(&cache.from_value, &cache.from_cache, path)
     }
 
     fn all_paths(
         &self,
-        value: &To,
+        _value: &To,
         cache: &Self::Cache,
     ) -> std::collections::HashMap<std::any::TypeId, Vec<Self::LensPath>> {
         self.mutator.all_paths(&cache.from_value, &cache.from_cache)

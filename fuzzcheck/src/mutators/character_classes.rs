@@ -168,23 +168,33 @@ impl Mutator<char> for CharacterMutator {
     }
 
     #[doc(hidden)]
-    type RecursingPartIndex = ();
+    type LensPath = !;
     #[doc(hidden)]
     #[no_coverage]
-    fn default_recursing_part_index(&self, _value: &char, _cache: &Self::Cache) -> Self::RecursingPartIndex {}
+    fn lens<'a>(&self, _value: &'a char, _cache: &Self::Cache, _path: &Self::LensPath) -> &'a dyn std::any::Any {
+        unreachable!()
+    }
+
     #[doc(hidden)]
     #[no_coverage]
-    fn recursing_part<'a, V, N>(
+    fn all_paths(
         &self,
-        _parent: &N,
-        _value: &'a char,
-        _index: &mut Self::RecursingPartIndex,
-    ) -> Option<&'a V>
-    where
-        V: Clone + 'static,
-        N: Mutator<V> + 'static,
-    {
-        None
+        _value: &char,
+        _cache: &Self::Cache,
+    ) -> std::collections::HashMap<std::any::TypeId, Vec<Self::LensPath>> {
+        <_>::default()
+    }
+
+    #[doc(hidden)]
+    #[no_coverage]
+    fn crossover_mutate(
+        &self,
+        value: &mut char,
+        cache: &mut Self::Cache,
+        _subvalue_provider: &dyn crate::SubValueProvider,
+        max_cplx: f64,
+    ) -> (Self::UnmutateToken, f64) {
+        self.random_mutate(value, cache, max_cplx)
     }
 }
 
