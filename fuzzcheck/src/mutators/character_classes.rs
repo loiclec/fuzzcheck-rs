@@ -34,7 +34,7 @@ impl CharacterMutator {
                 },
             )
             .collect::<Vec<_>>();
-        let cplx = crate::mutators::size_to_cplxity(total_length as usize);
+        let cplx = 8.0;
         let rng = Rng::new();
         Self {
             ranges,
