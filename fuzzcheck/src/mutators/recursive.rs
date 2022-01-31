@@ -113,6 +113,7 @@ let s_mutator = RecursiveMutator::new(|mutator| {
 */
 pub struct RecursiveMutator<M> {
     pub mutator: Rc<M>,
+    rng: fastrand::Rng,
 }
 impl<M> RecursiveMutator<M> {
     /// Create a new `RecursiveMutator` using a weak reference to itself.
@@ -120,6 +121,7 @@ impl<M> RecursiveMutator<M> {
     pub fn new(data_fn: impl FnOnce(&Weak<M>) -> M) -> Self {
         Self {
             mutator: Rc::new_cyclic(data_fn),
+            rng: fastrand::Rng::new(),
         }
     }
 }
@@ -274,9 +276,16 @@ where
     }
 }
 
+#[derive(Clone)]
+pub struct RecursiveMutatorCache<C, LP> {
+    inner: C,
+    paths_to_self: Vec<(LP, f64)>,
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub struct RecursiveMutatorMutationStep<MS> {
     mutation_step: MS,
+    idx_paths_to_self: usize,
 }
 
 pub enum RecursiveMutatorUnmutateToken<T, UnmutateToken> {
@@ -289,7 +298,7 @@ where
     M: Mutator<T>,
 {
     #[doc(hidden)]
-    type Cache = M::Cache;
+    type Cache = RecursiveMutatorCache<M::Cache, M::LensPath>;
     #[doc(hidden)]
     type MutationStep = RecursiveMutatorMutationStep<M::MutationStep>;
     #[doc(hidden)]
@@ -308,14 +317,40 @@ where
     #[doc(hidden)]
     #[no_coverage]
     fn validate_value(&self, value: &T) -> Option<Self::Cache> {
-        self.mutator.validate_value(value)
+        if let Some(cache) = self.mutator.validate_value(value) {
+            let mut paths_to_self = vec![];
+            self.mutator.all_paths(
+                value,
+                &cache,
+                #[no_coverage]
+                &mut |typeid, path| {
+                    if typeid == TypeId::of::<T>() {
+                        if let Some(subvalue) = self.mutator.lens(value, &cache, &path).downcast_ref::<T>() {
+                            if let Some(subcache) = self.mutator.validate_value(&subvalue) {
+                                let subcplx = self.mutator.complexity(&subvalue, &subcache);
+                                paths_to_self.push((path, subcplx));
+                            }
+                        }
+                    }
+                },
+            );
+            Some(RecursiveMutatorCache {
+                inner: cache,
+                paths_to_self,
+            })
+        } else {
+            None
+        }
     }
     #[doc(hidden)]
     #[no_coverage]
     fn default_mutation_step(&self, value: &T, cache: &Self::Cache) -> Self::MutationStep {
-        let mutation_step = self.mutator.default_mutation_step(value, cache);
+        let mutation_step = self.mutator.default_mutation_step(value, &cache.inner);
 
-        RecursiveMutatorMutationStep { mutation_step }
+        RecursiveMutatorMutationStep {
+            mutation_step,
+            idx_paths_to_self: 0,
+        }
     }
 
     #[doc(hidden)]
@@ -333,7 +368,7 @@ where
     #[doc(hidden)]
     #[no_coverage]
     fn complexity(&self, value: &T, cache: &Self::Cache) -> f64 {
-        self.mutator.complexity(value, cache)
+        self.mutator.complexity(value, &cache.inner)
     }
 
     #[doc(hidden)]
@@ -357,22 +392,38 @@ where
         step: &mut Self::MutationStep,
         max_cplx: f64,
     ) -> Option<(Self::UnmutateToken, f64)> {
-        if let Some((token, cplx)) = self
-            .mutator
-            .ordered_mutate(value, cache, &mut step.mutation_step, max_cplx)
-        {
-            Some((RecursiveMutatorUnmutateToken::Token(token), cplx))
+        if step.idx_paths_to_self < cache.paths_to_self.len() {
+            let (path, cplx) = &cache.paths_to_self[step.idx_paths_to_self];
+            let mut subself = self.lens(value, cache, path).downcast_ref::<T>().unwrap().clone();
+            step.idx_paths_to_self += 1;
+            std::mem::swap(value, &mut subself);
+            Some((RecursiveMutatorUnmutateToken::Replace(subself), *cplx))
         } else {
-            None
+            if let Some((token, cplx)) =
+                self.mutator
+                    .ordered_mutate(value, &mut cache.inner, &mut step.mutation_step, max_cplx)
+            {
+                Some((RecursiveMutatorUnmutateToken::Token(token), cplx))
+            } else {
+                None
+            }
         }
     }
 
     #[doc(hidden)]
     #[no_coverage]
     fn random_mutate(&self, value: &mut T, cache: &mut Self::Cache, max_cplx: f64) -> (Self::UnmutateToken, f64) {
-        let (token, cplx) = self.mutator.random_mutate(value, cache, max_cplx);
-        let token = RecursiveMutatorUnmutateToken::Token(token);
-        (token, cplx)
+        if !cache.paths_to_self.is_empty() && self.rng.usize(..100) == 0 {
+            let idx = self.rng.usize(..cache.paths_to_self.len());
+            let (path, cplx) = &cache.paths_to_self[idx];
+            let mut subself = self.lens(value, cache, path).downcast_ref::<T>().unwrap().clone();
+            std::mem::swap(value, &mut subself);
+            (RecursiveMutatorUnmutateToken::Replace(subself), *cplx)
+        } else {
+            let (token, cplx) = self.mutator.random_mutate(value, &mut cache.inner, max_cplx);
+            let token = RecursiveMutatorUnmutateToken::Token(token);
+            (token, cplx)
+        }
     }
 
     #[doc(hidden)]
@@ -382,20 +433,20 @@ where
             RecursiveMutatorUnmutateToken::Replace(x) => {
                 let _ = std::mem::replace(value, x);
             }
-            RecursiveMutatorUnmutateToken::Token(t) => self.mutator.unmutate(value, cache, t),
+            RecursiveMutatorUnmutateToken::Token(t) => self.mutator.unmutate(value, &mut cache.inner, t),
         }
     }
 
     #[doc(hidden)]
     #[no_coverage]
     fn lens<'a>(&self, value: &'a T, cache: &'a Self::Cache, path: &Self::LensPath) -> &'a dyn Any {
-        self.mutator.lens(value, cache, path)
+        self.mutator.lens(value, &cache.inner, path)
     }
 
     #[doc(hidden)]
     #[no_coverage]
     fn all_paths(&self, value: &T, cache: &Self::Cache, register_path: &mut dyn FnMut(TypeId, Self::LensPath)) {
-        self.mutator.all_paths(value, cache, register_path)
+        self.mutator.all_paths(value, &cache.inner, register_path)
     }
 
     #[doc(hidden)]
@@ -407,7 +458,9 @@ where
         subvalue_provider: &dyn crate::SubValueProvider,
         max_cplx: f64,
     ) -> (Self::UnmutateToken, f64) {
-        let (token, cplx) = self.mutator.crossover_mutate(value, cache, subvalue_provider, max_cplx);
+        let (token, cplx) = self
+            .mutator
+            .crossover_mutate(value, &mut cache.inner, subvalue_provider, max_cplx);
         (RecursiveMutatorUnmutateToken::Token(token), cplx)
     }
 }
