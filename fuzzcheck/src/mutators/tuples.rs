@@ -132,6 +132,7 @@ where
     type MutationStep: Clone;
     type ArbitraryStep: Clone;
     type UnmutateToken;
+    type LensPath: Clone;
 
     fn default_arbitrary_step(&self) -> Self::ArbitraryStep;
 
@@ -166,7 +167,6 @@ where
 
     fn unmutate<'a>(&self, value: TupleKind::Mut<'a>, cache: &'a mut Self::Cache, t: Self::UnmutateToken);
 
-    type LensPath: Clone;
     fn lens<'a>(&self, value: TupleKind::Ref<'a>, cache: &'a Self::Cache, path: &Self::LensPath) -> &'a dyn Any;
 
     fn all_paths<'a>(
@@ -234,6 +234,8 @@ where
     type ArbitraryStep = M::ArbitraryStep;
     #[doc(hidden)]
     type UnmutateToken = M::UnmutateToken;
+    #[doc(hidden)]
+    type LensPath = M::LensPath;
 
     #[doc(hidden)]
     #[no_coverage]
@@ -306,8 +308,6 @@ where
         self.mutator.unmutate(value.get_mut(), cache, t)
     }
 
-    #[doc(hidden)]
-    type LensPath = M::LensPath;
     #[doc(hidden)]
     #[no_coverage]
     fn lens<'a>(&self, value: &'a T, cache: &'a Self::Cache, path: &Self::LensPath) -> &'a dyn Any {
@@ -553,11 +553,13 @@ mod tuple1 {
         type Cache = <M0 as crate::Mutator<T0>>::Cache;
         #[doc(hidden)]
         type MutationStep = <M0 as crate::Mutator<T0>>::MutationStep;
-
         #[doc(hidden)]
         type ArbitraryStep = <M0 as crate::Mutator<T0>>::ArbitraryStep;
         #[doc(hidden)]
         type UnmutateToken = UnmutateTuple1Token<T0, <M0 as crate::Mutator<T0>>::UnmutateToken>;
+        #[doc(hidden)]
+        type LensPath = M0::LensPath;
+
         #[doc(hidden)]
         #[no_coverage]
         fn default_arbitrary_step(&self) -> Self::ArbitraryStep {
@@ -648,9 +650,6 @@ mod tuple1 {
                 UnmutateTuple1Token::Inner(t) => self.mutator_0.unmutate(value.0, cache, t),
             }
         }
-
-        #[doc(hidden)]
-        type LensPath = M0::LensPath;
 
         #[doc(hidden)]
         #[no_coverage]

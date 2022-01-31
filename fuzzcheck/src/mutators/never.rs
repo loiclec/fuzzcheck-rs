@@ -15,6 +15,9 @@ impl<T: Clone + 'static> Mutator<T> for NeverMutator {
     #[doc(hidden)]
     type UnmutateToken = ();
     #[doc(hidden)]
+    type LensPath = !;
+
+    #[doc(hidden)]
     #[no_coverage]
     fn default_arbitrary_step(&self) -> Self::ArbitraryStep {
         unreachable!()
@@ -86,9 +89,6 @@ impl<T: Clone + 'static> Mutator<T> for NeverMutator {
     }
 
     #[doc(hidden)]
-    type LensPath = !;
-
-    #[doc(hidden)]
     #[no_coverage]
     fn lens<'a>(&self, _value: &'a T, _cache: &'a Self::Cache, _path: &Self::LensPath) -> &'a dyn std::any::Any {
         unreachable!()
@@ -130,6 +130,8 @@ where
     type ArbitraryStep = ();
     #[doc(hidden)]
     type UnmutateToken = ();
+    #[doc(hidden)]
+    type LensPath = !;
 
     #[doc(hidden)]
     #[no_coverage]
@@ -206,9 +208,6 @@ where
     fn unmutate<'a>(&self, _value: TupleKind::Mut<'a>, _cache: &'a mut Self::Cache, _t: Self::UnmutateToken) {
         unreachable!()
     }
-
-    #[doc(hidden)]
-    type LensPath = !;
 
     #[doc(hidden)]
     #[no_coverage]

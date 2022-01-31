@@ -103,10 +103,17 @@ where
     T: Clone + 'static,
     M: Mutator<T>,
 {
+    #[doc(hidden)]
     type Cache = VecMutatorCache<T, M>;
+    #[doc(hidden)]
     type MutationStep = VectorMutationStep<T, M>;
+    #[doc(hidden)]
     type ArbitraryStep = VecArbitraryStep;
+    #[doc(hidden)]
     type UnmutateToken = RevertVectorMutation<T, M>;
+    #[doc(hidden)]
+    type LensPath = (usize, Option<M::LensPath>);
+
     #[doc(hidden)]
     #[no_coverage]
     fn default_arbitrary_step(&self) -> Self::ArbitraryStep {
@@ -269,8 +276,6 @@ where
     }
 
     #[doc(hidden)]
-    type LensPath = (usize, Option<M::LensPath>);
-    #[doc(hidden)]
     #[no_coverage]
     fn lens<'a>(&self, value: &'a Vec<T>, cache: &'a Self::Cache, path: &Self::LensPath) -> &'a dyn Any {
         let value = &value[path.0];
@@ -283,8 +288,7 @@ where
     }
     #[doc(hidden)]
     #[no_coverage]
-    fn all_paths(&self, value: &Vec<T>, cache: &Self::Cache, register_path: &mut dyn FnMut(TypeId, Self::LensPath))
-    {
+    fn all_paths(&self, value: &Vec<T>, cache: &Self::Cache, register_path: &mut dyn FnMut(TypeId, Self::LensPath)) {
         if !value.is_empty() {
             let typeid = TypeId::of::<T>();
             for idx in 0..value.len() {

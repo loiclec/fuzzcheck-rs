@@ -42,6 +42,8 @@ impl Mutator<bool> for BoolMutator {
     type ArbitraryStep = ArbitraryStep;
     #[doc(hidden)]
     type UnmutateToken = bool;
+    #[doc(hidden)]
+    type LensPath = !;
 
     #[doc(hidden)]
     #[no_coverage]
@@ -131,8 +133,6 @@ impl Mutator<bool> for BoolMutator {
     }
 
     #[doc(hidden)]
-    type LensPath = !;
-    #[doc(hidden)]
     #[no_coverage]
     fn lens<'a>(&self, _value: &'a bool, _cache: &Self::Cache, _path: &Self::LensPath) -> &'a dyn std::any::Any {
         unreachable!()
@@ -140,9 +140,7 @@ impl Mutator<bool> for BoolMutator {
 
     #[doc(hidden)]
     #[no_coverage]
-    fn all_paths(&self, _value: &bool, _cache: &Self::Cache, _register_path: &mut dyn FnMut(TypeId, Self::LensPath))
-    {
-    }
+    fn all_paths(&self, _value: &bool, _cache: &Self::Cache, _register_path: &mut dyn FnMut(TypeId, Self::LensPath)) {}
 
     #[doc(hidden)]
     #[no_coverage]

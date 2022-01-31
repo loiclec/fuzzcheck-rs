@@ -151,6 +151,8 @@ where
     type ArbitraryStep = RecursingArbitraryStep<<M as Mutator<T>>::ArbitraryStep>;
     #[doc(hidden)]
     type UnmutateToken = <M as Mutator<T>>::UnmutateToken;
+    #[doc(hidden)]
+    type LensPath = <M as Mutator<T>>::LensPath;
 
     #[doc(hidden)]
     #[no_coverage]
@@ -244,8 +246,6 @@ where
         self.reference.upgrade().unwrap().unmutate(value, cache, t)
     }
 
-    type LensPath = <M as Mutator<T>>::LensPath;
-
     #[doc(hidden)]
     #[no_coverage]
     fn lens<'a>(&self, value: &'a T, cache: &'a Self::Cache, path: &Self::LensPath) -> &'a dyn Any {
@@ -254,8 +254,7 @@ where
 
     #[doc(hidden)]
     #[no_coverage]
-    fn all_paths(&self, value: &T, cache: &Self::Cache, register_path: &mut dyn FnMut(TypeId, Self::LensPath))
-    {
+    fn all_paths(&self, value: &T, cache: &Self::Cache, register_path: &mut dyn FnMut(TypeId, Self::LensPath)) {
         self.reference.upgrade().unwrap().all_paths(value, cache, register_path)
     }
 
@@ -289,10 +288,16 @@ impl<M, T: Clone + 'static> Mutator<T> for RecursiveMutator<M>
 where
     M: Mutator<T>,
 {
+    #[doc(hidden)]
     type Cache = M::Cache;
+    #[doc(hidden)]
     type MutationStep = RecursiveMutatorMutationStep<M::MutationStep>;
+    #[doc(hidden)]
     type ArbitraryStep = M::ArbitraryStep;
+    #[doc(hidden)]
     type UnmutateToken = RecursiveMutatorUnmutateToken<T, M::UnmutateToken>;
+    #[doc(hidden)]
+    type LensPath = <M as Mutator<T>>::LensPath;
 
     #[doc(hidden)]
     #[no_coverage]
@@ -382,9 +387,6 @@ where
     }
 
     #[doc(hidden)]
-    type LensPath = <M as Mutator<T>>::LensPath;
-
-    #[doc(hidden)]
     #[no_coverage]
     fn lens<'a>(&self, value: &'a T, cache: &'a Self::Cache, path: &Self::LensPath) -> &'a dyn Any {
         self.mutator.lens(value, cache, path)
@@ -392,8 +394,7 @@ where
 
     #[doc(hidden)]
     #[no_coverage]
-    fn all_paths(&self, value: &T, cache: &Self::Cache, register_path: &mut dyn FnMut(TypeId, Self::LensPath))
-    {
+    fn all_paths(&self, value: &T, cache: &Self::Cache, register_path: &mut dyn FnMut(TypeId, Self::LensPath)) {
         self.mutator.all_paths(value, cache, register_path)
     }
 

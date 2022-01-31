@@ -165,6 +165,8 @@ impl<M: Mutator<T>, T: Clone + 'static, const N: usize> Mutator<[T; N]> for Arra
     type ArbitraryStep = ();
     #[doc(hidden)]
     type UnmutateToken = UnmutateArrayToken<M, T, N>;
+    #[doc(hidden)]
+    type LensPath = (usize, Option<M::LensPath>);
 
     #[doc(hidden)]
     #[no_coverage]
@@ -332,9 +334,6 @@ impl<M: Mutator<T>, T: Clone + 'static, const N: usize> Mutator<[T; N]> for Arra
             }
         }
     }
-
-    #[doc(hidden)]
-    type LensPath = (usize, Option<M::LensPath>);
 
     #[doc(hidden)]
     #[no_coverage]

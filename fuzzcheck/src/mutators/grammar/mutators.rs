@@ -93,6 +93,8 @@ impl Mutator<AST> for ASTMutator {
     type ArbitraryStep = ASTMutatorArbitraryStep;
     #[doc(hidden)]
     type UnmutateToken = ASTMutatorUnmutateToken;
+    #[doc(hidden)]
+    type LensPath = ASTMutatorLensPath;
 
     #[doc(hidden)]
     #[no_coverage]
@@ -173,9 +175,6 @@ impl Mutator<AST> for ASTMutator {
     }
 
     #[doc(hidden)]
-    type LensPath = ASTMutatorLensPath;
-
-    #[doc(hidden)]
     #[no_coverage]
     fn lens<'a>(&self, value: &'a AST, cache: &'a Self::Cache, path: &Self::LensPath) -> &'a dyn std::any::Any {
         self.inner.lens(value, &cache.inner, &path.inner)
@@ -183,8 +182,7 @@ impl Mutator<AST> for ASTMutator {
 
     #[doc(hidden)]
     #[no_coverage]
-    fn all_paths(&self, value: &AST, cache: &Self::Cache, register_path: &mut dyn FnMut(TypeId, Self::LensPath))
-    {
+    fn all_paths(&self, value: &AST, cache: &Self::Cache, register_path: &mut dyn FnMut(TypeId, Self::LensPath)) {
         self.inner.all_paths(
             value,
             &cache.inner,

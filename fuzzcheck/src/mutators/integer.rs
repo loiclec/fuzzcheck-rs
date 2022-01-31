@@ -159,6 +159,9 @@ macro_rules! impl_int_mutator {
             #[doc(hidden)]
             type UnmutateToken = $name; // old value
             #[doc(hidden)]
+            type LensPath = !;
+
+            #[doc(hidden)]
             #[no_coverage]
             fn default_arbitrary_step(&self) -> Self::ArbitraryStep {
                 <_>::default()
@@ -261,8 +264,6 @@ macro_rules! impl_int_mutator {
             }
 
             #[doc(hidden)]
-            type LensPath = !;
-            #[doc(hidden)]
             #[no_coverage]
             fn lens<'a>(
                 &self,
@@ -282,6 +283,8 @@ macro_rules! impl_int_mutator {
             ) {
             }
 
+            #[doc(hidden)]
+            #[no_coverage]
             fn crossover_mutate(
                 &self,
                 value: &mut $name,

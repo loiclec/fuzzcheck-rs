@@ -393,6 +393,12 @@ fn impl_mutator_trait(tb: &mut TokenBuilder, nbr_elements: usize) {
             , separator: ",")
         ">;
         #[doc(hidden)]
+        type LensPath = LensPath <"
+            join_ts!(0..nbr_elements, i,
+                "<" Mi(i) "as" cm.fuzzcheck_traits_Mutator "<" Ti(i) "> >::LensPath "
+            , separator: ",")
+        ">;
+        #[doc(hidden)]
         #[no_coverage]
         fn default_arbitrary_step(&self) -> Self::ArbitraryStep {
         }
@@ -611,12 +617,6 @@ fn impl_mutator_trait(tb: &mut TokenBuilder, nbr_elements: usize) {
             )
         "}
 
-        #[doc(hidden)]
-        type LensPath = LensPath <"
-            join_ts!(0..nbr_elements, i,
-                "<" Mi(i) "as" cm.fuzzcheck_traits_Mutator "<" Ti(i) "> >::LensPath "
-            , separator: ",")
-        ">;
         #[doc(hidden)]
         #[no_coverage]
         fn lens<'a>(&self, value: " tuple_ref ", cache: &'a Self::Cache, path: &Self::LensPath) -> &'a dyn " cm.Any " {

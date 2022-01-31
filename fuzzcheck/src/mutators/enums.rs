@@ -37,6 +37,8 @@ where
     type ArbitraryStep = usize;
     #[doc(hidden)]
     type UnmutateToken = usize;
+    #[doc(hidden)]
+    type LensPath = !;
 
     #[doc(hidden)]
     #[no_coverage]
@@ -136,8 +138,8 @@ where
         *value = T::from_item_index(t);
     }
 
-    type LensPath = !;
-
+    #[doc(hidden)]
+    #[no_coverage]
     fn lens<'a>(&self, _value: &'a T, _cache: &Self::Cache, _path: &Self::LensPath) -> &'a dyn std::any::Any {
         unreachable!()
     }
@@ -145,6 +147,9 @@ where
     #[doc(hidden)]
     #[no_coverage]
     fn all_paths(&self, _value: &T, _cache: &Self::Cache, _register_path: &mut dyn FnMut(TypeId, Self::LensPath)) {}
+
+    #[doc(hidden)]
+    #[no_coverage]
     fn crossover_mutate(
         &self,
         value: &mut T,

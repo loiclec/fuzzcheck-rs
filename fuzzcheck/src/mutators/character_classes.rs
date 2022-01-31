@@ -66,6 +66,9 @@ impl Mutator<char> for CharacterMutator {
     #[doc(hidden)]
     type UnmutateToken = char;
     #[doc(hidden)]
+    type LensPath = !;
+
+    #[doc(hidden)]
     #[no_coverage]
     fn default_arbitrary_step(&self) -> Self::ArbitraryStep {
         0
@@ -168,8 +171,6 @@ impl Mutator<char> for CharacterMutator {
     }
 
     #[doc(hidden)]
-    type LensPath = !;
-    #[doc(hidden)]
     #[no_coverage]
     fn lens<'a>(&self, _value: &'a char, _cache: &Self::Cache, _path: &Self::LensPath) -> &'a dyn std::any::Any {
         unreachable!()
@@ -177,8 +178,12 @@ impl Mutator<char> for CharacterMutator {
 
     #[doc(hidden)]
     #[no_coverage]
-    fn all_paths(&self, _value: &char, _cache: &Self::Cache, _register_path: &mut dyn FnMut(std::any::TypeId, Self::LensPath))
-    {
+    fn all_paths(
+        &self,
+        _value: &char,
+        _cache: &Self::Cache,
+        _register_path: &mut dyn FnMut(std::any::TypeId, Self::LensPath),
+    ) {
     }
 
     #[doc(hidden)]

@@ -58,6 +58,8 @@ macro_rules! impl_int_mutator_constrained {
             type ArbitraryStep = u64;
             #[doc(hidden)]
             type UnmutateToken = $name; // old value
+            #[doc(hidden)]
+            type LensPath = !;
 
             #[doc(hidden)]
             #[no_coverage]
@@ -171,8 +173,6 @@ macro_rules! impl_int_mutator_constrained {
             }
 
             #[doc(hidden)]
-            type LensPath = !;
-            #[doc(hidden)]
             #[no_coverage]
             fn lens<'a>(
                 &self,
@@ -192,6 +192,8 @@ macro_rules! impl_int_mutator_constrained {
             ) {
             }
 
+            #[doc(hidden)]
+            #[no_coverage]
             fn crossover_mutate(
                 &self,
                 value: &mut $name,

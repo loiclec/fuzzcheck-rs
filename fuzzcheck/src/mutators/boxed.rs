@@ -33,6 +33,8 @@ impl<T: Clone + 'static, M: Mutator<T>> Mutator<Box<T>> for BoxMutator<M> {
     type ArbitraryStep = M::ArbitraryStep;
     #[doc(hidden)]
     type UnmutateToken = UnmutateToken<T, M::UnmutateToken>;
+    #[doc(hidden)]
+    type LensPath = M::LensPath;
 
     #[doc(hidden)]
     #[no_coverage]
@@ -119,9 +121,6 @@ impl<T: Clone + 'static, M: Mutator<T>> Mutator<Box<T>> for BoxMutator<M> {
     }
 
     #[doc(hidden)]
-    type LensPath = M::LensPath;
-
-    #[doc(hidden)]
     #[no_coverage]
     fn lens<'a>(&self, value: &'a Box<T>, cache: &'a Self::Cache, path: &Self::LensPath) -> &'a dyn std::any::Any {
         self.mutator.lens(value, cache, path)
@@ -129,8 +128,7 @@ impl<T: Clone + 'static, M: Mutator<T>> Mutator<Box<T>> for BoxMutator<M> {
 
     #[doc(hidden)]
     #[no_coverage]
-    fn all_paths(&self, value: &Box<T>, cache: &Self::Cache, register_path: &mut dyn FnMut(TypeId, Self::LensPath))
-    {
+    fn all_paths(&self, value: &Box<T>, cache: &Self::Cache, register_path: &mut dyn FnMut(TypeId, Self::LensPath)) {
         self.mutator.all_paths(value, cache, register_path)
     }
 

@@ -79,6 +79,8 @@ impl<T: Clone + 'static, M: Mutator<T>> Mutator<T> for DictionaryMutator<T, M> {
     type ArbitraryStep = self::ArbitraryStep<M::ArbitraryStep>;
     #[doc(hidden)]
     type UnmutateToken = UnmutateToken<T, M>;
+    #[doc(hidden)]
+    type LensPath = M::LensPath;
 
     #[doc(hidden)]
     #[no_coverage]
@@ -198,9 +200,6 @@ impl<T: Clone + 'static, M: Mutator<T>> Mutator<T> for DictionaryMutator<T, M> {
             UnmutateToken::Unmutate(t) => self.m.unmutate(value, cache, t),
         }
     }
-
-    #[doc(hidden)]
-    type LensPath = M::LensPath;
 
     #[doc(hidden)]
     #[no_coverage]

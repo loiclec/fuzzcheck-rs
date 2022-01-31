@@ -21,6 +21,8 @@ where
     type ArbitraryStep = Either<M1::ArbitraryStep, M2::ArbitraryStep>;
     #[doc(hidden)]
     type UnmutateToken = Either<M1::UnmutateToken, M2::UnmutateToken>;
+    #[doc(hidden)]
+    type LensPath = Either<M1::LensPath, M2::LensPath>;
 
     #[doc(hidden)]
     #[inline]
@@ -164,9 +166,6 @@ where
             _ => unreachable!(),
         }
     }
-
-    #[doc(hidden)]
-    type LensPath = Either<M1::LensPath, M2::LensPath>;
 
     #[doc(hidden)]
     #[inline]

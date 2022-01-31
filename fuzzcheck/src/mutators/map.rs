@@ -72,6 +72,8 @@ where
     type ArbitraryStep = M::ArbitraryStep;
     #[doc(hidden)]
     type UnmutateToken = M::UnmutateToken;
+    #[doc(hidden)]
+    type LensPath = M::LensPath;
 
     #[doc(hidden)]
     #[no_coverage]
@@ -160,9 +162,6 @@ where
     }
 
     #[doc(hidden)]
-    type LensPath = M::LensPath;
-
-    #[doc(hidden)]
     #[no_coverage]
     fn lens<'a>(&self, _value: &'a To, cache: &'a Self::Cache, path: &Self::LensPath) -> &'a dyn std::any::Any {
         self.mutator.lens(&cache.from_value, &cache.from_cache, path)
@@ -180,6 +179,8 @@ where
             .all_paths(&cache.from_value, &cache.from_cache, register_path)
     }
 
+    #[doc(hidden)]
+    #[no_coverage]
     fn crossover_mutate(
         &self,
         value: &mut To,

@@ -121,29 +121,6 @@ pub enum UnmutateToken<T, U> {
     Inner(usize, U),
 }
 
-// impl<T, M> AlternationMutator<T, M>
-// where
-//     T: Clone + 'static,
-//     M: Mutator<T>,
-// {
-//     #[no_coverage]
-//     fn default_mutation_step(
-//         &self,
-//         inner: M::MutationStep,
-//         idx: usize,
-//     ) -> MutationStep<M::MutationStep, <Self as Mutator<T>>::ArbitraryStep> {
-//         MutationStep {
-//             step: 0,
-//             mutator_idx: idx,
-//             inner,
-//             arbitrary: {
-//                 let mut step = self.default_arbitrary_step();
-//                 step.indices.remove(idx);
-//                 step
-//             },
-//         }
-//     }
-// }
 impl<T, M> AlternationMutator<T, M>
 where
     T: Clone + 'static,
@@ -172,6 +149,8 @@ where
     type ArbitraryStep = ArbitraryStep<M::ArbitraryStep>;
     #[doc(hidden)]
     type UnmutateToken = UnmutateToken<T, M::UnmutateToken>;
+    #[doc(hidden)]
+    type LensPath = (usize, M::LensPath);
 
     #[doc(hidden)]
     #[no_coverage]
@@ -390,8 +369,6 @@ where
         }
     }
 
-    #[doc(hidden)]
-    type LensPath = (usize, M::LensPath);
     #[doc(hidden)]
     #[no_coverage]
     fn lens<'a>(&self, value: &'a T, cache: &'a Self::Cache, path: &Self::LensPath) -> &'a dyn Any {

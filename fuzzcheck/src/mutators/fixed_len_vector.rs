@@ -171,6 +171,8 @@ impl<T: Clone + 'static, M: Mutator<T>> Mutator<Vec<T>> for FixedLenVecMutator<T
     type ArbitraryStep = ();
     #[doc(hidden)]
     type UnmutateToken = UnmutateVecToken<T, M>;
+    #[doc(hidden)]
+    type LensPath = (usize, Option<M::LensPath>);
 
     #[doc(hidden)]
     #[no_coverage]
@@ -339,9 +341,6 @@ impl<T: Clone + 'static, M: Mutator<T>> Mutator<Vec<T>> for FixedLenVecMutator<T
             }
         }
     }
-
-    #[doc(hidden)]
-    type LensPath = (usize, Option<M::LensPath>);
 
     #[doc(hidden)]
     #[no_coverage]

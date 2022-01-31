@@ -794,14 +794,11 @@ mod tests {
     pub struct VoidMutator {}
 
     impl Mutator<f64> for VoidMutator {
-        #[doc(hidden)]
         type Cache = ();
-        #[doc(hidden)]
         type MutationStep = ();
-        #[doc(hidden)]
         type ArbitraryStep = ();
-        #[doc(hidden)]
         type UnmutateToken = ();
+        type LensPath = !;
 
         #[no_coverage]
         fn default_arbitrary_step(&self) -> Self::ArbitraryStep {}
@@ -859,8 +856,6 @@ mod tests {
 
         #[no_coverage]
         fn unmutate(&self, _value: &mut f64, _cache: &mut Self::Cache, _t: Self::UnmutateToken) {}
-
-        type LensPath = !;
 
         #[no_coverage]
         fn lens<'a>(&self, _value: &'a f64, _cache: &Self::Cache, _path: &Self::LensPath) -> &'a dyn std::any::Any {

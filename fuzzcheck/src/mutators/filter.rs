@@ -11,10 +11,16 @@ where
     F: Fn(&T) -> bool,
     Self: 'static,
 {
+    #[doc(hidden)]
     type Cache = <M as Mutator<T>>::Cache;
+    #[doc(hidden)]
     type MutationStep = <M as Mutator<T>>::MutationStep;
+    #[doc(hidden)]
     type ArbitraryStep = <M as Mutator<T>>::ArbitraryStep;
+    #[doc(hidden)]
     type UnmutateToken = <M as Mutator<T>>::UnmutateToken;
+    #[doc(hidden)]
+    type LensPath = M::LensPath;
 
     #[doc(hidden)]
     #[no_coverage]
@@ -121,8 +127,6 @@ where
     fn unmutate(&self, value: &mut T, cache: &mut Self::Cache, t: Self::UnmutateToken) {
         self.mutator.unmutate(value, cache, t)
     }
-
-    type LensPath = M::LensPath;
 
     #[doc(hidden)]
     #[no_coverage]
