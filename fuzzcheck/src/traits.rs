@@ -319,10 +319,14 @@ where
     fn get_subvalue(&self, typeid: TypeId) -> Option<&dyn Any> {
         if let Some(all_paths) = self.all_paths.get(&typeid) {
             assert!(!all_paths.is_empty());
-            let path_idx = self.rng.usize(..all_paths.len());
-            let path = &all_paths[path_idx];
-            let subvalue = self.mutator.lens(self.value, self.cache, path);
-            Some(subvalue)
+            if self.value.type_id() == typeid && self.rng.usize(..all_paths.len() + 1) == 0 {
+                Some(self.value)
+            } else {
+                let path_idx = self.rng.usize(..all_paths.len());
+                let path = &all_paths[path_idx];
+                let subvalue = self.mutator.lens(self.value, self.cache, path);
+                Some(subvalue)
+            }
         } else {
             None
         }
