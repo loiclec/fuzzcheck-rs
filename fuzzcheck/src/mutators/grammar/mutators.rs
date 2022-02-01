@@ -1,14 +1,12 @@
 extern crate self as fuzzcheck;
 
 use super::grammar::Grammar;
-// use super::parser::parse_from_grammar;
 use crate::mutators::alternation::AlternationMutator;
-use crate::mutators::boxed::BoxMutator;
 use crate::mutators::character_classes::CharacterMutator;
 use crate::mutators::either::Either;
 use crate::mutators::fixed_len_vector::FixedLenVecMutator;
 use crate::mutators::grammar::ast::AST;
-// use crate::mutators::incremental_map::IncrementalMapMutator;
+use crate::mutators::map::AndMapMutator;
 use crate::mutators::recursive::{RecurToMutator, RecursiveMutator};
 use crate::mutators::tuples::Tuple1Mutator;
 use crate::mutators::vector::VecMutator;
@@ -44,6 +42,14 @@ type InnerASTMutator = Either<
 pub struct ASTMutator {
     inner: Box<InnerASTMutator>,
 }
+
+impl ASTMutator {
+    #[no_coverage]
+    pub fn with_string(self) -> impl Mutator<(String, AST)> {
+        AndMapMutator::new(self, |x| x.to_string())
+    }
+}
+
 #[derive(Clone)]
 pub struct ASTMutatorCache {
     inner: Box<<InnerASTMutator as Mutator<AST>>::Cache>,

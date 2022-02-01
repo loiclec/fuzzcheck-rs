@@ -35,12 +35,12 @@
 pub extern crate fastrand;
 
 mod bitset;
+mod bloom_filter;
 pub mod builder;
 mod code_coverage_sensor;
 mod data_structures;
 mod fenwick_tree;
 mod fuzzer;
-
 pub mod mutators;
 pub mod sensors_and_pools;
 pub mod serializers;

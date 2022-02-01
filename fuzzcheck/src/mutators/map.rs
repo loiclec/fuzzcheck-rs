@@ -13,7 +13,7 @@ where
     pub mutator: M,
     pub parse: Parse,
     pub map: Map,
-    _phantom: PhantomData<(From, To)>,
+    _phantom: PhantomData<(To, From)>,
 }
 impl<From, To, M, Parse, Map> MapMutator<From, To, M, Parse, Map>
 where
@@ -195,6 +195,181 @@ where
             max_cplx,
         );
         *value = (self.map)(&cache.from_value);
+        (token, cplx)
+    }
+}
+
+pub struct AndMapMutator<From, To, M, Map>
+where
+    From: Clone + 'static,
+    To: Clone + 'static,
+    M: Mutator<From>,
+    Map: Fn(&From) -> To,
+{
+    pub mutator: M,
+    pub map: Map,
+    _phantom: PhantomData<(To, From)>,
+}
+impl<From, To, M, Map> AndMapMutator<From, To, M, Map>
+where
+    From: Clone + 'static,
+    To: Clone + 'static,
+    M: Mutator<From>,
+    Map: Fn(&From) -> To,
+{
+    #[no_coverage]
+    pub fn new(mutator: M, map: Map) -> Self {
+        Self {
+            mutator,
+            map,
+            _phantom: PhantomData,
+        }
+    }
+}
+
+impl<From, To, M, Map> Mutator<(To, From)> for AndMapMutator<From, To, M, Map>
+where
+    From: Clone + 'static,
+    To: Clone + 'static,
+    M: Mutator<From>,
+    Map: Fn(&From) -> To,
+    Self: 'static,
+{
+    #[doc(hidden)]
+    type Cache = M::Cache;
+    #[doc(hidden)]
+    type MutationStep = M::MutationStep;
+    #[doc(hidden)]
+    type ArbitraryStep = M::ArbitraryStep;
+    #[doc(hidden)]
+    type UnmutateToken = M::UnmutateToken;
+    #[doc(hidden)]
+    type LensPath = M::LensPath;
+
+    #[doc(hidden)]
+    #[no_coverage]
+    fn default_arbitrary_step(&self) -> Self::ArbitraryStep {
+        self.mutator.default_arbitrary_step()
+    }
+
+    #[doc(hidden)]
+    #[no_coverage]
+    fn validate_value(&self, value: &(To, From)) -> Option<Self::Cache> {
+        let (_, from_value) = value;
+        let from_cache = self.mutator.validate_value(&from_value)?;
+        Some(from_cache)
+    }
+    #[doc(hidden)]
+    #[no_coverage]
+    fn default_mutation_step(&self, value: &(To, From), cache: &Self::Cache) -> Self::MutationStep {
+        let (_, from_value) = value;
+        self.mutator.default_mutation_step(from_value, cache)
+    }
+
+    #[doc(hidden)]
+    #[no_coverage]
+    fn max_complexity(&self) -> f64 {
+        self.mutator.max_complexity()
+    }
+
+    #[doc(hidden)]
+    #[no_coverage]
+    fn min_complexity(&self) -> f64 {
+        self.mutator.min_complexity()
+    }
+
+    #[doc(hidden)]
+    #[no_coverage]
+    fn complexity(&self, value: &(To, From), cache: &Self::Cache) -> f64 {
+        let (_, from_value) = value;
+        self.mutator.complexity(from_value, cache)
+    }
+
+    #[doc(hidden)]
+    #[no_coverage]
+    fn ordered_arbitrary(&self, step: &mut Self::ArbitraryStep, max_cplx: f64) -> Option<((To, From), f64)> {
+        let (from_value, cplx) = self.mutator.ordered_arbitrary(step, max_cplx)?;
+        let to_value = (self.map)(&from_value);
+        Some(((to_value, from_value), cplx))
+    }
+
+    #[doc(hidden)]
+    #[no_coverage]
+    fn random_arbitrary(&self, max_cplx: f64) -> ((To, From), f64) {
+        let (from_value, cplx) = self.mutator.random_arbitrary(max_cplx);
+        let to_value = (self.map)(&from_value);
+        ((to_value, from_value), cplx)
+    }
+
+    #[doc(hidden)]
+    #[no_coverage]
+    fn ordered_mutate(
+        &self,
+        value: &mut (To, From),
+        cache: &mut Self::Cache,
+        step: &mut Self::MutationStep,
+        max_cplx: f64,
+    ) -> Option<(Self::UnmutateToken, f64)> {
+        let (to_value, from_value) = value;
+        let (token, cplx) = self.mutator.ordered_mutate(from_value, cache, step, max_cplx)?;
+        *to_value = (self.map)(from_value);
+        Some((token, cplx))
+    }
+
+    #[doc(hidden)]
+    #[no_coverage]
+    fn random_mutate(
+        &self,
+        value: &mut (To, From),
+        cache: &mut Self::Cache,
+        max_cplx: f64,
+    ) -> (Self::UnmutateToken, f64) {
+        let (to_value, from_value) = value;
+        let (token, cplx) = self.mutator.random_mutate(from_value, cache, max_cplx);
+        *to_value = (self.map)(from_value);
+        (token, cplx)
+    }
+
+    #[doc(hidden)]
+    #[no_coverage]
+    fn unmutate(&self, value: &mut (To, From), cache: &mut Self::Cache, t: Self::UnmutateToken) {
+        let (to_value, from_value) = value;
+        self.mutator.unmutate(from_value, cache, t);
+    }
+
+    #[doc(hidden)]
+    #[no_coverage]
+    fn lens<'a>(&self, value: &'a (To, From), cache: &'a Self::Cache, path: &Self::LensPath) -> &'a dyn std::any::Any {
+        let (_, from_value) = value;
+        self.mutator.lens(from_value, cache, path)
+    }
+
+    #[doc(hidden)]
+    #[no_coverage]
+    fn all_paths(
+        &self,
+        value: &(To, From),
+        cache: &Self::Cache,
+        register_path: &mut dyn FnMut(std::any::TypeId, Self::LensPath),
+    ) {
+        let (_, from_value) = value;
+        self.mutator.all_paths(from_value, cache, register_path)
+    }
+
+    #[doc(hidden)]
+    #[no_coverage]
+    fn crossover_mutate(
+        &self,
+        value: &mut (To, From),
+        cache: &mut Self::Cache,
+        subvalue_provider: &dyn crate::SubValueProvider,
+        max_cplx: f64,
+    ) -> (Self::UnmutateToken, f64) {
+        let (to_value, from_value) = value;
+        let (token, cplx) = self
+            .mutator
+            .crossover_mutate(from_value, cache, subvalue_provider, max_cplx);
+        *to_value = (self.map)(from_value);
         (token, cplx)
     }
 }
