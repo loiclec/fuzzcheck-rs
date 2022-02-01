@@ -22,7 +22,6 @@ make_single_variant_mutator! {
     pub enum AST {
         Token(char),
         Sequence(Vec<AST>),
-        Box(Box<AST>),
     }
 }
 
@@ -31,8 +30,12 @@ type InnerASTMutator = Either<
     Either<
         ASTSingleVariant<
             Tuple1Mutator<CharacterMutator>,
-            Tuple1Mutator<Either<FixedLenVecMutator<AST, ASTMutator>, VecMutator<AST, ASTMutator>>>,
-            Tuple1Mutator<BoxMutator<RecurToMutator<ASTMutator>>>,
+            Tuple1Mutator<
+                Either<
+                    FixedLenVecMutator<AST, RecurToMutator<ASTMutator>>,
+                    Either<FixedLenVecMutator<AST, ASTMutator>, VecMutator<AST, ASTMutator>>,
+                >,
+            >,
         >,
         RecursiveMutator<ASTMutator>,
     >,
@@ -234,7 +237,7 @@ impl ASTMutator {
     fn sequence(m: Either<FixedLenVecMutator<AST, ASTMutator>, VecMutator<AST, ASTMutator>>) -> Self {
         Self {
             inner: Box::new(Either::Right(Either::Left(ASTSingleVariant::Sequence(
-                Tuple1Mutator::new(m),
+                Tuple1Mutator::new(Either::Right(m)),
             )))),
         }
     }
@@ -247,9 +250,9 @@ impl ASTMutator {
     #[no_coverage]
     fn recur(m: RecurToMutator<ASTMutator>) -> Self {
         Self {
-            inner: Box::new(Either::Right(Either::Left(ASTSingleVariant::Box(Tuple1Mutator::new(
-                BoxMutator::new(m),
-            ))))),
+            inner: Box::new(Either::Right(Either::Left(ASTSingleVariant::Sequence(
+                Tuple1Mutator::new(Either::Left(FixedLenVecMutator::new(vec![m]))),
+            )))),
         }
     }
     #[no_coverage]
