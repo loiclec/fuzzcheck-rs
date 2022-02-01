@@ -10,7 +10,6 @@ pub struct CharacterMutator {
     ranges: Vec<RangeInclusive<char>>,
     total_length: u32,
     lengths: Vec<Range<u32>>,
-    cplx: f64,
     rng: Rng,
 }
 impl CharacterMutator {
@@ -34,13 +33,11 @@ impl CharacterMutator {
                 },
             )
             .collect::<Vec<_>>();
-        let cplx = 8.0;
         let rng = Rng::new();
         Self {
             ranges,
             total_length,
             lengths,
-            cplx,
             rng,
         }
     }
@@ -55,7 +52,16 @@ impl CharacterMutator {
         panic!()
     }
 }
-
+impl CharacterMutator {
+    fn complexity_of_value(c: char) -> f64 {
+        let cplx = (c.len_utf8() * 8) as f64;
+        if c.is_ascii_alphabetic() {
+            cplx - 1.0
+        } else {
+            cplx
+        }
+    }
+}
 impl Mutator<char> for CharacterMutator {
     #[doc(hidden)]
     type Cache = ();
@@ -94,17 +100,17 @@ impl Mutator<char> for CharacterMutator {
     #[doc(hidden)]
     #[no_coverage]
     fn max_complexity(&self) -> f64 {
-        self.cplx
+        32.0
     }
     #[doc(hidden)]
     #[no_coverage]
     fn min_complexity(&self) -> f64 {
-        self.cplx
+        7.0
     }
     #[doc(hidden)]
     #[no_coverage]
-    fn complexity(&self, _value: &char, _cache: &Self::Cache) -> f64 {
-        self.cplx
+    fn complexity(&self, value: &char, _cache: &Self::Cache) -> f64 {
+        Self::complexity_of_value(*value)
     }
     #[doc(hidden)]
     #[no_coverage]
@@ -116,7 +122,7 @@ impl Mutator<char> for CharacterMutator {
         *step += 1;
 
         if let Some(c) = self.get_char(idx) {
-            Some((c, self.cplx))
+            Some((c, Self::complexity_of_value(c)))
         } else {
             self.ordered_arbitrary(step, max_cplx)
         }
@@ -126,7 +132,7 @@ impl Mutator<char> for CharacterMutator {
     fn random_arbitrary(&self, max_cplx: f64) -> (char, f64) {
         let idx = self.rng.u32(..self.total_length);
         if let Some(c) = self.get_char(idx) {
-            (c, self.cplx)
+            (c, Self::complexity_of_value(c))
         } else {
             self.random_arbitrary(max_cplx)
         }
@@ -148,7 +154,7 @@ impl Mutator<char> for CharacterMutator {
 
         if let Some(mut c) = self.get_char(idx) {
             std::mem::swap(value, &mut c);
-            Some((c, self.cplx))
+            Some((c, Self::complexity_of_value(*value)))
         } else {
             self.ordered_mutate(value, cache, step, max_cplx)
         }
@@ -159,7 +165,7 @@ impl Mutator<char> for CharacterMutator {
         let idx = self.rng.u32(..self.total_length);
         if let Some(mut c) = self.get_char(idx) {
             std::mem::swap(value, &mut c);
-            (c, self.cplx)
+            (c, Self::complexity_of_value(*value))
         } else {
             self.random_mutate(value, cache, max_cplx)
         }
