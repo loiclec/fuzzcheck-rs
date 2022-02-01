@@ -95,7 +95,8 @@ where
 
     #[no_coverage]
     fn complexity_from_inner(&self, cplx: f64, len: usize) -> f64 {
-        1.0 + if cplx <= 0.0 { len as f64 } else { cplx }
+        //1.0 + if cplx <= 0.0 { len as f64 } else { cplx }
+        cplx
     }
 }
 impl<T, M> Mutator<Vec<T>> for VecMutator<T, M>
@@ -212,7 +213,7 @@ where
                 if !*make_empty || max_cplx <= 1.0 {
                     *make_empty = true;
                     if self.len_range.contains(&0) {
-                        Some((<_>::default(), 1.0))
+                        Some((<_>::default(), 0.0))
                     } else {
                         Some(self.random_arbitrary(max_cplx))
                     }

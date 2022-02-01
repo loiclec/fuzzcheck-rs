@@ -128,11 +128,12 @@ where
 {
     #[no_coverage]
     fn complexity_from_inner(&self, cplx: f64) -> f64 {
-        if cplx == 0. {
-            self.complexity_from_choice
-        } else {
-            cplx
-        }
+        // if cplx == 0. {
+        // panic!();
+        // self.complexity_from_choice
+        // } else {
+        cplx
+        // }
     }
 }
 
