@@ -60,6 +60,7 @@ pub mod recursive;
 pub mod result;
 pub mod string;
 pub mod tuples;
+pub mod unique;
 pub mod unit;
 pub mod vector;
 pub mod vose_alias;

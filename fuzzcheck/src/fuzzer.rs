@@ -77,6 +77,8 @@ where
     M: Mutator<T>,
 {
     input: FuzzedInput<T, M>,
+    cloned_value: T,
+    cloned_cache: M::Cache,
     lens_paths: HashMap<TypeId, Vec<M::LensPath>>,
 }
 
@@ -345,26 +347,29 @@ where
                 .expect(UPDATE_CORPUS_ERROR);
             world.report_event(event, Some((fuzzer_stats, sensor_and_pool.stats().as_ref())));
             if add_ref_count > 0 {
-                let new_input = input.new_source(mutator);
+                let input = input.new_source(mutator);
                 // here I don't check the complexity of the new input,
                 // but because of the way mutators work (real possibility of
                 // inconsistent complexities), then its complexity may be higher
                 // than the maximum allowed one
                 let mut lens_paths: HashMap<TypeId, Vec<M::LensPath>> = HashMap::default();
                 mutator.all_paths(
-                    &new_input.value,
-                    &new_input.cache,
+                    &input.value,
+                    &input.cache,
                     #[no_coverage]
                     &mut |typeid, path| {
                         lens_paths.entry(typeid).or_default().push(path);
                     },
                 );
-
-                let stored_new_input = StoredFuzzedInput {
-                    input: new_input,
+                let cloned_value = input.value.clone();
+                let cloned_cache = input.cache.clone();
+                let stored_input = StoredFuzzedInput {
+                    input: input,
+                    cloned_value,
+                    cloned_cache,
                     lens_paths,
                 };
-                pool_storage.insert(stored_new_input, add_ref_count);
+                pool_storage.insert(stored_input, add_ref_count);
             }
             for delta in deltas {
                 for r in delta.remove {
@@ -383,18 +388,20 @@ where
         mutator: &'a M,
         rng: &fastrand::Rng,
         idx: PoolStorageIndex,
-        storage_for_cloned_input: &'a mut MaybeUninit<(T, M::Cache)>,
     ) -> (&'a mut FuzzedInput<T, M>, impl SubValueProvider + 'a) {
         let idx_cross = sensor_and_pool.get_random_index().unwrap();
 
         if idx == idx_cross || rng.u8(..5) == 0 {
-            let input = &mut pool_storage[idx.0];
-            let cloned_input = storage_for_cloned_input.write((input.input.value.clone(), input.input.cache.clone()));
-            let StoredFuzzedInput { input, lens_paths } = &mut pool_storage[idx.0];
+            let StoredFuzzedInput {
+                input,
+                cloned_value,
+                cloned_cache,
+                lens_paths,
+            } = &mut pool_storage[idx.0];
             // self-crossover
             (
                 input,
-                CrossoverSubValueProvider::from(mutator, &cloned_input.0, &cloned_input.1, lens_paths),
+                CrossoverSubValueProvider::from(mutator, cloned_value, cloned_cache, lens_paths),
             )
         } else {
             // crossover of two different test cases
@@ -403,6 +410,7 @@ where
                 StoredFuzzedInput {
                     input: input_cross,
                     lens_paths,
+                    ..
                 },
             ) = pool_storage.get_mut_and_ref(idx.0, idx_cross.0).unwrap();
             (
@@ -428,15 +436,8 @@ where
             *input_idx = FuzzerInputIndex::Pool(idx);
             assert!(settings.crossover_rate < 1.0);
             if rng.f64() < settings.crossover_rate {
-                let mut storage = MaybeUninit::uninit();
-                let (input, subvalue_provider) = Self::get_input_and_subvalue_provider(
-                    pool_storage,
-                    sensor_and_pool.as_mut(),
-                    mutator,
-                    rng,
-                    idx,
-                    &mut storage,
-                );
+                let (input, subvalue_provider) =
+                    Self::get_input_and_subvalue_provider(pool_storage, sensor_and_pool.as_mut(), mutator, rng, idx);
                 let generation = input.generation;
                 let (unmutate, complexity) = mutator.crossover_mutate(
                     &mut input.value,
@@ -699,9 +700,12 @@ where
                         lens_paths.entry(typeid).or_default().push(path);
                     },
                 );
-
+                let cloned_value = value.clone();
+                let cloned_cache = cache.clone();
                 let stored_input = StoredFuzzedInput {
                     input: FuzzedInput::new(value, cache, mutation_step, 0),
+                    cloned_value,
+                    cloned_cache,
                     lens_paths,
                 };
                 fuzzer.state.pool_storage.insert(stored_input, 1);
