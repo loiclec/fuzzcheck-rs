@@ -27,14 +27,15 @@ make_single_variant_mutator! {
 }
 
 type InnerASTMutator = Either<
-    ASTSingleVariant<
-        Tuple1Mutator<CharacterMutator>,
-        Tuple1Mutator<Either<FixedLenVecMutator<AST, ASTMutator>, VecMutator<AST, ASTMutator>>>,
-        Tuple1Mutator<
-            BoxMutator<Either<Either<ASTMutator, RecurToMutator<ASTMutator>>, AlternationMutator<AST, ASTMutator>>>,
+    AlternationMutator<AST, ASTMutator>,
+    Either<
+        ASTSingleVariant<
+            Tuple1Mutator<CharacterMutator>,
+            Tuple1Mutator<Either<FixedLenVecMutator<AST, ASTMutator>, VecMutator<AST, ASTMutator>>>,
+            Tuple1Mutator<BoxMutator<RecurToMutator<ASTMutator>>>,
         >,
+        RecursiveMutator<ASTMutator>,
     >,
-    RecursiveMutator<ASTMutator>,
 >;
 
 pub struct ASTMutator {
@@ -224,35 +225,37 @@ impl ASTMutator {
     #[no_coverage]
     fn token(m: CharacterMutator) -> Self {
         Self {
-            inner: Box::new(Either::Left(ASTSingleVariant::Token(Tuple1Mutator::new(m)))),
+            inner: Box::new(Either::Right(Either::Left(ASTSingleVariant::Token(
+                Tuple1Mutator::new(m),
+            )))),
         }
     }
     #[no_coverage]
     fn sequence(m: Either<FixedLenVecMutator<AST, ASTMutator>, VecMutator<AST, ASTMutator>>) -> Self {
         Self {
-            inner: Box::new(Either::Left(ASTSingleVariant::Sequence(Tuple1Mutator::new(m)))),
+            inner: Box::new(Either::Right(Either::Left(ASTSingleVariant::Sequence(
+                Tuple1Mutator::new(m),
+            )))),
         }
     }
     #[no_coverage]
     fn alternation(m: AlternationMutator<AST, ASTMutator>) -> Self {
         Self {
-            inner: Box::new(Either::Left(ASTSingleVariant::Box(Tuple1Mutator::new(
-                BoxMutator::new(Either::Right(m)),
-            )))),
+            inner: Box::new(Either::Left(m)),
         }
     }
     #[no_coverage]
     fn recur(m: RecurToMutator<ASTMutator>) -> Self {
         Self {
-            inner: Box::new(Either::Left(ASTSingleVariant::Box(Tuple1Mutator::new(
-                BoxMutator::new(Either::Left(Either::Right(m))),
-            )))),
+            inner: Box::new(Either::Right(Either::Left(ASTSingleVariant::Box(Tuple1Mutator::new(
+                BoxMutator::new(m),
+            ))))),
         }
     }
     #[no_coverage]
     fn recursive(m: impl FnMut(&Weak<Self>) -> Self) -> Self {
         Self {
-            inner: Box::new(Either::Right(RecursiveMutator::new(m))),
+            inner: Box::new(Either::Right(Either::Right(RecursiveMutator::new(m)))),
         }
     }
 
