@@ -63,7 +63,10 @@ impl<T: ?Sized> BloomFilter<T> {
         let k = Self::optimal_k(false_pos_rate);
         let m = Self::optimal_m(false_pos_rate, size);
         let bitmap = BitVec::from_elem(m, false);
-        let hashers = [AHasher::default(), AHasher::default()];
+        let hashers = [
+            AHasher::new_with_keys(fastrand::u128(..), fastrand::u128(..)),
+            AHasher::new_with_keys(fastrand::u128(..), fastrand::u128(..)),
+        ];
         BloomFilter {
             k,
             m,

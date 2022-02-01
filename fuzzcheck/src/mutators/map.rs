@@ -204,10 +204,11 @@ where
     From: Clone + 'static,
     To: Clone + 'static,
     M: Mutator<From>,
-    Map: Fn(&From) -> To,
+    Map: Fn(&From, &mut To),
 {
     pub mutator: M,
     pub map: Map,
+    storage_to: To,
     _phantom: PhantomData<(To, From)>,
 }
 impl<From, To, M, Map> AndMapMutator<From, To, M, Map>
@@ -215,13 +216,14 @@ where
     From: Clone + 'static,
     To: Clone + 'static,
     M: Mutator<From>,
-    Map: Fn(&From) -> To,
+    Map: Fn(&From, &mut To),
 {
     #[no_coverage]
-    pub fn new(mutator: M, map: Map) -> Self {
+    pub fn new(mutator: M, map: Map, storage: To) -> Self {
         Self {
             mutator,
             map,
+            storage_to: storage,
             _phantom: PhantomData,
         }
     }
@@ -232,7 +234,7 @@ where
     From: Clone + 'static,
     To: Clone + 'static,
     M: Mutator<From>,
-    Map: Fn(&From) -> To,
+    Map: Fn(&From, &mut To),
     Self: 'static,
 {
     #[doc(hidden)]
@@ -289,7 +291,8 @@ where
     #[no_coverage]
     fn ordered_arbitrary(&self, step: &mut Self::ArbitraryStep, max_cplx: f64) -> Option<((To, From), f64)> {
         let (from_value, cplx) = self.mutator.ordered_arbitrary(step, max_cplx)?;
-        let to_value = (self.map)(&from_value);
+        let mut to_value = self.storage_to.clone();
+        (self.map)(&from_value, &mut to_value);
         Some(((to_value, from_value), cplx))
     }
 
@@ -297,7 +300,8 @@ where
     #[no_coverage]
     fn random_arbitrary(&self, max_cplx: f64) -> ((To, From), f64) {
         let (from_value, cplx) = self.mutator.random_arbitrary(max_cplx);
-        let to_value = (self.map)(&from_value);
+        let mut to_value = self.storage_to.clone();
+        (self.map)(&from_value, &mut to_value);
         ((to_value, from_value), cplx)
     }
 
@@ -312,7 +316,7 @@ where
     ) -> Option<(Self::UnmutateToken, f64)> {
         let (to_value, from_value) = value;
         let (token, cplx) = self.mutator.ordered_mutate(from_value, cache, step, max_cplx)?;
-        *to_value = (self.map)(from_value);
+        (self.map)(from_value, to_value);
         Some((token, cplx))
     }
 
@@ -326,7 +330,7 @@ where
     ) -> (Self::UnmutateToken, f64) {
         let (to_value, from_value) = value;
         let (token, cplx) = self.mutator.random_mutate(from_value, cache, max_cplx);
-        *to_value = (self.map)(from_value);
+        (self.map)(from_value, to_value);
         (token, cplx)
     }
 
@@ -369,7 +373,7 @@ where
         let (token, cplx) = self
             .mutator
             .crossover_mutate(from_value, cache, subvalue_provider, max_cplx);
-        *to_value = (self.map)(from_value);
+        (self.map)(from_value, to_value);
         (token, cplx)
     }
 }

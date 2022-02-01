@@ -46,7 +46,14 @@ pub struct ASTMutator {
 impl ASTMutator {
     #[no_coverage]
     pub fn with_string(self) -> impl Mutator<(String, AST)> {
-        AndMapMutator::new(self, |x| x.to_string())
+        AndMapMutator::new(
+            self,
+            |x, s| {
+                s.clear();
+                x.generate_string_in(s);
+            },
+            String::with_capacity(16),
+        )
     }
 }
 

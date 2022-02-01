@@ -24,7 +24,7 @@ pub enum AST {
 
 impl AST {
     #[no_coverage]
-    fn generate_string_in(&self, string: &mut String) {
+    pub fn generate_string_in(&self, string: &mut String) {
         match self {
             AST::Token(c) => {
                 string.push(*c);
