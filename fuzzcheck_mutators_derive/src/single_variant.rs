@@ -207,23 +207,6 @@ pub fn make_single_variant_mutator(tb: &mut TokenBuilder, enu: &Enum) {
         #[doc(hidden)]
         #[no_coverage]
         fn max_complexity(&self) -> f64 {
-            "
-            // what is it, really?
-            // there should be some inherent complexity caused by the
-            // variant wrapper
-            // maybe it can be given in the constructor?
-            // so that it is self.cplx + m.complexity()
-            // where self.cplx actually depends on the number of
-            // variants from the enum
-            // maybe I should look at the number of variants here
-            // then I can deduce the number of choices, transfrom these
-            // to bits and add it to the complexity?
-            // but that might be a problem for ast mutators,
-            // because their inherent complexity is 0. (they get mapped into
-            // something else)
-            // maybe the answer is to an (optional) additional bit
-            // of complexity for the alternation mutator
-            "
             match self {"
             join_ts!(&enu.items, item,
                 EnumSingleVariant "::" item.ident "(m) => m.max_complexity() ,"

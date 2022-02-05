@@ -31,7 +31,7 @@ where
     type Mutator = VecMutator<T, T::Mutator>;
     #[no_coverage]
     fn default_mutator() -> Self::Mutator {
-        VecMutator::new(T::default_mutator(), 0..=usize::MAX)
+        VecMutator::new(T::default_mutator(), 0..=usize::MAX, true)
     }
 }
 
@@ -74,6 +74,7 @@ where
     len_range: RangeInclusive<usize>,
     rng: fastrand::Rng,
     mutations: VectorMutation,
+    inherent_complexity: bool,
     _phantom: PhantomData<T>,
 }
 
@@ -83,21 +84,25 @@ where
     M: Mutator<T>,
 {
     #[no_coverage]
-    pub fn new(m: M, len_range: RangeInclusive<usize>) -> Self {
+    pub fn new(m: M, len_range: RangeInclusive<usize>, inherent_complexity: bool) -> Self {
         Self {
             m,
             len_range,
             rng: fastrand::Rng::new(),
             mutations: VectorMutation::default(),
+            inherent_complexity,
             _phantom: PhantomData,
         }
     }
 
     #[no_coverage]
     fn complexity_from_inner(&self, cplx: f64, len: usize) -> f64 {
-        // NOTE: this agrees with the complexity of FixedLenVecMutator
-        if self.m.min_complexity() == 0.0 {
-            1.0 + len as f64 + cplx
+        if self.inherent_complexity {
+            1.0 + if self.m.min_complexity() == 0.0 {
+                len as f64 + cplx
+            } else {
+                cplx
+            }
         } else {
             cplx
         }
@@ -174,7 +179,7 @@ where
     #[no_coverage]
     fn global_search_space_complexity(&self) -> f64 {
         if self.m.global_search_space_complexity() == 0.0 {
-            super::size_to_cplxity(self.len_range.end() - self.len_range.start())
+            super::size_to_cplxity(self.len_range.end() - self.len_range.start() + 1)
         } else {
             self.m.global_search_space_complexity() * ((self.len_range.end() - self.len_range.start()) as f64)
         }
@@ -183,17 +188,15 @@ where
     #[no_coverage]
     fn max_complexity(&self) -> f64 {
         let max_len = *self.len_range.end();
-        self.complexity_from_inner((max_len as f64) * self.m.max_complexity(), max_len.saturating_add(1))
+        let cplx = self.complexity_from_inner((max_len as f64) * self.m.max_complexity(), max_len);
+        cplx
     }
     #[doc(hidden)]
     #[no_coverage]
     fn min_complexity(&self) -> f64 {
         let min_len = *self.len_range.start();
-        if min_len == 0 {
-            1.0
-        } else {
-            self.complexity_from_inner((min_len as f64) * self.m.min_complexity(), min_len)
-        }
+        let cplx = self.complexity_from_inner((min_len as f64) * self.m.min_complexity(), min_len);
+        cplx
     }
     #[doc(hidden)]
     #[no_coverage]
@@ -226,7 +229,7 @@ where
                 if !*make_empty || max_cplx <= 1.0 {
                     *make_empty = true;
                     if self.len_range.contains(&0) {
-                        Some((<_>::default(), 0.0))
+                        Some((<_>::default(), self.complexity_from_inner(0.0, 0)))
                     } else {
                         Some(self.random_arbitrary(max_cplx))
                     }

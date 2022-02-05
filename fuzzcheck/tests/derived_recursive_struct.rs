@@ -56,7 +56,8 @@ make_mutator! {
                             self_.into()
                         )
                     ),
-                    0..=usize::MAX
+                    0..=usize::MAX,
+                    true
                 )
             }
         )]

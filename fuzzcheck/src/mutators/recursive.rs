@@ -177,7 +177,7 @@ where
     #[doc(hidden)]
     #[no_coverage]
     fn global_search_space_complexity(&self) -> f64 {
-        self.reference.upgrade().unwrap().global_search_space_complexity()
+        std::f64::INFINITY
     }
 
     #[doc(hidden)]

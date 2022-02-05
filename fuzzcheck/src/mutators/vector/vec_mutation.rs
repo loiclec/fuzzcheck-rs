@@ -1,3 +1,5 @@
+use std::fmt::Debug;
+
 use super::arbitrary;
 use super::copy_element;
 use super::insert_element;
@@ -317,6 +319,47 @@ impl_vec_mutation! {
     (RemoveAndInsertElement, remove_and_insert_element::RemoveAndInsertElement),
     (OnlyChooseLength, only_choose_length::OnlyChooseLength),
     (Arbitrary, arbitrary::Arbitrary)
+}
+
+impl<'a, T, M> std::fmt::Debug for ConcreteVectorMutation<'a, T, M>
+where
+    T: Clone + 'static,
+    M: Mutator<T>,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ConcreteVectorMutation::NoMutation(_) => {
+                write!(f, "NoMutation")
+            }
+            ConcreteVectorMutation::CopyElement(_) => {
+                write!(f, "CopyElement")
+            }
+            ConcreteVectorMutation::Remove(_) => {
+                write!(f, "Remove")
+            }
+            ConcreteVectorMutation::MutateElement(_) => {
+                write!(f, "MutateElement")
+            }
+            ConcreteVectorMutation::InsertElement(_) => {
+                write!(f, "InsertElement")
+            }
+            ConcreteVectorMutation::SwapElements(_) => {
+                write!(f, "SwapElements")
+            }
+            ConcreteVectorMutation::InsertManyElements(_) => {
+                write!(f, "InsertManyElements")
+            }
+            ConcreteVectorMutation::RemoveAndInsertElement(_) => {
+                write!(f, "RemoveAndInsertElement")
+            }
+            ConcreteVectorMutation::OnlyChooseLength(_) => {
+                write!(f, "OnlyChooseLength")
+            }
+            ConcreteVectorMutation::Arbitrary(_) => {
+                write!(f, "Arbitrary")
+            }
+        }
+    }
 }
 
 // ====== Default Vector Mutations =====

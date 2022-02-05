@@ -26,7 +26,7 @@ where
 {
     #[no_coverage]
     pub fn new_with_repeated_mutator(mutator: M, len: usize) -> Self {
-        Self::new(vec![mutator; len])
+        Self::new(vec![mutator; len], true)
     }
 }
 
@@ -36,11 +36,16 @@ where
     M: Mutator<T>,
 {
     #[no_coverage]
-    pub fn new(mutators: Vec<M>) -> Self {
+    pub fn new(mutators: Vec<M>, inherent_complexity: bool) -> Self {
         assert!(!mutators.is_empty());
 
-        let inherent_complexity = if mutators[0].min_complexity() == 0.0 {
-            1.0 + mutators.len() as f64
+        // NOTE: this agrees with the vector mutator
+        let inherent_complexity = if inherent_complexity {
+            1.0 + if mutators[0].min_complexity() == 0.0 {
+                mutators.len() as f64
+            } else {
+                0.0
+            }
         } else {
             0.0
         };
@@ -274,7 +279,8 @@ impl<T: Clone + 'static, M: Mutator<T>> Mutator<Vec<T>> for FixedLenVecMutator<T
     #[no_coverage]
     fn random_arbitrary(&self, max_cplx: f64) -> (Vec<T>, f64) {
         let target_cplx = crate::mutators::gen_f64(&self.rng, 1.0..max_cplx);
-        self.new_input_with_complexity(target_cplx)
+        let (v, sum_cplx) = self.new_input_with_complexity(target_cplx);
+        (v, sum_cplx + self.inherent_complexity)
     }
 
     #[doc(hidden)]

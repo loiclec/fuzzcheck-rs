@@ -99,7 +99,7 @@ fn test_derived_struct() {
     let mutator = RecursiveMutator::new(|self_| {
         BMutator::new(
             OptionMutator::new(AMutator::new(
-                VecMutator::new(self_.into(), 0..=usize::MAX),
+                VecMutator::new(self_.into(), 0..=usize::MAX, true),
                 <Vec<u64>>::default_mutator(),
             )),
             bool::default_mutator(),

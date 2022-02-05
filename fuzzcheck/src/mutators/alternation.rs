@@ -30,6 +30,7 @@ where
     min_complexity: f64,
     rng: fastrand::Rng,
     search_space_complexity: f64,
+    added_complexity: f64,
     _phantom: PhantomData<T>,
 }
 
@@ -71,6 +72,7 @@ where
             min_complexity,
             search_space_complexity,
             rng: fastrand::Rng::default(),
+            added_complexity,
             _phantom: PhantomData,
         }
     }
@@ -113,12 +115,7 @@ where
 {
     #[no_coverage]
     fn complexity_from_inner(&self, cplx: f64) -> f64 {
-        // if cplx == 0. {
-        // panic!();
-        // self.complexity_from_choice
-        // } else {
-        cplx
-        // }
+        cplx + self.added_complexity
     }
 }
 

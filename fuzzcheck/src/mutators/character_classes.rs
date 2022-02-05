@@ -13,11 +13,15 @@ pub struct CharacterMutator {
     total_length: u32,
     lengths: Vec<Range<u32>>,
     search_space_complexity: f64,
+    max_cplx: f64,
+    min_cplx: f64,
     rng: Rng,
 }
 impl CharacterMutator {
     #[no_coverage]
     pub fn new(ranges: Vec<RangeInclusive<char>>) -> Self {
+        let ranges = ranges.into_iter().filter(|r| !r.is_empty()).collect::<Vec<_>>();
+        assert!(!ranges.is_empty());
         let total_length = ranges.iter().fold(
             0,
             #[no_coverage]
@@ -36,12 +40,26 @@ impl CharacterMutator {
                 },
             )
             .collect::<Vec<_>>();
+        let min_cplx = if total_length == 1 {
+            let c = *ranges[0].start();
+            Self::complexity_of_value(c)
+        } else {
+            7.0
+        };
+        let max_cplx = if total_length == 1 {
+            let c = *ranges[0].start();
+            Self::complexity_of_value(c)
+        } else {
+            32.0
+        };
         let rng = Rng::new();
         Self {
             ranges,
             total_length,
             lengths,
             search_space_complexity: size_to_cplxity(total_length as usize),
+            max_cplx,
+            min_cplx,
             rng,
         }
     }
@@ -110,12 +128,12 @@ impl Mutator<char> for CharacterMutator {
     #[doc(hidden)]
     #[no_coverage]
     fn max_complexity(&self) -> f64 {
-        32.0
+        self.max_cplx
     }
     #[doc(hidden)]
     #[no_coverage]
     fn min_complexity(&self) -> f64 {
-        7.0
+        self.min_cplx
     }
     #[doc(hidden)]
     #[no_coverage]

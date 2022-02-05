@@ -181,10 +181,11 @@ pub mod testing_utilities {
                         if check_consistent_complexities {
                             assert!(
                                 (cplx - other_cplx).abs() < 0.01,
-                                "{:.3} != {:.3} for {:?}",
+                                "{:.3} != {:.3} for {:?} mutated from {:?}",
                                 cplx,
                                 other_cplx,
-                                x_mut
+                                x_mut,
+                                x
                             );
                         }
                         m.unmutate(&mut x_mut, &mut cache_mut, token);
@@ -200,66 +201,66 @@ pub mod testing_utilities {
                 break;
             }
         }
-        for _i in 0..nbr_arbitraries {
-            let (x, _cplx) = m.random_arbitrary(maximum_complexity_arbitrary);
-            let cache = m.validate_value(&x).unwrap();
-            // let mutation_step = m.default_mutation_step(&x, &cache);
-            let _other_cplx = m.complexity(&x, &cache);
-            // assert!((cplx - other_cplx).abs() < 0.01, "{:.3} != {:.3}", cplx, other_cplx);
-            let mut x_mut = x.clone();
-            let mut cache_mut = cache.clone();
-            for _j in 0..nbr_mutations {
-                let (token, cplx) = m.random_mutate(&mut x_mut, &mut cache_mut, maximum_complexity_mutate);
-                let validated = m.validate_value(&x_mut).unwrap();
-                let other_cplx = m.complexity(&x_mut, &validated);
-                if check_consistent_complexities {
-                    assert!((cplx - other_cplx).abs() < 0.01, "{:.3} != {:.3}", cplx, other_cplx);
-                }
-                m.unmutate(&mut x_mut, &mut cache_mut, token);
-                assert_eq!(x, x_mut);
-                // assert_eq!(cache, cache_mut);
-            }
-        }
+        // for _i in 0..nbr_arbitraries {
+        //     let (x, cplx) = m.random_arbitrary(maximum_complexity_arbitrary);
+        //     let cache = m.validate_value(&x).unwrap();
+        //     // let mutation_step = m.default_mutation_step(&x, &cache);
+        //     let other_cplx = m.complexity(&x, &cache);
+        //     assert!((cplx - other_cplx).abs() < 0.01, "{:.3} != {:.3}", cplx, other_cplx);
+        //     let mut x_mut = x.clone();
+        //     let mut cache_mut = cache.clone();
+        //     for _j in 0..nbr_mutations {
+        //         let (token, cplx) = m.random_mutate(&mut x_mut, &mut cache_mut, maximum_complexity_mutate);
+        //         let validated = m.validate_value(&x_mut).unwrap();
+        //         let other_cplx = m.complexity(&x_mut, &validated);
+        //         if check_consistent_complexities {
+        //             assert!((cplx - other_cplx).abs() < 0.01, "{:.3} != {:.3}", cplx, other_cplx);
+        //         }
+        //         m.unmutate(&mut x_mut, &mut cache_mut, token);
+        //         assert_eq!(x, x_mut);
+        //         // assert_eq!(cache, cache_mut);
+        //     }
+        // }
     }
-    #[no_coverage]
-    pub fn bench_mutator<T, M>(
-        m: M,
-        maximum_complexity_arbitrary: f64,
-        maximum_complexity_mutate: f64,
-        nbr_arbitraries: usize,
-        nbr_mutations: usize,
-    ) where
-        M: Mutator<T>,
-        T: Clone + Debug + PartialEq + Eq + Hash + 'static,
-        M::Cache: Clone,
-    {
-        let mut arbitrary_step = m.default_arbitrary_step();
-        for _i in 0..nbr_arbitraries {
-            if let Some((mut x, _cplx)) = m.ordered_arbitrary(&mut arbitrary_step, maximum_complexity_arbitrary) {
-                let mut cache = m.validate_value(&x).unwrap();
-                let mut mutation_step = m.default_mutation_step(&x, &cache);
-                let _other_cplx = m.complexity(&x, &cache);
-                for _j in 0..nbr_mutations {
-                    if let Some((token, _cplx)) =
-                        m.ordered_mutate(&mut x, &mut cache, &mut mutation_step, maximum_complexity_mutate)
-                    {
-                        m.unmutate(&mut x, &mut cache, token);
-                    } else {
-                        break;
-                    }
-                }
-            } else {
-                break;
-            }
-        }
-        for _i in 0..nbr_arbitraries {
-            let (mut x, _cplx) = m.random_arbitrary(maximum_complexity_arbitrary);
-            let mut cache = m.validate_value(&x).unwrap();
-            let _other_cplx = m.complexity(&x, &cache);
-            for _j in 0..nbr_mutations {
-                let (token, _cplx) = m.random_mutate(&mut x, &mut cache, maximum_complexity_mutate);
-                m.unmutate(&mut x, &mut cache, token);
-            }
-        }
-    }
+    // #[no_coverage]
+    // pub fn bench_mutator<T, M>(
+    //     m: M,
+    //     maximum_complexity_arbitrary: f64,
+    //     maximum_complexity_mutate: f64,
+    //     nbr_arbitraries: usize,
+    //     nbr_mutations: usize,
+    // ) where
+    //     M: Mutator<T>,
+    //     T: Clone + Debug + PartialEq + Eq + Hash + 'static,
+    //     M::Cache: Clone,
+    // {
+    //     let mut arbitrary_step = m.default_arbitrary_step();
+    //     for _i in 0..nbr_arbitraries {
+    //         if let Some((mut x, cplx)) = m.ordered_arbitrary(&mut arbitrary_step, maximum_complexity_arbitrary) {
+    //             let mut cache = m.validate_value(&x).unwrap();
+    //             let mut mutation_step = m.default_mutation_step(&x, &cache);
+    //             let other_cplx = m.complexity(&x, &cache);
+    //             for _j in 0..nbr_mutations {
+    //                 if let Some((token, _cplx)) =
+    //                     m.ordered_mutate(&mut x, &mut cache, &mut mutation_step, maximum_complexity_mutate)
+    //                 {
+    //                     m.unmutate(&mut x, &mut cache, token);
+    //                 } else {
+    //                     break;
+    //                 }
+    //             }
+    //         } else {
+    //             break;
+    //         }
+    //     }
+    //     for _i in 0..nbr_arbitraries {
+    //         let (mut x, cplx) = m.random_arbitrary(maximum_complexity_arbitrary);
+    //         let mut cache = m.validate_value(&x).unwrap();
+    //         let other_cplx = m.complexity(&x, &cache);
+    //         for _j in 0..nbr_mutations {
+    //             let (token, _cplx) = m.random_mutate(&mut x, &mut cache, maximum_complexity_mutate);
+    //             m.unmutate(&mut x, &mut cache, token);
+    //         }
+    //     }
+    // }
 }

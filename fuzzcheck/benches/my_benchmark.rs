@@ -7,7 +7,11 @@ fn criterion_benchmark(c: &mut Criterion) {
     c.bench_function(
         "Vec<Vec<u8>> ordered_mutate and unmutate for short typical vector",
         |b| {
-            let m = VecMutator::new(VecMutator::new(U8Mutator::default(), 0..=usize::MAX), 0..=usize::MAX);
+            let m = VecMutator::new(
+                VecMutator::new(U8Mutator::default(), 0..=usize::MAX, true),
+                0..=usize::MAX,
+                true,
+            );
             // let m = VecMutator::new(U8Mutator::default(), 0..=100);
             let mut vector = vec![
                 vec![1, 2],
