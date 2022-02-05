@@ -12,6 +12,7 @@ macro_rules! impl_int_mutator_constrained {
         pub struct $name_mutator {
             start_range: $name,
             len_range: $name_unsigned,
+            search_space_complexity: f64,
             rng: fastrand::Rng,
         }
         impl $name_mutator {
@@ -41,9 +42,11 @@ macro_rules! impl_int_mutator_constrained {
                         range.end_bound()
                     )
                 }
+                let length = end - start;
                 Self {
                     start_range: start,
                     len_range: end.wrapping_sub(start) as $name_unsigned,
+                    search_space_complexity: super::size_to_cplxity(length as usize),
                     rng: fastrand::Rng::default(),
                 }
             }
@@ -77,6 +80,12 @@ macro_rules! impl_int_mutator_constrained {
             #[no_coverage]
             fn default_mutation_step(&self, _value: &$name, _cache: &Self::Cache) -> Self::MutationStep {
                 INITIAL_MUTATION_STEP
+            }
+
+            #[doc(hidden)]
+            #[no_coverage]
+            fn global_search_space_complexity(&self) -> f64 {
+                self.search_space_complexity
             }
 
             #[doc(hidden)]

@@ -36,6 +36,12 @@ impl<T: Clone + 'static> Mutator<T> for NeverMutator {
 
     #[doc(hidden)]
     #[no_coverage]
+    fn global_search_space_complexity(&self) -> f64 {
+        unreachable!()
+    }
+
+    #[doc(hidden)]
+    #[no_coverage]
     fn max_complexity(&self) -> f64 {
         unreachable!()
     }
@@ -153,6 +159,12 @@ where
     #[doc(hidden)]
     #[no_coverage]
     fn default_mutation_step<'a>(&self, _value: TupleKind::Ref<'a>, _cache: &'a Self::Cache) -> Self::MutationStep {
+        unreachable!()
+    }
+
+    #[doc(hidden)]
+    #[no_coverage]
+    fn global_search_space_complexity(&self) -> f64 {
         unreachable!()
     }
 

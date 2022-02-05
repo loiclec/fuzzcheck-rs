@@ -95,8 +95,12 @@ where
 
     #[no_coverage]
     fn complexity_from_inner(&self, cplx: f64, len: usize) -> f64 {
-        //1.0 + if cplx <= 0.0 { len as f64 } else { cplx }
-        cplx
+        // NOTE: this agrees with the complexity of FixedLenVecMutator
+        if self.m.min_complexity() == 0.0 {
+            1.0 + len as f64 + cplx
+        } else {
+            cplx
+        }
     }
 }
 impl<T, M> Mutator<Vec<T>> for VecMutator<T, M>
@@ -165,6 +169,15 @@ where
     #[no_coverage]
     fn default_mutation_step(&self, value: &Vec<T>, cache: &Self::Cache) -> Self::MutationStep {
         self.mutations.default_step(self, value, cache).unwrap()
+    }
+    #[doc(hidden)]
+    #[no_coverage]
+    fn global_search_space_complexity(&self) -> f64 {
+        if self.m.global_search_space_complexity() == 0.0 {
+            super::size_to_cplxity(self.len_range.end() - self.len_range.start())
+        } else {
+            self.m.global_search_space_complexity() * ((self.len_range.end() - self.len_range.start()) as f64)
+        }
     }
     #[doc(hidden)]
     #[no_coverage]

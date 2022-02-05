@@ -5,11 +5,17 @@ use fuzzcheck::mutators::{
 };
 
 fn test_alternation_char_helper(ranges: impl IntoIterator<Item = RangeInclusive<char>> + Clone) {
-    let m = AlternationMutator::new(ranges.clone().into_iter().map(CharWithinRangeMutator::new).collect());
+    let m = AlternationMutator::new(
+        ranges.clone().into_iter().map(CharWithinRangeMutator::new).collect(),
+        0.0,
+    );
     test_mutator(m, 100.0, 100.0, false, true, 100, 1000);
-    let m = AlternationMutator::new(ranges.clone().into_iter().map(CharWithinRangeMutator::new).collect());
+    let m = AlternationMutator::new(
+        ranges.clone().into_iter().map(CharWithinRangeMutator::new).collect(),
+        0.0,
+    );
     test_mutator(m, 1.0, 100.0, false, true, 100, 1000);
-    let m = AlternationMutator::new(ranges.into_iter().map(CharWithinRangeMutator::new).collect());
+    let m = AlternationMutator::new(ranges.into_iter().map(CharWithinRangeMutator::new).collect(), 0.0);
     test_mutator(m, 1.0, 1.0, false, true, 100, 1000);
 }
 

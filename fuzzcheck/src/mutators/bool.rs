@@ -65,10 +65,15 @@ impl Mutator<bool> for BoolMutator {
 
     #[doc(hidden)]
     #[no_coverage]
+    fn global_search_space_complexity(&self) -> f64 {
+        1.0
+    }
+
+    #[doc(hidden)]
+    #[no_coverage]
     fn max_complexity(&self) -> f64 {
         BOOL_COMPLEXITY
     }
-
     #[doc(hidden)]
     #[no_coverage]
     fn min_complexity(&self) -> f64 {
@@ -126,6 +131,7 @@ impl Mutator<bool> for BoolMutator {
     fn random_mutate(&self, value: &mut bool, _cache: &mut Self::Cache, _max_cplx: f64) -> (Self::UnmutateToken, f64) {
         (std::mem::replace(value, !*value), BOOL_COMPLEXITY)
     }
+
     #[doc(hidden)]
     #[no_coverage]
     fn unmutate(&self, value: &mut bool, _cache: &mut Self::Cache, t: Self::UnmutateToken) {

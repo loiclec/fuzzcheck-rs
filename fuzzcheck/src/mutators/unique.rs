@@ -20,7 +20,6 @@ where
     uniques: Rc<RefCell<BloomFilter<TH>>>,
     nbr_inserted: Cell<usize>,
     focus: Focus,
-    rng: fastrand::Rng,
     _phantom: PhantomData<T>,
 }
 
@@ -38,7 +37,6 @@ where
             uniques: Rc::new(RefCell::new(BloomFilter::new(SIZE_BLOOM, FALSE_POSITIVE_RATE))),
             nbr_inserted: <_>::default(),
             focus,
-            rng: <_>::default(),
             _phantom: <_>::default(),
         }
     }
@@ -85,6 +83,13 @@ where
     fn default_mutation_step(&self, value: &T, cache: &Self::Cache) -> Self::MutationStep {
         self.mutator.default_mutation_step(value, cache)
     }
+
+    #[doc(hidden)]
+    #[no_coverage]
+    fn global_search_space_complexity(&self) -> f64 {
+        self.mutator.global_search_space_complexity()
+    }
+
     #[no_coverage]
     fn max_complexity(&self) -> f64 {
         self.mutator.max_complexity()

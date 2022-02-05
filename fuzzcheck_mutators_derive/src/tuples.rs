@@ -133,7 +133,7 @@ pub(crate) fn impl_default_mutator_for_struct_with_0_field(tb: &mut TokenBuilder
     
         #[no_coverage]
         fn default_mutator() -> Self::Mutator {
-            Self::Mutator::new(" struc.ident init ")
+            Self::Mutator::new(" struc.ident init ", 0.0)
         }
     }
     ");
@@ -245,9 +245,9 @@ fn declare_tuple_mutator(tb: &mut TokenBuilder, nbr_elements: usize) {
             join_ts!(0..nbr_elements, i,
                 ident!("mutator_" i) ":" ident!("M" i) ","
             )
-            "rng :" cm.fastrand_Rng
-        "}
-        
+            "rng :" cm.fastrand_Rng ",
+        }
+
         impl < " type_params " >" cm.TupleNMutator_ident "<" type_params "> {
             #[no_coverage]
             pub fn new(" join_ts!(0..nbr_elements, i, ident!("mutator_" i) ":" ident!("M" i), separator: ",") ") -> Self {
@@ -255,7 +255,8 @@ fn declare_tuple_mutator(tb: &mut TokenBuilder, nbr_elements: usize) {
                     join_ts!(0..nbr_elements, i,
                         ident!("mutator_" i) ","
                     )
-                    "rng: <_>::default() ,"
+                    "rng: <_>::default() ,
+                    "
                 "}
             }"
         "}"
@@ -409,6 +410,15 @@ fn impl_mutator_trait(tb: &mut TokenBuilder, nbr_elements: usize) {
                 "self." mutator_i(i) ".max_complexity()"
             , separator: "+")
         "}
+
+        #[doc(hidden)]
+        #[no_coverage]
+        fn global_search_space_complexity(&self) -> f64 {"
+            join_ts!(0..nbr_elements, i,
+                "self. " mutator_i(i) ".global_search_space_complexity()"
+            , separator: "+") "
+        }
+
         #[doc(hidden)]
         #[no_coverage]
         fn min_complexity(&self) -> f64 {"

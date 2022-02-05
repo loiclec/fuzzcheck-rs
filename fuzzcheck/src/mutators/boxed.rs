@@ -55,6 +55,12 @@ impl<T: Clone + 'static, M: Mutator<T>> Mutator<Box<T>> for BoxMutator<M> {
 
     #[doc(hidden)]
     #[no_coverage]
+    fn global_search_space_complexity(&self) -> f64 {
+        self.mutator.global_search_space_complexity()
+    }
+
+    #[doc(hidden)]
+    #[no_coverage]
     fn max_complexity(&self) -> f64 {
         self.mutator.max_complexity()
     }

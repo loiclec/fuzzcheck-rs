@@ -4,12 +4,15 @@ use fastrand::Rng;
 
 use crate::Mutator;
 
+use super::size_to_cplxity;
+
 /// Mutator for a `char` within a list of ranges
 #[derive(Debug)]
 pub struct CharacterMutator {
     ranges: Vec<RangeInclusive<char>>,
     total_length: u32,
     lengths: Vec<Range<u32>>,
+    search_space_complexity: f64,
     rng: Rng,
 }
 impl CharacterMutator {
@@ -38,6 +41,7 @@ impl CharacterMutator {
             ranges,
             total_length,
             lengths,
+            search_space_complexity: size_to_cplxity(total_length as usize),
             rng,
         }
     }
@@ -95,6 +99,12 @@ impl Mutator<char> for CharacterMutator {
     #[no_coverage]
     fn default_mutation_step(&self, _value: &char, _cache: &Self::Cache) -> Self::MutationStep {
         0
+    }
+
+    #[doc(hidden)]
+    #[no_coverage]
+    fn global_search_space_complexity(&self) -> f64 {
+        self.search_space_complexity
     }
 
     #[doc(hidden)]

@@ -216,6 +216,12 @@ impl<M: Mutator<T>, T: Clone + 'static, const N: usize> Mutator<[T; N]> for Arra
 
     #[doc(hidden)]
     #[no_coverage]
+    fn global_search_space_complexity(&self) -> f64 {
+        self.mutator.global_search_space_complexity() * (N as f64)
+    }
+
+    #[doc(hidden)]
+    #[no_coverage]
     fn max_complexity(&self) -> f64 {
         self.max_complexity
     }

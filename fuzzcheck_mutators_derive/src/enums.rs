@@ -9,6 +9,9 @@ use crate::structs_and_enums::{FieldMutator, FieldMutatorKind};
 use crate::Common;
 use crate::MakeMutatorSettings;
 
+fn size_to_cplxity(size: usize) -> f64 {
+    (usize::BITS - (size.saturating_sub(1)).leading_zeros()) as f64
+}
 #[allow(non_snake_case)]
 pub(crate) fn impl_default_mutator_for_enum(tb: &mut TokenBuilder, enu: &Enum, settings: &MakeMutatorSettings) {
     let cm = Common::new(0);
@@ -108,7 +111,7 @@ pub(crate) fn impl_default_mutator_for_enum(tb: &mut TokenBuilder, enu: &Enum, s
                         }
                         ")"
                         , separator: ",")
-                    "])
+                    "], " format!("{:.2}", size_to_cplxity(enu.items.len())) ")
                 }
             }"
         ),

@@ -9,7 +9,7 @@ pub struct CharWithinRangeMutator {
     start_range: u32,
     len_range: u32,
     rng: fastrand::Rng,
-    cplx: f64,
+    search_space_complexity: f64,
 }
 impl CharWithinRangeMutator {
     #[no_coverage]
@@ -39,19 +39,19 @@ impl CharWithinRangeMutator {
             )
         }
         let len_range = end.wrapping_sub(start);
-        let cplx = crate::mutators::size_to_cplxity(len_range as usize);
+        let search_space_complexity = crate::mutators::size_to_cplxity(len_range as usize);
         Self {
             start_range: start,
             len_range: len_range as u32,
             rng: fastrand::Rng::default(),
-            cplx,
+            search_space_complexity,
         }
     }
 }
 
 impl Mutator<char> for CharWithinRangeMutator {
     #[doc(hidden)]
-    type Cache = ();
+    type Cache = f64; // complexity of the character
     #[doc(hidden)]
     type MutationStep = u64; // mutation step
     #[doc(hidden)]
@@ -70,7 +70,7 @@ impl Mutator<char> for CharWithinRangeMutator {
     #[no_coverage]
     fn validate_value(&self, value: &char) -> Option<Self::Cache> {
         if (self.start_range..=self.start_range + self.len_range).contains(&(*value as u32)) {
-            Some(())
+            Some((value.len_utf8() * 8) as f64)
         } else {
             None
         }
@@ -80,20 +80,27 @@ impl Mutator<char> for CharWithinRangeMutator {
     fn default_mutation_step(&self, _value: &char, _cache: &Self::Cache) -> Self::MutationStep {
         INITIAL_MUTATION_STEP
     }
+
+    #[doc(hidden)]
+    #[no_coverage]
+    fn global_search_space_complexity(&self) -> f64 {
+        self.search_space_complexity
+    }
+
     #[doc(hidden)]
     #[no_coverage]
     fn max_complexity(&self) -> f64 {
-        self.cplx
+        32.0
     }
     #[doc(hidden)]
     #[no_coverage]
     fn min_complexity(&self) -> f64 {
-        self.cplx
+        8.0
     }
     #[doc(hidden)]
     #[no_coverage]
-    fn complexity(&self, _value: &char, _cache: &Self::Cache) -> f64 {
-        self.cplx
+    fn complexity(&self, _value: &char, cache: &Self::Cache) -> f64 {
+        *cache
     }
     #[doc(hidden)]
     #[no_coverage]
@@ -107,7 +114,7 @@ impl Mutator<char> for CharWithinRangeMutator {
             let result = binary_search_arbitrary_u32(0, self.len_range, *step);
             *step += 1;
             if let Some(c) = char::from_u32(self.start_range.wrapping_add(result)) {
-                Some((c, self.cplx))
+                Some((c, (c.len_utf8() * 8) as f64))
             } else {
                 *step += 1;
                 self.ordered_arbitrary(step, max_cplx)
@@ -122,7 +129,7 @@ impl Mutator<char> for CharWithinRangeMutator {
             .rng
             .u32(self.start_range..=self.start_range.wrapping_add(self.len_range));
         if let Some(value) = char::from_u32(value) {
-            (value, self.cplx)
+            (value, (value.len_utf8() * 8) as f64)
         } else {
             // try again
             self.random_arbitrary(max_cplx)
@@ -154,7 +161,7 @@ impl Mutator<char> for CharWithinRangeMutator {
 
             *value = result;
 
-            Some((token, self.cplx))
+            Some((token, (value.len_utf8() * 8) as f64))
         } else {
             *step += 1;
             self.ordered_mutate(value, cache, step, max_cplx)
@@ -163,17 +170,15 @@ impl Mutator<char> for CharWithinRangeMutator {
     #[doc(hidden)]
     #[no_coverage]
     fn random_mutate(&self, value: &mut char, _cache: &mut Self::Cache, _max_cplx: f64) -> (Self::UnmutateToken, f64) {
-        (
-            std::mem::replace(
-                value,
-                char::from_u32(
-                    self.rng
-                        .u32(self.start_range..=self.start_range.wrapping_add(self.len_range)),
-                )
-                .unwrap_or(*value),
-            ),
-            self.cplx,
-        )
+        let old_value = std::mem::replace(
+            value,
+            char::from_u32(
+                self.rng
+                    .u32(self.start_range..=self.start_range.wrapping_add(self.len_range)),
+            )
+            .unwrap_or(*value),
+        );
+        (old_value, (value.len_utf8() * 8) as f64)
     }
     #[doc(hidden)]
     #[no_coverage]

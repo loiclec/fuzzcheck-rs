@@ -176,6 +176,12 @@ where
 
     #[doc(hidden)]
     #[no_coverage]
+    fn global_search_space_complexity(&self) -> f64 {
+        self.reference.upgrade().unwrap().global_search_space_complexity()
+    }
+
+    #[doc(hidden)]
+    #[no_coverage]
     fn max_complexity(&self) -> f64 {
         std::f64::INFINITY
     }
@@ -351,6 +357,12 @@ where
             mutation_step,
             idx_paths_to_self: 0,
         }
+    }
+
+    #[doc(hidden)]
+    #[no_coverage]
+    fn global_search_space_complexity(&self) -> f64 {
+        self.mutator.global_search_space_complexity()
     }
 
     #[doc(hidden)]

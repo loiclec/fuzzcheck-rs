@@ -61,6 +61,15 @@ where
     }
 
     #[doc(hidden)]
+    #[no_coverage]
+    fn global_search_space_complexity(&self) -> f64 {
+        match self {
+            Either::Left(m) => m.global_search_space_complexity(),
+            Either::Right(m) => m.global_search_space_complexity(),
+        }
+    }
+
+    #[doc(hidden)]
     #[inline]
     #[no_coverage]
     fn max_complexity(&self) -> f64 {

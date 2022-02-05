@@ -167,6 +167,23 @@ pub trait Mutator<Value: Clone + 'static>: 'static {
     /// and cache.
     fn default_mutation_step(&self, value: &Value, cache: &Self::Cache) -> Self::MutationStep;
 
+    /*
+    fn local_search_space_complexity(&self, value: &Value, cache: &Self::Cache) -> f64;
+    fn global_search_space_complexity(&self) -> f64;
+
+    fn max_size(&self) -> f64;
+    fn min_size(&self) -> f64;
+    fn size(&self, value: &Value, cache: &Self::Cache) -> f64;
+    */
+
+    /// The log2 of the number of values that can be produced by this mutator,
+    /// or an approximation of this number (e.g. the number of bits that are
+    /// needed to identify each possible value).
+    ///
+    /// If the mutator can only produce one value, then the return value should
+    /// be equal to 0.0
+    fn global_search_space_complexity(&self) -> f64;
+
     /// The maximum complexity that a value can possibly have.
     ///
     /// If the maximum complexity is 0, it means that the mutator
@@ -399,6 +416,12 @@ where
     #[no_coverage]
     fn default_mutation_step(&self, value: &T, cache: &Self::Cache) -> Self::MutationStep {
         self.wrapped_mutator().default_mutation_step(value, cache)
+    }
+
+    #[doc(hidden)]
+    #[no_coverage]
+    fn global_search_space_complexity(&self) -> f64 {
+        self.wrapped_mutator().global_search_space_complexity()
     }
 
     #[doc(hidden)]

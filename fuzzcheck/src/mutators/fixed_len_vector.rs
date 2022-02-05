@@ -15,6 +15,8 @@ where
     mutators: Vec<M>,
     min_complexity: f64,
     max_complexity: f64,
+    search_space_complexity: f64,
+    inherent_complexity: f64,
     _phantom: PhantomData<T>,
 }
 impl<T, M> FixedLenVecMutator<T, M>
@@ -36,21 +38,35 @@ where
     #[no_coverage]
     pub fn new(mutators: Vec<M>) -> Self {
         assert!(!mutators.is_empty());
+
+        let inherent_complexity = if mutators[0].min_complexity() == 0.0 {
+            1.0 + mutators.len() as f64
+        } else {
+            0.0
+        };
+
         let max_complexity = mutators.iter().fold(
             0.0,
             #[no_coverage]
             |cplx, m| cplx + m.max_complexity(),
-        );
+        ) + inherent_complexity;
         let min_complexity = mutators.iter().fold(
             0.0,
             #[no_coverage]
             |cplx, m| cplx + m.min_complexity(),
+        ) + inherent_complexity;
+        let search_space_complexity = mutators.iter().fold(
+            0.0,
+            #[no_coverage]
+            |cplx, m| cplx + m.global_search_space_complexity(),
         );
         Self {
             rng: Rng::default(),
             mutators,
             min_complexity,
             max_complexity,
+            search_space_complexity,
+            inherent_complexity,
             _phantom: PhantomData,
         }
     }
@@ -223,6 +239,12 @@ impl<T: Clone + 'static, M: Mutator<T>> Mutator<Vec<T>> for FixedLenVecMutator<T
 
     #[doc(hidden)]
     #[no_coverage]
+    fn global_search_space_complexity(&self) -> f64 {
+        self.search_space_complexity
+    }
+
+    #[doc(hidden)]
+    #[no_coverage]
     fn max_complexity(&self) -> f64 {
         self.max_complexity
     }
@@ -236,7 +258,7 @@ impl<T: Clone + 'static, M: Mutator<T>> Mutator<Vec<T>> for FixedLenVecMutator<T
     #[doc(hidden)]
     #[no_coverage]
     fn complexity(&self, _value: &Vec<T>, cache: &Self::Cache) -> f64 {
-        cache.sum_cplx
+        cache.sum_cplx + self.inherent_complexity
     }
 
     #[doc(hidden)]

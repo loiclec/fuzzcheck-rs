@@ -53,6 +53,12 @@ where
 
     #[doc(hidden)]
     #[no_coverage]
+    fn global_search_space_complexity(&self) -> f64 {
+        self.mutator.global_search_space_complexity()
+    }
+
+    #[doc(hidden)]
+    #[no_coverage]
     fn min_complexity(&self) -> f64 {
         self.mutator.min_complexity()
     }

@@ -48,8 +48,16 @@ impl<T: Clone + 'static, M: Mutator<T>> Mutator<Rc<T>> for RcMutator<M> {
     fn validate_value(&self, value: &Rc<T>) -> Option<Self::Cache> {
         self.mutator.validate_value(value)
     }
+    #[doc(hidden)]
+    #[no_coverage]
     fn default_mutation_step(&self, value: &Rc<T>, cache: &Self::Cache) -> Self::MutationStep {
         self.mutator.default_mutation_step(value.as_ref(), cache)
+    }
+
+    #[doc(hidden)]
+    #[no_coverage]
+    fn global_search_space_complexity(&self) -> f64 {
+        self.mutator.global_search_space_complexity()
     }
 
     #[doc(hidden)]

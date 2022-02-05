@@ -135,6 +135,12 @@ impl Mutator<AST> for ASTMutator {
 
     #[doc(hidden)]
     #[no_coverage]
+    fn global_search_space_complexity(&self) -> f64 {
+        self.inner.global_search_space_complexity()
+    }
+
+    #[doc(hidden)]
+    #[no_coverage]
     fn max_complexity(&self) -> f64 {
         self.inner.max_complexity()
     }
@@ -292,6 +298,7 @@ impl ASTMutator {
                         |g| Self::from_grammar_rec(g.clone(), others),
                     )
                     .collect(),
+                0.0,
             )),
             Grammar::Concatenation(gs) => {
                 let mut ms = Vec::<ASTMutator>::new();

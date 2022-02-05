@@ -142,6 +142,8 @@ where
 
     fn default_mutation_step<'a>(&self, value: TupleKind::Ref<'a>, cache: &'a Self::Cache) -> Self::MutationStep;
 
+    fn global_search_space_complexity(&self) -> f64;
+
     fn max_complexity(&self) -> f64;
 
     fn min_complexity(&self) -> f64;
@@ -258,6 +260,12 @@ where
     #[no_coverage]
     fn default_mutation_step(&self, value: &T, cache: &Self::Cache) -> Self::MutationStep {
         self.mutator.default_mutation_step(value.get_ref(), cache)
+    }
+
+    #[doc(hidden)]
+    #[no_coverage]
+    fn global_search_space_complexity(&self) -> f64 {
+        self.mutator.global_search_space_complexity()
     }
 
     #[doc(hidden)]
@@ -397,6 +405,12 @@ mod tuple0 {
         #[no_coverage]
         fn default_mutation_step<'a>(&self, _value: (), _cache: &'a Self::Cache) -> Self::MutationStep {
             false
+        }
+
+        #[doc(hidden)]
+        #[no_coverage]
+        fn global_search_space_complexity(&self) -> f64 {
+            0.0
         }
 
         #[doc(hidden)]
@@ -585,6 +599,13 @@ mod tuple1 {
         ) -> Self::MutationStep {
             self.mutator_0.default_mutation_step(value.0, cache)
         }
+
+        #[doc(hidden)]
+        #[no_coverage]
+        fn global_search_space_complexity(&self) -> f64 {
+            self.mutator_0.global_search_space_complexity()
+        }
+
         #[doc(hidden)]
         #[no_coverage]
         fn max_complexity(&self) -> f64 {

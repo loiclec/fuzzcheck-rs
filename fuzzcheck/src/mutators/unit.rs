@@ -9,7 +9,7 @@ impl DefaultMutator for () {
     type Mutator = VoidMutator;
     #[no_coverage]
     fn default_mutator() -> Self::Mutator {
-        Self::Mutator::default()
+        Self::Mutator::new((), 0.0)
     }
 }
 
@@ -21,7 +21,7 @@ where
     type Mutator = PhantomDataMutator<T>;
     #[no_coverage]
     fn default_mutator() -> Self::Mutator {
-        Self::Mutator::default()
+        Self::Mutator::new(PhantomData, 0.0)
     }
 }
 
@@ -31,6 +31,7 @@ where
     T: Clone,
 {
     value: T,
+    complexity: f64,
 }
 
 impl<T> UnitMutator<T>
@@ -38,18 +39,8 @@ where
     T: Clone,
 {
     #[no_coverage]
-    pub fn new(value: T) -> Self {
-        Self { value }
-    }
-}
-
-impl<T> Default for UnitMutator<T>
-where
-    T: Default + Clone,
-{
-    #[no_coverage]
-    fn default() -> Self {
-        Self { value: T::default() }
+    pub fn new(value: T, complexity: f64) -> Self {
+        Self { value, complexity }
     }
 }
 
@@ -86,20 +77,26 @@ where
 
     #[doc(hidden)]
     #[no_coverage]
-    fn max_complexity(&self) -> f64 {
+    fn global_search_space_complexity(&self) -> f64 {
         0.0
+    }
+
+    #[doc(hidden)]
+    #[no_coverage]
+    fn max_complexity(&self) -> f64 {
+        self.complexity
     }
 
     #[doc(hidden)]
     #[no_coverage]
     fn min_complexity(&self) -> f64 {
-        0.0
+        self.complexity
     }
 
     #[doc(hidden)]
     #[no_coverage]
     fn complexity(&self, _value: &T, _cache: &Self::Cache) -> f64 {
-        0.0
+        self.complexity
     }
 
     #[doc(hidden)]

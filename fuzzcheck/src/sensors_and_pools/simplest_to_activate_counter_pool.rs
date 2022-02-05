@@ -807,7 +807,14 @@ mod tests {
         fn validate_value(&self, _value: &f64) -> Option<Self::Cache> {
             Some(())
         }
+
+        #[no_coverage]
         fn default_mutation_step(&self, _value: &f64, _cache: &Self::Cache) -> Self::MutationStep {}
+
+        #[no_coverage]
+        fn global_search_space_complexity(&self) -> f64 {
+            0.0
+        }
         #[no_coverage]
         fn max_complexity(&self) -> f64 {
             0.0

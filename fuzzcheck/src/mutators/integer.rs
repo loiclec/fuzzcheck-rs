@@ -176,6 +176,13 @@ macro_rules! impl_int_mutator {
             fn default_mutation_step(&self, _value: &$name, _cache: &Self::Cache) -> Self::MutationStep {
                 INITIAL_MUTATION_STEP
             }
+
+            #[doc(hidden)]
+            #[no_coverage]
+            fn global_search_space_complexity(&self) -> f64 {
+                <$name>::BITS as f64
+            }
+
             /// The maximum complexity of an input of this type
             #[doc(hidden)]
             #[no_coverage]

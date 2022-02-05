@@ -26,10 +26,10 @@ where
     M: Mutator<T>,
 {
     mutators: Vec<M>,
-    complexity_from_choice: f64,
     max_complexity: f64,
     min_complexity: f64,
     rng: fastrand::Rng,
+    search_space_complexity: f64,
     _phantom: PhantomData<T>,
 }
 
@@ -39,20 +39,20 @@ where
     M: Mutator<T>,
 {
     #[no_coverage]
-    pub fn new(mutators: Vec<M>) -> Self {
+    pub fn new(mutators: Vec<M>, added_complexity: f64) -> Self {
         assert!(!mutators.is_empty());
         let complexity_from_choice = crate::mutators::size_to_cplxity(mutators.len());
 
-        let max_complexity = mutators
+        let search_space_complexity = mutators
             .iter()
             .map(
                 #[no_coverage]
                 |m| {
-                    let max_cplx = m.max_complexity();
-                    if max_cplx == 0. {
+                    let cplx = m.global_search_space_complexity();
+                    if cplx == 0. {
                         complexity_from_choice
                     } else {
-                        max_cplx
+                        cplx
                     }
                 },
             )
@@ -61,30 +61,15 @@ where
                 |x, y| x.partial_cmp(y).unwrap_or(Ordering::Equal),
             )
             .unwrap();
-        let min_complexity = mutators
-            .iter()
-            .map(
-                #[no_coverage]
-                |m| {
-                    let min_cplx = m.min_complexity();
-                    if min_cplx == 0. {
-                        complexity_from_choice
-                    } else {
-                        min_cplx
-                    }
-                },
-            )
-            .min_by(
-                #[no_coverage]
-                |x, y| x.partial_cmp(y).unwrap_or(Ordering::Equal),
-            )
-            .unwrap();
-        let complexity_from_choice = crate::mutators::size_to_cplxity(mutators.len());
+
+        let max_complexity = mutators[0].max_complexity() + added_complexity;
+        let min_complexity = mutators[0].min_complexity() + added_complexity;
+
         Self {
             mutators,
-            complexity_from_choice,
             max_complexity,
             min_complexity,
+            search_space_complexity,
             rng: fastrand::Rng::default(),
             _phantom: PhantomData,
         }
@@ -210,6 +195,10 @@ where
                 },
             )
             .collect()
+    }
+
+    fn global_search_space_complexity(&self) -> f64 {
+        self.search_space_complexity
     }
 
     #[doc(hidden)]
