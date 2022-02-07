@@ -142,6 +142,7 @@ impl Mutator<char> for CharWithinRangeMutator {
         value: &mut char,
         cache: &mut Self::Cache,
         step: &mut Self::MutationStep,
+        subvalue_provider: &dyn crate::SubValueProvider,
         max_cplx: f64,
     ) -> Option<(Self::UnmutateToken, f64)> {
         if max_cplx < self.min_complexity() {
@@ -153,10 +154,11 @@ impl Mutator<char> for CharWithinRangeMutator {
         let token = *value;
 
         let result = binary_search_arbitrary_u32(0, self.len_range, *step);
+        // TODO: loop instead of recurse
         if let Some(result) = char::from_u32(self.start_range.wrapping_add(result)) {
             *step += 1;
             if result == *value {
-                return self.ordered_mutate(value, cache, step, max_cplx);
+                return self.ordered_mutate(value, cache, step, subvalue_provider, max_cplx);
             }
 
             *value = result;
@@ -164,7 +166,7 @@ impl Mutator<char> for CharWithinRangeMutator {
             Some((token, (value.len_utf8() * 8) as f64))
         } else {
             *step += 1;
-            self.ordered_mutate(value, cache, step, max_cplx)
+            self.ordered_mutate(value, cache, step, subvalue_provider, max_cplx)
         }
     }
     #[doc(hidden)]

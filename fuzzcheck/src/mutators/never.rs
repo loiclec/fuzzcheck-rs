@@ -77,6 +77,7 @@ impl<T: Clone + 'static> Mutator<T> for NeverMutator {
         _value: &mut T,
         _cache: &mut Self::Cache,
         _step: &mut Self::MutationStep,
+        _subvalue_provider: &dyn crate::SubValueProvider,
         _max_cplx: f64,
     ) -> Option<(Self::UnmutateToken, f64)> {
         unreachable!()
@@ -187,6 +188,7 @@ where
         _value: TupleKind::Mut<'a>,
         _cache: &'a mut Self::Cache,
         _step: &'a mut Self::MutationStep,
+        _subvalue_provider: &dyn crate::SubValueProvider,
         _max_cplx: f64,
     ) -> Option<(Self::UnmutateToken, f64)> {
         unreachable!()

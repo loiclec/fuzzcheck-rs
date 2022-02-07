@@ -525,6 +525,7 @@ fn impl_mutator_trait(tb: &mut TokenBuilder, nbr_elements: usize) {
             value: " tuple_mut ",
             cache: &'a mut Self::Cache,
             step: &'a mut Self::MutationStep,
+            subvalue_provider: &dyn " cm.SubValueProvider ",
             max_cplx: f64,
         ) -> " cm.Option "<(Self::UnmutateToken, f64)> {
             if max_cplx < <Self as" cm.TupleMutator "<T , " cm.TupleN_ident "<" tuple_type_params "> > >::min_complexity(self) { return " cm.None " }
@@ -567,7 +568,7 @@ fn impl_mutator_trait(tb: &mut TokenBuilder, nbr_elements: usize) {
                     let max_field_cplx = max_cplx - current_cplx + old_field_cplx;
                     if let " cm.Some "((token, new_field_cplx)) =
                         self." mutator_i(i) "
-                            .ordered_mutate(value." i ", &mut cache." ti(i) ", &mut step." ti(i) ", max_field_cplx)
+                            .ordered_mutate(value." i ", &mut cache." ti(i) ", &mut step." ti(i) ", subvalue_provider, max_field_cplx)
                     {
                         return " cm.Some "((Self::UnmutateToken {
                             " ti(i) ": " cm.Some "(UnmutateElementToken::Unmutate(token)),
@@ -587,7 +588,7 @@ fn impl_mutator_trait(tb: &mut TokenBuilder, nbr_elements: usize) {
             }  else {
                 step.vose_alias = " cm.Some "(" cm.VoseAlias "::new(prob));
             }
-            " SelfAsTupleMutator "::ordered_mutate(self, value, cache, step, max_cplx)
+            " SelfAsTupleMutator "::ordered_mutate(self, value, cache, step, subvalue_provider, max_cplx)
         }
         #[doc(hidden)]
         #[no_coverage]

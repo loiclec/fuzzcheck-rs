@@ -256,6 +256,7 @@ where
         value: &mut T,
         cache: &mut Self::Cache,
         step: &mut Self::MutationStep,
+        subvalue_provider: &dyn crate::SubValueProvider,
         max_cplx: f64,
     ) -> Option<(Self::UnmutateToken, f64)> {
         if max_cplx < self.min_complexity() {
@@ -294,9 +295,13 @@ where
         assert_eq!(idx, mutator_idx);
 
         let mutator = &self.mutators[idx];
-        if let Some((t, cplx)) =
-            mutator.ordered_mutate(value, &mut chosen_cache.inner, &mut chosen_step.inner, max_cplx)
-        {
+        if let Some((t, cplx)) = mutator.ordered_mutate(
+            value,
+            &mut chosen_cache.inner,
+            &mut chosen_step.inner,
+            subvalue_provider,
+            max_cplx,
+        ) {
             Some((UnmutateToken::Inner(idx, t), self.complexity_from_inner(cplx)))
         } else {
             if let Some((mut v, cplx)) = self.ordered_arbitrary(&mut chosen_step.arbitrary, max_cplx) {
@@ -307,7 +312,7 @@ where
                 if step.is_empty() {
                     None
                 } else {
-                    self.ordered_mutate(value, cache, step, max_cplx)
+                    self.ordered_mutate(value, cache, step, subvalue_provider, max_cplx)
                 }
             }
         }

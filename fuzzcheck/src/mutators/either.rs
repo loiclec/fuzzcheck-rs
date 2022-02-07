@@ -129,15 +129,16 @@ where
         value: &mut T,
         cache: &mut Self::Cache,
         step: &mut Self::MutationStep,
+        subvalue_provider: &dyn crate::SubValueProvider,
         max_cplx: f64,
     ) -> Option<(Self::UnmutateToken, f64)> {
         match (self, cache, step) {
             (Either::Left(m), Either::Left(c), Either::Left(s)) => {
-                let (t, cplx) = m.ordered_mutate(value, c, s, max_cplx)?;
+                let (t, cplx) = m.ordered_mutate(value, c, s, subvalue_provider, max_cplx)?;
                 Some((Either::Left(t), cplx))
             }
             (Either::Right(m), Either::Right(c), Either::Right(s)) => {
-                let (t, cplx) = m.ordered_mutate(value, c, s, max_cplx)?;
+                let (t, cplx) = m.ordered_mutate(value, c, s, subvalue_provider, max_cplx)?;
                 Some((Either::Right(t), cplx))
             }
             _ => unreachable!(),

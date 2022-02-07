@@ -102,10 +102,14 @@ impl<T: Clone + 'static, M: Mutator<T>> Mutator<Arc<T>> for ArcMutator<M> {
         value: &mut Arc<T>,
         cache: &mut Self::Cache,
         step: &mut Self::MutationStep,
+        subvalue_provider: &dyn crate::SubValueProvider,
         max_cplx: f64,
     ) -> Option<(Self::UnmutateToken, f64)> {
         let mut v = value.as_ref().clone();
-        if let Some((t, cplx)) = self.mutator.ordered_mutate(&mut v, cache, step, max_cplx) {
+        if let Some((t, cplx)) = self
+            .mutator
+            .ordered_mutate(&mut v, cache, step, subvalue_provider, max_cplx)
+        {
             *value = Arc::new(v);
             Some((UnmutateToken::Inner(t), cplx))
         } else {

@@ -1,5 +1,6 @@
 use super::VecMutator;
 use crate::mutators::mutations::{Mutation, RevertMutation};
+use crate::traits::EmptySubValueProvider;
 use crate::Mutator;
 
 pub struct MutateElement;
@@ -170,7 +171,11 @@ where
                 // ideally the Mutator trait should have the same RandomStep / OrderedStep / ConcreteMutation / Revert concepts
                 // it has OrderedStep and Revert but is missing RandomStep (bad name) and ConcreteMutation
                 let el_step = &mut step.inner_steps[el_idx];
-                if let Some((t, new_el_cplx)) = mutator.m.ordered_mutate(el, el_cache, el_step, max_el_cplx) {
+                if let Some((t, new_el_cplx)) =
+                    mutator
+                        .m
+                        .ordered_mutate(el, el_cache, el_step, &EmptySubValueProvider, max_el_cplx)
+                {
                     let new_cplx = mutator.complexity_from_inner(cache.sum_cplx - el_cplx + new_el_cplx, value.len());
 
                     (

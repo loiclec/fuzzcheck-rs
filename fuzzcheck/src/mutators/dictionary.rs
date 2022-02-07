@@ -164,6 +164,7 @@ impl<T: Clone + 'static, M: Mutator<T>> Mutator<T> for DictionaryMutator<T, M> {
         value: &mut T,
         cache: &mut Self::Cache,
         step: &mut Self::MutationStep,
+        subvalue_provider: &dyn crate::SubValueProvider,
         max_cplx: f64,
     ) -> Option<(Self::UnmutateToken, f64)> {
         if step.idx < self.dictionary.len() {
@@ -173,10 +174,12 @@ impl<T: Clone + 'static, M: Mutator<T>> Mutator<T> for DictionaryMutator<T, M> {
 
             Some((UnmutateToken::Replace(old_value), new_value_cplx))
         } else {
-            self.m.ordered_mutate(value, cache, &mut step.wrapped, max_cplx).map(
-                #[no_coverage]
-                |(t, c)| (self::UnmutateToken::Unmutate(t), c),
-            )
+            self.m
+                .ordered_mutate(value, cache, &mut step.wrapped, subvalue_provider, max_cplx)
+                .map(
+                    #[no_coverage]
+                    |(t, c)| (self::UnmutateToken::Unmutate(t), c),
+                )
         }
     }
 

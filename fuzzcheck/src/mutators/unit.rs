@@ -123,6 +123,7 @@ where
         _value: &mut T,
         _cache: &mut Self::Cache,
         _step: &mut Self::MutationStep,
+        _subvalue_provider: &dyn crate::SubValueProvider,
         _max_cplx: f64,
     ) -> Option<(Self::UnmutateToken, f64)> {
         None

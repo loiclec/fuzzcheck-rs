@@ -176,11 +176,12 @@ impl Mutator<AST> for ASTMutator {
         value: &mut AST,
         cache: &mut Self::Cache,
         step: &mut Self::MutationStep,
+        subvalue_provider: &dyn crate::SubValueProvider,
         max_cplx: f64,
     ) -> Option<(Self::UnmutateToken, f64)> {
-        let (token, cplx) = self
-            .inner
-            .ordered_mutate(value, &mut cache.inner, &mut step.inner, max_cplx)?;
+        let (token, cplx) =
+            self.inner
+                .ordered_mutate(value, &mut cache.inner, &mut step.inner, subvalue_provider, max_cplx)?;
         Some((Self::UnmutateToken::new(token), cplx))
     }
 

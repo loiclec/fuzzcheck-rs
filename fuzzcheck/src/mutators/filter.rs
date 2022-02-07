@@ -102,14 +102,18 @@ where
         value: &mut T,
         cache: &mut Self::Cache,
         step: &mut Self::MutationStep,
+        subvalue_provider: &dyn crate::SubValueProvider,
         max_cplx: f64,
     ) -> Option<(Self::UnmutateToken, f64)> {
-        if let Some((t, cplx)) = self.mutator.ordered_mutate(value, cache, step, max_cplx) {
+        if let Some((t, cplx)) = self
+            .mutator
+            .ordered_mutate(value, cache, step, subvalue_provider, max_cplx)
+        {
             if (self.filter)(value) {
                 Some((t, cplx))
             } else {
                 self.mutator.unmutate(value, cache, t);
-                self.ordered_mutate(value, cache, step, max_cplx)
+                self.ordered_mutate(value, cache, step, subvalue_provider, max_cplx)
             }
         } else {
             None

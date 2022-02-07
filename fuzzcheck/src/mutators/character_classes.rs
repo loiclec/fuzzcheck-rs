@@ -172,6 +172,7 @@ impl Mutator<char> for CharacterMutator {
         value: &mut char,
         cache: &mut Self::Cache,
         step: &mut Self::MutationStep,
+        subvalue_provider: &dyn crate::SubValueProvider,
         max_cplx: f64,
     ) -> Option<(Self::UnmutateToken, f64)> {
         if *step == self.total_length as u64 {
@@ -184,7 +185,7 @@ impl Mutator<char> for CharacterMutator {
             std::mem::swap(value, &mut c);
             Some((c, Self::complexity_of_value(*value)))
         } else {
-            self.ordered_mutate(value, cache, step, max_cplx)
+            self.ordered_mutate(value, cache, step, subvalue_provider, max_cplx)
         }
     }
     #[doc(hidden)]

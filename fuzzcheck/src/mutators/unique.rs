@@ -137,11 +137,15 @@ where
         value: &mut T,
         cache: &mut Self::Cache,
         step: &mut Self::MutationStep,
+        subvalue_provider: &dyn crate::SubValueProvider,
         max_cplx: f64,
     ) -> Option<(Self::UnmutateToken, f64)> {
         self.clear_if_needed();
         loop {
-            if let Some((t, cplx)) = self.mutator.ordered_mutate(value, cache, step, max_cplx) {
+            if let Some((t, cplx)) = self
+                .mutator
+                .ordered_mutate(value, cache, step, subvalue_provider, max_cplx)
+            {
                 let mut uniques = self.uniques.borrow_mut();
                 let focused = (self.focus)(value);
                 if uniques.contains(&focused) || cplx >= max_cplx {

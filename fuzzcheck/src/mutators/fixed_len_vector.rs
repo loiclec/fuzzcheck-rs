@@ -140,6 +140,7 @@ impl<T: Clone + 'static, M: Mutator<T>> FixedLenVecMutator<T, M> {
         value: &mut Vec<T>,
         cache: &mut VecMutatorCache<M::Cache>,
         step: &mut MutationStep<M::MutationStep>,
+        subvalue_provider: &dyn crate::SubValueProvider,
         idx: usize,
         current_cplx: f64,
         spare_cplx: f64,
@@ -151,7 +152,9 @@ impl<T: Clone + 'static, M: Mutator<T>> FixedLenVecMutator<T, M> {
 
         let old_cplx = mutator.complexity(el, el_cache);
 
-        if let Some((token, new_cplx)) = mutator.ordered_mutate(el, el_cache, el_step, spare_cplx + old_cplx) {
+        if let Some((token, new_cplx)) =
+            mutator.ordered_mutate(el, el_cache, el_step, subvalue_provider, spare_cplx + old_cplx)
+        {
             Some((
                 UnmutateVecToken::Element(idx, token),
                 current_cplx - old_cplx + new_cplx,
@@ -290,6 +293,7 @@ impl<T: Clone + 'static, M: Mutator<T>> Mutator<Vec<T>> for FixedLenVecMutator<T
         value: &mut Vec<T>,
         cache: &mut Self::Cache,
         step: &mut Self::MutationStep,
+        subvalue_provider: &dyn crate::SubValueProvider,
         max_cplx: f64,
     ) -> Option<(Self::UnmutateToken, f64)> {
         if max_cplx < self.min_complexity() {
@@ -311,7 +315,7 @@ impl<T: Clone + 'static, M: Mutator<T>> Mutator<Vec<T>> for FixedLenVecMutator<T
         } else {
             let idx = step.element_step % value.len();
             step.element_step += 1;
-            self.mutate_element(value, cache, step, idx, current_cplx, spare_cplx)
+            self.mutate_element(value, cache, step, subvalue_provider, idx, current_cplx, spare_cplx)
                 .or_else(
                     #[no_coverage]
                     || Some(self.random_mutate(value, cache, max_cplx)),

@@ -281,6 +281,7 @@ pub fn make_single_variant_mutator(tb: &mut TokenBuilder, enu: &Enum) {
             value: &mut " enu.ident enum_generics_no_bounds ",
             cache: &mut Self::Cache,
             step: &mut Self::MutationStep,
+            subvalue_provider: &dyn " cm.SubValueProvider ",
             max_cplx: f64,
         ) -> Option<(Self::UnmutateToken, f64)> {
             match (self, value, cache, step) {"
@@ -291,7 +292,7 @@ pub fn make_single_variant_mutator(tb: &mut TokenBuilder, enu: &Enum) {
                     " EnumSingleVariant "::" item.ident "(c) ,
                     " EnumSingleVariant "::" item.ident "(s)
                 ) => {
-                    m.ordered_mutate(" item_pattern_match_bindings_to_tuple(&item.ident, true) ", c, s, max_cplx)
+                    m.ordered_mutate(" item_pattern_match_bindings_to_tuple(&item.ident, true) ", c, s, subvalue_provider, max_cplx)
                         .map(#[no_coverage] |(t, c)| (" EnumSingleVariant "::" item.ident "(t), c))
                 }"
             )" _ => unreachable!(),

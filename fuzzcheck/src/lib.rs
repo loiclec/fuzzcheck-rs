@@ -52,6 +52,7 @@ mod world;
 pub use fuzzcheck_common::arg::Arguments;
 
 pub(crate) use split_string::split_string_by_whitespace;
+use traits::EmptySubValueProvider;
 
 #[doc(inline)]
 pub use crate::fuzzer::FuzzingResult;
@@ -277,7 +278,13 @@ impl<T: Clone + 'static, Mut: Mutator<T>> FuzzedInput<T, Mut> {
 
     #[no_coverage]
     pub fn mutate(&mut self, m: &mut Mut, max_cplx: f64) -> Option<(Mut::UnmutateToken, f64)> {
-        m.ordered_mutate(&mut self.value, &mut self.cache, &mut self.mutation_step, max_cplx)
+        m.ordered_mutate(
+            &mut self.value,
+            &mut self.cache,
+            &mut self.mutation_step,
+            &EmptySubValueProvider,
+            max_cplx,
+        )
     }
 
     #[no_coverage]

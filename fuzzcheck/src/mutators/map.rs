@@ -141,11 +141,16 @@ where
         value: &mut To,
         cache: &mut Self::Cache,
         step: &mut Self::MutationStep,
+        subvalue_provider: &dyn crate::SubValueProvider,
         max_cplx: f64,
     ) -> Option<(Self::UnmutateToken, f64)> {
-        let (token, cplx) =
-            self.mutator
-                .ordered_mutate(&mut cache.from_value, &mut cache.from_cache, step, max_cplx)?;
+        let (token, cplx) = self.mutator.ordered_mutate(
+            &mut cache.from_value,
+            &mut cache.from_cache,
+            step,
+            subvalue_provider,
+            max_cplx,
+        )?;
         *value = (self.map)(&cache.from_value);
         Some((token, cplx))
     }
@@ -305,10 +310,13 @@ where
         value: &mut (To, From),
         cache: &mut Self::Cache,
         step: &mut Self::MutationStep,
+        subvalue_provider: &dyn crate::SubValueProvider,
         max_cplx: f64,
     ) -> Option<(Self::UnmutateToken, f64)> {
         let (to_value, from_value) = value;
-        let (token, cplx) = self.mutator.ordered_mutate(from_value, cache, step, max_cplx)?;
+        let (token, cplx) = self
+            .mutator
+            .ordered_mutate(from_value, cache, step, subvalue_provider, max_cplx)?;
         (self.map)(from_value, to_value);
         Some((token, cplx))
     }

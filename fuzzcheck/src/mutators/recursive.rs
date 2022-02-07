@@ -234,12 +234,13 @@ where
         value: &mut T,
         cache: &mut Self::Cache,
         step: &mut Self::MutationStep,
+        subvalue_provider: &dyn crate::SubValueProvider,
         max_cplx: f64,
     ) -> Option<(Self::UnmutateToken, f64)> {
         self.reference
             .upgrade()
             .unwrap()
-            .ordered_mutate(value, cache, step, max_cplx)
+            .ordered_mutate(value, cache, step, subvalue_provider, max_cplx)
     }
 
     #[doc(hidden)]
@@ -387,6 +388,7 @@ where
         value: &mut T,
         cache: &mut Self::Cache,
         step: &mut Self::MutationStep,
+        subvalue_provider: &dyn crate::SubValueProvider,
         max_cplx: f64,
     ) -> Option<(Self::UnmutateToken, f64)> {
         if step.idx_paths_to_self < cache.paths_to_self.len() {
@@ -396,10 +398,13 @@ where
             std::mem::swap(value, &mut subself);
             Some((RecursiveMutatorUnmutateToken::Replace(subself), *cplx))
         } else {
-            if let Some((token, cplx)) =
-                self.mutator
-                    .ordered_mutate(value, &mut cache.inner, &mut step.mutation_step, max_cplx)
-            {
+            if let Some((token, cplx)) = self.mutator.ordered_mutate(
+                value,
+                &mut cache.inner,
+                &mut step.mutation_step,
+                subvalue_provider,
+                max_cplx,
+            ) {
                 Some((RecursiveMutatorUnmutateToken::Token(token), cplx))
             } else {
                 None

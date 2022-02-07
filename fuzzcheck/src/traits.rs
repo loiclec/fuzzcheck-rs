@@ -168,15 +168,6 @@ pub trait Mutator<Value: Clone + 'static>: 'static {
     /// and cache.
     fn default_mutation_step(&self, value: &Value, cache: &Self::Cache) -> Self::MutationStep;
 
-    /*
-    fn local_search_space_complexity(&self, value: &Value, cache: &Self::Cache) -> f64;
-    fn global_search_space_complexity(&self) -> f64;
-
-    fn max_size(&self) -> f64;
-    fn min_size(&self) -> f64;
-    fn size(&self, value: &Value, cache: &Self::Cache) -> f64;
-    */
-
     /// The log2 of the number of values that can be produced by this mutator,
     /// or an approximation of this number (e.g. the number of bits that are
     /// needed to identify each possible value).
@@ -238,6 +229,7 @@ pub trait Mutator<Value: Clone + 'static>: 'static {
         value: &mut Value,
         cache: &mut Self::Cache,
         step: &mut Self::MutationStep,
+        subvalue_provider: &dyn crate::SubValueProvider,
         max_cplx: f64,
     ) -> Option<(Self::UnmutateToken, f64)>;
 
@@ -283,6 +275,18 @@ pub struct SubValueProviderId {
 pub trait SubValueProvider {
     fn identifier(&self) -> SubValueProviderId;
     fn get_subvalue(&self, typeid: TypeId, max_cplx: f64, index: &mut usize) -> Option<&dyn Any>;
+}
+
+pub struct EmptySubValueProvider;
+impl SubValueProvider for EmptySubValueProvider {
+    #[no_coverage]
+    fn identifier(&self) -> SubValueProviderId {
+        SubValueProviderId { idx: 0, generation: 0 }
+    }
+    #[no_coverage]
+    fn get_subvalue(&self, typeid: TypeId, max_cplx: f64, index: &mut usize) -> Option<&dyn Any> {
+        None
+    }
 }
 
 pub struct LensPathAndComplexity<LP> {
@@ -472,9 +476,11 @@ where
         value: &mut T,
         cache: &mut Self::Cache,
         step: &mut Self::MutationStep,
+        subvalue_provider: &dyn crate::SubValueProvider,
         max_cplx: f64,
     ) -> Option<(Self::UnmutateToken, f64)> {
-        self.wrapped_mutator().ordered_mutate(value, cache, step, max_cplx)
+        self.wrapped_mutator()
+            .ordered_mutate(value, cache, step, subvalue_provider, max_cplx)
     }
 
     #[doc(hidden)]

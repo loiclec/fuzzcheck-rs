@@ -114,6 +114,7 @@ pub mod testing_utilities {
     use std::fmt::Debug;
     use std::hash::Hash;
 
+    use crate::traits::EmptySubValueProvider;
     use crate::Mutator;
 
     #[no_coverage]
@@ -163,6 +164,7 @@ pub mod testing_utilities {
                         &mut x_mut,
                         &mut cache_mut,
                         &mut mutation_step,
+                        &EmptySubValueProvider,
                         maximum_complexity_mutate,
                     ) {
                         // assert!(

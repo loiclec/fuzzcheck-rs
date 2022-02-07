@@ -846,6 +846,7 @@ mod tests {
             _value: &mut f64,
             _cache: &mut Self::Cache,
             _step: &mut Self::MutationStep,
+            _subvalue_provider: &dyn crate::SubValueProvider,
             _max_cplx: f64,
         ) -> Option<(Self::UnmutateToken, f64)> {
             Some(((), 0.0))

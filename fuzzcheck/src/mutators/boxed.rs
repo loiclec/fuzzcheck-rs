@@ -101,9 +101,10 @@ impl<T: Clone + 'static, M: Mutator<T>> Mutator<Box<T>> for BoxMutator<M> {
         value: &mut Box<T>,
         cache: &mut Self::Cache,
         step: &mut Self::MutationStep,
+        subvalue_provider: &dyn crate::SubValueProvider,
         max_cplx: f64,
     ) -> Option<(Self::UnmutateToken, f64)> {
-        if let Some((t, cplx)) = self.mutator.ordered_mutate(value, cache, step, max_cplx) {
+        if let Some((t, cplx)) = self.mutator.ordered_mutate(value, cache, step, subvalue_provider, max_cplx) {
             Some((UnmutateToken::Inner(t), cplx))
         } else {
             None

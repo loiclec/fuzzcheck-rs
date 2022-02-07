@@ -157,6 +157,7 @@ where
         value: TupleKind::Mut<'a>,
         cache: &'a mut Self::Cache,
         step: &'a mut Self::MutationStep,
+        subvalue_provider: &dyn crate::SubValueProvider,
         max_cplx: f64,
     ) -> Option<(Self::UnmutateToken, f64)>;
 
@@ -291,9 +292,11 @@ where
         value: &mut T,
         cache: &mut Self::Cache,
         step: &mut Self::MutationStep,
+        subvalue_provider: &dyn crate::SubValueProvider,
         max_cplx: f64,
     ) -> Option<(Self::UnmutateToken, f64)> {
-        self.mutator.ordered_mutate(value.get_mut(), cache, step, max_cplx)
+        self.mutator
+            .ordered_mutate(value.get_mut(), cache, step, subvalue_provider, max_cplx)
     }
 
     #[doc(hidden)]
@@ -428,6 +431,7 @@ mod tuple0 {
             _value: (),
             _cache: &mut Self::Cache,
             step: &mut Self::MutationStep,
+            _subvalue_provider: &dyn crate::SubValueProvider,
             _max_cplx: f64,
         ) -> Option<(Self::UnmutateToken, f64)> {
             if !*step {
@@ -605,9 +609,13 @@ mod tuple1 {
             value: <Tuple1<T0> as RefTypes>::Mut<'a>,
             cache: &'a mut Self::Cache,
             step: &'a mut Self::MutationStep,
+            subvalue_provider: &dyn crate::SubValueProvider,
             max_cplx: f64,
         ) -> Option<(Self::UnmutateToken, f64)> {
-            if let Some((token, cplx)) = self.mutator_0.ordered_mutate(value.0, cache, step, max_cplx) {
+            if let Some((token, cplx)) =
+                self.mutator_0
+                    .ordered_mutate(value.0, cache, step, subvalue_provider, max_cplx)
+            {
                 Some((UnmutateTuple1Token::Inner(token), cplx))
             } else {
                 None

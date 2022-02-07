@@ -227,6 +227,7 @@ macro_rules! impl_int_mutator {
                 value: &mut $name,
                 _cache: &mut Self::Cache,
                 step: &mut Self::MutationStep,
+                _subvalue_provider: &dyn crate::SubValueProvider,
                 max_cplx: f64,
             ) -> Option<(Self::UnmutateToken, f64)> {
                 if max_cplx < self.min_complexity() {
