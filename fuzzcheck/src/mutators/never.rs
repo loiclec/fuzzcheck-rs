@@ -106,20 +106,8 @@ impl<T: Clone + 'static> Mutator<T> for NeverMutator {
         &self,
         _value: &T,
         _cache: &Self::Cache,
-        _register_path: &mut dyn FnMut(std::any::TypeId, Self::LensPath),
+        _register_path: &mut dyn FnMut(std::any::TypeId, Self::LensPath, f64),
     ) {
-        unreachable!()
-    }
-
-    #[doc(hidden)]
-    #[no_coverage]
-    fn crossover_mutate(
-        &self,
-        _value: &mut T,
-        _cache: &mut Self::Cache,
-        _subvalue_provider: &dyn crate::SubValueProvider,
-        _max_cplx: f64,
-    ) -> (Self::UnmutateToken, f64) {
         unreachable!()
     }
 }
@@ -238,20 +226,8 @@ where
         &self,
         _value: TupleKind::Ref<'a>,
         _cache: &'a Self::Cache,
-        _register_path: &mut dyn FnMut(TypeId, Self::LensPath),
+        _register_path: &mut dyn FnMut(TypeId, Self::LensPath, f64),
     ) {
-        unreachable!()
-    }
-
-    #[doc(hidden)]
-    #[no_coverage]
-    fn crossover_mutate<'a>(
-        &self,
-        _value: TupleKind::Mut<'a>,
-        _cache: &'a mut Self::Cache,
-        _subvalue_provider: &dyn crate::SubValueProvider,
-        _max_cplx: f64,
-    ) -> (Self::UnmutateToken, f64) {
         unreachable!()
     }
 }

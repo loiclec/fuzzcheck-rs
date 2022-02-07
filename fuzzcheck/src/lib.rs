@@ -264,10 +264,10 @@ impl<T: Clone + 'static, Mut: Mutator<T>> FuzzedInput<T, Mut> {
     }
 
     #[no_coverage]
-    pub fn new_source(&self, m: &Mut) -> Self {
+    pub fn new_source(&self, m: &Mut, generation: usize) -> Self {
         let cache = m.validate_value(&self.value).unwrap();
         let mutation_step = m.default_mutation_step(&self.value, &cache);
-        Self::new(self.value.clone(), cache, mutation_step, self.generation + 1)
+        Self::new(self.value.clone(), cache, mutation_step, generation)
     }
 
     #[no_coverage]

@@ -175,16 +175,8 @@ where
         &self,
         value: TupleKind::Ref<'a>,
         cache: &'a Self::Cache,
-        register_path: &mut dyn FnMut(TypeId, Self::LensPath),
+        register_path: &mut dyn FnMut(TypeId, Self::LensPath, f64),
     );
-
-    fn crossover_mutate<'a>(
-        &self,
-        value: TupleKind::Mut<'a>,
-        cache: &'a mut Self::Cache,
-        subvalue_provider: &dyn crate::SubValueProvider,
-        max_cplx: f64,
-    ) -> (Self::UnmutateToken, f64);
 }
 
 /// A wrapper that transforms a [`TupleMutator`] into a [`Mutator`] of values [with a tuple structure](TupleStructure).
@@ -328,22 +320,9 @@ where
         &self,
         value: &'a T,
         cache: &'a Self::Cache,
-        register_path: &mut dyn FnMut(TypeId, Self::LensPath),
+        register_path: &mut dyn FnMut(TypeId, Self::LensPath, f64),
     ) {
         self.mutator.all_paths(value.get_ref(), cache, register_path)
-    }
-
-    #[doc(hidden)]
-    #[no_coverage]
-    fn crossover_mutate(
-        &self,
-        value: &mut T,
-        cache: &mut Self::Cache,
-        subvalue_provider: &dyn crate::SubValueProvider,
-        max_cplx: f64,
-    ) -> (Self::UnmutateToken, f64) {
-        self.mutator
-            .crossover_mutate(value.get_mut(), cache, subvalue_provider, max_cplx)
     }
 }
 
@@ -483,19 +462,8 @@ mod tuple0 {
             &self,
             _value: (),
             _cache: &'a Self::Cache,
-            _register_path: &mut dyn FnMut(TypeId, Self::LensPath),
+            _register_path: &mut dyn FnMut(TypeId, Self::LensPath, f64),
         ) {
-        }
-        #[doc(hidden)]
-        #[no_coverage]
-        fn crossover_mutate<'a>(
-            &self,
-            _value: <Tuple0 as RefTypes>::Mut<'a>,
-            _cache: &'a mut Self::Cache,
-            _subvalue_provider: &dyn crate::SubValueProvider,
-            _max_cplx: f64,
-        ) -> (Self::UnmutateToken, f64) {
-            ((), 0.0)
         }
     }
 }
@@ -689,48 +657,9 @@ mod tuple1 {
             &self,
             value: <Tuple1<T0> as RefTypes>::Ref<'a>,
             cache: &'a Self::Cache,
-            register_path: &mut dyn FnMut(TypeId, Self::LensPath),
+            register_path: &mut dyn FnMut(TypeId, Self::LensPath, f64),
         ) {
             self.mutator_0.all_paths(value.0, cache, register_path)
-        }
-        #[doc(hidden)]
-        #[no_coverage]
-        fn crossover_mutate<'a>(
-            &self,
-            value: <Tuple1<T0> as RefTypes>::Mut<'a>,
-            cache: &'a mut Self::Cache,
-            subvalue_provider: &dyn crate::SubValueProvider,
-            max_cplx: f64,
-        ) -> (Self::UnmutateToken, f64) {
-            if self.rng.bool() {
-                if let Some((subvalue, subcache)) = subvalue_provider
-                    .get_subvalue(TypeId::of::<T0>())
-                    .and_then(
-                        #[no_coverage]
-                        |x| x.downcast_ref::<T0>(),
-                    )
-                    .and_then(
-                        #[no_coverage]
-                        |v| {
-                            self.mutator_0.validate_value(&v).map(
-                                #[no_coverage]
-                                |c| (v, c),
-                            )
-                        },
-                    )
-                {
-                    let cplx = self.mutator_0.complexity(&subvalue, &subcache);
-                    if cplx < max_cplx {
-                        let mut swapped = subvalue.clone();
-                        std::mem::swap(value.0, &mut swapped);
-                        return (UnmutateTuple1Token::Replace(swapped), cplx);
-                    }
-                }
-            }
-            let (token, cplx) = self
-                .mutator_0
-                .crossover_mutate(value.0, cache, subvalue_provider, max_cplx);
-            (UnmutateTuple1Token::Inner(token), cplx)
         }
     }
     impl<T0> crate::mutators::DefaultMutator for (T0,)

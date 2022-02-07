@@ -152,17 +152,6 @@ where
 
     #[doc(hidden)]
     #[no_coverage]
-    fn all_paths(&self, _value: &T, _cache: &Self::Cache, _register_path: &mut dyn FnMut(TypeId, Self::LensPath)) {}
-
-    #[doc(hidden)]
-    #[no_coverage]
-    fn crossover_mutate(
-        &self,
-        value: &mut T,
-        cache: &mut Self::Cache,
-        _subvalue_provider: &dyn crate::SubValueProvider,
-        max_cplx: f64,
-    ) -> (Self::UnmutateToken, f64) {
-        self.random_mutate(value, cache, max_cplx)
+    fn all_paths(&self, _value: &T, _cache: &Self::Cache, _register_path: &mut dyn FnMut(TypeId, Self::LensPath, f64)) {
     }
 }

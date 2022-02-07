@@ -190,14 +190,14 @@ where
     #[doc(hidden)]
     #[inline]
     #[no_coverage]
-    fn all_paths(&self, value: &T, cache: &Self::Cache, register_path: &mut dyn FnMut(TypeId, Self::LensPath)) {
+    fn all_paths(&self, value: &T, cache: &Self::Cache, register_path: &mut dyn FnMut(TypeId, Self::LensPath, f64)) {
         match (self, cache) {
             (Either::Left(m), Either::Left(cache)) => {
                 m.all_paths(
                     value,
                     cache,
                     #[no_coverage]
-                    &mut |typeid, path| register_path(typeid, Either::Left(path)),
+                    &mut |typeid, path, cplx| register_path(typeid, Either::Left(path), cplx),
                 );
             }
             (Either::Right(m), Either::Right(cache)) => {
@@ -205,31 +205,8 @@ where
                     value,
                     cache,
                     #[no_coverage]
-                    &mut |typeid, path| register_path(typeid, Either::Right(path)),
+                    &mut |typeid, path, cplx| register_path(typeid, Either::Right(path), cplx),
                 );
-            }
-            _ => unreachable!(),
-        }
-    }
-
-    #[doc(hidden)]
-    #[inline]
-    #[no_coverage]
-    fn crossover_mutate(
-        &self,
-        value: &mut T,
-        cache: &mut Self::Cache,
-        subvalue_provider: &dyn crate::SubValueProvider,
-        max_cplx: f64,
-    ) -> (Self::UnmutateToken, f64) {
-        match (self, cache) {
-            (Either::Left(m), Either::Left(cache)) => {
-                let (t, cplx) = m.crossover_mutate(value, cache, subvalue_provider, max_cplx);
-                (Either::Left(t), cplx)
-            }
-            (Either::Right(m), Either::Right(cache)) => {
-                let (t, cplx) = m.crossover_mutate(value, cache, subvalue_provider, max_cplx);
-                (Either::Right(t), cplx)
             }
             _ => unreachable!(),
         }

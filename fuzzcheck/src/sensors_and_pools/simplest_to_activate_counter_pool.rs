@@ -874,19 +874,8 @@ mod tests {
             &self,
             _value: &f64,
             _cache: &Self::Cache,
-            _register_path: &mut dyn FnMut(std::any::TypeId, Self::LensPath),
+            _register_path: &mut dyn FnMut(std::any::TypeId, Self::LensPath, f64),
         ) {
-        }
-
-        #[no_coverage]
-        fn crossover_mutate(
-            &self,
-            _value: &mut f64,
-            _cache: &mut Self::Cache,
-            _subvalue_provider: &dyn crate::SubValueProvider,
-            _max_cplx: f64,
-        ) -> (Self::UnmutateToken, f64) {
-            todo!()
         }
     }
 }

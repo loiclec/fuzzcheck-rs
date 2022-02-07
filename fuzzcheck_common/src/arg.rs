@@ -6,7 +6,6 @@ use std::{
     time::Duration,
 };
 
-pub const CROSSOVER_RATE_FLAG: &str = "crossover-rate";
 pub const MAX_INPUT_CPLX_FLAG: &str = "max-cplx";
 pub const INPUT_FILE_FLAG: &str = "input-file";
 pub const IN_CORPUS_FLAG: &str = "in-corpus";
@@ -30,15 +29,11 @@ pub const COMMAND_READ: &str = "read";
 #[derive(Clone)]
 pub struct DefaultArguments {
     pub max_input_cplx: f64,
-    pub crossover_rate: f64,
 }
 impl Default for DefaultArguments {
     #[no_coverage]
     fn default() -> Self {
-        Self {
-            max_input_cplx: 4096.0,
-            crossover_rate: 0.1,
-        }
+        Self { max_input_cplx: 4096.0 }
     }
 }
 
@@ -67,7 +62,6 @@ pub struct Arguments {
     pub corpus_out: Option<PathBuf>,
     pub artifacts_folder: Option<PathBuf>,
     pub stats_folder: Option<PathBuf>,
-    pub crossover_rate: f64,
 }
 impl Arguments {
     pub fn for_internal_documentation_test() -> Self {
@@ -81,7 +75,6 @@ impl Arguments {
             corpus_out: None,
             artifacts_folder: None,
             stats_folder: None,
-            crossover_rate: 0.1,
         }
     }
 }
@@ -162,16 +155,6 @@ pub fn options_parser() -> Options {
         .as_str(),
         "N",
     );
-    options.optopt(
-        "",
-        CROSSOVER_RATE_FLAG,
-        format!(
-            "frequency (in percent) with which a crossover mutation is used (default: {default})",
-            default = (defaults.crossover_rate * 100.) as usize
-        )
-        .as_str(),
-        "N",
-    );
     options.optflag("h", "help", "print this help menu");
 
     options
@@ -221,17 +204,6 @@ impl Arguments {
             .map(
                 #[no_coverage]
                 |x| x as f64,
-            );
-
-        let crossover_rate: Option<f64> = matches
-            .opt_str(CROSSOVER_RATE_FLAG)
-            .and_then(
-                #[no_coverage]
-                |x| x.parse::<usize>().ok(),
-            )
-            .map(
-                #[no_coverage]
-                |x| (x as f64) / 100.,
             );
 
         let corpus_in: Option<PathBuf> = matches.opt_str(IN_CORPUS_FLAG).and_then(
@@ -335,10 +307,6 @@ impl Arguments {
 
         let defaults = DefaultArguments::default();
         let max_input_cplx: f64 = max_input_cplx.unwrap_or(defaults.max_input_cplx as f64);
-        let crossover_rate: f64 = crossover_rate.unwrap_or(defaults.crossover_rate as f64);
-        if !(0.0..=1.0).contains(&crossover_rate) {
-            panic!("{CROSSOVER_RATE_FLAG} must be between 0 and 100");
-        }
         let corpus_in: Option<PathBuf> = if no_in_corpus.is_some() { None } else { corpus_in };
         let corpus_out: Option<PathBuf> = if no_out_corpus.is_some() { None } else { corpus_out };
 
@@ -355,7 +323,6 @@ impl Arguments {
             corpus_out,
             artifacts_folder,
             stats_folder,
-            crossover_rate,
         })
     }
 }

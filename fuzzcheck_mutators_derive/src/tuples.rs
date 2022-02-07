@@ -644,75 +644,17 @@ fn impl_mutator_trait(tb: &mut TokenBuilder, nbr_elements: usize) {
 
         #[doc(hidden)]
         #[no_coverage]
-        fn all_paths<'a>(&self, value: " tuple_ref ", cache: &'a Self::Cache, register_path: &mut dyn FnMut(" cm.TypeId ", Self::LensPath)) {"
+        fn all_paths<'a>(&self, value: " tuple_ref ", cache: &'a Self::Cache, register_path: &mut dyn FnMut(" cm.TypeId ", Self::LensPath, f64)) {"
             join_ts!(0..nbr_elements, i,
                 "
-                register_path(" cm.TypeId "::of::<" Ti(i) ">(), LensPath::" Ti(i) "(" cm.None "));
-                self." mutator_i(i) ".all_paths(value." i ", &cache. " ti(i) ", #[no_coverage] &mut |typeid, subpath| {
-                    register_path(typeid, LensPath::" Ti(i) "(" cm.Some "(subpath)));
+                let cplx = self. " mutator_i(i) ".complexity(value. " i ", &cache. " ti(i) "); 
+                register_path(" cm.TypeId "::of::<" Ti(i) ">(), LensPath::" Ti(i) "(" cm.None "), cplx);
+                self." mutator_i(i) ".all_paths(value." i ", &cache. " ti(i) ", #[no_coverage] &mut |typeid, subpath, cplx| {
+                    register_path(typeid, LensPath::" Ti(i) "(" cm.Some "(subpath)), cplx);
                 });
                 "
             )
             "
-        }
-
-        #[doc(hidden)]
-        #[no_coverage]
-        fn crossover_mutate<'a>(
-            &self,
-            value: " tuple_mut ",
-            cache: &'a mut Self::Cache,
-            subvalue_provider: &dyn " cm.SubValueProvider ",
-            max_cplx: f64,
-        ) -> (Self::UnmutateToken, f64) {
-            let current_cplx = " SelfAsTupleMutator "::complexity(self, " TupleNAsRefTypes "::get_ref_from_mut(&value), cache);
-            let mut new_cplx = current_cplx;
-            let mut token = Self::UnmutateToken::default();
-            "
-            // possibly do the block below in a loop with a max iteration to ensure *something* is done at all
-            "
-            let i = self.rng.usize(.." nbr_elements ");
-            match i {"
-            join_ts!(0..nbr_elements, i,
-                i "=> {
-                    let mut replaced = false;
-                    let old_el_cplx = self." mutator_i(i) ".complexity(value." i ", &cache." ti(i) ");
-                    "
-                    // replace one of the elements
-                    // 1. choose a random index
-                    // 2. match on it
-                    // 3. ask the subvalue provider for a value of that type
-                    // 4. replace it
-                    "
-                    if self.rng.bool() {
-                        if let Some(subvalue) = subvalue_provider.get_subvalue(" cm.TypeId "::of::<" Ti(i) ">()).and_then(#[no_coverage] |x| x.downcast_ref::<" Ti(i) ">()) {"
-                            // check that the subvalue is valid and that it fits the complexity budget
-                            "
-                            if let Some(subcache) = self." mutator_i(i) ".validate_value(subvalue) {
-                                let old_el_cplx = self." mutator_i(i) ".complexity(value." i ", &cache." ti(i) ");
-                                let new_el_cplx = self." mutator_i(i) ".complexity(subvalue, &subcache);
-                                let next_cplx = current_cplx - old_el_cplx + new_el_cplx;
-                                if next_cplx < max_cplx {
-                                    replaced = true;
-                                    let mut swapped = subvalue.clone();
-                                    ::std::mem::swap(value." i ", &mut swapped);
-                                    token." ti(i) " = Some(UnmutateElementToken::Replace(swapped));
-                                    new_cplx = next_cplx;
-                                }
-                            }
-                        }
-                    }
-                    if !replaced {
-                        let max_el_cplx = max_cplx - (current_cplx - old_el_cplx);
-                        let (el_token, new_el_cplx) = self. " mutator_i(i) ".crossover_mutate(value." i ", &mut cache." ti(i) ", subvalue_provider, max_el_cplx);
-                        token." ti(i) " = Some(UnmutateElementToken::Unmutate(el_token));
-                        new_cplx = new_cplx - old_el_cplx + new_el_cplx;
-                    }
-                }"
-            )
-                "_ => unreachable!()"
-            "}
-            (token, new_cplx)
         }
     }"
     )

@@ -356,45 +356,27 @@ impl<M: Mutator<T>, T: Clone + 'static, const N: usize> Mutator<[T; N]> for Arra
 
     #[doc(hidden)]
     #[no_coverage]
-    fn all_paths(&self, value: &[T; N], cache: &Self::Cache, register_path: &mut dyn FnMut(TypeId, Self::LensPath)) {
+    fn all_paths(
+        &self,
+        value: &[T; N],
+        cache: &Self::Cache,
+        register_path: &mut dyn FnMut(TypeId, Self::LensPath, f64),
+    ) {
         if !value.is_empty() {
             let type_of_element = TypeId::of::<T>();
             for idx in 0..value.len() {
-                register_path(type_of_element, (idx, None));
+                let cplx = self.mutator.complexity(&value[idx], &cache.inner[idx]);
+                register_path(type_of_element, (idx, None), cplx);
             }
             for (idx, (el, el_cache)) in value.iter().zip(cache.inner.iter()).enumerate() {
                 self.mutator.all_paths(
                     el,
                     el_cache,
                     #[no_coverage]
-                    &mut |typeid, subpath| register_path(typeid, (idx, Some(subpath))),
+                    &mut |typeid, subpath, cplx| register_path(typeid, (idx, Some(subpath)), cplx),
                 );
             }
         }
-    }
-
-    #[doc(hidden)]
-    #[no_coverage]
-    fn crossover_mutate(
-        &self,
-        value: &mut [T; N],
-        cache: &mut Self::Cache,
-        subvalue_provider: &dyn crate::SubValueProvider,
-        max_cplx: f64,
-    ) -> (Self::UnmutateToken, f64) {
-        let cplx_before = self.complexity(value, cache);
-
-        let idx = self.rng.usize(..value.len());
-        let (el, el_cache) = (&mut value[idx], &mut cache.inner[idx]);
-        let el_cplx = self.mutator.complexity(el, el_cache);
-        let max_el_cplx = max_cplx - (cplx_before - el_cplx);
-        let (unmutate, new_el_cplx) =
-            self.mutator
-                .crossover_mutate(&mut value[idx], &mut cache.inner[idx], subvalue_provider, max_el_cplx);
-
-        let token = UnmutateArrayToken::Element(idx, unmutate);
-
-        (token, cache.sum_cplx - el_cplx + new_el_cplx)
     }
 }
 

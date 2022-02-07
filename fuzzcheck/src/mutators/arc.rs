@@ -143,52 +143,13 @@ impl<T: Clone + 'static, M: Mutator<T>> Mutator<Arc<T>> for ArcMutator<M> {
 
     #[doc(hidden)]
     #[no_coverage]
-    fn all_paths(&self, value: &Arc<T>, cache: &Self::Cache, register_path: &mut dyn FnMut(TypeId, Self::LensPath)) {
-        self.mutator.all_paths(value, cache, register_path)
-    }
-
-    #[doc(hidden)]
-    #[no_coverage]
-    fn crossover_mutate(
+    fn all_paths(
         &self,
-        value: &mut Arc<T>,
-        cache: &mut Self::Cache,
-        subvalue_provider: &dyn crate::SubValueProvider,
-        max_cplx: f64,
-    ) -> (Self::UnmutateToken, f64) {
-        if self.rng.bool() {
-            if let Some((subvalue, subcache)) = subvalue_provider
-                .get_subvalue(TypeId::of::<T>())
-                .and_then(
-                    #[no_coverage]
-                    |x| x.downcast_ref::<T>(),
-                )
-                .and_then(
-                    #[no_coverage]
-                    |v| {
-                        self.mutator.validate_value(&v).map(
-                            #[no_coverage]
-                            |c| (v, c),
-                        )
-                    },
-                )
-            {
-                let cplx = self.mutator.complexity(&subvalue, &subcache);
-                if cplx < max_cplx {
-                    let mut swapped = subvalue.clone();
-                    let mut v = value.as_ref().clone();
-                    std::mem::swap(&mut v, &mut swapped);
-                    *value = Arc::new(v);
-                    return (UnmutateToken::Replace(swapped), cplx);
-                }
-            }
-        }
-        let mut v = value.as_ref().clone();
-        let (token, cplx) = self
-            .mutator
-            .crossover_mutate(&mut v, cache, subvalue_provider, max_cplx);
-        *value = Arc::new(v);
-        (UnmutateToken::Inner(token), cplx)
+        value: &Arc<T>,
+        cache: &Self::Cache,
+        register_path: &mut dyn FnMut(TypeId, Self::LensPath, f64),
+    ) {
+        self.mutator.all_paths(value, cache, register_path)
     }
 }
 

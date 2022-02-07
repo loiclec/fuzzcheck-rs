@@ -385,11 +385,17 @@ impl<T: Clone + 'static, M: Mutator<T>> Mutator<Vec<T>> for FixedLenVecMutator<T
 
     #[doc(hidden)]
     #[no_coverage]
-    fn all_paths(&self, value: &Vec<T>, cache: &Self::Cache, register_path: &mut dyn FnMut(TypeId, Self::LensPath)) {
+    fn all_paths(
+        &self,
+        value: &Vec<T>,
+        cache: &Self::Cache,
+        register_path: &mut dyn FnMut(TypeId, Self::LensPath, f64),
+    ) {
         if !value.is_empty() {
             let typeid = TypeId::of::<T>();
             for idx in 0..value.len() {
-                register_path(typeid, (idx, None));
+                let cplx = self.mutators[idx].complexity(&value[idx], &cache.inner[idx]);
+                register_path(typeid, (idx, None), cplx);
             }
             for (idx, ((el, el_cache), mutator)) in value
                 .iter()
@@ -401,33 +407,10 @@ impl<T: Clone + 'static, M: Mutator<T>> Mutator<Vec<T>> for FixedLenVecMutator<T
                     el,
                     el_cache,
                     #[no_coverage]
-                    &mut |typeid, subpath| register_path(typeid, (idx, Some(subpath))),
+                    &mut |typeid, subpath, cplx| register_path(typeid, (idx, Some(subpath)), cplx),
                 );
             }
         }
-    }
-
-    #[doc(hidden)]
-    #[no_coverage]
-    fn crossover_mutate(
-        &self,
-        value: &mut Vec<T>,
-        cache: &mut Self::Cache,
-        subvalue_provider: &dyn crate::SubValueProvider,
-        max_cplx: f64,
-    ) -> (Self::UnmutateToken, f64) {
-        let cplx_before = self.complexity(value, cache);
-
-        let idx = self.rng.usize(..value.len());
-        let (el, el_cache) = (&mut value[idx], &mut cache.inner[idx]);
-        let el_cplx = self.mutators[idx].complexity(el, el_cache);
-        let max_el_cplx = max_cplx - (cplx_before - el_cplx);
-        let (unmutate, new_el_cplx) =
-            self.mutators[idx].crossover_mutate(&mut value[idx], &mut cache.inner[idx], subvalue_provider, max_el_cplx);
-
-        let token = UnmutateVecToken::Element(idx, unmutate);
-
-        (token, cache.sum_cplx - el_cplx + new_el_cplx)
     }
 }
 #[cfg(test)]

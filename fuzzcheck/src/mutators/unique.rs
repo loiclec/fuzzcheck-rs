@@ -194,34 +194,8 @@ where
         &self,
         value: &T,
         cache: &Self::Cache,
-        register_path: &mut dyn FnMut(std::any::TypeId, Self::LensPath),
+        register_path: &mut dyn FnMut(std::any::TypeId, Self::LensPath, f64),
     ) {
         self.mutator.all_paths(value, cache, register_path)
-    }
-
-    #[no_coverage]
-    fn crossover_mutate(
-        &self,
-        value: &mut T,
-        cache: &mut Self::Cache,
-        subvalue_provider: &dyn crate::SubValueProvider,
-        max_cplx: f64,
-    ) -> (Self::UnmutateToken, f64) {
-        self.clear_if_needed();
-        for _ in 0..20 {
-            let (t, cplx) = self.mutator.crossover_mutate(value, cache, subvalue_provider, max_cplx);
-            let mut uniques = self.uniques.borrow_mut();
-            let focused = (self.focus)(value);
-            if uniques.contains(&focused) || cplx >= max_cplx {
-                drop(uniques);
-                self.unmutate(value, cache, t);
-            } else {
-                uniques.insert(&focused);
-                let prev_inserted = self.nbr_inserted.get();
-                self.nbr_inserted.set(prev_inserted + 1);
-                return (t, cplx);
-            }
-        }
-        self.random_mutate(value, cache, max_cplx)
     }
 }

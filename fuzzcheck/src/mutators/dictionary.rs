@@ -219,21 +219,8 @@ impl<T: Clone + 'static, M: Mutator<T>> Mutator<T> for DictionaryMutator<T, M> {
         &self,
         value: &T,
         cache: &Self::Cache,
-        register_path: &mut dyn FnMut(std::any::TypeId, Self::LensPath),
+        register_path: &mut dyn FnMut(std::any::TypeId, Self::LensPath, f64),
     ) {
         self.m.all_paths(value, cache, register_path)
-    }
-
-    #[doc(hidden)]
-    #[no_coverage]
-    fn crossover_mutate(
-        &self,
-        value: &mut T,
-        cache: &mut Self::Cache,
-        subvalue_provider: &dyn crate::SubValueProvider,
-        max_cplx: f64,
-    ) -> (Self::UnmutateToken, f64) {
-        let (t, cplx) = self.m.crossover_mutate(value, cache, subvalue_provider, max_cplx);
-        (self::UnmutateToken::Unmutate(t), cplx)
     }
 }

@@ -179,29 +179,10 @@ where
         &self,
         _value: &To,
         cache: &Self::Cache,
-        register_path: &mut dyn FnMut(std::any::TypeId, Self::LensPath),
+        register_path: &mut dyn FnMut(std::any::TypeId, Self::LensPath, f64),
     ) {
         self.mutator
             .all_paths(&cache.from_value, &cache.from_cache, register_path)
-    }
-
-    #[doc(hidden)]
-    #[no_coverage]
-    fn crossover_mutate(
-        &self,
-        value: &mut To,
-        cache: &mut Self::Cache,
-        subvalue_provider: &dyn crate::SubValueProvider,
-        max_cplx: f64,
-    ) -> (Self::UnmutateToken, f64) {
-        let (token, cplx) = self.mutator.crossover_mutate(
-            &mut cache.from_value,
-            &mut cache.from_cache,
-            subvalue_provider,
-            max_cplx,
-        );
-        *value = (self.map)(&cache.from_value);
-        (token, cplx)
     }
 }
 
@@ -366,26 +347,9 @@ where
         &self,
         value: &(To, From),
         cache: &Self::Cache,
-        register_path: &mut dyn FnMut(std::any::TypeId, Self::LensPath),
+        register_path: &mut dyn FnMut(std::any::TypeId, Self::LensPath, f64),
     ) {
         let (_, from_value) = value;
         self.mutator.all_paths(from_value, cache, register_path)
-    }
-
-    #[doc(hidden)]
-    #[no_coverage]
-    fn crossover_mutate(
-        &self,
-        value: &mut (To, From),
-        cache: &mut Self::Cache,
-        subvalue_provider: &dyn crate::SubValueProvider,
-        max_cplx: f64,
-    ) -> (Self::UnmutateToken, f64) {
-        let (to_value, from_value) = value;
-        let (token, cplx) = self
-            .mutator
-            .crossover_mutate(from_value, cache, subvalue_provider, max_cplx);
-        (self.map)(from_value, to_value);
-        (token, cplx)
     }
 }

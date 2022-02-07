@@ -3,7 +3,9 @@ use crate::sensors_and_pools::{
     AndSensorAndPool, NoopSensor, TestFailure, TestFailurePool, TestFailureSensor, UnitPool, TEST_FAILURE,
 };
 use crate::signals_handler::set_signal_handlers;
-use crate::traits::{CorpusDelta, Mutator, SaveToStatsFolder, SensorAndPool, Serializer};
+use crate::traits::{
+    CorpusDelta, LensPathAndComplexity, Mutator, SaveToStatsFolder, SensorAndPool, Serializer, SubValueProviderId,
+};
 use crate::world::World;
 use crate::{CSVField, CrossoverSubValueProvider, FuzzedInput, SubValueProvider, ToCSV};
 use fuzzcheck_common::arg::{Arguments, FuzzerCommand};
@@ -78,7 +80,7 @@ where
     input: FuzzedInput<T, M>,
     cloned_value: T,
     cloned_cache: M::Cache,
-    lens_paths: HashMap<TypeId, Vec<M::LensPath>>,
+    lens_paths: HashMap<TypeId, Vec<LensPathAndComplexity<M::LensPath>>>,
 }
 
 struct FuzzerState<T: Clone + 'static, M: Mutator<T>> {
@@ -346,18 +348,18 @@ where
                 .expect(UPDATE_CORPUS_ERROR);
             world.report_event(event, Some((fuzzer_stats, sensor_and_pool.stats().as_ref())));
             if add_ref_count > 0 {
-                let input = input.new_source(mutator);
-                // here I don't check the complexity of the new input,
-                // but because of the way mutators work (real possibility of
-                // inconsistent complexities), then its complexity may be higher
-                // than the maximum allowed one
-                let mut lens_paths: HashMap<TypeId, Vec<M::LensPath>> = HashMap::default();
+                let input = input.new_source(mutator, fuzzer_stats.total_number_of_runs);
+
+                let mut lens_paths: HashMap<TypeId, Vec<LensPathAndComplexity<M::LensPath>>> = HashMap::default();
                 mutator.all_paths(
                     &input.value,
                     &input.cache,
                     #[no_coverage]
-                    &mut |typeid, path| {
-                        lens_paths.entry(typeid).or_default().push(path);
+                    &mut |typeid, lens_path, complexity| {
+                        lens_paths
+                            .entry(typeid)
+                            .or_default()
+                            .push(LensPathAndComplexity { lens_path, complexity });
                     },
                 );
                 let cloned_value = input.value.clone();
@@ -398,9 +400,13 @@ where
                 lens_paths,
             } = &mut pool_storage[idx.0];
             // self-crossover
+            let identifier = SubValueProviderId {
+                idx: idx.0,
+                generation: input.generation,
+            };
             (
                 input,
-                CrossoverSubValueProvider::from(mutator, cloned_value, cloned_cache, lens_paths),
+                CrossoverSubValueProvider::from(mutator, cloned_value, cloned_cache, lens_paths, identifier),
             )
         } else {
             // crossover of two different test cases
@@ -412,9 +418,19 @@ where
                     ..
                 },
             ) = pool_storage.get_mut_and_ref(idx.0, idx_cross.0).unwrap();
+            let identifier = SubValueProviderId {
+                idx: idx_cross.0,
+                generation: input_cross.generation,
+            };
             (
                 &mut input.input,
-                CrossoverSubValueProvider::from(mutator, &input_cross.value, &input_cross.cache, lens_paths),
+                CrossoverSubValueProvider::from(
+                    mutator,
+                    &input_cross.value,
+                    &input_cross.cache,
+                    lens_paths,
+                    identifier,
+                ),
             )
         }
     }
@@ -433,20 +449,13 @@ where
 
         if let Some(idx) = sensor_and_pool.get_random_index() {
             *input_idx = FuzzerInputIndex::Pool(idx);
-            assert!(settings.crossover_rate < 1.0);
-            if rng.f64() < settings.crossover_rate {
-                let (input, subvalue_provider) =
-                    Self::get_input_and_subvalue_provider(pool_storage, sensor_and_pool.as_mut(), mutator, rng, idx);
-                let generation = input.generation;
-                let (unmutate, complexity) = mutator.crossover_mutate(
-                    &mut input.value,
-                    &mut input.cache,
-                    &subvalue_provider,
-                    settings.max_input_cplx,
-                );
-                drop(subvalue_provider);
-                if complexity < settings.max_input_cplx {
-                    self.test_and_process_input(complexity)?;
+            let input = &mut self.state.pool_storage[idx.0].input;
+            let generation = input.generation;
+            if let Some((unmutate_token, cplx)) =
+                input.mutate(&mut self.state.mutator, self.state.settings.max_input_cplx)
+            {
+                if cplx < self.state.settings.max_input_cplx {
+                    self.test_and_process_input(cplx)?;
                 }
 
                 // Retrieving the input may fail because the input may have been deleted
@@ -455,38 +464,17 @@ where
                     |x| &mut x.input,
                 ) {
                     if input.generation == generation {
-                        input.unmutate(&self.state.mutator, unmutate);
+                        input.unmutate(&self.state.mutator, unmutate_token);
                     }
                 }
+
                 Ok(())
             } else {
-                let input = &mut self.state.pool_storage[idx.0].input;
-                let generation = input.generation;
-                if let Some((unmutate_token, cplx)) =
-                    input.mutate(&mut self.state.mutator, self.state.settings.max_input_cplx)
-                {
-                    if cplx < self.state.settings.max_input_cplx {
-                        self.test_and_process_input(cplx)?;
-                    }
-
-                    // Retrieving the input may fail because the input may have been deleted
-                    if let Some(input) = self.state.pool_storage.get_mut(idx.0).map(
-                        #[no_coverage]
-                        |x| &mut x.input,
-                    ) {
-                        if input.generation == generation {
-                            input.unmutate(&self.state.mutator, unmutate_token);
-                        }
-                    }
-
-                    Ok(())
-                } else {
-                    self.state.world.report_event(
-                        FuzzerEvent::End,
-                        Some((&self.state.fuzzer_stats, self.state.sensor_and_pool.stats().as_ref())),
-                    );
-                    Err(ReasonForStopping::ExhaustedAllPossibleMutations)
-                }
+                self.state.world.report_event(
+                    FuzzerEvent::End,
+                    Some((&self.state.fuzzer_stats, self.state.sensor_and_pool.stats().as_ref())),
+                );
+                Err(ReasonForStopping::ExhaustedAllPossibleMutations)
             }
         } else if let Some((input, cplx)) = self.state.arbitrary_input() {
             self.state.input_idx = FuzzerInputIndex::Temporary(input);
@@ -690,13 +678,16 @@ where
                     world,
                 );
 
-                let mut lens_paths: HashMap<TypeId, Vec<M::LensPath>> = HashMap::default();
+                let mut lens_paths: HashMap<TypeId, Vec<LensPathAndComplexity<M::LensPath>>> = HashMap::default();
                 fuzzer.state.mutator.all_paths(
                     &value,
                     &cache,
                     #[no_coverage]
-                    &mut |typeid, path| {
-                        lens_paths.entry(typeid).or_default().push(path);
+                    &mut |typeid, lens_path, complexity| {
+                        lens_paths
+                            .entry(typeid)
+                            .or_default()
+                            .push(LensPathAndComplexity { lens_path, complexity });
                     },
                 );
                 let cloned_value = value.clone();

@@ -6,6 +6,7 @@ use fuzzcheck_common::FuzzerEvent;
 use std::any::{Any, TypeId};
 use std::collections::HashMap;
 use std::fmt::Display;
+use std::ops::Sub;
 use std::path::PathBuf;
 
 /**
@@ -263,29 +264,30 @@ pub trait Mutator<Value: Clone + 'static>: 'static {
     ///
     /// The valid lens paths of a value are provided by [`self.all_paths(..)`](Mutator::all_paths).
     /// The purpose of these two methods is to create a [`SubValueProvider`](crate::SubValueProvider)
-    /// from each interesting test case saved by the fuzzer. This sub-value provider is then used
-    /// by [`self.crossover_mutate(..)`](Mutator::crossover_mutate).
+    /// from each interesting test case saved by the fuzzer.
     fn lens<'a>(&self, value: &'a Value, cache: &'a Self::Cache, path: &Self::LensPath) -> &'a dyn Any;
 
     /// Iterates over all parts of the given value.
     ///
     /// For each part, the given closure is called with the type id of the part and the
     /// [lens path](Self::LensPath) to access it through [`self.lens(..)`](Mutator::lens).
-    fn all_paths(&self, value: &Value, cache: &Self::Cache, register_path: &mut dyn FnMut(TypeId, Self::LensPath));
+    fn all_paths(&self, value: &Value, cache: &Self::Cache, register_path: &mut dyn FnMut(TypeId, Self::LensPath, f64));
+}
 
-    /// Mutates a value (and optionally its cache) using parts provided by a [`SubValueProvider`](crate::SubValueProvider).
-    fn crossover_mutate(
-        &self,
-        value: &mut Value,
-        cache: &mut Self::Cache,
-        subvalue_provider: &dyn SubValueProvider,
-        max_cplx: f64,
-    ) -> (Self::UnmutateToken, f64);
+#[derive(Clone, Copy)]
+pub struct SubValueProviderId {
+    pub idx: usize,
+    pub generation: usize,
 }
 
 pub trait SubValueProvider {
-    // TODO: consider adding a verification closure here
-    fn get_subvalue(&self, typeid: TypeId) -> Option<&dyn Any>;
+    fn identifier(&self) -> SubValueProviderId;
+    fn get_subvalue(&self, typeid: TypeId, max_cplx: f64, index: &mut usize) -> Option<&dyn Any>;
+}
+
+pub struct LensPathAndComplexity<LP> {
+    pub lens_path: LP,
+    pub complexity: f64,
 }
 
 /// A type which implements [`SubValueProvider`]
@@ -299,10 +301,11 @@ where
     T: Clone + 'static,
     M: Mutator<T>,
 {
+    identifier: SubValueProviderId,
     mutator: &'a M,
     value: &'a T,
     cache: &'a M::Cache,
-    all_paths: &'a HashMap<TypeId, Vec<M::LensPath>>,
+    all_paths: &'a HashMap<TypeId, Vec<LensPathAndComplexity<M::LensPath>>>,
     rng: fastrand::Rng,
 }
 impl<'a, M, Value> CrossoverSubValueProvider<'a, M, Value>
@@ -315,9 +318,11 @@ where
         mutator: &'a M,
         value: &'a Value,
         cache: &'a M::Cache,
-        all_paths: &'a HashMap<TypeId, Vec<M::LensPath>>,
+        all_paths: &'a HashMap<TypeId, Vec<LensPathAndComplexity<M::LensPath>>>,
+        identifier: SubValueProviderId,
     ) -> Self {
         Self {
+            identifier,
             mutator,
             value,
             cache,
@@ -331,21 +336,27 @@ where
     Value: Clone + 'static,
     M: Mutator<Value>,
 {
-    // TODO: consider adding a verification closure here
     #[no_coverage]
-    fn get_subvalue(&self, typeid: TypeId) -> Option<&dyn Any> {
-        if let Some(all_paths) = self.all_paths.get(&typeid) {
-            assert!(!all_paths.is_empty());
-            if self.value.type_id() == typeid && self.rng.usize(..all_paths.len() + 1) == 0 {
-                Some(self.value)
-            } else {
-                let path_idx = self.rng.usize(..all_paths.len());
-                let path = &all_paths[path_idx];
-                let subvalue = self.mutator.lens(self.value, self.cache, path);
-                Some(subvalue)
-            }
+    fn identifier(&self) -> SubValueProviderId {
+        self.identifier
+    }
+
+    #[no_coverage]
+    fn get_subvalue(&self, typeid: TypeId, max_cplx: f64, index: &mut usize) -> Option<&dyn Any> {
+        let all_paths = self.all_paths.get(&typeid)?;
+        assert!(!all_paths.is_empty());
+        if self.value.type_id() == typeid && self.rng.usize(..all_paths.len() + 1) == 0 {
+            Some(self.value)
         } else {
-            None
+            loop {
+                let LensPathAndComplexity { lens_path, complexity } = all_paths.get(*index)?;
+                if *complexity < max_cplx {
+                    let subvalue = self.mutator.lens(self.value, self.cache, lens_path);
+                    return Some(subvalue);
+                } else {
+                    *index += 1;
+                }
+            }
         }
     }
 }
@@ -486,19 +497,8 @@ where
 
     #[doc(hidden)]
     #[no_coverage]
-    fn all_paths(&self, value: &T, cache: &Self::Cache, register_path: &mut dyn FnMut(TypeId, Self::LensPath)) {
+    fn all_paths(&self, value: &T, cache: &Self::Cache, register_path: &mut dyn FnMut(TypeId, Self::LensPath, f64)) {
         self.wrapped_mutator().all_paths(value, cache, register_path)
-    }
-
-    fn crossover_mutate(
-        &self,
-        value: &mut T,
-        cache: &mut Self::Cache,
-        subvalue_provider: &dyn SubValueProvider,
-        max_cplx: f64,
-    ) -> (Self::UnmutateToken, f64) {
-        self.wrapped_mutator()
-            .crossover_mutate(value, cache, subvalue_provider, max_cplx)
     }
 }
 

@@ -367,7 +367,7 @@ where
 
     #[doc(hidden)]
     #[no_coverage]
-    fn all_paths(&self, value: &T, cache: &Self::Cache, register_path: &mut dyn FnMut(TypeId, Self::LensPath)) {
+    fn all_paths(&self, value: &T, cache: &Self::Cache, register_path: &mut dyn FnMut(TypeId, Self::LensPath, f64)) {
         for (cache_idx, cache) in cache.iter().enumerate() {
             let mutator_idx = cache.mutator_idx;
             let mutator = &self.mutators[mutator_idx];
@@ -375,27 +375,8 @@ where
                 value,
                 &cache.inner,
                 #[no_coverage]
-                &mut |typeid, path| register_path(typeid, (cache_idx, path)),
+                &mut |typeid, path, cplx| register_path(typeid, (cache_idx, path), cplx + self.added_complexity),
             );
         }
-    }
-
-    fn crossover_mutate(
-        &self,
-        value: &mut T,
-        cache: &mut Self::Cache,
-        subvalue_provider: &dyn SubValueProvider,
-        max_cplx: f64,
-    ) -> (Self::UnmutateToken, f64) {
-        let cache_idx = self.rng.usize(..cache.len());
-        let cache = &mut cache[cache_idx];
-        let mutator_idx = cache.mutator_idx;
-        let mutator = &self.mutators[mutator_idx];
-
-        let (unmutate, complexity) = mutator.crossover_mutate(value, &mut cache.inner, subvalue_provider, max_cplx);
-        (
-            UnmutateToken::Inner(mutator_idx, unmutate),
-            self.complexity_from_inner(complexity),
-        )
     }
 }

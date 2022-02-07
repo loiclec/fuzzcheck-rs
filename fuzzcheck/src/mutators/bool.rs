@@ -146,17 +146,11 @@ impl Mutator<bool> for BoolMutator {
 
     #[doc(hidden)]
     #[no_coverage]
-    fn all_paths(&self, _value: &bool, _cache: &Self::Cache, _register_path: &mut dyn FnMut(TypeId, Self::LensPath)) {}
-
-    #[doc(hidden)]
-    #[no_coverage]
-    fn crossover_mutate(
+    fn all_paths(
         &self,
-        value: &mut bool,
-        cache: &mut Self::Cache,
-        _subvalue_provider: &dyn crate::SubValueProvider,
-        max_cplx: f64,
-    ) -> (Self::UnmutateToken, f64) {
-        self.random_mutate(value, cache, max_cplx)
+        _value: &bool,
+        _cache: &Self::Cache,
+        _register_path: &mut dyn FnMut(TypeId, Self::LensPath, f64),
+    ) {
     }
 }

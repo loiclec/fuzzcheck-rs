@@ -354,7 +354,7 @@ pub fn make_single_variant_mutator(tb: &mut TokenBuilder, enu: &Enum) {
         }
         #[doc(hidden)]
         #[no_coverage]
-        fn all_paths(&self, value: &" enu.ident enum_generics_no_bounds ", cache: &Self::Cache, register_path: &mut dyn FnMut(" cm.TypeId ", Self::LensPath)) {
+        fn all_paths(&self, value: &" enu.ident enum_generics_no_bounds ", cache: &Self::Cache, register_path: &mut dyn FnMut(" cm.TypeId ", Self::LensPath, f64)) {
             match (self, value, cache) {"
             join_ts!(&enu.items, item,
                 "(
@@ -362,36 +362,12 @@ pub fn make_single_variant_mutator(tb: &mut TokenBuilder, enu: &Enum) {
                     " item.pattern_match(&enu.ident, Some(pattern_match_binding_append.clone())) ",
                     " EnumSingleVariant "::" item.ident "(cache)
                 ) => {
-                    m.all_paths(" item_pattern_match_bindings_to_tuple(&item.ident, true) ", cache, #[no_coverage] &mut |typeid, subpath| {
-                        register_path(typeid, " EnumSingleVariant "::" item.ident "(subpath));
+                    m.all_paths(" item_pattern_match_bindings_to_tuple(&item.ident, true) ", cache, #[no_coverage] &mut |typeid, subpath, cplx| {
+                        register_path(typeid, " EnumSingleVariant "::" item.ident "(subpath), cplx);
                     });
                 }"
             )" _ => unreachable!()
             }
-        }
-        #[doc(hidden)]
-        #[no_coverage]
-        fn crossover_mutate<'a>(
-            &self,
-            value: &mut " enu.ident enum_generics_no_bounds ", 
-            cache: &mut Self::Cache,
-            subvalue_provider: &dyn " cm.SubValueProvider ",
-            max_cplx: f64,
-        ) -> (Self::UnmutateToken, f64) {
-            match (self, value, cache) {"
-            join_ts!(&enu.items, item,
-                "(
-                    " EnumSingleVariant "::" item.ident "(m) ,
-                    " item.pattern_match(&enu.ident, Some(pattern_match_binding_append.clone())) ",
-                    " EnumSingleVariant "::" item.ident "(c)
-                ) => {
-                    let (unmutate, cplx) = m.crossover_mutate(" 
-                        item_pattern_match_bindings_to_tuple(&item.ident, true) ", c, subvalue_provider, max_cplx"
-                    ");
-                    (" EnumSingleVariant "::" item.ident "(unmutate), cplx)
-                }"
-            )   "_ => unreachable!()"
-            "}
         }
     }
     ");

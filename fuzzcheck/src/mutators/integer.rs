@@ -286,20 +286,8 @@ macro_rules! impl_int_mutator {
                 &self,
                 _value: &$name,
                 _cache: &Self::Cache,
-                _register_path: &mut dyn FnMut(std::any::TypeId, Self::LensPath),
+                _register_path: &mut dyn FnMut(std::any::TypeId, Self::LensPath, f64),
             ) {
-            }
-
-            #[doc(hidden)]
-            #[no_coverage]
-            fn crossover_mutate(
-                &self,
-                value: &mut $name,
-                cache: &mut Self::Cache,
-                _subvalue_provider: &dyn crate::SubValueProvider,
-                max_cplx: f64,
-            ) -> (Self::UnmutateToken, f64) {
-                self.random_mutate(value, cache, max_cplx)
             }
         }
 

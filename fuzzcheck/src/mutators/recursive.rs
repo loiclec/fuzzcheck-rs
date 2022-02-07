@@ -262,23 +262,8 @@ where
 
     #[doc(hidden)]
     #[no_coverage]
-    fn all_paths(&self, value: &T, cache: &Self::Cache, register_path: &mut dyn FnMut(TypeId, Self::LensPath)) {
+    fn all_paths(&self, value: &T, cache: &Self::Cache, register_path: &mut dyn FnMut(TypeId, Self::LensPath, f64)) {
         self.reference.upgrade().unwrap().all_paths(value, cache, register_path)
-    }
-
-    #[doc(hidden)]
-    #[no_coverage]
-    fn crossover_mutate(
-        &self,
-        value: &mut T,
-        cache: &mut Self::Cache,
-        subvalue_provider: &dyn crate::SubValueProvider,
-        max_cplx: f64,
-    ) -> (Self::UnmutateToken, f64) {
-        self.reference
-            .upgrade()
-            .unwrap()
-            .crossover_mutate(value, cache, subvalue_provider, max_cplx)
     }
 }
 
@@ -329,12 +314,12 @@ where
                 value,
                 &cache,
                 #[no_coverage]
-                &mut |typeid, path| {
+                &mut |typeid, path, cplx| {
                     if typeid == TypeId::of::<T>() {
                         if let Some(subvalue) = self.mutator.lens(value, &cache, &path).downcast_ref::<T>() {
                             if let Some(subcache) = self.mutator.validate_value(&subvalue) {
-                                let subcplx = self.mutator.complexity(&subvalue, &subcache);
-                                paths_to_self.push((path, subcplx));
+                                // let subcplx = self.mutator.complexity(&subvalue, &subcache);
+                                paths_to_self.push((path, cplx));
                             }
                         }
                     }
@@ -457,22 +442,7 @@ where
 
     #[doc(hidden)]
     #[no_coverage]
-    fn all_paths(&self, value: &T, cache: &Self::Cache, register_path: &mut dyn FnMut(TypeId, Self::LensPath)) {
+    fn all_paths(&self, value: &T, cache: &Self::Cache, register_path: &mut dyn FnMut(TypeId, Self::LensPath, f64)) {
         self.mutator.all_paths(value, &cache.inner, register_path)
-    }
-
-    #[doc(hidden)]
-    #[no_coverage]
-    fn crossover_mutate(
-        &self,
-        value: &mut T,
-        cache: &mut Self::Cache,
-        subvalue_provider: &dyn crate::SubValueProvider,
-        max_cplx: f64,
-    ) -> (Self::UnmutateToken, f64) {
-        let (token, cplx) = self
-            .mutator
-            .crossover_mutate(value, &mut cache.inner, subvalue_provider, max_cplx);
-        (RecursiveMutatorUnmutateToken::Token(token), cplx)
     }
 }

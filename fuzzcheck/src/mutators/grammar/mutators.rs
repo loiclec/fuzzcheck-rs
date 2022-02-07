@@ -205,30 +205,15 @@ impl Mutator<AST> for ASTMutator {
 
     #[doc(hidden)]
     #[no_coverage]
-    fn all_paths(&self, value: &AST, cache: &Self::Cache, register_path: &mut dyn FnMut(TypeId, Self::LensPath)) {
+    fn all_paths(&self, value: &AST, cache: &Self::Cache, register_path: &mut dyn FnMut(TypeId, Self::LensPath, f64)) {
         self.inner.all_paths(
             value,
             &cache.inner,
             #[no_coverage]
-            &mut |typeid, subpath| {
-                register_path(typeid, Self::LensPath::new(subpath));
+            &mut |typeid, subpath, cplx| {
+                register_path(typeid, Self::LensPath::new(subpath), cplx);
             },
         );
-    }
-
-    #[doc(hidden)]
-    #[no_coverage]
-    fn crossover_mutate(
-        &self,
-        value: &mut AST,
-        cache: &mut Self::Cache,
-        subvalue_provider: &dyn fuzzcheck::SubValueProvider,
-        max_cplx: f64,
-    ) -> (Self::UnmutateToken, f64) {
-        let (token, cplx) = self
-            .inner
-            .crossover_mutate(value, &mut cache.inner, subvalue_provider, max_cplx);
-        (Self::UnmutateToken::new(token), cplx)
     }
 }
 
