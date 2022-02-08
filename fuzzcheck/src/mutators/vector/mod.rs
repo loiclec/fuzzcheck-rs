@@ -1,20 +1,16 @@
 use crate::mutators::mutations::{Mutation, RevertMutation};
-use crate::mutators::vector::insert_element::RevertInsertElement;
-use crate::mutators::vector::mutate_element::RevertMutateElement;
-use crate::mutators::vector::remove_and_insert_element::RevertRemoveAndInsertElement;
-use crate::{DefaultMutator, Mutator, SubValueProvider};
+use crate::traits::EmptySubValueProvider;
+use crate::{DefaultMutator, Mutator};
 use std::any::{Any, TypeId};
 use std::cmp;
 use std::marker::PhantomData;
 use std::ops::RangeInclusive;
 
-use self::insert_many_elements::{insert_many, RevertInsertManyElements};
 use self::vec_mutation::{RevertVectorMutation, VectorMutation, VectorMutationRandomStep, VectorMutationStep};
-
-use super::mutations::NoMutation;
 
 pub mod arbitrary;
 pub mod copy_element;
+pub mod crossover_replace_element;
 pub mod insert_element;
 pub mod insert_many_elements;
 pub mod mutate_element;
@@ -273,21 +269,28 @@ where
         value: &mut Vec<T>,
         cache: &mut Self::Cache,
         step: &mut Self::MutationStep,
-        _subvalue_provider: &dyn crate::SubValueProvider,
+        subvalue_provider: &dyn crate::SubValueProvider,
         max_cplx: f64,
     ) -> Option<(Self::UnmutateToken, f64)> {
         if max_cplx < self.min_complexity() {
             return None;
         }
-        let mutation = VectorMutation::from_step(self, value, cache, step, max_cplx)?;
-        Some(VectorMutation::apply(mutation, self, value, cache, max_cplx))
+        let mutation = VectorMutation::from_step(self, value, cache, step, subvalue_provider, max_cplx)?;
+        Some(VectorMutation::apply(
+            mutation,
+            self,
+            value,
+            cache,
+            subvalue_provider,
+            max_cplx,
+        ))
     }
 
     #[doc(hidden)]
     #[no_coverage]
     fn random_mutate(&self, value: &mut Vec<T>, cache: &mut Self::Cache, max_cplx: f64) -> (Self::UnmutateToken, f64) {
         let mutation = VectorMutation::random(self, value, cache, &cache.random_mutation_step, max_cplx);
-        VectorMutation::apply(mutation, self, value, cache, max_cplx)
+        VectorMutation::apply(mutation, self, value, cache, &EmptySubValueProvider, max_cplx)
     }
 
     #[doc(hidden)]

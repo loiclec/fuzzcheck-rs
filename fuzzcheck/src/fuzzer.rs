@@ -4,7 +4,8 @@ use crate::sensors_and_pools::{
 };
 use crate::signals_handler::set_signal_handlers;
 use crate::traits::{
-    CorpusDelta, LensPathAndComplexity, Mutator, SaveToStatsFolder, SensorAndPool, Serializer, SubValueProviderId,
+    CorpusDelta, EmptySubValueProvider, Generation, LensPathAndComplexity, Mutator, SaveToStatsFolder, SensorAndPool,
+    Serializer, SubValueProviderId,
 };
 use crate::world::World;
 use crate::{CSVField, CrossoverSubValueProvider, FuzzedInput, SubValueProvider, ToCSV};
@@ -195,7 +196,7 @@ where
         {
             let cache = self.mutator.validate_value(&v).unwrap();
             let step = self.mutator.default_mutation_step(&v, &cache);
-            Some((FuzzedInput::new(v, cache, step, 0), cplx))
+            Some((FuzzedInput::new(v, cache, step, Generation(0)), cplx))
         } else {
             None
         }
@@ -348,7 +349,7 @@ where
                 .expect(UPDATE_CORPUS_ERROR);
             world.report_event(event, Some((fuzzer_stats, sensor_and_pool.stats().as_ref())));
             if add_ref_count > 0 {
-                let input = input.new_source(mutator, fuzzer_stats.total_number_of_runs);
+                let input = input.new_source(mutator, Generation(fuzzer_stats.total_number_of_runs));
 
                 let mut lens_paths: HashMap<TypeId, Vec<LensPathAndComplexity<M::LensPath>>> = HashMap::default();
                 mutator.all_paths(
@@ -365,7 +366,7 @@ where
                 let cloned_value = input.value.clone();
                 let cloned_cache = input.cache.clone();
                 let stored_input = StoredFuzzedInput {
-                    input: input,
+                    input,
                     cloned_value,
                     cloned_cache,
                     lens_paths,
@@ -444,18 +445,22 @@ where
             mutator,
             settings,
             rng,
+            fuzzer_stats,
+            world,
             ..
         } = &mut self.state;
 
         if let Some(idx) = sensor_and_pool.get_random_index() {
             *input_idx = FuzzerInputIndex::Pool(idx);
-            let input = &mut self.state.pool_storage[idx.0].input;
+            let (input, subvalue_provider) =
+                Self::get_input_and_subvalue_provider(pool_storage, sensor_and_pool.as_mut(), mutator, rng, idx);
             let generation = input.generation;
-            if let Some((unmutate_token, cplx)) =
-                input.mutate(&mut self.state.mutator, self.state.settings.max_input_cplx)
+            if let Some((unmutate_token, complexity)) =
+                input.mutate(mutator, &subvalue_provider, settings.max_input_cplx)
             {
-                if cplx < self.state.settings.max_input_cplx {
-                    self.test_and_process_input(cplx)?;
+                drop(subvalue_provider);
+                if complexity < self.state.settings.max_input_cplx {
+                    self.test_and_process_input(complexity)?;
                 }
 
                 // Retrieving the input may fail because the input may have been deleted
@@ -470,10 +475,7 @@ where
 
                 Ok(())
             } else {
-                self.state.world.report_event(
-                    FuzzerEvent::End,
-                    Some((&self.state.fuzzer_stats, self.state.sensor_and_pool.stats().as_ref())),
-                );
+                world.report_event(FuzzerEvent::End, Some((fuzzer_stats, sensor_and_pool.stats().as_ref())));
                 Err(ReasonForStopping::ExhaustedAllPossibleMutations)
             }
         } else if let Some((input, cplx)) = self.state.arbitrary_input() {
@@ -507,7 +509,7 @@ where
                     let value = self.state.serializer.from_data(&value)?;
                     let cache = self.state.mutator.validate_value(&value)?;
                     let mutation_step = self.state.mutator.default_mutation_step(&value, &cache);
-                    Some(FuzzedInput::new(value, cache, mutation_step, 0))
+                    Some(FuzzedInput::new(value, cache, mutation_step, Generation(0)))
                 },
             )
             .collect();
@@ -693,7 +695,7 @@ where
                 let cloned_value = value.clone();
                 let cloned_cache = cache.clone();
                 let stored_input = StoredFuzzedInput {
-                    input: FuzzedInput::new(value, cache, mutation_step, 0),
+                    input: FuzzedInput::new(value, cache, mutation_step, Generation(0)),
                     cloned_value,
                     cloned_cache,
                     lens_paths,
@@ -716,7 +718,7 @@ where
             let value = serializer.from_data(&value).expect(SERIALIZER_FROM_DATA_ERROR);
             if let Some(cache) = mutator.validate_value(&value) {
                 let mutation_step = mutator.default_mutation_step(&value, &cache);
-                let input = FuzzedInput::new(value, cache, mutation_step, 0);
+                let input = FuzzedInput::new(value, cache, mutation_step, Generation(0));
                 let cplx = input.complexity(&mutator);
 
                 let result = catch_unwind(AssertUnwindSafe(

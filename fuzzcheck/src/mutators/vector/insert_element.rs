@@ -1,6 +1,6 @@
 use super::VecMutator;
 use crate::mutators::mutations::{Mutation, RevertMutation};
-use crate::Mutator;
+use crate::{Mutator, SubValueProvider};
 
 pub struct InsertElement;
 
@@ -107,6 +107,7 @@ where
         value: &Vec<T>,
         cache: &<VecMutator<T, M> as Mutator<Vec<T>>>::Cache,
         step: &'a mut Self::Step,
+        subvalue_provider: &dyn SubValueProvider,
         max_cplx: f64,
     ) -> Option<Self::Concrete<'a>> {
         if step.arbitrary_steps.is_empty() {
@@ -121,7 +122,7 @@ where
             Some(ConcreteInsertElement { el, cplx, idx: *idx })
         } else {
             step.arbitrary_steps.remove(choice);
-            Self::from_step(mutator, value, cache, step, max_cplx)
+            Self::from_step(mutator, value, cache, step, subvalue_provider, max_cplx)
         }
     }
 
@@ -131,6 +132,7 @@ where
         mutator: &VecMutator<T, M>,
         value: &mut Vec<T>,
         cache: &mut <VecMutator<T, M> as Mutator<Vec<T>>>::Cache,
+        _subvalue_provider: &dyn SubValueProvider,
         _max_cplx: f64,
     ) -> (Self::Revert, f64) {
         value.insert(mutation.idx, mutation.el);

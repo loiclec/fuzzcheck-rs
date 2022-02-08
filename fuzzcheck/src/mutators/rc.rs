@@ -1,8 +1,8 @@
-use std::any::TypeId;
-use std::rc::Rc;
-
+use super::CrossoverStep;
 use crate::DefaultMutator;
 use crate::Mutator;
+use std::any::TypeId;
+use std::rc::Rc;
 
 /// Default mutator of `Rc<T>`
 #[derive(Default)]
@@ -25,11 +25,17 @@ pub enum UnmutateToken<T, U> {
     Inner(U),
 }
 
+#[derive(Clone)]
+pub struct MutationStep<T, MS> {
+    crossover_step: CrossoverStep<T>,
+    inner: MS,
+}
+
 impl<T: Clone + 'static, M: Mutator<T>> Mutator<Rc<T>> for RcMutator<M> {
     #[doc(hidden)]
     type Cache = M::Cache;
     #[doc(hidden)]
-    type MutationStep = M::MutationStep;
+    type MutationStep = MutationStep<T, M::MutationStep>;
     #[doc(hidden)]
     type ArbitraryStep = M::ArbitraryStep;
     #[doc(hidden)]
@@ -51,7 +57,10 @@ impl<T: Clone + 'static, M: Mutator<T>> Mutator<Rc<T>> for RcMutator<M> {
     #[doc(hidden)]
     #[no_coverage]
     fn default_mutation_step(&self, value: &Rc<T>, cache: &Self::Cache) -> Self::MutationStep {
-        self.mutator.default_mutation_step(value.as_ref(), cache)
+        MutationStep {
+            crossover_step: CrossoverStep::new(),
+            inner: self.mutator.default_mutation_step(value.as_ref(), cache),
+        }
     }
 
     #[doc(hidden)]
@@ -105,10 +114,27 @@ impl<T: Clone + 'static, M: Mutator<T>> Mutator<Rc<T>> for RcMutator<M> {
         subvalue_provider: &dyn crate::SubValueProvider,
         max_cplx: f64,
     ) -> Option<(Self::UnmutateToken, f64)> {
+        if self.rng.usize(..5) == 0 {
+            if let Some(result) = step
+                .crossover_step
+                .get_next_subvalue(subvalue_provider, max_cplx)
+                .and_then(|x| self.mutator.validate_value(x).map(|c| (x, c)))
+                .map(|(replacer, replacer_cache)| {
+                    let cplx = self.mutator.complexity(replacer, &replacer_cache);
+                    let replacer = replacer.clone();
+                    let old_value = value.as_ref().clone();
+                    // TODO: something more efficient
+                    *value = Rc::new(replacer);
+                    (UnmutateToken::Replace(old_value), cplx)
+                })
+            {
+                return Some(result);
+            }
+        }
         let mut v = value.as_ref().clone();
-        if let Some((t, cplx)) = self
-            .mutator
-            .ordered_mutate(&mut v, cache, step, subvalue_provider, max_cplx)
+        if let Some((t, cplx)) =
+            self.mutator
+                .ordered_mutate(&mut v, cache, &mut step.inner, subvalue_provider, max_cplx)
         {
             *value = Rc::new(v);
             Some((UnmutateToken::Inner(t), cplx))

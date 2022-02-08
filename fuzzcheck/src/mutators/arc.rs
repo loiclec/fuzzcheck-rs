@@ -8,15 +8,11 @@ use crate::Mutator;
 #[derive(Default)]
 pub struct ArcMutator<M> {
     mutator: M,
-    rng: fastrand::Rng,
 }
 impl<M> ArcMutator<M> {
     #[no_coverage]
     pub fn new(mutator: M) -> Self {
-        Self {
-            mutator,
-            rng: fastrand::Rng::new(),
-        }
+        Self { mutator }
     }
 }
 

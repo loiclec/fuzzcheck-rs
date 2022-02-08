@@ -33,8 +33,13 @@ This module provides the following mutators:
     * [`RecursiveMutator` and `RecurToMutator`](crate::mutators::recursive) are wrappers allowing mutators to call themselves recursively, which is necessary to mutate recursive types.
     * [`MapMutator<..>`](crate::mutators::map::MapMutator) wraps a mutator and transforms the generated value using a user-provided function.
 */
+
+use crate::{traits::Generation, Mutator, SubValueProvider};
+use ahash::AHashMap;
+use std::{any::TypeId, marker::PhantomData, ops::Range};
+
 pub mod alternation;
-pub mod arc;
+// pub mod arc;
 pub mod array;
 pub mod bool;
 pub mod boxed;
@@ -65,13 +70,44 @@ pub mod unit;
 pub mod vector;
 pub mod vose_alias;
 pub mod wrapper;
-use crate::Mutator;
-use std::ops::Range;
 
 /// A trait for giving a type a default [Mutator]
 pub trait DefaultMutator: Clone + 'static {
     type Mutator: Mutator<Self>;
     fn default_mutator() -> Self::Mutator;
+}
+
+#[derive(Clone)]
+pub struct CrossoverStep<T> {
+    steps: AHashMap<usize, (Generation, usize)>,
+    _phantom: PhantomData<T>,
+}
+impl<T> CrossoverStep<T>
+where
+    T: 'static,
+{
+    pub fn new() -> Self {
+        Self {
+            steps: <_>::default(),
+            _phantom: PhantomData,
+        }
+    }
+    pub fn get_next_subvalue<'a>(
+        &mut self,
+        subvalue_provider: &'a dyn SubValueProvider,
+        max_cplx: f64,
+    ) -> Option<&'a T> {
+        // TODO: mark an entry as exhausted?
+        let id = subvalue_provider.identifier();
+        let entry = self.steps.entry(id.idx).or_insert((id.generation, 0));
+        if entry.0 < id.generation {
+            entry.0 = id.generation;
+            entry.1 = 0;
+        }
+        subvalue_provider
+            .get_subvalue(TypeId::of::<T>(), max_cplx, &mut entry.1)
+            .map(|x| x.downcast_ref::<T>().unwrap())
+    }
 }
 
 /// Generate a random f64 within the given range

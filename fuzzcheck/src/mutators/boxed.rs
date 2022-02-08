@@ -3,6 +3,8 @@ use std::any::TypeId;
 use crate::DefaultMutator;
 use crate::Mutator;
 
+use super::CrossoverStep;
+
 /// Default mutator of `Box<T>`
 #[derive(Default)]
 pub struct BoxMutator<M> {
@@ -18,6 +20,11 @@ impl<M> BoxMutator<M> {
         }
     }
 }
+#[derive(Clone)]
+pub struct MutationStep<T, MS> {
+    crossover_step: CrossoverStep<T>,
+    inner: MS,
+}
 
 pub enum UnmutateToken<T, U> {
     Replace(T),
@@ -28,7 +35,7 @@ impl<T: Clone + 'static, M: Mutator<T>> Mutator<Box<T>> for BoxMutator<M> {
     #[doc(hidden)]
     type Cache = M::Cache;
     #[doc(hidden)]
-    type MutationStep = M::MutationStep;
+    type MutationStep = MutationStep<T, M::MutationStep>;
     #[doc(hidden)]
     type ArbitraryStep = M::ArbitraryStep;
     #[doc(hidden)]
@@ -50,7 +57,10 @@ impl<T: Clone + 'static, M: Mutator<T>> Mutator<Box<T>> for BoxMutator<M> {
     #[doc(hidden)]
     #[no_coverage]
     fn default_mutation_step(&self, value: &Box<T>, cache: &Self::Cache) -> Self::MutationStep {
-        self.mutator.default_mutation_step(value, cache)
+        MutationStep {
+            crossover_step: CrossoverStep::new(),
+            inner: self.mutator.default_mutation_step(value, cache),
+        }
     }
 
     #[doc(hidden)]
@@ -104,7 +114,25 @@ impl<T: Clone + 'static, M: Mutator<T>> Mutator<Box<T>> for BoxMutator<M> {
         subvalue_provider: &dyn crate::SubValueProvider,
         max_cplx: f64,
     ) -> Option<(Self::UnmutateToken, f64)> {
-        if let Some((t, cplx)) = self.mutator.ordered_mutate(value, cache, step, subvalue_provider, max_cplx) {
+        if self.rng.usize(..5) == 0 {
+            if let Some(result) = step
+                .crossover_step
+                .get_next_subvalue(subvalue_provider, max_cplx)
+                .and_then(|x| self.mutator.validate_value(x).map(|c| (x, c)))
+                .map(|(replacer, replacer_cache)| {
+                    let cplx = self.mutator.complexity(replacer, &replacer_cache);
+                    let mut replacer = replacer.clone();
+                    std::mem::swap(value.as_mut(), &mut replacer);
+                    (UnmutateToken::Replace(replacer), cplx)
+                })
+            {
+                return Some(result);
+            }
+        }
+        if let Some((t, cplx)) = self
+            .mutator
+            .ordered_mutate(value, cache, &mut step.inner, subvalue_provider, max_cplx)
+        {
             Some((UnmutateToken::Inner(t), cplx))
         } else {
             None

@@ -297,12 +297,17 @@ fn declare_tuple_mutator_helper_types(tb: &mut TokenBuilder, nbr_elements: usize
         "}
         #[doc(hidden)]
         #[derive(" cm.Clone ")]
-        pub struct MutationStep < " tuple_type_params " > {"
+        pub struct MutationStep < " tuple_type_params ", " join_ts!(0..nbr_elements, i, ident!("MS" i) ",")  " > {"
             join_ts!(0..nbr_elements, i,
-                ti(i) ":" Ti(i) ","
+                ti(i) ":" ident!("MS" i) ","
             )
             "inner : " cm.Vec " < TupleIndex > ,
-            vose_alias : Option<" cm.VoseAlias ">
+            vose_alias : Option<" cm.VoseAlias ">,
+            "
+            join_ts!(0..nbr_elements, i,
+                ident!("crossover_step_" i) ":" cm.CrossoverStep "<" Ti(i) ">,"
+            )
+            "
         }
         #[doc(hidden)]
         pub enum UnmutateElementToken<T, U> {
@@ -377,6 +382,7 @@ fn impl_mutator_trait(tb: &mut TokenBuilder, nbr_elements: usize) {
         ">;
         #[doc(hidden)]
         type MutationStep = MutationStep <"
+            tuple_type_params ","
             join_ts!(0..nbr_elements, i,
                 "<" Mi(i) "as" cm.fuzzcheck_traits_Mutator "<" Ti(i) "> >::MutationStep "
             , separator: ",")
@@ -467,10 +473,21 @@ fn impl_mutator_trait(tb: &mut TokenBuilder, nbr_elements: usize) {
             join_ts!(0..nbr_elements, i,
                 "let" ident!("s" i) " = self." mutator_i(i) ".default_mutation_step(value." i ", &cache. " ti(i) ");"
             )"
+            "
+            join_ts!(0 .. nbr_elements, i,
+                "let" ident!("crossover_step_" i) "=" cm.CrossoverStep "::<" Ti(i) ">::new() ;"
+            )
+            "
+            let all_indices = vec![" join_ts!(0..nbr_elements, i, "TupleIndex::" Ti(i), separator: ",") "];
              Self::MutationStep {"
                 join_ts!(0..nbr_elements, i, ti(i) ":" ident!("s" i) ",")
-                "inner: vec![" join_ts!(0..nbr_elements, i, "TupleIndex::" Ti(i), separator: ",") "] ,
-                vose_alias: Some(cache.vose_alias.clone())
+                "inner: all_indices,
+                vose_alias: Some(cache.vose_alias.clone()),
+                "
+                 join_ts!(0..nbr_elements, i,
+                    ident!("crossover_step_" i) ","
+                )
+                "
             }
         }
         #[doc(hidden)]
@@ -528,6 +545,39 @@ fn impl_mutator_trait(tb: &mut TokenBuilder, nbr_elements: usize) {
             subvalue_provider: &dyn " cm.SubValueProvider ",
             max_cplx: f64,
         ) -> " cm.Option "<(Self::UnmutateToken, f64)> {
+            if self.rng.usize(..5) == 0 {
+                let current_cplx = " SelfAsTupleMutator "::complexity(self, " TupleNAsRefTypes "::get_ref_from_mut(&value), cache); 
+
+                let idx = self.rng.usize(.. " nbr_elements ");
+                match idx {
+                    "
+                    join_ts!(0 .. nbr_elements, i,
+                        i "=> {
+
+                            let old_field_cplx = self." mutator_i(i) ".complexity(value." i ", &cache." ti(i) ");
+                            let max_field_cplx = max_cplx - current_cplx + old_field_cplx;
+                            if let " cm.Some " (replacer) = step." ident!("crossover_step_" i) ".get_next_subvalue(subvalue_provider, max_field_cplx) {
+                                if let Some(replacer_cache) = self." mutator_i(i) ".validate_value(value." i ") {
+                                    let new_field_cplx = self. " mutator_i(i) ".complexity(value. " i ", &cache." ti(i) ");
+                                    let mut replacer = replacer.clone();
+                                    ::std::mem::swap(value." i ", &mut replacer);
+                                    let mut token = Self::UnmutateToken::default();
+                                    return " cm.Some "((Self::UnmutateToken {
+                                            " ti(i) ": " cm.Some "(UnmutateElementToken::Replace(replacer)),
+                                            ..Self::UnmutateToken::default()
+                                        }, current_cplx - old_field_cplx + new_field_cplx
+                                    ));
+                                }
+                            }
+                        }"
+                    )
+                    "_ => unreachable!()"
+                    "
+                }
+                "
+                // here, crossover: replace one of the elements with a subvalue from the subvalue provider
+                "
+            }
             if max_cplx < <Self as" cm.TupleMutator "<T , " cm.TupleN_ident "<" tuple_type_params "> > >::min_complexity(self) { return " cm.None " }
             if step.inner.is_empty() || step.vose_alias.is_none() {
                 let idx1 = self.rng.usize(.." nbr_elements ");

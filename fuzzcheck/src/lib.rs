@@ -52,7 +52,7 @@ mod world;
 pub use fuzzcheck_common::arg::Arguments;
 
 pub(crate) use split_string::split_string_by_whitespace;
-use traits::EmptySubValueProvider;
+use traits::Generation;
 
 #[doc(inline)]
 pub use crate::fuzzer::FuzzingResult;
@@ -240,7 +240,7 @@ pub(crate) struct FuzzedInput<T: Clone + 'static, Mut: Mutator<T>> {
     pub value: T,
     pub cache: Mut::Cache,
     pub mutation_step: Mut::MutationStep,
-    pub generation: usize,
+    pub generation: Generation,
 }
 impl<T: Clone + 'static, Mut: Mutator<T>> Clone for FuzzedInput<T, Mut> {
     fn clone(&self) -> Self {
@@ -255,7 +255,7 @@ impl<T: Clone + 'static, Mut: Mutator<T>> Clone for FuzzedInput<T, Mut> {
 
 impl<T: Clone + 'static, Mut: Mutator<T>> FuzzedInput<T, Mut> {
     #[no_coverage]
-    pub fn new(value: T, cache: Mut::Cache, mutation_step: Mut::MutationStep, generation: usize) -> Self {
+    pub fn new(value: T, cache: Mut::Cache, mutation_step: Mut::MutationStep, generation: Generation) -> Self {
         Self {
             value,
             cache,
@@ -265,7 +265,7 @@ impl<T: Clone + 'static, Mut: Mutator<T>> FuzzedInput<T, Mut> {
     }
 
     #[no_coverage]
-    pub fn new_source(&self, m: &Mut, generation: usize) -> Self {
+    pub fn new_source(&self, m: &Mut, generation: Generation) -> Self {
         let cache = m.validate_value(&self.value).unwrap();
         let mutation_step = m.default_mutation_step(&self.value, &cache);
         Self::new(self.value.clone(), cache, mutation_step, generation)
@@ -277,12 +277,17 @@ impl<T: Clone + 'static, Mut: Mutator<T>> FuzzedInput<T, Mut> {
     }
 
     #[no_coverage]
-    pub fn mutate(&mut self, m: &mut Mut, max_cplx: f64) -> Option<(Mut::UnmutateToken, f64)> {
+    pub fn mutate(
+        &mut self,
+        m: &Mut,
+        subvalue_provider: &dyn SubValueProvider,
+        max_cplx: f64,
+    ) -> Option<(Mut::UnmutateToken, f64)> {
         m.ordered_mutate(
             &mut self.value,
             &mut self.cache,
             &mut self.mutation_step,
-            &EmptySubValueProvider,
+            subvalue_provider,
             max_cplx,
         )
     }

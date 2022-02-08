@@ -477,7 +477,7 @@ mod tuple1 {
     use std::any::TypeId;
 
     use super::{TupleMutator, TupleMutatorWrapper};
-    use crate::mutators::tuples::RefTypes;
+    use crate::mutators::{tuples::RefTypes, CrossoverStep};
 
     #[doc = "A marker type implementing [`RefTypes`](crate::mutators::tuples::RefTypes) indicating that a type has the [structure](crate::mutators::tuples::TupleStructure) of a 1-tuple."]
     pub struct Tuple1<T0: 'static> {
@@ -506,7 +506,11 @@ mod tuple1 {
             t
         }
     }
-
+    #[derive(Clone)]
+    pub struct MutationStep<T, MS> {
+        crossover_step: CrossoverStep<T>,
+        inner: MS,
+    }
     pub enum UnmutateTuple1Token<T, U> {
         Replace(T),
         Inner(U),
@@ -538,7 +542,7 @@ mod tuple1 {
         #[doc(hidden)]
         type Cache = <M0 as crate::Mutator<T0>>::Cache;
         #[doc(hidden)]
-        type MutationStep = <M0 as crate::Mutator<T0>>::MutationStep;
+        type MutationStep = MutationStep<T0, <M0 as crate::Mutator<T0>>::MutationStep>;
         #[doc(hidden)]
         type ArbitraryStep = <M0 as crate::Mutator<T0>>::ArbitraryStep;
         #[doc(hidden)]
@@ -569,7 +573,10 @@ mod tuple1 {
             value: <Tuple1<T0> as RefTypes>::Ref<'a>,
             cache: &'a Self::Cache,
         ) -> Self::MutationStep {
-            self.mutator_0.default_mutation_step(value.0, cache)
+            MutationStep {
+                crossover_step: CrossoverStep::new(),
+                inner: self.mutator_0.default_mutation_step(value.0, cache),
+            }
         }
 
         #[doc(hidden)]
@@ -612,9 +619,24 @@ mod tuple1 {
             subvalue_provider: &dyn crate::SubValueProvider,
             max_cplx: f64,
         ) -> Option<(Self::UnmutateToken, f64)> {
+            if self.rng.usize(..5) == 0 {
+                if let Some(result) = step
+                    .crossover_step
+                    .get_next_subvalue(subvalue_provider, max_cplx)
+                    .and_then(|x| self.mutator_0.validate_value(x).map(|c| (x, c)))
+                    .map(|(replacer, replacer_cache)| {
+                        let cplx = self.mutator_0.complexity(replacer, &replacer_cache);
+                        let mut replacer = replacer.clone();
+                        std::mem::swap(value.0, &mut replacer);
+                        (UnmutateTuple1Token::Replace(replacer), cplx)
+                    })
+                {
+                    return Some(result);
+                }
+            }
             if let Some((token, cplx)) =
                 self.mutator_0
-                    .ordered_mutate(value.0, cache, step, subvalue_provider, max_cplx)
+                    .ordered_mutate(value.0, cache, &mut step.inner, subvalue_provider, max_cplx)
             {
                 Some((UnmutateTuple1Token::Inner(token), cplx))
             } else {

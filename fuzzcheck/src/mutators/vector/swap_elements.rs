@@ -1,6 +1,6 @@
 use super::VecMutator;
 use crate::mutators::mutations::{Mutation, RevertMutation};
-use crate::Mutator;
+use crate::{Mutator, SubValueProvider};
 
 pub struct SwapElements;
 
@@ -98,6 +98,7 @@ where
         value: &Vec<T>,
         _cache: &<VecMutator<T, M> as Mutator<Vec<T>>>::Cache,
         step: &'a mut Self::Step,
+        _subvalue_provider: &dyn SubValueProvider,
         _max_cplx: f64,
     ) -> Option<Self::Concrete<'a>> {
         if step.idx_1 >= value.len() - 1 {
@@ -121,6 +122,7 @@ where
         mutator: &VecMutator<T, M>,
         value: &mut Vec<T>,
         cache: &mut <VecMutator<T, M> as Mutator<Vec<T>>>::Cache,
+        _subvalue_provider: &dyn SubValueProvider,
         _max_cplx: f64,
     ) -> (Self::Revert, f64) {
         let cplx = mutator.complexity(value, cache);

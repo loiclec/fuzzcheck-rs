@@ -1,7 +1,6 @@
 use super::VecMutator;
 use crate::mutators::mutations::{Mutation, RevertMutation};
-use crate::traits::EmptySubValueProvider;
-use crate::Mutator;
+use crate::{Mutator, SubValueProvider};
 
 pub struct MutateElement;
 
@@ -118,6 +117,7 @@ where
         _value: &Vec<T>,
         _cache: &<VecMutator<T, M> as Mutator<Vec<T>>>::Cache,
         step: &'a mut Self::Step,
+        _subvalue_provider: &dyn SubValueProvider,
         _max_cplx: f64,
     ) -> Option<Self::Concrete<'a>> {
         if step.indices.is_empty() {
@@ -135,6 +135,7 @@ where
         mutator: &VecMutator<T, M>,
         value: &mut Vec<T>,
         cache: &mut <VecMutator<T, M> as Mutator<Vec<T>>>::Cache,
+        subvalue_provider: &dyn SubValueProvider,
         max_cplx: f64,
     ) -> (Self::Revert, f64) {
         let value_cplx = mutator.complexity(value, cache);
@@ -174,7 +175,7 @@ where
                 if let Some((t, new_el_cplx)) =
                     mutator
                         .m
-                        .ordered_mutate(el, el_cache, el_step, &EmptySubValueProvider, max_el_cplx)
+                        .ordered_mutate(el, el_cache, el_step, subvalue_provider, max_el_cplx)
                 {
                     let new_cplx = mutator.complexity_from_inner(cache.sum_cplx - el_cplx + new_el_cplx, value.len());
 

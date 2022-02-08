@@ -1,6 +1,6 @@
 use super::VecMutator;
 use crate::mutators::mutations::{Mutation, RevertMutation};
-use crate::Mutator;
+use crate::{Mutator, SubValueProvider};
 
 pub struct CopyElement;
 
@@ -103,6 +103,7 @@ where
         value: &Vec<T>,
         cache: &<VecMutator<T, M> as Mutator<Vec<T>>>::Cache,
         step: &'a mut Self::Step,
+        subvalue_provider: &dyn SubValueProvider,
         max_cplx: f64,
     ) -> Option<Self::Concrete<'a>> {
         // The step.from_idx increments from 0 to value.len()
@@ -131,7 +132,7 @@ where
         if cplx > spare_cplx {
             step.from_idx += 1;
             step.to_idx = 0;
-            Self::from_step(mutator, value, cache, step, max_cplx)
+            Self::from_step(mutator, value, cache, step, subvalue_provider, max_cplx)
         } else {
             let concrete = ConcreteCopyElement {
                 el: el.clone(),
@@ -154,6 +155,7 @@ where
         mutator: &VecMutator<T, M>,
         value: &mut Vec<T>,
         cache: &mut <VecMutator<T, M> as Mutator<Vec<T>>>::Cache,
+        _subvalue_provider: &dyn SubValueProvider,
         _max_cplx: f64,
     ) -> (Self::Revert, f64) {
         value.insert(mutation.idx, mutation.el);

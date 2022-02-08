@@ -318,7 +318,7 @@ where
                 &mut |typeid, path, cplx| {
                     if typeid == TypeId::of::<T>() {
                         if let Some(subvalue) = self.mutator.lens(value, &cache, &path).downcast_ref::<T>() {
-                            if let Some(subcache) = self.mutator.validate_value(&subvalue) {
+                            if self.mutator.validate_value(&subvalue).is_some() {
                                 // let subcplx = self.mutator.complexity(&subvalue, &subcache);
                                 paths_to_self.push((path, cplx));
                             }

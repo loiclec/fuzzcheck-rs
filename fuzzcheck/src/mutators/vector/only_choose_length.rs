@@ -22,12 +22,9 @@
 //! `m.global_search_space_complexity()`. If the complexity is `0.0`, then the
 //! mutator is only capable of producing a single value.
 
-use std::any::Any;
-
 use super::VecMutator;
-use crate::mutators::grammar::AST;
 use crate::mutators::mutations::{Mutation, RevertMutation};
-use crate::Mutator;
+use crate::{Mutator, SubValueProvider};
 
 pub struct OnlyChooseLength;
 
@@ -122,6 +119,7 @@ where
         _value: &Vec<T>,
         _cache: &<VecMutator<T, M> as Mutator<Vec<T>>>::Cache,
         step: &'a mut Self::Step,
+        _subvalue_provider: &dyn SubValueProvider,
         max_cplx: f64,
     ) -> Option<Self::Concrete<'a>> {
         let cplx_element = mutator.m.min_complexity();
@@ -141,6 +139,7 @@ where
         mutator: &VecMutator<T, M>,
         value: &mut Vec<T>,
         _cache: &mut <VecMutator<T, M> as Mutator<Vec<T>>>::Cache,
+        _subvalue_provider: &dyn SubValueProvider,
         _max_cplx: f64,
     ) -> (Self::Revert, f64) {
         let (el, el_cplx) = mutator.m.random_arbitrary(0.0);

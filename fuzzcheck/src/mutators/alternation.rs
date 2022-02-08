@@ -1,4 +1,4 @@
-use crate::{Mutator, SubValueProvider};
+use crate::Mutator;
 use std::{
     any::{Any, TypeId},
     cmp::Ordering,

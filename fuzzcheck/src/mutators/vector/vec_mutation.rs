@@ -1,7 +1,7 @@
-use std::fmt::Debug;
-
 use super::arbitrary;
 use super::copy_element;
+use super::crossover_replace_element;
+use super::crossover_replace_element::CrossoverReplaceElement;
 use super::insert_element;
 use super::insert_many_elements;
 use super::mutate_element;
@@ -253,6 +253,7 @@ macro_rules! impl_vec_mutation {
                 value: &Vec<T>,
                 cache: &<VecMutator<T, M> as Mutator<Vec<T>>>::Cache,
                 step: &'a mut Self::Step,
+                subvalue_provider: &dyn crate::SubValueProvider,
                 max_cplx: f64,
             ) -> Option<Self::Concrete<'a>> {
                 if step.inner_steps.is_empty() {
@@ -267,7 +268,7 @@ macro_rules! impl_vec_mutation {
                         match inner_step {
                             $(
                                 VectorMutationInnerStep::$i(step) =>
-                                    <$t>::from_step(mutator, value, cache, step, max_cplx)
+                                    <$t>::from_step(mutator, value, cache, step, subvalue_provider, max_cplx)
                                     .map(ConcreteVectorMutation::$i)
                             ),*
                         };
@@ -284,7 +285,7 @@ macro_rules! impl_vec_mutation {
                     None
                 } else {
                     step.sampling = VoseAlias::new(step.weights.clone());
-                    Self::from_step(mutator, value, cache, step, max_cplx)
+                    Self::from_step(mutator, value, cache, step, subvalue_provider, max_cplx)
                 }
             }
             #[no_coverage]
@@ -293,12 +294,13 @@ macro_rules! impl_vec_mutation {
                 mutator: &VecMutator<T, M>,
                 value: &mut Vec<T>,
                 cache: &mut <VecMutator<T, M> as Mutator<Vec<T>>>::Cache,
+                subvalue_provider: &dyn crate::SubValueProvider,
                 max_cplx: f64,
             ) -> (Self::Revert, f64) {
                 match mutation {
                     $(
                         ConcreteVectorMutation::$i(mutation) => {
-                            let (revert, cplx) =  <$t>::apply(mutation, mutator, value, cache, max_cplx);
+                            let (revert, cplx) =  <$t>::apply(mutation, mutator, value, cache, subvalue_provider, max_cplx);
                             (RevertVectorMutation::$i(revert), cplx)
                         }
                     )*
@@ -318,7 +320,8 @@ impl_vec_mutation! {
     (InsertManyElements, insert_many_elements::InsertManyElements),
     (RemoveAndInsertElement, remove_and_insert_element::RemoveAndInsertElement),
     (OnlyChooseLength, only_choose_length::OnlyChooseLength),
-    (Arbitrary, arbitrary::Arbitrary)
+    (Arbitrary, arbitrary::Arbitrary),
+    (CrossoverReplaceElement, crossover_replace_element::CrossoverReplaceElement)
 }
 
 impl<'a, T, M> std::fmt::Debug for ConcreteVectorMutation<'a, T, M>
@@ -357,6 +360,9 @@ where
             }
             ConcreteVectorMutation::Arbitrary(_) => {
                 write!(f, "Arbitrary")
+            }
+            ConcreteVectorMutation::CrossoverReplaceElement(_) => {
+                write!(f, "CrossoverReplaceElement")
             }
         }
     }
@@ -459,6 +465,11 @@ impl Default for VectorMutation {
                     }),
                     random_weight: 8.,
                     ordered_weight: 4.,
+                },
+                WeightedMutation {
+                    mutation: InnerVectorMutation::CrossoverReplaceElement(CrossoverReplaceElement),
+                    random_weight: 0.,
+                    ordered_weight: 100.,
                 },
                 // WeightedMutation {
                 //     mutation: InnerVectorMutation::InsertManyElements(insert_many_elements::InsertManyElements {

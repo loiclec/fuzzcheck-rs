@@ -6,7 +6,6 @@ use fuzzcheck_common::FuzzerEvent;
 use std::any::{Any, TypeId};
 use std::collections::HashMap;
 use std::fmt::Display;
-use std::ops::Sub;
 use std::path::PathBuf;
 
 /**
@@ -269,8 +268,11 @@ pub trait Mutator<Value: Clone + 'static>: 'static {
 #[derive(Clone, Copy)]
 pub struct SubValueProviderId {
     pub idx: usize,
-    pub generation: usize,
+    pub generation: Generation,
 }
+
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub struct Generation(pub usize);
 
 pub trait SubValueProvider {
     fn identifier(&self) -> SubValueProviderId;
@@ -281,10 +283,13 @@ pub struct EmptySubValueProvider;
 impl SubValueProvider for EmptySubValueProvider {
     #[no_coverage]
     fn identifier(&self) -> SubValueProviderId {
-        SubValueProviderId { idx: 0, generation: 0 }
+        SubValueProviderId {
+            idx: 0,
+            generation: Generation(0),
+        }
     }
     #[no_coverage]
-    fn get_subvalue(&self, typeid: TypeId, max_cplx: f64, index: &mut usize) -> Option<&dyn Any> {
+    fn get_subvalue(&self, _typeid: TypeId, _max_cplx: f64, _index: &mut usize) -> Option<&dyn Any> {
         None
     }
 }
@@ -310,7 +315,6 @@ where
     value: &'a T,
     cache: &'a M::Cache,
     all_paths: &'a HashMap<TypeId, Vec<LensPathAndComplexity<M::LensPath>>>,
-    rng: fastrand::Rng,
 }
 impl<'a, M, Value> CrossoverSubValueProvider<'a, M, Value>
 where
@@ -331,7 +335,6 @@ where
             value,
             cache,
             all_paths,
-            rng: fastrand::Rng::new(),
         }
     }
 }
@@ -349,13 +352,15 @@ where
     fn get_subvalue(&self, typeid: TypeId, max_cplx: f64, index: &mut usize) -> Option<&dyn Any> {
         let all_paths = self.all_paths.get(&typeid)?;
         assert!(!all_paths.is_empty());
-        if self.value.type_id() == typeid && self.rng.usize(..all_paths.len() + 1) == 0 {
-            Some(self.value)
-        } else {
-            loop {
+        loop {
+            if self.value.type_id() == typeid && *index == all_paths.len() {
+                *index += 1;
+                return Some(self.value);
+            } else {
                 let LensPathAndComplexity { lens_path, complexity } = all_paths.get(*index)?;
                 if *complexity < max_cplx {
                     let subvalue = self.mutator.lens(self.value, self.cache, lens_path);
+                    *index += 1;
                     return Some(subvalue);
                 } else {
                     *index += 1;

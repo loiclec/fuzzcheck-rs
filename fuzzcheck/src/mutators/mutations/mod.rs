@@ -1,4 +1,4 @@
-use crate::Mutator;
+use crate::{Mutator, SubValueProvider};
 
 // maybe the mutator should be a generic type parameter of the MutateOperation trait, maybe the T and C should be too
 // but the step and revert should not
@@ -31,6 +31,7 @@ where
         value: &Value,
         cache: &M::Cache,
         step: &'a mut Self::Step,
+        subvalue_provider: &dyn SubValueProvider,
         max_cplx: f64,
     ) -> Option<Self::Concrete<'a>>;
 
@@ -39,6 +40,7 @@ where
         mutator: &M,
         value: &mut Value,
         cache: &mut M::Cache,
+        subvalue_provider: &dyn SubValueProvider,
         max_cplx: f64,
     ) -> (Self::Revert, f64);
 }
@@ -96,6 +98,7 @@ where
         _value: &Value,
         _cache: &M::Cache,
         _step: &'a mut Self::Step,
+        _subvalue_provider: &dyn SubValueProvider,
         _max_cplx: f64,
     ) -> Option<Self::Concrete<'a>> {
         None
@@ -106,6 +109,7 @@ where
         mutator: &M,
         value: &mut Value,
         cache: &mut M::Cache,
+        _subvalue_provider: &dyn SubValueProvider,
         _max_cplx: f64,
     ) -> (Self::Revert, f64) {
         (NoMutation, mutator.complexity(value, cache))
