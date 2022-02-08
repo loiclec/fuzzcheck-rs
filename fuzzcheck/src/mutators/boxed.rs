@@ -114,17 +114,28 @@ impl<T: Clone + 'static, M: Mutator<T>> Mutator<Box<T>> for BoxMutator<M> {
         subvalue_provider: &dyn crate::SubValueProvider,
         max_cplx: f64,
     ) -> Option<(Self::UnmutateToken, f64)> {
-        if self.rng.usize(..5) == 0 {
+        if self.rng.usize(..10) == 0 {
             if let Some(result) = step
                 .crossover_step
                 .get_next_subvalue(subvalue_provider, max_cplx)
-                .and_then(|x| self.mutator.validate_value(x).map(|c| (x, c)))
-                .map(|(replacer, replacer_cache)| {
-                    let cplx = self.mutator.complexity(replacer, &replacer_cache);
-                    let mut replacer = replacer.clone();
-                    std::mem::swap(value.as_mut(), &mut replacer);
-                    (UnmutateToken::Replace(replacer), cplx)
-                })
+                .and_then(
+                    #[no_coverage]
+                    |x| {
+                        self.mutator.validate_value(x).map(
+                            #[no_coverage]
+                            |c| (x, c),
+                        )
+                    },
+                )
+                .map(
+                    #[no_coverage]
+                    |(replacer, replacer_cache)| {
+                        let cplx = self.mutator.complexity(replacer, &replacer_cache);
+                        let mut replacer = replacer.clone();
+                        std::mem::swap(value.as_mut(), &mut replacer);
+                        (UnmutateToken::Replace(replacer), cplx)
+                    },
+                )
             {
                 return Some(result);
             }

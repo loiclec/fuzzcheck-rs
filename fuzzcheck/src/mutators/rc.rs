@@ -114,19 +114,30 @@ impl<T: Clone + 'static, M: Mutator<T>> Mutator<Rc<T>> for RcMutator<M> {
         subvalue_provider: &dyn crate::SubValueProvider,
         max_cplx: f64,
     ) -> Option<(Self::UnmutateToken, f64)> {
-        if self.rng.usize(..5) == 0 {
+        if self.rng.usize(..10) == 0 {
             if let Some(result) = step
                 .crossover_step
                 .get_next_subvalue(subvalue_provider, max_cplx)
-                .and_then(|x| self.mutator.validate_value(x).map(|c| (x, c)))
-                .map(|(replacer, replacer_cache)| {
-                    let cplx = self.mutator.complexity(replacer, &replacer_cache);
-                    let replacer = replacer.clone();
-                    let old_value = value.as_ref().clone();
-                    // TODO: something more efficient
-                    *value = Rc::new(replacer);
-                    (UnmutateToken::Replace(old_value), cplx)
-                })
+                .and_then(
+                    #[no_coverage]
+                    |x| {
+                        self.mutator.validate_value(x).map(
+                            #[no_coverage]
+                            |c| (x, c),
+                        )
+                    },
+                )
+                .map(
+                    #[no_coverage]
+                    |(replacer, replacer_cache)| {
+                        let cplx = self.mutator.complexity(replacer, &replacer_cache);
+                        let replacer = replacer.clone();
+                        let old_value = value.as_ref().clone();
+                        // TODO: something more efficient
+                        *value = Rc::new(replacer);
+                        (UnmutateToken::Replace(old_value), cplx)
+                    },
+                )
             {
                 return Some(result);
             }

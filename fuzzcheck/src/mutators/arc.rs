@@ -4,15 +4,21 @@ use std::sync::Arc;
 use crate::DefaultMutator;
 use crate::Mutator;
 
+use super::CrossoverStep;
+
 /// Default mutator of `Arc<T>`
 #[derive(Default)]
 pub struct ArcMutator<M> {
     mutator: M,
+    rng: fastrand::Rng,
 }
 impl<M> ArcMutator<M> {
     #[no_coverage]
     pub fn new(mutator: M) -> Self {
-        Self { mutator }
+        Self {
+            mutator,
+            rng: fastrand::Rng::new(),
+        }
     }
 }
 
@@ -21,11 +27,17 @@ pub enum UnmutateToken<T, U> {
     Inner(U),
 }
 
+#[derive(Clone)]
+pub struct MutationStep<T, MS> {
+    crossover_step: CrossoverStep<T>,
+    inner: MS,
+}
+
 impl<T: Clone + 'static, M: Mutator<T>> Mutator<Arc<T>> for ArcMutator<M> {
     #[doc(hidden)]
     type Cache = M::Cache;
     #[doc(hidden)]
-    type MutationStep = M::MutationStep;
+    type MutationStep = MutationStep<T, M::MutationStep>;
     #[doc(hidden)]
     type ArbitraryStep = M::ArbitraryStep;
     #[doc(hidden)]
@@ -47,7 +59,10 @@ impl<T: Clone + 'static, M: Mutator<T>> Mutator<Arc<T>> for ArcMutator<M> {
     #[doc(hidden)]
     #[no_coverage]
     fn default_mutation_step(&self, value: &Arc<T>, cache: &Self::Cache) -> Self::MutationStep {
-        self.mutator.default_mutation_step(value.as_ref(), cache)
+        MutationStep {
+            crossover_step: CrossoverStep::new(),
+            inner: self.mutator.default_mutation_step(value.as_ref(), cache),
+        }
     }
 
     #[doc(hidden)]
@@ -101,10 +116,38 @@ impl<T: Clone + 'static, M: Mutator<T>> Mutator<Arc<T>> for ArcMutator<M> {
         subvalue_provider: &dyn crate::SubValueProvider,
         max_cplx: f64,
     ) -> Option<(Self::UnmutateToken, f64)> {
+        if self.rng.usize(..10) == 0 {
+            if let Some(result) = step
+                .crossover_step
+                .get_next_subvalue(subvalue_provider, max_cplx)
+                .and_then(
+                    #[no_coverage]
+                    |x| {
+                        self.mutator.validate_value(x).map(
+                            #[no_coverage]
+                            |c| (x, c),
+                        )
+                    },
+                )
+                .map(
+                    #[no_coverage]
+                    |(replacer, replacer_cache)| {
+                        let cplx = self.mutator.complexity(replacer, &replacer_cache);
+                        let replacer = replacer.clone();
+                        let old_value = value.as_ref().clone();
+                        // TODO: something more efficient
+                        *value = Arc::new(replacer);
+                        (UnmutateToken::Replace(old_value), cplx)
+                    },
+                )
+            {
+                return Some(result);
+            }
+        }
         let mut v = value.as_ref().clone();
-        if let Some((t, cplx)) = self
-            .mutator
-            .ordered_mutate(&mut v, cache, step, subvalue_provider, max_cplx)
+        if let Some((t, cplx)) =
+            self.mutator
+                .ordered_mutate(&mut v, cache, &mut step.inner, subvalue_provider, max_cplx)
         {
             *value = Arc::new(v);
             Some((UnmutateToken::Inner(t), cplx))

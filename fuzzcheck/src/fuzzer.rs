@@ -4,8 +4,8 @@ use crate::sensors_and_pools::{
 };
 use crate::signals_handler::set_signal_handlers;
 use crate::traits::{
-    CorpusDelta, EmptySubValueProvider, Generation, LensPathAndComplexity, Mutator, SaveToStatsFolder, SensorAndPool,
-    Serializer, SubValueProviderId,
+    CorpusDelta, Generation, LensPathAndComplexity, Mutator, SaveToStatsFolder, SensorAndPool, Serializer,
+    SubValueProviderId,
 };
 use crate::world::World;
 use crate::{CSVField, CrossoverSubValueProvider, FuzzedInput, SubValueProvider, ToCSV};

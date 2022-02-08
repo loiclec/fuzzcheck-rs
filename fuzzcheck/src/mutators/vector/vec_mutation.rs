@@ -108,6 +108,7 @@ macro_rules! impl_vec_mutation {
             T: Clone + 'static,
             M: Mutator<T>,
         {
+            #[allow(unreachable_code)]
             #[no_coverage]
             fn clone(&self) -> Self {
                 match self {

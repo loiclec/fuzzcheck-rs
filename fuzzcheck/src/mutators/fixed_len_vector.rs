@@ -1,7 +1,7 @@
-use std::{any::TypeId, marker::PhantomData};
-
+use super::CrossoverStep;
 use crate::Mutator;
 use fastrand::Rng;
+use std::{any::TypeId, marker::PhantomData};
 
 /// A mutator for vectors of a specific length
 ///
@@ -78,9 +78,10 @@ where
 }
 
 #[derive(Clone)]
-pub struct MutationStep<S> {
+pub struct MutationStep<T, S> {
     inner: Vec<S>,
     element_step: usize,
+    crossover_steps: Vec<CrossoverStep<T>>,
 }
 
 #[derive(Clone)]
@@ -99,6 +100,7 @@ impl<C> Default for VecMutatorCache<C> {
 }
 
 pub enum UnmutateVecToken<T: Clone + 'static, M: Mutator<T>> {
+    ReplaceElement(usize, T),
     Element(usize, M::UnmutateToken),
     Elements(Vec<(usize, M::UnmutateToken)>),
     Replace(Vec<T>),
@@ -139,7 +141,7 @@ impl<T: Clone + 'static, M: Mutator<T>> FixedLenVecMutator<T, M> {
         &self,
         value: &mut Vec<T>,
         cache: &mut VecMutatorCache<M::Cache>,
-        step: &mut MutationStep<M::MutationStep>,
+        step: &mut MutationStep<T, M::MutationStep>,
         subvalue_provider: &dyn crate::SubValueProvider,
         idx: usize,
         current_cplx: f64,
@@ -190,7 +192,7 @@ impl<T: Clone + 'static, M: Mutator<T>> Mutator<Vec<T>> for FixedLenVecMutator<T
     #[doc(hidden)]
     type Cache = VecMutatorCache<M::Cache>;
     #[doc(hidden)]
-    type MutationStep = MutationStep<M::MutationStep>;
+    type MutationStep = MutationStep<T, M::MutationStep>;
     #[doc(hidden)]
     type ArbitraryStep = ();
     #[doc(hidden)]
@@ -242,7 +244,11 @@ impl<T: Clone + 'static, M: Mutator<T>> Mutator<Vec<T>> for FixedLenVecMutator<T
                 |((v, c), m)| m.default_mutation_step(v, c),
             )
             .collect::<Vec<_>>();
-        MutationStep { inner, element_step: 0 }
+        MutationStep {
+            inner,
+            element_step: 0,
+            crossover_steps: vec![CrossoverStep::new(); value.len()],
+        }
     }
 
     #[doc(hidden)]
@@ -304,8 +310,30 @@ impl<T: Clone + 'static, M: Mutator<T>> Mutator<Vec<T>> for FixedLenVecMutator<T
             std::mem::swap(value, &mut v);
             return Some((UnmutateVecToken::Replace(v), cplx));
         }
+        if self.rng.usize(..10) == 0 {
+            let choice = self.rng.usize(..value.len());
+            let step = &mut step.crossover_steps[choice];
+            let old_el_cplx = self.mutators[choice].complexity(&value[choice], &cache.inner[choice]);
+            let current_cplx = self.complexity(value, cache);
+            let max_el_cplx = current_cplx - old_el_cplx - self.inherent_complexity;
+            if let Some((el, el_cache)) = step.get_next_subvalue(subvalue_provider, max_el_cplx).and_then(
+                #[no_coverage]
+                |el| {
+                    self.mutators[choice].validate_value(el).map(
+                        #[no_coverage]
+                        |c| (el, c),
+                    )
+                },
+            ) {
+                let new_el_cplx = self.mutators[choice].complexity(el, &el_cache);
+                let mut el = el.clone();
+                std::mem::swap(&mut value[choice], &mut el);
+                let cplx = cache.sum_cplx - old_el_cplx + new_el_cplx + self.inherent_complexity;
+                let token = UnmutateVecToken::ReplaceElement(choice, el);
+                return Some((token, cplx));
+            }
+        }
         let current_cplx = self.complexity(value, cache);
-        let spare_cplx = max_cplx - current_cplx;
         if value.len() > 1 && self.rng.usize(..20) == 0 {
             let mut idcs = (0..value.len()).collect::<Vec<_>>();
             self.rng.shuffle(&mut idcs);
@@ -313,6 +341,7 @@ impl<T: Clone + 'static, M: Mutator<T>> Mutator<Vec<T>> for FixedLenVecMutator<T
             let idcs = &idcs[..count];
             Some(self.mutate_elements(value, cache, idcs, current_cplx, max_cplx))
         } else {
+            let spare_cplx = max_cplx - current_cplx - self.inherent_complexity;
             let idx = step.element_step % value.len();
             step.element_step += 1;
             self.mutate_element(value, cache, step, subvalue_provider, idx, current_cplx, spare_cplx)
@@ -370,6 +399,9 @@ impl<T: Clone + 'static, M: Mutator<T>> Mutator<Vec<T>> for FixedLenVecMutator<T
             }
             UnmutateVecToken::Replace(new_value) => {
                 let _ = std::mem::replace(value, new_value);
+            }
+            UnmutateVecToken::ReplaceElement(idx, el) => {
+                let _ = std::mem::replace(&mut value[idx], el);
             }
         }
     }

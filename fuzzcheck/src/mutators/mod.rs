@@ -39,7 +39,7 @@ use ahash::AHashMap;
 use std::{any::TypeId, marker::PhantomData, ops::Range};
 
 pub mod alternation;
-// pub mod arc;
+pub mod arc;
 pub mod array;
 pub mod bool;
 pub mod boxed;
@@ -106,7 +106,10 @@ where
         }
         subvalue_provider
             .get_subvalue(TypeId::of::<T>(), max_cplx, &mut entry.1)
-            .map(|x| x.downcast_ref::<T>().unwrap())
+            .map(
+                #[no_coverage]
+                |x| x.downcast_ref::<T>().unwrap(),
+            )
     }
 }
 

@@ -619,17 +619,28 @@ mod tuple1 {
             subvalue_provider: &dyn crate::SubValueProvider,
             max_cplx: f64,
         ) -> Option<(Self::UnmutateToken, f64)> {
-            if self.rng.usize(..5) == 0 {
+            if self.rng.usize(..10) == 0 {
                 if let Some(result) = step
                     .crossover_step
                     .get_next_subvalue(subvalue_provider, max_cplx)
-                    .and_then(|x| self.mutator_0.validate_value(x).map(|c| (x, c)))
-                    .map(|(replacer, replacer_cache)| {
-                        let cplx = self.mutator_0.complexity(replacer, &replacer_cache);
-                        let mut replacer = replacer.clone();
-                        std::mem::swap(value.0, &mut replacer);
-                        (UnmutateTuple1Token::Replace(replacer), cplx)
-                    })
+                    .and_then(
+                        #[no_coverage]
+                        |x| {
+                            self.mutator_0.validate_value(x).map(
+                                #[no_coverage]
+                                |c| (x, c),
+                            )
+                        },
+                    )
+                    .map(
+                        #[no_coverage]
+                        |(replacer, replacer_cache)| {
+                            let cplx = self.mutator_0.complexity(replacer, &replacer_cache);
+                            let mut replacer = replacer.clone();
+                            std::mem::swap(value.0, &mut replacer);
+                            (UnmutateTuple1Token::Replace(replacer), cplx)
+                        },
+                    )
                 {
                     return Some(result);
                 }

@@ -545,7 +545,7 @@ fn impl_mutator_trait(tb: &mut TokenBuilder, nbr_elements: usize) {
             subvalue_provider: &dyn " cm.SubValueProvider ",
             max_cplx: f64,
         ) -> " cm.Option "<(Self::UnmutateToken, f64)> {
-            if self.rng.usize(..5) == 0 {
+            if self.rng.usize(..10) == 0 {
                 let current_cplx = " SelfAsTupleMutator "::complexity(self, " TupleNAsRefTypes "::get_ref_from_mut(&value), cache); 
 
                 let idx = self.rng.usize(.. " nbr_elements ");
@@ -553,7 +553,6 @@ fn impl_mutator_trait(tb: &mut TokenBuilder, nbr_elements: usize) {
                     "
                     join_ts!(0 .. nbr_elements, i,
                         i "=> {
-
                             let old_field_cplx = self." mutator_i(i) ".complexity(value." i ", &cache." ti(i) ");
                             let max_field_cplx = max_cplx - current_cplx + old_field_cplx;
                             if let " cm.Some " (replacer) = step." ident!("crossover_step_" i) ".get_next_subvalue(subvalue_provider, max_field_cplx) {
@@ -574,9 +573,6 @@ fn impl_mutator_trait(tb: &mut TokenBuilder, nbr_elements: usize) {
                     "_ => unreachable!()"
                     "
                 }
-                "
-                // here, crossover: replace one of the elements with a subvalue from the subvalue provider
-                "
             }
             if max_cplx < <Self as" cm.TupleMutator "<T , " cm.TupleN_ident "<" tuple_type_params "> > >::min_complexity(self) { return " cm.None " }
             if step.inner.is_empty() || step.vose_alias.is_none() {
