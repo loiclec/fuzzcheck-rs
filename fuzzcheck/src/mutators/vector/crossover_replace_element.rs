@@ -136,17 +136,16 @@ where
                     .random_mutate(&mut value[idx], &mut cache.inner[idx], spare_cplx);
                 (
                     RevertCrossoverReplaceElement::Random(token, idx),
-                    mutator.complexity_from_inner(old_cplx - old_el_cplx + new_el_cplx, value.len()),
+                    mutator.complexity_from_inner(cache.sum_cplx - old_el_cplx + new_el_cplx, value.len()),
                 )
             }
             ConcreteCrossoverReplaceElement::ReplaceElement { mut el, cplx, idx } => {
-                let old_cplx = mutator.complexity(value, cache);
                 let old_el_cplx = mutator.m.complexity(&value[idx], &cache.inner[idx]);
                 std::mem::swap(&mut value[idx], &mut el);
                 let r = RevertCrossoverReplaceElement::ReplaceElement { el, idx };
                 (
                     r,
-                    mutator.complexity_from_inner(old_cplx - old_el_cplx + cplx, value.len()),
+                    mutator.complexity_from_inner(cache.sum_cplx - old_el_cplx + cplx, value.len()),
                 )
             }
         }
