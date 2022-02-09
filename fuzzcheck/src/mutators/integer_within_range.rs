@@ -42,7 +42,7 @@ macro_rules! impl_int_mutator_constrained {
                         range.end_bound()
                     )
                 }
-                let length = end - start;
+                let length = end.wrapping_sub(start);
                 Self {
                     start_range: start,
                     len_range: end.wrapping_sub(start) as $name_unsigned,

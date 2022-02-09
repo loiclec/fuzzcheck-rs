@@ -64,6 +64,8 @@ pub use crate::traits::CorpusDelta;
 #[doc(inline)]
 pub use crate::traits::CrossoverSubValueProvider;
 #[doc(inline)]
+pub use crate::traits::EmptySubValueProvider;
+#[doc(inline)]
 pub use crate::traits::LensPathAndComplexity;
 #[doc(inline)]
 pub use crate::traits::Pool;
