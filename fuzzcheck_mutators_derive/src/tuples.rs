@@ -545,7 +545,7 @@ fn impl_mutator_trait(tb: &mut TokenBuilder, nbr_elements: usize) {
             subvalue_provider: &dyn " cm.SubValueProvider ",
             max_cplx: f64,
         ) -> " cm.Option "<(Self::UnmutateToken, f64)> {
-            if self.rng.usize(..10) == 0 {
+            if self.rng.u8(.. fuzzcheck::CROSSOVER_RATE ) == 0 {
                 let current_cplx = " SelfAsTupleMutator "::complexity(self, " TupleNAsRefTypes "::get_ref_from_mut(&value), cache); 
 
                 let idx = self.rng.usize(.. " nbr_elements ");

@@ -1,5 +1,5 @@
 use super::CrossoverStep;
-use crate::Mutator;
+use crate::{Mutator, CROSSOVER_RATE};
 use fastrand::Rng;
 use std::{any::TypeId, marker::PhantomData};
 
@@ -310,7 +310,7 @@ impl<T: Clone + 'static, M: Mutator<T>> Mutator<Vec<T>> for FixedLenVecMutator<T
             std::mem::swap(value, &mut v);
             return Some((UnmutateVecToken::Replace(v), cplx));
         }
-        if self.rng.usize(..10) == 0 {
+        if self.rng.u8(..CROSSOVER_RATE) == 0 {
             let choice = self.rng.usize(..value.len());
             let step = &mut step.crossover_steps[choice];
             let old_el_cplx = self.mutators[choice].complexity(&value[choice], &cache.inner[choice]);

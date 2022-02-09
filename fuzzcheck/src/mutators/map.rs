@@ -47,6 +47,7 @@ where
     From: Clone + 'static,
     M: Mutator<From>,
 {
+    #[no_coverage]
     fn clone(&self) -> Self {
         Self {
             from_value: self.from_value.clone(),

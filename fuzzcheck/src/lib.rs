@@ -34,6 +34,8 @@
 #[doc(hidden)]
 pub extern crate fastrand;
 
+pub use mutators::CROSSOVER_RATE;
+
 mod bitset;
 mod bloom_filter;
 pub mod builder;
@@ -51,17 +53,18 @@ mod world;
 
 pub use fuzzcheck_common::arg::Arguments;
 
-pub(crate) use split_string::split_string_by_whitespace;
-use traits::Generation;
-
 #[doc(inline)]
 pub use crate::fuzzer::FuzzingResult;
+#[doc(inline)]
+pub use crate::fuzzer::PoolStorageIndex;
 #[doc(inline)]
 pub use crate::traits::CompatibleWithObservations;
 #[doc(inline)]
 pub use crate::traits::CorpusDelta;
 #[doc(inline)]
 pub use crate::traits::CrossoverSubValueProvider;
+#[doc(inline)]
+pub use crate::traits::LensPathAndComplexity;
 #[doc(inline)]
 pub use crate::traits::Pool;
 #[doc(inline)]
@@ -78,9 +81,11 @@ pub use crate::traits::SensorExt;
 pub use crate::traits::Stats;
 #[doc(inline)]
 pub use crate::traits::SubValueProvider;
-
 #[doc(inline)]
-pub use crate::fuzzer::PoolStorageIndex;
+pub use crate::traits::SubValueProviderId;
+pub(crate) use split_string::split_string_by_whitespace;
+#[doc(inline)]
+pub use traits::Generation;
 
 #[doc(inline)]
 pub use fuzzer::ReasonForStopping;

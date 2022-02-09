@@ -477,7 +477,7 @@ mod tuple1 {
     use std::any::TypeId;
 
     use super::{TupleMutator, TupleMutatorWrapper};
-    use crate::mutators::{tuples::RefTypes, CrossoverStep};
+    use crate::mutators::{tuples::RefTypes, CrossoverStep, CROSSOVER_RATE};
 
     #[doc = "A marker type implementing [`RefTypes`](crate::mutators::tuples::RefTypes) indicating that a type has the [structure](crate::mutators::tuples::TupleStructure) of a 1-tuple."]
     pub struct Tuple1<T0: 'static> {
@@ -548,7 +548,7 @@ mod tuple1 {
         #[doc(hidden)]
         type UnmutateToken = UnmutateTuple1Token<T0, <M0 as crate::Mutator<T0>>::UnmutateToken>;
         #[doc(hidden)]
-        type LensPath = M0::LensPath;
+        type LensPath = Option<M0::LensPath>;
 
         #[doc(hidden)]
         #[no_coverage]
@@ -619,7 +619,7 @@ mod tuple1 {
             subvalue_provider: &dyn crate::SubValueProvider,
             max_cplx: f64,
         ) -> Option<(Self::UnmutateToken, f64)> {
-            if self.rng.usize(..10) == 0 {
+            if self.rng.u8(..CROSSOVER_RATE) == 0 {
                 if let Some(result) = step
                     .crossover_step
                     .get_next_subvalue(subvalue_provider, max_cplx)
@@ -689,7 +689,11 @@ mod tuple1 {
             cache: &'a Self::Cache,
             path: &Self::LensPath,
         ) -> &'a dyn std::any::Any {
-            self.mutator_0.lens(value.0, cache, path)
+            if let Some(path) = path {
+                self.mutator_0.lens(value.0, cache, path)
+            } else {
+                value.0
+            }
         }
 
         #[doc(hidden)]
@@ -700,7 +704,14 @@ mod tuple1 {
             cache: &'a Self::Cache,
             register_path: &mut dyn FnMut(TypeId, Self::LensPath, f64),
         ) {
-            self.mutator_0.all_paths(value.0, cache, register_path)
+            let cplx = self.mutator_0.complexity(value.0, cache);
+            register_path(TypeId::of::<T0>(), None, cplx);
+            self.mutator_0.all_paths(
+                value.0,
+                cache,
+                #[no_coverage]
+                &mut |typeid, lens_path, cplx| register_path(typeid, Some(lens_path), cplx),
+            );
         }
     }
     impl<T0> crate::mutators::DefaultMutator for (T0,)

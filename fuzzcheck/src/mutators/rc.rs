@@ -1,6 +1,7 @@
 use super::CrossoverStep;
 use crate::DefaultMutator;
 use crate::Mutator;
+use crate::CROSSOVER_RATE;
 use std::any::TypeId;
 use std::rc::Rc;
 
@@ -114,7 +115,7 @@ impl<T: Clone + 'static, M: Mutator<T>> Mutator<Rc<T>> for RcMutator<M> {
         subvalue_provider: &dyn crate::SubValueProvider,
         max_cplx: f64,
     ) -> Option<(Self::UnmutateToken, f64)> {
-        if self.rng.usize(..10) == 0 {
+        if self.rng.u8(..CROSSOVER_RATE) == 0 {
             if let Some(result) = step
                 .crossover_step
                 .get_next_subvalue(subvalue_provider, max_cplx)

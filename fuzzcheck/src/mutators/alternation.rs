@@ -275,6 +275,9 @@ where
         let step_idx = self.rng.usize(..step.len());
         let chosen_step = &mut step[step_idx];
         chosen_step.step += 1;
+        // TODO: instead of 20, should be the sum of all important arbitraries of the sub mutators
+        // and maybe it shouldn't be done all at the beginning, but be interspersed in between the
+        // important mutations of the current mutator
         if chosen_step.step < 20 {
             if let Some((mut v, cplx)) = self.ordered_arbitrary(&mut chosen_step.arbitrary, max_cplx) {
                 std::mem::swap(value, &mut v);
@@ -330,6 +333,7 @@ where
         // the same thing every time
         // there should be a better way to prevent this though
         // maybe it's time to give random_mutate a MutationStep too?
+        // TODO: should use the global search space complexity here instead of max complexity?
         if self.rng.usize(..100) == 0 || mutator.max_complexity() < 0.1 {
             let (new_value, cplx) = self.random_arbitrary(max_cplx);
             let old_value = ::std::mem::replace(value, new_value);
