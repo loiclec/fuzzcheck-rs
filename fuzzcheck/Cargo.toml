@@ -24,7 +24,6 @@ default = ["grammar_mutator", "regex_grammar", "serde_json_serializer"]
 [dependencies]
 getopts = "0.2"
 fastrand = "1"
-bitflags = "1"
 cfg-if = "1"
 libc = { version = "0.2", default_features = false  }
 
@@ -46,14 +45,7 @@ nu-ansi-term = "0.39"
 
 bit-vec = "0.6"
 
-[dev-dependencies]
-criterion = "0.3"
-
 [lib]
 name = "fuzzcheck"
 bench = false
 
-
-[[bench]]
-name = "my_benchmark"
-harness = false

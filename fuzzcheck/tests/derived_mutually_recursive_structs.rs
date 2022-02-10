@@ -4,7 +4,7 @@
 
 use fuzzcheck::make_mutator;
 use fuzzcheck::mutators::option::OptionMutator;
-use fuzzcheck::mutators::recursive::{RecurToMutator, RecursiveMutator};
+use fuzzcheck::mutators::recursive::RecurToMutator;
 use fuzzcheck::mutators::testing_utilities::test_mutator;
 use fuzzcheck::mutators::vector::VecMutator;
 use fuzzcheck::DefaultMutator;

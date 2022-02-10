@@ -40,7 +40,15 @@ fn test_mutate_constrained_signed_integer_8() {
     let mut x_step = mutator.default_mutation_step(&x, &x_cache);
     let mut set = HashSet::new();
     for _ in 0..256 {
-        let (t, _c) = mutator.ordered_mutate(&mut x, &mut x_cache, &mut x_step, &fuzzcheck::EmptySubValueProvider, 100.0).unwrap();
+        let (t, _c) = mutator
+            .ordered_mutate(
+                &mut x,
+                &mut x_cache,
+                &mut x_step,
+                &fuzzcheck::subvalue_provider::EmptySubValueProvider,
+                100.0,
+            )
+            .unwrap();
         set.insert(x);
         mutator.unmutate(&mut x, &mut x_cache, t);
     }
@@ -48,14 +56,21 @@ fn test_mutate_constrained_signed_integer_8() {
     set.sort();
     println!("{} {set:?}", set.len());
 
-
     let mutator = I8WithinRangeMutator::new(-12..17);
     let mut x = 0;
     let mut x_cache = mutator.validate_value(&x).unwrap();
     let mut x_step = mutator.default_mutation_step(&x, &x_cache);
     let mut set = HashSet::new();
     for _ in 0..(12 + 16) {
-        let (t, _c) = mutator.ordered_mutate(&mut x, &mut x_cache, &mut x_step, &fuzzcheck::EmptySubValueProvider, 100.0).unwrap();
+        let (t, _c) = mutator
+            .ordered_mutate(
+                &mut x,
+                &mut x_cache,
+                &mut x_step,
+                &fuzzcheck::subvalue_provider::EmptySubValueProvider,
+                100.0,
+            )
+            .unwrap();
         set.insert(x);
         mutator.unmutate(&mut x, &mut x_cache, t);
     }

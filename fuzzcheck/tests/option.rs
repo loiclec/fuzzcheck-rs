@@ -1,11 +1,9 @@
+use fuzzcheck::subvalue_provider::{CrossoverSubValueProvider, Generation, LensPathAndComplexity, SubValueProviderId};
 use fuzzcheck::DefaultMutator;
-use fuzzcheck::Generation;
-use fuzzcheck::LensPathAndComplexity;
 use fuzzcheck::SubValueProvider;
-use fuzzcheck::SubValueProviderId;
 use fuzzcheck::{
     mutators::{integer::U8Mutator, option::OptionMutator},
-    CrossoverSubValueProvider, Mutator,
+    Mutator,
 };
 use std::any::TypeId;
 use std::collections::HashMap;

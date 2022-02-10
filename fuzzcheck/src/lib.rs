@@ -76,8 +76,6 @@ mod traits;
 mod world;
 
 pub use fuzzcheck_common::arg::Arguments;
-use subvalue_provider::Generation;
-
 #[doc(inline)]
 pub use crate::fuzzer::FuzzingResult;
 #[doc(inline)]

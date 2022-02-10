@@ -7,7 +7,7 @@ use fuzzcheck::mutators::boxed::BoxMutator;
 use fuzzcheck::mutators::integer::U8Mutator;
 use fuzzcheck::mutators::option::OptionMutator;
 use fuzzcheck::mutators::recursive::RecurToMutator;
-use fuzzcheck::mutators::testing_utilities::test_mutator;
+// use fuzzcheck::mutators::testing_utilities::test_mutator;
 use fuzzcheck::mutators::tuples::{Tuple2, Tuple2Mutator, TupleMutatorWrapper};
 use fuzzcheck::mutators::vector::VecMutator;
 use fuzzcheck::DefaultMutator;
