@@ -46,7 +46,6 @@ pub(crate) struct CreateWrapperMutatorParams<'a> {
     pub(crate) field_mutators: &'a Vec<Vec<FieldMutator>>,
     pub(crate) InnerMutator: &'a TokenStream,
     pub(crate) new_impl: &'a TokenStream,
-    pub(crate) default_impl: &'a TokenStream,
     pub(crate) settings: &'a MakeMutatorSettings,
 }
 
@@ -61,7 +60,6 @@ pub(crate) fn make_mutator_type_and_impl(params: CreateWrapperMutatorParams) -> 
         field_mutators,
         InnerMutator,
         new_impl,
-        default_impl,
         settings,
     } = params;
 

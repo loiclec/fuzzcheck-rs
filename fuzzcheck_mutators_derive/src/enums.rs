@@ -115,18 +115,6 @@ pub(crate) fn impl_default_mutator_for_enum(tb: &mut TokenBuilder, enu: &Enum, s
                 }
             }"
         ),
-        default_impl: &ts!("
-            #[no_coverage]
-            fn default() -> Self {
-                Self::new("
-                join_ts!(&enu.items, item,
-                    match item.get_struct_data() {
-                        Some((_, fields)) if !fields.is_empty() => join_ts!(fields, _, "<_>::default() ,"),
-                        _ => ts!()
-                    }
-                ) ")
-            }
-        "),
         settings,
     };
 

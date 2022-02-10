@@ -219,12 +219,6 @@ pub(crate) fn impl_default_mutator_for_struct(tb: &mut TokenBuilder, struc: &Str
             }
             }"
         ),
-        default_impl: &ts!("
-            #[no_coverage]
-            fn default() -> Self {
-                Self { mutator : <_>::default() }
-            }
-        "),
         settings,
     };
 
