@@ -51,7 +51,6 @@ pub enum ReasonForStopping<T> {
     ExhaustedAllPossibleMutations,
     MaxIterationsReached,
     MaxDurationReached,
-    LaunchedFuzzcheckWithoutCfgFuzzing,
 }
 
 /// The index to a test case in the fuzzer’s storage.
