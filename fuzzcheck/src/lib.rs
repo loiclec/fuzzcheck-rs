@@ -10,15 +10,38 @@
 //! also documents the core traits ([`Pool`], [`Sensor`], [`Mutator`], etc.) that are useful to understand how it works
 //! and to extend it.
 
+// Note: ideally fuzzcheck would work on stable Rust
+// Recently, -C instrument-coverage was stabilised. The next truly essential
+// feature that needs to be stabilised is #[no_coverage]. After that is done,
+// I would like to release fuzzcheck on stable.
+//
+// I have annotated the nightly features below to keep track of what their
+// roles are and whether they can be removed easily.
+
+// documentation, not essential
 #![feature(doc_cfg)]
+// source code can be lifted from std
 #![feature(drain_filter)]
+// can be replaced by an empty enum
 #![feature(never_type)]
+// essential
 #![feature(no_coverage)]
+// very very nice to use, but I guess not essential?
 #![feature(type_alias_impl_trait)]
+// essential for tuple mutators, but there may be a (more complicated) way
+// to do without them
 #![feature(generic_associated_types)]
+// can be replaced by an additional argument that manually gives the variant count
 #![feature(variant_count)]
+// I suppose that one can be lifted from std as well
 #![feature(arc_new_cyclic)]
+// that one is used to write closures like: #[no_coverage] &mut |args| { .. }
+// I suppose I can write the closure first and then pass a mutable reference to
+// it later. Annoying, but it should work.
 #![feature(stmt_expr_attributes)]
+//
+// end nightly features
+//
 #![allow(clippy::nonstandard_macro_braces)]
 #![allow(clippy::too_many_arguments)]
 #![allow(clippy::partialeq_ne_impl)]
