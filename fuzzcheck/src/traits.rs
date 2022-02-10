@@ -9,103 +9,121 @@ use std::fmt::Display;
 use std::path::PathBuf;
 
 /**
- A [`Mutator`] is an object capable of generating/mutating a value for the purpose of
- fuzz-testing.
+A [`Mutator`] is an object capable of generating/mutating a value for the purpose of
+fuzz-testing.
 
- For example, a mutator could change the value
- `v1 = [1, 4, 2, 1]` to `v1' = [1, 5, 2, 1]`.
- The idea is that if `v1` is an “interesting” value to test, then `v1'` also
- has a high chance of being “interesting” to test.
+For example, a mutator could change the value
+`v1 = [1, 4, 2, 1]` to `v1' = [1, 5, 2, 1]`.
+The idea is that if `v1` is an “interesting” value to test, then `v1'` also
+has a high chance of being “interesting” to test.
 
- Fuzzcheck itself provides a few mutators for `std` types as well as procedural macros
- to generate mutators. See the [`mutators`](crate::mutators) module.
+Fuzzcheck itself provides a few mutators for `std` types as well as procedural macros
+to generate mutators. See the [`mutators`](crate::mutators) module.
 
- ## Complexity
+## Complexity
 
- A mutator is also responsible for keeping track of the
- [complexity](crate::Mutator::complexity) of a value. The complexity is,
- roughly speaking, how large the value is.
+A mutator is also responsible for keeping track of the
+[complexity](crate::Mutator::complexity) of a value. The complexity is,
+roughly speaking, how large the value is.
 
- If the complexity is `0.0`, then it means the mutator can only produce one value.
+For example, the complexity of a vector could be the sum of the complexities
+of its elements. So `vec![]` would have a complexity of `1.0` (what we chose as
+the base complexity of a vector) and `vec![76]` would have a complexity of
+`9.0`: `1.0` for the base complexity of the vector itself + `8.0` for the 8-bit
+integer “76”. There is no fixed rule for how to compute the complexity of a
+value. However, all mutators of a value of type MUST agree on what its
+complexity is within a fuzz-test. In other words, if we have the following
+mutator for the type `(u8, u8)`:
+```ignore
+struct MutatorTuple2<M1, M2> where M1: Mutator<u8>, M2: Mutator<u8> {
+   m1: M1, // responsible for mutating the first element
+   m2: M2  // responsible for mutating the second element
+}
+```
+then the submutators `M1` and `M2` must always give the same complexity
+for all values of type `u8`.
 
- For example, the complexity of a vector could be the sum of the complexities
- of its elements. So `vec![]` would have a complexity of `1.0` (what we chose as
- the base complexity of a vector) and `vec![76]` would have a complexity of
- `9.0`: `1.0` for the base complexity of the vector itself + `8.0` for the 8-bit
- integer “76”. But there is no fixed rule for how to compute the complexity of a
- value, and it is up to you to judge how “large” something is.
+## Global search space complexity
 
- ## [`Cache`](Mutator::Cache)
+The search space complexity is, roughly, the base-2 logarithm of the number of
+possible values that can be produced by the mutator. Note that this is distinct
+from the complexity of a value. If we have a mutator for `usize` that can only
+produce the values `89` and `65`, then the search space complexity of the
+mutator is `1.0` but the complexity of the produced values could be `64.0`. If a
+mutator has a search space complexity of `0.0`, then it is only able to
+produce a single value.
 
- In order to mutate values efficiently, the mutator is able to make use of a
- per-value *cache*. The [`Cache`](Mutator::Cache) contains information associated
- with the value that will make it faster to compute its complexity or apply a
- mutation to it. For a vector, its cache is its total complexity, along with a
- vector of the caches of each of its element.
+## [`Cache`](Mutator::Cache)
 
- ## [`MutationStep`](Mutator::MutationStep)
+In order to mutate values efficiently, the mutator is able to make use of a
+per-value *cache*. The [`Cache`](Mutator::Cache) contains information associated
+with the value that will make it faster to compute its complexity or apply a
+mutation to it. For a vector, its cache is its total complexity, along with a
+vector of the caches of each of its element.
 
- The same values will be passed to the mutator many times, so that it is
- mutated in many different ways. There are different strategies to choose
- what mutation to apply to a value. The first one is to create a list of
- mutation operations, and choose one to apply randomly from this list.
+## [`MutationStep`](Mutator::MutationStep)
 
- However, one may want to have better control over which mutation operation
- is used. For example, if the value to be mutated is of type `Option<T>`,
- then you may want to first mutate it to `None`, and then always mutate it
- to another `Some(t)`. This is where [`MutationStep`](Mutator::MutationStep)
- comes in. The mutationstep is a type you define to allow you to keep track
- of which mutation operation has already been tried. This allows you to
- deterministically apply mutations to a value such that better mutations are
- tried first, and duplicate mutations are avoided.
+The same values will be passed to the mutator many times, so that it is
+mutated in many different ways. There are different strategies to choose
+what mutation to apply to a value. The first one is to create a list of
+mutation operations, and choose one to apply randomly from this list.
 
- It is not always possible to schedule mutations in order. For that reason,
- we have two methods: [`random_mutate`](crate::Mutator::random_mutate) executes
- a random mutation, and [`ordered_mutate`](crate::Mutator::ordered_mutate) uses
- the [`MutationStep`](Mutator::MutationStep) to schedule mutations in order.
- The fuzzing engine only ever uses [`ordered_mutate`](crate::Mutator::ordered_mutate)
- directly, but the former is sometimes necessary to compose mutators together.
+However, one may want to have better control over which mutation operation
+is used. For example, if the value to be mutated is of type `Option<T>`,
+then you may want to first mutate it to `None`, and then always mutate it
+to another `Some(t)`. This is where [`MutationStep`](Mutator::MutationStep)
+comes in. The mutation step is a type you define to allow you to keep track
+of which mutation operation has already been tried. This allows you to
+deterministically apply mutations to a value such that better mutations are
+tried first, and duplicate mutations are avoided.
 
- If you don't want to bother with ordered mutations, that is fine. In that
- case, only implement [`random_mutate`](crate::Mutator::random_mutate) and call it from
- the [`ordered_mutate`](crate::Mutator::ordered_mutate) method.
- ```ignore
- fn random_mutate(&self, value: &mut Value, cache: &mut Self::Cache, max_cplx: f64) -> (Self::UnmutateToken, f64) {
-      // ...
- }
- fn ordered_mutate(&self, value: &mut Value, cache: &mut Self::Cache, step: &mut Self::MutationStep, max_cplx: f64) -> Option<(Self::UnmutateToken, f64)> {
-     Some(self.random_mutate(value, cache, max_cplx))
- }
- ```
+It is not always possible to schedule mutations in order. For that reason,
+we have two methods: [`random_mutate`](crate::Mutator::random_mutate) executes
+a random mutation, and [`ordered_mutate`](crate::Mutator::ordered_mutate) uses
+the [`MutationStep`](Mutator::MutationStep) to schedule mutations in order.
+The fuzzing engine only ever uses [`ordered_mutate`](crate::Mutator::ordered_mutate)
+directly, but the former is sometimes necessary to compose mutators together.
 
- ## Arbitrary
+If you don't want to bother with ordered mutations, that is fine. In that
+case, only implement [`random_mutate`](crate::Mutator::random_mutate) and call it from
+the [`ordered_mutate`](crate::Mutator::ordered_mutate) method.
+```ignore
+fn random_mutate(&self, value: &mut Value, cache: &mut Self::Cache, max_cplx: f64) -> (Self::UnmutateToken, f64) {
+     // ...
+}
+fn ordered_mutate(&self, value: &mut Value, cache: &mut Self::Cache, step: &mut Self::MutationStep, max_cplx: f64) -> Option<(Self::UnmutateToken, f64)> {
+    Some(self.random_mutate(value, cache, max_cplx))
+}
+```
 
- A mutator must also be able to generate new values from nothing. This is what
- the [`random_arbitrary`](crate::Mutator::random_arbitrary) and
- [`ordered_arbitrary`](crate::Mutator::ordered_arbitrary) methods are for. The
- latter one is called by the fuzzer directly and uses an
- [`ArbitraryStep`](Mutator::ArbitraryStep) that can be used to smartly generate
- more interesting values first and avoid duplicates.
+## Arbitrary
 
- ## Unmutate
+A mutator must also be able to generate new values from nothing. This is what
+the [`random_arbitrary`](crate::Mutator::random_arbitrary) and
+[`ordered_arbitrary`](crate::Mutator::ordered_arbitrary) methods are for. The
+latter one is called by the fuzzer directly and uses an
+[`ArbitraryStep`](Mutator::ArbitraryStep) that can be used to smartly generate
+more interesting values first and avoid duplicates.
 
- Finally, it is important to note that values and caches are mutated
- *in-place*. The fuzzer does not clone them before handing them to the
- mutator. Therefore, the mutator also needs to know how to reverse each
- mutation it performed. To do so, each mutation needs to return a token
- describing how to reverse it. The [unmutate](crate::Mutator::unmutate)
- method will later be called with that token to get the original value
- and cache back.
+## Unmutate
 
- For example, if the value is `[[1, 3], [5], [9, 8]]`, the mutator may
- mutate it to `[[1, 3], [5], [9, 1, 8]]` and return the token:
- `Element(2, Remove(1))`, which means that in order to reverse the
- mutation, the element at index 2 has to be unmutated by removing
- its element at index 1. In pseudocode:
+It is important to note that values and caches are mutated
+*in-place*. The fuzzer does not clone them before handing them to the
+mutator. Therefore, the mutator also needs to know how to reverse each
+mutation it performed. To do so, each mutation needs to return a token
+describing how to reverse it. The [unmutate](crate::Mutator::unmutate)
+method will later be called with that token to get the original value
+and cache back.
 
- ```
- use fuzzcheck::Mutator;
+For example, if the value is `[[1, 3], [5], [9, 8]]`, the mutator may
+mutate it to `[[1, 3], [5], [9, 1, 8]]` and return the token:
+`Element(2, Remove(1))`, which means that in order to reverse the
+mutation, the element at index 2 has to be unmutated by removing
+its element at index 1. In pseudocode:
 
+```
+use fuzzcheck::Mutator;
+# use fuzzcheck::EmptySubValueProvider;
 # use fuzzcheck::DefaultMutator;
 # let m = bool::default_mutator();
 # let mut value = false;
@@ -117,21 +135,21 @@ use std::path::PathBuf;
 //  cache: c1 (ommitted from example)
 //  step: s1 (ommitted from example)
 
- let (unmutate_token, _cplx) = m.ordered_mutate(&mut value, &mut cache, &mut step, max_cplx).unwrap();
+let (unmutate_token, _cplx) = m.ordered_mutate(&mut value, &mut cache, &mut step, &EmptySubValueProvider, max_cplx).unwrap();
 
- // value = [[1, 3], [5], [9, 1, 8]]
- // token = Element(2, Remove(1))
- // cache = c2
- // step = s2
+// value = [[1, 3], [5], [9, 1, 8]]
+// token = Element(2, Remove(1))
+// cache = c2
+// step = s2
 
- test(&value);
+test(&value);
 
- m.unmutate(&mut value, &mut cache, unmutate_token);
+m.unmutate(&mut value, &mut cache, unmutate_token);
 
- // value = [[1, 3], [5], [9, 8]]
- // cache = c1 (back to original cache)
- // step = s2 (step has not been reversed)
- ```
+// value = [[1, 3], [5], [9, 8]]
+// cache = c1 (back to original cache)
+// step = s2 (step has not been reversed)
+```
 
 When a mutated value is deemed interesting by the fuzzing engine, the method
 [`validate_value`](crate::Mutator::validate_value) is called on it in order to
@@ -143,6 +161,59 @@ will check whether the character is within a certain range.
 Note that in most cases, it is completely fine to never mutate a value’s cache,
 since it is recomputed by [`validate_value`](crate::Mutator::validate_value) when
 needed.
+
+## SubValueProvider
+
+The method `ordered_mutate` takes a [`&dyn SubValueProvider`](crate::SubValueProvider)
+as argument. The purpose of a sub-value provider is to provide the mutator with
+subvalues taken from the fuzzing corpus. If you are familiar with fuzzing
+terminology, then think of the sub-value provider as the structure-aware replacement
+for the “crossover” mutation and the dictionary. Here is how it works:
+
+For each value in the fuzzing corpus, the mutator iterates over each subpart of the
+value by calling [`self.all_paths(value, cache, register_path_closure)`](Mutator::all_paths).
+For example, for the value
+```
+struct S {
+    a: usize,
+    b: Option<bool>,
+    c: (Option<bool>, usize)
+}
+let x = S {
+    a: 887236,
+    b: None,
+    c: (Some(true), 10372)
+}
+```
+the `all_paths` method will call the `register_path_closure` with the
+following arguments.
+```ignore
+(usize, .a, 64.0)                 // 887236
+(Option<bool>, .b, 1.0)           // None
+((Option<bool>, usize), .c, 66.0) // (Some(true), 10372)
+(Option<bool>, .c.0, 2.0)         // Some(true)
+(usize, .c.1, 64.0)               // 10372
+(usize, .c.0.Some, 1.0)           // true
+```
+The first argument is the type id of the subvalue. The second
+argument is the path from the whole value to the subvalue (see
+[`LensPath`](Mutator::LensPath) and [`self.lens(..)`](Mutator::lens)).
+The third argument is the complexity of the subvalue.
+
+The fuzzer builds a data structure keeping track of these subvalues and pass it
+to the mutator as a `&dyn SubValueProvider`. The mutator can then use it as
+follows:
+```ignore
+fn ordered_mutate(&self, value: &mut S, cache: &mut Self::Cache, step: &mut Self::Step, subvalue_provider: &dyn SubValueProvider, max_cplx: f64) -> Option<(Self::UnmutateToken, f64)>
+{
+    // let's say we want to replace the value x.c.1 with something taken from the subvalue provider
+    if let Some(new_xc1) = subvalue_provider.get_subvalue(TypeId::of::<usize>(), &mut idx, max_xc1_cplx) {
+        let new_xc1 = new_xc1.downcast_ref::<usize>().unwrap(); // guaranteed to succeed
+        value.x.c.1 = new_xc1;
+        // etc.
+    }
+}
+```
 **/
 pub trait Mutator<Value: Clone + 'static>: 'static {
     /// Accompanies each value to help compute its complexity and mutate it efficiently.
@@ -245,7 +316,7 @@ pub trait Mutator<Value: Clone + 'static>: 'static {
     /// the given [`UnmutateToken`](Mutator::UnmutateToken).
     fn unmutate(&self, value: &mut Value, cache: &mut Self::Cache, t: Self::UnmutateToken);
 
-    /// Returns the part of the value described by `path`.
+    /// Returns the subvalue described by `path`.
     ///
     /// For example, if the value has the type `Vec<(u8, bool)>`, then `Self::LensPath` could be
     /// a tuple `(usize, TupleIndex)` where the first element is an index of the vector and the
@@ -258,10 +329,11 @@ pub trait Mutator<Value: Clone + 'static>: 'static {
     /// from each interesting test case saved by the fuzzer.
     fn lens<'a>(&self, value: &'a Value, cache: &'a Self::Cache, path: &Self::LensPath) -> &'a dyn Any;
 
-    /// Iterates over all parts of the given value.
+    /// Iterates over all subvalue of the given value.
     ///
-    /// For each part, the given closure is called with the type id of the part and the
-    /// [lens path](Self::LensPath) to access it through [`self.lens(..)`](Mutator::lens).
+    /// For each subvalue, the given closure is called with the type id of the part, the
+    /// [lens path](Self::LensPath) to access it through [`self.lens(..)`](Mutator::lens),
+    /// and the complexity of the subvalue.
     fn all_paths(&self, value: &Value, cache: &Self::Cache, register_path: &mut dyn FnMut(TypeId, Self::LensPath, f64));
 }
 
