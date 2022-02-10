@@ -134,7 +134,6 @@ fn main() -> Result<(), Box<dyn Error>> {
             let exec = launch_executable(
                 target_name,
                 &args,
-                if instrument_only_root { name_exec } else { None },
                 &compiled_target,
                 &cargo_args,
                 &process::Stdio::inherit,

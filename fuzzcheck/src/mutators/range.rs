@@ -3,7 +3,7 @@ extern crate self as fuzzcheck;
 use crate::mutators::map::MapMutator;
 use crate::mutators::tuples::TupleMutatorWrapper;
 use crate::mutators::tuples::{Tuple2, Tuple2Mutator};
-use crate::mutators::wrapper::Wrapper;
+use crate::mutators::Wrapper;
 use crate::DefaultMutator;
 use crate::Mutator;
 use fuzzcheck_mutators_derive::make_mutator;

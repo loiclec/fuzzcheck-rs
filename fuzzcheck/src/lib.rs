@@ -71,29 +71,29 @@ pub mod sensors_and_pools;
 pub mod serializers;
 mod signals_handler;
 mod split_string;
+pub mod subvalue_provider;
 mod traits;
 mod world;
 
 pub use fuzzcheck_common::arg::Arguments;
+use subvalue_provider::Generation;
 
 #[doc(inline)]
 pub use crate::fuzzer::FuzzingResult;
 #[doc(inline)]
 pub use crate::fuzzer::PoolStorageIndex;
 #[doc(inline)]
+pub use crate::sensors_and_pools::PoolExt;
+#[doc(inline)]
+pub use crate::sensors_and_pools::SensorExt;
+#[doc(inline)]
+pub use crate::subvalue_provider::SubValueProvider;
+#[doc(inline)]
 pub use crate::traits::CompatibleWithObservations;
 #[doc(inline)]
 pub use crate::traits::CorpusDelta;
 #[doc(inline)]
-pub use crate::traits::CrossoverSubValueProvider;
-#[doc(inline)]
-pub use crate::traits::EmptySubValueProvider;
-#[doc(inline)]
-pub use crate::traits::LensPathAndComplexity;
-#[doc(inline)]
 pub use crate::traits::Pool;
-#[doc(inline)]
-pub use crate::traits::PoolExt;
 #[doc(inline)]
 pub use crate::traits::SaveToStatsFolder;
 #[doc(inline)]
@@ -101,27 +101,16 @@ pub use crate::traits::Sensor;
 #[doc(inline)]
 pub use crate::traits::SensorAndPool;
 #[doc(inline)]
-pub use crate::traits::SensorExt;
-#[doc(inline)]
 pub use crate::traits::Stats;
-#[doc(inline)]
-pub use crate::traits::SubValueProvider;
-#[doc(inline)]
-pub use crate::traits::SubValueProviderId;
-pub(crate) use split_string::split_string_by_whitespace;
-#[doc(inline)]
-pub use traits::Generation;
-
 #[doc(inline)]
 pub use fuzzer::ReasonForStopping;
 #[doc(inline)]
 pub use mutators::DefaultMutator;
 #[doc(inline)]
+pub use mutators::MutatorExt;
+pub(crate) use split_string::split_string_by_whitespace;
+#[doc(inline)]
 pub use traits::Mutator;
-#[doc(inline)]
-pub use traits::MutatorExt;
-#[doc(inline)]
-pub use traits::MutatorWrapper;
 #[doc(inline)]
 pub use traits::Serializer;
 #[doc(inline)]
@@ -261,69 +250,3 @@ pub use fuzzcheck_mutators_derive::DefaultMutator;
     ```
 */
 pub use fuzzcheck_mutators_derive::make_mutator;
-
-/**
- * A struct that stores the value, cache, and mutation step of an input.
- * It is used for convenience.
- */
-pub(crate) struct FuzzedInput<T: Clone + 'static, Mut: Mutator<T>> {
-    pub value: T,
-    pub cache: Mut::Cache,
-    pub mutation_step: Mut::MutationStep,
-    pub generation: Generation,
-}
-impl<T: Clone + 'static, Mut: Mutator<T>> Clone for FuzzedInput<T, Mut> {
-    fn clone(&self) -> Self {
-        Self {
-            value: self.value.clone(),
-            cache: self.cache.clone(),
-            mutation_step: self.mutation_step.clone(),
-            generation: self.generation,
-        }
-    }
-}
-
-impl<T: Clone + 'static, Mut: Mutator<T>> FuzzedInput<T, Mut> {
-    #[no_coverage]
-    pub fn new(value: T, cache: Mut::Cache, mutation_step: Mut::MutationStep, generation: Generation) -> Self {
-        Self {
-            value,
-            cache,
-            mutation_step,
-            generation,
-        }
-    }
-
-    #[no_coverage]
-    pub fn new_source(&self, m: &Mut, generation: Generation) -> Self {
-        let cache = m.validate_value(&self.value).unwrap();
-        let mutation_step = m.default_mutation_step(&self.value, &cache);
-        Self::new(self.value.clone(), cache, mutation_step, generation)
-    }
-
-    #[no_coverage]
-    pub fn complexity(&self, m: &Mut) -> f64 {
-        m.complexity(&self.value, &self.cache)
-    }
-
-    #[no_coverage]
-    pub fn mutate(
-        &mut self,
-        m: &Mut,
-        subvalue_provider: &dyn SubValueProvider,
-        max_cplx: f64,
-    ) -> Option<(Mut::UnmutateToken, f64)> {
-        m.ordered_mutate(
-            &mut self.value,
-            &mut self.cache,
-            &mut self.mutation_step,
-            subvalue_provider,
-            max_cplx,
-        )
-    }
-
-    #[no_coverage]
-    pub fn unmutate(&mut self, m: &Mut, t: Mut::UnmutateToken) {
-        m.unmutate(&mut self.value, &mut self.cache, t);
-    }
-}

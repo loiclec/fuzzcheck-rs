@@ -66,8 +66,8 @@ use crate::sensors_and_pools::SimplestToActivateCounterPool;
 use crate::sensors_and_pools::WrapperSensor;
 use crate::sensors_and_pools::{AndPool, SameObservations};
 use crate::sensors_and_pools::{DifferentObservations, MaximiseObservationPool};
-use crate::traits::{CompatibleWithObservations, Mutator, PoolExt, Sensor, SensorExt, Serializer};
 use crate::{split_string_by_whitespace, DefaultMutator};
+use crate::{CompatibleWithObservations, Mutator, PoolExt, Sensor, SensorExt, Serializer};
 
 #[cfg(feature = "serde_json_serializer")]
 use crate::SerdeSerializer;

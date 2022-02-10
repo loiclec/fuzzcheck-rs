@@ -1,5 +1,5 @@
 use crate::mutators::mutations::{Mutation, RevertMutation};
-use crate::traits::EmptySubValueProvider;
+use crate::subvalue_provider::EmptySubValueProvider;
 use crate::{DefaultMutator, Mutator};
 use std::any::{Any, TypeId};
 use std::cmp;

@@ -2,7 +2,6 @@
 
 use fuzzcheck_common::arg::*;
 use std::cmp::Ordering;
-use std::os::unix::fs::MetadataExt;
 use std::path::{Path, PathBuf};
 use std::process;
 use std::process::{Command, Stdio};

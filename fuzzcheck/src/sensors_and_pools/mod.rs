@@ -16,6 +16,8 @@ mod unit_pool;
 
 #[doc(inline)]
 pub use crate::code_coverage_sensor::CodeCoverageSensor;
+use crate::Pool;
+use crate::Sensor;
 #[doc(inline)]
 pub use and_sensor_and_pool::{AndPool, AndSensor, AndSensorAndPool, DifferentObservations, SameObservations};
 #[doc(inline)]
@@ -46,6 +48,58 @@ pub use unique_values_pool::UniqueValuesPool;
 pub use unit_pool::UnitPool;
 
 pub(crate) use test_failure_pool::TEST_FAILURE;
+
+/// A trait for convenience methods automatically implemented for all types that conform to Pool.
+pub trait PoolExt: Pool + Sized {
+    /// Create an [`AndPool`](crate::sensors_and_pools::AndPool) from both `Self` and `P`.
+    ///
+    /// ## Arguments
+    /// - `p` is the other pool to combine with `self`
+    /// - `override_weight` determines the relative chance of selecting `p` when the resulting [`AndPool`](crate::sensors_and_pools::AndPool)
+    /// is asked to provide a test case. If `None`, [`p.weight()`](crate::Pool::weight) will be used. The weight of `self` is always `self.weight()`.
+    /// - `_sensor_marker` tells whether `self` and `p` operate on the same observations or not. If they do, pass [`SameObservations`](crate::sensors_and_pools::SameObservations).
+    /// Otherwise, pass [`DifferentObservations`](`crate::sensors_and_pools::DifferentObservations`). See the documentation of [`AndPool`](crate::sensors_and_pools::AndPool) for more details.
+    fn and<P, SM>(self, p: P, override_weight: Option<f64>, _sensor_marker: SM) -> AndPool<Self, P, SM>
+    where
+        P: Pool,
+    {
+        let self_weight = self.weight();
+        let p_weight = p.weight();
+        AndPool::<_, _, SM>::new(self, p, self_weight, override_weight.unwrap_or(p_weight))
+    }
+}
+
+impl<P> PoolExt for P where P: Pool {}
+
+/// A trait for convenience methods automatically implemented
+/// for all types that conform to [`Sensor`].
+pub trait SensorExt: Sensor {
+    /// Maps the observations of the sensor using the given closure.
+    ///
+    /// For example, if a sensor has observations of type `Vec<u64>`, then we
+    /// can create a sensor with observations `(Vec<u64>, u64)`, where the
+    /// second element of the tuple is the sum of all observations:
+    /// ```
+    /// use fuzzcheck::SensorExt;
+    /// # use fuzzcheck::sensors_and_pools::ArrayOfCounters;
+    /// # static mut COUNTERS: [u64; 2] = [0; 2];
+    /// # // inside the fuzz test, you can create the sensor as follows
+    /// # let sensor = ArrayOfCounters::new(unsafe { &mut COUNTERS });
+    /// let sensor = sensor.map(|observations| {
+    ///    let sum = observations.iter().sum::<u64>();
+    ///    (observations, sum)
+    /// });
+    /// ```
+    #[no_coverage]
+    fn map<ToObservations, F>(self, map_f: F) -> MapSensor<Self, ToObservations, F>
+    where
+        Self: Sized,
+        F: Fn(Self::Observations) -> ToObservations,
+    {
+        MapSensor::new(self, map_f)
+    }
+}
+impl<T> SensorExt for T where T: Sensor {}
 
 /// Each pool has an associated `Stats` type. They're not very interesting, but I don't want to completely hide them, so I have gathered them here.
 pub mod stats {

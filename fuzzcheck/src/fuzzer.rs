@@ -3,12 +3,10 @@ use crate::sensors_and_pools::{
     AndSensorAndPool, NoopSensor, TestFailure, TestFailurePool, TestFailureSensor, UnitPool, TEST_FAILURE,
 };
 use crate::signals_handler::set_signal_handlers;
-use crate::traits::{
-    CorpusDelta, Generation, LensPathAndComplexity, Mutator, SaveToStatsFolder, SensorAndPool, Serializer,
-    SubValueProviderId,
-};
+use crate::subvalue_provider::{CrossoverSubValueProvider, Generation, LensPathAndComplexity, SubValueProviderId};
+use crate::traits::{CorpusDelta, Mutator, SaveToStatsFolder, SensorAndPool, Serializer};
 use crate::world::World;
-use crate::{CSVField, CrossoverSubValueProvider, FuzzedInput, SubValueProvider, ToCSV};
+use crate::{CSVField, SubValueProvider, ToCSV};
 use fuzzcheck_common::arg::{Arguments, FuzzerCommand};
 use fuzzcheck_common::{FuzzerEvent, FuzzerStats};
 use libc::{SIGABRT, SIGALRM, SIGBUS, SIGFPE, SIGINT, SIGSEGV, SIGTERM, SIGTRAP};
@@ -72,7 +70,7 @@ enum FuzzerInputIndex<T> {
     Pool(PoolStorageIndex),
 }
 
-struct StoredFuzzedInput<T, M>
+struct FuzzedInputAndSubValueProvider<T, M>
 where
     T: Clone + 'static,
     M: Mutator<T>,
@@ -83,10 +81,76 @@ where
     lens_paths: HashMap<TypeId, Vec<LensPathAndComplexity<M::LensPath>>>,
 }
 
+/**
+ * A struct that stores the value, cache, and mutation step of an input.
+ * It is used for convenience.
+ */
+struct FuzzedInput<T: Clone + 'static, Mut: Mutator<T>> {
+    value: T,
+    cache: Mut::Cache,
+    mutation_step: Mut::MutationStep,
+    generation: Generation,
+}
+impl<T: Clone + 'static, Mut: Mutator<T>> Clone for FuzzedInput<T, Mut> {
+    fn clone(&self) -> Self {
+        Self {
+            value: self.value.clone(),
+            cache: self.cache.clone(),
+            mutation_step: self.mutation_step.clone(),
+            generation: self.generation,
+        }
+    }
+}
+
+impl<T: Clone + 'static, Mut: Mutator<T>> FuzzedInput<T, Mut> {
+    #[no_coverage]
+    fn new(value: T, cache: Mut::Cache, mutation_step: Mut::MutationStep, generation: Generation) -> Self {
+        Self {
+            value,
+            cache,
+            mutation_step,
+            generation,
+        }
+    }
+
+    #[no_coverage]
+    fn new_source(&self, m: &Mut, generation: Generation) -> Self {
+        let cache = m.validate_value(&self.value).unwrap();
+        let mutation_step = m.default_mutation_step(&self.value, &cache);
+        Self::new(self.value.clone(), cache, mutation_step, generation)
+    }
+
+    #[no_coverage]
+    fn complexity(&self, m: &Mut) -> f64 {
+        m.complexity(&self.value, &self.cache)
+    }
+
+    #[no_coverage]
+    fn mutate(
+        &mut self,
+        m: &Mut,
+        subvalue_provider: &dyn SubValueProvider,
+        max_cplx: f64,
+    ) -> Option<(Mut::UnmutateToken, f64)> {
+        m.ordered_mutate(
+            &mut self.value,
+            &mut self.cache,
+            &mut self.mutation_step,
+            subvalue_provider,
+            max_cplx,
+        )
+    }
+
+    #[no_coverage]
+    fn unmutate(&mut self, m: &Mut, t: Mut::UnmutateToken) {
+        m.unmutate(&mut self.value, &mut self.cache, t);
+    }
+}
+
 struct FuzzerState<T: Clone + 'static, M: Mutator<T>> {
     mutator: M,
     sensor_and_pool: Box<dyn SensorAndPool>,
-    pool_storage: RcSlab<StoredFuzzedInput<T, M>>,
+    pool_storage: RcSlab<FuzzedInputAndSubValueProvider<T, M>>,
     /// The step given to the mutator when the fuzzer wants to create a new arbitrary test case
     arbitrary_step: M::ArbitraryStep,
     /// The index of the test case that is being tested
@@ -112,7 +176,7 @@ impl<T: Clone + 'static, M: Mutator<T>> FuzzerState<T, M> {
     #[no_coverage]
     fn get_input<'a>(
         fuzzer_input_idx: &'a FuzzerInputIndex<FuzzedInput<T, M>>,
-        pool_storage: &'a RcSlab<StoredFuzzedInput<T, M>>,
+        pool_storage: &'a RcSlab<FuzzedInputAndSubValueProvider<T, M>>,
     ) -> Option<&'a FuzzedInput<T, M>> {
         match fuzzer_input_idx {
             FuzzerInputIndex::None => None,
@@ -364,7 +428,7 @@ where
                 );
                 let cloned_value = input.value.clone();
                 let cloned_cache = input.cache.clone();
-                let stored_input = StoredFuzzedInput {
+                let stored_input = FuzzedInputAndSubValueProvider {
                     input,
                     cloned_value,
                     cloned_cache,
@@ -384,7 +448,7 @@ where
 
     #[no_coverage]
     fn get_input_and_subvalue_provider<'a>(
-        pool_storage: &'a mut RcSlab<StoredFuzzedInput<T, M>>,
+        pool_storage: &'a mut RcSlab<FuzzedInputAndSubValueProvider<T, M>>,
         sensor_and_pool: &mut dyn SensorAndPool,
         mutator: &'a M,
         rng: &fastrand::Rng,
@@ -393,7 +457,7 @@ where
         let idx_cross = sensor_and_pool.get_random_index().unwrap();
 
         if idx == idx_cross || rng.u8(..5) == 0 {
-            let StoredFuzzedInput {
+            let FuzzedInputAndSubValueProvider {
                 input,
                 cloned_value,
                 cloned_cache,
@@ -412,7 +476,7 @@ where
             // crossover of two different test cases
             let (
                 input,
-                StoredFuzzedInput {
+                FuzzedInputAndSubValueProvider {
                     input: input_cross,
                     lens_paths,
                     ..
@@ -693,7 +757,7 @@ where
                 );
                 let cloned_value = value.clone();
                 let cloned_cache = cache.clone();
-                let stored_input = StoredFuzzedInput {
+                let stored_input = FuzzedInputAndSubValueProvider {
                     input: FuzzedInput::new(value, cache, mutation_step, Generation(0)),
                     cloned_value,
                     cloned_cache,

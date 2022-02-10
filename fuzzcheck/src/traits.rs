@@ -1,10 +1,7 @@
 use crate::fuzzer::PoolStorageIndex;
-use crate::mutators::filter::FilterMutator;
-use crate::mutators::map::MapMutator;
-use crate::sensors_and_pools::{AndPool, MapSensor};
+use crate::subvalue_provider::SubValueProvider;
 use fuzzcheck_common::FuzzerEvent;
 use std::any::{Any, TypeId};
-use std::collections::HashMap;
 use std::fmt::Display;
 use std::path::PathBuf;
 
@@ -299,7 +296,7 @@ pub trait Mutator<Value: Clone + 'static>: 'static {
         value: &mut Value,
         cache: &mut Self::Cache,
         step: &mut Self::MutationStep,
-        subvalue_provider: &dyn crate::SubValueProvider,
+        subvalue_provider: &dyn SubValueProvider,
         max_cplx: f64,
     ) -> Option<(Self::UnmutateToken, f64)>;
 
@@ -337,111 +334,6 @@ pub trait Mutator<Value: Clone + 'static>: 'static {
     fn all_paths(&self, value: &Value, cache: &Self::Cache, register_path: &mut dyn FnMut(TypeId, Self::LensPath, f64));
 }
 
-#[derive(Clone, Copy)]
-pub struct SubValueProviderId {
-    pub idx: usize,
-    pub generation: Generation,
-}
-
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-pub struct Generation(pub usize);
-
-pub trait SubValueProvider {
-    fn identifier(&self) -> SubValueProviderId;
-    fn get_subvalue(&self, typeid: TypeId, max_cplx: f64, index: &mut usize) -> Option<&dyn Any>;
-}
-
-pub struct EmptySubValueProvider;
-impl SubValueProvider for EmptySubValueProvider {
-    #[no_coverage]
-    fn identifier(&self) -> SubValueProviderId {
-        SubValueProviderId {
-            idx: 0,
-            generation: Generation(0),
-        }
-    }
-    #[no_coverage]
-    fn get_subvalue(&self, _typeid: TypeId, _max_cplx: f64, _index: &mut usize) -> Option<&dyn Any> {
-        None
-    }
-}
-
-pub struct LensPathAndComplexity<LP> {
-    pub lens_path: LP,
-    pub complexity: f64,
-}
-
-/// A type which implements [`SubValueProvider`]
-/// from a fuzzed test case and its mutator.
-///
-/// Its [`self.get_subvalue(..)`](SubValueProvider::get_subvalue) returns
-/// parts of the test case, found by the [`mutator.all_paths(..)`](Mutator::all_paths)
-/// [`mutator.lens(..)`](Mutator::lens) methods.
-pub struct CrossoverSubValueProvider<'a, M, T>
-where
-    T: Clone + 'static,
-    M: Mutator<T>,
-{
-    identifier: SubValueProviderId,
-    mutator: &'a M,
-    value: &'a T,
-    cache: &'a M::Cache,
-    all_paths: &'a HashMap<TypeId, Vec<LensPathAndComplexity<M::LensPath>>>,
-}
-impl<'a, M, Value> CrossoverSubValueProvider<'a, M, Value>
-where
-    Value: Clone + 'static,
-    M: Mutator<Value>,
-{
-    #[no_coverage]
-    pub fn from(
-        mutator: &'a M,
-        value: &'a Value,
-        cache: &'a M::Cache,
-        all_paths: &'a HashMap<TypeId, Vec<LensPathAndComplexity<M::LensPath>>>,
-        identifier: SubValueProviderId,
-    ) -> Self {
-        Self {
-            identifier,
-            mutator,
-            value,
-            cache,
-            all_paths,
-        }
-    }
-}
-impl<'a, M, Value> SubValueProvider for CrossoverSubValueProvider<'a, M, Value>
-where
-    Value: Clone + 'static,
-    M: Mutator<Value>,
-{
-    #[no_coverage]
-    fn identifier(&self) -> SubValueProviderId {
-        self.identifier
-    }
-
-    #[no_coverage]
-    fn get_subvalue(&self, typeid: TypeId, max_cplx: f64, index: &mut usize) -> Option<&dyn Any> {
-        let all_paths = self.all_paths.get(&typeid)?;
-        assert!(!all_paths.is_empty());
-        loop {
-            if self.value.type_id() == typeid && *index == all_paths.len() {
-                *index += 1;
-                return Some(self.value);
-            } else {
-                let LensPathAndComplexity { lens_path, complexity } = all_paths.get(*index)?;
-                if *complexity < max_cplx {
-                    let subvalue = self.mutator.lens(self.value, self.cache, lens_path);
-                    *index += 1;
-                    return Some(subvalue);
-                } else {
-                    *index += 1;
-                }
-            }
-        }
-    }
-}
-
 /// A [Serializer] is used to encode and decode test cases into bytes.
 ///
 /// It is used to transfer test cases between the corpus on the file system and the fuzzer’s storage.
@@ -462,135 +354,6 @@ pub trait Serializer {
     ///
     /// This method should never fail.
     fn to_data(&self, value: &Self::Value) -> Vec<u8>;
-}
-
-/**
- A trait for types that are basic wrappers over a mutator, such as `Box<M>`.
-
- Such wrapper types automatically implement the [`Mutator`](Mutator) trait.
-*/
-pub trait MutatorWrapper {
-    type Wrapped;
-
-    fn wrapped_mutator(&self) -> &Self::Wrapped;
-}
-
-impl<T: Clone + 'static, W, M> Mutator<T> for M
-where
-    M: MutatorWrapper<Wrapped = W>,
-    W: Mutator<T>,
-    Self: 'static,
-{
-    #[doc(hidden)]
-    type Cache = W::Cache;
-    #[doc(hidden)]
-    type MutationStep = W::MutationStep;
-    #[doc(hidden)]
-    type ArbitraryStep = W::ArbitraryStep;
-    #[doc(hidden)]
-    type UnmutateToken = W::UnmutateToken;
-    #[doc(hidden)]
-    type LensPath = W::LensPath;
-
-    #[doc(hidden)]
-    #[no_coverage]
-    fn default_arbitrary_step(&self) -> Self::ArbitraryStep {
-        self.wrapped_mutator().default_arbitrary_step()
-    }
-
-    #[doc(hidden)]
-    #[no_coverage]
-    fn validate_value(&self, value: &T) -> Option<Self::Cache> {
-        self.wrapped_mutator().validate_value(value)
-    }
-
-    #[doc(hidden)]
-    #[no_coverage]
-    fn default_mutation_step(&self, value: &T, cache: &Self::Cache) -> Self::MutationStep {
-        self.wrapped_mutator().default_mutation_step(value, cache)
-    }
-
-    #[doc(hidden)]
-    #[no_coverage]
-    fn global_search_space_complexity(&self) -> f64 {
-        self.wrapped_mutator().global_search_space_complexity()
-    }
-
-    #[doc(hidden)]
-    #[no_coverage]
-    fn max_complexity(&self) -> f64 {
-        self.wrapped_mutator().max_complexity()
-    }
-
-    #[doc(hidden)]
-    #[no_coverage]
-    fn min_complexity(&self) -> f64 {
-        self.wrapped_mutator().min_complexity()
-    }
-
-    #[doc(hidden)]
-    #[no_coverage]
-    fn complexity(&self, value: &T, cache: &Self::Cache) -> f64 {
-        self.wrapped_mutator().complexity(value, cache)
-    }
-
-    #[doc(hidden)]
-    #[no_coverage]
-    fn ordered_arbitrary(&self, step: &mut Self::ArbitraryStep, max_cplx: f64) -> Option<(T, f64)> {
-        self.wrapped_mutator().ordered_arbitrary(step, max_cplx)
-    }
-
-    #[doc(hidden)]
-    #[no_coverage]
-    fn random_arbitrary(&self, max_cplx: f64) -> (T, f64) {
-        self.wrapped_mutator().random_arbitrary(max_cplx)
-    }
-
-    #[doc(hidden)]
-    #[no_coverage]
-    fn ordered_mutate(
-        &self,
-        value: &mut T,
-        cache: &mut Self::Cache,
-        step: &mut Self::MutationStep,
-        subvalue_provider: &dyn crate::SubValueProvider,
-        max_cplx: f64,
-    ) -> Option<(Self::UnmutateToken, f64)> {
-        self.wrapped_mutator()
-            .ordered_mutate(value, cache, step, subvalue_provider, max_cplx)
-    }
-
-    #[doc(hidden)]
-    #[no_coverage]
-    fn random_mutate(&self, value: &mut T, cache: &mut Self::Cache, max_cplx: f64) -> (Self::UnmutateToken, f64) {
-        self.wrapped_mutator().random_mutate(value, cache, max_cplx)
-    }
-
-    #[doc(hidden)]
-    #[no_coverage]
-    fn unmutate(&self, value: &mut T, cache: &mut Self::Cache, t: Self::UnmutateToken) {
-        self.wrapped_mutator().unmutate(value, cache, t)
-    }
-
-    #[doc(hidden)]
-    #[no_coverage]
-    fn lens<'a>(&self, value: &'a T, cache: &'a Self::Cache, path: &Self::LensPath) -> &'a dyn Any {
-        self.wrapped_mutator().lens(value, cache, path)
-    }
-
-    #[doc(hidden)]
-    #[no_coverage]
-    fn all_paths(&self, value: &T, cache: &Self::Cache, register_path: &mut dyn FnMut(TypeId, Self::LensPath, f64)) {
-        self.wrapped_mutator().all_paths(value, cache, register_path)
-    }
-}
-
-impl<M> MutatorWrapper for Box<M> {
-    type Wrapped = M;
-    #[no_coverage]
-    fn wrapped_mutator(&self) -> &Self::Wrapped {
-        self.as_ref()
-    }
 }
 
 /// A [CorpusDelta] describes how to reflect a change in the pool’s content to the corpus on the file system.
@@ -815,28 +578,6 @@ pub trait Pool: SaveToStatsFolder {
     }
 }
 
-/// A trait for convenience methods automatically implemented for all types that conform to Pool.
-pub trait PoolExt: Pool + Sized {
-    /// Create an [`AndPool`](crate::sensors_and_pools::AndPool) from both `Self` and `P`.
-    ///
-    /// ## Arguments
-    /// - `p` is the other pool to combine with `self`
-    /// - `override_weight` determines the relative chance of selecting `p` when the resulting [`AndPool`](crate::sensors_and_pools::AndPool)
-    /// is asked to provide a test case. If `None`, [`p.weight()`](crate::Pool::weight) will be used. The weight of `self` is always `self.weight()`.
-    /// - `_sensor_marker` tells whether `self` and `p` operate on the same observations or not. If they do, pass [`SameObservations`](crate::sensors_and_pools::SameObservations).
-    /// Otherwise, pass [`DifferentObservations`](`crate::sensors_and_pools::DifferentObservations`). See the documentation of [`AndPool`](crate::sensors_and_pools::AndPool) for more details.
-    fn and<P, SM>(self, p: P, override_weight: Option<f64>, _sensor_marker: SM) -> AndPool<Self, P, SM>
-    where
-        P: Pool,
-    {
-        let self_weight = self.weight();
-        let p_weight = p.weight();
-        AndPool::<_, _, SM>::new(self, p, self_weight, override_weight.unwrap_or(p_weight))
-    }
-}
-
-impl<P> PoolExt for P where P: Pool {}
-
 /**
 A subtrait of [Pool] describing how the pool handles observations made by a sensor.
 
@@ -859,68 +600,4 @@ pub trait SaveToStatsFolder {
     /// the `stats_folder`. The first element of each tuple is the path of the new created file. If this path is relative,
     /// it is relative to the `stats` folder path. The second element is the content of the file, as bytes.
     fn save_to_stats_folder(&self) -> Vec<(PathBuf, Vec<u8>)>;
-}
-
-/// A trait for convenience methods automatically implemented
-/// for all types that conform to [`Sensor`].
-pub trait SensorExt: Sensor {
-    /// Maps the observations of the sensor using the given closure.
-    ///
-    /// For example, if a sensor has observations of type `Vec<u64>`, then we
-    /// can create a sensor with observations `(Vec<u64>, u64)`, where the
-    /// second element of the tuple is the sum of all observations:
-    /// ```
-    /// use fuzzcheck::SensorExt;
-    /// # use fuzzcheck::sensors_and_pools::ArrayOfCounters;
-    /// # static mut COUNTERS: [u64; 2] = [0; 2];
-    /// # // inside the fuzz test, you can create the sensor as follows
-    /// # let sensor = ArrayOfCounters::new(unsafe { &mut COUNTERS });
-    /// let sensor = sensor.map(|observations| {
-    ///    let sum = observations.iter().sum::<u64>();
-    ///    (observations, sum)
-    /// });
-    /// ```
-    #[no_coverage]
-    fn map<ToObservations, F>(self, map_f: F) -> MapSensor<Self, ToObservations, F>
-    where
-        Self: Sized,
-        F: Fn(Self::Observations) -> ToObservations,
-    {
-        MapSensor::new(self, map_f)
-    }
-}
-impl<T> SensorExt for T where T: Sensor {}
-
-/// A trait for convenience methods automatically implemented for all types that conform to `Mutator<V>`
-pub trait MutatorExt<T>: Mutator<T> + Sized
-where
-    T: Clone + 'static,
-{
-    /// Create a mutator which wraps `self` but only produces values
-    /// for which the given closure returns `true`
-    #[no_coverage]
-    fn filter<F>(self, filter: F) -> FilterMutator<Self, F>
-    where
-        F: Fn(&T) -> bool,
-    {
-        FilterMutator { mutator: self, filter }
-    }
-    /// Create a mutator which wraps `self` and transforms the values generated by `self`
-    /// using the `map` closure. The second closure, `parse`, should apply the opposite
-    /// transformation.
-    #[no_coverage]
-    fn map<To, Map, Parse>(self, map: Map, parse: Parse) -> MapMutator<T, To, Self, Parse, Map>
-    where
-        To: Clone + 'static,
-        Map: Fn(&T) -> To,
-        Parse: Fn(&To) -> Option<T>,
-    {
-        MapMutator::new(self, parse, map)
-    }
-}
-impl<T, M> MutatorExt<T> for M
-where
-    M: Mutator<T>,
-    T: Clone + 'static,
-{
 }
