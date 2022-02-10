@@ -27,95 +27,28 @@ impl CompiledTarget {
 pub fn launch_executable(
     target_name: &str,
     args: &Arguments,
-    name_package: Option<String>,
     compiled_target: &CompiledTarget,
     cargo_args: &[String],
     stdio: impl Fn() -> Stdio,
 ) -> std::io::Result<process::Child> {
     let args = string_from_args(args);
-    let child = if let Some(name_package) = &name_package {
-        let compiled = Command::new("cargo")
-            .env("CARGO_BUILD_PIPELINING", "false")
-            .env("RUSTFLAGS", "--cfg fuzzing -Ccodegen-units=1")
-            .arg("rustc")
-            .args(compiled_target.to_args())
-            .args(cargo_args)
-            .args(["--target", TARGET])
-            .arg("--release")
-            .arg("--all-features")
-            .args(["--target-dir", BUILD_FOLDER])
-            .arg("--")
-            .arg("--test")
-            .args(["--cfg", "test"])
-            .args(["-Zinstrument-coverage", "-Zno-profiler-runtime"])
-            .stdout(stdio())
-            .stderr(stdio())
-            .spawn()?
-            .wait_with_output()?;
-        assert!(compiled.status.success());
-        let dep_folder = PathBuf::new()
-            .join(BUILD_FOLDER)
-            .join(TARGET)
-            .join("release")
-            .join("deps");
-        let files_inside_dep_folder = std::fs::read_dir(dep_folder)?;
-        let mut executables = vec![];
-        for file in files_inside_dep_folder.flatten() {
-            let metadata = file.metadata().unwrap();
-            let mode = metadata.mode();
-            if metadata.is_file() && mode & 0o111 != 0 {
-                if file
-                    .file_name()
-                    .into_string()
-                    .unwrap()
-                    .as_str()
-                    .starts_with(name_package)
-                {
-                    let time_created = metadata.ctime();
-                    executables.push((time_created, file.path()));
-                }
-            }
-        }
-        if executables.is_empty() {
-            panic!("did not find executable");
-        } else {
-            let most_recent_exec = executables
-                .iter()
-                .max_by_key(|(time, _)| time)
-                .map(|(_, path)| path)
-                .unwrap();
-            Command::new(most_recent_exec)
-                .env("FUZZCHECK_ARGS", args)
-                .arg("--nocapture")
-                .arg("--exact")
-                .arg(target_name)
-                .args(["--test-threads", "1"])
-                .stdout(stdio())
-                .stderr(stdio())
-                .spawn()?
-        }
-    } else {
-        Command::new("cargo")
-            .env("FUZZCHECK_ARGS", args)
-            .env(
-                "RUSTFLAGS",
-                "-Zinstrument-coverage -Zno-profiler-runtime --cfg fuzzing -Ccodegen-units=1",
-            )
-            .arg("test")
-            .args(compiled_target.to_args())
-            .args(cargo_args)
-            .args(["--target", TARGET])
-            .arg("--release")
-            .args(["--target-dir", BUILD_FOLDER])
-            .arg("--")
-            .arg("--nocapture")
-            .arg("--exact")
-            .arg(target_name)
-            .args(["--test-threads", "1"])
-            .stdout(stdio())
-            .stderr(stdio())
-            .spawn()?
-    };
+    let child = Command::new("cargo")
+        .env("FUZZCHECK_ARGS", args)
+        .env("RUSTFLAGS", "-C instrument-coverage --cfg fuzzing -Ccodegen-units=1")
+        .arg("test")
+        .args(compiled_target.to_args())
+        .args(cargo_args)
+        .args(["--target", TARGET])
+        .arg("--release")
+        .args(["--target-dir", BUILD_FOLDER])
+        .arg("--")
+        .arg("--nocapture")
+        .arg("--exact")
+        .arg(target_name)
+        .args(["--test-threads", "1"])
+        .stdout(stdio())
+        .stderr(stdio())
+        .spawn()?;
 
     Ok(child)
 }
@@ -171,7 +104,7 @@ pub fn input_minify_command(
 
     println!("launch with config: {:?}", string_from_args(&config));
 
-    let child = launch_executable(target_name, &config, None, compiled_target, cargo_args, stdio)?;
+    let child = launch_executable(target_name, &config, compiled_target, cargo_args, stdio)?;
     let o = child.wait_with_output()?;
 
     assert!(!o.status.success());
@@ -182,7 +115,7 @@ pub fn input_minify_command(
             input_file: simplest.clone(),
         };
         println!("launch with config: {:?}", string_from_args(&config));
-        let mut c = launch_executable(target_name, &config, None, compiled_target, cargo_args, Stdio::inherit)?;
+        let mut c = launch_executable(target_name, &config, compiled_target, cargo_args, Stdio::inherit)?;
         c.wait()?;
     }
 }
