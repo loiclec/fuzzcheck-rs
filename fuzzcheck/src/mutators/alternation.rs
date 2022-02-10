@@ -384,7 +384,7 @@ where
                 value,
                 &cache.inner,
                 #[no_coverage]
-                &mut |typeid, path, cplx| register_path(typeid, (cache_idx, path), cplx + self.added_complexity),
+                &mut |typeid, path, cplx| register_path(typeid, (cache_idx, path), cplx),
             );
         }
     }

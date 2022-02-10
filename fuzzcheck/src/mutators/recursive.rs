@@ -189,12 +189,7 @@ where
     #[doc(hidden)]
     #[no_coverage]
     fn min_complexity(&self) -> f64 {
-        // should be the min complexity of the mutator
-        if let Some(m) = self.reference.upgrade() {
-            m.as_ref().min_complexity()
-        } else {
-            1.0 // not right, but easy hack for now
-        }
+        self.reference.upgrade().unwrap().min_complexity()
     }
 
     #[doc(hidden)]
@@ -316,11 +311,13 @@ where
                 &cache,
                 #[no_coverage]
                 &mut |typeid, path, cplx| {
+                    println!("rec all paths");
                     if typeid == TypeId::of::<T>() {
                         if let Some(subvalue) = self.mutator.lens(value, &cache, &path).downcast_ref::<T>() {
-                            if self.mutator.validate_value(&subvalue).is_some() {
-                                // let subcplx = self.mutator.complexity(&subvalue, &subcache);
-                                paths_to_self.push((path, cplx));
+                            if let Some(subcache) = self.mutator.validate_value(&subvalue) {
+                                let subcplx = self.mutator.complexity(&subvalue, &subcache);
+                                assert_eq!(cplx, subcplx);
+                                paths_to_self.push((path, subcplx));
                             }
                         }
                     }

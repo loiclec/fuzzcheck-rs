@@ -94,10 +94,10 @@ where
     #[no_coverage]
     fn complexity_from_inner(&self, cplx: f64, len: usize) -> f64 {
         if self.inherent_complexity {
-            1.0 + if self.m.min_complexity() == 0.0 {
-                len as f64 + cplx
-            } else {
+            1.0 + if len == 0 || self.m.min_complexity() > 0.0 {
                 cplx
+            } else {
+                len as f64 + cplx
             }
         } else {
             cplx
@@ -156,14 +156,20 @@ where
             #[no_coverage]
             |sum_cplx, c| sum_cplx + c,
         );
+        println!("sum cplx: {sum_cplx:.2}");
 
         let random_mutation_step = self.mutations.default_random_step(self, value).unwrap();
+
+        println!("random mutation step done");
 
         let cache = VecMutatorCache {
             inner: inner_caches,
             sum_cplx,
             random_mutation_step,
         };
+
+        println!("return cache");
+
         Some(cache)
     }
     #[doc(hidden)]
@@ -191,7 +197,12 @@ where
     #[no_coverage]
     fn min_complexity(&self) -> f64 {
         let min_len = *self.len_range.start();
-        let cplx = self.complexity_from_inner((min_len as f64) * self.m.min_complexity(), min_len);
+        let min_sum_cplx = if min_len == 0 {
+            0.0
+        } else {
+            (min_len as f64) * self.m.min_complexity()
+        };
+        let cplx = self.complexity_from_inner(min_sum_cplx, min_len);
         cplx
     }
     #[doc(hidden)]
@@ -318,7 +329,9 @@ where
         cache: &Self::Cache,
         register_path: &mut dyn FnMut(TypeId, Self::LensPath, f64),
     ) {
+        println!("vec all paths, value is empty: {}", value.is_empty());
         if !value.is_empty() {
+            println!("iterating over elements");
             let typeid = TypeId::of::<T>();
             for idx in 0..value.len() {
                 let cplx = self.m.complexity(&value[idx], &cache.inner[idx]);

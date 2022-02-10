@@ -380,6 +380,7 @@ fn read_field_default_mutator_attribute(attribute: TokenStream) -> Option<(Ty, O
         Some(_) => panic!(),
         None => return None,
     };
+    assert!(parser.is_eot());
     let mut parser = TokenParser::new(content.stream());
     let ty = parser.eat_type();
     if let Some(ty) = ty {

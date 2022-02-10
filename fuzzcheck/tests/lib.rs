@@ -1,6 +1,6 @@
 #![feature(no_coverage)]
-#![feature(trivial_bounds)]
-
+// #![feature(trivial_bounds)]
+#![feature(bench_black_box)]
 mod alternation_char_mutators;
 mod char_mutators;
 mod constrained_integer;

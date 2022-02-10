@@ -9,6 +9,7 @@
 //! The crate documentation contains information on how to set up and launch a fuzz-test ([here](crate::builder)) but
 //! also documents the core traits ([`Pool`], [`Sensor`], [`Mutator`], etc.) that are useful to understand how it works
 //! and to extend it.
+
 #![feature(doc_cfg)]
 #![feature(drain_filter)]
 #![feature(never_type)]
@@ -17,7 +18,6 @@
 #![feature(generic_associated_types)]
 #![feature(variant_count)]
 #![feature(arc_new_cyclic)]
-#![feature(trivial_bounds)]
 #![feature(stmt_expr_attributes)]
 #![allow(clippy::nonstandard_macro_braces)]
 #![allow(clippy::too_many_arguments)]

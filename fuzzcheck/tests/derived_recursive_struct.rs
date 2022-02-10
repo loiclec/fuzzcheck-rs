@@ -1,8 +1,8 @@
 #![allow(unused_attributes)]
 #![allow(clippy::type_complexity)]
 #![feature(no_coverage)]
+#![feature(bench_black_box)]
 
-use fuzzcheck::make_mutator;
 use fuzzcheck::mutators::boxed::BoxMutator;
 use fuzzcheck::mutators::integer::U8Mutator;
 use fuzzcheck::mutators::option::OptionMutator;
@@ -11,6 +11,7 @@ use fuzzcheck::mutators::testing_utilities::test_mutator;
 use fuzzcheck::mutators::tuples::{Tuple2, Tuple2Mutator, TupleMutatorWrapper};
 use fuzzcheck::mutators::vector::VecMutator;
 use fuzzcheck::DefaultMutator;
+use fuzzcheck::{make_mutator, Mutator};
 
 use std::fmt::Debug;
 
@@ -65,10 +66,35 @@ make_mutator! {
     }
 }
 
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+struct SampleStruct2 {
+    w: Vec<Box<SampleStruct2>>,
+}
+
+make_mutator! {
+    name: SampleStruct2Mutator,
+    recursive: true,
+    default: true,
+    type:
+    struct SampleStruct2 {
+        #[field_mutator(
+            VecMutator<Box<SampleStruct2>, BoxMutator<RecurToMutator<SampleStruct2Mutator>>> = {
+                VecMutator::new(BoxMutator::new(self_.into()), 0..=10, true)
+            }
+        )]
+        w: Vec<Box<SampleStruct2>>,
+    }
+}
+
 #[test]
 fn test_derived_struct() {
-    let mutator = SampleStruct::<u8, u8>::default_mutator();
-    test_mutator(mutator, 1000., 1000., false, true, 50, 50);
-    let mutator = <Vec<SampleStruct<u8, u8>>>::default_mutator();
-    test_mutator(mutator, 500., 500., false, true, 50, 100);
+    let mutator = SampleStruct2::default_mutator();
+    // test_mutator(mutator, 100., 100., false, true, 50, 50);
+
+    for _ in 0..1 {
+        assert!(mutator.validate_value(&SampleStruct2 { w: vec![] }).is_some());
+    }
+    std::hint::black_box(mutator);
+    // let mutator = <Vec<SampleStruct<u8, u8>>>::default_mutator();
+    // test_mutator(mutator, 500., 500., false, true, 50, 100);
 }
