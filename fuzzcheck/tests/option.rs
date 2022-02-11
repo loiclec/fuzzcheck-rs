@@ -1,12 +1,12 @@
-use fuzzcheck::subvalue_provider::{CrossoverSubValueProvider, Generation, LensPathAndComplexity, SubValueProviderId};
+use fuzzcheck::subvalue_provider::{CrossoverSubValueProvider, Generation, SubValueProviderId};
 use fuzzcheck::DefaultMutator;
 use fuzzcheck::SubValueProvider;
 use fuzzcheck::{
     mutators::{integer::U8Mutator, option::OptionMutator},
     Mutator,
 };
+
 use std::any::TypeId;
-use std::collections::HashMap;
 
 #[test]
 fn test_crossover_option() {
@@ -14,27 +14,16 @@ fn test_crossover_option() {
     let crossover_mutator = <Vec<Option<usize>>>::default_mutator();
     let crossover_cache = crossover_mutator.validate_value(&crossover_value).unwrap();
 
-    let mut lens_paths: HashMap<TypeId, Vec<LensPathAndComplexity<_>>> = HashMap::default();
-    crossover_mutator.all_paths(
-        &crossover_value,
-        &crossover_cache,
-        &mut |typeid, lens_path, complexity| {
-            lens_paths
-                .entry(typeid)
-                .or_default()
-                .push(LensPathAndComplexity { lens_path, complexity });
-        },
-    );
-    let subvalue_provider = CrossoverSubValueProvider::from(
-        &crossover_mutator,
-        &crossover_value,
-        &crossover_cache,
-        &lens_paths,
+    let subvalue_provider = CrossoverSubValueProvider::new(
         SubValueProviderId {
             idx: 0,
             generation: Generation(0),
         },
+        &crossover_value,
+        &crossover_cache,
+        &crossover_mutator,
     );
+
     let mut index = 0;
     for _ in 0..100 {
         let x = subvalue_provider

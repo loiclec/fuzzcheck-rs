@@ -1,7 +1,7 @@
 use crate::fuzzer::PoolStorageIndex;
 use crate::subvalue_provider::SubValueProvider;
 use fuzzcheck_common::FuzzerEvent;
-use std::any::{Any, TypeId};
+use std::any::Any;
 use std::fmt::Display;
 use std::path::PathBuf;
 
@@ -168,7 +168,7 @@ terminology, then think of the sub-value provider as the structure-aware replace
 for the “crossover” mutation and the dictionary. Here is how it works:
 
 For each value in the fuzzing corpus, the mutator iterates over each subpart of the
-value by calling [`self.all_paths(value, cache, register_path_closure)`](Mutator::all_paths).
+value by calling [`self.visit_subvalues(value, cache, visit_closure)`](Mutator::visit_subvalues).
 For example, for the value
 ```
 struct S {
@@ -182,30 +182,27 @@ let x = S {
     c: (Some(true), 10372)
 }
 ```
-the `all_paths` method will call the `register_path_closure` with the
-following arguments.
+the `visit_subvalues` method will call the `visit` closure with each subvalue
+and its complexity. For the value `x` above, it will be called with the
+following arguments:
 ```ignore
-(usize, .a, 64.0)                 // 887236
-(Option<bool>, .b, 1.0)           // None
-((Option<bool>, usize), .c, 66.0) // (Some(true), 10372)
-(Option<bool>, .c.0, 2.0)         // Some(true)
-(usize, .c.1, 64.0)               // 10372
-(usize, .c.0.Some, 1.0)           // true
+(&x.a           , 64.0) // 887236
+(&x.b           , 1.0)  // None
+(&x.c           , 66.0) // (Some(true), 10372)
+(&x.c.0         , 2.0)  // Some(true)
+(&x.c.1         , 64.0) // 10372
+(&x.c.0.unwrap(), 1.0)  // true
 ```
-The first argument is the type id of the subvalue. The second
-argument is the path from the whole value to the subvalue (see
-[`LensPath`](Mutator::LensPath) and [`self.lens(..)`](Mutator::lens)).
-The third argument is the complexity of the subvalue.
 
 The fuzzer builds a data structure keeping track of these subvalues and pass it
-to the mutator as a `&dyn SubValueProvider`. The mutator can then use it as
+to the mutator as a `&dyn SubValueProvider`. The mutator could then use it as
 follows:
 ```ignore
 fn ordered_mutate(&self, value: &mut S, cache: &mut Self::Cache, step: &mut Self::Step, subvalue_provider: &dyn SubValueProvider, max_cplx: f64) -> Option<(Self::UnmutateToken, f64)>
 {
     // let's say we want to replace the value x.c.1 with something taken from the subvalue provider
     if let Some(new_xc1) = subvalue_provider.get_subvalue(TypeId::of::<usize>(), &mut idx, max_xc1_cplx) {
-        let new_xc1 = new_xc1.downcast_ref::<usize>().unwrap(); // guaranteed to succeed
+        let new_xc1 = new_xc1.downcast_ref::<usize>().unwrap().clone(); // guaranteed to succeed
         value.x.c.1 = new_xc1;
         // etc.
     }
@@ -221,8 +218,6 @@ pub trait Mutator<Value: Clone + 'static>: 'static {
     type ArbitraryStep: Clone;
     /// Describes how to reverse a mutation
     type UnmutateToken;
-    /// Describes how to obtain a particular subset of `Value`. It is used by [`self.lens(..)`](Mutator::lens).
-    type LensPath: Clone;
 
     /// The first [`ArbitraryStep`](Mutator::ArbitraryStep) value to be passed to [`ordered_arbitrary`](crate::Mutator::ordered_arbitrary)
     fn default_arbitrary_step(&self) -> Self::ArbitraryStep;
@@ -313,25 +308,7 @@ pub trait Mutator<Value: Clone + 'static>: 'static {
     /// the given [`UnmutateToken`](Mutator::UnmutateToken).
     fn unmutate(&self, value: &mut Value, cache: &mut Self::Cache, t: Self::UnmutateToken);
 
-    /// Returns the subvalue described by `path`.
-    ///
-    /// For example, if the value has the type `Vec<(u8, bool)>`, then `Self::LensPath` could be
-    /// a tuple `(usize, TupleIndex)` where the first element is an index of the vector and the
-    /// second element determines whether to focus on the first or second part of the tuple.
-    /// So for the value `v = [(8, false), (2, true)]` and the lens path `(1, Right)`, this method
-    /// would return a reference to `true` as a `&dyn Any`.
-    ///
-    /// The valid lens paths of a value are provided by [`self.all_paths(..)`](Mutator::all_paths).
-    /// The purpose of these two methods is to create a [`SubValueProvider`](crate::SubValueProvider)
-    /// from each interesting test case saved by the fuzzer.
-    fn lens<'a>(&self, value: &'a Value, cache: &'a Self::Cache, path: &Self::LensPath) -> &'a dyn Any;
-
-    /// Iterates over all subvalue of the given value.
-    ///
-    /// For each subvalue, the given closure is called with the type id of the part, the
-    /// [lens path](Self::LensPath) to access it through [`self.lens(..)`](Mutator::lens),
-    /// and the complexity of the subvalue.
-    fn all_paths(&self, value: &Value, cache: &Self::Cache, register_path: &mut dyn FnMut(TypeId, Self::LensPath, f64));
+    fn visit_subvalues<'a>(&self, value: &'a Value, cache: &'a Self::Cache, visit: &mut dyn FnMut(&'a dyn Any, f64));
 }
 
 /// A [Serializer] is used to encode and decode test cases into bytes.

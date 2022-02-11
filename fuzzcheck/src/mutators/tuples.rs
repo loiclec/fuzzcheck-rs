@@ -87,10 +87,7 @@
 //! of trying to reuse mutators. But it would be a much larger amount of work, would probably increase compile times, and
 //! it would be more difficult to refactor and keep the implementations correct.
 use crate::Mutator;
-use std::{
-    any::{Any, TypeId},
-    marker::PhantomData,
-};
+use std::{any::Any, marker::PhantomData};
 
 /// A trait which essentially holds the types of a destructured tuple or structure.
 ///
@@ -132,7 +129,6 @@ where
     type MutationStep: Clone;
     type ArbitraryStep: Clone;
     type UnmutateToken;
-    type LensPath: Clone;
 
     fn default_arbitrary_step(&self) -> Self::ArbitraryStep;
 
@@ -170,13 +166,11 @@ where
 
     fn unmutate<'a>(&self, value: TupleKind::Mut<'a>, cache: &'a mut Self::Cache, t: Self::UnmutateToken);
 
-    fn lens<'a>(&self, value: TupleKind::Ref<'a>, cache: &'a Self::Cache, path: &Self::LensPath) -> &'a dyn Any;
-
-    fn all_paths<'a>(
+    fn visit_subvalues<'a>(
         &self,
         value: TupleKind::Ref<'a>,
         cache: &'a Self::Cache,
-        register_path: &mut dyn FnMut(TypeId, Self::LensPath, f64),
+        visit: &mut dyn FnMut(&'a dyn Any, f64),
     );
 }
 
@@ -229,8 +223,6 @@ where
     type ArbitraryStep = M::ArbitraryStep;
     #[doc(hidden)]
     type UnmutateToken = M::UnmutateToken;
-    #[doc(hidden)]
-    type LensPath = M::LensPath;
 
     #[doc(hidden)]
     #[no_coverage]
@@ -313,25 +305,15 @@ where
 
     #[doc(hidden)]
     #[no_coverage]
-    fn lens<'a>(&self, value: &'a T, cache: &'a Self::Cache, path: &Self::LensPath) -> &'a dyn Any {
-        self.mutator.lens(value.get_ref(), cache, path)
-    }
-
-    #[doc(hidden)]
-    #[no_coverage]
-    fn all_paths<'a>(
-        &self,
-        value: &'a T,
-        cache: &'a Self::Cache,
-        register_path: &mut dyn FnMut(TypeId, Self::LensPath, f64),
-    ) {
-        self.mutator.all_paths(value.get_ref(), cache, register_path)
+    fn visit_subvalues<'a>(&self, value: &'a T, cache: &'a Self::Cache, visit: &mut dyn FnMut(&'a dyn Any, f64)) {
+        self.mutator.visit_subvalues(value.get_ref(), cache, visit)
     }
 }
 
 pub use tuple0::{Tuple0, Tuple0Mutator};
 mod tuple0 {
-    use std::any::TypeId;
+
+    use std::any::Any;
 
     use super::TupleMutator;
     use crate::mutators::tuples::RefTypes;
@@ -453,28 +435,14 @@ mod tuple0 {
         fn unmutate(&self, _value: (), _cache: &mut Self::Cache, _t: Self::UnmutateToken) {}
 
         #[doc(hidden)]
-        type LensPath = !;
-
-        #[doc(hidden)]
         #[no_coverage]
-        fn lens<'a>(&self, _value: (), _cache: &'a Self::Cache, _path: &Self::LensPath) -> &'a dyn std::any::Any {
-            unreachable!()
-        }
-        #[doc(hidden)]
-        #[no_coverage]
-        fn all_paths<'a>(
-            &self,
-            _value: (),
-            _cache: &'a Self::Cache,
-            _register_path: &mut dyn FnMut(TypeId, Self::LensPath, f64),
-        ) {
-        }
+        fn visit_subvalues<'a>(&self, _value: (), _cache: &'a Self::Cache, _visit: &mut dyn FnMut(&'a dyn Any, f64)) {}
     }
 }
 
 pub use tuple1::{Tuple1, Tuple1Mutator};
 mod tuple1 {
-    use std::any::TypeId;
+    use std::any::Any;
 
     use super::{TupleMutator, TupleMutatorWrapper};
     use crate::mutators::{tuples::RefTypes, CrossoverStep, CROSSOVER_RATE};
@@ -547,8 +515,6 @@ mod tuple1 {
         type ArbitraryStep = <M0 as crate::Mutator<T0>>::ArbitraryStep;
         #[doc(hidden)]
         type UnmutateToken = UnmutateTuple1Token<T0, <M0 as crate::Mutator<T0>>::UnmutateToken>;
-        #[doc(hidden)]
-        type LensPath = Option<M0::LensPath>;
 
         #[doc(hidden)]
         #[no_coverage]
@@ -683,35 +649,15 @@ mod tuple1 {
 
         #[doc(hidden)]
         #[no_coverage]
-        fn lens<'a>(
+        fn visit_subvalues<'a>(
             &self,
             value: <Tuple1<T0> as RefTypes>::Ref<'a>,
             cache: &'a Self::Cache,
-            path: &Self::LensPath,
-        ) -> &'a dyn std::any::Any {
-            if let Some(path) = path {
-                self.mutator_0.lens(value.0, cache, path)
-            } else {
-                value.0
-            }
-        }
-
-        #[doc(hidden)]
-        #[no_coverage]
-        fn all_paths<'a>(
-            &self,
-            value: <Tuple1<T0> as RefTypes>::Ref<'a>,
-            cache: &'a Self::Cache,
-            register_path: &mut dyn FnMut(TypeId, Self::LensPath, f64),
+            visit: &mut dyn FnMut(&'a dyn Any, f64),
         ) {
             let cplx = self.mutator_0.complexity(value.0, cache);
-            register_path(TypeId::of::<T0>(), None, cplx);
-            self.mutator_0.all_paths(
-                value.0,
-                cache,
-                #[no_coverage]
-                &mut |typeid, lens_path, cplx| register_path(typeid, Some(lens_path), cplx),
-            );
+            visit(value.0, cplx);
+            self.mutator_0.visit_subvalues(value.0, cache, visit);
         }
     }
     impl<T0> crate::mutators::DefaultMutator for (T0,)

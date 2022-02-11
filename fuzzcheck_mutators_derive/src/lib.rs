@@ -262,7 +262,6 @@ impl Default for MakeMutatorSettings {
 pub(crate) struct Common {
     AlternationMutator: TokenStream,
     Any: TokenStream,
-    TypeId: TokenStream,
     Clone: TokenStream,
     Default: TokenStream,
     DefaultMutator: TokenStream,
@@ -327,7 +326,6 @@ impl Common {
         Self {
             AlternationMutator: ts!(mutators "::alternation::AlternationMutator"),
             Any: ts!("::std::any::Any"),
-            TypeId: ts!("::std::any::TypeId"),
             Clone: ts!("::std::clone::Clone"),
             CrossoverStep: ts!("fuzzcheck::mutators::CrossoverStep"),
             Default: ts!("::std::default::Default"),

@@ -1,9 +1,5 @@
 use crate::Mutator;
-use std::{
-    any::{Any, TypeId},
-    cmp::Ordering,
-    marker::PhantomData,
-};
+use std::{any::Any, cmp::Ordering, marker::PhantomData};
 
 /**
 A mutator that wraps multiple different mutators of the same type.
@@ -152,8 +148,6 @@ where
     type ArbitraryStep = ArbitraryStep<M::ArbitraryStep>;
     #[doc(hidden)]
     type UnmutateToken = UnmutateToken<T, M::UnmutateToken>;
-    #[doc(hidden)]
-    type LensPath = (usize, M::LensPath);
 
     #[doc(hidden)]
     #[no_coverage]
@@ -387,25 +381,11 @@ where
 
     #[doc(hidden)]
     #[no_coverage]
-    fn lens<'a>(&self, value: &'a T, cache: &'a Self::Cache, path: &Self::LensPath) -> &'a dyn Any {
-        let cache = &cache[path.0];
-        let idx = cache.mutator_idx;
-        let mutator = &self.mutators[idx];
-        mutator.lens(value, &cache.inner, &path.1)
-    }
-
-    #[doc(hidden)]
-    #[no_coverage]
-    fn all_paths(&self, value: &T, cache: &Self::Cache, register_path: &mut dyn FnMut(TypeId, Self::LensPath, f64)) {
-        for (cache_idx, cache) in cache.iter().enumerate() {
+    fn visit_subvalues<'a>(&self, value: &'a T, cache: &'a Self::Cache, visit: &mut dyn FnMut(&'a dyn Any, f64)) {
+        for cache in cache.iter() {
             let mutator_idx = cache.mutator_idx;
             let mutator = &self.mutators[mutator_idx];
-            mutator.all_paths(
-                value,
-                &cache.inner,
-                #[no_coverage]
-                &mut |typeid, path, cplx| register_path(typeid, (cache_idx, path), cplx),
-            );
+            mutator.visit_subvalues(value, &cache.inner, visit);
         }
     }
 }

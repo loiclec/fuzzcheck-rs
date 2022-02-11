@@ -2,9 +2,9 @@ use crate::mutators::integer::{
     binary_search_arbitrary_u16, binary_search_arbitrary_u32, binary_search_arbitrary_u64, binary_search_arbitrary_u8,
 };
 use crate::Mutator;
+use std::any::Any;
 use std::ops::Bound;
 use std::ops::RangeBounds;
-
 const INITIAL_MUTATION_STEP: u64 = 0;
 
 macro_rules! impl_int_mutator_constrained {
@@ -61,8 +61,6 @@ macro_rules! impl_int_mutator_constrained {
             type ArbitraryStep = u64;
             #[doc(hidden)]
             type UnmutateToken = $name; // old value
-            #[doc(hidden)]
-            type LensPath = !;
 
             #[doc(hidden)]
             #[no_coverage]
@@ -184,21 +182,11 @@ macro_rules! impl_int_mutator_constrained {
 
             #[doc(hidden)]
             #[no_coverage]
-            fn lens<'a>(
+            fn visit_subvalues<'a>(
                 &self,
                 _value: &'a $name,
-                _cache: &Self::Cache,
-                _path: &Self::LensPath,
-            ) -> &'a dyn std::any::Any {
-                unreachable!()
-            }
-            #[doc(hidden)]
-            #[no_coverage]
-            fn all_paths(
-                &self,
-                _value: &$name,
-                _cache: &Self::Cache,
-                _register_path: &mut dyn FnMut(std::any::TypeId, Self::LensPath, f64),
+                _cache: &'a Self::Cache,
+                _visit: &mut dyn FnMut(&'a dyn Any, f64),
             ) {
             }
         }

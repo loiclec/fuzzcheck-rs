@@ -1,7 +1,7 @@
 use super::CrossoverStep;
 use crate::{Mutator, CROSSOVER_RATE};
 use fastrand::Rng;
-use std::{any::TypeId, marker::PhantomData};
+use std::{any::Any, marker::PhantomData};
 
 /// A mutator for vectors of a specific length
 ///
@@ -197,8 +197,6 @@ impl<T: Clone + 'static, M: Mutator<T>> Mutator<Vec<T>> for FixedLenVecMutator<T
     type ArbitraryStep = ();
     #[doc(hidden)]
     type UnmutateToken = UnmutateVecToken<T, M>;
-    #[doc(hidden)]
-    type LensPath = (usize, Option<M::LensPath>);
 
     #[doc(hidden)]
     #[no_coverage]
@@ -408,43 +406,19 @@ impl<T: Clone + 'static, M: Mutator<T>> Mutator<Vec<T>> for FixedLenVecMutator<T
 
     #[doc(hidden)]
     #[no_coverage]
-    fn lens<'a>(&self, value: &'a Vec<T>, cache: &'a Self::Cache, path: &Self::LensPath) -> &'a dyn std::any::Any {
-        let el = &value[path.0];
-
-        if let Some(subpath) = &path.1 {
-            let el_cache = &cache.inner[path.0];
-            self.mutators[path.0].lens(el, el_cache, subpath)
-        } else {
-            el
-        }
-    }
-
-    #[doc(hidden)]
-    #[no_coverage]
-    fn all_paths(
+    fn visit_subvalues<'a>(
         &self,
-        value: &Vec<T>,
-        cache: &Self::Cache,
-        register_path: &mut dyn FnMut(TypeId, Self::LensPath, f64),
+        value: &'a Vec<T>,
+        cache: &'a Self::Cache,
+        visit: &mut dyn FnMut(&'a dyn Any, f64),
     ) {
         if !value.is_empty() {
-            let typeid = TypeId::of::<T>();
             for idx in 0..value.len() {
                 let cplx = self.mutators[idx].complexity(&value[idx], &cache.inner[idx]);
-                register_path(typeid, (idx, None), cplx);
+                visit(&value[idx], cplx);
             }
-            for (idx, ((el, el_cache), mutator)) in value
-                .iter()
-                .zip(cache.inner.iter())
-                .zip(self.mutators.iter())
-                .enumerate()
-            {
-                mutator.all_paths(
-                    el,
-                    el_cache,
-                    #[no_coverage]
-                    &mut |typeid, subpath, cplx| register_path(typeid, (idx, Some(subpath)), cplx),
-                );
+            for ((el, el_cache), mutator) in value.iter().zip(cache.inner.iter()).zip(self.mutators.iter()) {
+                mutator.visit_subvalues(el, el_cache, visit);
             }
         }
     }

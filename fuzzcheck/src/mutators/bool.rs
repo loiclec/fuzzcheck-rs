@@ -1,6 +1,7 @@
 use crate::DefaultMutator;
 use crate::Mutator;
-use std::any::TypeId;
+use std::any::Any;
+
 
 /// Default mutator for `bool`
 #[derive(Default)]
@@ -42,8 +43,6 @@ impl Mutator<bool> for BoolMutator {
     type ArbitraryStep = ArbitraryStep;
     #[doc(hidden)]
     type UnmutateToken = bool;
-    #[doc(hidden)]
-    type LensPath = !;
 
     #[doc(hidden)]
     #[no_coverage]
@@ -141,17 +140,11 @@ impl Mutator<bool> for BoolMutator {
 
     #[doc(hidden)]
     #[no_coverage]
-    fn lens<'a>(&self, _value: &'a bool, _cache: &Self::Cache, _path: &Self::LensPath) -> &'a dyn std::any::Any {
-        unreachable!()
-    }
-
-    #[doc(hidden)]
-    #[no_coverage]
-    fn all_paths(
+    fn visit_subvalues<'a>(
         &self,
-        _value: &bool,
-        _cache: &Self::Cache,
-        _register_path: &mut dyn FnMut(TypeId, Self::LensPath, f64),
+        _value: &'a bool,
+        _cache: &'a Self::Cache,
+        _visit: &mut dyn FnMut(&'a dyn Any, f64),
     ) {
     }
 }

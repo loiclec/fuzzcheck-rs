@@ -12,7 +12,7 @@ use crate::mutators::tuples::Tuple1Mutator;
 use crate::mutators::vector::VecMutator;
 use crate::Mutator;
 use fuzzcheck_mutators_derive::make_single_variant_mutator;
-use std::any::TypeId;
+use std::any::Any;
 use std::collections::HashMap;
 use std::rc::{Rc, Weak};
 
@@ -81,16 +81,7 @@ impl ASTMutatorMutationStep {
 pub struct ASTMutatorArbitraryStep {
     inner: Box<<InnerASTMutator as Mutator<AST>>::ArbitraryStep>,
 }
-#[derive(Clone)]
-pub struct ASTMutatorLensPath {
-    pub(crate) inner: Box<<InnerASTMutator as Mutator<AST>>::LensPath>,
-}
-impl ASTMutatorLensPath {
-    #[no_coverage]
-    fn new(inner: <InnerASTMutator as Mutator<AST>>::LensPath) -> Self {
-        Self { inner: Box::new(inner) }
-    }
-}
+
 pub struct ASTMutatorUnmutateToken {
     pub(crate) inner: Box<<InnerASTMutator as Mutator<AST>>::UnmutateToken>,
 }
@@ -110,8 +101,6 @@ impl Mutator<AST> for ASTMutator {
     type ArbitraryStep = ASTMutatorArbitraryStep;
     #[doc(hidden)]
     type UnmutateToken = ASTMutatorUnmutateToken;
-    #[doc(hidden)]
-    type LensPath = ASTMutatorLensPath;
 
     #[doc(hidden)]
     #[no_coverage]
@@ -200,21 +189,8 @@ impl Mutator<AST> for ASTMutator {
 
     #[doc(hidden)]
     #[no_coverage]
-    fn lens<'a>(&self, value: &'a AST, cache: &'a Self::Cache, path: &Self::LensPath) -> &'a dyn std::any::Any {
-        self.inner.lens(value, &cache.inner, &path.inner)
-    }
-
-    #[doc(hidden)]
-    #[no_coverage]
-    fn all_paths(&self, value: &AST, cache: &Self::Cache, register_path: &mut dyn FnMut(TypeId, Self::LensPath, f64)) {
-        self.inner.all_paths(
-            value,
-            &cache.inner,
-            #[no_coverage]
-            &mut |typeid, subpath, cplx| {
-                register_path(typeid, Self::LensPath::new(subpath), cplx);
-            },
-        );
+    fn visit_subvalues<'a>(&self, value: &'a AST, cache: &'a Self::Cache, visit: &mut dyn FnMut(&'a dyn Any, f64)) {
+        self.inner.visit_subvalues(value, &cache.inner, visit);
     }
 }
 

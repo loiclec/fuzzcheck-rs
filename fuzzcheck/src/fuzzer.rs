@@ -3,14 +3,14 @@ use crate::sensors_and_pools::{
     AndSensorAndPool, NoopSensor, TestFailure, TestFailurePool, TestFailureSensor, UnitPool, TEST_FAILURE,
 };
 use crate::signals_handler::set_signal_handlers;
-use crate::subvalue_provider::{CrossoverSubValueProvider, Generation, LensPathAndComplexity, SubValueProviderId};
+use crate::subvalue_provider::{CrossoverSubValueProvider, Generation, SubValueProviderId};
 use crate::traits::{CorpusDelta, Mutator, SaveToStatsFolder, SensorAndPool, Serializer};
 use crate::world::World;
 use crate::{CSVField, SubValueProvider, ToCSV};
 use fuzzcheck_common::arg::{Arguments, FuzzerCommand};
 use fuzzcheck_common::{FuzzerEvent, FuzzerStats};
 use libc::{SIGABRT, SIGALRM, SIGBUS, SIGFPE, SIGINT, SIGSEGV, SIGTERM, SIGTRAP};
-use std::any::TypeId;
+use std::any::{Any, TypeId};
 use std::borrow::Borrow;
 use std::collections::hash_map::DefaultHasher;
 use std::collections::HashMap;
@@ -76,9 +76,7 @@ where
     M: Mutator<T>,
 {
     input: FuzzedInput<T, M>,
-    cloned_value: T,
-    cloned_cache: M::Cache,
-    lens_paths: HashMap<TypeId, Vec<LensPathAndComplexity<M::LensPath>>>,
+    subvalues: CrossoverSubValueProvider<T, M>,
 }
 
 /**
@@ -412,29 +410,34 @@ where
                 .expect(UPDATE_CORPUS_ERROR);
             world.report_event(event, Some((fuzzer_stats, sensor_and_pool.stats().as_ref())));
             if add_ref_count > 0 {
-                let input = input.new_source(mutator, Generation(fuzzer_stats.total_number_of_runs));
+                let generation = Generation(fuzzer_stats.total_number_of_runs);
+                let input = input.new_source(mutator, generation);
 
-                let mut lens_paths: HashMap<TypeId, Vec<LensPathAndComplexity<M::LensPath>>> = HashMap::default();
-                mutator.all_paths(
+                let mut subvalues: HashMap<TypeId, Vec<(*const dyn Any, f64)>> = HashMap::default();
+                mutator.visit_subvalues(
                     &input.value,
                     &input.cache,
                     #[no_coverage]
-                    &mut |typeid, lens_path, complexity| {
-                        lens_paths
-                            .entry(typeid)
+                    &mut |subvalue, complexity| {
+                        subvalues
+                            .entry(subvalue.type_id())
                             .or_default()
-                            .push(LensPathAndComplexity { lens_path, complexity });
+                            .push((subvalue as *const _, complexity));
                     },
                 );
-                let cloned_value = input.value.clone();
-                let cloned_cache = input.cache.clone();
-                let stored_input = FuzzedInputAndSubValueProvider {
-                    input,
-                    cloned_value,
-                    cloned_cache,
-                    lens_paths,
-                };
-                pool_storage.insert(stored_input, add_ref_count);
+                let storage_idx_1 = pool_storage.next_slot();
+                let subvalues = CrossoverSubValueProvider::new(
+                    SubValueProviderId {
+                        idx: storage_idx_1,
+                        generation,
+                    },
+                    &input.value,
+                    &input.cache,
+                    mutator,
+                );
+                let stored_input = FuzzedInputAndSubValueProvider { input, subvalues };
+                let storage_idx_2 = pool_storage.insert(stored_input, add_ref_count);
+                assert_eq!(storage_idx_1, storage_idx_2);
             }
             for delta in deltas {
                 for r in delta.remove {
@@ -450,52 +453,19 @@ where
     fn get_input_and_subvalue_provider<'a>(
         pool_storage: &'a mut RcSlab<FuzzedInputAndSubValueProvider<T, M>>,
         sensor_and_pool: &mut dyn SensorAndPool,
-        mutator: &'a M,
         rng: &fastrand::Rng,
         idx: PoolStorageIndex,
-    ) -> (&'a mut FuzzedInput<T, M>, impl SubValueProvider + 'a) {
+    ) -> (&'a mut FuzzedInput<T, M>, &'a (impl SubValueProvider + 'a)) {
         let idx_cross = sensor_and_pool.get_random_index().unwrap();
 
         if idx == idx_cross || rng.u8(..5) == 0 {
-            let FuzzedInputAndSubValueProvider {
-                input,
-                cloned_value,
-                cloned_cache,
-                lens_paths,
-            } = &mut pool_storage[idx.0];
-            // self-crossover
-            let identifier = SubValueProviderId {
-                idx: idx.0,
-                generation: input.generation,
-            };
-            (
-                input,
-                CrossoverSubValueProvider::from(mutator, cloned_value, cloned_cache, lens_paths, identifier),
-            )
+            let FuzzedInputAndSubValueProvider { input, subvalues } = &mut pool_storage[idx.0];
+            (input, subvalues)
         } else {
             // crossover of two different test cases
-            let (
-                input,
-                FuzzedInputAndSubValueProvider {
-                    input: input_cross,
-                    lens_paths,
-                    ..
-                },
-            ) = pool_storage.get_mut_and_ref(idx.0, idx_cross.0).unwrap();
-            let identifier = SubValueProviderId {
-                idx: idx_cross.0,
-                generation: input_cross.generation,
-            };
-            (
-                &mut input.input,
-                CrossoverSubValueProvider::from(
-                    mutator,
-                    &input_cross.value,
-                    &input_cross.cache,
-                    lens_paths,
-                    identifier,
-                ),
-            )
+            let (input, FuzzedInputAndSubValueProvider { subvalues, .. }) =
+                pool_storage.get_mut_and_ref(idx.0, idx_cross.0).unwrap();
+            (&mut input.input, subvalues)
         }
     }
 
@@ -516,10 +486,10 @@ where
         if let Some(idx) = sensor_and_pool.get_random_index() {
             *input_idx = FuzzerInputIndex::Pool(idx);
             let (input, subvalue_provider) =
-                Self::get_input_and_subvalue_provider(pool_storage, sensor_and_pool.as_mut(), mutator, rng, idx);
+                Self::get_input_and_subvalue_provider(pool_storage, sensor_and_pool.as_mut(), rng, idx);
             let generation = input.generation;
             if let Some((unmutate_token, complexity)) =
-                input.mutate(mutator, &subvalue_provider, settings.max_input_cplx)
+                input.mutate(mutator, subvalue_provider, settings.max_input_cplx)
             {
                 drop(subvalue_provider);
                 if complexity < self.state.settings.max_input_cplx {
@@ -743,27 +713,36 @@ where
                     world,
                 );
 
-                let mut lens_paths: HashMap<TypeId, Vec<LensPathAndComplexity<M::LensPath>>> = HashMap::default();
-                fuzzer.state.mutator.all_paths(
+                let mut subvalues: HashMap<TypeId, Vec<(*const dyn Any, f64)>> = HashMap::default();
+                fuzzer.state.mutator.visit_subvalues(
                     &value,
                     &cache,
                     #[no_coverage]
-                    &mut |typeid, lens_path, complexity| {
-                        lens_paths
-                            .entry(typeid)
+                    &mut |subvalue, complexity| {
+                        subvalues
+                            .entry(subvalue.type_id())
                             .or_default()
-                            .push(LensPathAndComplexity { lens_path, complexity });
+                            .push((subvalue as *const _, complexity));
                     },
                 );
-                let cloned_value = value.clone();
-                let cloned_cache = cache.clone();
+                let storage_idx_1 = fuzzer.state.pool_storage.next_slot();
+                let generation = Generation(0);
+                let subvalues = CrossoverSubValueProvider::new(
+                    SubValueProviderId {
+                        idx: storage_idx_1,
+                        generation,
+                    },
+                    &value,
+                    &cache,
+                    &fuzzer.state.mutator,
+                );
                 let stored_input = FuzzedInputAndSubValueProvider {
-                    input: FuzzedInput::new(value, cache, mutation_step, Generation(0)),
-                    cloned_value,
-                    cloned_cache,
-                    lens_paths,
+                    input: FuzzedInput::new(value, cache, mutation_step, generation),
+                    subvalues,
                 };
-                fuzzer.state.pool_storage.insert(stored_input, 1);
+                let storage_idx_2 = fuzzer.state.pool_storage.insert(stored_input, 1);
+
+                assert_eq!(storage_idx_1, storage_idx_2);
 
                 unsafe { fuzzer.state.set_up_signal_handler() };
 

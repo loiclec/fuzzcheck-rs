@@ -1,7 +1,7 @@
 use crate::mutators::mutations::{Mutation, RevertMutation};
 use crate::subvalue_provider::EmptySubValueProvider;
 use crate::{DefaultMutator, Mutator};
-use std::any::{Any, TypeId};
+use std::any::Any;
 use std::cmp;
 use std::marker::PhantomData;
 use std::ops::RangeInclusive;
@@ -117,8 +117,6 @@ where
     type ArbitraryStep = VecArbitraryStep;
     #[doc(hidden)]
     type UnmutateToken = RevertVectorMutation<T, M>;
-    #[doc(hidden)]
-    type LensPath = (usize, Option<M::LensPath>);
 
     #[doc(hidden)]
     #[no_coverage]
@@ -306,36 +304,19 @@ where
 
     #[doc(hidden)]
     #[no_coverage]
-    fn lens<'a>(&self, value: &'a Vec<T>, cache: &'a Self::Cache, path: &Self::LensPath) -> &'a dyn Any {
-        let value = &value[path.0];
-        if let Some(subpath) = &path.1 {
-            let cache = &cache.inner[path.0];
-            self.m.lens(value, cache, subpath)
-        } else {
-            value
-        }
-    }
-    #[doc(hidden)]
-    #[no_coverage]
-    fn all_paths(
+    fn visit_subvalues<'a>(
         &self,
-        value: &Vec<T>,
-        cache: &Self::Cache,
-        register_path: &mut dyn FnMut(TypeId, Self::LensPath, f64),
+        value: &'a Vec<T>,
+        cache: &'a Self::Cache,
+        visit: &mut dyn FnMut(&'a dyn Any, f64),
     ) {
         if !value.is_empty() {
-            let typeid = TypeId::of::<T>();
             for idx in 0..value.len() {
                 let cplx = self.m.complexity(&value[idx], &cache.inner[idx]);
-                register_path(typeid, (idx, None), cplx);
+                visit(&value[idx], cplx);
             }
-            for (idx, (el, el_cache)) in value.iter().zip(cache.inner.iter()).enumerate() {
-                self.m.all_paths(
-                    el,
-                    el_cache,
-                    #[no_coverage]
-                    &mut |typeid, subpath, cplx| register_path(typeid, (idx, Some(subpath)), cplx),
-                );
+            for (el, el_cache) in value.iter().zip(cache.inner.iter()) {
+                self.m.visit_subvalues(el, el_cache, visit);
             }
         }
     }

@@ -1,4 +1,5 @@
-use std::any::TypeId;
+use std::any::Any;
+
 
 use crate::DefaultMutator;
 use crate::Mutator;
@@ -41,8 +42,6 @@ impl<T: Clone + 'static, M: Mutator<T>> Mutator<Box<T>> for BoxMutator<M> {
     type ArbitraryStep = M::ArbitraryStep;
     #[doc(hidden)]
     type UnmutateToken = UnmutateToken<T, M::UnmutateToken>;
-    #[doc(hidden)]
-    type LensPath = M::LensPath;
 
     #[doc(hidden)]
     #[no_coverage]
@@ -169,19 +168,13 @@ impl<T: Clone + 'static, M: Mutator<T>> Mutator<Box<T>> for BoxMutator<M> {
 
     #[doc(hidden)]
     #[no_coverage]
-    fn lens<'a>(&self, value: &'a Box<T>, cache: &'a Self::Cache, path: &Self::LensPath) -> &'a dyn std::any::Any {
-        self.mutator.lens(value, cache, path)
-    }
-
-    #[doc(hidden)]
-    #[no_coverage]
-    fn all_paths(
+    fn visit_subvalues<'a>(
         &self,
-        value: &Box<T>,
-        cache: &Self::Cache,
-        register_path: &mut dyn FnMut(TypeId, Self::LensPath, f64),
+        value: &'a Box<T>,
+        cache: &'a Self::Cache,
+        visit: &mut dyn FnMut(&'a dyn Any, f64),
     ) {
-        self.mutator.all_paths(value, cache, register_path)
+        self.mutator.visit_subvalues(value, cache, visit)
     }
 }
 

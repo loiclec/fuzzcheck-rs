@@ -1,5 +1,6 @@
 use crate::{bloom_filter::BloomFilter, Mutator};
 use std::{
+    any::Any,
     cell::{Cell, RefCell},
     hash::Hash,
     marker::PhantomData,
@@ -70,7 +71,7 @@ where
     type MutationStep = M::MutationStep;
     type ArbitraryStep = M::ArbitraryStep;
     type UnmutateToken = M::UnmutateToken;
-    type LensPath = M::LensPath;
+
     #[no_coverage]
     fn default_arbitrary_step(&self) -> Self::ArbitraryStep {
         self.mutator.default_arbitrary_step()
@@ -189,17 +190,7 @@ where
     }
 
     #[no_coverage]
-    fn lens<'a>(&self, value: &'a T, cache: &'a Self::Cache, path: &Self::LensPath) -> &'a dyn std::any::Any {
-        self.mutator.lens(value, cache, path)
-    }
-
-    #[no_coverage]
-    fn all_paths(
-        &self,
-        value: &T,
-        cache: &Self::Cache,
-        register_path: &mut dyn FnMut(std::any::TypeId, Self::LensPath, f64),
-    ) {
-        self.mutator.all_paths(value, cache, register_path)
+    fn visit_subvalues<'a>(&self, value: &'a T, cache: &'a Self::Cache, visit: &mut dyn FnMut(&'a dyn Any, f64)) {
+        self.mutator.visit_subvalues(value, cache, visit)
     }
 }

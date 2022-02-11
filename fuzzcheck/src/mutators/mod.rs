@@ -27,7 +27,6 @@ This module provides the following mutators:
 )]
 /*!
 - basic blocks to build more complex mutators:
-    * [`DictionaryMutator<_, M>`](crate::mutators::dictionary::DictionaryMutator) to wrap a mutator and prioritise the generation of a few given values
     * [`AlternationMutator<_, M>`](crate::mutators::alternation::AlternationMutator) to use multiple different mutators acting on the same test case type
     * [`Either<M1, M2>`](crate::mutators::either::Either) is the regular `Either` type, which also implements `Mutator<T>` if both `M1` and `M2` implement it too
     * [`RecursiveMutator` and `RecurToMutator`](crate::mutators::recursive) are wrappers allowing mutators to call themselves recursively, which is necessary to mutate recursive types.
@@ -53,7 +52,6 @@ pub mod bool;
 pub mod boxed;
 pub mod char;
 pub mod character_classes;
-pub mod dictionary;
 pub mod either;
 pub mod enums;
 pub mod filter;
@@ -179,8 +177,6 @@ where
     type ArbitraryStep = W::ArbitraryStep;
     #[doc(hidden)]
     type UnmutateToken = W::UnmutateToken;
-    #[doc(hidden)]
-    type LensPath = W::LensPath;
 
     #[doc(hidden)]
     #[no_coverage]
@@ -264,14 +260,8 @@ where
 
     #[doc(hidden)]
     #[no_coverage]
-    fn lens<'a>(&self, value: &'a T, cache: &'a Self::Cache, path: &Self::LensPath) -> &'a dyn Any {
-        self.wrapped_mutator().lens(value, cache, path)
-    }
-
-    #[doc(hidden)]
-    #[no_coverage]
-    fn all_paths(&self, value: &T, cache: &Self::Cache, register_path: &mut dyn FnMut(TypeId, Self::LensPath, f64)) {
-        self.wrapped_mutator().all_paths(value, cache, register_path)
+    fn visit_subvalues<'a>(&self, value: &'a T, cache: &'a Self::Cache, visit: &mut dyn FnMut(&'a dyn Any, f64)) {
+        self.wrapped_mutator().visit_subvalues(value, cache, visit)
     }
 }
 

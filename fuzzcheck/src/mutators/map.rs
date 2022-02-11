@@ -1,6 +1,5 @@
-use std::marker::PhantomData;
-
 use crate::Mutator;
+use std::{any::Any, marker::PhantomData};
 
 pub struct MapMutator<From, To, M, Parse, Map>
 where
@@ -73,8 +72,6 @@ where
     type ArbitraryStep = M::ArbitraryStep;
     #[doc(hidden)]
     type UnmutateToken = M::UnmutateToken;
-    #[doc(hidden)]
-    type LensPath = M::LensPath;
 
     #[doc(hidden)]
     #[no_coverage]
@@ -175,20 +172,9 @@ where
 
     #[doc(hidden)]
     #[no_coverage]
-    fn lens<'a>(&self, _value: &'a To, cache: &'a Self::Cache, path: &Self::LensPath) -> &'a dyn std::any::Any {
-        self.mutator.lens(&cache.from_value, &cache.from_cache, path)
-    }
-
-    #[doc(hidden)]
-    #[no_coverage]
-    fn all_paths(
-        &self,
-        _value: &To,
-        cache: &Self::Cache,
-        register_path: &mut dyn FnMut(std::any::TypeId, Self::LensPath, f64),
-    ) {
+    fn visit_subvalues<'a>(&self, _value: &'a To, cache: &'a Self::Cache, visit: &mut dyn FnMut(&'a dyn Any, f64)) {
         self.mutator
-            .all_paths(&cache.from_value, &cache.from_cache, register_path)
+            .visit_subvalues(&cache.from_value, &cache.from_cache, visit)
     }
 }
 
@@ -238,8 +224,6 @@ where
     type ArbitraryStep = M::ArbitraryStep;
     #[doc(hidden)]
     type UnmutateToken = M::UnmutateToken;
-    #[doc(hidden)]
-    type LensPath = M::LensPath;
 
     #[doc(hidden)]
     #[no_coverage]
@@ -345,20 +329,13 @@ where
 
     #[doc(hidden)]
     #[no_coverage]
-    fn lens<'a>(&self, value: &'a (To, From), cache: &'a Self::Cache, path: &Self::LensPath) -> &'a dyn std::any::Any {
-        let (_, from_value) = value;
-        self.mutator.lens(from_value, cache, path)
-    }
-
-    #[doc(hidden)]
-    #[no_coverage]
-    fn all_paths(
+    fn visit_subvalues<'a>(
         &self,
-        value: &(To, From),
-        cache: &Self::Cache,
-        register_path: &mut dyn FnMut(std::any::TypeId, Self::LensPath, f64),
+        value: &'a (To, From),
+        cache: &'a Self::Cache,
+        visit: &mut dyn FnMut(&'a dyn Any, f64),
     ) {
         let (_, from_value) = value;
-        self.mutator.all_paths(from_value, cache, register_path)
+        self.mutator.visit_subvalues(from_value, cache, visit)
     }
 }

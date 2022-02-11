@@ -277,13 +277,6 @@ fn declare_tuple_mutator_helper_types(tb: &mut TokenBuilder, nbr_elements: usize
         }
         #[doc(hidden)]
         #[derive(" cm.Clone ")]
-        pub enum LensPath<" tuple_type_params "> {"
-            join_ts!(0..nbr_elements, i,
-                Ti(i) "(" cm.Option "<" Ti(i) ">)"
-            , separator: ",")
-        "}
-        #[doc(hidden)]
-        #[derive(" cm.Clone ")]
         pub enum TupleIndex {"
             join_ts!(0..nbr_elements, i,
                 Ti(i)
@@ -391,12 +384,6 @@ fn impl_mutator_trait(tb: &mut TokenBuilder, nbr_elements: usize) {
             ","
             join_ts!(0..nbr_elements, i,
                 "<" Mi(i) "as" cm.fuzzcheck_traits_Mutator "<" Ti(i) "> >::UnmutateToken "
-            , separator: ",")
-        ">;
-        #[doc(hidden)]
-        type LensPath = LensPath <"
-            join_ts!(0..nbr_elements, i,
-                "<" Mi(i) "as" cm.fuzzcheck_traits_Mutator "<" Ti(i) "> >::LensPath "
             , separator: ",")
         ">;
         #[doc(hidden)]
@@ -670,29 +657,12 @@ fn impl_mutator_trait(tb: &mut TokenBuilder, nbr_elements: usize) {
 
         #[doc(hidden)]
         #[no_coverage]
-        fn lens<'a>(&self, value: " tuple_ref ", cache: &'a Self::Cache, path: &Self::LensPath) -> &'a dyn " cm.Any " {
-            match path {"
-                join_ts!(0..nbr_elements, i,
-                    "LensPath::" Ti(i) "(" cm.Some "(path))=> {
-                        self." mutator_i(i) ".lens(value. " i ", &cache. " ti(i) ", path)
-                    }"
-                    "LensPath::" Ti(i) "(" cm.None ")=> {
-                        value." i "
-                    }"
-                )
-            "}
-        }
-
-        #[doc(hidden)]
-        #[no_coverage]
-        fn all_paths<'a>(&self, value: " tuple_ref ", cache: &'a Self::Cache, register_path: &mut dyn FnMut(" cm.TypeId ", Self::LensPath, f64)) {"
+        fn visit_subvalues<'a>(&self, value: " tuple_ref ", cache: &'a Self::Cache, visit: &mut dyn FnMut(&'a dyn" cm.Any ", f64)) {"
             join_ts!(0..nbr_elements, i,
                 "
                 let cplx = self. " mutator_i(i) ".complexity(value. " i ", &cache. " ti(i) "); 
-                register_path(" cm.TypeId "::of::<" Ti(i) ">(), LensPath::" Ti(i) "(" cm.None "), cplx);
-                self." mutator_i(i) ".all_paths(value." i ", &cache. " ti(i) ", #[no_coverage] &mut |typeid, subpath, cplx| {
-                    register_path(typeid, LensPath::" Ti(i) "(" cm.Some "(subpath)), cplx);
-                });
+                visit(value." i ", cplx);
+                self." mutator_i(i) ".visit_subvalues(value." i ", &cache. " ti(i) ", visit);
                 "
             )
             "

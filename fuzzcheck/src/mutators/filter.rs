@@ -1,3 +1,5 @@
+use std::any::Any;
+
 use crate::Mutator;
 
 pub struct FilterMutator<M, F> {
@@ -19,8 +21,6 @@ where
     type ArbitraryStep = <M as Mutator<T>>::ArbitraryStep;
     #[doc(hidden)]
     type UnmutateToken = <M as Mutator<T>>::UnmutateToken;
-    #[doc(hidden)]
-    type LensPath = M::LensPath;
 
     #[doc(hidden)]
     #[no_coverage]
@@ -140,18 +140,7 @@ where
 
     #[doc(hidden)]
     #[no_coverage]
-    fn lens<'a>(&self, value: &'a T, cache: &'a Self::Cache, path: &Self::LensPath) -> &'a dyn std::any::Any {
-        self.mutator.lens(value, cache, path)
-    }
-
-    #[doc(hidden)]
-    #[no_coverage]
-    fn all_paths(
-        &self,
-        value: &T,
-        cache: &Self::Cache,
-        register_path: &mut dyn FnMut(std::any::TypeId, Self::LensPath, f64),
-    ) {
-        self.mutator.all_paths(value, cache, register_path)
+    fn visit_subvalues<'a>(&self, value: &'a T, cache: &'a Self::Cache, visit: &mut dyn FnMut(&'a dyn Any, f64)) {
+        self.mutator.visit_subvalues(value, cache, visit)
     }
 }

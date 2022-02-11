@@ -49,7 +49,6 @@
 use crate::Mutator;
 use std::{
     any::Any,
-    any::TypeId,
     fmt::Debug,
     rc::{Rc, Weak},
 };
@@ -153,8 +152,6 @@ where
     type ArbitraryStep = RecursingArbitraryStep<<M as Mutator<T>>::ArbitraryStep>;
     #[doc(hidden)]
     type UnmutateToken = <M as Mutator<T>>::UnmutateToken;
-    #[doc(hidden)]
-    type LensPath = <M as Mutator<T>>::LensPath;
 
     #[doc(hidden)]
     #[no_coverage]
@@ -252,27 +249,22 @@ where
 
     #[doc(hidden)]
     #[no_coverage]
-    fn lens<'a>(&self, value: &'a T, cache: &'a Self::Cache, path: &Self::LensPath) -> &'a dyn Any {
-        self.reference.upgrade().unwrap().lens(value, cache, path)
-    }
-
-    #[doc(hidden)]
-    #[no_coverage]
-    fn all_paths(&self, value: &T, cache: &Self::Cache, register_path: &mut dyn FnMut(TypeId, Self::LensPath, f64)) {
-        self.reference.upgrade().unwrap().all_paths(value, cache, register_path)
+    fn visit_subvalues<'a>(&self, value: &'a T, cache: &'a Self::Cache, visit: &mut dyn FnMut(&'a dyn Any, f64)) {
+        self.reference.upgrade().unwrap().visit_subvalues(value, cache, visit)
     }
 }
 
 #[derive(Clone)]
-pub struct RecursiveMutatorCache<C, LP> {
+pub struct RecursiveMutatorCache<T, C> {
     inner: C,
-    paths_to_self: Vec<(LP, f64)>,
+    _cloned_self: Box<(T, C)>,
+    sub_self_values: Vec<(*const T, f64)>,
 }
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct RecursiveMutatorMutationStep<MS> {
     mutation_step: MS,
-    idx_paths_to_self: usize,
+    idx_sub_self_values: usize,
 }
 
 pub enum RecursiveMutatorUnmutateToken<T, UnmutateToken> {
@@ -285,15 +277,13 @@ where
     M: Mutator<T>,
 {
     #[doc(hidden)]
-    type Cache = RecursiveMutatorCache<M::Cache, M::LensPath>;
+    type Cache = RecursiveMutatorCache<T, M::Cache>;
     #[doc(hidden)]
     type MutationStep = RecursiveMutatorMutationStep<M::MutationStep>;
     #[doc(hidden)]
     type ArbitraryStep = M::ArbitraryStep;
     #[doc(hidden)]
     type UnmutateToken = RecursiveMutatorUnmutateToken<T, M::UnmutateToken>;
-    #[doc(hidden)]
-    type LensPath = <M as Mutator<T>>::LensPath;
 
     #[doc(hidden)]
     #[no_coverage]
@@ -305,26 +295,26 @@ where
     #[no_coverage]
     fn validate_value(&self, value: &T) -> Option<Self::Cache> {
         if let Some(cache) = self.mutator.validate_value(value) {
-            let mut paths_to_self = vec![];
-            self.mutator.all_paths(
-                value,
-                &cache,
+            let cloned_self = Box::new((value.clone(), cache.clone()));
+            let mut sub_self_values = vec![];
+            self.mutator.visit_subvalues(
+                &cloned_self.0,
+                &cloned_self.1,
                 #[no_coverage]
-                &mut |typeid, path, cplx| {
-                    if typeid == TypeId::of::<T>() {
-                        if let Some(subvalue) = self.mutator.lens(value, &cache, &path).downcast_ref::<T>() {
-                            if let Some(subcache) = self.mutator.validate_value(&subvalue) {
-                                let subcplx = self.mutator.complexity(&subvalue, &subcache);
-                                assert_eq!(cplx, subcplx);
-                                paths_to_self.push((path, subcplx));
-                            }
+                &mut |subvalue, cplx| {
+                    if let Some(sub_self_value) = subvalue.downcast_ref::<T>() {
+                        if let Some(subcache) = self.mutator.validate_value(sub_self_value) {
+                            let subcplx = self.mutator.complexity(sub_self_value, &subcache);
+                            assert_eq!(cplx, subcplx);
+                            sub_self_values.push((sub_self_value as *const _, subcplx));
                         }
                     }
                 },
             );
             Some(RecursiveMutatorCache {
                 inner: cache,
-                paths_to_self,
+                _cloned_self: cloned_self,
+                sub_self_values,
             })
         } else {
             None
@@ -337,7 +327,7 @@ where
 
         RecursiveMutatorMutationStep {
             mutation_step,
-            idx_paths_to_self: 0,
+            idx_sub_self_values: 0,
         }
     }
 
@@ -387,12 +377,13 @@ where
         subvalue_provider: &dyn crate::SubValueProvider,
         max_cplx: f64,
     ) -> Option<(Self::UnmutateToken, f64)> {
-        if step.idx_paths_to_self < cache.paths_to_self.len() {
-            let (path, cplx) = &cache.paths_to_self[step.idx_paths_to_self];
-            let mut subself = self.lens(value, cache, path).downcast_ref::<T>().unwrap().clone();
-            step.idx_paths_to_self += 1;
-            std::mem::swap(value, &mut subself);
-            Some((RecursiveMutatorUnmutateToken::Replace(subself), *cplx))
+        if step.idx_sub_self_values < cache.sub_self_values.len() {
+            let (subself, cplx) = cache.sub_self_values[step.idx_sub_self_values];
+            let subself = unsafe { subself.as_ref() }.unwrap();
+            let mut tmp = subself.clone();
+            step.idx_sub_self_values += 1;
+            std::mem::swap(value, &mut tmp);
+            Some((RecursiveMutatorUnmutateToken::Replace(tmp), cplx))
         } else {
             if let Some((token, cplx)) = self.mutator.ordered_mutate(
                 value,
@@ -411,12 +402,13 @@ where
     #[doc(hidden)]
     #[no_coverage]
     fn random_mutate(&self, value: &mut T, cache: &mut Self::Cache, max_cplx: f64) -> (Self::UnmutateToken, f64) {
-        if !cache.paths_to_self.is_empty() && self.rng.usize(..100) == 0 {
-            let idx = self.rng.usize(..cache.paths_to_self.len());
-            let (path, cplx) = &cache.paths_to_self[idx];
-            let mut subself = self.lens(value, cache, path).downcast_ref::<T>().unwrap().clone();
-            std::mem::swap(value, &mut subself);
-            (RecursiveMutatorUnmutateToken::Replace(subself), *cplx)
+        if !cache.sub_self_values.is_empty() && self.rng.usize(..100) == 0 {
+            let idx = self.rng.usize(..cache.sub_self_values.len());
+            let (subself, cplx) = cache.sub_self_values[idx];
+            let subself = unsafe { subself.as_ref() }.unwrap();
+            let mut tmp = subself.clone();
+            std::mem::swap(value, &mut tmp);
+            (RecursiveMutatorUnmutateToken::Replace(tmp), cplx)
         } else {
             let (token, cplx) = self.mutator.random_mutate(value, &mut cache.inner, max_cplx);
             let token = RecursiveMutatorUnmutateToken::Token(token);
@@ -437,13 +429,7 @@ where
 
     #[doc(hidden)]
     #[no_coverage]
-    fn lens<'a>(&self, value: &'a T, cache: &'a Self::Cache, path: &Self::LensPath) -> &'a dyn Any {
-        self.mutator.lens(value, &cache.inner, path)
-    }
-
-    #[doc(hidden)]
-    #[no_coverage]
-    fn all_paths(&self, value: &T, cache: &Self::Cache, register_path: &mut dyn FnMut(TypeId, Self::LensPath, f64)) {
-        self.mutator.all_paths(value, &cache.inner, register_path)
+    fn visit_subvalues<'a>(&self, value: &'a T, cache: &'a Self::Cache, visit: &mut dyn FnMut(&'a dyn Any, f64)) {
+        self.mutator.visit_subvalues(value, &cache.inner, visit)
     }
 }

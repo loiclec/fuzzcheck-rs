@@ -1,6 +1,6 @@
 use crate::DefaultMutator;
 use crate::Mutator;
-
+use std::any::Any;
 /*
     These mutators try to achieve multiple things:
     * avoid repetitions, such that if the value “7” was already produced, then it will not appear again
@@ -158,8 +158,6 @@ macro_rules! impl_int_mutator {
             type ArbitraryStep = u64;
             #[doc(hidden)]
             type UnmutateToken = $name; // old value
-            #[doc(hidden)]
-            type LensPath = !;
 
             #[doc(hidden)]
             #[no_coverage]
@@ -273,21 +271,11 @@ macro_rules! impl_int_mutator {
 
             #[doc(hidden)]
             #[no_coverage]
-            fn lens<'a>(
+            fn visit_subvalues<'a>(
                 &self,
                 _value: &'a $name,
-                _cache: &Self::Cache,
-                _path: &Self::LensPath,
-            ) -> &'a dyn std::any::Any {
-                unreachable!()
-            }
-            #[doc(hidden)]
-            #[no_coverage]
-            fn all_paths(
-                &self,
-                _value: &$name,
-                _cache: &Self::Cache,
-                _register_path: &mut dyn FnMut(std::any::TypeId, Self::LensPath, f64),
+                _cache: &'a Self::Cache,
+                _visit: &mut dyn FnMut(&'a dyn Any, f64),
             ) {
             }
         }

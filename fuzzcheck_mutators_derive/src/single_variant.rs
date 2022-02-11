@@ -150,11 +150,6 @@ pub fn make_single_variant_mutator(tb: &mut TokenBuilder, enu: &Enum) {
             single_variant_generics.mutating_type_params(|tp| {
                 tp.type_ident = ts!(tp.type_ident "::UnmutateToken")
             }) ";
-        #[doc(hidden)]
-        type LensPath = " EnumSingleVariant
-            single_variant_generics.mutating_type_params(|tp| {
-                tp.type_ident = ts!(tp.type_ident "::LensPath")
-            }) ";
 
         #[doc(hidden)]
         #[no_coverage]
@@ -334,28 +329,10 @@ pub fn make_single_variant_mutator(tb: &mut TokenBuilder, enu: &Enum) {
             )" _ => unreachable!()
             }
         }
+
         #[doc(hidden)]
         #[no_coverage]
-        fn lens<'a>(&self, value: &'a " enu.ident enum_generics_no_bounds ", cache: &'a Self::Cache, path: &Self::LensPath) -> &'a dyn" cm.Any " 
-        {
-            match (self, value, cache, path) {"
-            join_ts!(&enu.items, item,
-                "(
-                    " EnumSingleVariant "::" item.ident "(m) ,
-                    " item.pattern_match(&enu.ident, Some(pattern_match_binding_append.clone())) ",
-                    " EnumSingleVariant "::" item.ident "(cache) ,
-                    " EnumSingleVariant "::" item.ident "(path) ,
-                ) => {"
-                    "
-                    m.lens(" item_pattern_match_bindings_to_tuple(&item.ident, true) ", cache, path)
-                    "
-                "}"
-            )" _ => unreachable!()
-            }
-        }
-        #[doc(hidden)]
-        #[no_coverage]
-        fn all_paths(&self, value: &" enu.ident enum_generics_no_bounds ", cache: &Self::Cache, register_path: &mut dyn FnMut(" cm.TypeId ", Self::LensPath, f64)) {
+        fn visit_subvalues<'a>(&self, value: &'a " enu.ident enum_generics_no_bounds ", cache: &'a Self::Cache, visit: &mut dyn FnMut(&'a dyn " cm.Any ", f64)) {
             match (self, value, cache) {"
             join_ts!(&enu.items, item,
                 "(
@@ -363,9 +340,7 @@ pub fn make_single_variant_mutator(tb: &mut TokenBuilder, enu: &Enum) {
                     " item.pattern_match(&enu.ident, Some(pattern_match_binding_append.clone())) ",
                     " EnumSingleVariant "::" item.ident "(cache)
                 ) => {
-                    m.all_paths(" item_pattern_match_bindings_to_tuple(&item.ident, true) ", cache, #[no_coverage] &mut |typeid, subpath, cplx| {
-                        register_path(typeid, " EnumSingleVariant "::" item.ident "(subpath), cplx);
-                    });
+                    m.visit_subvalues(" item_pattern_match_bindings_to_tuple(&item.ident, true) ", cache, visit);
                 }"
             )" _ => unreachable!()
             }

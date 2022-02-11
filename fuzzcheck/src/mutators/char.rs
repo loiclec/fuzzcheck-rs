@@ -1,6 +1,9 @@
 use crate::mutators::integer::binary_search_arbitrary_u32;
 use crate::Mutator;
-use std::ops::{Bound, RangeBounds};
+use std::{
+    any::Any,
+    ops::{Bound, RangeBounds},
+};
 
 const INITIAL_MUTATION_STEP: u64 = 0;
 
@@ -58,8 +61,6 @@ impl Mutator<char> for CharWithinRangeMutator {
     type ArbitraryStep = u64;
     #[doc(hidden)]
     type UnmutateToken = char; // old value
-    #[doc(hidden)]
-    type LensPath = !;
 
     #[doc(hidden)]
     #[no_coverage]
@@ -190,17 +191,11 @@ impl Mutator<char> for CharWithinRangeMutator {
 
     #[doc(hidden)]
     #[no_coverage]
-    fn lens<'a>(&self, _value: &'a char, _cache: &Self::Cache, _path: &Self::LensPath) -> &'a dyn std::any::Any {
-        unreachable!()
-    }
-
-    #[doc(hidden)]
-    #[no_coverage]
-    fn all_paths(
+    fn visit_subvalues<'a>(
         &self,
-        _value: &char,
-        _cache: &Self::Cache,
-        _register_path: &mut dyn FnMut(std::any::TypeId, Self::LensPath, f64),
+        _value: &'a char,
+        _cache: &'a Self::Cache,
+        _visit: &mut dyn FnMut(&'a dyn Any, f64),
     ) {
     }
 }

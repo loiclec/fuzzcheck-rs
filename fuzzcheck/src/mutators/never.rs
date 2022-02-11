@@ -1,4 +1,4 @@
-use std::any::TypeId;
+use std::any::Any;
 
 use crate::mutators::tuples::{RefTypes, TupleMutator, TupleStructure};
 use crate::Mutator;
@@ -14,8 +14,6 @@ impl<T: Clone + 'static> Mutator<T> for NeverMutator {
     type ArbitraryStep = ();
     #[doc(hidden)]
     type UnmutateToken = ();
-    #[doc(hidden)]
-    type LensPath = !;
 
     #[doc(hidden)]
     #[no_coverage]
@@ -97,18 +95,7 @@ impl<T: Clone + 'static> Mutator<T> for NeverMutator {
 
     #[doc(hidden)]
     #[no_coverage]
-    fn lens<'a>(&self, _value: &'a T, _cache: &'a Self::Cache, _path: &Self::LensPath) -> &'a dyn std::any::Any {
-        unreachable!()
-    }
-
-    #[doc(hidden)]
-    #[no_coverage]
-    fn all_paths(
-        &self,
-        _value: &T,
-        _cache: &Self::Cache,
-        _register_path: &mut dyn FnMut(std::any::TypeId, Self::LensPath, f64),
-    ) {
+    fn visit_subvalues<'a>(&self, _value: &'a T, _cache: &'a Self::Cache, _visit: &mut dyn FnMut(&'a dyn Any, f64)) {
         unreachable!()
     }
 }
@@ -125,8 +112,6 @@ where
     type ArbitraryStep = ();
     #[doc(hidden)]
     type UnmutateToken = ();
-    #[doc(hidden)]
-    type LensPath = !;
 
     #[doc(hidden)]
     #[no_coverage]
@@ -213,22 +198,11 @@ where
 
     #[doc(hidden)]
     #[no_coverage]
-    fn lens<'a>(
+    fn visit_subvalues<'a>(
         &self,
         _value: TupleKind::Ref<'a>,
         _cache: &'a Self::Cache,
-        _path: &Self::LensPath,
-    ) -> &'a dyn std::any::Any {
-        unreachable!()
-    }
-
-    #[doc(hidden)]
-    #[no_coverage]
-    fn all_paths<'a>(
-        &self,
-        _value: TupleKind::Ref<'a>,
-        _cache: &'a Self::Cache,
-        _register_path: &mut dyn FnMut(TypeId, Self::LensPath, f64),
+        _visit: &mut dyn FnMut(&'a dyn Any, f64),
     ) {
         unreachable!()
     }

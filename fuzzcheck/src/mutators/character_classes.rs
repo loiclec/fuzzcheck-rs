@@ -1,4 +1,7 @@
-use std::ops::{Range, RangeInclusive};
+use std::{
+    any::Any,
+    ops::{Range, RangeInclusive},
+};
 
 use fastrand::Rng;
 
@@ -93,8 +96,6 @@ impl Mutator<char> for CharacterMutator {
     type ArbitraryStep = u64;
     #[doc(hidden)]
     type UnmutateToken = char;
-    #[doc(hidden)]
-    type LensPath = !;
 
     #[doc(hidden)]
     #[no_coverage]
@@ -207,17 +208,11 @@ impl Mutator<char> for CharacterMutator {
 
     #[doc(hidden)]
     #[no_coverage]
-    fn lens<'a>(&self, _value: &'a char, _cache: &Self::Cache, _path: &Self::LensPath) -> &'a dyn std::any::Any {
-        unreachable!()
-    }
-
-    #[doc(hidden)]
-    #[no_coverage]
-    fn all_paths(
+    fn visit_subvalues<'a>(
         &self,
-        _value: &char,
-        _cache: &Self::Cache,
-        _register_path: &mut dyn FnMut(std::any::TypeId, Self::LensPath, f64),
+        _value: &'a char,
+        _cache: &'a Self::Cache,
+        _visit: &mut dyn FnMut(&'a dyn Any, f64),
     ) {
     }
 }

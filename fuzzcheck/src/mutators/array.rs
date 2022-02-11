@@ -1,4 +1,4 @@
-use std::{any::TypeId, marker::PhantomData};
+use std::{any::Any, marker::PhantomData};
 
 use crate::{DefaultMutator, Mutator};
 use fastrand::Rng;
@@ -168,8 +168,6 @@ impl<M: Mutator<T>, T: Clone + 'static, const N: usize> Mutator<[T; N]> for Arra
     type ArbitraryStep = ();
     #[doc(hidden)]
     type UnmutateToken = UnmutateArrayToken<M, T, N>;
-    #[doc(hidden)]
-    type LensPath = (usize, Option<M::LensPath>);
 
     #[doc(hidden)]
     #[no_coverage]
@@ -347,38 +345,19 @@ impl<M: Mutator<T>, T: Clone + 'static, const N: usize> Mutator<[T; N]> for Arra
 
     #[doc(hidden)]
     #[no_coverage]
-    fn lens<'a>(&self, value: &'a [T; N], cache: &'a Self::Cache, path: &Self::LensPath) -> &'a dyn std::any::Any {
-        let el = &value[path.0];
-
-        if let Some(subpath) = &path.1 {
-            let el_cache = &cache.inner[path.0];
-            self.mutator.lens(el, el_cache, subpath)
-        } else {
-            el
-        }
-    }
-
-    #[doc(hidden)]
-    #[no_coverage]
-    fn all_paths(
+    fn visit_subvalues<'a>(
         &self,
-        value: &[T; N],
-        cache: &Self::Cache,
-        register_path: &mut dyn FnMut(TypeId, Self::LensPath, f64),
+        value: &'a [T; N],
+        cache: &'a Self::Cache,
+        visit: &mut dyn FnMut(&'a dyn Any, f64),
     ) {
         if !value.is_empty() {
-            let type_of_element = TypeId::of::<T>();
             for idx in 0..value.len() {
                 let cplx = self.mutator.complexity(&value[idx], &cache.inner[idx]);
-                register_path(type_of_element, (idx, None), cplx);
+                visit(&value[idx], cplx);
             }
-            for (idx, (el, el_cache)) in value.iter().zip(cache.inner.iter()).enumerate() {
-                self.mutator.all_paths(
-                    el,
-                    el_cache,
-                    #[no_coverage]
-                    &mut |typeid, subpath, cplx| register_path(typeid, (idx, Some(subpath)), cplx),
-                );
+            for (el, el_cache) in value.iter().zip(cache.inner.iter()) {
+                self.mutator.visit_subvalues(el, el_cache, visit);
             }
         }
     }

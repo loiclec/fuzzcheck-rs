@@ -1,4 +1,4 @@
-use std::any::TypeId;
+use std::any::Any;
 
 use crate::Mutator;
 
@@ -21,8 +21,6 @@ where
     type ArbitraryStep = Either<M1::ArbitraryStep, M2::ArbitraryStep>;
     #[doc(hidden)]
     type UnmutateToken = Either<M1::UnmutateToken, M2::UnmutateToken>;
-    #[doc(hidden)]
-    type LensPath = Either<M1::LensPath, M2::LensPath>;
 
     #[doc(hidden)]
     #[inline]
@@ -180,34 +178,13 @@ where
     #[doc(hidden)]
     #[inline]
     #[no_coverage]
-    fn lens<'a>(&self, value: &'a T, cache: &'a Self::Cache, path: &Self::LensPath) -> &'a dyn std::any::Any {
-        match (self, cache, path) {
-            (Either::Left(m), Either::Left(cache), Either::Left(path)) => m.lens(value, cache, path),
-            (Either::Right(m), Either::Right(cache), Either::Right(path)) => m.lens(value, cache, path),
-            _ => unreachable!(),
-        }
-    }
-
-    #[doc(hidden)]
-    #[inline]
-    #[no_coverage]
-    fn all_paths(&self, value: &T, cache: &Self::Cache, register_path: &mut dyn FnMut(TypeId, Self::LensPath, f64)) {
+    fn visit_subvalues<'a>(&self, value: &'a T, cache: &'a Self::Cache, visit: &mut dyn FnMut(&'a dyn Any, f64)) {
         match (self, cache) {
             (Either::Left(m), Either::Left(cache)) => {
-                m.all_paths(
-                    value,
-                    cache,
-                    #[no_coverage]
-                    &mut |typeid, path, cplx| register_path(typeid, Either::Left(path), cplx),
-                );
+                m.visit_subvalues(value, cache, visit);
             }
             (Either::Right(m), Either::Right(cache)) => {
-                m.all_paths(
-                    value,
-                    cache,
-                    #[no_coverage]
-                    &mut |typeid, path, cplx| register_path(typeid, Either::Right(path), cplx),
-                );
+                m.visit_subvalues(value, cache, visit);
             }
             _ => unreachable!(),
         }

@@ -48,72 +48,63 @@ impl SubValueProvider for EmptySubValueProvider {
     }
 }
 
-pub struct LensPathAndComplexity<LP> {
-    pub lens_path: LP,
-    pub complexity: f64,
+pub struct CrossoverSubValueProvider<T, M>
+where
+    T: 'static + Clone,
+    M: Mutator<T>,
+{
+    identifier: SubValueProviderId,
+    immutable_data: Box<(T, M::Cache)>,
+    subvalues: HashMap<TypeId, Vec<(*const dyn Any, f64)>>,
 }
-
-/// A type which implements [`SubValueProvider`]
-/// from a fuzzed test case and its mutator.
-///
-/// Its [`self.get_subvalue(..)`](SubValueProvider::get_subvalue) returns
-/// parts of the test case, found by the [`mutator.all_paths(..)`](Mutator::all_paths)
-/// [`mutator.lens(..)`](Mutator::lens) methods.
-pub struct CrossoverSubValueProvider<'a, M, T>
+impl<T, M> CrossoverSubValueProvider<T, M>
 where
     T: Clone + 'static,
     M: Mutator<T>,
 {
-    identifier: SubValueProviderId,
-    mutator: &'a M,
-    value: &'a T,
-    cache: &'a M::Cache,
-    all_paths: &'a HashMap<TypeId, Vec<LensPathAndComplexity<M::LensPath>>>,
-}
-impl<'a, M, Value> CrossoverSubValueProvider<'a, M, Value>
-where
-    Value: Clone + 'static,
-    M: Mutator<Value>,
-{
-    #[no_coverage]
-    pub fn from(
-        mutator: &'a M,
-        value: &'a Value,
-        cache: &'a M::Cache,
-        all_paths: &'a HashMap<TypeId, Vec<LensPathAndComplexity<M::LensPath>>>,
-        identifier: SubValueProviderId,
-    ) -> Self {
+    pub fn new(identifier: SubValueProviderId, value: &T, cache: &M::Cache, mutator: &M) -> Self {
+        let boxed_data = Box::new((value.clone(), cache.clone()));
+
+        let mut subvalues: HashMap<TypeId, Vec<(*const dyn Any, f64)>> = HashMap::new();
+        mutator.visit_subvalues(
+            &boxed_data.0,
+            &boxed_data.1,
+            #[no_coverage]
+            &mut |subvalue, complexity| {
+                subvalues
+                    .entry(subvalue.type_id())
+                    .or_default()
+                    .push((subvalue as *const _, complexity));
+            },
+        );
+
         Self {
             identifier,
-            mutator,
-            value,
-            cache,
-            all_paths,
+            immutable_data: boxed_data,
+            subvalues,
         }
     }
 }
-impl<'a, M, Value> SubValueProvider for CrossoverSubValueProvider<'a, M, Value>
+impl<T, M> SubValueProvider for CrossoverSubValueProvider<T, M>
 where
-    Value: Clone + 'static,
-    M: Mutator<Value>,
+    T: Clone + 'static,
+    M: Mutator<T>,
 {
-    #[no_coverage]
     fn identifier(&self) -> SubValueProviderId {
         self.identifier
     }
 
-    #[no_coverage]
     fn get_subvalue(&self, typeid: TypeId, max_cplx: f64, index: &mut usize) -> Option<&dyn Any> {
-        let all_paths = self.all_paths.get(&typeid)?;
-        assert!(!all_paths.is_empty());
+        let subvalues = self.subvalues.get(&typeid)?;
+        assert!(!subvalues.is_empty());
         loop {
-            if self.value.type_id() == typeid && *index == all_paths.len() {
+            if TypeId::of::<T>() == typeid && *index == subvalues.len() {
                 *index += 1;
-                return Some(self.value);
+                return Some(&self.immutable_data.0);
             } else {
-                let LensPathAndComplexity { lens_path, complexity } = all_paths.get(*index)?;
+                let (subvalue, complexity) = subvalues.get(*index)?;
                 if *complexity < max_cplx {
-                    let subvalue = self.mutator.lens(self.value, self.cache, lens_path);
+                    let subvalue = unsafe { subvalue.as_ref() }.unwrap();
                     *index += 1;
                     return Some(subvalue);
                 } else {

@@ -1,5 +1,6 @@
+use std::any::Any;
+
 use crate::Mutator;
-use std::any::TypeId;
 
 /// Trait used by the [DefaultMutator derive macro](fuzzcheck_mutators_derive::DefaultMutator)
 /// for enums without associated data
@@ -37,8 +38,6 @@ where
     type ArbitraryStep = usize;
     #[doc(hidden)]
     type UnmutateToken = usize;
-    #[doc(hidden)]
-    type LensPath = !;
 
     #[doc(hidden)]
     #[no_coverage]
@@ -147,12 +146,5 @@ where
 
     #[doc(hidden)]
     #[no_coverage]
-    fn lens<'a>(&self, _value: &'a T, _cache: &Self::Cache, _path: &Self::LensPath) -> &'a dyn std::any::Any {
-        unreachable!()
-    }
-
-    #[doc(hidden)]
-    #[no_coverage]
-    fn all_paths(&self, _value: &T, _cache: &Self::Cache, _register_path: &mut dyn FnMut(TypeId, Self::LensPath, f64)) {
-    }
+    fn visit_subvalues<'a>(&self, _value: &'a T, _cache: &'a Self::Cache, _visit: &mut dyn FnMut(&'a dyn Any, f64)) {}
 }

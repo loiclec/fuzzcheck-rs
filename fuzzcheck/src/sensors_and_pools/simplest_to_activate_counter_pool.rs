@@ -798,7 +798,6 @@ mod tests {
         type MutationStep = ();
         type ArbitraryStep = ();
         type UnmutateToken = ();
-        type LensPath = !;
 
         #[no_coverage]
         fn default_arbitrary_step(&self) -> Self::ArbitraryStep {}
@@ -866,16 +865,11 @@ mod tests {
         fn unmutate(&self, _value: &mut f64, _cache: &mut Self::Cache, _t: Self::UnmutateToken) {}
 
         #[no_coverage]
-        fn lens<'a>(&self, _value: &'a f64, _cache: &Self::Cache, _path: &Self::LensPath) -> &'a dyn std::any::Any {
-            unreachable!()
-        }
-
-        #[no_coverage]
-        fn all_paths(
+        fn visit_subvalues<'a>(
             &self,
-            _value: &f64,
-            _cache: &Self::Cache,
-            _register_path: &mut dyn FnMut(std::any::TypeId, Self::LensPath, f64),
+            _value: &'a f64,
+            _cache: &'a Self::Cache,
+            _visit: &mut dyn FnMut(&'a dyn std::any::Any, f64),
         ) {
         }
     }
