@@ -26,11 +26,11 @@ where
     M: Mutator<T>,
 {
     mutators: Vec<M>,
-    max_complexity: f64,
-    min_complexity: f64,
     rng: fastrand::Rng,
     search_space_complexity: f64,
     added_complexity: f64,
+    min_complexity: f64,
+    max_complexity: f64,
     _phantom: PhantomData<T>,
 }
 
@@ -63,16 +63,36 @@ where
             )
             .unwrap();
 
-        let max_complexity = mutators[0].max_complexity() + added_complexity;
-        let min_complexity = mutators[0].min_complexity() + added_complexity;
+        let max_complexity = mutators
+            .iter()
+            .map(
+                #[no_coverage]
+                |m| m.max_complexity() + added_complexity,
+            )
+            .max_by(
+                #[no_coverage]
+                |x1, x2| x1.partial_cmp(x2).unwrap_or(Ordering::Equal),
+            )
+            .unwrap();
+        let min_complexity = mutators
+            .iter()
+            .map(
+                #[no_coverage]
+                |m| m.min_complexity() + added_complexity,
+            )
+            .min_by(
+                #[no_coverage]
+                |x1, x2| x1.partial_cmp(x2).unwrap_or(Ordering::Equal),
+            )
+            .unwrap();
 
         Self {
             mutators,
-            max_complexity,
-            min_complexity,
             search_space_complexity,
             rng: fastrand::Rng::default(),
             added_complexity,
+            min_complexity,
+            max_complexity,
             _phantom: PhantomData,
         }
     }
@@ -201,13 +221,13 @@ where
     #[doc(hidden)]
     #[no_coverage]
     fn max_complexity(&self) -> f64 {
-        self.complexity_from_inner(self.max_complexity)
+        self.max_complexity
     }
 
     #[doc(hidden)]
     #[no_coverage]
     fn min_complexity(&self) -> f64 {
-        self.complexity_from_inner(self.min_complexity)
+        self.min_complexity
     }
 
     #[doc(hidden)]

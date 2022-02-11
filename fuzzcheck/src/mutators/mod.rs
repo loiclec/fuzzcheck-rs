@@ -34,7 +34,7 @@ This module provides the following mutators:
     * [`MapMutator<..>`](crate::mutators::map::MapMutator) wraps a mutator and transforms the generated value using a user-provided function.
 */
 
-pub const CROSSOVER_RATE: u8 = 5;
+pub const CROSSOVER_RATE: u8 = 10;
 
 use crate::{subvalue_provider::Generation, Mutator, SubValueProvider};
 use ahash::AHashMap;

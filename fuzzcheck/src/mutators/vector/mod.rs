@@ -156,20 +156,14 @@ where
             #[no_coverage]
             |sum_cplx, c| sum_cplx + c,
         );
-        println!("sum cplx: {sum_cplx:.2}");
 
         let random_mutation_step = self.mutations.default_random_step(self, value).unwrap();
-
-        println!("random mutation step done");
 
         let cache = VecMutatorCache {
             inner: inner_caches,
             sum_cplx,
             random_mutation_step,
         };
-
-        println!("return cache");
-
         Some(cache)
     }
     #[doc(hidden)]
@@ -329,9 +323,7 @@ where
         cache: &Self::Cache,
         register_path: &mut dyn FnMut(TypeId, Self::LensPath, f64),
     ) {
-        println!("vec all paths, value is empty: {}", value.is_empty());
         if !value.is_empty() {
-            println!("iterating over elements");
             let typeid = TypeId::of::<T>();
             for idx in 0..value.len() {
                 let cplx = self.m.complexity(&value[idx], &cache.inner[idx]);

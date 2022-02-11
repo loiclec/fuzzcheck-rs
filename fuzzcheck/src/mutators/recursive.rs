@@ -189,7 +189,7 @@ where
     #[doc(hidden)]
     #[no_coverage]
     fn min_complexity(&self) -> f64 {
-        self.reference.upgrade().unwrap().min_complexity()
+        0.0
     }
 
     #[doc(hidden)]
@@ -311,7 +311,6 @@ where
                 &cache,
                 #[no_coverage]
                 &mut |typeid, path, cplx| {
-                    println!("rec all paths");
                     if typeid == TypeId::of::<T>() {
                         if let Some(subvalue) = self.mutator.lens(value, &cache, &path).downcast_ref::<T>() {
                             if let Some(subcache) = self.mutator.validate_value(&subvalue) {
