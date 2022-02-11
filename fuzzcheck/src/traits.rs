@@ -239,14 +239,9 @@ pub trait Mutator<Value: Clone + 'static>: 'static {
     fn global_search_space_complexity(&self) -> f64;
 
     /// The maximum complexity that a value can possibly have.
-    ///
-    /// If the maximum complexity is 0, it means that the mutator
-    /// can only produce one value.
     fn max_complexity(&self) -> f64;
+
     /// The minimum complexity that a value can possibly have.
-    ///
-    /// If the minimum complexity is 0, then the maximum complexity must
-    /// also be 0. It means that the mutator can only produce one value.
     fn min_complexity(&self) -> f64;
 
     /// Computes the complexity of the value.
