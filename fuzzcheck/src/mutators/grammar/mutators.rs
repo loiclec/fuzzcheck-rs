@@ -109,6 +109,11 @@ impl Mutator<AST> for ASTMutator {
             inner: Box::new(self.inner.default_arbitrary_step()),
         }
     }
+    #[doc(hidden)]
+    #[no_coverage]
+    fn is_valid(&self, value: &AST) -> bool {
+        self.inner.is_valid(value)
+    }
 
     #[doc(hidden)]
     #[no_coverage]
@@ -116,6 +121,7 @@ impl Mutator<AST> for ASTMutator {
         let cache = self.inner.validate_value(value)?;
         Some(Self::Cache::new(cache))
     }
+
     #[doc(hidden)]
     #[no_coverage]
     fn default_mutation_step(&self, value: &AST, cache: &Self::Cache) -> Self::MutationStep {

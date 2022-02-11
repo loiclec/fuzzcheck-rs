@@ -29,7 +29,7 @@ pub struct Generation(pub usize);
 pub trait SubValueProvider {
     /// A globally unique identifier for the subvalue provider
     fn identifier(&self) -> SubValueProviderId;
-    fn get_subvalue(&self, typeid: TypeId, max_cplx: f64, index: &mut usize) -> Option<&dyn Any>;
+    fn get_subvalue(&self, typeid: TypeId, max_cplx: f64, index: &mut usize) -> Option<(&dyn Any, f64)>;
 }
 
 /// A [`SubValueProvider`](crate::SubValueProvider) that always return `None`
@@ -43,7 +43,7 @@ impl SubValueProvider for EmptySubValueProvider {
         }
     }
     #[no_coverage]
-    fn get_subvalue(&self, _typeid: TypeId, _max_cplx: f64, _index: &mut usize) -> Option<&dyn Any> {
+    fn get_subvalue(&self, _typeid: TypeId, _max_cplx: f64, _index: &mut usize) -> Option<(&dyn Any, f64)> {
         None
     }
 }
@@ -55,6 +55,7 @@ where
 {
     identifier: SubValueProviderId,
     immutable_data: Box<(T, M::Cache)>,
+    whole_complexity: f64,
     subvalues: HashMap<TypeId, Vec<(*const dyn Any, f64)>>,
 }
 impl<T, M> CrossoverSubValueProvider<T, M>
@@ -77,10 +78,11 @@ where
                     .push((subvalue as *const _, complexity));
             },
         );
-
+        let whole_complexity = mutator.complexity(value, cache);
         Self {
             identifier,
             immutable_data: boxed_data,
+            whole_complexity,
             subvalues,
         }
     }
@@ -94,19 +96,19 @@ where
         self.identifier
     }
 
-    fn get_subvalue(&self, typeid: TypeId, max_cplx: f64, index: &mut usize) -> Option<&dyn Any> {
+    fn get_subvalue(&self, typeid: TypeId, max_cplx: f64, index: &mut usize) -> Option<(&dyn Any, f64)> {
         let subvalues = self.subvalues.get(&typeid)?;
         assert!(!subvalues.is_empty());
         loop {
             if TypeId::of::<T>() == typeid && *index == subvalues.len() {
                 *index += 1;
-                return Some(&self.immutable_data.0);
+                return Some((&self.immutable_data.0, self.whole_complexity));
             } else {
                 let (subvalue, complexity) = subvalues.get(*index)?;
                 if *complexity < max_cplx {
                     let subvalue = unsafe { subvalue.as_ref() }.unwrap();
                     *index += 1;
-                    return Some(subvalue);
+                    return Some((subvalue, *complexity));
                 } else {
                     *index += 1;
                 }

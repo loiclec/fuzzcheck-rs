@@ -418,6 +418,15 @@ fn impl_mutator_trait(tb: &mut TokenBuilder, nbr_elements: usize) {
         fn complexity<'a>(&self, _value: " tuple_ref ", cache: &'a Self::Cache) -> f64 {
             cache.cplx
         }
+
+        #[doc(hidden)]
+        #[no_coverage]
+        fn is_valid<'a>(&self, value: " tuple_ref ") -> bool {"
+             join_ts!(0..nbr_elements, i,
+                "self." mutator_i(i) ".is_valid(value." i ")"
+            , separator: "&&")
+        "}
+
         #[doc(hidden)]
         #[no_coverage]
         fn validate_value<'a>(&self, value: " tuple_ref ") -> " cm.Option "<Self::Cache> {"
@@ -536,10 +545,9 @@ fn impl_mutator_trait(tb: &mut TokenBuilder, nbr_elements: usize) {
                         i "=> {
                             let old_field_cplx = self." mutator_i(i) ".complexity(value." i ", &cache." ti(i) ");
                             let max_field_cplx = max_cplx - current_cplx + old_field_cplx;
-                            if let " cm.Some " (replacer) = step." ident!("crossover_step_" i) ".get_next_subvalue(subvalue_provider, max_field_cplx) {
-                                if let Some(replacer_cache) = self." mutator_i(i) ".validate_value(value." i ") {
-                                    let new_field_cplx = self. " mutator_i(i) ".complexity(value. " i ", &cache." ti(i) ");
-                                    let mut replacer = replacer.clone();
+                            if let " cm.Some " ((subvalue, new_field_cplx)) = step." ident!("crossover_step_" i) ".get_next_subvalue(subvalue_provider, max_field_cplx) {
+                                if self." mutator_i(i) ".is_valid(value." i ") {
+                                    let mut replacer = subvalue.clone();
                                     ::std::mem::swap(value." i ", &mut replacer);
                                     let mut token = Self::UnmutateToken::default();
                                     return " cm.Some "((Self::UnmutateToken {

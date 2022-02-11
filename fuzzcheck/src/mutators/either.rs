@@ -35,6 +35,16 @@ where
     #[doc(hidden)]
     #[inline]
     #[no_coverage]
+    fn is_valid(&self, value: &T) -> bool {
+        match self {
+            Either::Left(m) => m.is_valid(value),
+            Either::Right(m) => m.is_valid(value),
+        }
+    }
+
+    #[doc(hidden)]
+    #[inline]
+    #[no_coverage]
     fn validate_value(&self, value: &T) -> Option<Self::Cache> {
         match self {
             Either::Left(m) => {
@@ -47,6 +57,7 @@ where
             }
         }
     }
+
     #[doc(hidden)]
     #[inline]
     #[no_coverage]

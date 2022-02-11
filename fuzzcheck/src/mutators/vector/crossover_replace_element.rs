@@ -97,22 +97,15 @@ where
         let spare_cplx = max_cplx - value_cplx;
         let choice = mutator.rng.usize(..value.len());
         let step = &mut step.crossover_steps[choice];
-        if let Some((el, el_cache)) = step.get_next_subvalue(subvalue_provider, spare_cplx).and_then(
-            #[no_coverage]
-            |x| {
-                mutator.m.validate_value(x).map(
-                    #[no_coverage]
-                    |c| (x, c),
-                )
-            },
-        ) {
-            let el_cplx = mutator.m.complexity(el, &el_cache);
-            let el = el.clone();
-            return Some(ConcreteCrossoverReplaceElement::ReplaceElement {
-                el,
-                cplx: el_cplx,
-                idx: choice,
-            });
+        if let Some((el, el_cplx)) = step.get_next_subvalue(subvalue_provider, spare_cplx) {
+            if mutator.m.is_valid(el) {
+                let el = el.clone();
+                return Some(ConcreteCrossoverReplaceElement::ReplaceElement {
+                    el,
+                    cplx: el_cplx,
+                    idx: choice,
+                });
+            }
         }
         Some(ConcreteCrossoverReplaceElement::Random(choice))
     }

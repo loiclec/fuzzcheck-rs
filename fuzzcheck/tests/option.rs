@@ -28,9 +28,9 @@ fn test_crossover_option() {
     for _ in 0..100 {
         let x = subvalue_provider
             .get_subvalue(TypeId::of::<usize>(), 100.0, &mut index)
-            .and_then(|x| x.downcast_ref::<usize>());
-        if let Some(x) = x {
-            println!("{x}");
+            .and_then(|(x, cplx)| x.downcast_ref::<usize>().map(|x| (x, cplx)));
+        if let Some((x, cplx)) = x {
+            println!("{x}  {cplx:.2}");
         } else {
             break;
         }

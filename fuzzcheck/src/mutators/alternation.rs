@@ -168,6 +168,17 @@ where
 
     #[doc(hidden)]
     #[no_coverage]
+    fn is_valid(&self, value: &T) -> bool {
+        for m in self.mutators.iter() {
+            if m.is_valid(value) {
+                return true;
+            }
+        }
+        false
+    }
+
+    #[doc(hidden)]
+    #[no_coverage]
     fn validate_value(&self, value: &T) -> Option<Self::Cache> {
         let mut caches = vec![];
         for (idx, mutator) in self.mutators.iter().enumerate() {
@@ -184,6 +195,7 @@ where
             Some(caches)
         }
     }
+
     #[doc(hidden)]
     #[no_coverage]
     fn default_mutation_step(&self, value: &T, cache: &Self::Cache) -> Self::MutationStep {

@@ -51,6 +51,12 @@ impl<T: Clone + 'static, M: Mutator<T>> Mutator<Rc<T>> for RcMutator<M> {
 
     #[doc(hidden)]
     #[no_coverage]
+    fn is_valid(&self, value: &Rc<T>) -> bool {
+        self.mutator.is_valid(value)
+    }
+
+    #[doc(hidden)]
+    #[no_coverage]
     fn validate_value(&self, value: &Rc<T>) -> Option<Self::Cache> {
         self.mutator.validate_value(value)
     }
@@ -115,31 +121,14 @@ impl<T: Clone + 'static, M: Mutator<T>> Mutator<Rc<T>> for RcMutator<M> {
         max_cplx: f64,
     ) -> Option<(Self::UnmutateToken, f64)> {
         if self.rng.u8(..CROSSOVER_RATE) == 0 {
-            if let Some(result) = step
-                .crossover_step
-                .get_next_subvalue(subvalue_provider, max_cplx)
-                .and_then(
-                    #[no_coverage]
-                    |x| {
-                        self.mutator.validate_value(x).map(
-                            #[no_coverage]
-                            |c| (x, c),
-                        )
-                    },
-                )
-                .map(
-                    #[no_coverage]
-                    |(replacer, replacer_cache)| {
-                        let cplx = self.mutator.complexity(replacer, &replacer_cache);
-                        let replacer = replacer.clone();
-                        let old_value = value.as_ref().clone();
-                        // TODO: something more efficient
-                        *value = Rc::new(replacer);
-                        (UnmutateToken::Replace(old_value), cplx)
-                    },
-                )
-            {
-                return Some(result);
+            if let Some((subvalue, subcplx)) = step.crossover_step.get_next_subvalue(subvalue_provider, max_cplx) {
+                if self.mutator.is_valid(subvalue) {
+                    let replacer = subvalue.clone();
+                    let old_value = value.as_ref().clone();
+                    // TODO: something more efficient
+                    *value = Rc::new(replacer);
+                    return Some((UnmutateToken::Replace(old_value), subcplx));
+                }
             }
         }
         let mut v = value.as_ref().clone();

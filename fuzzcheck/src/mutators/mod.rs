@@ -101,7 +101,7 @@ where
         &mut self,
         subvalue_provider: &'a dyn SubValueProvider,
         max_cplx: f64,
-    ) -> Option<&'a T> {
+    ) -> Option<(&'a T, f64)> {
         // TODO: mark an entry as exhausted?
         let id = subvalue_provider.identifier();
         let entry = self.steps.entry(id.idx).or_insert((id.generation, 0));
@@ -113,7 +113,7 @@ where
             .get_subvalue(TypeId::of::<T>(), max_cplx, &mut entry.1)
             .map(
                 #[no_coverage]
-                |x| x.downcast_ref::<T>().unwrap(),
+                |(x, cplx)| (x.downcast_ref::<T>().unwrap(), cplx),
             )
     }
 }
@@ -182,6 +182,12 @@ where
     #[no_coverage]
     fn default_arbitrary_step(&self) -> Self::ArbitraryStep {
         self.wrapped_mutator().default_arbitrary_step()
+    }
+
+    #[doc(hidden)]
+    #[no_coverage]
+    fn is_valid(&self, value: &T) -> bool {
+        self.wrapped_mutator().is_valid(value)
     }
 
     #[doc(hidden)]

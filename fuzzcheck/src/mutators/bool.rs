@@ -2,7 +2,6 @@ use crate::DefaultMutator;
 use crate::Mutator;
 use std::any::Any;
 
-
 /// Default mutator for `bool`
 #[derive(Default)]
 pub struct BoolMutator {
@@ -52,6 +51,12 @@ impl Mutator<bool> for BoolMutator {
 
     #[doc(hidden)]
     #[no_coverage]
+    fn is_valid(&self, _value: &bool) -> bool {
+        true
+    }
+
+    #[doc(hidden)]
+    #[no_coverage]
     fn validate_value(&self, _value: &bool) -> Option<Self::Cache> {
         Some(())
     }
@@ -67,7 +72,6 @@ impl Mutator<bool> for BoolMutator {
     fn global_search_space_complexity(&self) -> f64 {
         1.0
     }
-
     #[doc(hidden)]
     #[no_coverage]
     fn max_complexity(&self) -> f64 {
@@ -126,6 +130,7 @@ impl Mutator<bool> for BoolMutator {
             None
         }
     }
+
     #[doc(hidden)]
     #[no_coverage]
     fn random_mutate(&self, value: &mut bool, _cache: &mut Self::Cache, _max_cplx: f64) -> (Self::UnmutateToken, f64) {
@@ -140,11 +145,6 @@ impl Mutator<bool> for BoolMutator {
 
     #[doc(hidden)]
     #[no_coverage]
-    fn visit_subvalues<'a>(
-        &self,
-        _value: &'a bool,
-        _cache: &'a Self::Cache,
-        _visit: &mut dyn FnMut(&'a dyn Any, f64),
-    ) {
+    fn visit_subvalues<'a>(&self, _value: &'a bool, _cache: &'a Self::Cache, _visit: &mut dyn FnMut(&'a dyn Any, f64)) {
     }
 }

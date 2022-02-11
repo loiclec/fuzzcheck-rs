@@ -175,10 +175,18 @@ impl<M: Mutator<T>, T: Clone + 'static, const N: usize> Mutator<[T; N]> for Arra
 
     #[doc(hidden)]
     #[no_coverage]
-    fn validate_value(&self, value: &[T; N]) -> Option<Self::Cache> {
-        if value.len() != N {
-            return None;
+    fn is_valid(&self, value: &[T; N]) -> bool {
+        for v in value.iter() {
+            if !self.mutator.is_valid(v) {
+                return false;
+            }
         }
+        true
+    }
+
+    #[doc(hidden)]
+    #[no_coverage]
+    fn validate_value(&self, value: &[T; N]) -> Option<Self::Cache> {
         let inner_caches: Vec<_> = value
             .iter()
             .map(
@@ -345,12 +353,7 @@ impl<M: Mutator<T>, T: Clone + 'static, const N: usize> Mutator<[T; N]> for Arra
 
     #[doc(hidden)]
     #[no_coverage]
-    fn visit_subvalues<'a>(
-        &self,
-        value: &'a [T; N],
-        cache: &'a Self::Cache,
-        visit: &mut dyn FnMut(&'a dyn Any, f64),
-    ) {
+    fn visit_subvalues<'a>(&self, value: &'a [T; N], cache: &'a Self::Cache, visit: &mut dyn FnMut(&'a dyn Any, f64)) {
         if !value.is_empty() {
             for idx in 0..value.len() {
                 let cplx = self.mutator.complexity(&value[idx], &cache.inner[idx]);

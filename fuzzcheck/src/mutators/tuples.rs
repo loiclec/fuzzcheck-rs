@@ -134,6 +134,8 @@ where
 
     fn complexity<'a>(&self, value: TupleKind::Ref<'a>, cache: &'a Self::Cache) -> f64;
 
+    fn is_valid<'a>(&self, value: TupleKind::Ref<'a>) -> bool;
+
     fn validate_value<'a>(&self, value: TupleKind::Ref<'a>) -> Option<Self::Cache>;
 
     fn default_mutation_step<'a>(&self, value: TupleKind::Ref<'a>, cache: &'a Self::Cache) -> Self::MutationStep;
@@ -232,8 +234,8 @@ where
 
     #[doc(hidden)]
     #[no_coverage]
-    fn complexity(&self, value: &T, cache: &Self::Cache) -> f64 {
-        self.mutator.complexity(value.get_ref(), cache)
+    fn is_valid(&self, value: &T) -> bool {
+        self.mutator.is_valid(value.get_ref())
     }
 
     #[doc(hidden)]
@@ -263,6 +265,12 @@ where
     #[no_coverage]
     fn min_complexity(&self) -> f64 {
         self.mutator.min_complexity()
+    }
+
+    #[doc(hidden)]
+    #[no_coverage]
+    fn complexity(&self, value: &T, cache: &Self::Cache) -> f64 {
+        self.mutator.complexity(value.get_ref(), cache)
     }
 
     #[doc(hidden)]
@@ -362,9 +370,16 @@ mod tuple0 {
 
         #[doc(hidden)]
         #[no_coverage]
+        fn is_valid<'a>(&self, _value: <Tuple0 as RefTypes>::Ref<'a>) -> bool {
+            true
+        }
+
+        #[doc(hidden)]
+        #[no_coverage]
         fn validate_value(&self, _value: ()) -> Option<Self::Cache> {
             Some(())
         }
+
         #[doc(hidden)]
         #[no_coverage]
         fn default_mutation_step<'a>(&self, _value: (), _cache: &'a Self::Cache) -> Self::MutationStep {
@@ -527,11 +542,19 @@ mod tuple1 {
         fn complexity<'a>(&self, value: <Tuple1<T0> as RefTypes>::Ref<'a>, cache: &'a Self::Cache) -> f64 {
             self.mutator_0.complexity(value.0, cache)
         }
+
+        #[doc(hidden)]
+        #[no_coverage]
+        fn is_valid<'a>(&self, value: <Tuple1<T0> as RefTypes>::Ref<'a>) -> bool {
+            self.mutator_0.is_valid(value.0)
+        }
+
         #[doc(hidden)]
         #[no_coverage]
         fn validate_value<'a>(&self, value: <Tuple1<T0> as RefTypes>::Ref<'a>) -> Option<Self::Cache> {
             self.mutator_0.validate_value(value.0)
         }
+
         #[doc(hidden)]
         #[no_coverage]
         fn default_mutation_step<'a>(
@@ -550,7 +573,6 @@ mod tuple1 {
         fn global_search_space_complexity(&self) -> f64 {
             self.mutator_0.global_search_space_complexity()
         }
-
         #[doc(hidden)]
         #[no_coverage]
         fn max_complexity(&self) -> f64 {
@@ -586,29 +608,12 @@ mod tuple1 {
             max_cplx: f64,
         ) -> Option<(Self::UnmutateToken, f64)> {
             if self.rng.u8(..CROSSOVER_RATE) == 0 {
-                if let Some(result) = step
-                    .crossover_step
-                    .get_next_subvalue(subvalue_provider, max_cplx)
-                    .and_then(
-                        #[no_coverage]
-                        |x| {
-                            self.mutator_0.validate_value(x).map(
-                                #[no_coverage]
-                                |c| (x, c),
-                            )
-                        },
-                    )
-                    .map(
-                        #[no_coverage]
-                        |(replacer, replacer_cache)| {
-                            let cplx = self.mutator_0.complexity(replacer, &replacer_cache);
-                            let mut replacer = replacer.clone();
-                            std::mem::swap(value.0, &mut replacer);
-                            (UnmutateTuple1Token::Replace(replacer), cplx)
-                        },
-                    )
-                {
-                    return Some(result);
+                if let Some((subvalue, subcplx)) = step.crossover_step.get_next_subvalue(subvalue_provider, max_cplx) {
+                    if self.mutator_0.is_valid(subvalue) {
+                        let mut replacer = subvalue.clone();
+                        std::mem::swap(value.0, &mut replacer);
+                        return Some((UnmutateTuple1Token::Replace(replacer), subcplx));
+                    }
                 }
             }
             if let Some((token, cplx)) =
@@ -631,6 +636,7 @@ mod tuple1 {
             let (token, cplx) = self.mutator_0.random_mutate(value.0, cache, max_cplx);
             (UnmutateTuple1Token::Inner(token), cplx)
         }
+
         #[doc(hidden)]
         #[no_coverage]
         fn unmutate<'a>(

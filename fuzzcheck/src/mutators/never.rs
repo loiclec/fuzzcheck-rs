@@ -23,9 +23,16 @@ impl<T: Clone + 'static> Mutator<T> for NeverMutator {
 
     #[doc(hidden)]
     #[no_coverage]
+    fn is_valid(&self, _value: &T) -> bool {
+        unreachable!()
+    }
+
+    #[doc(hidden)]
+    #[no_coverage]
     fn validate_value(&self, _value: &T) -> Option<Self::Cache> {
         unreachable!()
     }
+
     #[doc(hidden)]
     #[no_coverage]
     fn default_mutation_step(&self, _value: &T, _cache: &Self::Cache) -> Self::MutationStep {
@@ -122,6 +129,12 @@ where
     #[doc(hidden)]
     #[no_coverage]
     fn complexity<'a>(&self, _value: TupleKind::Ref<'a>, _cache: &'a Self::Cache) -> f64 {
+        unreachable!()
+    }
+
+    #[doc(hidden)]
+    #[no_coverage]
+    fn is_valid(&self, _value: TupleKind::Ref<'_>) -> bool {
         unreachable!()
     }
 

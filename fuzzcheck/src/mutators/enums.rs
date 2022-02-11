@@ -47,6 +47,12 @@ where
 
     #[doc(hidden)]
     #[no_coverage]
+    fn is_valid(&self, _value: &T) -> bool {
+        true
+    }
+
+    #[doc(hidden)]
+    #[no_coverage]
     fn validate_value(&self, _value: &T) -> Option<Self::Cache> {
         Some(())
     }

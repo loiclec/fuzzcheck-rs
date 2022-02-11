@@ -222,6 +222,9 @@ pub trait Mutator<Value: Clone + 'static>: 'static {
     /// The first [`ArbitraryStep`](Mutator::ArbitraryStep) value to be passed to [`ordered_arbitrary`](crate::Mutator::ordered_arbitrary)
     fn default_arbitrary_step(&self) -> Self::ArbitraryStep;
 
+    /// Quickly verifies that the value conforms to the mutator’s expectations
+    fn is_valid(&self, value: &Value) -> bool;
+
     /// Verifies that the value conforms to the mutator’s expectations and, if it does,
     /// returns the [`Cache`](Mutator::Cache) associated with that value.
     fn validate_value(&self, value: &Value) -> Option<Self::Cache>;

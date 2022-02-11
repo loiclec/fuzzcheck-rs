@@ -52,9 +52,16 @@ impl<T: Clone + 'static, M: Mutator<T>> Mutator<Arc<T>> for ArcMutator<M> {
 
     #[doc(hidden)]
     #[no_coverage]
+    fn is_valid(&self, value: &Arc<T>) -> bool {
+        self.mutator.is_valid(value)
+    }
+
+    #[doc(hidden)]
+    #[no_coverage]
     fn validate_value(&self, value: &Arc<T>) -> Option<Self::Cache> {
         self.mutator.validate_value(value)
     }
+
     #[doc(hidden)]
     #[no_coverage]
     fn default_mutation_step(&self, value: &Arc<T>, cache: &Self::Cache) -> Self::MutationStep {
@@ -116,31 +123,14 @@ impl<T: Clone + 'static, M: Mutator<T>> Mutator<Arc<T>> for ArcMutator<M> {
         max_cplx: f64,
     ) -> Option<(Self::UnmutateToken, f64)> {
         if self.rng.u8(..CROSSOVER_RATE) == 0 {
-            if let Some(result) = step
-                .crossover_step
-                .get_next_subvalue(subvalue_provider, max_cplx)
-                .and_then(
-                    #[no_coverage]
-                    |x| {
-                        self.mutator.validate_value(x).map(
-                            #[no_coverage]
-                            |c| (x, c),
-                        )
-                    },
-                )
-                .map(
-                    #[no_coverage]
-                    |(replacer, replacer_cache)| {
-                        let cplx = self.mutator.complexity(replacer, &replacer_cache);
-                        let replacer = replacer.clone();
-                        let old_value = value.as_ref().clone();
-                        // TODO: something more efficient
-                        *value = Arc::new(replacer);
-                        (UnmutateToken::Replace(old_value), cplx)
-                    },
-                )
-            {
-                return Some(result);
+            if let Some((subvalue, subcplx)) = step.crossover_step.get_next_subvalue(subvalue_provider, max_cplx) {
+                if self.mutator.is_valid(subvalue) {
+                    let replacer = subvalue.clone();
+                    let old_value = value.as_ref().clone();
+                    // TODO: something more efficient
+                    *value = Arc::new(replacer);
+                    return Some((UnmutateToken::Replace(old_value), subcplx));
+                }
             }
         }
         let mut v = value.as_ref().clone();
@@ -179,12 +169,7 @@ impl<T: Clone + 'static, M: Mutator<T>> Mutator<Arc<T>> for ArcMutator<M> {
 
     #[doc(hidden)]
     #[no_coverage]
-    fn visit_subvalues<'a>(
-        &self,
-        value: &'a Arc<T>,
-        cache: &'a Self::Cache,
-        visit: &mut dyn FnMut(&'a dyn Any, f64),
-    ) {
+    fn visit_subvalues<'a>(&self, value: &'a Arc<T>, cache: &'a Self::Cache, visit: &mut dyn FnMut(&'a dyn Any, f64)) {
         self.mutator.visit_subvalues(value, cache, visit)
     }
 }

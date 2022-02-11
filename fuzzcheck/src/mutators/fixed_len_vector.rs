@@ -204,6 +204,20 @@ impl<T: Clone + 'static, M: Mutator<T>> Mutator<Vec<T>> for FixedLenVecMutator<T
 
     #[doc(hidden)]
     #[no_coverage]
+    fn is_valid(&self, value: &Vec<T>) -> bool {
+        if value.len() != self.mutators.len() {
+            return false;
+        }
+        for (m, v) in self.mutators.iter().zip(value.iter()) {
+            if !m.is_valid(v) {
+                return false;
+            }
+        }
+        true
+    }
+
+    #[doc(hidden)]
+    #[no_coverage]
     fn validate_value(&self, value: &Vec<T>) -> Option<Self::Cache> {
         if value.len() != self.mutators.len() {
             return None;
@@ -314,21 +328,14 @@ impl<T: Clone + 'static, M: Mutator<T>> Mutator<Vec<T>> for FixedLenVecMutator<T
             let old_el_cplx = self.mutators[choice].complexity(&value[choice], &cache.inner[choice]);
             let current_cplx = self.complexity(value, cache);
             let max_el_cplx = current_cplx - old_el_cplx - self.inherent_complexity;
-            if let Some((el, el_cache)) = step.get_next_subvalue(subvalue_provider, max_el_cplx).and_then(
-                #[no_coverage]
-                |el| {
-                    self.mutators[choice].validate_value(el).map(
-                        #[no_coverage]
-                        |c| (el, c),
-                    )
-                },
-            ) {
-                let new_el_cplx = self.mutators[choice].complexity(el, &el_cache);
-                let mut el = el.clone();
-                std::mem::swap(&mut value[choice], &mut el);
-                let cplx = cache.sum_cplx - old_el_cplx + new_el_cplx + self.inherent_complexity;
-                let token = UnmutateVecToken::ReplaceElement(choice, el);
-                return Some((token, cplx));
+            if let Some((el, new_el_cplx)) = step.get_next_subvalue(subvalue_provider, max_el_cplx) {
+                if self.mutators[choice].is_valid(el) {
+                    let mut el = el.clone();
+                    std::mem::swap(&mut value[choice], &mut el);
+                    let cplx = cache.sum_cplx - old_el_cplx + new_el_cplx + self.inherent_complexity;
+                    let token = UnmutateVecToken::ReplaceElement(choice, el);
+                    return Some((token, cplx));
+                }
             }
         }
         let current_cplx = self.complexity(value, cache);
@@ -406,12 +413,7 @@ impl<T: Clone + 'static, M: Mutator<T>> Mutator<Vec<T>> for FixedLenVecMutator<T
 
     #[doc(hidden)]
     #[no_coverage]
-    fn visit_subvalues<'a>(
-        &self,
-        value: &'a Vec<T>,
-        cache: &'a Self::Cache,
-        visit: &mut dyn FnMut(&'a dyn Any, f64),
-    ) {
+    fn visit_subvalues<'a>(&self, value: &'a Vec<T>, cache: &'a Self::Cache, visit: &mut dyn FnMut(&'a dyn Any, f64)) {
         if !value.is_empty() {
             for idx in 0..value.len() {
                 let cplx = self.mutators[idx].complexity(&value[idx], &cache.inner[idx]);

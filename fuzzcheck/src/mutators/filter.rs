@@ -30,6 +30,12 @@ where
 
     #[doc(hidden)]
     #[no_coverage]
+    fn is_valid(&self, value: &T) -> bool {
+        self.mutator.is_valid(value) && (self.filter)(value)
+    }
+
+    #[doc(hidden)]
+    #[no_coverage]
     fn validate_value(&self, value: &T) -> Option<Self::Cache> {
         let x = self.mutator.validate_value(value);
         if x.is_some() && (self.filter)(value) == false {

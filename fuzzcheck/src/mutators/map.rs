@@ -81,11 +81,22 @@ where
 
     #[doc(hidden)]
     #[no_coverage]
+    fn is_valid(&self, value: &To) -> bool {
+        if let Some(from_value) = (self.parse)(value) {
+            self.mutator.is_valid(&from_value)
+        } else {
+            false
+        }
+    }
+
+    #[doc(hidden)]
+    #[no_coverage]
     fn validate_value(&self, to_value: &To) -> Option<Self::Cache> {
         let from_value = (self.parse)(to_value)?;
         let from_cache = self.mutator.validate_value(&from_value)?;
         Some(Cache { from_value, from_cache })
     }
+
     #[doc(hidden)]
     #[no_coverage]
     fn default_mutation_step(&self, _value: &To, cache: &Self::Cache) -> Self::MutationStep {
@@ -233,11 +244,18 @@ where
 
     #[doc(hidden)]
     #[no_coverage]
+    fn is_valid(&self, value: &(To, From)) -> bool {
+        self.mutator.is_valid(&value.1)
+    }
+
+    #[doc(hidden)]
+    #[no_coverage]
     fn validate_value(&self, value: &(To, From)) -> Option<Self::Cache> {
         let (_, from_value) = value;
         let from_cache = self.mutator.validate_value(&from_value)?;
         Some(from_cache)
     }
+
     #[doc(hidden)]
     #[no_coverage]
     fn default_mutation_step(&self, value: &(To, From), cache: &Self::Cache) -> Self::MutationStep {

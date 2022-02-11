@@ -67,7 +67,11 @@ macro_rules! impl_int_mutator_constrained {
             fn default_arbitrary_step(&self) -> Self::ArbitraryStep {
                 0
             }
-
+            #[doc(hidden)]
+            #[no_coverage]
+            fn is_valid(&self, _value: &$name) -> bool {
+                true
+            }
             #[doc(hidden)]
             #[no_coverage]
             fn validate_value(&self, _value: &$name) -> Option<Self::Cache> {

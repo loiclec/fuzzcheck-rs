@@ -163,6 +163,19 @@ pub fn make_single_variant_mutator(tb: &mut TokenBuilder, enu: &Enum) {
 
         #[doc(hidden)]
         #[no_coverage]
+        fn is_valid(&self, value: &" enu.ident enum_generics_no_bounds ") -> bool {"
+            "match (self, value) {"
+            join_ts!(&enu.items, item,
+                "(" EnumSingleVariant "::" item.ident "(m)," item.pattern_match(&enu.ident, Some(pattern_match_binding_append.clone())) ") => {
+                    m.is_valid(" item_pattern_match_bindings_to_tuple(&item.ident, false) ")
+                }"
+            )" _ => false,
+            }
+        }
+
+
+        #[doc(hidden)]
+        #[no_coverage]
         fn validate_value(&self, value: &" enu.ident enum_generics_no_bounds ") -> " cm.Option "<Self::Cache> {
             match (self, value) {"
             join_ts!(&enu.items, item,

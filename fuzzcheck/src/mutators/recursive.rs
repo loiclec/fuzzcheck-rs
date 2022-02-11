@@ -161,6 +161,12 @@ where
 
     #[doc(hidden)]
     #[no_coverage]
+    fn is_valid(&self, value: &T) -> bool {
+        self.reference.upgrade().unwrap().is_valid(value)
+    }
+
+    #[doc(hidden)]
+    #[no_coverage]
     fn validate_value(&self, value: &T) -> Option<Self::Cache> {
         self.reference.upgrade().unwrap().validate_value(value)
     }
@@ -289,6 +295,12 @@ where
     #[no_coverage]
     fn default_arbitrary_step(&self) -> Self::ArbitraryStep {
         self.mutator.default_arbitrary_step()
+    }
+
+    #[doc(hidden)]
+    #[no_coverage]
+    fn is_valid(&self, value: &T) -> bool {
+        self.mutator.is_valid(value)
     }
 
     #[doc(hidden)]

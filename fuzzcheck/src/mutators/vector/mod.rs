@@ -129,9 +129,27 @@ where
             Self::ArbitraryStep::Normal { make_empty: false }
         }
     }
+
+    #[doc(hidden)]
+    #[no_coverage]
+    fn is_valid(&self, value: &Vec<T>) -> bool {
+        if !self.len_range.contains(&value.len()) {
+            return false;
+        }
+        for v in value.iter() {
+            if !self.m.is_valid(v) {
+                return false;
+            }
+        }
+        true
+    }
+
     #[doc(hidden)]
     #[no_coverage]
     fn validate_value(&self, value: &Vec<T>) -> Option<Self::Cache> {
+        if !self.len_range.contains(&value.len()) {
+            return None;
+        }
         let inner_caches: Vec<_> = value
             .iter()
             .map(
@@ -164,6 +182,7 @@ where
         };
         Some(cache)
     }
+
     #[doc(hidden)]
     #[no_coverage]
     fn default_mutation_step(&self, value: &Vec<T>, cache: &Self::Cache) -> Self::MutationStep {
@@ -304,12 +323,7 @@ where
 
     #[doc(hidden)]
     #[no_coverage]
-    fn visit_subvalues<'a>(
-        &self,
-        value: &'a Vec<T>,
-        cache: &'a Self::Cache,
-        visit: &mut dyn FnMut(&'a dyn Any, f64),
-    ) {
+    fn visit_subvalues<'a>(&self, value: &'a Vec<T>, cache: &'a Self::Cache, visit: &mut dyn FnMut(&'a dyn Any, f64)) {
         if !value.is_empty() {
             for idx in 0..value.len() {
                 let cplx = self.m.complexity(&value[idx], &cache.inner[idx]);

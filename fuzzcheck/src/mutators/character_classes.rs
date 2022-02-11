@@ -102,6 +102,20 @@ impl Mutator<char> for CharacterMutator {
     fn default_arbitrary_step(&self) -> Self::ArbitraryStep {
         0
     }
+
+    #[doc(hidden)]
+    #[no_coverage]
+    fn is_valid(&self, value: &char) -> bool {
+        if self.ranges.iter().any(
+            #[no_coverage]
+            |range| range.contains(value),
+        ) {
+            true
+        } else {
+            false
+        }
+    }
+
     #[doc(hidden)]
     #[no_coverage]
     fn validate_value(&self, value: &char) -> Option<Self::Cache> {
@@ -208,12 +222,7 @@ impl Mutator<char> for CharacterMutator {
 
     #[doc(hidden)]
     #[no_coverage]
-    fn visit_subvalues<'a>(
-        &self,
-        _value: &'a char,
-        _cache: &'a Self::Cache,
-        _visit: &mut dyn FnMut(&'a dyn Any, f64),
-    ) {
+    fn visit_subvalues<'a>(&self, _value: &'a char, _cache: &'a Self::Cache, _visit: &mut dyn FnMut(&'a dyn Any, f64)) {
     }
 }
 

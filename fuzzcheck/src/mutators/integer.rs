@@ -166,6 +166,11 @@ macro_rules! impl_int_mutator {
             }
             #[doc(hidden)]
             #[no_coverage]
+            fn is_valid(&self, _value: &$name) -> bool {
+                true
+            }
+            #[doc(hidden)]
+            #[no_coverage]
             fn validate_value(&self, _value: &$name) -> Option<Self::Cache> {
                 Some(())
             }
