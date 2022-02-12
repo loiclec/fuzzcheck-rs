@@ -412,6 +412,13 @@ where
             if add_ref_count > 0 {
                 let generation = Generation(fuzzer_stats.total_number_of_runs);
                 let input = input.new_source(mutator, generation);
+                // check that the mutator's handling of the complexity is correct
+                assert!(
+                    (input.complexity(mutator) - cplx).abs() < 0.01,
+                    "The mutator used by the fuzz test does not evaluate the complexity of the test cases consistently.
+                    This is a bug in the implementation of {}",
+                    std::any::type_name::<M>()
+                );
 
                 let mut subvalues: HashMap<TypeId, Vec<(*const dyn Any, f64)>> = HashMap::default();
                 mutator.visit_subvalues(
