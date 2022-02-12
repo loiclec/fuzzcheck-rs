@@ -11,7 +11,7 @@ use fuzzcheck::mutators::integer_within_range::U8WithinRangeMutator;
 let m1 = U8WithinRangeMutator::new(3 ..= 10);
 let m2 = U8WithinRangeMutator::new(78 ..= 200);
 
-let m = AlternationMutator::new(vec![m1, m2]);
+let m = AlternationMutator::new(vec![m1, m2], 0.0);
 
 // m will produce values either in 3..=10 or in 78..=200
 ```

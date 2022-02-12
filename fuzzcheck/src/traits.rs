@@ -120,7 +120,7 @@ its element at index 1. In pseudocode:
 
 ```
 use fuzzcheck::Mutator;
-# use fuzzcheck::EmptySubValueProvider;
+# use fuzzcheck::subvalue_provider::EmptySubValueProvider;
 # use fuzzcheck::DefaultMutator;
 # let m = bool::default_mutator();
 # let mut value = false;
@@ -180,7 +180,7 @@ let x = S {
     a: 887236,
     b: None,
     c: (Some(true), 10372)
-}
+};
 ```
 the `visit_subvalues` method will call the `visit` closure with each subvalue
 and its complexity. For the value `x` above, it will be called with the

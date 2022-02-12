@@ -336,7 +336,7 @@ where
         }
         fn fuzz_test() {
             fuzzcheck::fuzz_test(foo)
-                .mutator(VecMutator::new(u8::default_mutator(), 2 ..= 10))
+                .mutator(VecMutator::new(u8::default_mutator(), 2 ..= 10, true))
                 // ..
                 # ;
         }

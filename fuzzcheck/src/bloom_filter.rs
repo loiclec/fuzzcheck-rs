@@ -51,13 +51,6 @@ impl<T: ?Sized> BloomFilter<T> {
     ///
     /// * 'size' - A usize that sets the size of the filter
     /// * 'false_pos_rate' - The acceptable false positive rate
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use lupine::BloomFilter;
-    /// let filter: BloomFilter<usize> = BloomFilter::new(1_000, 0.001);
-    /// ```
     #[no_coverage]
     pub fn new(size: usize, false_pos_rate: f64) -> Self {
         let k = Self::optimal_k(false_pos_rate);
@@ -126,14 +119,6 @@ impl<T: ?Sized> BloomFilter<T> {
     }
 
     /// Insert T into the BloomFilter index
-    ///
-    /// # Examples:
-    /// ```
-    /// use lupine::BloomFilter;
-    /// let mut bf = BloomFilter::new(1000, 0.0001);
-    /// bf.insert(&10);
-    /// assert!(bf.contains(&10));
-    /// ```
     #[no_coverage]
     pub fn insert(&mut self, t: &T)
     where
@@ -148,15 +133,6 @@ impl<T: ?Sized> BloomFilter<T> {
     }
 
     /// Check if t of type T is in the BloomFilter index
-    ///
-    /// # Examples:
-    /// ```
-    /// use lupine::BloomFilter;
-    /// let mut bf = BloomFilter::new(1000, 0.0001);
-    /// assert!(!bf.contains(&10));
-    /// bf.insert(&10);
-    /// assert!(bf.contains(&10));
-    /// ```
     #[no_coverage]
     pub fn contains(&mut self, t: &T) -> bool
     where

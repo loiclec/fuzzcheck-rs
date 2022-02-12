@@ -81,10 +81,10 @@ pub trait SensorExt: Sensor {
     /// second element of the tuple is the sum of all observations:
     /// ```
     /// use fuzzcheck::SensorExt;
-    /// # use fuzzcheck::sensors_and_pools::ArrayOfCounters;
+    /// # use fuzzcheck::sensors_and_pools::StaticValueSensor;
     /// # static mut COUNTERS: [u64; 2] = [0; 2];
     /// # // inside the fuzz test, you can create the sensor as follows
-    /// # let sensor = ArrayOfCounters::new(unsafe { &mut COUNTERS });
+    /// # let sensor = unsafe { StaticValueSensor::new(&mut COUNTERS, [0, 0]) };
     /// let sensor = sensor.map(|observations| {
     ///    let sum = observations.iter().sum::<u64>();
     ///    (observations, sum)
