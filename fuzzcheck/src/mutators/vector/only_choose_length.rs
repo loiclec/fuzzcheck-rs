@@ -93,7 +93,10 @@ where
             cplx_element
         };
 
-        let upperbound = std::cmp::max(*mutator.len_range.start(), ((max_cplx - 1.0) / cplx_element) as usize);
+        let upperbound = std::cmp::max(
+            std::cmp::min(*mutator.len_range.end(), ((max_cplx - 1.0) / cplx_element) as usize),
+            *mutator.len_range.start(),
+        );
         ConcreteOnlyChooseLength {
             length: mutator.rng.usize(*mutator.len_range.start()..=upperbound),
         }
