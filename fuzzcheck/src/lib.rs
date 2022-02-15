@@ -33,8 +33,6 @@
 #![feature(generic_associated_types)]
 // can be replaced by an additional argument that manually gives the variant count
 #![feature(variant_count)]
-// I suppose that one can be lifted from std as well
-#![feature(arc_new_cyclic)]
 // that one is used to write closures like: #[no_coverage] &mut |args| { .. }
 // I suppose I can write the closure first and then pass a mutable reference to
 // it later. Annoying, but it should work.
@@ -75,7 +73,6 @@ pub mod subvalue_provider;
 mod traits;
 mod world;
 
-pub use fuzzcheck_common::arg::Arguments;
 #[doc(inline)]
 pub use crate::fuzzer::FuzzingResult;
 #[doc(inline)]
@@ -100,6 +97,7 @@ pub use crate::traits::Sensor;
 pub use crate::traits::SensorAndPool;
 #[doc(inline)]
 pub use crate::traits::Stats;
+pub use fuzzcheck_common::arg::Arguments;
 #[doc(inline)]
 pub use fuzzer::ReasonForStopping;
 #[doc(inline)]
