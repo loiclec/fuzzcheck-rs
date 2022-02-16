@@ -1,3 +1,5 @@
+use std::os::unix::prelude::OsStrExt;
+
 use crate::mutators::map::MapMutator;
 use crate::{DefaultMutator, Mutator};
 
@@ -28,6 +30,8 @@ pub fn string_mutator() -> StringMutator {
         #[no_coverage]
         |xs| String::from_utf8_lossy(xs).to_string(),
         // the complexity function
+        #[no_coverage]
+        |value, cplx| (value.as_bytes().len() * 8) as f64,
     )
 }
 impl DefaultMutator for String {

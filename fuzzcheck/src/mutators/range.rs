@@ -67,6 +67,11 @@ fn tuple_from_range_inclusive<T: Clone>(r: &RangeInclusive<T>) -> Option<(T, T)>
     Some((r.start().clone(), r.end().clone()))
 }
 
+#[no_coverage]
+fn range_cplx<T>(_r: &RangeInclusive<T>, orig_cplx: f64) -> f64 {
+    orig_cplx
+}
+
 pub type RangeInclusiveMutator<T, M> = Wrapper<
     MapMutator<
         (T, T),
@@ -74,6 +79,7 @@ pub type RangeInclusiveMutator<T, M> = Wrapper<
         TupleMutatorWrapper<Tuple2Mutator<M, M>, Tuple2<T, T>>,
         fn(&RangeInclusive<T>) -> Option<(T, T)>,
         fn(&(T, T)) -> RangeInclusive<T>,
+        fn(&RangeInclusive<T>, f64) -> f64,
     >,
 >;
 
@@ -88,6 +94,7 @@ where
             TupleMutatorWrapper::new(Tuple2Mutator::new(m.clone(), m)),
             tuple_from_range_inclusive,
             range_inclusive_from_tuple,
+            range_cplx,
         ))
     }
 }

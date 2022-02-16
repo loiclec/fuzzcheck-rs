@@ -118,6 +118,11 @@ where
     }
 }
 
+#[no_coverage]
+fn keep_orig_cplx<T>(x: &T, cplx: f64) -> f64 {
+    cplx
+}
+
 /// A trait for convenience methods automatically implemented for all types that conform to `Mutator<V>`
 pub trait MutatorExt<T>: Mutator<T> + Sized
 where
@@ -136,13 +141,13 @@ where
     /// using the `map` closure. The second closure, `parse`, should apply the opposite
     /// transformation.
     #[no_coverage]
-    fn map<To, Map, Parse>(self, map: Map, parse: Parse) -> MapMutator<T, To, Self, Parse, Map>
+    fn map<To, Map, Parse>(self, map: Map, parse: Parse) -> MapMutator<T, To, Self, Parse, Map, fn(&To, f64) -> f64>
     where
         To: Clone + 'static,
         Map: Fn(&T) -> To,
         Parse: Fn(&To) -> Option<T>,
     {
-        MapMutator::new(self, parse, map)
+        MapMutator::new(self, parse, map, keep_orig_cplx)
     }
 }
 impl<T, M> MutatorExt<T> for M
