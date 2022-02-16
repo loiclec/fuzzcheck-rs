@@ -22,18 +22,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         "The profile to use to compile the fuzz test (default: release)",
         "",
     );
-
-    parser.optflag(
-        "",
-        "instrument-only-root",
-        "Instrument only the current package, not any of the dependencies",
-    );
-    parser.optopt(
-        "",
-        "exec-name",
-        "The name of the test executable that will be created by cargo. Necessary when using --instrument-only-root",
-        "<NAME>",
-    );
+    parser.optflag("", "no-instrument-coverage", "Turn off coverage instrumentation");
 
     parser.opt(
         "",
@@ -72,6 +61,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     };
     let address_sanitizer = matches.opt_present("address-sanitizer");
     let profile = matches.opt_str("profile").unwrap_or("release".to_owned());
+    let no_instrument_coverage = matches.opt_present("no-instrument-coverage");
 
     // this won't crash because we `Arguments::from_matches` would have returned an error otherwise
     let target_name = &matches.free[0];
@@ -128,6 +118,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                 &cargo_args,
                 address_sanitizer,
                 &profile,
+                !no_instrument_coverage,
                 &process::Stdio::inherit,
             )?;
             exec.wait_with_output()?;
@@ -140,6 +131,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                 &cargo_args,
                 address_sanitizer,
                 &profile,
+                !no_instrument_coverage,
                 &process::Stdio::inherit,
             )?;
         }
@@ -151,6 +143,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                 &cargo_args,
                 address_sanitizer,
                 &profile,
+                !no_instrument_coverage,
                 &process::Stdio::inherit,
             )?;
             exec.wait_with_output()?;

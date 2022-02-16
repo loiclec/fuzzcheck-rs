@@ -30,11 +30,16 @@ pub fn launch_executable(
     cargo_args: &[String],
     address_sanitizer: bool,
     profile: &str,
+    instrument_coverage: bool,
     stdio: impl Fn() -> Stdio,
 ) -> std::io::Result<process::Child> {
     let args = string_from_args(args);
     let mut rustflags = std::env::var("RUSTFLAGS").unwrap_or("".to_owned());
-    rustflags.push_str(" -C instrument-coverage --cfg fuzzing");
+    if instrument_coverage {
+        rustflags.push_str(" -C instrument-coverage");
+    }
+    rustflags.push_str(" --cfg fuzzing");
+
     if address_sanitizer {
         rustflags.push_str(" -Zsanitizer=address");
     }
@@ -67,6 +72,7 @@ pub fn input_minify_command(
     cargo_args: &[String],
     address_sanitizer: bool,
     profile: &str,
+    instrument_coverage: bool,
     stdio: &impl Fn() -> Stdio,
 ) -> std::io::Result<()> {
     let mut config = args.clone();
@@ -120,6 +126,7 @@ pub fn input_minify_command(
         cargo_args,
         address_sanitizer,
         profile,
+        instrument_coverage,
         stdio,
     )?;
     let o = child.wait_with_output()?;
@@ -142,6 +149,7 @@ pub fn input_minify_command(
             cargo_args,
             address_sanitizer,
             profile,
+            instrument_coverage,
             Stdio::inherit,
         )?;
         c.wait()?;
