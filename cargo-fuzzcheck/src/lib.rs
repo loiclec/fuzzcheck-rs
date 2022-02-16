@@ -29,10 +29,12 @@ pub fn launch_executable(
     compiled_target: &CompiledTarget,
     cargo_args: &[String],
     address_sanitizer: bool,
+    profile: &str,
     stdio: impl Fn() -> Stdio,
 ) -> std::io::Result<process::Child> {
     let args = string_from_args(args);
-    let mut rustflags = "-C instrument-coverage --cfg fuzzing -Ccodegen-units=1".to_owned();
+    let mut rustflags = std::env::var("RUSTFLAGS").unwrap_or("".to_owned());
+    rustflags.push_str(" -C instrument-coverage --cfg fuzzing");
     if address_sanitizer {
         rustflags.push_str(" -Zsanitizer=address");
     }
@@ -43,7 +45,8 @@ pub fn launch_executable(
         .args(compiled_target.to_args())
         .args(cargo_args)
         .args(["--target", TARGET])
-        .arg("--release")
+        .arg("--profile")
+        .arg(profile)
         .args(["--target-dir", BUILD_FOLDER])
         .arg("--")
         .arg("--nocapture")
@@ -63,6 +66,7 @@ pub fn input_minify_command(
     compiled_target: &CompiledTarget,
     cargo_args: &[String],
     address_sanitizer: bool,
+    profile: &str,
     stdio: &impl Fn() -> Stdio,
 ) -> std::io::Result<()> {
     let mut config = args.clone();
@@ -115,6 +119,7 @@ pub fn input_minify_command(
         compiled_target,
         cargo_args,
         address_sanitizer,
+        profile,
         stdio,
     )?;
     let o = child.wait_with_output()?;
@@ -136,6 +141,7 @@ pub fn input_minify_command(
             compiled_target,
             cargo_args,
             address_sanitizer,
+            profile,
             Stdio::inherit,
         )?;
         c.wait()?;

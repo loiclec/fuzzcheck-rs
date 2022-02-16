@@ -16,6 +16,12 @@ fn main() -> Result<(), Box<dyn Error>> {
     parser.optopt("", "bin", "Test only the specified binary", "<NAME>");
     parser.optopt("", "test", "Test only the specified test target", "<NAME>");
     parser.optflag("", "address-sanitizer", "Use AddressSanitizer");
+    parser.optopt(
+        "",
+        "profile",
+        "The profile to use to compile the fuzz test (default: release)",
+        "",
+    );
 
     parser.optflag(
         "",
@@ -65,6 +71,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         }
     };
     let address_sanitizer = matches.opt_present("address-sanitizer");
+    let profile = matches.opt_str("profile").unwrap_or("release".to_owned());
 
     // this won't crash because we `Arguments::from_matches` would have returned an error otherwise
     let target_name = &matches.free[0];
@@ -120,6 +127,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                 &compiled_target,
                 &cargo_args,
                 address_sanitizer,
+                &profile,
                 &process::Stdio::inherit,
             )?;
             exec.wait_with_output()?;
@@ -131,6 +139,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                 &compiled_target,
                 &cargo_args,
                 address_sanitizer,
+                &profile,
                 &process::Stdio::inherit,
             )?;
         }
@@ -141,6 +150,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                 &compiled_target,
                 &cargo_args,
                 address_sanitizer,
+                &profile,
                 &process::Stdio::inherit,
             )?;
             exec.wait_with_output()?;
