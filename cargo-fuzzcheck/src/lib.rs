@@ -28,12 +28,17 @@ pub fn launch_executable(
     args: &Arguments,
     compiled_target: &CompiledTarget,
     cargo_args: &[String],
+    address_sanitizer: bool,
     stdio: impl Fn() -> Stdio,
 ) -> std::io::Result<process::Child> {
     let args = string_from_args(args);
+    let mut rustflags = "-C instrument-coverage --cfg fuzzing -Ccodegen-units=1".to_owned();
+    if address_sanitizer {
+        rustflags.push_str(" -Zsanitizer=address");
+    }
     let child = Command::new("cargo")
         .env("FUZZCHECK_ARGS", args)
-        .env("RUSTFLAGS", "-C instrument-coverage --cfg fuzzing -Ccodegen-units=1")
+        .env("RUSTFLAGS", &rustflags)
         .arg("test")
         .args(compiled_target.to_args())
         .args(cargo_args)
@@ -57,6 +62,7 @@ pub fn input_minify_command(
     args: &Arguments,
     compiled_target: &CompiledTarget,
     cargo_args: &[String],
+    address_sanitizer: bool,
     stdio: &impl Fn() -> Stdio,
 ) -> std::io::Result<()> {
     let mut config = args.clone();
@@ -103,10 +109,20 @@ pub fn input_minify_command(
 
     println!("launch with config: {:?}", string_from_args(&config));
 
-    let child = launch_executable(target_name, &config, compiled_target, cargo_args, stdio)?;
+    let child = launch_executable(
+        target_name,
+        &config,
+        compiled_target,
+        cargo_args,
+        address_sanitizer,
+        stdio,
+    )?;
     let o = child.wait_with_output()?;
 
-    assert!(!o.status.success());
+    assert!(
+        !o.status.success(),
+        "The test case in the given input file didn't appear to trigger a test failure."
+    );
 
     loop {
         simplest = simplest_input_file(&artifacts_folder).unwrap_or_else(|| simplest.clone());
@@ -114,7 +130,14 @@ pub fn input_minify_command(
             input_file: simplest.clone(),
         };
         println!("launch with config: {:?}", string_from_args(&config));
-        let mut c = launch_executable(target_name, &config, compiled_target, cargo_args, Stdio::inherit)?;
+        let mut c = launch_executable(
+            target_name,
+            &config,
+            compiled_target,
+            cargo_args,
+            address_sanitizer,
+            Stdio::inherit,
+        )?;
         c.wait()?;
     }
 }
