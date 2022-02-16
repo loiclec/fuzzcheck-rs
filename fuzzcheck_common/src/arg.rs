@@ -357,22 +357,27 @@ FUZZ_TEST:
 
 EXAMPLES:
 
-cargo-fuzzcheck target1 {fuzz}
-    Launch the fuzzer on “target1” with default options.
+cargo-fuzzcheck tests::fuzz_test1
+    Launch the fuzzer on "tests::fuzz_test1", located in the crate’s library, with default options.
 
-cargo-fuzzcheck target2 fuzz --{max_cplx} 4000 --{out_corpus} fuzz_results/out/
-    Fuzz “target2”, generating inputs of complexity no greater than 4000, 
+cargo-fuzzcheck tests::fuzz_bin --bin my_program
+    Launch the fuzzer on "tests::fuzz_bin", located in the "my_program" binary target, with default options.
+
+cargo-fuzzcheck fuzz_test2 --test my_integration_test
+    Launch the fuzzer on "fuzz_test2", located in the "my_integration_test" test target, with default options.
+
+cargo-fuzzcheck tests::fuzzit fuzz --{max_cplx} 4000 --{out_corpus} fuzz_results/out/
+    Fuzz "tests::fuzzit", generating inputs of complexity no greater than 4000, 
     and write the output corpus (i.e. the folder of most interesting test cases) 
     to fuzz_results/out/.
 
-cargo-fuzzcheck target1 {minify} --{input_file} "artifacts/crash.json"
-    Using “target1”, minify the test input defined in the file 
-    "artifacts/crash.json". It will put minified inputs in the folder 
+cargo-fuzzcheck tests::fuzz --command {minify} --{input_file} "artifacts/crash.json"
+    Using the fuzz test located at "tests::fuzz_test", minify the test input defined 
+    in the file "artifacts/crash.json". It will put minified inputs in the folder 
     artifacts/crash.minified/ and name them {{complexity}}-{{hash}}.json. 
     For example, artifacts/crash.minified/4213--8cd7777109b57b8c.json
     is a minified input of complexity 42.13.
 "#,
-        fuzz = COMMAND_FUZZ,
         minify = COMMAND_MINIFY_INPUT,
         input_file = INPUT_FILE_FLAG,
         max_cplx = MAX_INPUT_CPLX_FLAG,
