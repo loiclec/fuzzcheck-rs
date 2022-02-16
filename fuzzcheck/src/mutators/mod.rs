@@ -119,7 +119,7 @@ where
 }
 
 #[no_coverage]
-fn keep_orig_cplx<T>(x: &T, cplx: f64) -> f64 {
+fn keep_orig_cplx<T>(_x: &T, cplx: f64) -> f64 {
     cplx
 }
 

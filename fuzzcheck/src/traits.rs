@@ -88,7 +88,7 @@ the [`ordered_mutate`](crate::Mutator::ordered_mutate) method.
 fn random_mutate(&self, value: &mut Value, cache: &mut Self::Cache, max_cplx: f64) -> (Self::UnmutateToken, f64) {
      // ...
 }
-fn ordered_mutate(&self, value: &mut Value, cache: &mut Self::Cache, step: &mut Self::MutationStep, max_cplx: f64) -> Option<(Self::UnmutateToken, f64)> {
+fn ordered_mutate(&self, value: &mut Value, cache: &mut Self::Cache, step: &mut Self::MutationStep, _subvalue_provider: &dyn SubValueProvider, max_cplx: f64) -> Option<(Self::UnmutateToken, f64)> {
     Some(self.random_mutate(value, cache, max_cplx))
 }
 ```
@@ -201,7 +201,7 @@ follows:
 fn ordered_mutate(&self, value: &mut S, cache: &mut Self::Cache, step: &mut Self::Step, subvalue_provider: &dyn SubValueProvider, max_cplx: f64) -> Option<(Self::UnmutateToken, f64)>
 {
     // let's say we want to replace the value x.c.1 with something taken from the subvalue provider
-    if let Some(new_xc1) = subvalue_provider.get_subvalue(TypeId::of::<usize>(), &mut idx, max_xc1_cplx) {
+    if let Some((new_xc1, new_xc1_cplx)) = subvalue_provider.get_subvalue(TypeId::of::<usize>(), &mut idx, max_xc1_cplx) {
         let new_xc1 = new_xc1.downcast_ref::<usize>().unwrap().clone(); // guaranteed to succeed
         value.x.c.1 = new_xc1;
         // etc.
@@ -306,6 +306,7 @@ pub trait Mutator<Value: Clone + 'static>: 'static {
     /// the given [`UnmutateToken`](Mutator::UnmutateToken).
     fn unmutate(&self, value: &mut Value, cache: &mut Self::Cache, t: Self::UnmutateToken);
 
+    /// Call the given closure on all subvalues and their complexities.
     fn visit_subvalues<'a>(&self, value: &'a Value, cache: &'a Self::Cache, visit: &mut dyn FnMut(&'a dyn Any, f64));
 }
 
