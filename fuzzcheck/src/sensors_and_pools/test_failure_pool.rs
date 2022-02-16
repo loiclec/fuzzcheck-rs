@@ -139,7 +139,16 @@ impl Pool for TestFailurePool {
 impl SaveToStatsFolder for TestFailurePool {
     #[no_coverage]
     fn save_to_stats_folder(&self) -> Vec<(PathBuf, Vec<u8>)> {
-        vec![]
+        cfg_if::cfg_if! {
+            if #[cfg(feature = "serde_json_serializer")]
+            {
+                let path = PathBuf::new().join("test_failures.json");
+                let content = serde_json::to_string(&self.inputs.iter().map(|tf| (tf.error.id, tf.error.display.clone()) ).collect::<Vec<_>>()).unwrap();
+                vec![(path, content.into_bytes())]
+            } else {
+                vec![]
+            }
+        }
     }
 }
 
