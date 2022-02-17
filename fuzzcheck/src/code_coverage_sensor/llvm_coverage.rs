@@ -660,7 +660,7 @@ pub enum ReadCovMapError {
         expected: usize,
     },
     InvalidVersion(i32),
-    CannotFindFunctionRecordAssociatedWithPrfData,
+    CannotFindFunctionRecordAssociatedWithPrfData(String),
     CannotParseUTF8 {
         section: CovMapSection,
     },
@@ -919,7 +919,7 @@ impl Coverage {
                             #[no_coverage]
                             |fr| fr.header.id == prf_data.function_id,
                         )
-                        .ok_or(ReadCovMapError::CannotFindFunctionRecordAssociatedWithPrfData)?;
+                        .ok_or(ReadCovMapError::CannotFindFunctionRecordAssociatedWithPrfData("This can sometimes happen when the crate is incrementally compiled with more than one codegen-unit. Try adding codegen-units = 1 or incremental = false to the appropriate profile (release or fuzzing) in Cargo.toml".to_string()))?;
 
                     let slice = &mut all_counters[range];
                     let mut single_counters = Vec::new();
