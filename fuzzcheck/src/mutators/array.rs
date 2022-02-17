@@ -157,7 +157,7 @@ impl<M: Mutator<T>, T: Clone + 'static, const N: usize> ArrayMutator<M, T, N> {
             remaining_cplx -= x_cplx;
             remaining_min_complexity -= self.mutator.min_complexity();
         }
-        (v.try_into().ok().unwrap(), self.min_complexity + sum_cplx)
+        (v.try_into().ok().unwrap(), sum_cplx)
     }
 }
 
