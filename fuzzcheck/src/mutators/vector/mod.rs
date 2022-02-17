@@ -10,6 +10,7 @@ use self::vec_mutation::{RevertVectorMutation, VectorMutation, VectorMutationRan
 
 pub mod arbitrary;
 pub mod copy_element;
+pub mod crossover_insert_slice;
 pub mod crossover_replace_element;
 pub mod insert_element;
 pub mod insert_many_elements;

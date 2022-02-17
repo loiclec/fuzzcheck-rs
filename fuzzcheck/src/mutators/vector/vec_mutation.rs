@@ -1,15 +1,9 @@
-use super::arbitrary;
-use super::copy_element;
-use super::crossover_replace_element;
+use super::crossover_insert_slice::CrossoverInsertSlice;
 use super::crossover_replace_element::CrossoverReplaceElement;
-use super::insert_element;
-use super::insert_many_elements;
-use super::mutate_element;
-use super::only_choose_length;
-use super::remove;
-use super::remove_and_insert_element;
-use super::swap_elements;
-use super::VecMutator;
+use super::{
+    arbitrary, copy_element, crossover_insert_slice, crossover_replace_element, insert_element, insert_many_elements,
+    mutate_element, only_choose_length, remove, remove_and_insert_element, swap_elements, VecMutator,
+};
 use crate::mutators::mutations::{Mutation, NoMutation, RevertMutation};
 use crate::mutators::vose_alias::VoseAlias;
 use crate::Mutator;
@@ -322,7 +316,8 @@ impl_vec_mutation! {
     (RemoveAndInsertElement, remove_and_insert_element::RemoveAndInsertElement),
     (OnlyChooseLength, only_choose_length::OnlyChooseLength),
     (Arbitrary, arbitrary::Arbitrary),
-    (CrossoverReplaceElement, crossover_replace_element::CrossoverReplaceElement)
+    (CrossoverReplaceElement, crossover_replace_element::CrossoverReplaceElement),
+    (CrossoverInsertSlice, crossover_insert_slice::CrossoverInsertSlice)
 }
 
 impl<'a, T, M> std::fmt::Debug for ConcreteVectorMutation<'a, T, M>
@@ -364,6 +359,9 @@ where
             }
             ConcreteVectorMutation::CrossoverReplaceElement(_) => {
                 write!(f, "CrossoverReplaceElement")
+            }
+            ConcreteVectorMutation::CrossoverInsertSlice(_) => {
+                write!(f, "CrossoverInsertSlice")
             }
         }
     }
@@ -471,6 +469,11 @@ impl Default for VectorMutation {
                     mutation: InnerVectorMutation::CrossoverReplaceElement(CrossoverReplaceElement),
                     random_weight: 0.,
                     ordered_weight: 100.,
+                },
+                WeightedMutation {
+                    mutation: InnerVectorMutation::CrossoverInsertSlice(CrossoverInsertSlice),
+                    random_weight: 0.,
+                    ordered_weight: 50.,
                 },
                 // WeightedMutation {
                 //     mutation: InnerVectorMutation::InsertManyElements(insert_many_elements::InsertManyElements {
