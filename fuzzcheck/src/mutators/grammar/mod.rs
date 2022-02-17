@@ -71,18 +71,15 @@ mod regex;
 
 #[doc(inline)]
 pub use ast::AST;
-#[doc(inline)]
-pub use grammar::Grammar;
-#[doc(inline)]
-pub use grammar::{alternation, concatenation, literal, literal_range, literal_ranges, recurse, recursive, repetition};
-
 #[cfg(feature = "regex_grammar")]
 #[doc(inline)]
 #[doc(cfg(feature = "regex_grammar"))]
 pub use grammar::regex;
-
+#[doc(inline)]
+pub use grammar::Grammar;
+#[doc(inline)]
+pub use grammar::{alternation, concatenation, literal, literal_range, literal_ranges, recurse, recursive, repetition};
 #[doc(inline)]
 pub use mutators::grammar_based_ast_mutator;
-
 #[doc(inline)]
 pub use mutators::GrammarBasedASTMutator;

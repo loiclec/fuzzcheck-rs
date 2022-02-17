@@ -1,3 +1,16 @@
+use std::any::{Any, TypeId};
+use std::borrow::Borrow;
+use std::collections::hash_map::DefaultHasher;
+use std::collections::HashMap;
+use std::hash::{Hash, Hasher};
+use std::panic::{catch_unwind, AssertUnwindSafe};
+use std::process::exit;
+use std::result::Result;
+
+use fuzzcheck_common::arg::{Arguments, FuzzerCommand};
+use fuzzcheck_common::{FuzzerEvent, FuzzerStats};
+use libc::{SIGABRT, SIGALRM, SIGBUS, SIGFPE, SIGINT, SIGSEGV, SIGTERM, SIGTRAP};
+
 use crate::data_structures::RcSlab;
 use crate::sensors_and_pools::{
     AndSensorAndPool, NoopSensor, TestFailure, TestFailurePool, TestFailureSensor, UnitPool, TEST_FAILURE,
@@ -7,17 +20,6 @@ use crate::subvalue_provider::{CrossoverSubValueProvider, Generation, SubValuePr
 use crate::traits::{CorpusDelta, Mutator, SaveToStatsFolder, SensorAndPool, Serializer};
 use crate::world::World;
 use crate::{CSVField, SubValueProvider, ToCSV};
-use fuzzcheck_common::arg::{Arguments, FuzzerCommand};
-use fuzzcheck_common::{FuzzerEvent, FuzzerStats};
-use libc::{SIGABRT, SIGALRM, SIGBUS, SIGFPE, SIGINT, SIGSEGV, SIGTERM, SIGTRAP};
-use std::any::{Any, TypeId};
-use std::borrow::Borrow;
-use std::collections::hash_map::DefaultHasher;
-use std::collections::HashMap;
-use std::hash::{Hash, Hasher};
-use std::panic::{catch_unwind, AssertUnwindSafe};
-use std::process::exit;
-use std::result::Result;
 
 static WRITE_STATS_ERROR: &str = "the stats could not be written to the file system";
 static WORLD_NEW_ERROR: &str = "an IO operation failed when setting up the fuzzer";

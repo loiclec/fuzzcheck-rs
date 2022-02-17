@@ -26,17 +26,18 @@
 //! activated counters divided by their frequencies.
 //!
 
-use crate::data_structures::{Slab, SlabKey};
-use crate::fenwick_tree::FenwickTree;
-use crate::traits::{CorpusDelta, Pool, SaveToStatsFolder, Stats};
-use crate::PoolStorageIndex;
-use crate::{CSVField, CompatibleWithObservations, ToCSV};
-use ahash::{AHashMap, AHashSet};
-use fastrand::Rng;
-use nu_ansi_term::Color;
 use std::fmt::Display;
 use std::hash::Hash;
 use std::path::{Path, PathBuf};
+
+use ahash::{AHashMap, AHashSet};
+use fastrand::Rng;
+use nu_ansi_term::Color;
+
+use crate::data_structures::{Slab, SlabKey};
+use crate::fenwick_tree::FenwickTree;
+use crate::traits::{CorpusDelta, Pool, SaveToStatsFolder, Stats};
+use crate::{CSVField, CompatibleWithObservations, PoolStorageIndex, ToCSV};
 
 #[derive(Debug)]
 #[repr(transparent)]

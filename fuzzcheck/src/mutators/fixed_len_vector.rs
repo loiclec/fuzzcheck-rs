@@ -1,7 +1,10 @@
+use std::any::Any;
+use std::marker::PhantomData;
+
+use fastrand::Rng;
+
 use super::CrossoverStep;
 use crate::{Mutator, CROSSOVER_RATE};
-use fastrand::Rng;
-use std::{any::Any, marker::PhantomData};
 
 /// A mutator for vectors of a specific length
 ///
@@ -427,10 +430,9 @@ impl<T: Clone + 'static, M: Mutator<T>> Mutator<Vec<T>> for FixedLenVecMutator<T
 }
 #[cfg(test)]
 mod tests {
-    use crate::Mutator;
-
     use super::FixedLenVecMutator;
     use crate::mutators::integer::U8Mutator;
+    use crate::Mutator;
     #[test]
     #[no_coverage]
     fn test_constrained_length_mutator() {

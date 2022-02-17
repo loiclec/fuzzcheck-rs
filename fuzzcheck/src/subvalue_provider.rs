@@ -1,7 +1,5 @@
-use std::{
-    any::{Any, TypeId},
-    collections::HashMap,
-};
+use std::any::{Any, TypeId};
+use std::collections::HashMap;
 
 use crate::Mutator;
 
@@ -29,6 +27,9 @@ pub struct Generation(pub usize);
 pub trait SubValueProvider {
     /// A globally unique identifier for the subvalue provider
     fn identifier(&self) -> SubValueProviderId;
+
+    fn get_random_subvalue(&self, typeid: TypeId, max_cplx: f64) -> Option<(&dyn Any, f64)>;
+
     fn get_subvalue(&self, typeid: TypeId, max_cplx: f64, index: &mut usize) -> Option<(&dyn Any, f64)>;
 }
 
@@ -42,6 +43,12 @@ impl SubValueProvider for EmptySubValueProvider {
             generation: Generation(0),
         }
     }
+
+    #[no_coverage]
+    fn get_random_subvalue(&self, _typeid: TypeId, _max_cplx: f64) -> Option<(&dyn Any, f64)> {
+        None
+    }
+
     #[no_coverage]
     fn get_subvalue(&self, _typeid: TypeId, _max_cplx: f64, _index: &mut usize) -> Option<(&dyn Any, f64)> {
         None
@@ -57,6 +64,7 @@ where
     immutable_data: Box<(T, M::Cache)>,
     whole_complexity: f64,
     subvalues: HashMap<TypeId, Vec<(*const dyn Any, f64)>>,
+    rng: fastrand::Rng,
 }
 impl<T, M> CrossoverSubValueProvider<T, M>
 where
@@ -78,12 +86,19 @@ where
                     .push((subvalue as *const _, complexity));
             },
         );
+        for (_typeid, subvalues) in subvalues.iter_mut() {
+            subvalues.sort_by(
+                #[no_coverage]
+                |x, y| x.1.partial_cmp(&y.1).unwrap_or(std::cmp::Ordering::Equal),
+            );
+        }
         let whole_complexity = mutator.complexity(value, cache);
         Self {
             identifier,
             immutable_data: boxed_data,
             whole_complexity,
             subvalues,
+            rng: fastrand::Rng::new(),
         }
     }
 }
@@ -92,26 +107,53 @@ where
     T: Clone + 'static,
     M: Mutator<T>,
 {
+    #[no_coverage]
     fn identifier(&self) -> SubValueProviderId {
         self.identifier
     }
 
+    #[no_coverage]
+    fn get_random_subvalue(&self, typeid: TypeId, max_cplx: f64) -> Option<(&dyn Any, f64)> {
+        let subvalues = self.subvalues.get(&typeid)?;
+        assert!(!subvalues.is_empty());
+        let end_index_for_complexity = subvalues
+            .iter()
+            .position(
+                #[no_coverage]
+                |x| x.1 >= max_cplx,
+            )
+            .unwrap_or(subvalues.len());
+        // it's none if all return false, that is, if for all x.1 < max_cplx, so we can choose any index in the vector
+
+        // but if the first element already has a cplx > max_cplx, then we can't choose any
+        if end_index_for_complexity == 0 {
+            return None;
+        }
+
+        let idx = self.rng.usize(..end_index_for_complexity);
+        let (subvalue, complexity) = &subvalues[idx];
+        let subvalue = unsafe { subvalue.as_ref() }.unwrap();
+        Some((subvalue, *complexity))
+    }
+
+    #[no_coverage]
     fn get_subvalue(&self, typeid: TypeId, max_cplx: f64, index: &mut usize) -> Option<(&dyn Any, f64)> {
         let subvalues = self.subvalues.get(&typeid)?;
         assert!(!subvalues.is_empty());
-        loop {
-            if TypeId::of::<T>() == typeid && *index == subvalues.len() {
+
+        if TypeId::of::<T>() == typeid && *index == subvalues.len() {
+            *index += 1;
+            Some((&self.immutable_data.0, self.whole_complexity))
+        } else {
+            let (subvalue, complexity) = subvalues.get(*index)?;
+            if *complexity < max_cplx {
+                let subvalue = unsafe { subvalue.as_ref() }.unwrap();
                 *index += 1;
-                return Some((&self.immutable_data.0, self.whole_complexity));
+                Some((subvalue, *complexity))
             } else {
-                let (subvalue, complexity) = subvalues.get(*index)?;
-                if *complexity < max_cplx {
-                    let subvalue = unsafe { subvalue.as_ref() }.unwrap();
-                    *index += 1;
-                    return Some((subvalue, *complexity));
-                } else {
-                    *index += 1;
-                }
+                // the values are sorted by complexity!
+                // therefore every next *complexity will be bigger than max_cplx, and we can give up
+                None
             }
         }
     }

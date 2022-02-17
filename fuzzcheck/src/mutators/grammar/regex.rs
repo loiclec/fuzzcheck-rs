@@ -1,9 +1,8 @@
 use std::rc::Rc;
 
-use crate::mutators::grammar::Grammar;
 use regex_syntax::hir::{Class, HirKind, Literal, RepetitionKind, RepetitionRange};
 
-use crate::mutators::grammar::{alternation, concatenation, literal, literal_ranges, repetition};
+use crate::mutators::grammar::{alternation, concatenation, literal, literal_ranges, repetition, Grammar};
 
 #[no_coverage]
 pub(crate) fn grammar_from_regex(regex: &str) -> Rc<Grammar> {

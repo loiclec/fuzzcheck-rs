@@ -1,9 +1,8 @@
+use std::any::Any;
+use std::ops::{Bound, RangeBounds};
+
 use crate::mutators::integer::binary_search_arbitrary_u32;
 use crate::Mutator;
-use std::{
-    any::Any,
-    ops::{Bound, RangeBounds},
-};
 
 const INITIAL_MUTATION_STEP: u64 = 0;
 

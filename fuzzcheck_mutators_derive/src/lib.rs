@@ -1,14 +1,10 @@
 #![allow(non_snake_case)]
 #![allow(clippy::type_complexity)]
 
-use decent_synquote_alternative::{
-    self as synquote,
-    parser::{EnumItemData, Ty},
-};
-
+use decent_synquote_alternative as synquote;
 use proc_macro2::{Delimiter, Ident, Span, TokenStream};
+use synquote::parser::{EnumItemData, TokenParser, Ty};
 use synquote::token_builder::*;
-use synquote::{parser::TokenParser, token_builder::TokenBuilder};
 
 mod enums;
 mod single_variant;

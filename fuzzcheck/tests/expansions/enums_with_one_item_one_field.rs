@@ -7,8 +7,9 @@ pub enum X {
 
 #[cfg(test)]
 mod test {
-    use super::*;
     use fuzzcheck::Mutator;
+
+    use super::*;
     #[test]
     #[no_coverage]
     fn test_compile() {

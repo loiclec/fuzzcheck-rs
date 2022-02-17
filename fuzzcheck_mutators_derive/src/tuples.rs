@@ -1,7 +1,5 @@
 use decent_synquote_alternative as synquote;
-use proc_macro2::Literal;
-use proc_macro2::{Ident, Span};
-
+use proc_macro2::{Ident, Literal, Span};
 use synquote::parser::*;
 use synquote::token_builder::*;
 

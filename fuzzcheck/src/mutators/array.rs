@@ -1,7 +1,9 @@
-use std::{any::Any, marker::PhantomData};
+use std::any::Any;
+use std::marker::PhantomData;
+
+use fastrand::Rng;
 
 use crate::{DefaultMutator, Mutator};
-use fastrand::Rng;
 
 /// A mutator for fixed-size arrays `[T; N]`.
 ///
@@ -368,10 +370,9 @@ impl<M: Mutator<T>, T: Clone + 'static, const N: usize> Mutator<[T; N]> for Arra
 
 #[cfg(test)]
 mod tests {
-    use crate::Mutator;
-
     use super::ArrayMutator;
     use crate::mutators::integer::U8Mutator;
+    use crate::Mutator;
     #[test]
     #[no_coverage]
     fn test_array_mutator() {

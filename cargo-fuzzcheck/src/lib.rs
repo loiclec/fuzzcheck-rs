@@ -1,10 +1,11 @@
 #![allow(clippy::collapsible_if)]
 
-use fuzzcheck_common::arg::*;
 use std::cmp::Ordering;
 use std::path::{Path, PathBuf};
 use std::process;
 use std::process::{Command, Stdio};
+
+use fuzzcheck_common::arg::*;
 const TARGET: &str = env!("TARGET");
 const BUILD_FOLDER: &str = "target/fuzzcheck";
 

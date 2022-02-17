@@ -2,8 +2,7 @@ use std::path::PathBuf;
 
 use crate::sensors_and_pools::stats::EmptyStats;
 use crate::traits::{CorpusDelta, Pool, SaveToStatsFolder};
-use crate::CompatibleWithObservations;
-use crate::PoolStorageIndex;
+use crate::{CompatibleWithObservations, PoolStorageIndex};
 
 /// A pool that stores only one given test case.
 ///

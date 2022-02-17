@@ -1,8 +1,5 @@
-use std::{
-    ops::{Range, RangeBounds, RangeInclusive},
-    rc::Rc,
-    rc::Weak,
-};
+use std::ops::{Range, RangeBounds, RangeInclusive};
+use std::rc::{Rc, Weak};
 
 #[cfg(feature = "regex_grammar")]
 use crate::mutators::grammar::regex::grammar_from_regex;

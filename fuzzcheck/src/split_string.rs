@@ -24,7 +24,8 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
  */
 
-use std::{iter::Peekable, str::CharIndices};
+use std::iter::Peekable;
+use std::str::CharIndices;
 
 pub(crate) struct Lexer<'a> {
     input: &'a str,

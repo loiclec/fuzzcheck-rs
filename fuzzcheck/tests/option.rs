@@ -1,12 +1,9 @@
-use fuzzcheck::subvalue_provider::{CrossoverSubValueProvider, Generation, SubValueProviderId};
-use fuzzcheck::DefaultMutator;
-use fuzzcheck::SubValueProvider;
-use fuzzcheck::{
-    mutators::{integer::U8Mutator, option::OptionMutator},
-    Mutator,
-};
-
 use std::any::TypeId;
+
+use fuzzcheck::mutators::integer::U8Mutator;
+use fuzzcheck::mutators::option::OptionMutator;
+use fuzzcheck::subvalue_provider::{CrossoverSubValueProvider, Generation, SubValueProviderId};
+use fuzzcheck::{DefaultMutator, Mutator, SubValueProvider};
 
 #[test]
 fn test_crossover_option() {

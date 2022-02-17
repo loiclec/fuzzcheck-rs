@@ -36,12 +36,12 @@
 //! // if both `p1` and `p2` are compatible with the observations from sensor `s`,
 //! // then (s, p) is a valid combination of sensor and pool
 //! ```
-use std::{fmt::Display, marker::PhantomData, path::PathBuf};
+use std::fmt::Display;
+use std::marker::PhantomData;
+use std::path::PathBuf;
 
-use crate::{
-    traits::{CompatibleWithObservations, CorpusDelta, Pool, SaveToStatsFolder, Sensor, SensorAndPool, Stats},
-    CSVField, PoolStorageIndex, ToCSV,
-};
+use crate::traits::{CompatibleWithObservations, CorpusDelta, Pool, SaveToStatsFolder, Sensor, SensorAndPool, Stats};
+use crate::{CSVField, PoolStorageIndex, ToCSV};
 /// Marker type used by [`AndPool`] to signal that all sub-pools are compatible with the same observations.
 pub struct SameObservations;
 

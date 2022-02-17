@@ -1,28 +1,20 @@
-use crate::fuzzer::PoolStorageIndex;
-use crate::fuzzer::TerminationStatus;
-use crate::traits::CorpusDelta;
-use crate::traits::SaveToStatsFolder;
-use crate::traits::Stats;
-use crate::CSVField;
-use crate::ToCSV;
-use fuzzcheck_common::arg::Arguments;
-use fuzzcheck_common::arg::FuzzerCommand;
-use fuzzcheck_common::{FuzzerEvent, FuzzerStats};
-use nu_ansi_term::Color;
 use std::cell::RefCell;
 use std::collections::hash_map::DefaultHasher;
 use std::collections::HashMap;
 use std::fs;
-use std::fs::File;
-use std::fs::OpenOptions;
+use std::fs::{File, OpenOptions};
 use std::hash::{Hash, Hasher};
-use std::io::Write;
-use std::io::{self, Result};
-use std::path::Path;
-use std::path::PathBuf;
-use std::time::Duration;
-use std::time::Instant;
-use std::time::SystemTime;
+use std::io::{self, Result, Write};
+use std::path::{Path, PathBuf};
+use std::time::{Duration, Instant, SystemTime};
+
+use fuzzcheck_common::arg::{Arguments, FuzzerCommand};
+use fuzzcheck_common::{FuzzerEvent, FuzzerStats};
+use nu_ansi_term::Color;
+
+use crate::fuzzer::{PoolStorageIndex, TerminationStatus};
+use crate::traits::{CorpusDelta, SaveToStatsFolder, Stats};
+use crate::{CSVField, ToCSV};
 
 impl ToCSV for FuzzerStats {
     #[no_coverage]

@@ -1,8 +1,8 @@
 use std::ops::RangeInclusive;
 
-use fuzzcheck::mutators::{
-    alternation::AlternationMutator, char::CharWithinRangeMutator, testing_utilities::test_mutator,
-};
+use fuzzcheck::mutators::alternation::AlternationMutator;
+use fuzzcheck::mutators::char::CharWithinRangeMutator;
+use fuzzcheck::mutators::testing_utilities::test_mutator;
 
 fn test_alternation_char_helper(ranges: impl IntoIterator<Item = RangeInclusive<char>> + Clone) {
     let m = AlternationMutator::new(

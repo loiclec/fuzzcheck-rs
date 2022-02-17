@@ -1,10 +1,10 @@
 use std::any::TypeId;
+use std::ops::Range;
 
 use super::insert_many_elements::insert_many;
 use super::VecMutator;
 use crate::mutators::mutations::{Mutation, RevertMutation};
 use crate::{Mutator, SubValueProvider};
-use std::ops::Range;
 
 pub struct CrossoverInsertSlice;
 

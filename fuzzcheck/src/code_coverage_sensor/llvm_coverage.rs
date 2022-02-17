@@ -1,10 +1,11 @@
-use super::leb128;
-use flate2::Status;
-use object::{Object, ObjectSection};
-use std::collections::HashMap;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::convert::TryFrom;
 use std::path::{Path, PathBuf};
+
+use flate2::Status;
+use object::{Object, ObjectSection};
+
+use super::leb128;
 
 type CovMap = HashMap<[u8; 8], Vec<String>>;
 

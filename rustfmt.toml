@@ -1,1 +1,4 @@
 max_width = 120
+imports_granularity = "Module"
+group_imports = "StdExternalCrate"
+use_field_init_shorthand = true

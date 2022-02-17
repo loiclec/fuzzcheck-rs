@@ -25,11 +25,11 @@ OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
 IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
  */
+use std::hash::{Hash, Hasher};
+use std::marker::PhantomData;
+
 use ahash::AHasher;
 use bit_vec::BitVec;
-use std::hash::Hash;
-use std::hash::Hasher;
-use std::marker::PhantomData;
 
 const FALSE_POS_PROB: f64 = -1.0;
 const LN_2: f64 = core::f64::consts::LN_2;

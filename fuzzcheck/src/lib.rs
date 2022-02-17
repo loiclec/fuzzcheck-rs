@@ -74,87 +74,8 @@ mod traits;
 mod world;
 
 #[doc(inline)]
-pub use crate::fuzzer::FuzzingResult;
-#[doc(inline)]
-pub use crate::fuzzer::PoolStorageIndex;
-#[doc(inline)]
-pub use crate::sensors_and_pools::PoolExt;
-#[doc(inline)]
-pub use crate::sensors_and_pools::SensorExt;
-#[doc(inline)]
-pub use crate::subvalue_provider::SubValueProvider;
-#[doc(inline)]
-pub use crate::traits::CompatibleWithObservations;
-#[doc(inline)]
-pub use crate::traits::CorpusDelta;
-#[doc(inline)]
-pub use crate::traits::Pool;
-#[doc(inline)]
-pub use crate::traits::SaveToStatsFolder;
-#[doc(inline)]
-pub use crate::traits::Sensor;
-#[doc(inline)]
-pub use crate::traits::SensorAndPool;
-#[doc(inline)]
-pub use crate::traits::Stats;
-pub use fuzzcheck_common::arg::Arguments;
-#[doc(inline)]
-pub use fuzzer::ReasonForStopping;
-#[doc(inline)]
-pub use mutators::DefaultMutator;
-#[doc(inline)]
-pub use mutators::MutatorExt;
-pub(crate) use split_string::split_string_by_whitespace;
-#[doc(inline)]
-pub use traits::Mutator;
-#[doc(inline)]
-pub use traits::Serializer;
-#[doc(inline)]
-pub use traits::{CSVField, ToCSV};
-
-#[doc(inline)]
 pub use builder::fuzz_test;
-
-#[doc(inline)]
-pub use serializers::ByteSerializer;
-#[doc(inline)]
-pub use serializers::StringSerializer;
-
-#[cfg(feature = "serde_json_serializer")]
-#[doc(inline)]
-pub use serializers::SerdeSerializer;
-
-/// Implement a mutator for the type and make it the type’s `DefaultMutator`.
-///
-/// The mutator will be called `<Name>Mutator`. It can be constructed in two ways:
-/// 1. Through the `DefaultMutator` trait, for example:
-/// ```
-/// # #![feature(no_coverage)]
-/// use fuzzcheck::DefaultMutator;
-///
-/// #[derive(Clone, DefaultMutator)]
-/// struct X<A> {
-///     field: A,
-/// }
-/// let mutator = <X<u8> as DefaultMutator>::default_mutator();
-/// // but it can also be inferred by the rust compiler:
-/// let mutator = X::<u8>::default_mutator();
-/// ```
-/// 2. By using `<Name>Mutator::new(..)` with the submutators for every field given as argument, for example:
-/// ```
-/// # #![feature(no_coverage)]
-/// use fuzzcheck::DefaultMutator;
-///
-/// #[derive(Clone, DefaultMutator)]
-/// enum Either<A, B> {
-///     Left(A),
-///     Right(B)
-/// }
-/// let mutator = EitherMutator::new(u8::default_mutator(), bool::default_mutator());
-/// // mutator impl Mutator<Either<u8, bool>>
-/// ```
-pub use fuzzcheck_mutators_derive::DefaultMutator;
-
+pub use fuzzcheck_common::arg::Arguments;
 /**
     Make a mutator for a custom type, optionally making it the type’s default mutator.
 
@@ -246,3 +167,78 @@ pub use fuzzcheck_mutators_derive::DefaultMutator;
     ```
 */
 pub use fuzzcheck_mutators_derive::make_mutator;
+/// Implement a mutator for the type and make it the type’s `DefaultMutator`.
+///
+/// The mutator will be called `<Name>Mutator`. It can be constructed in two ways:
+/// 1. Through the `DefaultMutator` trait, for example:
+/// ```
+/// # #![feature(no_coverage)]
+/// use fuzzcheck::DefaultMutator;
+///
+/// #[derive(Clone, DefaultMutator)]
+/// struct X<A> {
+///     field: A,
+/// }
+/// let mutator = <X<u8> as DefaultMutator>::default_mutator();
+/// // but it can also be inferred by the rust compiler:
+/// let mutator = X::<u8>::default_mutator();
+/// ```
+/// 2. By using `<Name>Mutator::new(..)` with the submutators for every field given as argument, for example:
+/// ```
+/// # #![feature(no_coverage)]
+/// use fuzzcheck::DefaultMutator;
+///
+/// #[derive(Clone, DefaultMutator)]
+/// enum Either<A, B> {
+///     Left(A),
+///     Right(B)
+/// }
+/// let mutator = EitherMutator::new(u8::default_mutator(), bool::default_mutator());
+/// // mutator impl Mutator<Either<u8, bool>>
+/// ```
+pub use fuzzcheck_mutators_derive::DefaultMutator;
+#[doc(inline)]
+pub use fuzzer::ReasonForStopping;
+#[doc(inline)]
+pub use mutators::DefaultMutator;
+#[doc(inline)]
+pub use mutators::MutatorExt;
+#[doc(inline)]
+pub use serializers::ByteSerializer;
+#[cfg(feature = "serde_json_serializer")]
+#[doc(inline)]
+pub use serializers::SerdeSerializer;
+#[doc(inline)]
+pub use serializers::StringSerializer;
+pub(crate) use split_string::split_string_by_whitespace;
+#[doc(inline)]
+pub use traits::Mutator;
+#[doc(inline)]
+pub use traits::Serializer;
+#[doc(inline)]
+pub use traits::{CSVField, ToCSV};
+
+#[doc(inline)]
+pub use crate::fuzzer::FuzzingResult;
+#[doc(inline)]
+pub use crate::fuzzer::PoolStorageIndex;
+#[doc(inline)]
+pub use crate::sensors_and_pools::PoolExt;
+#[doc(inline)]
+pub use crate::sensors_and_pools::SensorExt;
+#[doc(inline)]
+pub use crate::subvalue_provider::SubValueProvider;
+#[doc(inline)]
+pub use crate::traits::CompatibleWithObservations;
+#[doc(inline)]
+pub use crate::traits::CorpusDelta;
+#[doc(inline)]
+pub use crate::traits::Pool;
+#[doc(inline)]
+pub use crate::traits::SaveToStatsFolder;
+#[doc(inline)]
+pub use crate::traits::Sensor;
+#[doc(inline)]
+pub use crate::traits::SensorAndPool;
+#[doc(inline)]
+pub use crate::traits::Stats;

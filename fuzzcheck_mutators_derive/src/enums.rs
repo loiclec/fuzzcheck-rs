@@ -1,13 +1,10 @@
 use decent_synquote_alternative as synquote;
 use proc_macro2::{Ident, Span};
-
 use synquote::parser::*;
 use synquote::token_builder::*;
 
-use crate::structs_and_enums::CreateWrapperMutatorParams;
-use crate::structs_and_enums::{FieldMutator, FieldMutatorKind};
-use crate::Common;
-use crate::MakeMutatorSettings;
+use crate::structs_and_enums::{CreateWrapperMutatorParams, FieldMutator, FieldMutatorKind};
+use crate::{Common, MakeMutatorSettings};
 
 fn size_to_cplxity(size: usize) -> f64 {
     (usize::BITS - (size.saturating_sub(1)).leading_zeros()) as f64

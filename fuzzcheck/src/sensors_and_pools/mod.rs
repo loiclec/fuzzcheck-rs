@@ -15,10 +15,6 @@ mod unique_values_pool;
 mod unit_pool;
 
 #[doc(inline)]
-pub use crate::code_coverage_sensor::CodeCoverageSensor;
-use crate::Pool;
-use crate::Sensor;
-#[doc(inline)]
 pub use and_sensor_and_pool::{AndPool, AndSensor, AndSensorAndPool, DifferentObservations, SameObservations};
 #[doc(inline)]
 pub use map_sensor::MapSensor;
@@ -42,12 +38,15 @@ pub use test_failure_pool::TestFailure;
 pub use test_failure_pool::TestFailurePool;
 #[doc(inline)]
 pub use test_failure_pool::TestFailureSensor;
+pub(crate) use test_failure_pool::TEST_FAILURE;
 #[doc(inline)]
 pub use unique_values_pool::UniqueValuesPool;
 #[doc(inline)]
 pub use unit_pool::UnitPool;
 
-pub(crate) use test_failure_pool::TEST_FAILURE;
+#[doc(inline)]
+pub use crate::code_coverage_sensor::CodeCoverageSensor;
+use crate::{Pool, Sensor};
 
 /// A trait for convenience methods automatically implemented for all types that conform to Pool.
 pub trait PoolExt: Pool + Sized {
@@ -103,8 +102,6 @@ impl<T> SensorExt for T where T: Sensor {}
 
 /// Each pool has an associated `Stats` type. They're not very interesting, but I don't want to completely hide them, so I have gathered them here.
 pub mod stats {
-    use crate::traits::Stats;
-    use crate::{CSVField, ToCSV};
     use std::fmt::Display;
 
     #[doc(inline)]
@@ -119,6 +116,8 @@ pub mod stats {
     pub use super::test_failure_pool::TestFailurePoolStats;
     #[doc(inline)]
     pub use super::unique_values_pool::UniqueValuesPoolStats;
+    use crate::traits::Stats;
+    use crate::{CSVField, ToCSV};
 
     /// An empty type that can be used for [`Pool::Stats`](crate::Pool::Stats)
     #[derive(Clone, Copy)]

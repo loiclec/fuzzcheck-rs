@@ -2,8 +2,9 @@
 //!
 //! See: <https://www.keithschwarz.com/darts-dice-coins/> for an explanation.
 
-use fastrand::Rng;
 use std::fmt::Debug;
+
+use fastrand::Rng;
 
 /// An efficient data structure to sample from a discrete, fixed distribution.
 ///

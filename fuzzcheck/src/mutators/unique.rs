@@ -1,11 +1,11 @@
-use crate::{bloom_filter::BloomFilter, Mutator};
-use std::{
-    any::Any,
-    cell::{Cell, RefCell},
-    hash::Hash,
-    marker::PhantomData,
-    rc::Rc,
-};
+use std::any::Any;
+use std::cell::{Cell, RefCell};
+use std::hash::Hash;
+use std::marker::PhantomData;
+use std::rc::Rc;
+
+use crate::bloom_filter::BloomFilter;
+use crate::Mutator;
 
 const SIZE_BLOOM: usize = 10_000_000;
 const FALSE_POSITIVE_RATE: f64 = 0.000_001;

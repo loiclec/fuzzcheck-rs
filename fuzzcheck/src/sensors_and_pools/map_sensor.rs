@@ -1,5 +1,6 @@
-use crate::{SaveToStatsFolder, Sensor};
 use std::marker::PhantomData;
+
+use crate::{SaveToStatsFolder, Sensor};
 
 /// The result of [`sensor.map(..)`](crate::SensorExt::map)
 pub struct MapSensor<S, ToObservations, F>

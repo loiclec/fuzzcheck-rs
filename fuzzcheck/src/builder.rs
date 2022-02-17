@@ -58,27 +58,28 @@ You can also look at the types provided in the [`sensors_and_pools`](crate::sens
 is to use the [`SensorAndPoolBuilder`], although it only offers a couple limited options.
 */
 
-use crate::code_coverage_sensor::CodeCoverageSensor;
-use crate::fuzzer::{Fuzzer, FuzzingResult};
-use crate::sensors_and_pools::MaximiseEachCounterPool;
-use crate::sensors_and_pools::MostNDiversePool;
-use crate::sensors_and_pools::SimplestToActivateCounterPool;
-use crate::sensors_and_pools::WrapperSensor;
-use crate::sensors_and_pools::{AndPool, SameObservations};
-use crate::sensors_and_pools::{DifferentObservations, MaximiseObservationPool};
-use crate::{split_string_by_whitespace, DefaultMutator};
-use crate::{CompatibleWithObservations, Mutator, PoolExt, Sensor, SensorExt, Serializer};
-
-#[cfg(feature = "serde_json_serializer")]
-use crate::SerdeSerializer;
-
-use fuzzcheck_common::arg::{options_parser, ArgumentsError, COMMAND_FUZZ, COMMAND_MINIFY_INPUT, INPUT_FILE_FLAG};
-use fuzzcheck_common::arg::{Arguments, FuzzerCommand};
 use std::borrow::Borrow;
 use std::marker::PhantomData;
 use std::path::Path;
 use std::result::Result;
 use std::time::Duration;
+
+use fuzzcheck_common::arg::{
+    options_parser, Arguments, ArgumentsError, FuzzerCommand, COMMAND_FUZZ, COMMAND_MINIFY_INPUT, INPUT_FILE_FLAG,
+};
+
+use crate::code_coverage_sensor::CodeCoverageSensor;
+use crate::fuzzer::{Fuzzer, FuzzingResult};
+use crate::sensors_and_pools::{
+    AndPool, DifferentObservations, MaximiseEachCounterPool, MaximiseObservationPool, MostNDiversePool,
+    SameObservations, SimplestToActivateCounterPool, WrapperSensor,
+};
+#[cfg(feature = "serde_json_serializer")]
+use crate::SerdeSerializer;
+use crate::{
+    split_string_by_whitespace, CompatibleWithObservations, DefaultMutator, Mutator, PoolExt, Sensor, SensorExt,
+    Serializer,
+};
 
 /** A function that can be fuzz-tested.
 

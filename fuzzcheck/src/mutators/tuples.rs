@@ -86,8 +86,10 @@
 //! None of it is *strictly* necessary since I could always write a brand new mutator for each type from scratch instead
 //! of trying to reuse mutators. But it would be a much larger amount of work, would probably increase compile times, and
 //! it would be more difficult to refactor and keep the implementations correct.
+use std::any::Any;
+use std::marker::PhantomData;
+
 use crate::Mutator;
-use std::{any::Any, marker::PhantomData};
 
 /// A trait which essentially holds the types of a destructured tuple or structure.
 ///
@@ -324,8 +326,7 @@ mod tuple0 {
     use std::any::Any;
 
     use super::TupleMutator;
-    use crate::mutators::tuples::RefTypes;
-    use crate::mutators::tuples::TupleStructure;
+    use crate::mutators::tuples::{RefTypes, TupleStructure};
 
     /// A marker type implementing [`RefTypes`] indicating that a type is equivalent to the unit type `()`
     pub struct Tuple0;
@@ -460,7 +461,8 @@ mod tuple1 {
     use std::any::Any;
 
     use super::{TupleMutator, TupleMutatorWrapper};
-    use crate::mutators::{tuples::RefTypes, CrossoverStep, CROSSOVER_RATE};
+    use crate::mutators::tuples::RefTypes;
+    use crate::mutators::{CrossoverStep, CROSSOVER_RATE};
 
     #[doc = "A marker type implementing [`RefTypes`](crate::mutators::tuples::RefTypes) indicating that a type has the [structure](crate::mutators::tuples::TupleStructure) of a 1-tuple."]
     pub struct Tuple1<T0: 'static> {

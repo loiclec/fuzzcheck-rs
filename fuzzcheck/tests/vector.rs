@@ -1,4 +1,5 @@
-use fuzzcheck::mutators::{integer::U8Mutator, vector::VecMutator};
+use fuzzcheck::mutators::integer::U8Mutator;
+use fuzzcheck::mutators::vector::VecMutator;
 #[test]
 fn test_vector_mutator() {
     // let m = VecMutator::new(U8Mutator::default(), 0..=10);

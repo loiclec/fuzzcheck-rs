@@ -1,10 +1,7 @@
 use std::any::Any;
 
-use crate::DefaultMutator;
-use crate::Mutator;
-use crate::CROSSOVER_RATE;
-
 use super::CrossoverStep;
+use crate::{DefaultMutator, Mutator, CROSSOVER_RATE};
 
 /// Default mutator of `Box<T>`
 #[derive(Default)]

@@ -5,12 +5,12 @@ mod llvm_coverage;
 #[cfg(feature = "serde_json_serializer")]
 mod serialized;
 
-use crate::traits::{SaveToStatsFolder, Sensor};
+use std::collections::HashMap;
 use std::convert::TryFrom;
-use std::path::Path;
-use std::{collections::HashMap, path::PathBuf};
+use std::path::{Path, PathBuf};
 
 use self::llvm_coverage::{get_counters, get_prf_data, read_covmap, Coverage, LLVMCovSections};
+use crate::traits::{SaveToStatsFolder, Sensor};
 
 /// A sensor that automatically records the code coverage of the program through an array of counters.
 ///

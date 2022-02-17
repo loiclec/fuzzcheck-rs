@@ -1,10 +1,10 @@
+use std::any::Any;
+use std::ops::{Bound, RangeBounds};
+
 use crate::mutators::integer::{
     binary_search_arbitrary_u16, binary_search_arbitrary_u32, binary_search_arbitrary_u64, binary_search_arbitrary_u8,
 };
 use crate::Mutator;
-use std::any::Any;
-use std::ops::Bound;
-use std::ops::RangeBounds;
 const INITIAL_MUTATION_STEP: u64 = 0;
 
 macro_rules! impl_int_mutator_constrained {

@@ -1,11 +1,8 @@
-use crate::traits::Stats;
-use crate::CompatibleWithObservations;
-use crate::{
-    traits::{CorpusDelta, Pool, SaveToStatsFolder},
-    CSVField, PoolStorageIndex, ToCSV,
-};
-use std::fmt::Display;
-use std::{fmt::Debug, path::PathBuf};
+use std::fmt::{Debug, Display};
+use std::path::PathBuf;
+
+use crate::traits::{CorpusDelta, Pool, SaveToStatsFolder, Stats};
+use crate::{CSVField, CompatibleWithObservations, PoolStorageIndex, ToCSV};
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
 struct Unit;

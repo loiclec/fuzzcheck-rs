@@ -2,13 +2,11 @@
 
 extern crate fastrand;
 
-use std::cmp::Ordering;
-use std::cmp::PartialOrd;
+use std::cmp::{Ordering, PartialOrd};
 use std::fmt;
 use std::fmt::Debug;
 use std::hash::Hash;
-use std::ops::Index;
-use std::ops::IndexMut;
+use std::ops::{Index, IndexMut};
 
 // ========= Slab ============
 

@@ -1,4 +1,5 @@
-use std::{collections::HashSet, ops::RangeBounds};
+use std::collections::HashSet;
+use std::ops::RangeBounds;
 
 use fuzzcheck::mutators::integer_within_range::I8WithinRangeMutator;
 use fuzzcheck::mutators::testing_utilities::test_mutator;

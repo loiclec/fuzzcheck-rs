@@ -1,5 +1,6 @@
-use fuzzcheck_mutators_derive::make_mutator;
 use std::result::Result;
+
+use fuzzcheck_mutators_derive::make_mutator;
 extern crate self as fuzzcheck;
 
 make_mutator! {

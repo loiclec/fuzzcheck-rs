@@ -1,11 +1,9 @@
 #![allow(clippy::type_complexity)]
-use fuzzcheck::make_mutator;
 use fuzzcheck::mutators::bool::BoolMutator;
 use fuzzcheck::mutators::boxed::BoxMutator;
 use fuzzcheck::mutators::option::OptionMutator;
 use fuzzcheck::mutators::recursive::{RecurToMutator, RecursiveMutator};
-use fuzzcheck::DefaultMutator;
-use fuzzcheck::Mutator;
+use fuzzcheck::{make_mutator, DefaultMutator, Mutator};
 
 #[derive(Clone, Debug)]
 struct S {

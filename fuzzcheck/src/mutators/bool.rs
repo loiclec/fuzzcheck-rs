@@ -1,6 +1,6 @@
-use crate::DefaultMutator;
-use crate::Mutator;
 use std::any::Any;
+
+use crate::{DefaultMutator, Mutator};
 
 /// Default mutator for `bool`
 #[derive(Default)]

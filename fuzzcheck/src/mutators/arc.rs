@@ -1,11 +1,8 @@
 use std::any::Any;
 use std::sync::Arc;
 
-use crate::DefaultMutator;
-use crate::Mutator;
-use crate::CROSSOVER_RATE;
-
 use super::CrossoverStep;
+use crate::{DefaultMutator, Mutator, CROSSOVER_RATE};
 
 /// Default mutator of `Arc<T>`
 #[derive(Default)]

@@ -1,5 +1,11 @@
 extern crate self as fuzzcheck;
 
+use std::any::Any;
+use std::collections::HashMap;
+use std::rc::{Rc, Weak};
+
+use fuzzcheck_mutators_derive::make_single_variant_mutator;
+
 use super::grammar::Grammar;
 use crate::mutators::alternation::AlternationMutator;
 use crate::mutators::character_classes::CharacterMutator;
@@ -11,10 +17,6 @@ use crate::mutators::recursive::{RecurToMutator, RecursiveMutator};
 use crate::mutators::tuples::Tuple1Mutator;
 use crate::mutators::vector::VecMutator;
 use crate::Mutator;
-use fuzzcheck_mutators_derive::make_single_variant_mutator;
-use std::any::Any;
-use std::collections::HashMap;
-use std::rc::{Rc, Weak};
 
 make_single_variant_mutator! {
     pub enum AST {

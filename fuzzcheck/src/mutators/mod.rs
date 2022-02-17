@@ -35,15 +35,16 @@ This module provides the following mutators:
 
 pub const CROSSOVER_RATE: u8 = 10;
 
-use crate::{subvalue_provider::Generation, Mutator, SubValueProvider};
-use ahash::AHashMap;
-use std::{
-    any::{Any, TypeId},
-    marker::PhantomData,
-    ops::Range,
-};
+use std::any::{Any, TypeId};
+use std::marker::PhantomData;
+use std::ops::Range;
 
-use self::{filter::FilterMutator, map::MapMutator};
+use ahash::AHashMap;
+
+use self::filter::FilterMutator;
+use self::map::MapMutator;
+use crate::subvalue_provider::Generation;
+use crate::{Mutator, SubValueProvider};
 
 pub mod alternation;
 pub mod arc;
@@ -329,11 +330,12 @@ mod test {
 
 #[doc(hidden)]
 pub mod testing_utilities {
-    use crate::subvalue_provider::EmptySubValueProvider;
-    use crate::Mutator;
     use std::collections::HashSet;
     use std::fmt::Debug;
     use std::hash::Hash;
+
+    use crate::subvalue_provider::EmptySubValueProvider;
+    use crate::Mutator;
 
     #[no_coverage]
     pub fn test_mutator<T, M>(

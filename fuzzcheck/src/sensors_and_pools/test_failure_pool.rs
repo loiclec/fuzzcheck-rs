@@ -1,9 +1,10 @@
-use crate::traits::{CompatibleWithObservations, CorpusDelta, Pool, SaveToStatsFolder, Sensor, Stats};
-use crate::PoolStorageIndex;
-use crate::{CSVField, ToCSV};
-use nu_ansi_term::Color;
 use std::fmt::Display;
 use std::path::PathBuf;
+
+use nu_ansi_term::Color;
+
+use crate::traits::{CompatibleWithObservations, CorpusDelta, Pool, SaveToStatsFolder, Sensor, Stats};
+use crate::{CSVField, PoolStorageIndex, ToCSV};
 
 const NBR_ARTIFACTS_PER_ERROR_AND_CPLX: usize = 8;
 

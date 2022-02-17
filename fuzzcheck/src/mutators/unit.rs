@@ -1,7 +1,7 @@
-use crate::DefaultMutator;
-use crate::Mutator;
 use std::any::Any;
 use std::marker::PhantomData;
+
+use crate::{DefaultMutator, Mutator};
 
 pub type VoidMutator = UnitMutator<()>;
 

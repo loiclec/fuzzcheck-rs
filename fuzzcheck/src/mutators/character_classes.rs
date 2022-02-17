@@ -1,13 +1,10 @@
-use std::{
-    any::Any,
-    ops::{Range, RangeInclusive},
-};
+use std::any::Any;
+use std::ops::{Range, RangeInclusive};
 
 use fastrand::Rng;
 
-use crate::Mutator;
-
 use super::size_to_cplxity;
+use crate::Mutator;
 
 /// Mutator for a `char` within a list of ranges
 #[derive(Debug)]
@@ -228,7 +225,8 @@ impl Mutator<char> for CharacterMutator {
 
 #[cfg(test)]
 mod tests {
-    use crate::{mutators::character_classes::CharacterMutator, Mutator};
+    use crate::mutators::character_classes::CharacterMutator;
+    use crate::Mutator;
 
     #[test]
     #[no_coverage]

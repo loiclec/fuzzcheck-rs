@@ -1,10 +1,9 @@
-use crate::Common;
-use crate::{decent_synquote_alternative::TokenBuilderExtend, MakeMutatorSettings};
-use decent_synquote_alternative::{
-    parser::{Generics, StructField, Ty, TypeParam, WhereClause},
-    token_builder::TokenBuilder,
-};
+use decent_synquote_alternative::parser::{Generics, StructField, Ty, TypeParam, WhereClause};
+use decent_synquote_alternative::token_builder::TokenBuilder;
 use proc_macro2::{Ident, Span, TokenStream};
+
+use crate::decent_synquote_alternative::TokenBuilderExtend;
+use crate::{Common, MakeMutatorSettings};
 
 // This file hosts the common code for generating default mutators for enums and structs
 

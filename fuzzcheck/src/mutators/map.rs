@@ -1,5 +1,7 @@
+use std::any::Any;
+use std::marker::PhantomData;
+
 use crate::Mutator;
-use std::{any::Any, marker::PhantomData};
 
 pub struct MapMutator<From, To, M, Parse, Map, Cplx>
 where

@@ -1,11 +1,12 @@
 #![allow(clippy::bool_comparison)]
 extern crate cargo_fuzzcheck;
-use cargo_fuzzcheck::*;
-use fuzzcheck_common::arg::*;
 use std::error::Error;
 use std::path::PathBuf;
 use std::process;
 use std::string::String;
+
+use cargo_fuzzcheck::*;
+use fuzzcheck_common::arg::*;
 
 const CARGO_ARGS_FLAG: &str = "cargo-args";
 

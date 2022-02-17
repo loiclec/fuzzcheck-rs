@@ -1,12 +1,12 @@
-use crate::mutators::mutations::{Mutation, RevertMutation};
-use crate::subvalue_provider::EmptySubValueProvider;
-use crate::{DefaultMutator, Mutator};
 use std::any::Any;
 use std::cmp;
 use std::marker::PhantomData;
 use std::ops::RangeInclusive;
 
 use self::vec_mutation::{RevertVectorMutation, VectorMutation, VectorMutationRandomStep, VectorMutationStep};
+use crate::mutators::mutations::{Mutation, RevertMutation};
+use crate::subvalue_provider::EmptySubValueProvider;
+use crate::{DefaultMutator, Mutator};
 
 pub mod arbitrary;
 pub mod copy_element;

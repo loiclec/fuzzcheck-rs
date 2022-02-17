@@ -13,7 +13,8 @@
 
 #[cfg(feature = "serde_json_serializer")]
 mod serde_serializer;
-use std::{marker::PhantomData, str::FromStr};
+use std::marker::PhantomData;
+use std::str::FromStr;
 
 #[cfg(feature = "serde_json_serializer")]
 pub use serde_serializer::SerdeSerializer;

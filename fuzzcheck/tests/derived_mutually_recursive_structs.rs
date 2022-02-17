@@ -2,14 +2,13 @@
 #![feature(no_coverage)]
 // #![feature(trivial_bounds)]
 
-use fuzzcheck::make_mutator;
+use std::fmt::Debug;
+
 use fuzzcheck::mutators::option::OptionMutator;
 use fuzzcheck::mutators::recursive::RecurToMutator;
 use fuzzcheck::mutators::testing_utilities::test_mutator;
 use fuzzcheck::mutators::vector::VecMutator;
-use fuzzcheck::DefaultMutator;
-
-use std::fmt::Debug;
+use fuzzcheck::{make_mutator, DefaultMutator};
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 struct MutuallyRecursiveA {

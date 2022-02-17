@@ -2,7 +2,6 @@ use std::collections::HashMap;
 
 use decent_synquote_alternative as synquote;
 use proc_macro2::{Ident, Span, TokenStream};
-
 use synquote::parser::*;
 use synquote::token_builder::*;
 

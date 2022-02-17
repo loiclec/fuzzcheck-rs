@@ -1,6 +1,6 @@
-use crate::DefaultMutator;
-use crate::Mutator;
 use std::any::Any;
+
+use crate::{DefaultMutator, Mutator};
 /*
     These mutators try to achieve multiple things:
     * avoid repetitions, such that if the value “7” was already produced, then it will not appear again

@@ -1,17 +1,11 @@
-use std::{
-    cmp::Ordering,
-    fmt::{self, Display, Formatter},
-    path::PathBuf,
-};
+use std::cmp::Ordering;
+use std::fmt::{self, Display, Formatter};
+use std::path::PathBuf;
 
-use crate::{bitset::FixedBitSet, traits::SaveToStatsFolder};
-use crate::{traits::Stats, CompatibleWithObservations};
-
-use crate::{
-    fenwick_tree::FenwickTree,
-    traits::{CorpusDelta, Pool},
-    CSVField, PoolStorageIndex, ToCSV,
-};
+use crate::bitset::FixedBitSet;
+use crate::fenwick_tree::FenwickTree;
+use crate::traits::{CorpusDelta, Pool, SaveToStatsFolder, Stats};
+use crate::{CSVField, CompatibleWithObservations, PoolStorageIndex, ToCSV};
 
 // use super::compatible_with_iterator_sensor::CompatibleWithIteratorSensor;
 

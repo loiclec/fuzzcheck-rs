@@ -46,12 +46,11 @@
 //! # }
 //! ```
 
+use std::any::Any;
+use std::fmt::Debug;
+use std::rc::{Rc, Weak};
+
 use crate::Mutator;
-use std::{
-    any::Any,
-    fmt::Debug,
-    rc::{Rc, Weak},
-};
 
 /// The ArbitraryStep that is used for recursive mutators
 #[derive(Clone, Debug, PartialEq)]

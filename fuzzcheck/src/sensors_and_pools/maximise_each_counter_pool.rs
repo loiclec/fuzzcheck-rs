@@ -1,12 +1,13 @@
+use std::fmt::{Debug, Display};
+use std::path::Path;
+
+use ahash::AHashSet;
+use nu_ansi_term::Color;
+
 use crate::data_structures::{Slab, SlabKey};
 use crate::fenwick_tree::FenwickTree;
 use crate::traits::{CorpusDelta, Pool, SaveToStatsFolder, Stats};
-use crate::PoolStorageIndex;
-use crate::{CSVField, CompatibleWithObservations, ToCSV};
-use ahash::AHashSet;
-use nu_ansi_term::Color;
-use std::fmt::{Debug, Display};
-use std::path::Path;
+use crate::{CSVField, CompatibleWithObservations, PoolStorageIndex, ToCSV};
 
 /// The statistics of a [MaximiseEachCounterPool]
 #[derive(Clone)]
@@ -239,8 +240,7 @@ mod tests {
     use std::collections::HashMap;
 
     use super::MaximiseEachCounterPool;
-    use crate::traits::CompatibleWithObservations;
-    use crate::traits::Pool;
+    use crate::traits::{CompatibleWithObservations, Pool};
     use crate::PoolStorageIndex;
 
     #[test]

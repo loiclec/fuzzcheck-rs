@@ -1,5 +1,8 @@
+use std::any::Any;
+use std::cmp::Ordering;
+use std::marker::PhantomData;
+
 use crate::Mutator;
-use std::{any::Any, cmp::Ordering, marker::PhantomData};
 
 /**
 A mutator that wraps multiple different mutators of the same type.

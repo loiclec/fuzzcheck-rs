@@ -1,12 +1,13 @@
-use crate::data_structures::{Slab, SlabKey};
-use crate::fenwick_tree::FenwickTree;
-use crate::traits::{CorpusDelta, Pool, SaveToStatsFolder, Stats};
-use crate::PoolStorageIndex;
-use crate::{CompatibleWithObservations, ToCSV};
-use ahash::{AHashMap, AHashSet};
 use std::fmt::{Debug, Display};
 use std::hash::Hash;
 use std::path::Path;
+
+use ahash::{AHashMap, AHashSet};
+
+use crate::data_structures::{Slab, SlabKey};
+use crate::fenwick_tree::FenwickTree;
+use crate::traits::{CorpusDelta, Pool, SaveToStatsFolder, Stats};
+use crate::{CompatibleWithObservations, PoolStorageIndex, ToCSV};
 
 #[derive(Clone, Default)]
 pub struct UniqueValuesPoolStats {

@@ -1,10 +1,9 @@
+use std::error::Error;
+use std::fmt::{Debug, Display};
+use std::path::PathBuf;
+use std::time::Duration;
+
 use getopts::{Fail, Matches, Options};
-use std::{
-    error::Error,
-    fmt::{Debug, Display},
-    path::PathBuf,
-    time::Duration,
-};
 
 pub const MAX_INPUT_CPLX_FLAG: &str = "max-cplx";
 pub const INPUT_FILE_FLAG: &str = "input-file";

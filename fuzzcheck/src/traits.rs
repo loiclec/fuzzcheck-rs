@@ -1,9 +1,11 @@
-use crate::fuzzer::PoolStorageIndex;
-use crate::subvalue_provider::SubValueProvider;
-use fuzzcheck_common::FuzzerEvent;
 use std::any::Any;
 use std::fmt::Display;
 use std::path::PathBuf;
+
+use fuzzcheck_common::FuzzerEvent;
+
+use crate::fuzzer::PoolStorageIndex;
+use crate::subvalue_provider::SubValueProvider;
 
 /**
 A [`Mutator`] is an object capable of generating/mutating a value for the purpose of
