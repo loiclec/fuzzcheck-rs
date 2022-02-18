@@ -116,11 +116,11 @@ pub(crate) fn impl_default_mutator_for_enum(tb: &mut TokenBuilder, enu: &Enum, s
             , separator: ",") ") -> Self {
                 Self {
                     mutator: " cm.AlternationMutator "::new(vec!["
-                        join_ts!(enu.items.iter().filter(|item| {
+                        join_ts!(enu.items.iter().enumerate().filter(|(_, item)| {
                                     item.attributes.iter().all(|attr| {
                                         !super::has_ignore_variant_attribute(attr.clone())
                                     })
-                                }).enumerate(), (i, item),
+                                }), (i, item),
                         EnumSingleVariant "::" item.ident "("
                         match item.get_struct_data() {
                             Some((_, fields)) if !fields.is_empty() =>
