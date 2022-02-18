@@ -255,6 +255,11 @@ impl Default for MakeMutatorSettings {
 }
 
 #[allow(non_snake_case)]
+/// Stores common syntax that is useful throughout the procedural macro. This struct contains
+/// precise and unambiguous references to items within the main fuzzcheck library.
+///
+/// Many functions in this struct of type `usize -> TokenStream` generate `TokenStream`s in the form
+/// `{some constant}{usize}`.
 pub(crate) struct Common {
     AlternationMutator: TokenStream,
     Any: TokenStream,
@@ -282,6 +287,7 @@ pub(crate) struct Common {
     TupleMutatorWrapper: TokenStream,
     TupleN_ident: Ident,
     TupleN_path: TokenStream,
+    /// Generates identifiers of the form `Tuple{n}Mutator`.
     TupleNMutator: Box<dyn Fn(usize) -> TokenStream>,
     TupleNMutator_ident: Ident,
     TupleStructure: TokenStream,
@@ -291,6 +297,7 @@ pub(crate) struct Common {
     RecursiveMutator: TokenStream,
     Box: TokenStream,
     SubValueProvider: TokenStream,
+    NeverMutator: TokenStream,
 }
 impl Common {
     #[allow(non_snake_case)]
@@ -354,9 +361,23 @@ impl Common {
             VoseAlias: ts!(mutators "::vose_alias::VoseAlias"),
             RecursiveMutator: ts!(mutators "::recursive::RecursiveMutator"),
             Box: ts!("::std::boxed::Box"),
+            NeverMutator: ts!("::fuzzcheck::mutators::never::NeverMutator"),
             SubValueProvider: ts!("fuzzcheck::SubValueProvider"),
         }
     }
+}
+
+fn has_ignore_variant_attribute(attribute: TokenStream) -> bool {
+    let mut parser = TokenParser::new(attribute);
+    if parser.eat_punct('#').is_none() {
+        return false;
+    }
+    let content = match parser.eat_group(Delimiter::Bracket) {
+        Some(proc_macro2::TokenTree::Group(group)) => group,
+        None | Some(_) => return false,
+    };
+    let mut parser = TokenParser::new(content.stream());
+    parser.eat_ident("ignore_variant").is_some()
 }
 
 fn read_field_default_mutator_attribute(attribute: TokenStream) -> Option<(Ty, Option<TokenStream>)> {
