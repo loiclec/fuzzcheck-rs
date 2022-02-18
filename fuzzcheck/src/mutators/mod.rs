@@ -53,6 +53,7 @@ pub mod bool;
 pub mod boxed;
 pub mod char;
 pub mod character_classes;
+pub mod cow;
 pub mod either;
 pub mod enums;
 pub mod filter;
