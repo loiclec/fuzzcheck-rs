@@ -4,6 +4,7 @@ mod one_field_structs;
 mod structs_with_generic_type_params;
 mod two_field_structs;
 
+mod enums_ignore_variant;
 mod enums_with_generic_type_params;
 mod enums_with_items_with_and_without_fields;
 mod enums_with_multiple_empty_items;
