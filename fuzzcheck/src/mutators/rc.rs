@@ -62,7 +62,7 @@ impl<T: Clone + 'static, M: Mutator<T>> Mutator<Rc<T>> for RcMutator<M> {
     #[no_coverage]
     fn default_mutation_step(&self, value: &Rc<T>, cache: &Self::Cache) -> Self::MutationStep {
         MutationStep {
-            crossover_step: CrossoverStep::new(),
+            crossover_step: CrossoverStep::default(),
             inner: self.mutator.default_mutation_step(value.as_ref(), cache),
         }
     }

@@ -262,7 +262,7 @@ where
     #[no_coverage]
     fn validate_value(&self, value: &(To, From)) -> Option<Self::Cache> {
         let (_, from_value) = value;
-        let from_cache = self.mutator.validate_value(&from_value)?;
+        let from_cache = self.mutator.validate_value(from_value)?;
         Some(from_cache)
     }
 

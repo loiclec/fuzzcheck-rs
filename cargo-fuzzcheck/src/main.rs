@@ -61,7 +61,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         }
     };
     let address_sanitizer = matches.opt_present("address-sanitizer");
-    let profile = matches.opt_str("profile").unwrap_or("release".to_owned());
+    let profile = matches.opt_str("profile").unwrap_or_else(|| "release".to_owned());
     let no_instrument_coverage = matches.opt_present("no-instrument-coverage");
 
     // this won't crash because we `Arguments::from_matches` would have returned an error otherwise

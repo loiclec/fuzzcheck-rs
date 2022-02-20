@@ -1,4 +1,5 @@
 #![allow(clippy::collapsible_if)]
+#![allow(clippy::too_many_arguments)]
 
 use std::cmp::Ordering;
 use std::path::{Path, PathBuf};
@@ -35,7 +36,7 @@ pub fn launch_executable(
     stdio: impl Fn() -> Stdio,
 ) -> std::io::Result<process::Child> {
     let args = string_from_args(args);
-    let mut rustflags = std::env::var("RUSTFLAGS").unwrap_or("".to_owned());
+    let mut rustflags = std::env::var("RUSTFLAGS").unwrap_or_else(|_| "".to_owned());
     if instrument_coverage {
         rustflags.push_str(" -C instrument-coverage");
     }

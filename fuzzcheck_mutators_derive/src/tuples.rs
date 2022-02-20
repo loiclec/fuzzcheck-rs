@@ -463,7 +463,7 @@ fn impl_mutator_trait(tb: &mut TokenBuilder, nbr_elements: usize) {
             )"
             "
             join_ts!(0 .. nbr_elements, i,
-                "let" ident!("crossover_step_" i) "=" cm.CrossoverStep "::<" Ti(i) ">::new() ;"
+                "let" ident!("crossover_step_" i) "=" cm.CrossoverStep "::<" Ti(i) ">::default() ;"
             )
             "
             let all_indices = vec![" join_ts!(0..nbr_elements, i, "TupleIndex::" Ti(i), separator: ",") "];

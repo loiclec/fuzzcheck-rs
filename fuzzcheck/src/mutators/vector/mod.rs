@@ -202,8 +202,7 @@ where
     #[no_coverage]
     fn max_complexity(&self) -> f64 {
         let max_len = *self.len_range.end();
-        let cplx = self.complexity_from_inner((max_len as f64) * self.m.max_complexity(), max_len);
-        cplx
+        self.complexity_from_inner((max_len as f64) * self.m.max_complexity(), max_len)
     }
     #[doc(hidden)]
     #[no_coverage]
@@ -214,8 +213,7 @@ where
         } else {
             (min_len as f64) * self.m.min_complexity()
         };
-        let cplx = self.complexity_from_inner(min_sum_cplx, min_len);
-        cplx
+        self.complexity_from_inner(min_sum_cplx, min_len)
     }
     #[doc(hidden)]
     #[no_coverage]

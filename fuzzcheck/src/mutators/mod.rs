@@ -89,16 +89,20 @@ pub struct CrossoverStep<T> {
     steps: AHashMap<usize, (Generation, usize)>,
     _phantom: PhantomData<T>,
 }
+impl<T> Default for CrossoverStep<T> {
+    #[no_coverage]
+    fn default() -> Self {
+        CrossoverStep {
+            steps: <_>::default(),
+            _phantom: <_>::default(),
+        }
+    }
+}
+
 impl<T> CrossoverStep<T>
 where
     T: 'static,
 {
-    pub fn new() -> Self {
-        Self {
-            steps: <_>::default(),
-            _phantom: PhantomData,
-        }
-    }
     pub fn get_next_subvalue<'a>(
         &mut self,
         subvalue_provider: &'a dyn SubValueProvider,

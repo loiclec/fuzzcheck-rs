@@ -79,7 +79,7 @@ where
             None
         } else {
             Some(CrossoverReplaceElementStep {
-                crossover_steps: vec![CrossoverStep::new(); value.len()],
+                crossover_steps: vec![CrossoverStep::default(); value.len()],
             })
         }
     }

@@ -103,14 +103,10 @@ impl Mutator<char> for CharacterMutator {
     #[doc(hidden)]
     #[no_coverage]
     fn is_valid(&self, value: &char) -> bool {
-        if self.ranges.iter().any(
+        self.ranges.iter().any(
             #[no_coverage]
             |range| range.contains(value),
-        ) {
-            true
-        } else {
-            false
-        }
+        )
     }
 
     #[doc(hidden)]

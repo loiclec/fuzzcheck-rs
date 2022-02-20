@@ -75,10 +75,12 @@ where
 
     type Revert = NoMutation;
 
+    #[no_coverage]
     fn default_random_step(&self, _mutator: &M, _value: &Value) -> Option<Self::RandomStep> {
         None
     }
 
+    #[no_coverage]
     fn random<'a>(
         _mutator: &M,
         _value: &Value,
@@ -86,13 +88,14 @@ where
         _random_step: &Self::RandomStep,
         _max_cplx: f64,
     ) -> Self::Concrete<'a> {
-        ()
     }
 
+    #[no_coverage]
     fn default_step(&self, _mutator: &M, _value: &Value, _cache: &M::Cache) -> Option<Self::Step> {
         None
     }
 
+    #[no_coverage]
     fn from_step<'a>(
         _mutator: &M,
         _value: &Value,
@@ -104,6 +107,7 @@ where
         None
     }
 
+    #[no_coverage]
     fn apply<'a>(
         _mutation: Self::Concrete<'a>,
         mutator: &M,

@@ -58,7 +58,7 @@ impl<T: Clone + 'static, M: Mutator<T>> Mutator<Box<T>> for BoxMutator<M> {
     #[no_coverage]
     fn default_mutation_step(&self, value: &Box<T>, cache: &Self::Cache) -> Self::MutationStep {
         MutationStep {
-            crossover_step: CrossoverStep::new(),
+            crossover_step: CrossoverStep::default(),
             inner: self.mutator.default_mutation_step(value, cache),
         }
     }

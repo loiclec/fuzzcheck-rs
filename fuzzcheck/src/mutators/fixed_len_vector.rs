@@ -117,7 +117,7 @@ impl<T: Clone + 'static, M: Mutator<T>> FixedLenVecMutator<T, M> {
     #[no_coverage]
     fn mutate_elements(
         &self,
-        value: &mut Vec<T>,
+        value: &mut [T],
         cache: &mut VecMutatorCache<M::Cache>,
         idcs: &[usize],
         current_cplx: f64,
@@ -142,7 +142,7 @@ impl<T: Clone + 'static, M: Mutator<T>> FixedLenVecMutator<T, M> {
     #[no_coverage]
     fn mutate_element(
         &self,
-        value: &mut Vec<T>,
+        value: &mut [T],
         cache: &mut VecMutatorCache<M::Cache>,
         step: &mut MutationStep<T, M::MutationStep>,
         subvalue_provider: &dyn crate::SubValueProvider,
@@ -262,7 +262,7 @@ impl<T: Clone + 'static, M: Mutator<T>> Mutator<Vec<T>> for FixedLenVecMutator<T
         MutationStep {
             inner,
             element_step: 0,
-            crossover_steps: vec![CrossoverStep::new(); value.len()],
+            crossover_steps: vec![CrossoverStep::default(); value.len()],
         }
     }
 

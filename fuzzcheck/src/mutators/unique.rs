@@ -119,10 +119,10 @@ where
             if let Some((v, cplx)) = self.mutator.ordered_arbitrary(step, max_cplx) {
                 let mut uniques = self.uniques.borrow_mut();
                 let focused = (self.focus)(&v);
-                if uniques.contains(&focused) {
+                if uniques.contains(focused) {
                     drop(uniques);
                 } else {
-                    uniques.insert(&focused);
+                    uniques.insert(focused);
                     let prev_inserted = self.nbr_inserted.get();
                     self.nbr_inserted.set(prev_inserted + 1);
                     return Some((v, cplx));
@@ -155,11 +155,11 @@ where
             {
                 let mut uniques = self.uniques.borrow_mut();
                 let focused = (self.focus)(value);
-                if uniques.contains(&focused) || cplx >= max_cplx {
+                if uniques.contains(focused) || cplx >= max_cplx {
                     drop(uniques);
                     self.unmutate(value, cache, t);
                 } else {
-                    uniques.insert(&focused);
+                    uniques.insert(focused);
                     let prev_inserted = self.nbr_inserted.get();
                     self.nbr_inserted.set(prev_inserted + 1);
                     return Some((t, cplx));
@@ -177,11 +177,11 @@ where
             let (t, cplx) = self.mutator.random_mutate(value, cache, max_cplx);
             let mut uniques = self.uniques.borrow_mut();
             let focused = (self.focus)(value);
-            if uniques.contains(&focused) || cplx >= max_cplx {
+            if uniques.contains(focused) || cplx >= max_cplx {
                 drop(uniques);
                 self.unmutate(value, cache, t);
             } else {
-                uniques.insert(&focused);
+                uniques.insert(focused);
                 let prev_inserted = self.nbr_inserted.get();
                 self.nbr_inserted.set(prev_inserted + 1);
                 return (t, cplx);

@@ -565,7 +565,7 @@ mod tuple1 {
             cache: &'a Self::Cache,
         ) -> Self::MutationStep {
             MutationStep {
-                crossover_step: CrossoverStep::new(),
+                crossover_step: CrossoverStep::default(),
                 inner: self.mutator_0.default_mutation_step(value.0, cache),
             }
         }

@@ -51,6 +51,8 @@
 #![allow(clippy::needless_lifetimes)]
 #![allow(clippy::manual_map)]
 #![allow(clippy::bool_comparison)]
+#![allow(clippy::type_complexity)]
+#![allow(clippy::needless_range_loop)]
 
 #[doc(hidden)]
 pub extern crate fastrand;

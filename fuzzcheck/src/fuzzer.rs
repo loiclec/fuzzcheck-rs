@@ -269,7 +269,7 @@ where
         let ptr = self as *mut Self;
         set_signal_handlers(
             #[no_coverage]
-            move |sig| (&mut *ptr).receive_signal(sig),
+            move |sig| (*ptr).receive_signal(sig),
         );
     }
 }
@@ -500,7 +500,7 @@ where
             if let Some((unmutate_token, complexity)) =
                 input.mutate(mutator, subvalue_provider, settings.max_input_cplx)
             {
-                drop(subvalue_provider);
+                //drop(subvalue_provider);
                 if complexity < self.state.settings.max_input_cplx {
                     self.test_and_process_input(complexity)?;
                 }

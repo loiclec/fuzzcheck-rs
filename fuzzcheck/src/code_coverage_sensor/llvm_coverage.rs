@@ -487,7 +487,7 @@ pub fn process_function_records(
                 expressions.push((expanded.clone(), vec![mapping_region.clone()]));
             }
         }
-        let name_function = (&prf_names[&function_counters.header.id.name_md5]).clone();
+        let name_function = prf_names[&function_counters.header.id.name_md5].clone();
 
         let mut to_delete: HashMap<usize, HashSet<ExpandedExpression>> = HashMap::new();
 
@@ -919,7 +919,7 @@ impl Coverage {
                             #[no_coverage]
                             |fr| fr.header.id == prf_data.function_id,
                         )
-                        .ok_or(ReadCovMapError::CannotFindFunctionRecordAssociatedWithPrfData("This can sometimes happen when the crate is incrementally compiled with more than one codegen-unit. Try adding codegen-units = 1 or incremental = false to the appropriate profile (release or fuzzing) in Cargo.toml".to_string()))?;
+                        .ok_or_else(|| ReadCovMapError::CannotFindFunctionRecordAssociatedWithPrfData("This can sometimes happen when the crate is incrementally compiled with more than one codegen-unit. Try adding codegen-units = 1 or incremental = false to the appropriate profile (release or fuzzing) in Cargo.toml".to_string()))?;
 
                     let slice = &mut all_counters[range];
                     let mut single_counters = Vec::new();

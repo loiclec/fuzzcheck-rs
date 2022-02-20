@@ -329,8 +329,7 @@ impl Arguments {
 /// The “help” output of cargo-fuzzcheck
 #[no_coverage]
 pub fn help(parser: &Options) -> String {
-    let mut help = format!(
-        r##"
+    let mut help = r##"
 USAGE:
     cargo-fuzzcheck <FUZZ_TEST> [OPTIONS]
 
@@ -349,7 +348,7 @@ FUZZ_TEST:
         }}
     }}
 "##
-    );
+    .to_owned();
     help += parser.usage("").as_str();
     help += format!(
         r#"

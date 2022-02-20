@@ -70,11 +70,7 @@ impl Mutator<char> for CharWithinRangeMutator {
     #[doc(hidden)]
     #[no_coverage]
     fn is_valid(&self, value: &char) -> bool {
-        if (self.start_range..=self.start_range + self.len_range).contains(&(*value as u32)) {
-            true
-        } else {
-            false
-        }
+        (self.start_range..=self.start_range + self.len_range).contains(&(*value as u32))
     }
 
     #[doc(hidden)]
