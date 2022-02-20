@@ -57,8 +57,6 @@
 #[doc(hidden)]
 pub extern crate fastrand;
 
-pub use mutators::CROSSOVER_RATE;
-
 mod bitset;
 mod bloom_filter;
 pub mod builder;
@@ -167,6 +165,26 @@ pub use fuzzcheck_common::arg::Arguments;
             }
     }
     ```
+    Ignore certain variants of an enum:
+    ```
+    #[derive(Clone)]
+    pub enum F<T> {
+        One,
+        Two(T, u8),
+        Three { x: Option<u8> }
+    }
+    make_mutator! {
+        name: FMutator // the name of the mutator
+        default: true, // this is F's default mutator
+        type: // repeat the declaration of F
+            pub enum E<T> {
+                One,
+                Two(T, u8),
+                #[ignore_variant] // never produce values of the form F::Three { .. }
+                Three { x: Option<u8> }
+            }
+    }
+    ```
 */
 pub use fuzzcheck_mutators_derive::make_mutator;
 /// Implement a mutator for the type and make it the type’s `DefaultMutator`.
@@ -198,13 +216,24 @@ pub use fuzzcheck_mutators_derive::make_mutator;
 /// let mutator = EitherMutator::new(u8::default_mutator(), bool::default_mutator());
 /// // mutator impl Mutator<Either<u8, bool>>
 /// ```
+/// Similarly to [`make_mutator!`](crate::make_mutator), you can use the attributes `#[field_mutator]` and `#[ignore_variant]`
+/// to customise the generated mutator.
 pub use fuzzcheck_mutators_derive::DefaultMutator;
+#[doc(inline)]
+pub use fuzzer::FuzzingResult;
+#[doc(inline)]
+pub use fuzzer::PoolStorageIndex;
 #[doc(inline)]
 pub use fuzzer::ReasonForStopping;
 #[doc(inline)]
 pub use mutators::DefaultMutator;
 #[doc(inline)]
 pub use mutators::MutatorExt;
+pub(crate) use mutators::CROSSOVER_RATE;
+#[doc(inline)]
+pub use sensors_and_pools::PoolExt;
+#[doc(inline)]
+pub use sensors_and_pools::SensorExt;
 #[doc(inline)]
 pub use serializers::ByteSerializer;
 #[cfg(feature = "serde_json_serializer")]
@@ -214,33 +243,26 @@ pub use serializers::SerdeSerializer;
 pub use serializers::StringSerializer;
 pub(crate) use split_string::split_string_by_whitespace;
 #[doc(inline)]
+pub use subvalue_provider::SubValueProvider;
+#[doc(inline)]
+pub use subvalue_provider::SubValueProviderId;
+#[doc(inline)]
+pub use traits::CompatibleWithObservations;
+#[doc(inline)]
+pub use traits::CorpusDelta;
+#[doc(inline)]
 pub use traits::Mutator;
+#[doc(inline)]
+pub use traits::Pool;
+#[doc(inline)]
+pub use traits::SaveToStatsFolder;
+#[doc(inline)]
+pub use traits::Sensor;
+#[doc(inline)]
+pub use traits::SensorAndPool;
 #[doc(inline)]
 pub use traits::Serializer;
 #[doc(inline)]
+pub use traits::Stats;
+#[doc(inline)]
 pub use traits::{CSVField, ToCSV};
-
-#[doc(inline)]
-pub use crate::fuzzer::FuzzingResult;
-#[doc(inline)]
-pub use crate::fuzzer::PoolStorageIndex;
-#[doc(inline)]
-pub use crate::sensors_and_pools::PoolExt;
-#[doc(inline)]
-pub use crate::sensors_and_pools::SensorExt;
-#[doc(inline)]
-pub use crate::subvalue_provider::SubValueProvider;
-#[doc(inline)]
-pub use crate::traits::CompatibleWithObservations;
-#[doc(inline)]
-pub use crate::traits::CorpusDelta;
-#[doc(inline)]
-pub use crate::traits::Pool;
-#[doc(inline)]
-pub use crate::traits::SaveToStatsFolder;
-#[doc(inline)]
-pub use crate::traits::Sensor;
-#[doc(inline)]
-pub use crate::traits::SensorAndPool;
-#[doc(inline)]
-pub use crate::traits::Stats;

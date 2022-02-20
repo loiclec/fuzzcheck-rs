@@ -1,3 +1,11 @@
+/*!
+Subvalue providers are used by mutators. They help generate interesting test
+cases by mixing parts of differents values together.
+
+See the documentation of the [`Mutator`](crate::Mutator) trait for more
+informatiom.
+*/
+
 use std::any::{Any, TypeId};
 use std::collections::HashMap;
 
@@ -27,9 +35,18 @@ pub struct Generation(pub usize);
 pub trait SubValueProvider {
     /// A globally unique identifier for the subvalue provider
     fn identifier(&self) -> SubValueProviderId;
-
+    /// Get a subvalue of the given type and under a certain maximum complexity.
+    ///
+    /// Returns `Some((subvalue, cplx))` or `None` if no subvalue matches the
+    /// type id or maximum complexity.
     fn get_random_subvalue(&self, typeid: TypeId, max_cplx: f64) -> Option<(&dyn Any, f64)>;
-
+    /// Get a subvalue of the given type and under a certain maximum complexity.
+    ///
+    /// Each `index` points to a different subvalue. The function will automatically
+    /// increment `index` to the next valid value.
+    ///
+    /// Returns `Some((subvalue, cplx))` or `None` if no more unique subvalues
+    /// match thhe type id or maximum complexity.
     fn get_subvalue(&self, typeid: TypeId, max_cplx: f64, index: &mut usize) -> Option<(&dyn Any, f64)>;
 }
 
@@ -71,6 +88,7 @@ where
     T: Clone + 'static,
     M: Mutator<T>,
 {
+    #[no_coverage]
     pub fn new(identifier: SubValueProviderId, value: &T, cache: &M::Cache, mutator: &M) -> Self {
         let boxed_data = Box::new((value.clone(), cache.clone()));
 
