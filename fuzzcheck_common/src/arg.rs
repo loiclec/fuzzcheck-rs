@@ -365,7 +365,7 @@ cargo-fuzzcheck tests::fuzz_bin --bin my_program
 cargo-fuzzcheck fuzz_test2 --test my_integration_test
     Launch the fuzzer on "fuzz_test2", located in the "my_integration_test" test target, with default options.
 
-cargo-fuzzcheck tests::fuzzit fuzz --{max_cplx} 4000 --{out_corpus} fuzz_results/out/
+cargo-fuzzcheck tests::fuzzit --{max_cplx} 4000 --{out_corpus} fuzz_results/out/
     Fuzz "tests::fuzzit", generating inputs of complexity no greater than 4000, 
     and write the output corpus (i.e. the folder of most interesting test cases) 
     to fuzz_results/out/.
