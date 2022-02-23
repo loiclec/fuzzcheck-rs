@@ -36,7 +36,7 @@ cargo install cargo-fuzzcheck
 In your `Cargo.toml` file, add `fuzzcheck` as a dev-dependency:
 ```toml
 [dev-dependencies]
-fuzzcheck = "0.10"
+fuzzcheck = "0.11"
 ```
 
 Then, we need a way to serialize values. By default, fuzzcheck uses `serde_json`
@@ -56,17 +56,17 @@ don't want to carry the fuzzcheck dependency in normal builds
 3. the use of `derive(fuzzcheck::DefaultMutator)` makes a custom type fuzzable
 
 ```rust
-#![cfg_attr(test, feature(no_coverage))]
+#![cfg_attr(fuzzing, feature(no_coverage))]
 use serde::{Deserialize, Serialize};
 
-#[cfg_attr(test, derive(fuzzcheck::DefaultMutator))]
+#[cfg_attr(fuzzing, derive(fuzzcheck::DefaultMutator))]
 #[derive(Clone, Serialize, Deserialize)]
 struct SampleStruct<T, U> {
     x: T,
     y: U,
 }
 
-#[cfg_attr(test, derive(fuzzcheck::DefaultMutator))]
+#[cfg_attr(fuzzing, derive(fuzzcheck::DefaultMutator))]
 #[derive(Clone, Serialize, Deserialize)]
 enum SampleEnum {
     A(u16),
@@ -90,7 +90,7 @@ fn should_not_crash(xs: &[SampleStruct<u8, SampleEnum>]) {
 }
 
 // fuzz tests reside along your other tests and have the #[test] attribute
-#[cfg(test)]
+#[cfg(all(fuzzing, test))]
 mod tests {
     #[test]
     fn test_function_shouldn_t_crash() {
