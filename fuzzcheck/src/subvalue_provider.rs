@@ -109,8 +109,20 @@ where
         for (_typeid, subvalues) in subvalues.iter_mut() {
             subvalues.sort_by(
                 #[no_coverage]
-                |x, y| x.1.partial_cmp(&y.1).unwrap_or(std::cmp::Ordering::Equal),
+                |x, y| (x.1, x.0).partial_cmp(&(y.1, y.0)).unwrap_or(std::cmp::Ordering::Equal),
             );
+            // Why do we dedup the subvalues? Because an `AlternationMutator` may visit the same subvalue multiple times.
+            //
+            // Because of the guarantees offered by the `Mutator` trait, two equal subvalues will have the same
+            // complexity, no matter which mutator evaluates it. And because equal subvalues have the same type,
+            // their *const dyn Any pointers will be equal (same pointer address and same vtable).
+            //
+            // Since we have sorted the vector, equal values will be next to each other. So it is sufficient to call
+            // `dedup` to get rid of duplicates.
+            //
+            // It is not a big problem if `dedup` fails to get rid of all duplicates, for whatever reason. The mutations
+            // will just be a bit less efficient.
+            subvalues.dedup();
         }
         let whole_complexity = mutator.complexity(value, cache);
         Self {
