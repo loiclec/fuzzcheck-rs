@@ -72,6 +72,8 @@ impl SubValueProvider for EmptySubValueProvider {
     }
 }
 
+/// A [`SubValueProvider`](crate::SubValueProvider) created from the subvalues
+/// of a particular test case.
 pub struct CrossoverSubValueProvider<T, M>
 where
     T: 'static + Clone,

@@ -167,6 +167,8 @@ pub use fuzzcheck_common::arg::Arguments;
     ```
     Ignore certain variants of an enum:
     ```
+    # #![feature(no_coverage)]
+    use fuzzcheck::make_mutator;
     #[derive(Clone)]
     pub enum F<T> {
         One,
@@ -177,7 +179,7 @@ pub use fuzzcheck_common::arg::Arguments;
         name: FMutator // the name of the mutator
         default: true, // this is F's default mutator
         type: // repeat the declaration of F
-            pub enum E<T> {
+            pub enum F<T> {
                 One,
                 Two(T, u8),
                 #[ignore_variant] // never produce values of the form F::Three { .. }

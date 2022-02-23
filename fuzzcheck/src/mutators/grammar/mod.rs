@@ -1,9 +1,9 @@
 //! Grammar-based mutators and related utilties.
 //!
-//! This module provides two mutators a grammar-based `impl Mutator<AST>` which generates an abstract syntax
-//! tree satisfying a grammar, created though [`grammar_based_ast_mutator`]. You can then obtain a string
-//! from the [`AST`] by calling [`ast.to_string()`](AST::to_string).
-//!
+//! This module provides a grammar-based `impl Mutator<AST>` which generates an abstract syntax
+//! tree satisfying a grammar, created through [`grammar_based_ast_mutator`]. The resulting mutator can be
+//! transformed into a `Mutator<(AST, String)>`, where the second element of the tuple is the string corresponding
+//! to the abstract syntax tree, by calling [`.with_string()`](ASTMutator::with_string).
 //!
 //! To specify a grammar, you should use the following functions:
 #![cfg_attr(
@@ -82,4 +82,4 @@ pub use grammar::{alternation, concatenation, literal, literal_range, literal_ra
 #[doc(inline)]
 pub use mutators::grammar_based_ast_mutator;
 #[doc(inline)]
-pub use mutators::GrammarBasedASTMutator;
+pub use mutators::ASTMutator;

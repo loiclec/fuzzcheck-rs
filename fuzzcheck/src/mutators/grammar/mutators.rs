@@ -41,6 +41,10 @@ type InnerASTMutator = Either<
     >,
 >;
 
+/// A mutator created by [`grammar_based_ast_mutator`](crate::mutators::grammar::grammar_based_ast_mutator)
+///
+/// It only generates syntax trees whose [`to_string()`](crate::mutators::grammar::AST::to_string)
+/// value matches the given grammar.
 pub struct ASTMutator {
     inner: Box<InnerASTMutator>,
 }
@@ -202,14 +206,8 @@ impl Mutator<AST> for ASTMutator {
     }
 }
 
-/// A mutator created by [`grammar_based_ast_mutator`](crate::mutators::grammar::grammar_based_ast_mutator)
-///
-/// It only generates syntax trees whose [`to_string()`](crate::mutators::grammar::AST::to_string)
-/// value matches the given grammar.
-pub type GrammarBasedASTMutator = ASTMutator; //impl Mutator<AST>;
-
 #[no_coverage]
-pub fn grammar_based_ast_mutator(grammar: Rc<Grammar>) -> GrammarBasedASTMutator {
+pub fn grammar_based_ast_mutator(grammar: Rc<Grammar>) -> ASTMutator {
     ASTMutator::from_grammar(grammar)
 }
 
@@ -252,13 +250,16 @@ impl ASTMutator {
     }
 
     #[no_coverage]
-    pub fn from_grammar(grammar: Rc<Grammar>) -> Self {
+    pub(crate) fn from_grammar(grammar: Rc<Grammar>) -> Self {
         let mut others = HashMap::new();
         Self::from_grammar_rec(grammar, &mut others)
     }
 
     #[no_coverage]
-    pub fn from_grammar_rec(grammar: Rc<Grammar>, others: &mut HashMap<*const Grammar, Weak<ASTMutator>>) -> Self {
+    pub(crate) fn from_grammar_rec(
+        grammar: Rc<Grammar>,
+        others: &mut HashMap<*const Grammar, Weak<ASTMutator>>,
+    ) -> Self {
         match grammar.as_ref() {
             Grammar::Literal(l) => Self::token(CharacterMutator::new(l.clone())),
             Grammar::Alternation(gs) => Self::alternation(AlternationMutator::new(

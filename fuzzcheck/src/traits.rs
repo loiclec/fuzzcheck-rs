@@ -393,7 +393,7 @@ pub trait Sensor: SaveToStatsFolder + 'static {
 /// A trait implemented by the [statistics of a pool](crate::Pool::Stats)
 ///
 /// The types implementing `Stats` must be displayable in the terminal and must be
-/// [convertable to CSV fields](crate::ToCSV). However, note that at the moment some pools
+/// [convertible to CSV fields](crate::ToCSV). However, note that at the moment some pools
 /// choose to produce empty CSV values for their statistics. Consequently, their statistics
 /// will not be available in the `fuzz/stats/<id>/events.csv` file written by fuzzcheck
 /// at the end of a fuzz test.

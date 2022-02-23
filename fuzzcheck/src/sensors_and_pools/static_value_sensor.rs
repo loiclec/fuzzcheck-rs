@@ -20,10 +20,10 @@ use crate::{SaveToStatsFolder, Sensor};
 ///         if xs[3] == 203 { number_correct_guesses += 1 }
 ///         if xs[4] == 45  { number_correct_guesses += 1 }
 ///         if xs[5] == 165 { number_correct_guesses += 1 }
-///             
+///
 ///         // here, record the value of number_correct_guesses in COUNT
 ///         unsafe { COUNT = number_correct_guesses; }
-///         
+///
 ///         number_correct_guesses != 6
 ///     } else {
 ///         true

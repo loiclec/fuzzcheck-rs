@@ -10,6 +10,9 @@ use crate::Mutator;
 const SIZE_BLOOM: usize = 10_000_000;
 const FALSE_POSITIVE_RATE: f64 = 0.000_001;
 
+/// Experimental mutator which tries to prevent duplicate values to be tested, using a bloom filter
+///
+/// **Important:** this mutator cannot be used as a submutator.
 pub struct UniqueMutator<T, TH, Focus, M>
 where
     T: Clone + 'static,
@@ -31,6 +34,13 @@ where
     M: Mutator<T>,
     Focus: Fn(&T) -> &TH,
 {
+    /// Create a new `UniqueMutator` by wrapping another mutator.
+    ///
+    /// The `Focus` closure points to the hashable part of the value. This should almost always
+    /// be the identity function. But there is an exception when we don't care about some part
+    /// of the generated value. For example, a grammar-based mutator implements `Mutator<(AST, String)>`,
+    /// but it is very likely that the test function will only operate on the String and not the AST.
+    /// In that case, the `Focus` closure is `|x| &x.1`.
     #[no_coverage]
     pub fn new(mutator: M, focus: Focus) -> Self {
         Self {

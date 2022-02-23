@@ -15,7 +15,7 @@ categories = ["development-tools::testing"]
 cc = "1"
 
 [features]
-grammar_mutator = [] 
+grammar_mutator = []
 regex_grammar = ["grammar_mutator", "regex-syntax"]
 serde_json_serializer = ["serde", "serde_json"]
 

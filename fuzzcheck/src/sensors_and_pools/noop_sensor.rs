@@ -6,7 +6,7 @@ use crate::traits::{SaveToStatsFolder, Sensor};
 ///
 /// In practice, it is used in conjunction with [`UnitPool`](crate::sensors_and_pools::UnitPool) to
 /// favour one particular test case throughout the whole fuzzing run. This is partly how the `minify`
-/// (test case minify) command is implemented.
+/// command is implemented.
 pub struct NoopSensor;
 
 impl Sensor for NoopSensor {
