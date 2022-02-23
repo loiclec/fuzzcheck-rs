@@ -348,25 +348,26 @@ pub struct PrfData {
 
 #[no_coverage]
 pub fn read_prf_data(prf_data: &[u8], idx: &mut usize) -> Result<Vec<PrfData>, ReadCovMapError> {
+    // Read the prf_data section.
+    //
+    // The problem is that there is no clear reference for it, and its format can be updated by newer LLVM versions
+    //
+    // Look at this commit: https://github.com/llvm/llvm-project/commit/24c615fa6b6b7910c8743f9044226499adfac4e6
+    // (as well as the commit it references) for a few of the files involved in generating the prf_data section, which
+    // can then be used to implement this function
+    //
+    // In particular, look at InstrProfData.inc
+
     let mut counts = Vec::new();
-    let mut prv_counter_pointer_and_nbr_counters: Option<(u64, u64)> = None;
 
     while *idx < prf_data.len() {
-        // NameRef, see InstrProdData.inc line 72
-        // IndexedInstrProf::ComputeHash(getPGOFuncNameVarInitializer(Inc->getName())
         let name_md5 = read_i64(prf_data, idx);
-        // FuncHash, see InstrProdData.inc line 75
-        // Inc->getHash()->getZExtValue()
         let structural_hash = read_u64(prf_data, idx);
-        // if structural_hash == 0 {
-        //     return Err(ReadCovMapError::FoundProfileDataForDummyFunction);
-        // }
         let function_id = FunctionIdentifier {
             name_md5,
             structural_hash,
         };
-
-        let counter_ptr = read_u64(prf_data, idx);
+        let _relative_counter_ptr = read_u64(prf_data, idx);
         let _function_ptr = read_u64(prf_data, idx);
         let _values = read_u64(prf_data, idx); // values are only used for PGO, not coverage instrumentation
 
@@ -378,25 +379,31 @@ pub fn read_prf_data(prf_data: &[u8], idx: &mut usize) -> Result<Vec<PrfData>, R
             // 1 counter seems to be the minimum for some reason
             assert!(nbr_counters <= 1);
         }
+        // u16 but aligned
+        let _num_value_site = read_i16(prf_data, idx); // this is used for PGO only, I think
+        *idx += 2; // alignment
 
-        if let Some((prv_counter_pointer, prv_nbr_counters)) = prv_counter_pointer_and_nbr_counters {
-            if prv_counter_pointer + 8 * prv_nbr_counters != counter_ptr {
-                return Err(ReadCovMapError::InconsistentCounterPointersAndLengths {
-                    prev_pointer: prv_counter_pointer as usize,
-                    length: prv_nbr_counters as usize,
-                    cur_pointer: counter_ptr as usize,
-                });
-            }
-        }
-        prv_counter_pointer_and_nbr_counters = Some((counter_ptr, nbr_counters as u64));
+        // This is no longer a valid check with LLVM 14.0, I think?
+        // Maybe due to:
+        //     https://github.com/llvm/llvm-project/commit/a1532ed27582038e2d9588108ba0fe8237f01844
+        //     https://github.com/llvm/llvm-project/commit/24c615fa6b6b7910c8743f9044226499adfac4e6
+        // if let Some((prv_counter_pointer, prv_nbr_counters)) = prv_counter_pointer_and_nbr_counters {
+        //     if prv_counter_pointer + 8 * prv_nbr_counters != counter_ptr {
+        //         return Err(
+        //             ReadCovMapError::InconsistentCounterPointersAndLengths {
+        //                 prev_pointer: prv_counter_pointer as usize,
+        //                 length: prv_nbr_counters as usize,
+        //                 cur_pointer: counter_ptr as usize,
+        //             }
+        //         );
+        //     }
+        // }
+        // prv_counter_pointer_and_nbr_counters = Some((counter_ptr, nbr_counters as u64));
 
         counts.push(PrfData {
             function_id,
             number_of_counters: nbr_counters as usize,
         });
-        // u16 but aligned
-        let _something_i_dont_know_what = read_i16(prf_data, idx); // this is used for PGO only, I think
-        *idx += 2; // alignment
     }
 
     Ok(counts)
@@ -633,11 +640,11 @@ pub enum CovMapSection {
 
 #[derive(Debug)]
 pub enum ReadCovMapError {
-    InconsistentCounterPointersAndLengths {
-        prev_pointer: usize,
-        length: usize,
-        cur_pointer: usize,
-    },
+    // InconsistentCounterPointersAndLengths {
+    //     prev_pointer: usize,
+    //     length: usize,
+    //     cur_pointer: usize,
+    // },
     // FoundProfileDataForDummyFunction,
     InconsistentLengthOfEncodedData {
         section: CovMapSection,
