@@ -1,6 +1,6 @@
 [package]
 name = "fuzzcheck"
-version = "0.10.1"
+version = "0.11.0"
 authors = ["Loïc Lecrenier <loic.lecrenier@me.com>"]
 edition = "2021"
 description = "A modular, structure-aware, and feedback-driven fuzzing engine for Rust functions"
