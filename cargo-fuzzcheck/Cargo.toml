@@ -16,7 +16,7 @@ version = "0.2"
 
 [dependencies.fuzzcheck_common]
 path = "../fuzzcheck_common"
-version = "0.10.0"
+version = "0.11"
 
 [[bin]]
 name = "cargo-fuzzcheck"
