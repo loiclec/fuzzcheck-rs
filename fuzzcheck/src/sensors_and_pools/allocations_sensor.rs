@@ -3,8 +3,78 @@ use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
 
 use crate::{SaveToStatsFolder, Sensor};
 
-// ==== SENSOR ========
-
+/// A [`Sensor`](crate::Sensor) that records the allocations made by the test
+/// function.
+///
+/// It can only be used when the `#[global_allocator]` is a value of type
+/// [`CountingAllocator<A>`](self::CountingAllocator).
+///
+/// Its [observations](crate::Sensor::Observations) are a tuple `(u64, u64)`
+/// where the first element is the number of allocations performed and the
+/// second element is the amount of bytes that were allocated.
+///
+/// # Example
+///
+/// ```rust
+/// use std::alloc::System;
+/// use fuzzcheck::{Arguments, ReasonForStopping, PoolExt};
+/// use fuzzcheck::sensors_and_pools::{CountingAllocator, AllocationSensor, MaximiseObservationPool, DifferentObservations};
+///
+/// // set the global allocator to CountingAllocator so that the allocation sensor
+/// // can retrieve allocation data
+/// #[global_allocator]
+/// static alloc: CountingAllocator<System> = CountingAllocator(System);
+///
+/// // This function fails on the very specific input `[98, 18, 9, 203, 45, 165]`.
+/// // For every matching element, an integer is allocated on the heap and pushed to a vector.
+/// // By trying to maximise the number of allocations, the fuzzer can incrementally find the failing input.
+/// fn test_function(xs: &[u8]) -> bool {
+///     if xs.len() == 6 {
+///         let mut v = vec![];
+///
+///         if xs[0] == 98  { v.push(Box::new(0)) }
+///         if xs[1] == 18  { v.push(Box::new(1)) }
+///         if xs[2] == 9   { v.push(Box::new(2)) }
+///         if xs[3] == 203 { v.push(Box::new(3)) }
+///         if xs[4] == 45  { v.push(Box::new(4)) }
+///         if xs[5] == 165 { v.push(Box::new(5)) }
+///
+///         v.len() != 6
+///     } else {
+///         true
+///     }
+/// }
+/// let sensor = AllocationSensor::default();
+///
+/// // The sensor can be paired with any pool which is compatible with
+/// // observations of type `(u64, u64)`. For example, we can use the following
+/// // pool to maximise both elements of the tuple.
+/// let pool =
+///     MaximiseObservationPool::<u64>::new("alloc_blocks")
+///     .and(
+///         MaximiseObservationPool::<u64>::new("alloc_bytes"),
+///         None,
+///         DifferentObservations
+///     );
+///
+/// // then launch fuzzcheck with this sensor and pool
+/// let result = fuzzcheck::fuzz_test(test_function)
+///     .default_mutator()
+///     .serde_serializer()
+///     .sensor_and_pool(sensor, pool)
+///     .arguments(Arguments::for_internal_documentation_test())
+///     .stop_after_first_test_failure(true)
+///     .launch();
+///
+/// assert!(matches!(
+///     result.reason_for_stopping,
+///     ReasonForStopping::TestFailure(x)
+///         if matches!(
+///             x.as_slice(),
+///             [98, 18, 9, 203, 45, 165]
+///         )
+/// ));
+/// ```
 #[derive(Default)]
 pub struct AllocationSensor {
     start_allocs: AllocationsStats,
@@ -94,6 +164,20 @@ impl InternalAllocationStats {
     }
 }
 
+/// A global allocator that counts the total number of allocations as well as
+/// the total number of allocated bytes.
+///
+/// Its only purpose is to be used with an [`AllocationSensor`].
+///
+/// Its argument is the underlying global allocator. For example, to use
+/// with the system allocator:
+/// ```
+/// use std::alloc::System;
+/// use fuzzcheck::sensors_and_pools::{CountingAllocator};
+///
+/// #[global_allocator]
+/// static alloc: CountingAllocator<System> = CountingAllocator(System);
+/// ```
 #[derive(Debug)]
 pub struct CountingAllocator<A>(pub A)
 where
