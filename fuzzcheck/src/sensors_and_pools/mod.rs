@@ -2,6 +2,7 @@
 Types implementing the [Sensor](crate::Sensor) and [Pool](crate::Pool) traits.
 */
 
+mod allocations_sensor;
 mod and_sensor_and_pool;
 mod map_sensor;
 mod maximise_each_counter_pool;
@@ -14,6 +15,8 @@ mod test_failure_pool;
 mod unique_values_pool;
 mod unit_pool;
 
+#[doc(inline)]
+pub use allocations_sensor::{AllocationSensor, CountingAllocator};
 #[doc(inline)]
 pub use and_sensor_and_pool::{AndPool, AndSensor, AndSensorAndPool, DifferentObservations, SameObservations};
 #[doc(inline)]
