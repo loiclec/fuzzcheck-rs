@@ -108,7 +108,7 @@ where
     fn ordered_arbitrary(&self, step: &mut Self::ArbitraryStep, _max_cplx: f64) -> Option<(T, f64)> {
         if !*step {
             *step = true;
-            Some((self.value.clone(), 0.0))
+            Some((self.value.clone(), self.complexity))
         } else {
             None
         }
@@ -117,7 +117,7 @@ where
     #[doc(hidden)]
     #[no_coverage]
     fn random_arbitrary(&self, _max_cplx: f64) -> (T, f64) {
-        (self.value.clone(), 0.0)
+        (self.value.clone(), self.complexity)
     }
 
     #[doc(hidden)]
@@ -136,7 +136,7 @@ where
     #[doc(hidden)]
     #[no_coverage]
     fn random_mutate(&self, _value: &mut T, _cache: &mut Self::Cache, _max_cplx: f64) -> (Self::UnmutateToken, f64) {
-        ((), 0.0)
+        ((), self.complexity)
     }
 
     #[doc(hidden)]
