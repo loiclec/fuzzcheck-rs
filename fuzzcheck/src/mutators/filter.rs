@@ -78,26 +78,26 @@ where
     #[doc(hidden)]
     #[no_coverage]
     fn ordered_arbitrary(&self, step: &mut Self::ArbitraryStep, max_cplx: f64) -> Option<(T, f64)> {
-        let x = self.mutator.ordered_arbitrary(step, max_cplx);
-        if let Some(x) = x {
-            if (self.filter)(&x.0) {
-                Some(x)
+        loop {
+            let x = self.mutator.ordered_arbitrary(step, max_cplx);
+            if let Some(x) = x {
+                if (self.filter)(&x.0) {
+                    return Some(x);
+                }
             } else {
-                self.ordered_arbitrary(step, max_cplx)
+                return None;
             }
-        } else {
-            None
         }
     }
 
     #[doc(hidden)]
     #[no_coverage]
     fn random_arbitrary(&self, max_cplx: f64) -> (T, f64) {
-        let x = self.mutator.random_arbitrary(max_cplx);
-        if (self.filter)(&x.0) {
-            x
-        } else {
-            self.random_arbitrary(max_cplx)
+        loop {
+            let x = self.mutator.random_arbitrary(max_cplx);
+            if (self.filter)(&x.0) {
+                return x;
+            }
         }
     }
 
@@ -111,30 +111,32 @@ where
         subvalue_provider: &dyn crate::SubValueProvider,
         max_cplx: f64,
     ) -> Option<(Self::UnmutateToken, f64)> {
-        if let Some((t, cplx)) = self
-            .mutator
-            .ordered_mutate(value, cache, step, subvalue_provider, max_cplx)
-        {
-            if (self.filter)(value) {
-                Some((t, cplx))
+        loop {
+            if let Some((t, cplx)) = self
+                .mutator
+                .ordered_mutate(value, cache, step, subvalue_provider, max_cplx)
+            {
+                if (self.filter)(value) {
+                    return Some((t, cplx));
+                } else {
+                    self.mutator.unmutate(value, cache, t);
+                }
             } else {
-                self.mutator.unmutate(value, cache, t);
-                self.ordered_mutate(value, cache, step, subvalue_provider, max_cplx)
+                return None;
             }
-        } else {
-            None
         }
     }
 
     #[doc(hidden)]
     #[no_coverage]
     fn random_mutate(&self, value: &mut T, cache: &mut Self::Cache, max_cplx: f64) -> (Self::UnmutateToken, f64) {
-        let (t, cplx) = self.mutator.random_mutate(value, cache, max_cplx);
-        if (self.filter)(value) {
-            (t, cplx)
-        } else {
-            self.mutator.unmutate(value, cache, t);
-            self.random_mutate(value, cache, max_cplx)
+        loop {
+            let (t, cplx) = self.mutator.random_mutate(value, cache, max_cplx);
+            if (self.filter)(value) {
+                return (t, cplx);
+            } else {
+                self.mutator.unmutate(value, cache, t);
+            }
         }
     }
 
