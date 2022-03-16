@@ -351,8 +351,9 @@ where
     #[doc(hidden)]
     #[no_coverage]
     fn unmutate(&self, value: &mut (To, From), cache: &mut Self::Cache, t: Self::UnmutateToken) {
-        let (_, from_value) = value;
+        let (to_value, from_value) = value;
         self.mutator.unmutate(from_value, cache, t);
+        (self.map)(from_value, to_value);
     }
 
     #[doc(hidden)]
