@@ -69,13 +69,17 @@ macro_rules! impl_int_mutator_constrained {
             }
             #[doc(hidden)]
             #[no_coverage]
-            fn is_valid(&self, _value: &$name) -> bool {
-                true
+            fn is_valid(&self, value: &$name) -> bool {
+                (self.start_range..=self.start_range.wrapping_add(self.len_range as _)).contains(value)
             }
             #[doc(hidden)]
             #[no_coverage]
-            fn validate_value(&self, _value: &$name) -> Option<Self::Cache> {
-                Some(())
+            fn validate_value(&self, value: &$name) -> Option<Self::Cache> {
+                if (self.start_range..=self.start_range.wrapping_add(self.len_range as _)).contains(value) {
+                    Some(())
+                } else {
+                    None
+                }
             }
 
             #[doc(hidden)]
@@ -205,3 +209,16 @@ impl_int_mutator_constrained!(i8, u8, I8WithinRangeMutator, binary_search_arbitr
 impl_int_mutator_constrained!(i16, u16, I16WithinRangeMutator, binary_search_arbitrary_u16);
 impl_int_mutator_constrained!(i32, u32, I32WithinRangeMutator, binary_search_arbitrary_u32);
 impl_int_mutator_constrained!(i64, u64, I64WithinRangeMutator, binary_search_arbitrary_u64);
+
+#[cfg(test)]
+mod tests {
+    use super::U8WithinRangeMutator;
+    use crate::Mutator;
+
+    #[test]
+    fn test_int_constrained() {
+        let m = U8WithinRangeMutator::new(1..2);
+        assert!(m.is_valid(&1));
+        assert!(!m.is_valid(&2));
+    }
+}
