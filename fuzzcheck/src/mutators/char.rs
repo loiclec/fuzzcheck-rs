@@ -2,9 +2,31 @@ use std::any::Any;
 use std::ops::{Bound, RangeBounds};
 
 use crate::mutators::integer::binary_search_arbitrary_u32;
-use crate::Mutator;
+use crate::{DefaultMutator, Mutator, MutatorExt};
 
 const INITIAL_MUTATION_STEP: u64 = 0;
+
+// quickly written but inefficient implementation of a general mutator for char
+//
+// does not lean towards any particular char. Use CharWithinRangeMutator or CharacterMutator
+// for more focused mutators
+impl DefaultMutator for char {
+    type Mutator = impl Mutator<char>;
+
+    #[no_coverage]
+    fn default_mutator() -> Self::Mutator {
+        u32::default_mutator()
+            .filter(
+                #[no_coverage]
+                |x| char::from_u32(*x).is_some(),
+            )
+            .map(
+                #[no_coverage]
+                |x| char::from_u32(*x).unwrap(),
+                |c| Some(*c as u32),
+            )
+    }
+}
 
 /// Mutator for a `char` within a given range
 pub struct CharWithinRangeMutator {
@@ -164,9 +186,9 @@ impl Mutator<char> for CharWithinRangeMutator {
         // TODO: loop instead of recurse
         if let Some(result) = char::from_u32(self.start_range.wrapping_add(result)) {
             *step += 1;
-            if result == *value {
-                return self.ordered_mutate(value, cache, step, subvalue_provider, max_cplx);
-            }
+            // if result == *value {
+            //     return self.ordered_mutate(value, cache, step, subvalue_provider, max_cplx);
+            // }
 
             *value = result;
 
