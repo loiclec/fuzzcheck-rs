@@ -544,7 +544,7 @@ fn impl_mutator_trait(tb: &mut TokenBuilder, nbr_elements: usize) {
                             let old_field_cplx = self." mutator_i(i) ".complexity(value." i ", &cache." ti(i) ");
                             let max_field_cplx = max_cplx - current_cplx + old_field_cplx;
                             if let " cm.Some " ((subvalue, new_field_cplx)) = step." ident!("crossover_step_" i) ".get_next_subvalue(subvalue_provider, max_field_cplx) {
-                                if self." mutator_i(i) ".is_valid(value." i ") {
+                                if self." mutator_i(i) ".is_valid(subvalue) {
                                     let mut replacer = subvalue.clone();
                                     ::std::mem::swap(value." i ", &mut replacer);
                                     let mut token = Self::UnmutateToken::default();
