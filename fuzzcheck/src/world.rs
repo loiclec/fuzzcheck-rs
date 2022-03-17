@@ -4,7 +4,8 @@ use std::collections::HashMap;
 use std::fs;
 use std::fs::{File, OpenOptions};
 use std::hash::{Hash, Hasher};
-use std::io::{self, Result, Write};
+use std::io::{self, stdout, Result, Stdout, Write};
+use std::os::unix::prelude::RawFd;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant, SystemTime};
 
@@ -301,8 +302,8 @@ This should never happen, and is probably a bug in fuzzcheck. Sorry :("#
         };
 
         let path = artifacts_folder.join(&name).with_extension(extension);
+        fs::write(&path, &content)?;
         println!("Failing test case found. Saving at {:?}", path);
-        fs::write(path, &content)?;
 
         Result::Ok(())
     }

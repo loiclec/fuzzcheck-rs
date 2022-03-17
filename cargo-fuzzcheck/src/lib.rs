@@ -225,5 +225,8 @@ pub fn string_from_args(args: &Arguments) -> String {
     if args.stop_after_first_failure {
         s.push_str(&format!("--{} ", STOP_AFTER_FIRST_FAILURE_FLAG));
     }
+    if args.detect_infinite_loop {
+        s.push_str(&format!("--{} ", DETECT_INFINITE_LOOP_FLAG));
+    }
     s
 }

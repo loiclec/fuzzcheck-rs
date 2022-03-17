@@ -9,7 +9,7 @@ use std::result::Result;
 
 use fuzzcheck_common::arg::{Arguments, FuzzerCommand};
 use fuzzcheck_common::{FuzzerEvent, FuzzerStats};
-use libc::{SIGABRT, SIGALRM, SIGBUS, SIGFPE, SIGINT, SIGSEGV, SIGTERM, SIGTRAP};
+use libc::{itimerval, ITIMER_REAL, SIGABRT, SIGALRM, SIGBUS, SIGFPE, SIGINT, SIGSEGV, SIGTERM, SIGTRAP};
 
 use crate::data_structures::RcSlab;
 use crate::sensors_and_pools::{
@@ -330,6 +330,7 @@ where
                     fuzzer_stats,
                     serializer,
                     world,
+                    settings,
                     ..
                 },
             test,
@@ -352,12 +353,22 @@ where
                 }
             },
         ));
-
+        if settings.detect_infinite_loop {
+            let success = unsafe {
+                let t = itimerval {
+                    it_interval: libc::timeval { tv_sec: 0, tv_usec: 0 },
+                    it_value: libc::timeval { tv_sec: 1, tv_usec: 0 },
+                };
+                libc::setitimer(ITIMER_REAL, &t, std::ptr::null_mut())
+            };
+            assert!(success == 0);
+        }
         sensor_and_pool.start_recording();
         let result = catch_unwind(AssertUnwindSafe(
             #[no_coverage]
             || (test)(input.value.borrow()),
         ));
+
         let _ = std::panic::take_hook();
         let test_failure = match result {
             Ok(false) => unsafe {
@@ -772,6 +783,17 @@ where
                 let mutation_step = mutator.default_mutation_step(&value, &cache);
                 let input = FuzzedInput::new(value, cache, mutation_step, Generation(0));
                 let cplx = input.complexity(&mutator);
+
+                if args.detect_infinite_loop {
+                    let success = unsafe {
+                        let t = itimerval {
+                            it_interval: libc::timeval { tv_sec: 0, tv_usec: 0 },
+                            it_value: libc::timeval { tv_sec: 1, tv_usec: 0 },
+                        };
+                        libc::setitimer(ITIMER_REAL, &t, std::ptr::null_mut())
+                    };
+                    assert!(success == 0);
+                }
 
                 let result = catch_unwind(AssertUnwindSafe(
                     #[no_coverage]

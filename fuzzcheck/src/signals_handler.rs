@@ -4,8 +4,8 @@
 use std::ptr;
 
 use libc::{
-    sigaction, sigemptyset, SA_NODEFER, SA_ONSTACK, SA_SIGINFO, SIGABRT, SIGBUS, SIGFPE, SIGINT, SIGSEGV, SIGTERM,
-    SIGTRAP, SIG_DFL,
+    sigaction, sigemptyset, SA_NODEFER, SA_ONSTACK, SA_SIGINFO, SIGABRT, SIGALRM, SIGBUS, SIGFPE, SIGINT, SIGSEGV,
+    SIGTERM, SIGTRAP, SIG_DFL,
 };
 
 static mut SIGNAL_HANDLER: Option<Box<dyn Fn(libc::c_int) -> !>> = None;
@@ -52,7 +52,9 @@ where
     sa.sa_flags = SA_NODEFER | SA_SIGINFO | SA_ONSTACK;
     sa.sa_sigaction = os_handler as usize;
 
-    let signals = [SIGINT, SIGTERM, SIGSEGV, SIGBUS, SIGABRT, SIGFPE, SIGABRT, SIGTRAP];
+    let signals = [
+        SIGALRM, SIGINT, SIGTERM, SIGSEGV, SIGBUS, SIGABRT, SIGFPE, SIGABRT, SIGTRAP,
+    ];
     for sig in signals {
         if sigaction(sig as i32, &mut sa as *mut sigaction, ptr::null_mut()) < 0 {
             panic!("Could not set up signal handler");
@@ -66,7 +68,9 @@ pub(crate) unsafe fn reset_signal_handlers() {
     sigemptyset(&mut sa.sa_mask as *mut libc::sigset_t);
     sa.sa_sigaction = SIG_DFL;
 
-    for &signal in &[SIGINT, SIGTERM, SIGSEGV, SIGBUS, SIGABRT, SIGFPE, SIGABRT, SIGTRAP] {
+    for &signal in &[
+        SIGALRM, SIGINT, SIGTERM, SIGSEGV, SIGBUS, SIGABRT, SIGFPE, SIGABRT, SIGTRAP,
+    ] {
         if sigaction(signal, &mut sa as *mut sigaction, ptr::null_mut()) < 0 {
             panic!("Could not set up signal handler");
         }

@@ -21,6 +21,8 @@ pub const MAX_DURATION_FLAG: &str = "stop-after-duration";
 pub const MAX_ITERATIONS_FLAG: &str = "stop-after-iterations";
 pub const STOP_AFTER_FIRST_FAILURE_FLAG: &str = "stop-after-first-failure";
 
+pub const DETECT_INFINITE_LOOP_FLAG: &str = "detect-infinite-loop";
+
 pub const COMMAND_FUZZ: &str = "fuzz";
 pub const COMMAND_MINIFY_INPUT: &str = "minify";
 pub const COMMAND_READ: &str = "read";
@@ -54,6 +56,7 @@ impl Default for FuzzerCommand {
 pub struct Arguments {
     pub command: FuzzerCommand,
     pub max_input_cplx: f64,
+    pub detect_infinite_loop: bool,
     pub maximum_duration: Duration,
     pub maximum_iterations: usize,
     pub stop_after_first_failure: bool,
@@ -67,6 +70,7 @@ impl Arguments {
         Self {
             command: FuzzerCommand::Fuzz,
             max_input_cplx: 256.,
+            detect_infinite_loop: false,
             maximum_duration: Duration::MAX,
             maximum_iterations: usize::MAX,
             stop_after_first_failure: true,
@@ -101,6 +105,13 @@ pub fn options_parser() -> Options {
         "N",
     );
     options.optopt("", MAX_ITERATIONS_FLAG, "maximum number of iterations", "N");
+
+    options.optflag(
+        "",
+        DETECT_INFINITE_LOOP_FLAG,
+        "fail on tests running for more than one second",
+    );
+
     options.optflag(
         "",
         STOP_AFTER_FIRST_FAILURE_FLAG,
@@ -204,6 +215,8 @@ impl Arguments {
                 #[no_coverage]
                 |x| x as f64,
             );
+
+        let detect_infinite_loop = matches.opt_present(DETECT_INFINITE_LOOP_FLAG);
 
         let corpus_in: Option<PathBuf> = matches.opt_str(IN_CORPUS_FLAG).and_then(
             #[no_coverage]
@@ -314,6 +327,7 @@ impl Arguments {
 
         Ok(Arguments {
             command,
+            detect_infinite_loop,
             maximum_duration,
             maximum_iterations,
             stop_after_first_failure,
