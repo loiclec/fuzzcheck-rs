@@ -231,6 +231,7 @@ where
         match signal {
             SIGABRT | SIGBUS | SIGSEGV | SIGFPE | SIGALRM | SIGTRAP => {
                 if let Some(input) = Self::get_input(&self.input_idx, &self.pool_storage) {
+                    let input = input.new_source(&self.mutator, Generation(0));
                     let cplx = input.complexity(&self.mutator);
                     let content = self.serializer.to_data(&input.value);
                     let _ = self.world.save_artifact(content, cplx, self.serializer.extension());
