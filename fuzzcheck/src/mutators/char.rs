@@ -186,9 +186,9 @@ impl Mutator<char> for CharWithinRangeMutator {
         // TODO: loop instead of recurse
         if let Some(result) = char::from_u32(self.start_range.wrapping_add(result)) {
             *step += 1;
-            // if result == *value {
-            //     return self.ordered_mutate(value, cache, step, subvalue_provider, max_cplx);
-            // }
+            if result == *value {
+                return self.ordered_mutate(value, cache, step, subvalue_provider, max_cplx);
+            }
 
             *value = result;
 
