@@ -65,6 +65,7 @@ make_mutator! {
     }
 }
 
+#[allow(clippy::vec_box)]
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 struct SampleStruct2 {
     w: Vec<Box<SampleStruct2>>,

@@ -67,11 +67,7 @@ where
 {
     type RandomStep = ();
     type Step = ();
-    type Concrete<'a>
-    where
-        M: 'a,
-        Value: 'a,
-    = ();
+    type Concrete<'a> = ();
 
     type Revert = NoMutation;
 

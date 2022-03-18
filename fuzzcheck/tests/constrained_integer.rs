@@ -54,7 +54,7 @@ fn test_mutate_constrained_signed_integer_8() {
         mutator.unmutate(&mut x, &mut x_cache, t);
     }
     let mut set = set.into_iter().collect::<Vec<_>>();
-    set.sort();
+    set.sort_unstable();
     println!("{} {set:?}", set.len());
 
     let mutator = I8WithinRangeMutator::new(-12..17);
@@ -76,6 +76,6 @@ fn test_mutate_constrained_signed_integer_8() {
         mutator.unmutate(&mut x, &mut x_cache, t);
     }
     let mut set = set.into_iter().collect::<Vec<_>>();
-    set.sort();
+    set.sort_unstable();
     println!("{} {set:?}", set.len());
 }

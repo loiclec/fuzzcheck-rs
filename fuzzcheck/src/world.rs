@@ -4,8 +4,7 @@ use std::collections::HashMap;
 use std::fs;
 use std::fs::{File, OpenOptions};
 use std::hash::{Hash, Hasher};
-use std::io::{self, stdout, Result, Stdout, Write};
-use std::os::unix::prelude::RawFd;
+use std::io::{self, Result, Write};
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant, SystemTime};
 

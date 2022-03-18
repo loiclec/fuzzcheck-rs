@@ -9,7 +9,7 @@ use std::result::Result;
 
 use fuzzcheck_common::arg::{Arguments, FuzzerCommand};
 use fuzzcheck_common::{FuzzerEvent, FuzzerStats};
-use libc::{itimerval, ITIMER_REAL, SIGABRT, SIGALRM, SIGBUS, SIGFPE, SIGINT, SIGSEGV, SIGTERM, SIGTRAP};
+use libc::{SIGABRT, SIGALRM, SIGBUS, SIGFPE, SIGINT, SIGSEGV, SIGTERM, SIGTRAP};
 
 use crate::data_structures::RcSlab;
 use crate::sensors_and_pools::{
@@ -354,14 +354,19 @@ where
             },
         ));
         if settings.detect_infinite_loop {
-            let success = unsafe {
-                let t = itimerval {
-                    it_interval: libc::timeval { tv_sec: 0, tv_usec: 0 },
-                    it_value: libc::timeval { tv_sec: 1, tv_usec: 0 },
-                };
-                libc::setitimer(ITIMER_REAL, &t, std::ptr::null_mut())
-            };
-            assert!(success == 0);
+            let _old_time_left = unsafe { libc::alarm(1) };
+            // TODO: I think setitimer should be prefered, but libc
+            // doesn't support it on linux, see:
+            // https://github.com/rust-lang/libc/issues/1347#event-3879031340
+
+            // let success = unsafe {
+            // let t = itimerval {
+            //     it_interval: libc::timeval { tv_sec: 0, tv_usec: 0 },
+            //     it_value: libc::timeval { tv_sec: 1, tv_usec: 0 },
+            // };
+            // libc::setitimer(ITIMER_REAL, &t, std::ptr::null_mut())
+            // };
+            // assert!(success == 0);
         }
         sensor_and_pool.start_recording();
         let result = catch_unwind(AssertUnwindSafe(
@@ -785,14 +790,19 @@ where
                 let cplx = input.complexity(&mutator);
 
                 if args.detect_infinite_loop {
-                    let success = unsafe {
-                        let t = itimerval {
-                            it_interval: libc::timeval { tv_sec: 0, tv_usec: 0 },
-                            it_value: libc::timeval { tv_sec: 1, tv_usec: 0 },
-                        };
-                        libc::setitimer(ITIMER_REAL, &t, std::ptr::null_mut())
-                    };
-                    assert!(success == 0);
+                    let _old_time_left = unsafe { libc::alarm(1) };
+                    // TODO: I think setitimer should be prefered, but libc
+                    // doesn't support it on linux, see:
+                    // https://github.com/rust-lang/libc/issues/1347#event-3879031340
+
+                    // let success = unsafe {
+                    // let t = itimerval {
+                    //     it_interval: libc::timeval { tv_sec: 0, tv_usec: 0 },
+                    //     it_value: libc::timeval { tv_sec: 1, tv_usec: 0 },
+                    // };
+                    // libc::setitimer(ITIMER_REAL, &t, std::ptr::null_mut())
+                    // };
+                    // assert!(success == 0);
                 }
 
                 let result = catch_unwind(AssertUnwindSafe(
