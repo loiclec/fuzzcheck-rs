@@ -11,15 +11,20 @@ pub trait BasicEnumStructure {
 
 /// A mutator used for enums implementing [BasicEnumStructure]
 pub struct BasicEnumMutator {
+    non_ignored_variant_count: usize,
     rng: fastrand::Rng,
     cplx: f64,
 }
 impl BasicEnumMutator {
     #[no_coverage]
-    pub fn new<T>() -> Self {
+    pub fn new<T>(non_ignored_variant_count: usize) -> Self
+    where
+        T: BasicEnumStructure,
+    {
         Self {
+            non_ignored_variant_count,
             rng: <_>::default(),
-            cplx: crate::mutators::size_to_cplxity(std::mem::variant_count::<T>()),
+            cplx: crate::mutators::size_to_cplxity(non_ignored_variant_count),
         }
     }
 }
@@ -93,7 +98,7 @@ where
         if max_cplx < <Self as Mutator<T>>::min_complexity(self) {
             return None;
         }
-        if *step < std::mem::variant_count::<T>() {
+        if *step < self.non_ignored_variant_count {
             let old_step = *step;
             *step += 1;
             Some((T::from_item_index(old_step), self.cplx))
@@ -105,7 +110,7 @@ where
     #[doc(hidden)]
     #[no_coverage]
     fn random_arbitrary(&self, _max_cplx: f64) -> (T, f64) {
-        let item_idx = self.rng.usize(..std::mem::variant_count::<T>());
+        let item_idx = self.rng.usize(..self.non_ignored_variant_count);
         (T::from_item_index(item_idx), self.cplx)
     }
 
@@ -124,11 +129,11 @@ where
         }
         // starts at step = 1
         // create new from (get_item_index + step) % nbr_of_items
-        if *step < std::mem::variant_count::<T>() {
+        if *step < self.non_ignored_variant_count {
             let old_index = value.get_item_index();
             let old_step = *step;
             *step += 1;
-            *value = T::from_item_index((old_index + old_step) % std::mem::variant_count::<T>());
+            *value = T::from_item_index((old_index + old_step) % self.non_ignored_variant_count);
             Some((old_index, self.cplx))
         } else {
             None
@@ -139,7 +144,7 @@ where
     #[no_coverage]
     fn random_mutate(&self, value: &mut T, _cache: &mut Self::Cache, _max_cplx: f64) -> (Self::UnmutateToken, f64) {
         let old_index = value.get_item_index();
-        let item_idx = self.rng.usize(..std::mem::variant_count::<T>());
+        let item_idx = self.rng.usize(..self.non_ignored_variant_count);
         *value = T::from_item_index(item_idx);
         (old_index, self.cplx)
     }

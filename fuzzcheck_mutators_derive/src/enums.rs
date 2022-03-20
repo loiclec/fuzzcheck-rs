@@ -170,13 +170,22 @@ pub(crate) fn impl_basic_enum_structure(tb: &mut TokenBuilder, enu: &Enum) {
         })
         .collect::<Box<_>>();
 
+    let (ignored, not_ignored): (Vec<_>, Vec<_>) = enu.items.iter().partition(|item| {
+        item.attributes
+            .iter()
+            .any(|x| super::has_ignore_variant_attribute(x.clone()))
+    });
+
     extend_ts!(tb,
         "impl" BasicEnumStructure "for" enu.ident "{
             #[no_coverage]
             fn from_item_index(item_index: usize) -> Self {
                 match item_index {"
-                join_ts!(enu.items.iter().enumerate(), (i, item),
+                join_ts!(not_ignored.iter().enumerate(), (i, item),
                     i "=>" enu.ident "::" item.ident items_init[i] ","
+                )
+                join_ts!(ignored.iter().enumerate(), (i, item),
+                    (i + not_ignored.len()) "=>" enu.ident "::" item.ident items_init[i] ","
                 )
                 "
                     _ => unreachable!()
@@ -185,8 +194,11 @@ pub(crate) fn impl_basic_enum_structure(tb: &mut TokenBuilder, enu: &Enum) {
             #[no_coverage]
             fn get_item_index(&self) -> usize {
                 match self {"
-                join_ts!(enu.items.iter().enumerate(), (i, item),
+                join_ts!(not_ignored.iter().enumerate(), (i, item),
                     enu.ident "::" item.ident items_init[i] "=>" i ","
+                )
+                join_ts!(ignored.iter().enumerate(), (i, item),
+                    enu.ident "::" item.ident items_init[i + not_ignored.len()] "=>" i + not_ignored.len() ","
                 )
                 "}
             }
@@ -208,12 +220,22 @@ pub(crate) fn impl_default_mutator_for_basic_enum(tb: &mut TokenBuilder, enu: &E
 
     let BasicEnumMutator = ts!(cm.mutators "::enums::BasicEnumMutator");
 
+    let count_non_ignored = enu
+        .items
+        .iter()
+        .filter(|item| {
+            item.attributes
+                .iter()
+                .all(|attr| !super::has_ignore_variant_attribute(attr.clone()))
+        })
+        .count();
+
     extend_ts!(tb,
         "impl" cm.DefaultMutator "for " enu.ident " {
             type Mutator = " BasicEnumMutator ";
             #[no_coverage]
             fn default_mutator() -> Self::Mutator {
-                Self::Mutator::new::<" enu.ident ">()
+                Self::Mutator::new::<" enu.ident ">(" count_non_ignored ")
             }
         }"
     )

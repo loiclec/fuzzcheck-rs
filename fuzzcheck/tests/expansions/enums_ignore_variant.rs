@@ -1,6 +1,16 @@
-use fuzzcheck::DefaultMutator;
-use fuzzcheck::Mutator;
+use fuzzcheck::{DefaultMutator, Mutator};
 use fuzzcheck_mutators_derive::make_mutator;
+
+#[derive(Clone, DefaultMutator)]
+enum NoAssociatedData {
+    #[ignore_variant]
+    A,
+    B,
+    #[ignore_variant]
+    C,
+    D,
+    E,
+}
 
 #[derive(Clone)]
 enum WithIgnore<T> {
