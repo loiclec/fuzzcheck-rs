@@ -15,7 +15,7 @@ fn test_vector_mutator() {
         0..=usize::MAX,
         false,
     );
-    fuzzcheck::mutators::testing_utilities::test_mutator(m, 500.0, 500.0, false, true, 100, 200);
+    fuzzcheck::mutators::testing_utilities::test_mutator(m, 500.0, 500.0, false, true, 100, 150);
 }
 
 // #[test]
