@@ -2,9 +2,11 @@
 **/*.rs.bk
 /fuzz-corpus
 /artifacts
-/usage_tests/*/
+
+/usage_tests/basic_crate/fuzz
+/usage_tests/basic_crate/target
+
 Cargo.lock
-/fuzz_build_target
 
 .vscode
 .idea
