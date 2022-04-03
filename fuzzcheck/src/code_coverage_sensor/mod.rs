@@ -67,7 +67,7 @@ impl CodeCoverageSensor {
         let covfun = llvm_coverage::process_function_records(covfun, map, &covmap);
         let prf_data = llvm_coverage::read_prf_data(prf_data, &mut 0).expect("failed to parse LLVM prf_data");
 
-        let mut coverage = unsafe { Coverage::new(covfun, prf_data, get_counters()) }
+        let mut coverage = Coverage::new(covfun, prf_data, unsafe { get_counters() })
             .expect("failed to properly link the different LLVM coverage sections");
         coverage.drain_filter(
             #[no_coverage]
