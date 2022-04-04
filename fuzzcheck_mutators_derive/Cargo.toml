@@ -14,5 +14,7 @@ categories = ["development-tools::testing"]
 proc-macro = true
 
 [dependencies]
-decent-synquote-alternative = { version = "0.4", package = "decent-synquote-alternative" }
+# decent-synquote-alternative = { path = "/Users/loic/Code/decent-synquote-alternative", package = "decent-synquote-alternative" }
 proc-macro2 = "1.0"
+quote = "1.0.17"
+syn = "1.0.90"

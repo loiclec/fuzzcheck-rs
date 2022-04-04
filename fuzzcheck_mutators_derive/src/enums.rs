@@ -1,91 +1,102 @@
-use decent_synquote_alternative as synquote;
-use proc_macro2::{Ident, Span};
-use synquote::parser::*;
-use synquote::token_builder::*;
+use proc_macro2::Ident;
+use syn::{DataEnum, Generics, Visibility};
 
 use crate::structs_and_enums::{CreateWrapperMutatorParams, FieldMutator, FieldMutatorKind};
-use crate::{Common, MakeMutatorSettings};
+use crate::token_builder::{access_field, extend_ts, ident, join_ts, ts, TokenBuilder};
+use crate::{q, Common, MakeMutatorSettings};
 
 fn size_to_cplxity(size: usize) -> f64 {
     (usize::BITS - (size.saturating_sub(1)).leading_zeros()) as f64
 }
 #[allow(non_snake_case)]
-pub(crate) fn impl_default_mutator_for_enum(tb: &mut TokenBuilder, enu: &Enum, settings: &MakeMutatorSettings) {
+pub(crate) fn impl_default_mutator_for_enum(
+    tb: &mut TokenBuilder,
+    enum_ident: &Ident,
+    generics: &Generics,
+    vis: &Visibility,
+    enu: &DataEnum,
+    settings: &MakeMutatorSettings,
+) {
     let cm = Common::new(0);
 
     let field_mutators = enu
-        .items
+        .variants
         .iter()
         .enumerate()
-        .map(|(index, item)| {
+        .map(|(index, variant)| {
             (
                 index,
-                item,
-                item.attributes
-                    .iter()
-                    .any(|attr| super::has_ignore_variant_attribute(attr.clone())),
+                variant,
+                variant.attrs.iter().any(super::has_ignore_variant_attribute),
             )
         })
-        .map(|(i, item, should_ignore)| match item.get_struct_data() {
-            Some((_, fields)) if !fields.is_empty() => fields
-                .iter()
-                .enumerate()
-                .map(|(j, field)| {
-                    if should_ignore {
-                        return FieldMutator {
-                            i,
-                            j: Some(j),
-                            field: field.clone(),
-                            kind: FieldMutatorKind::Ignore,
-                        };
-                    }
-                    let mut mutator = None;
-                    for attribute in field.attributes.iter() {
-                        if let Some((m, init)) = super::read_field_default_mutator_attribute(attribute.clone()) {
-                            mutator = Some((m, init));
+        .map(|(i, variant, should_ignore)| {
+            if !variant.fields.is_empty() {
+                variant
+                    .fields
+                    .iter()
+                    .enumerate()
+                    .map(|(j, field)| {
+                        if should_ignore {
+                            return FieldMutator {
+                                i,
+                                j: Some(j),
+                                field: field.clone(),
+                                kind: FieldMutatorKind::Ignore,
+                            };
                         }
-                    }
-                    if let Some(m) = mutator {
-                        FieldMutator {
-                            i,
-                            j: Some(j),
-                            field: field.clone(),
-                            kind: FieldMutatorKind::Prescribed(m.0, m.1),
+                        let mut mutator = None;
+                        for attribute in field.attrs.iter() {
+                            if let Some(field_mutator_attribute) =
+                                super::read_field_default_mutator_attribute(attribute)
+                            {
+                                mutator = Some((field_mutator_attribute.ty, field_mutator_attribute.equal));
+                            }
                         }
-                    } else {
-                        FieldMutator {
-                            i,
-                            j: Some(j),
-                            field: field.clone(),
-                            kind: FieldMutatorKind::Generic,
+                        if let Some(m) = mutator {
+                            FieldMutator {
+                                i,
+                                j: Some(j),
+                                field: field.clone(),
+                                kind: FieldMutatorKind::Prescribed(m.0, m.1),
+                            }
+                        } else {
+                            FieldMutator {
+                                i,
+                                j: Some(j),
+                                field: field.clone(),
+                                kind: FieldMutatorKind::Generic,
+                            }
                         }
-                    }
-                })
-                .collect::<Vec<_>>(),
-            _ => {
+                    })
+                    .collect::<Vec<_>>()
+            } else {
                 vec![]
             }
         })
         .collect::<Vec<_>>();
 
     let TupleNMutator = cm.TupleNMutator.as_ref();
-    let EnumSingleVariant = ident!(enu.ident "SingleVariant");
+    let EnumSingleVariant = ident!(&enum_ident "SingleVariant");
+
+    let (_, generic_args, _) = generics.split_for_impl();
+    let selfty = ts!(enum_ident q!(generic_args));
 
     let InnerMutator = ts!(
         cm.AlternationMutator "<"
-            enu.ident enu.generics.removing_bounds_and_eq_type() ","
+            selfty ","
             EnumSingleVariant "<"
-                join_ts!(field_mutators.iter(), item_field_mutators,
-                    if item_field_mutators.is_empty() {
+                join_ts!(field_mutators.iter(), variant_field_mutators,
+                    if variant_field_mutators.is_empty() {
                         ts!(TupleNMutator(0))
-                    } else if item_field_mutators.iter().any(|mutator| {
+                    } else if variant_field_mutators.iter().any(|mutator| {
                         mutator.kind.is_ignore()
                     }) {
                         cm.NeverMutator.clone()
                     } else {
                         ts!(
-                            TupleNMutator(item_field_mutators.len()) "<"
-                                join_ts!(item_field_mutators.iter().filter(|mutator| {
+                            TupleNMutator(variant_field_mutators.len()) "<"
+                                join_ts!(variant_field_mutators.iter().filter(|mutator| {
                                     !mutator.kind.is_ignore()
                                 }), fm,
                                     fm.mutator_stream(&cm)
@@ -100,10 +111,9 @@ pub(crate) fn impl_default_mutator_for_enum(tb: &mut TokenBuilder, enu: &Enum, s
 
     let params = CreateWrapperMutatorParams {
         cm: &cm,
-        visibility: &enu.visibility,
-        type_ident: &enu.ident,
-        type_generics: &enu.generics,
-        type_where_clause: &enu.where_clause,
+        visibility: vis,
+        type_ident: enum_ident,
+        type_generics: generics,
         field_mutators: &field_mutators,
         InnerMutator: &InnerMutator,
         new_impl: &ts!("
@@ -112,32 +122,30 @@ pub(crate) fn impl_default_mutator_for_enum(tb: &mut TokenBuilder, enu: &Enum, s
             join_ts!(field_mutators.iter().filter(|fields|
                 !fields.is_empty() && fields.iter().all(|field| !field.kind.is_ignore())
             ).flatten(), field_mutator,
-                ident!("mutator_" enu.items[field_mutator.i].ident "_" field_mutator.field.access()) ":" field_mutator.mutator_stream(&cm)
+                ident!("mutator_" enu.variants[field_mutator.i].ident "_" access_field(&field_mutator.field, field_mutator.j.unwrap())) ":" field_mutator.mutator_stream(&cm)
             , separator: ",") ") -> Self {
                 Self {
                     mutator: " cm.AlternationMutator "::new(vec!["
-                        join_ts!(enu.items.iter().enumerate().filter(|(_, item)| {
-                                    item.attributes.iter().all(|attr| {
-                                        !super::has_ignore_variant_attribute(attr.clone())
+                        join_ts!(enu.variants.iter().enumerate().filter(|(_, variant)| {
+                                    variant.attrs.iter().all(|attr| {
+                                        !super::has_ignore_variant_attribute(attr)
                                     })
-                                }), (i, item),
-                        EnumSingleVariant "::" item.ident "("
-                        match item.get_struct_data() {
-                            Some((_, fields)) if !fields.is_empty() =>
-                               ts!(
-                                    TupleNMutator(fields.len()) "::new("
-                                        join_ts!(fields.iter(), field,
-                                            ident!("mutator_" enu.items[i].ident "_" field.access())
+                                }), (i, variant),
+                        EnumSingleVariant "::" variant.ident "("
+                        if variant.fields.is_empty() {
+                            TupleNMutator(0)
+                        } else {
+                                ts!(
+                                    TupleNMutator(variant.fields.len()) "::new("
+                                        join_ts!(variant.fields.iter().enumerate(), (idx, field),
+                                            ident!("mutator_" enu.variants[i].ident "_" access_field(field, idx))
                                         , separator: ",")
                                     ")"
-                               ),
-                            _ => ts!(
-                                TupleNMutator(0)
-                            )
+                               )
                         }
                         ")"
                         , separator: ",")
-                    "], " format!("{:.2}", size_to_cplxity(enu.items.len())) ")
+                    "], " format!("{:.2}", size_to_cplxity(enu.variants.len())) ")
                 }
             }"
         ),
@@ -148,57 +156,51 @@ pub(crate) fn impl_default_mutator_for_enum(tb: &mut TokenBuilder, enu: &Enum, s
 }
 
 #[allow(non_snake_case)]
-pub(crate) fn impl_basic_enum_structure(tb: &mut TokenBuilder, enu: &Enum) {
-    assert!(
-        !enu.items.is_empty()
-            && enu
-                .items
-                .iter()
-                .all(|item| !matches!(&item.data, Some(EnumItemData::Struct(_, fields)) if !fields.is_empty()))
-    );
+pub(crate) fn impl_basic_enum_structure(tb: &mut TokenBuilder, enum_ident: &Ident, enu: &DataEnum) {
+    assert!(!enu.variants.is_empty() && enu.variants.iter().all(|variant| variant.fields.is_empty()));
 
     let cm = Common::new(0);
 
     let BasicEnumStructure = ts!(cm.mutators "::enums::BasicEnumStructure");
 
-    let items_init = enu
-        .items
+    let variants_init = enu
+        .variants
         .iter()
-        .map(|item| match &item.data {
-            Some(EnumItemData::Struct(kind, _)) => ts!(kind.open() kind.close()),
-            _ => ts!(),
+        .map(|variant| match variant.fields {
+            syn::Fields::Named(_) => ts!("{ }"),
+            syn::Fields::Unnamed(_) => ts!("( )"),
+            syn::Fields::Unit => ts!(),
         })
         .collect::<Box<_>>();
 
-    let (ignored, not_ignored): (Vec<_>, Vec<_>) = enu.items.iter().partition(|item| {
-        item.attributes
-            .iter()
-            .any(|x| super::has_ignore_variant_attribute(x.clone()))
-    });
+    let (ignored, not_ignored): (Vec<_>, Vec<_>) = enu
+        .variants
+        .iter()
+        .partition(|variant| variant.attrs.iter().any(super::has_ignore_variant_attribute));
 
     extend_ts!(tb,
-        "impl" BasicEnumStructure "for" enu.ident "{
+        "impl" BasicEnumStructure "for" enum_ident "{
             #[no_coverage]
-            fn from_item_index(item_index: usize) -> Self {
-                match item_index {"
-                join_ts!(not_ignored.iter().enumerate(), (i, item),
-                    i "=>" enu.ident "::" item.ident items_init[i] ","
+            fn from_variant_index(variant_index: usize) -> Self {
+                match variant_index {"
+                join_ts!(not_ignored.iter().enumerate(), (i, variant),
+                    i "=>" enum_ident "::" variant.ident variants_init[i] ","
                 )
-                join_ts!(ignored.iter().enumerate(), (i, item),
-                    (i + not_ignored.len()) "=>" enu.ident "::" item.ident items_init[i] ","
+                join_ts!(ignored.iter().enumerate(), (i, variant),
+                    (i + not_ignored.len()) "=>" enum_ident "::" variant.ident variants_init[i] ","
                 )
                 "
                     _ => unreachable!()
                 }
             }
             #[no_coverage]
-            fn get_item_index(&self) -> usize {
+            fn get_variant_index(&self) -> usize {
                 match self {"
-                join_ts!(not_ignored.iter().enumerate(), (i, item),
-                    enu.ident "::" item.ident items_init[i] "=>" i ","
+                join_ts!(not_ignored.iter().enumerate(), (i, variant),
+                    enum_ident "::" variant.ident variants_init[i] "=>" i ","
                 )
-                join_ts!(ignored.iter().enumerate(), (i, item),
-                    enu.ident "::" item.ident items_init[i + not_ignored.len()] "=>" i + not_ignored.len() ","
+                join_ts!(ignored.iter().enumerate(), (i, variant),
+                    enum_ident "::" variant.ident variants_init[i + not_ignored.len()] "=>" i + not_ignored.len() ","
                 )
                 "}
             }
@@ -207,35 +209,30 @@ pub(crate) fn impl_basic_enum_structure(tb: &mut TokenBuilder, enu: &Enum) {
 }
 
 #[allow(non_snake_case)]
-pub(crate) fn impl_default_mutator_for_basic_enum(tb: &mut TokenBuilder, enu: &Enum) {
-    assert!(
-        !enu.items.is_empty()
-            && enu
-                .items
-                .iter()
-                .all(|item| !matches!(&item.data, Some(EnumItemData::Struct(_, fields)) if !fields.is_empty()))
-    );
+pub(crate) fn impl_default_mutator_for_basic_enum(tb: &mut TokenBuilder, enum_ident: &Ident, enu: &DataEnum) {
+    assert!(!enu.variants.is_empty() && enu.variants.iter().all(|variant| variant.fields.is_empty()));
 
     let cm = Common::new(0);
 
     let BasicEnumMutator = ts!(cm.mutators "::enums::BasicEnumMutator");
 
     let count_non_ignored = enu
-        .items
+        .variants
         .iter()
-        .filter(|item| {
-            item.attributes
+        .filter(|variant| {
+            variant
+                .attrs
                 .iter()
-                .all(|attr| !super::has_ignore_variant_attribute(attr.clone()))
+                .all(|attr| !super::has_ignore_variant_attribute(attr))
         })
         .count();
 
     extend_ts!(tb,
-        "impl" cm.DefaultMutator "for " enu.ident " {
+        "impl" cm.DefaultMutator "for " enum_ident " {
             type Mutator = " BasicEnumMutator ";
             #[no_coverage]
             fn default_mutator() -> Self::Mutator {
-                Self::Mutator::new::<" enu.ident ">(" count_non_ignored ")
+                Self::Mutator::new::<" enum_ident ">(" q!(count_non_ignored) ")
             }
         }"
     )

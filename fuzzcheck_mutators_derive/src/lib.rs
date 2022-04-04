@@ -1,18 +1,29 @@
 #![allow(non_snake_case)]
 #![allow(clippy::type_complexity)]
+#![allow(clippy::large_enum_variant)]
+#![feature(let_chains)]
+#![feature(stmt_expr_attributes)]
 
-use decent_synquote_alternative as synquote;
-use proc_macro2::{Delimiter, Ident, Span, TokenStream};
-use synquote::parser::{EnumItemData, TokenParser, Ty};
-use synquote::token_builder::*;
+use proc_macro2::{Ident, Literal, TokenStream, TokenTree};
+use syn::ext::IdentExt;
+use syn::parse::{Parse, ParseStream};
+use syn::{parse2, parse_macro_input, token, Attribute, DeriveInput, Error, LitBool, Token};
+use token_builder::{extend_ts, ident, ts, TokenBuilder};
 
 mod enums;
 mod single_variant;
 mod structs_and_enums;
+
+mod token_builder;
+
 mod tuples;
 
-#[macro_use]
-extern crate decent_synquote_alternative;
+macro_rules! q {
+    ($part:expr) => {
+        $crate::token_builder::Quoted(&$part)
+    };
+}
+pub(crate) use q;
 
 /// Create a tuple-mutatpr for of the given arity.
 ///
@@ -30,52 +41,56 @@ extern crate decent_synquote_alternative;
 /// ```
 #[proc_macro]
 pub fn make_basic_tuple_mutator(item: proc_macro::TokenStream) -> proc_macro::TokenStream {
-    let mut tb = TokenBuilder::new();
-
-    let mut parser = TokenParser::new(item.into());
-    if let Some(l) = parser.eat_literal() {
-        if let Ok(nbr_elements) = l.to_string().parse::<usize>() {
-            tuples::make_basic_tuple_mutator(&mut tb, nbr_elements);
-            return tb.end().into();
-        }
+    let literal = parse_macro_input!(item as Literal);
+    if let Ok(nbr_elements) = literal.to_string().parse::<usize>() {
+        let mut tb = TokenBuilder::default();
+        tuples::make_basic_tuple_mutator(&mut tb, nbr_elements);
+        tb.finish().into()
+    } else {
+        ts!(
+            "compile_error!("
+                q!("make_basic_tuple_mutator expects a small positive integer as argument")
+            "]);"
+        )
+        .into()
     }
-    panic!()
-}
-
-#[doc(hidden)]
-#[proc_macro]
-pub fn make_tuple_type_structure(item: proc_macro::TokenStream) -> proc_macro::TokenStream {
-    let mut tb = TokenBuilder::new();
-
-    let mut parser = TokenParser::new(item.into());
-    if let Some(l) = parser.eat_literal() {
-        if let Ok(nbr_elements) = l.to_string().parse::<usize>() {
-            tuples::make_tuple_type_structure(&mut tb, nbr_elements);
-            return tb.end().into();
-        }
-    }
-    panic!()
 }
 
 #[doc(hidden)]
 #[proc_macro_derive(TupleStructure)]
 pub fn derive_tuple_structure(item: proc_macro::TokenStream) -> proc_macro::TokenStream {
-    let input = proc_macro2::TokenStream::from(item);
-    derive_tuple_structure_(input).into()
+    let item = parse_macro_input!(item as DeriveInput);
+    if let syn::Data::Struct(s) = item.data {
+        let mut tb = TokenBuilder::default();
+        let nbr_fields = s.fields.len();
+        if nbr_fields > 0 {
+            tuples::impl_tuple_structure_trait(&mut tb, &item.ident, &item.generics, &s);
+            return tb.finish().into();
+        }
+    }
+    ts!(
+        "compile_error!("
+            q!("The TupleStructure macro only works for structs with one or more fields.")
+        "]);"
+    )
+    .into()
 }
 #[proc_macro]
 pub fn make_mutator(item: proc_macro::TokenStream) -> proc_macro::TokenStream {
-    let (settings, parser) = MakeMutatorSettings::from(item.into());
+    let settings = parse_macro_input!(item as MakeMutatorSettings);
     // let item = proc_macro2::TokenStream::from(item);
-    derive_default_mutator_(parser, settings).into()
+    derive_default_mutator_(settings).into()
 }
 
 #[proc_macro_derive(DefaultMutator, attributes(field_mutator, ignore_variant))]
 pub fn derive_default_mutator(item: proc_macro::TokenStream) -> proc_macro::TokenStream {
-    let settings = MakeMutatorSettings::default();
-    let item = proc_macro2::TokenStream::from(item);
-    let parser = TokenParser::new(item);
-    derive_default_mutator_(parser, settings).into()
+    let settings = MakeMutatorSettings {
+        name: None,
+        recursive: false,
+        default: true,
+        ty: parse_macro_input!(item as DeriveInput),
+    };
+    derive_default_mutator_(settings).into()
 }
 
 #[doc(hidden)]
@@ -88,169 +103,120 @@ pub fn make_single_variant_mutator(item: proc_macro::TokenStream) -> proc_macro:
 /*
 Actual implementations
 */
-fn derive_tuple_structure_(item: proc_macro2::TokenStream) -> proc_macro2::TokenStream {
-    let input = item;
-    let mut tb = TokenBuilder::new();
-    let mut parser = TokenParser::new(input);
 
-    if let Some(s) = parser.eat_struct() {
-        let nbr_fields = s.struct_fields.len();
-        if nbr_fields > 0 {
-            tuples::impl_tuple_structure_trait(&mut tb, &s);
-        } else {
+fn derive_default_mutator_(settings: MakeMutatorSettings) -> proc_macro2::TokenStream {
+    let mut tb = TokenBuilder::default();
+    let item = settings.ty.clone();
+    match item.data {
+        syn::Data::Struct(s) => {
+            let nbr_fields = s.fields.len();
+            if nbr_fields == 0 {
+                tuples::impl_default_mutator_for_struct_with_0_field(&mut tb, &item.ident, &s);
+            } else {
+                tuples::impl_tuple_structure_trait(&mut tb, &item.ident, &item.generics, &s);
+                tuples::impl_default_mutator_for_struct(&mut tb, &item.ident, &item.generics, &item.vis, &s, &settings);
+            }
+        }
+        syn::Data::Enum(e) => {
+            if e.variants.iter().any(|variant| match &variant.fields {
+                syn::Fields::Named(fs) => !fs.named.is_empty(),
+                syn::Fields::Unnamed(fs) => !fs.unnamed.is_empty(),
+                syn::Fields::Unit => false,
+            }) {
+                single_variant::make_single_variant_mutator(&mut tb, &item.ident, &item.generics, &item.vis, &e);
+                enums::impl_default_mutator_for_enum(&mut tb, &item.ident, &item.generics, &item.vis, &e, &settings);
+            } else if !e.variants.is_empty() {
+                // no associated data anywhere
+                enums::impl_basic_enum_structure(&mut tb, &item.ident, &e);
+                enums::impl_default_mutator_for_basic_enum(&mut tb, &item.ident, &e);
+            } else {
+                extend_ts!(
+                    &mut tb,
+                    "compile_error!(" q!("The DefaultMutator derive proc_macro does not work on empty enums.") ");"
+                );
+            }
+        }
+        syn::Data::Union(_) => {
             extend_ts!(
                 &mut tb,
-                "compile_error!(\"The TupleStructure macro only works for structs with one or more fields.\");"
-            )
-        }
-    } else if parser.eat_enumeration().is_some() {
-        extend_ts!(
-            &mut tb,
-            "compile_error!(\"The TupleStructure macro cannot be used on enums.\");"
-        )
-    } else {
-        extend_ts!(&mut tb,
-            "compile_error!(\"The item could not be parsed by the TupleStructure macro. Note: only enums are supported.\");"
-        )
-    }
-    tb.end()
-}
-
-fn derive_default_mutator_(mut parser: TokenParser, settings: MakeMutatorSettings) -> proc_macro2::TokenStream {
-    let mut tb = TokenBuilder::new();
-    if let Some(s) = parser.eat_struct() {
-        let nbr_fields = s.struct_fields.len();
-        if nbr_fields == 0 {
-            tuples::impl_default_mutator_for_struct_with_0_field(&mut tb, &s);
-        } else {
-            tuples::impl_tuple_structure_trait(&mut tb, &s);
-            tuples::impl_default_mutator_for_struct(&mut tb, &s, &settings);
-        }
-    } else if let Some(e) = parser.eat_enumeration() {
-        if e.items
-            .iter()
-            .any(|item| matches!(&item.data, Some(EnumItemData::Struct(_, fields)) if !fields.is_empty()))
-        {
-            single_variant::make_single_variant_mutator(&mut tb, &e);
-            enums::impl_default_mutator_for_enum(&mut tb, &e, &settings);
-        } else if !e.items.is_empty() {
-            // no associated data anywhere
-            enums::impl_basic_enum_structure(&mut tb, &e);
-            enums::impl_default_mutator_for_basic_enum(&mut tb, &e);
-        } else {
-            extend_ts!(
-                &mut tb,
-                "compile_error!(\"The DefaultMutator derive proc_macro does not work on empty enums.\");"
+                "compile_error!(" q!("Unions are not supported by fuzzcheck’s procedural macros.") ");"
             );
         }
-    } else {
-        extend_ts!(&mut tb,
-            "compile_error!(\"The item could not be parsed by the DefaultMutator macro. Note: only enums and structs are supported.\");"
-        );
     }
-    tb.end()
+    tb.finish()
 }
 
 fn make_single_variant_mutator_(item: proc_macro2::TokenStream) -> proc_macro2::TokenStream {
-    let input = item;
-    let mut tb = TokenBuilder::new();
-    let mut parser = TokenParser::new(input);
-
-    if let Some(e) = parser.eat_enumeration() {
-        single_variant::make_single_variant_mutator(&mut tb, &e);
-    } else {
-        extend_ts!(&mut tb,
-            "compile_error!(\"The item could not be parsed by the make_single_variant_mutator macro. Note: only enums are supported.\");"
-        );
+    match parse2::<DeriveInput>(item) {
+        Ok(e) => match e.data {
+            syn::Data::Enum(enum_data) => {
+                let mut tb = TokenBuilder::default();
+                single_variant::make_single_variant_mutator(&mut tb, &e.ident, &e.generics, &e.vis, &enum_data);
+                tb.finish()
+            }
+            _ => {
+                ts!(
+                    "compile_error!(" q!("make_single_variant_mutator only works for enums") ");"
+                )
+            }
+        },
+        Err(e) => e.to_compile_error(),
     }
-    tb.end()
 }
 
 /* common */
 
-#[derive(Debug)]
 struct MakeMutatorSettings {
     name: Option<proc_macro2::Ident>,
     recursive: bool,
     default: bool,
+    ty: DeriveInput,
 }
-impl MakeMutatorSettings {
-    // TODO: don't panic like that, add a nice compile error
-    fn from(attribute: proc_macro2::TokenStream) -> (MakeMutatorSettings, TokenParser) {
-        let mut parser = TokenParser::new(attribute);
+
+impl Parse for MakeMutatorSettings {
+    fn parse(input: ParseStream) -> syn::Result<Self> {
         let mut name = None;
         let mut recursive = None;
         let mut default = None;
-        while !parser.is_eot() {
-            if let Some(ident) = parser.eat_any_ident() {
-                match ident.to_string().as_ref() {
-                    "name" => {
-                        if parser.eat_punct(':').is_none() {
-                            panic!()
-                        }
-                        if let Some(ident) = parser.eat_any_ident() {
-                            name = Some(ident);
-                        } else {
-                            panic!()
-                        }
-                    }
-                    "recursive" => {
-                        if parser.eat_punct(':').is_none() {
-                            panic!()
-                        }
-                        if parser.eat_ident("true").is_some() {
-                            recursive = Some(true);
-                        } else if parser.eat_ident("false").is_some() {
-                            recursive = Some(false);
-                        } else {
-                            panic!()
-                        }
-                    }
-                    "default" => {
-                        if parser.eat_punct(':').is_none() {
-                            panic!()
-                        }
-                        if parser.eat_ident("true").is_some() {
-                            default = Some(true);
-                        } else if parser.eat_ident("false").is_some() {
-                            default = Some(false);
-                        } else {
-                            panic!()
-                        }
-                    }
-                    "type" => {
-                        if parser.eat_punct(':').is_none() {
-                            panic!()
-                        }
-                        let default_settings = MakeMutatorSettings::default();
-                        return (
-                            MakeMutatorSettings {
-                                name,
-                                recursive: recursive.unwrap_or(default_settings.recursive),
-                                default: default.unwrap_or(default_settings.default),
-                            },
-                            parser,
-                        );
-                    }
-                    _ => {
-                        panic!()
-                    }
+
+        while !input.is_empty() {
+            let ident = input.call(Ident::parse_any)?;
+            match ident.to_string().as_str() {
+                "name" => {
+                    let _ = input.parse::<Token![:]>()?;
+                    name = Some(input.parse::<Ident>()?);
                 }
-                let _ = parser.eat_punct(',');
-            } else {
-                panic!()
+                "recursive" => {
+                    let _ = input.parse::<Token![:]>()?;
+                    let value = input.parse::<LitBool>()?;
+                    recursive = Some(value.value);
+                }
+                "default" => {
+                    let _ = input.parse::<Token![:]>()?;
+                    let value = input.parse::<LitBool>()?;
+                    default = Some(value.value);
+                }
+                "type" => {
+                    let _ = input.parse::<Token![:]>()?;
+                    let ty = input.parse::<DeriveInput>()?;
+
+                    return Ok(MakeMutatorSettings {
+                        name,
+                        recursive: recursive.unwrap_or(false),
+                        default: default.unwrap_or(true),
+                        ty,
+                    });
+                }
+                x => {
+                    return Err(Error::new(
+                        ident.span(),
+                        &format!("{x} is not a valid setting of make_muattor"),
+                    ));
+                }
             }
+            let _ = input.parse::<Token![,]>()?;
         }
-        panic!()
-    }
-}
-impl Default for MakeMutatorSettings {
-    fn default() -> Self {
-        MakeMutatorSettings {
-            name: None,
-            recursive: false,
-            default: true,
-        }
+        Err(Error::new(input.span(), "make_mutator requires a `type` argument"))
     }
 }
 
@@ -314,11 +280,11 @@ impl Common {
         let TupleStructure = ts!(mutators "::tuples::TupleStructure");
         let Tuplei = {
             let mutators = mutators.clone();
-            Box::new(move |i: usize| ts!(mutators "::tuples::" ident!("Tuple" i)))
+            Box::new(move |i: usize| ts!(&mutators "::tuples::" ident!("Tuple" i)))
         };
         let TupleNMutator = {
             let mutators = mutators.clone();
-            Box::new(move |n: usize| ts!(mutators "::tuples::" ident!("Tuple" n "Mutator")))
+            Box::new(move |n: usize| ts!(&mutators "::tuples::" ident!("Tuple" n "Mutator")))
         };
 
         let fuzzcheck_traits_Mutator = ts!("fuzzcheck::Mutator");
@@ -367,52 +333,54 @@ impl Common {
     }
 }
 
-fn has_ignore_variant_attribute(attribute: TokenStream) -> bool {
-    let mut parser = TokenParser::new(attribute);
-    if parser.eat_punct('#').is_none() {
-        return false;
+fn has_ignore_variant_attribute(attribute: &Attribute) -> bool {
+    if let Some(ident) = attribute.path.get_ident() && ident == "ignore_variant" {
+        true
+    } else {
+        false
     }
-    let content = match parser.eat_group(Delimiter::Bracket) {
-        Some(proc_macro2::TokenTree::Group(group)) => group,
-        None | Some(_) => return false,
-    };
-    let mut parser = TokenParser::new(content.stream());
-    parser.eat_ident("ignore_variant").is_some()
 }
 
-fn read_field_default_mutator_attribute(attribute: TokenStream) -> Option<(Ty, Option<TokenStream>)> {
-    let mut parser = TokenParser::new(attribute);
-    let _ = parser.eat_punct('#');
-    let content = match parser.eat_group(Delimiter::Bracket) {
-        Some(proc_macro2::TokenTree::Group(group)) => group,
-        Some(_) => panic!(),
-        None => return None,
-    };
-    let mut parser = TokenParser::new(content.stream());
-    let _ = parser.eat_ident("field_mutator")?;
-    let content = match parser.eat_any_group() {
-        Some(proc_macro2::TokenTree::Group(group)) => group,
-        Some(_) => panic!(),
-        None => return None,
-    };
-    assert!(parser.is_eot());
-    let mut parser = TokenParser::new(content.stream());
-    let ty = parser.eat_type();
-    if let Some(ty) = ty {
-        if parser.eat_punct('=').is_some() {
-            if let Some(init) = parser.eat_group(Delimiter::Brace) {
-                match init {
-                    proc_macro2::TokenTree::Group(g) => Some((ty, Some(g.stream()))),
+struct FieldMutatorAttribute {
+    ty: syn::Type,
+    equal: Option<TokenStream>,
+}
+impl syn::parse::Parse for FieldMutatorAttribute {
+    fn parse(input: ParseStream) -> syn::Result<Self> {
+        let attributes = input.call(Attribute::parse_outer)?;
+        for attribute in attributes {
+            if let Some(ident) = attribute.path.get_ident() && ident == "field_mutator" {
+                let ty = input.parse::<syn::Type>()?;
+                if input.is_empty() {
+                    return Ok(Self { ty, equal: None });
+                }
+                if !input.peek(Token![=]) {
+                    return Err(syn::Error::new(
+                        input.span(),
+                        "Expected '=' (or nothing) after the type of field_mutator",
+                    ));
+                }
+                let _ = input.parse::<TokenTree>().unwrap();
+                if !input.peek(token::Brace) {
+                    return Err(syn::Error::new(
+                        input.span(),
+                    "Expected a block delimited by braces containing the expression that initialises the field mutator",
+                    ));
+                }
+                let x = input.parse::<TokenTree>().unwrap();
+                match x {
+                    TokenTree::Group(g) => return Ok(Self { ty, equal: Some(g.stream()) }),
                     _ => unreachable!(),
                 }
-            } else {
-                panic!()
             }
-        } else {
-            Some((ty, None))
         }
-    } else {
-        None
+        Err(Error::new(
+            input.span(),
+            "Cannot parse field mutator attribute: no attribute with the field_mutator identifier found",
+        ))
     }
-    // eprintln!("{:?}", ts!(ty));
+}
+
+fn read_field_default_mutator_attribute(attribute: &Attribute) -> Option<FieldMutatorAttribute> {
+    parse2::<FieldMutatorAttribute>(ts!(q!(attribute))).ok()
 }

@@ -1,10 +1,9 @@
-use decent_synquote_alternative as synquote;
-use proc_macro2::{Ident, Literal, Span};
-use synquote::parser::*;
-use synquote::token_builder::*;
+use proc_macro2::Ident;
+use syn::{parse2, DataStruct, Generics, Visibility, WhereClause};
 
 use crate::structs_and_enums::{FieldMutator, FieldMutatorKind};
-use crate::{Common, MakeMutatorSettings};
+use crate::token_builder::*;
+use crate::{q, Common, MakeMutatorSettings};
 
 pub fn make_basic_tuple_mutator(tb: &mut TokenBuilder, nbr_elements: usize) {
     make_tuple_type_structure(tb, nbr_elements);
@@ -31,9 +30,9 @@ pub fn make_tuple_type_structure(tb: &mut TokenBuilder, nbr_elements: usize) {
     let PhantomData = ts!(cm.PhantomData "<(" type_params ",)>");
 
     extend_ts!(tb,
-        "#[doc = " Literal::string(
-            &format!("A marker type implementing [`RefTypes`](crate::mutators::tuples::RefTypes) indicating that a type has the [structure](crate::mutators::tuples::TupleStructure) of a {}-tuple.", nbr_elements)
-        ) "]"
+        "#[doc = "
+            q!(format!("A marker type implementing [`RefTypes`](crate::mutators::tuples::RefTypes) indicating that a type has the [structure](crate::mutators::tuples::TupleStructure) of a {nbr_elements}-tuple."))
+        "]"
         "pub struct" cm.TupleN_ident "<" type_params_static_bound "> {
             _phantom: " PhantomData ",
         }
@@ -65,44 +64,59 @@ pub fn make_tuple_type_structure(tb: &mut TokenBuilder, nbr_elements: usize) {
 }
 
 #[allow(non_snake_case)]
-pub(crate) fn impl_tuple_structure_trait(tb: &mut TokenBuilder, struc: &Struct) {
-    let nbr_elements = struc.struct_fields.len();
+pub(crate) fn impl_tuple_structure_trait(
+    tb: &mut TokenBuilder,
+    struct_ident: &Ident,
+    generics: &Generics,
+    struc: &DataStruct,
+) {
+    let nbr_elements = struc.fields.len();
     let cm = Common::new(nbr_elements);
-    let field_types = join_ts!(&struc.struct_fields, field, field.ty, separator: ",");
+    let field_types = join_ts!(&struc.fields, field, field.ty, separator: ",");
     // let Ti = |i: usize| ident!("T" i);
 
     let TupleKind = cm.TupleN_path.clone();
 
-    let generics_no_eq = struc.generics.removing_eq_type();
-    let generics_no_eq_nor_bounds = struc.generics.removing_bounds_and_eq_type();
+    let tuple_owned = ts!("(" join_ts!(&struc.fields, field, field.ty ",") ")");
+    let tuple_ref = ts!("(" join_ts!(&struc.fields, field, "&'a" field.ty ",") ")");
+    let tuple_mut = ts!("(" join_ts!(&struc.fields, field, "&'a mut" field.ty ",") ")");
 
-    let tuple_owned = ts!("(" join_ts!(&struc.struct_fields, field, field.ty ",") ")");
-    let tuple_ref = ts!("(" join_ts!(&struc.struct_fields, field, "&'a" field.ty ",") ")");
-    let tuple_mut = ts!("(" join_ts!(&struc.struct_fields, field, "&'a mut" field.ty ",") ")");
+    let mut new_generics = generics.clone();
+    if new_generics.where_clause.is_none() {
+        new_generics.where_clause = Some(WhereClause {
+            where_token: <_>::default(),
+            predicates: <_>::default(),
+        });
+    }
+    for tp in generics.type_params() {
+        let where_clause = new_generics.where_clause.as_mut().unwrap();
+        where_clause
+            .predicates
+            .push(parse2(ts!(tp.ident.clone() ": 'static")).unwrap());
+    }
+    let generics = new_generics;
 
-    let mut where_clause = struc.where_clause.clone().unwrap_or_default();
-    where_clause.add_clause_items(join_ts!(&struc.generics.type_params, tp,
-        tp.type_ident ": 'static,"
-    ));
+    let generics_split = generics.split_for_impl();
+    let selfty = ts!(struct_ident q!(generics_split.1));
 
     extend_ts!(tb,
-        "impl" generics_no_eq cm.TupleStructure "<" TupleKind "<" field_types "> >
-            for" struc.ident generics_no_eq_nor_bounds where_clause "{
+        "impl" q!(generics_split.0) cm.TupleStructure "<" TupleKind "<" field_types "> >
+            for" selfty q!(generics_split.2) "{
             #[no_coverage]
             fn get_ref<'a>(&'a self) -> " tuple_ref " {
-                (" join_ts!(&struc.struct_fields, field, "&self." field.access() ",") ")
+                (" join_ts!(struc.fields.iter().enumerate(), (idx, field), "&self." access_field(field, idx) ",") ")
             }
 
             #[no_coverage]
             fn get_mut<'a>(&'a mut self) -> " tuple_mut " {
-                (" join_ts!(&struc.struct_fields, field, "&mut self." field.access() ",") ")
+                (" join_ts!(struc.fields.iter().enumerate(), (idx, field), "&mut self." access_field(field, idx) ",") ")
             }
 
             #[no_coverage]
             fn new(t:" tuple_owned ") -> Self {
                 Self {"
-                    join_ts!(struc.struct_fields.iter().enumerate(), (i, field),
-                        field.access() ": t." i ","
+                    join_ts!(struc.fields.iter().enumerate(), (idx, field),
+                        access_field(field, idx) ": t." idx ","
                     )
 
                 "}
@@ -111,50 +125,57 @@ pub(crate) fn impl_tuple_structure_trait(tb: &mut TokenBuilder, struc: &Struct) 
     );
 }
 
-pub(crate) fn impl_default_mutator_for_struct_with_0_field(tb: &mut TokenBuilder, struc: &Struct) {
-    assert!(struc.struct_fields.is_empty());
+pub(crate) fn impl_default_mutator_for_struct_with_0_field(
+    tb: &mut TokenBuilder,
+    struct_ident: &Ident,
+    struc: &DataStruct,
+) {
+    assert!(struc.fields.is_empty());
     let cm = Common::new(0);
-    let generics_no_eq = struc.generics.removing_eq_type();
-    let generics_no_eq_nor_bounds = struc.generics.removing_bounds_and_eq_type();
 
-    // add T: DefaultMutator for each generic type parameter to the existing where clause
-    let mut where_clause = struc.where_clause.clone().unwrap_or_default();
-    where_clause.add_clause_items(join_ts!(&struc.generics.type_params, ty_param,
-        ty_param ":" cm.DefaultMutator ","
-    ));
-
-    let init = struc.kind.map(|kind| ts!(kind.open() kind.close()));
+    let init = match struc.fields {
+        syn::Fields::Named(_) => ts!("{}"),
+        syn::Fields::Unnamed(_) => ts!("()"),
+        syn::Fields::Unit => ts!(),
+    };
 
     extend_ts!(tb, 
-    "impl " generics_no_eq cm.DefaultMutator "for" struc.ident generics_no_eq_nor_bounds where_clause "{
+    "impl " cm.DefaultMutator "for" struct_ident "{
         type Mutator = " cm.UnitMutator "<Self>;
     
         #[no_coverage]
         fn default_mutator() -> Self::Mutator {
-            Self::Mutator::new(" struc.ident init ", 0.0)
+            Self::Mutator::new(" struct_ident init ", 0.0)
         }
     }
     ");
 }
 
 #[allow(non_snake_case)]
-pub(crate) fn impl_default_mutator_for_struct(tb: &mut TokenBuilder, struc: &Struct, settings: &MakeMutatorSettings) {
-    let nbr_elements = struc.struct_fields.len();
+pub(crate) fn impl_default_mutator_for_struct(
+    tb: &mut TokenBuilder,
+    struct_ident: &Ident,
+    generics: &Generics,
+    visibility: &Visibility,
+    struc: &DataStruct,
+    settings: &MakeMutatorSettings,
+) {
+    let nbr_elements = struc.fields.len();
 
     let cm = Common::new(nbr_elements);
     let TupleNMutator = cm.TupleNMutator.as_ref()(nbr_elements);
 
-    let field_types = join_ts!(&struc.struct_fields, field, field.ty, separator: ",");
+    let field_types = join_ts!(&struc.fields, field, field.ty, separator: ",");
 
     let field_mutators = vec![struc
-        .struct_fields
+        .fields
         .iter()
         .enumerate()
         .map(|(i, field)| {
             let mut mutator = None;
-            for attribute in field.attributes.iter() {
-                if let Some((m, init)) = super::read_field_default_mutator_attribute(attribute.clone()) {
-                    mutator = Some((m, init));
+            for attribute in field.attrs.iter() {
+                if let Some(field_mutator_attr) = super::read_field_default_mutator_attribute(&attribute) {
+                    mutator = Some((field_mutator_attr.ty, field_mutator_attr.equal));
                 }
             }
             if let Some(m) = mutator {
@@ -194,24 +215,23 @@ pub(crate) fn impl_default_mutator_for_struct(tb: &mut TokenBuilder, struc: &Str
 
     let params = CreateWrapperMutatorParams {
         cm: &cm,
-        visibility: &struc.visibility,
-        type_ident: &struc.ident,
-        type_generics: &struc.generics,
-        type_where_clause: &struc.where_clause,
+        visibility: &visibility,
+        type_ident: &struct_ident,
+        type_generics: &generics,
         field_mutators: &field_mutators,
         InnerMutator: &TupleMutatorWrapper,
         new_impl: &ts!(
             "
             #[no_coverage]
             pub fn new("
-            join_ts!(struc.struct_fields.iter().zip(field_mutators.iter().flatten()), (field, mutator),
-                ident!("mutator_" field.access()) ":" mutator.mutator_stream(&cm)
+            join_ts!(struc.fields.iter().zip(field_mutators.iter().flatten()).enumerate(), (idx, (field, mutator)),
+                ident!("mutator_" access_field(field, idx)) ":" mutator.mutator_stream(&cm)
             , separator: ",")
             ") -> Self {
             Self {
                 mutator : " cm.TupleMutatorWrapper "::new(" TupleNMutator "::new("
-                    join_ts!(struc.struct_fields.iter(), field,
-                        ident!("mutator_" field.access())
+                    join_ts!(struc.fields.iter().enumerate(), (idx, field),
+                        ident!("mutator_" access_field(field, idx))
                     , separator: ",")
                     "))
             }
@@ -497,7 +517,7 @@ fn impl_mutator_trait(tb: &mut TokenBuilder, nbr_elements: usize) {
             join_ts!(0..nbr_elements, i,
                 "let mut" ti_value(i) ":" cm.Option "<_> =" cm.None ";"
             )
-            "let mut indices = ( 0 .." nbr_elements ").collect::<" cm.Vec "<_>>();"
+            "let mut indices = ( 0 .." q!(nbr_elements) ").collect::<" cm.Vec "<_>>();"
             "self.rng.shuffle(&mut indices);"
             "let mut sum_cplx = 0.0;
             for idx in indices.iter() {
@@ -536,7 +556,7 @@ fn impl_mutator_trait(tb: &mut TokenBuilder, nbr_elements: usize) {
             if self.rng.u8(.. fuzzcheck::CROSSOVER_RATE ) == 0 {
                 let current_cplx = " SelfAsTupleMutator "::complexity(self, " TupleNAsRefTypes "::get_ref_from_mut(&value), cache); 
 
-                let idx = self.rng.usize(.. " nbr_elements ");
+                let idx = self.rng.usize(.. " q!(nbr_elements) ");
                 match idx {
                     "
                     join_ts!(0 .. nbr_elements, i,
@@ -563,8 +583,8 @@ fn impl_mutator_trait(tb: &mut TokenBuilder, nbr_elements: usize) {
             }
             if max_cplx < <Self as" cm.TupleMutator "<T , " cm.TupleN_ident "<" tuple_type_params "> > >::min_complexity(self) { return " cm.None " }
             if step.inner.is_empty() || step.vose_alias.is_none() {
-                let idx1 = self.rng.usize(.." nbr_elements ");
-                let mut idx2 = self.rng.usize(.." nbr_elements " - 1);
+                let idx1 = self.rng.usize(.." q!(nbr_elements) ");
+                let mut idx2 = self.rng.usize(.." q!(nbr_elements) " - 1);
                 if idx2 >= idx1 {
                     idx2 += 1;
                 }

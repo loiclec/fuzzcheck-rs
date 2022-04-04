@@ -1,9 +1,10 @@
-use decent_synquote_alternative::parser::{Generics, StructField, Ty, TypeParam, WhereClause};
-use decent_synquote_alternative::token_builder::TokenBuilder;
 use proc_macro2::{Ident, Span, TokenStream};
+use syn::punctuated::Punctuated;
+use syn::token::Where;
+use syn::{parse2, Field, Generics, Visibility, WhereClause};
 
-use crate::decent_synquote_alternative::TokenBuilderExtend;
-use crate::{Common, MakeMutatorSettings};
+use crate::token_builder::{ident, join_ts, ts};
+use crate::{q, Common, MakeMutatorSettings};
 
 // This file hosts the common code for generating default mutators for enums and structs
 
@@ -11,14 +12,14 @@ use crate::{Common, MakeMutatorSettings};
 pub struct FieldMutator {
     pub i: usize,
     pub j: Option<usize>,
-    pub field: StructField,
+    pub field: Field,
     pub kind: FieldMutatorKind,
 }
 
 #[derive(Clone)]
 pub enum FieldMutatorKind {
     Generic,
-    Prescribed(Ty, Option<TokenStream>),
+    Prescribed(syn::Type, Option<TokenStream>),
     Ignore,
 }
 
@@ -41,7 +42,7 @@ impl FieldMutator {
                     ts!(cm.Mi.as_ref()(self.i))
                 }
             }
-            FieldMutatorKind::Prescribed(m, _) => ts!(m),
+            FieldMutatorKind::Prescribed(m, _) => ts!(q!(m)),
             FieldMutatorKind::Ignore => ts!(),
         }
     }
@@ -50,10 +51,9 @@ impl FieldMutator {
 #[allow(non_snake_case)]
 pub(crate) struct CreateWrapperMutatorParams<'a> {
     pub(crate) cm: &'a Common,
-    pub(crate) visibility: &'a TokenStream,
+    pub(crate) visibility: &'a Visibility,
     pub(crate) type_ident: &'a Ident,
     pub(crate) type_generics: &'a Generics,
-    pub(crate) type_where_clause: &'a Option<WhereClause>,
     pub(crate) field_mutators: &'a Vec<Vec<FieldMutator>>,
     pub(crate) InnerMutator: &'a TokenStream,
     pub(crate) new_impl: &'a TokenStream,
@@ -67,7 +67,6 @@ pub(crate) fn make_mutator_type_and_impl(params: CreateWrapperMutatorParams) -> 
         visibility,
         type_ident,
         type_generics,
-        type_where_clause,
         field_mutators,
         InnerMutator,
         new_impl,
@@ -89,22 +88,39 @@ pub(crate) fn make_mutator_type_and_impl(params: CreateWrapperMutatorParams) -> 
         })
         .collect::<Vec<_>>();
 
-    let mut NameMutator_generics = type_generics.removing_eq_type();
+    let mut NameMutator_generics = type_generics.clone();
     for field_mutator in field_generic_mutators.iter() {
-        NameMutator_generics.type_params.push(TypeParam {
-            type_ident: field_mutator.mutator_stream(cm),
-            ..<_>::default()
-        })
+        NameMutator_generics
+            .params
+            .push(parse2(field_mutator.mutator_stream(cm)).expect("95"));
     }
-    let mut NameMutator_where_clause = type_where_clause.clone().unwrap_or_default();
-    NameMutator_where_clause.add_clause_items(ts!(
-        join_ts!(&type_generics.type_params, ty_param,
-            ty_param.type_ident ":" cm.Clone "+ 'static ,"
-        )
-        join_ts!(&field_generic_mutators, field_mutator,
-            field_mutator.mutator_stream(cm) ":" cm.fuzzcheck_traits_Mutator "<" field_mutator.field.ty "> ,"
-        )
-    ));
+    if NameMutator_generics.where_clause.is_none() {
+        NameMutator_generics.where_clause = Some(WhereClause {
+            where_token: Where(Span::call_site()),
+            predicates: Punctuated::new(),
+        });
+    }
+    for tp in type_generics.type_params() {
+        let where_clause = NameMutator_generics.where_clause.as_mut().unwrap();
+
+        where_clause
+            .predicates
+            .push(parse2(ts!(tp.ident ":" cm.Clone)).expect("108"));
+        where_clause
+            .predicates
+            .push(parse2(ts!(tp.ident ": 'static")).expect("109"));
+    }
+    for field_mutator in &field_generic_mutators {
+        let where_clause = NameMutator_generics.where_clause.as_mut().unwrap();
+
+        where_clause
+            .predicates
+            .push(parse2(
+                ts!(field_mutator.mutator_stream(cm) ":" cm.fuzzcheck_traits_Mutator "<" q!(field_mutator.field.ty) ">"),
+            )
+            .expect("119")
+        );
+    }
 
     let field_prescribed_mutators = field_mutators
         .iter()
@@ -115,43 +131,60 @@ pub(crate) fn make_mutator_type_and_impl(params: CreateWrapperMutatorParams) -> 
         })
         .collect::<Vec<_>>();
 
-    let mut DefaultMutator_Mutator_generics = type_generics.removing_bounds_and_eq_type();
-    for field_mutator in field_mutators.iter().flatten() {
-        match &field_mutator.kind {
-            FieldMutatorKind::Generic => DefaultMutator_Mutator_generics.type_params.push(TypeParam {
-                type_ident: ts!("<" field_mutator.field.ty "as" cm.DefaultMutator ">::Mutator"),
-                ..<_>::default()
-            }),
-            FieldMutatorKind::Prescribed(_, _) | FieldMutatorKind::Ignore => {}
-        }
+    let mut DefaultMutator_Mutator_generics = type_generics.clone();
+    if DefaultMutator_Mutator_generics.where_clause.is_none() {
+        DefaultMutator_Mutator_generics.where_clause = Some(WhereClause {
+            where_token: Where(Span::call_site()),
+            predicates: Punctuated::new(),
+        });
     }
 
-    let mut DefaultMutator_where_clause = type_where_clause.clone().unwrap_or_default();
-    DefaultMutator_where_clause.add_clause_items(ts!(
-        join_ts!(&type_generics.type_params, ty_param,
-            ty_param.type_ident ":" cm.DefaultMutator "+ 'static ,"
-        )
-        join_ts!(field_prescribed_mutators.iter().filter(|(_, _, init)| init.is_none()), (_, mutator, _),
-            mutator ":" cm.Default ","
-        )
-    ));
+    let DefaultMutator_generic_args = ts!(
+        "<"
+            join_ts!(type_generics.type_params(), tp,
+                tp.ident ","
+            )
+            join_ts!(field_generic_mutators, field_mutator,
+                "<" q!(field_mutator.field.ty) "as" cm.DefaultMutator ">::Mutator ,"
+            )
+        ">"
+    );
+
+    for tp in type_generics.type_params() {
+        let where_clause = DefaultMutator_Mutator_generics.where_clause.as_mut().unwrap();
+        where_clause
+            .predicates
+            .push(parse2(ts!(tp.ident ":" cm.DefaultMutator)).unwrap());
+
+        where_clause.predicates.push(parse2(ts!(tp.ident ": 'static")).unwrap());
+    }
+    for (_, mutator, _) in field_prescribed_mutators.iter().filter(|(_, _, init)| init.is_none()) {
+        let where_clause = DefaultMutator_Mutator_generics.where_clause.as_mut().unwrap();
+        where_clause
+            .predicates
+            .push(parse2(ts!(q!(mutator) ":" cm.Default ",")).unwrap());
+    }
 
     let NameMutatorCache = ident!(NameMutator "Cache");
     let NameMutatorMutationStep = ident!(NameMutator "MutationStep");
     let NameMutatorArbitraryStep = ident!(NameMutator "ArbitraryStep");
     let NameMutatorUnmutateToken = ident!(NameMutator "UnmutateToken");
 
+    let NameMutator_generics_split = NameMutator_generics.split_for_impl();
+    let type_generics_split = type_generics.split_for_impl();
+
     let helper_type = |helper_type: &str, conformances: bool| {
+        let helper_ty_ident = ident!(NameMutator helper_type);
         let InnerType = ts!(
-            "<" InnerMutator " as " cm.fuzzcheck_traits_Mutator "<" type_ident type_generics.removing_bounds_and_eq_type() "> >::" helper_type
+            "<" InnerMutator " as " cm.fuzzcheck_traits_Mutator "<" type_ident q!(type_generics_split.1) "> >::" helper_type
         );
 
         ts!(
             "#[doc(hidden)]"
-            visibility "struct" ident!(NameMutator helper_type) NameMutator_generics.removing_eq_type() NameMutator_where_clause "{
+            q!(visibility) "struct" helper_ty_ident q!(NameMutator_generics) q!(NameMutator_generics.where_clause) "{
                 inner : " if settings.recursive { ts!(cm.Box "<") } else { ts!("") } InnerType if settings.recursive { ">" } else { "" } ",
             }
-            impl " NameMutator_generics.removing_eq_type() ident!(NameMutator helper_type) NameMutator_generics.removing_bounds_and_eq_type() NameMutator_where_clause "{
+            impl " q!(NameMutator_generics_split.0) helper_ty_ident q!(NameMutator_generics_split.1) q!(NameMutator_generics_split.2) "{
                 #[no_coverage]
                 fn new(inner: " InnerType ") -> Self {"
                     "Self {
@@ -162,10 +195,8 @@ pub(crate) fn make_mutator_type_and_impl(params: CreateWrapperMutatorParams) -> 
                 "}
             }"
             if conformances {
-                let clone_where_clause = NameMutator_where_clause.clone();
-
                 ts!(
-                    "impl" NameMutator_generics.removing_eq_type() cm.Clone "for" ident!(NameMutator helper_type) NameMutator_generics.removing_bounds_and_eq_type() clone_where_clause "{
+                    "impl" q!(NameMutator_generics_split.0) cm.Clone "for" helper_ty_ident q!(NameMutator_generics_split.1) q!(NameMutator_generics_split.2) "{
                         #[no_coverage]
                         fn clone(&self) -> Self {
                             Self::new(self.inner " if settings.recursive { ".as_ref()" } else { "" } ".clone())
@@ -179,16 +210,20 @@ pub(crate) fn make_mutator_type_and_impl(params: CreateWrapperMutatorParams) -> 
         )
     };
 
-    let InnerMutator_as_Mutator = ts!("<" InnerMutator "as" cm.fuzzcheck_traits_Mutator "<" type_ident type_generics.removing_bounds_and_eq_type() "> >" );
-    let documentation = proc_macro2::Literal::string(&format!(
+    let selfty = ts!(type_ident q!(type_generics_split.1));
+
+    let InnerMutator_as_Mutator =
+        ts!("<" InnerMutator "as" cm.fuzzcheck_traits_Mutator "<" type_ident q!(type_generics_split.1) "> >" );
+
+    let documentation = format!(
         "A mutator for [`{}`] 
 
 Generated by a procedural macro of [`fuzzcheck`]",
         type_ident
-    ));
+    );
     ts!(
-    "#[doc = " documentation " ]"
-    visibility "struct" NameMutator NameMutator_generics NameMutator_where_clause
+    "#[doc = " q!(documentation) " ]"
+    q!(visibility) "struct" NameMutator q!(NameMutator_generics) q!(NameMutator_generics.where_clause)
     "{
         mutator:" InnerMutator "
     }"
@@ -197,21 +232,21 @@ Generated by a procedural macro of [`fuzzcheck`]",
     helper_type("ArbitraryStep", true)
     helper_type("UnmutateToken", false)
 
-    "impl " NameMutator_generics NameMutator NameMutator_generics.removing_bounds_and_eq_type() NameMutator_where_clause "
+    "impl " q!(NameMutator_generics_split.0) NameMutator q!(NameMutator_generics_split.1) q!(NameMutator_generics_split.2) "
     {"
         new_impl
     "}
-    impl " NameMutator_generics cm.fuzzcheck_traits_Mutator "<" type_ident type_generics.removing_bounds_and_eq_type() "> 
-        for " NameMutator NameMutator_generics.removing_bounds_and_eq_type() NameMutator_where_clause "
+    impl " q!(NameMutator_generics_split.0) cm.fuzzcheck_traits_Mutator "<" selfty "> 
+        for " NameMutator q!(NameMutator_generics_split.1) q!(NameMutator_generics_split.2) "
         {
             #[doc(hidden)]
-            type Cache =" NameMutatorCache NameMutator_generics.removing_bounds_and_eq_type() ";
+            type Cache =" NameMutatorCache q!(NameMutator_generics_split.1) ";
             #[doc(hidden)]
-            type MutationStep =" NameMutatorMutationStep NameMutator_generics.removing_bounds_and_eq_type() ";
+            type MutationStep =" NameMutatorMutationStep q!(NameMutator_generics_split.1) ";
             #[doc(hidden)]
-            type ArbitraryStep =" NameMutatorArbitraryStep NameMutator_generics.removing_bounds_and_eq_type() ";
+            type ArbitraryStep =" NameMutatorArbitraryStep q!(NameMutator_generics_split.1) ";
             #[doc(hidden)]
-            type UnmutateToken =" NameMutatorUnmutateToken NameMutator_generics.removing_bounds_and_eq_type() ";
+            type UnmutateToken =" NameMutatorUnmutateToken q!(NameMutator_generics_split.1) ";
 
             #[doc(hidden)]
             #[no_coverage]
@@ -221,13 +256,13 @@ Generated by a procedural macro of [`fuzzcheck`]",
 
             #[doc(hidden)]
             #[no_coverage]
-            fn is_valid(&self, value: &" type_ident type_generics.removing_bounds_and_eq_type() ") -> bool {"
+            fn is_valid(&self, value: &" selfty ") -> bool {"
                 InnerMutator_as_Mutator "::is_valid(&self.mutator, value)
             }
 
             #[doc(hidden)]
             #[no_coverage]
-            fn validate_value(&self, value: &" type_ident type_generics.removing_bounds_and_eq_type() ") -> " cm.Option "<Self::Cache> {
+            fn validate_value(&self, value: &" selfty ") -> " cm.Option "<Self::Cache> {
                 if let " cm.Some "(c) = " InnerMutator_as_Mutator "::validate_value(&self.mutator, value) {
                     " cm.Some "(Self::Cache::new(c))
                 } else {
@@ -236,7 +271,7 @@ Generated by a procedural macro of [`fuzzcheck`]",
             }
             #[doc(hidden)]
             #[no_coverage]
-            fn default_mutation_step(&self, value: &" type_ident type_generics.removing_bounds_and_eq_type() ", cache: &Self::Cache) -> Self::MutationStep {
+            fn default_mutation_step(&self, value: &" selfty ", cache: &Self::Cache) -> Self::MutationStep {
                 Self::MutationStep::new(" InnerMutator_as_Mutator "::default_mutation_step(&self.mutator, value, &cache.inner))
             }
 
@@ -260,13 +295,13 @@ Generated by a procedural macro of [`fuzzcheck`]",
 
             #[doc(hidden)]
             #[no_coverage]
-            fn complexity(&self, value: &" type_ident type_generics.removing_bounds_and_eq_type() ", cache: &Self::Cache) -> f64 {
+            fn complexity(&self, value: &" selfty ", cache: &Self::Cache) -> f64 {
                 " InnerMutator_as_Mutator "::complexity(&self.mutator, value, &cache.inner)
             }
 
             #[doc(hidden)]
             #[no_coverage]
-            fn ordered_arbitrary(&self, step: &mut Self::ArbitraryStep, max_cplx: f64) -> Option<(" type_ident type_generics.removing_bounds_and_eq_type() ", f64)> {
+            fn ordered_arbitrary(&self, step: &mut Self::ArbitraryStep, max_cplx: f64) -> Option<(" selfty ", f64)> {
                 if let " cm.Some "((value, cplx)) = " InnerMutator_as_Mutator "::ordered_arbitrary(&self.mutator, &mut step.inner, max_cplx) {"
                 cm.Some "((value, cplx))"
             "} else {"
@@ -276,7 +311,7 @@ Generated by a procedural macro of [`fuzzcheck`]",
 
             #[doc(hidden)]
             #[no_coverage]
-            fn random_arbitrary(&self, max_cplx: f64) -> (" type_ident type_generics.removing_bounds_and_eq_type() ", f64) {
+            fn random_arbitrary(&self, max_cplx: f64) -> (" selfty ", f64) {
                 let (value, cplx) = " InnerMutator_as_Mutator "::random_arbitrary(&self.mutator, max_cplx) ;
                 (value, cplx)
             }
@@ -285,7 +320,7 @@ Generated by a procedural macro of [`fuzzcheck`]",
             #[no_coverage]
             fn ordered_mutate(
                 &self,
-                value: &mut " type_ident type_generics.removing_bounds_and_eq_type() ",
+                value: &mut " selfty ",
                 cache: &mut Self::Cache,
                 step: &mut Self::MutationStep,
                 subvalue_provider: &dyn " cm.SubValueProvider ",
@@ -307,14 +342,14 @@ Generated by a procedural macro of [`fuzzcheck`]",
 
             #[doc(hidden)]
             #[no_coverage]
-            fn random_mutate(&self, value: &mut " type_ident type_generics.removing_bounds_and_eq_type() ", cache: &mut Self::Cache, max_cplx: f64) -> (Self::UnmutateToken, f64) {
+            fn random_mutate(&self, value: &mut " selfty ", cache: &mut Self::Cache, max_cplx: f64) -> (Self::UnmutateToken, f64) {
                 let (t, c) =" InnerMutator_as_Mutator "::random_mutate(&self.mutator, value, &mut cache.inner, max_cplx);
                 (Self::UnmutateToken::new(t), c)
             }
 
             #[doc(hidden)]
             #[no_coverage]
-            fn unmutate(&self, value: &mut " type_ident type_generics.removing_bounds_and_eq_type() ", cache: &mut Self::Cache, t: Self::UnmutateToken) {
+            fn unmutate(&self, value: &mut " selfty ", cache: &mut Self::Cache, t: Self::UnmutateToken) {
                 " InnerMutator_as_Mutator "::unmutate(&self.mutator, value, &mut cache.inner," if settings.recursive {
                 "*t.inner"
                 } else {
@@ -323,16 +358,16 @@ Generated by a procedural macro of [`fuzzcheck`]",
             }
             #[doc(hidden)]
             #[no_coverage]
-            fn visit_subvalues<'a>(&self, value: &'a " type_ident type_generics.removing_bounds_and_eq_type() ", cache: &'a Self::Cache, visit: &mut dyn FnMut(&'a dyn " cm.Any ", f64)) {
+            fn visit_subvalues<'a>(&self, value: &'a " selfty ", cache: &'a Self::Cache, visit: &mut dyn FnMut(&'a dyn " cm.Any ", f64)) {
                 " InnerMutator_as_Mutator "::visit_subvalues(&self.mutator, value, &cache.inner, visit);
             }
         }"
         if settings.default {
-            ts!("impl" type_generics.removing_eq_type() cm.DefaultMutator "for" type_ident type_generics.removing_bounds_and_eq_type() DefaultMutator_where_clause "{"
+            ts!("impl" q!(type_generics_split.0) cm.DefaultMutator "for" selfty q!(DefaultMutator_Mutator_generics.where_clause) "{"
             if settings.recursive {
-                ts!("type Mutator = " cm.RecursiveMutator "<" NameMutator DefaultMutator_Mutator_generics ">;")
+                ts!("type Mutator = " cm.RecursiveMutator "<" NameMutator q!(DefaultMutator_generic_args) ">;")
             } else {
-                ts!("type Mutator = "  NameMutator DefaultMutator_Mutator_generics ";")
+                ts!("type Mutator = "  NameMutator q!(DefaultMutator_generic_args) ";")
             }
             "#[no_coverage]
             fn default_mutator() -> Self::Mutator {"
@@ -347,13 +382,13 @@ Generated by a procedural macro of [`fuzzcheck`]",
                     }), field_mutator,
                         match &field_mutator.kind {
                             FieldMutatorKind::Generic => {
-                                ts!("<" field_mutator.field.ty "as" cm.DefaultMutator ">::default_mutator()")
+                                ts!("<" q!(field_mutator.field.ty) "as" cm.DefaultMutator ">::default_mutator()")
                             }
                             FieldMutatorKind::Prescribed(_, Some(init)) => {
                                 ts!("{" init "}")
                             }
                             FieldMutatorKind::Prescribed(mutator, None) => {
-                                ts!("<" mutator "as" cm.Default ">::default()")
+                                ts!("<" q!(mutator) "as" cm.Default ">::default()")
                             }
                             // do not generate ignored variants
                             FieldMutatorKind::Ignore => {
