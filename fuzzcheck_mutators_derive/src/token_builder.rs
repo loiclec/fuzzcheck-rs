@@ -318,7 +318,7 @@ pub fn pattern_match(variant: &Variant, enum_ident: &Ident, binding_append: Opti
                 "{"
                     join_ts!(f.named.iter().enumerate(), (i, field),
                         access_field(field, i) ":" get_ident(field, i)
-                    )
+                    , separator: ",")
                 "}"
             );
         }
@@ -327,7 +327,7 @@ pub fn pattern_match(variant: &Variant, enum_ident: &Ident, binding_append: Opti
                 "("
                     join_ts!(f.unnamed.iter().enumerate(), (i, field),
                         get_ident(field, i)
-                    )
+                    , separator: ",")
                 ")"
             );
         }

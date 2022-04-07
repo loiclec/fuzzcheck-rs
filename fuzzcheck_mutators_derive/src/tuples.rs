@@ -24,8 +24,8 @@ pub fn make_tuple_type_structure(tb: &mut TokenBuilder, nbr_elements: usize) {
     let type_params = join_ts!(0..nbr_elements, i, Ti(i), separator: ",");
     let type_params_static_bound = join_ts!(0..nbr_elements, i, Ti(i) ": 'static", separator: ",");
     let tuple_owned = ts!("(" type_params ",)");
-    let tuple_ref = ts!("(" join_ts!(0..nbr_elements, i, "&'a" Ti(i) ",") ")");
-    let tuple_mut = ts!("(" join_ts!(0..nbr_elements, i, "&'a mut" Ti(i) ",") ")");
+    let tuple_ref = ts!("(" join_ts!(0..nbr_elements, i, "&'__fuzzcheck_derive_lt" Ti(i) ",") ")");
+    let tuple_mut = ts!("(" join_ts!(0..nbr_elements, i, "&'__fuzzcheck_derive_lt mut" Ti(i) ",") ")");
 
     let PhantomData = ts!(cm.PhantomData "<(" type_params ",)>");
 
@@ -38,21 +38,21 @@ pub fn make_tuple_type_structure(tb: &mut TokenBuilder, nbr_elements: usize) {
         }
         impl<" type_params_static_bound "> " cm.RefTypes " for " cm.TupleN_ident "<" type_params "> {
             type Owned = " tuple_owned ";
-            type Ref<'a> = " tuple_ref ";
-            type Mut<'a> = " tuple_mut ";
+            type Ref<'__fuzzcheck_derive_lt> = " tuple_ref ";
+            type Mut<'__fuzzcheck_derive_lt> = " tuple_mut ";
             #[no_coverage]
-            fn get_ref_from_mut<'a>(v: &'a Self::Mut<'a>) -> Self::Ref<'a> {
+            fn get_ref_from_mut<'__fuzzcheck_derive_lt>(v: &'__fuzzcheck_derive_lt Self::Mut<'__fuzzcheck_derive_lt>) -> Self::Ref<'__fuzzcheck_derive_lt> {
                 (" join_ts!(0..nbr_elements, i, "v." i ",") ")
             }
         }
         "
         "impl<" type_params_static_bound "> " cm.TupleStructure "<" cm.TupleN_ident "<" type_params "> > for" tuple_owned "{
             #[no_coverage]
-            fn get_ref<'a>(&'a self) -> " tuple_ref " {
+            fn get_ref<'__fuzzcheck_derive_lt>(&'__fuzzcheck_derive_lt self) -> " tuple_ref " {
                 (" join_ts!(0..nbr_elements, i, "&self." i ",") ")
             }
             #[no_coverage]
-            fn get_mut<'a>(&'a mut self) -> " tuple_mut " {
+            fn get_mut<'__fuzzcheck_derive_lt>(&'__fuzzcheck_derive_lt mut self) -> " tuple_mut " {
                 (" join_ts!(0..nbr_elements, i, "&mut self." i ",") ")
             }
             #[no_coverage]
@@ -78,8 +78,8 @@ pub(crate) fn impl_tuple_structure_trait(
     let TupleKind = cm.TupleN_path.clone();
 
     let tuple_owned = ts!("(" join_ts!(&struc.fields, field, field.ty ",") ")");
-    let tuple_ref = ts!("(" join_ts!(&struc.fields, field, "&'a" field.ty ",") ")");
-    let tuple_mut = ts!("(" join_ts!(&struc.fields, field, "&'a mut" field.ty ",") ")");
+    let tuple_ref = ts!("(" join_ts!(&struc.fields, field, "&'__fuzzcheck_derive_lt" field.ty ",") ")");
+    let tuple_mut = ts!("(" join_ts!(&struc.fields, field, "&'__fuzzcheck_derive_lt mut" field.ty ",") ")");
 
     let mut new_generics = generics.clone();
     if new_generics.where_clause.is_none() {
@@ -103,12 +103,12 @@ pub(crate) fn impl_tuple_structure_trait(
         "impl" q!(generics_split.0) cm.TupleStructure "<" TupleKind "<" field_types "> >
             for" selfty q!(generics_split.2) "{
             #[no_coverage]
-            fn get_ref<'a>(&'a self) -> " tuple_ref " {
+            fn get_ref<'__fuzzcheck_derive_lt>(&'__fuzzcheck_derive_lt self) -> " tuple_ref " {
                 (" join_ts!(struc.fields.iter().enumerate(), (idx, field), "&self." access_field(field, idx) ",") ")
             }
 
             #[no_coverage]
-            fn get_mut<'a>(&'a mut self) -> " tuple_mut " {
+            fn get_mut<'__fuzzcheck_derive_lt>(&'__fuzzcheck_derive_lt mut self) -> " tuple_mut " {
                 (" join_ts!(struc.fields.iter().enumerate(), (idx, field), "&mut self." access_field(field, idx) ",") ")
             }
 
@@ -174,8 +174,14 @@ pub(crate) fn impl_default_mutator_for_struct(
         .map(|(i, field)| {
             let mut mutator = None;
             for attribute in field.attrs.iter() {
-                if let Some(field_mutator_attr) = super::read_field_default_mutator_attribute(&attribute) {
-                    mutator = Some((field_mutator_attr.ty, field_mutator_attr.equal));
+                match super::read_field_default_mutator_attribute(attribute) {
+                    Ok(Some(field_mutator_attribute)) => {
+                        mutator = Some((field_mutator_attribute.ty, field_mutator_attribute.equal));
+                    }
+                    Ok(None) => {}
+                    Err(e) => {
+                        tb.stream(e.to_compile_error());
+                    }
                 }
             }
             if let Some(m) = mutator {
@@ -215,9 +221,9 @@ pub(crate) fn impl_default_mutator_for_struct(
 
     let params = CreateWrapperMutatorParams {
         cm: &cm,
-        visibility: &visibility,
-        type_ident: &struct_ident,
-        type_generics: &generics,
+        visibility,
+        type_ident: struct_ident,
+        type_generics: generics,
         field_mutators: &field_mutators,
         InnerMutator: &TupleMutatorWrapper,
         new_impl: &ts!(
@@ -362,10 +368,10 @@ fn impl_mutator_trait(tb: &mut TokenBuilder, nbr_elements: usize) {
 
     let TupleNAsRefTypes = ts!("<" cm.TupleN_ident "<" tuple_type_params "> as " cm.RefTypes ">");
     let tuple_ref = ts!(
-       TupleNAsRefTypes "::Ref<'a>"
+       TupleNAsRefTypes "::Ref<'__fuzzcheck_derive_lt>"
     );
     let tuple_mut = ts!(
-       TupleNAsRefTypes "::Mut<'a>"
+       TupleNAsRefTypes "::Mut<'__fuzzcheck_derive_lt>"
     );
 
     extend_ts!(tb,"
@@ -433,13 +439,13 @@ fn impl_mutator_trait(tb: &mut TokenBuilder, nbr_elements: usize) {
         "}
         #[doc(hidden)]
         #[no_coverage]
-        fn complexity<'a>(&self, _value: " tuple_ref ", cache: &'a Self::Cache) -> f64 {
+        fn complexity<'__fuzzcheck_derive_lt>(&self, _value: " tuple_ref ", cache: &'__fuzzcheck_derive_lt Self::Cache) -> f64 {
             cache.cplx
         }
 
         #[doc(hidden)]
         #[no_coverage]
-        fn is_valid<'a>(&self, value: " tuple_ref ") -> bool {"
+        fn is_valid<'__fuzzcheck_derive_lt>(&self, value: " tuple_ref ") -> bool {"
              join_ts!(0..nbr_elements, i,
                 "self." mutator_i(i) ".is_valid(value." i ")"
             , separator: "&&")
@@ -447,7 +453,7 @@ fn impl_mutator_trait(tb: &mut TokenBuilder, nbr_elements: usize) {
 
         #[doc(hidden)]
         #[no_coverage]
-        fn validate_value<'a>(&self, value: " tuple_ref ") -> " cm.Option "<Self::Cache> {"
+        fn validate_value<'__fuzzcheck_derive_lt>(&self, value: " tuple_ref ") -> " cm.Option "<Self::Cache> {"
             join_ts!(0..nbr_elements, i,
                 "let" ident!("c" i) " = self." mutator_i(i) ".validate_value(value." i ")?;"
             )
@@ -477,7 +483,7 @@ fn impl_mutator_trait(tb: &mut TokenBuilder, nbr_elements: usize) {
         }
         #[doc(hidden)]
         #[no_coverage]
-        fn default_mutation_step<'a>(&self, value: " tuple_ref ", cache: &'a Self::Cache) -> Self::MutationStep {"
+        fn default_mutation_step<'__fuzzcheck_derive_lt>(&self, value: " tuple_ref ", cache: &'__fuzzcheck_derive_lt Self::Cache) -> Self::MutationStep {"
             join_ts!(0..nbr_elements, i,
                 "let" ident!("s" i) " = self." mutator_i(i) ".default_mutation_step(value." i ", &cache. " ti(i) ");"
             )"
@@ -545,11 +551,11 @@ fn impl_mutator_trait(tb: &mut TokenBuilder, nbr_elements: usize) {
         }
         #[doc(hidden)]
         #[no_coverage]
-        fn ordered_mutate<'a>(
+        fn ordered_mutate<'__fuzzcheck_derive_lt>(
             &self,
             value: " tuple_mut ",
-            cache: &'a mut Self::Cache,
-            step: &'a mut Self::MutationStep,
+            cache: &'__fuzzcheck_derive_lt mut Self::Cache,
+            step: &'__fuzzcheck_derive_lt mut Self::MutationStep,
             subvalue_provider: &dyn " cm.SubValueProvider ",
             max_cplx: f64,
         ) -> " cm.Option "<(Self::UnmutateToken, f64)> {
@@ -645,7 +651,7 @@ fn impl_mutator_trait(tb: &mut TokenBuilder, nbr_elements: usize) {
         }
         #[doc(hidden)]
         #[no_coverage]
-        fn random_mutate<'a>(&self, value: " tuple_mut ", cache: &'a mut Self::Cache, max_cplx: f64, ) -> (Self::UnmutateToken, f64) {
+        fn random_mutate<'__fuzzcheck_derive_lt>(&self, value: " tuple_mut ", cache: &'__fuzzcheck_derive_lt mut Self::Cache, max_cplx: f64, ) -> (Self::UnmutateToken, f64) {
             let current_cplx = " SelfAsTupleMutator "::complexity(self, " TupleNAsRefTypes "::get_ref_from_mut(&value), cache);
             match cache.vose_alias.sample() {"
                 join_ts!(0..nbr_elements, i,
@@ -666,7 +672,7 @@ fn impl_mutator_trait(tb: &mut TokenBuilder, nbr_elements: usize) {
         }
         #[doc(hidden)]
         #[no_coverage]
-        fn unmutate<'a>(&'a self, value: " tuple_mut ", cache: &'a mut Self::Cache, t: Self::UnmutateToken) {"
+        fn unmutate<'__fuzzcheck_derive_lt>(&'__fuzzcheck_derive_lt self, value: " tuple_mut ", cache: &'__fuzzcheck_derive_lt mut Self::Cache, t: Self::UnmutateToken) {"
             join_ts!(0..nbr_elements, i,
                 "if let" cm.Some "(element_token) = t." ti(i) "{
                     match element_token {
@@ -683,7 +689,7 @@ fn impl_mutator_trait(tb: &mut TokenBuilder, nbr_elements: usize) {
 
         #[doc(hidden)]
         #[no_coverage]
-        fn visit_subvalues<'a>(&self, value: " tuple_ref ", cache: &'a Self::Cache, visit: &mut dyn FnMut(&'a dyn" cm.Any ", f64)) {"
+        fn visit_subvalues<'__fuzzcheck_derive_lt>(&self, value: " tuple_ref ", cache: &'__fuzzcheck_derive_lt Self::Cache, visit: &mut dyn FnMut(&'__fuzzcheck_derive_lt dyn" cm.Any ", f64)) {"
             join_ts!(0..nbr_elements, i,
                 "
                 let cplx = self. " mutator_i(i) ".complexity(value. " i ", &cache. " ti(i) "); 

@@ -88,8 +88,8 @@ pub fn make_single_variant_mutator(
     // enum generics with additional condition for each type parameter
     // where T: Clone + 'static
     for tp in generics.type_params_mut() {
-        tp.bounds.push(parse2(cm.Clone.clone()).expect("91"));
-        tp.bounds.push(parse2(ts!("'static")).expect("92"));
+        tp.bounds.push(parse2(cm.Clone.clone()).unwrap());
+        tp.bounds.push(parse2(ts!("'static")).unwrap());
     }
 
     // The generics for the impl of the mutator
@@ -110,7 +110,7 @@ pub fn make_single_variant_mutator(
             // with an additional TupleMutator clause
             param
                 .bounds
-                .push(parse2(item_mutators[&variant.ident].clone()).expect("115"));
+                .push(parse2(item_mutators[&variant.ident].clone()).unwrap());
             g.params.push(param.into());
         }
         g.where_clause = generics.where_clause.clone();
@@ -375,7 +375,7 @@ pub fn make_single_variant_mutator(
 
         #[doc(hidden)]
         #[no_coverage]
-        fn visit_subvalues<'a>(&self, value: &'a " selfty ", cache: &'a Self::Cache, visit: &mut dyn FnMut(&'a dyn " cm.Any ", f64)) {
+        fn visit_subvalues<'__fuzzcheck_derive_lt>(&self, value: &'__fuzzcheck_derive_lt " selfty ", cache: &'__fuzzcheck_derive_lt Self::Cache, visit: &mut dyn FnMut(&'__fuzzcheck_derive_lt dyn " cm.Any ", f64)) {
             match (self, value, cache) {"
             join_ts!(&enu.variants, variant,
                 "(

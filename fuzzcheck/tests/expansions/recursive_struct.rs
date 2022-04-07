@@ -30,7 +30,7 @@ pub struct R<T> {
     z: Vec<T>,
 }
 make_mutator! {
-    name: RMutator
+    name: RMutator,
     recursive: true,
     default: true,
     type: // repeat the declaration of E

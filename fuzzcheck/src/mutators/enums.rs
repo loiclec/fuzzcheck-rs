@@ -5,8 +5,8 @@ use crate::Mutator;
 /// Trait used by the [DefaultMutator derive macro](fuzzcheck_mutators_derive::DefaultMutator)
 /// for enums without associated data
 pub trait BasicEnumStructure {
-    fn from_item_index(item_index: usize) -> Self;
-    fn get_item_index(&self) -> usize;
+    fn from_variant_index(item_index: usize) -> Self;
+    fn get_variant_index(&self) -> usize;
 }
 
 /// A mutator used for enums implementing [BasicEnumStructure]
@@ -101,7 +101,7 @@ where
         if *step < self.non_ignored_variant_count {
             let old_step = *step;
             *step += 1;
-            Some((T::from_item_index(old_step), self.cplx))
+            Some((T::from_variant_index(old_step), self.cplx))
         } else {
             None
         }
@@ -111,7 +111,7 @@ where
     #[no_coverage]
     fn random_arbitrary(&self, _max_cplx: f64) -> (T, f64) {
         let item_idx = self.rng.usize(..self.non_ignored_variant_count);
-        (T::from_item_index(item_idx), self.cplx)
+        (T::from_variant_index(item_idx), self.cplx)
     }
 
     #[doc(hidden)]
@@ -130,10 +130,10 @@ where
         // starts at step = 1
         // create new from (get_item_index + step) % nbr_of_items
         if *step < self.non_ignored_variant_count {
-            let old_index = value.get_item_index();
+            let old_index = value.get_variant_index();
             let old_step = *step;
             *step += 1;
-            *value = T::from_item_index((old_index + old_step) % self.non_ignored_variant_count);
+            *value = T::from_variant_index((old_index + old_step) % self.non_ignored_variant_count);
             Some((old_index, self.cplx))
         } else {
             None
@@ -143,16 +143,16 @@ where
     #[doc(hidden)]
     #[no_coverage]
     fn random_mutate(&self, value: &mut T, _cache: &mut Self::Cache, _max_cplx: f64) -> (Self::UnmutateToken, f64) {
-        let old_index = value.get_item_index();
+        let old_index = value.get_variant_index();
         let item_idx = self.rng.usize(..self.non_ignored_variant_count);
-        *value = T::from_item_index(item_idx);
+        *value = T::from_variant_index(item_idx);
         (old_index, self.cplx)
     }
 
     #[doc(hidden)]
     #[no_coverage]
     fn unmutate(&self, value: &mut T, _cache: &mut Self::Cache, t: Self::UnmutateToken) {
-        *value = T::from_item_index(t);
+        *value = T::from_variant_index(t);
     }
 
     #[doc(hidden)]

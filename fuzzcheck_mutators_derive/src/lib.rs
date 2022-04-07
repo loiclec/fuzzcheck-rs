@@ -7,7 +7,7 @@
 use proc_macro2::{Ident, Literal, TokenStream, TokenTree};
 use syn::ext::IdentExt;
 use syn::parse::{Parse, ParseStream};
-use syn::{parse2, parse_macro_input, token, Attribute, DeriveInput, Error, LitBool, Token};
+use syn::{parenthesized, parse2, parse_macro_input, token, Attribute, DeriveInput, Error, LitBool, Token};
 use token_builder::{extend_ts, ident, ts, TokenBuilder};
 
 mod enums;
@@ -347,40 +347,70 @@ struct FieldMutatorAttribute {
 }
 impl syn::parse::Parse for FieldMutatorAttribute {
     fn parse(input: ParseStream) -> syn::Result<Self> {
-        let attributes = input.call(Attribute::parse_outer)?;
-        for attribute in attributes {
-            if let Some(ident) = attribute.path.get_ident() && ident == "field_mutator" {
-                let ty = input.parse::<syn::Type>()?;
-                if input.is_empty() {
-                    return Ok(Self { ty, equal: None });
-                }
-                if !input.peek(Token![=]) {
-                    return Err(syn::Error::new(
-                        input.span(),
-                        "Expected '=' (or nothing) after the type of field_mutator",
-                    ));
-                }
-                let _ = input.parse::<TokenTree>().unwrap();
-                if !input.peek(token::Brace) {
-                    return Err(syn::Error::new(
-                        input.span(),
-                    "Expected a block delimited by braces containing the expression that initialises the field mutator",
-                    ));
-                }
-                let x = input.parse::<TokenTree>().unwrap();
-                match x {
-                    TokenTree::Group(g) => return Ok(Self { ty, equal: Some(g.stream()) }),
-                    _ => unreachable!(),
-                }
-            }
+        let content;
+        let _ = parenthesized!(content in input);
+        let input = content;
+
+        let ty = input.parse::<syn::Type>()?;
+        if input.is_empty() {
+            return Ok(Self { ty, equal: None });
         }
-        Err(Error::new(
-            input.span(),
-            "Cannot parse field mutator attribute: no attribute with the field_mutator identifier found",
-        ))
+        if !input.peek(Token![=]) {
+            return Err(syn::Error::new(
+                input.span(),
+                "Expected '=' (or nothing) after the type of field_mutator",
+            ));
+        }
+        let _ = input.parse::<TokenTree>().unwrap();
+        if !input.peek(token::Brace) {
+            return Err(syn::Error::new(
+                input.span(),
+                "Expected a block delimited by braces containing the expression that initialises the field mutator",
+            ));
+        }
+        let x = input.parse::<TokenTree>().unwrap();
+        if let TokenTree::Group(g) = x {
+            Ok(Self {
+                ty,
+                equal: Some(g.stream()),
+            })
+        } else {
+            unreachable!()
+        }
     }
 }
 
-fn read_field_default_mutator_attribute(attribute: &Attribute) -> Option<FieldMutatorAttribute> {
-    parse2::<FieldMutatorAttribute>(ts!(q!(attribute))).ok()
+fn read_field_default_mutator_attribute(attribute: &Attribute) -> Result<Option<FieldMutatorAttribute>, syn::Error> {
+    if let Some(ident) = attribute.path.get_ident() {
+        if ident != "field_mutator" {
+            return Ok(None);
+        }
+        parse2::<FieldMutatorAttribute>(attribute.tokens.clone()).map(Some)
+    } else {
+        Ok(None)
+    }
 }
+
+// #[cfg(test)]
+// mod tests {
+//     use syn::{parse2, DeriveInput};
+
+//     use crate::read_field_default_mutator_attribute;
+//     use crate::token_builder::ts;
+
+//     #[test]
+//     fn test_att() {
+//         let tokens = quote::quote! {
+//             #[field_mutator(u8)]
+//             struct S;
+//         };
+//         let s = parse2::<DeriveInput>(tokens).unwrap();
+//         let attr = &s.attrs[0];
+//         let res = read_field_default_mutator_attribute(attr);
+//         match res {
+//             Ok(Some(x)) => println!(""),
+//             Ok(None) => println!("none"),
+//             Err(e) => println!("{}", ts!(e.to_compile_error())),
+//         }
+//     }
+// }

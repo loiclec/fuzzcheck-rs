@@ -47,10 +47,14 @@ pub(crate) fn impl_default_mutator_for_enum(
                         }
                         let mut mutator = None;
                         for attribute in field.attrs.iter() {
-                            if let Some(field_mutator_attribute) =
-                                super::read_field_default_mutator_attribute(attribute)
-                            {
-                                mutator = Some((field_mutator_attribute.ty, field_mutator_attribute.equal));
+                            match super::read_field_default_mutator_attribute(attribute) {
+                                Ok(Some(field_mutator_attribute)) => {
+                                    mutator = Some((field_mutator_attribute.ty, field_mutator_attribute.equal));
+                                }
+                                Ok(None) => {}
+                                Err(e) => {
+                                    tb.stream(e.to_compile_error());
+                                }
                             }
                         }
                         if let Some(m) = mutator {
@@ -205,7 +209,7 @@ pub(crate) fn impl_basic_enum_structure(tb: &mut TokenBuilder, enum_ident: &Iden
                 "}
             }
         }"
-    )
+    );
 }
 
 #[allow(non_snake_case)]

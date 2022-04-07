@@ -9,7 +9,7 @@ use fuzzcheck::mutators::boxed::BoxMutator;
 use fuzzcheck::mutators::integer::U8Mutator;
 use fuzzcheck::mutators::option::OptionMutator;
 use fuzzcheck::mutators::recursive::RecurToMutator;
-// use fuzzcheck::mutators::testing_utilities::test_mutator;
+use fuzzcheck::mutators::testing_utilities::test_mutator;
 use fuzzcheck::mutators::tuples::{Tuple2, Tuple2Mutator, TupleMutatorWrapper};
 use fuzzcheck::mutators::vector::VecMutator;
 use fuzzcheck::{make_mutator, DefaultMutator, Mutator};
@@ -95,6 +95,6 @@ fn test_derived_struct() {
         assert!(mutator.validate_value(&SampleStruct2 { w: vec![] }).is_some());
     }
     std::hint::black_box(mutator);
-    // let mutator = <Vec<SampleStruct<u8, u8>>>::default_mutator();
-    // test_mutator(mutator, 500., 500., false, true, 50, 100);
+    let mutator = <Vec<SampleStruct<u8, u8>>>::default_mutator();
+    test_mutator(mutator, 500., 500., false, true, 50, 100);
 }

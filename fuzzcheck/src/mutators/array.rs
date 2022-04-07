@@ -42,7 +42,7 @@ where
 impl<M, T, const N: usize> DefaultMutator for [T; N]
 where
     T: 'static + DefaultMutator<Mutator = M> + Clone,
-    M: Mutator<T> + Clone,
+    M: Mutator<T>,
 {
     type Mutator = ArrayMutator<M, T, N>;
 

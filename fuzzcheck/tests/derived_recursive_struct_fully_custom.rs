@@ -1,5 +1,5 @@
+#![allow(unused_attributes)]
 #![feature(no_coverage)]
-
 use std::marker::PhantomData;
 
 use fuzzcheck::mutators::testing_utilities::test_mutator;

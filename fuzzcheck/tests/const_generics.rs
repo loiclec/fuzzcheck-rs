@@ -5,16 +5,13 @@ use fuzzcheck::mutators::testing_utilities::test_mutator;
 use fuzzcheck::DefaultMutator;
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, DefaultMutator)]
-enum SampleEnum {
-    A(u16),
-    B,
-    C { x: bool, y: bool },
+struct S<T, const M: usize, const N: usize = 8> {
+    x: [T; N],
+    y: [bool; M],
 }
 
 #[test]
-fn test_derived_struct() {
-    let mutator = SampleEnum::default_mutator();
-    test_mutator(mutator, 1000., 1000., false, true, 100, 100);
-    let mutator = <Vec<SampleEnum>>::default_mutator();
+fn test_const_generics_mutator() {
+    let mutator = S::<u8, 2>::default_mutator();
     test_mutator(mutator, 1000., 1000., false, true, 100, 100);
 }
