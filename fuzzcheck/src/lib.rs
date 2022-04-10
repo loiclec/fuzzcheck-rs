@@ -95,7 +95,7 @@ pub use fuzzcheck_common::arg::Arguments;
     }
     // create a mutator for this type:
     make_mutator! {
-        name: SMutator // the name of the mutator
+        name: SMutator, // the name of the mutator
         recursive: false, // the type is not recursive
         default: false, // if `true`, impl DefaultMutator<Mutator = SMutator> for S
         type:  // repeat the declaration of S
@@ -124,7 +124,7 @@ pub use fuzzcheck_common::arg::Arguments;
     }
     // create a mutator for this type:
     make_mutator! {
-        name: EMutator // the name of the mutator
+        name: EMutator, // the name of the mutator
         recursive: false, // the type is not recursive
         default: true, // this is E's default mutator
         type: // repeat the declaration of E
@@ -149,7 +149,7 @@ pub use fuzzcheck_common::arg::Arguments;
         z: Vec<T>,
     }
     make_mutator! {
-        name: RMutator
+        name: RMutator,
         recursive: true,
         default: true,
         type: // repeat the declaration of R
@@ -176,7 +176,7 @@ pub use fuzzcheck_common::arg::Arguments;
         Three { x: Option<u8> }
     }
     make_mutator! {
-        name: FMutator // the name of the mutator
+        name: FMutator, // the name of the mutator
         default: true, // this is F's default mutator
         type: // repeat the declaration of F
             pub enum F<T> {
