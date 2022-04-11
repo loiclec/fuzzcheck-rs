@@ -20,8 +20,6 @@
 
 // documentation, not essential
 #![feature(doc_cfg)]
-// source code can be lifted from std
-#![feature(drain_filter)]
 // can be replaced by an empty enum
 #![feature(never_type)]
 // essential
@@ -31,12 +29,6 @@
 // essential for tuple mutators, but there may be a (more complicated) way
 // to do without them
 #![feature(generic_associated_types)]
-// can be replaced by an additional argument that manually gives the variant count
-#![feature(variant_count)]
-// that one is used to write closures like: #[no_coverage] &mut |args| { .. }
-// I suppose I can write the closure first and then pass a mutable reference to
-// it later. Annoying, but it should work.
-#![feature(stmt_expr_attributes)]
 //
 // end nightly features
 //

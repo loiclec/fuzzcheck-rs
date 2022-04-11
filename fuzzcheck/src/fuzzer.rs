@@ -580,10 +580,9 @@ where
                 break;
             }
         }
-
-        inputs.drain_filter(
+        inputs.retain(
             #[no_coverage]
-            |i| i.complexity(&self.state.mutator) > self.state.settings.max_input_cplx,
+            |i| i.complexity(&self.state.mutator) <= self.state.settings.max_input_cplx,
         );
         // assert!(!inputs.is_empty());
 

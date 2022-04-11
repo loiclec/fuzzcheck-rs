@@ -962,13 +962,13 @@ impl Coverage {
     where
         F: Fn(&Path) -> bool,
     {
-        all_self.drain_filter(
+        all_self.retain(
             #[no_coverage]
             |coverage| {
                 if let Some(filepath) = coverage.function_record.filenames.first() {
-                    !keep_f(filepath)
+                    keep_f(filepath)
                 } else {
-                    false
+                    true
                 }
             },
         );
