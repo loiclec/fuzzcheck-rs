@@ -17,7 +17,7 @@ In `Cargo.toml`, add the following dependencies:
 serde = { version = "1.0", features = ["derive"] }
 
 [dev-dependencies]
-fuzzcheck = "0.10"
+fuzzcheck = "0.12"
 ```
 
 At the top of `src/lib.rs` add the following line:

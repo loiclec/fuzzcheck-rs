@@ -12,14 +12,14 @@
 * Add the following to `Cargo.toml`:
  ```toml
  [target.'cfg(fuzzing)'.dev-dependencies]
- fuzzcheck = "0.11"
+ fuzzcheck = "0.12"
  ```
 
 * Add `serde = { version = "1.0", features = ["derive"] }` to your dependencies as well
     * **note:** fuzzcheck has a serde dependency only when the `serde_json_serializer` feature is enabled. This feature is enabled by default, but 
     you can write the following in your `Cargo.toml` to disable it:
     ```toml
-    fuzzcheck = { version = "0.11", default-features = false }
+    fuzzcheck = { version = "0.12", default-features = false }
     ```
 
 
@@ -49,7 +49,7 @@ You want this function to always succeed if the code is correct.
 
 ## Mutator
 
-The [`Mutator`](https://docs.rs/fuzzcheck/0.11.0/fuzzcheck/trait.Mutator.html) is responsible for generating values to feed to the test function.
+The [`Mutator`](https://docs.rs/fuzzcheck/0.12.0/fuzzcheck/trait.Mutator.html) is responsible for generating values to feed to the test function.
 
 The easiest way to get a mutator for a type is to use the `#[derive(fuzzcheck::DefaultMutator)]` attribute. Many `std` types also implement `DefaultMutator`.
 
@@ -77,9 +77,9 @@ The easiest way to get a mutator for a type is to use the `#[derive(fuzzcheck::D
 
 * If the test case is a `String`, you have two options:
     * Use the default mutator for `String`, which is essentially a wrapper around a `Vec<u8>` mutator and thus doesn't often generate useful strings
-    * Use a grammar-based mutator (see [tutorial 2](tutorial2.md) or the [`fuzzcheck::mutators::grammar` module documentation](https://docs.rs/fuzzcheck/0.11.0/fuzzcheck/mutators/grammar/index.html))
+    * Use a grammar-based mutator (see [tutorial 2](tutorial2.md) or the [`fuzzcheck::mutators::grammar` module documentation](https://docs.rs/fuzzcheck/0.12.0/fuzzcheck/mutators/grammar/index.html))
 
-* If the argument is a recursive type, you will need to use the `make_mutator!` macro (see the [`fuzzcheck::mutators::recursive` module documentation](https://docs.rs/fuzzcheck/0.11.0/fuzzcheck/mutators/recursive/index.html))
+* If the argument is a recursive type, you will need to use the `make_mutator!` macro (see the [`fuzzcheck::mutators::recursive` module documentation](https://docs.rs/fuzzcheck/0.12.0/fuzzcheck/mutators/recursive/index.html))
 
 * otherwise, you may need to write the mutator yourself
     * or ask me to do it on GitHub, if it's a type from `std`
@@ -97,13 +97,13 @@ struct Foo { /* .. */}
 But there are other choices: 
 * `ByteSerializer` if the test case is `Vec<u8>` and we simply want to copy the bytes from/to the files
 * `StringSerializer` if the test case is something that implements `FromStr` and `ToString`
-* [your own serializer](https://docs.rs/fuzzcheck/0.11.0/fuzzcheck/trait.Serializer.html)
+* [your own serializer](https://docs.rs/fuzzcheck/0.12.0/fuzzcheck/trait.Serializer.html)
 
 ## Sensor and Pool
 
 TODO (but you probably don't need to worry about it to get started)
 
-In the meantime, you can look at the [`CodeCoverageSensorAndPoolBuilder` documentation](https://docs.rs/fuzzcheck/0.10.0/fuzzcheck/builder/struct.CodeCoverageSensorAndPoolBuilder.html), and the [`fuzzcheck::sensors_and_pools` module documentation](https://docs.rs/fuzzcheck/0.10.0/fuzzcheck/sensors_and_pools/index.html).
+In the meantime, you can look at the [`CodeCoverageSensorAndPoolBuilder` documentation](https://docs.rs/fuzzcheck/0.12.0/fuzzcheck/builder/struct.CodeCoverageSensorAndPoolBuilder.html), and the [`fuzzcheck::sensors_and_pools` module documentation](https://docs.rs/fuzzcheck/0.12.0/fuzzcheck/sensors_and_pools/index.html).
 
 ## Building the fuzz test
 
@@ -127,7 +127,7 @@ Then you can write:
     }
 ```
 
-Otherwise, you can specify each component separately. Check the [`fuzzcheck::builder` module documentation](https://docs.rs/fuzzcheck/0.11.0/fuzzcheck/builder/index.html) to learn about the different options available.
+Otherwise, you can specify each component separately. Check the [`fuzzcheck::builder` module documentation](https://docs.rs/fuzzcheck/0.12.0/fuzzcheck/builder/index.html) to learn about the different options available.
 ```rust ignore
     #[cfg(all(fuzzing, test))]
     mod tests {

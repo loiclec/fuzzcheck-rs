@@ -77,7 +77,7 @@ may stall the fuzzer’s progress.
 Then, in the Cargo.toml of the crate you want to test, add a development dependency:
 ```toml
 [dev-dependencies]
-fuzzcheck = "0.11"
+fuzzcheck = "0.12"
 ```
 
 Note that the tool `cargo-fuzzcheck` automatically adds the `--cfg fuzzing`
@@ -85,7 +85,7 @@ option when compiling a fuzz test. Therefore, you can also choose to import
 fuzzcheck as a dependency only when `cfg(fuzzing)` is enabled:
 ```toml
 [target.'cfg(fuzzing)'.dev-dependencies]
-fuzzcheck = "0.11"
+fuzzcheck = "0.12"
 ```
 
 Furthermore, fuzzcheck has a few features that are enabled by default:
@@ -99,7 +99,7 @@ using the `regex_syntax` crate
 You can depend on fuzzcheck with a minimal set of features to reduce compile times:
 ```toml
 [target.'cfg(fuzzing)'.dev-dependencies]
-fuzzcheck = { version = "0.11", default_features = false, features = ["serde_json_serializer"] }
+fuzzcheck = { version = "0.12", default_features = false, features = ["serde_json_serializer"] }
 ``` -->
 
 
