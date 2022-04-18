@@ -1,6 +1,6 @@
 [package]
 name = "fuzzcheck_mutators_derive"
-version = "0.11.0"
+version = "0.12.0"
 authors = ["Loïc Lecrenier <loic.lecrenier@me.com>"]
 edition = "2021"
 description = "Procedural macros to generate fuzzcheck mutators"
@@ -14,7 +14,6 @@ categories = ["development-tools::testing"]
 proc-macro = true
 
 [dependencies]
-# decent-synquote-alternative = { path = "/Users/loic/Code/decent-synquote-alternative", package = "decent-synquote-alternative" }
-proc-macro2 = "1.0"
-quote = "1.0.17"
-syn = "1.0.90"
+proc-macro2 = "1.0.37"
+quote = "1.0.18"
+syn = "1.0.91"
