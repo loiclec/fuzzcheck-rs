@@ -1,6 +1,6 @@
 [package]
 name = "fuzzcheck"
-version = "0.11.0"
+version = "0.12.0"
 authors = ["Loïc Lecrenier <loic.lecrenier@me.com>"]
 edition = "2021"
 description = "A modular, structure-aware, and feedback-driven fuzzing engine for Rust functions"
@@ -23,13 +23,13 @@ default = ["grammar_mutator", "regex_grammar", "serde_json_serializer"]
 
 [dependencies]
 getopts = "0.2"
-fastrand = "1"
-cfg-if = "1"
+fastrand = "1.7"
+cfg-if = "1.0"
 libc = { version = "0.2", default_features = false  }
 
 md5 = "0.7"
 object = { version = "0.27", default_features = false, features = ["read"] }
-flate2 = { version = "1", default_features = false, features = ["zlib"] }
+flate2 = { version = "1.0", default_features = false, features = ["zlib"] }
 
 fuzzcheck_common = { path = "../fuzzcheck_common", version = "0.12.0" }
 
@@ -43,7 +43,7 @@ ahash = "0.7"
 regex-syntax = { version = "0.6", optional = true }
 nu-ansi-term = "0.39"
 
-bit-vec = "0.6"
+bit-vec = "0.6.3"
 
 [lib]
 name = "fuzzcheck"
