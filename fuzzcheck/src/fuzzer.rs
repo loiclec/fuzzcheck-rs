@@ -441,7 +441,8 @@ where
 
                 let mut subvalues: HashMap<TypeId, Vec<(*const dyn Any, f64)>> = HashMap::default();
 
-                let mut act_on_subvalue = |subvalue: &dyn Any, complexity| {
+                let mut act_on_subvalue = #[no_coverage]
+                |subvalue: &dyn Any, complexity| {
                     subvalues
                         .entry(subvalue.type_id())
                         .or_default()
