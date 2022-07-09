@@ -24,6 +24,8 @@
 #![feature(never_type)]
 // essential
 #![feature(no_coverage)]
+// used to add #[no_coverage] on closures
+#![feature(stmt_expr_attributes)]
 // very very nice to use, but I guess not essential?
 #![feature(type_alias_impl_trait)]
 // essential for tuple mutators, but there may be a (more complicated) way

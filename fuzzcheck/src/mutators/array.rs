@@ -52,7 +52,7 @@ where
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct MutationStep<S> {
     inner: Vec<S>,
     element_step: usize,

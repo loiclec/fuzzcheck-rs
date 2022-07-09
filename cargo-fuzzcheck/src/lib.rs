@@ -1,5 +1,6 @@
 #![allow(clippy::collapsible_if)]
 #![allow(clippy::too_many_arguments)]
+#![allow(clippy::format_push_string)]
 
 use std::cmp::Ordering;
 use std::path::{Path, PathBuf};

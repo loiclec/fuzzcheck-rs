@@ -226,10 +226,10 @@ where
             )
             .collect();
         self.update_stats();
-        return vec![CorpusDelta {
+        vec![CorpusDelta {
             path: Path::new(&self.name).to_path_buf(),
             add: true,
             remove: removed_keys,
-        }];
+        }]
     }
 }

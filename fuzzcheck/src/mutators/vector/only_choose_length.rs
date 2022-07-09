@@ -54,7 +54,7 @@ where
         value: &mut Vec<T>,
         _cache: &mut <VecMutator<T, M> as Mutator<Vec<T>>>::Cache,
     ) {
-        let _ = std::mem::swap(value, &mut self.replace_by);
+        std::mem::swap(value, &mut self.replace_by);
     }
 }
 

@@ -1,3 +1,4 @@
+#![allow(clippy::let_unit_value)]
 use std::collections::HashSet;
 use std::ops::RangeBounds;
 

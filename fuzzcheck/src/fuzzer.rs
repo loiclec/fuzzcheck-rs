@@ -440,17 +440,15 @@ where
                 );
 
                 let mut subvalues: HashMap<TypeId, Vec<(*const dyn Any, f64)>> = HashMap::default();
-                mutator.visit_subvalues(
-                    &input.value,
-                    &input.cache,
-                    #[no_coverage]
-                    &mut |subvalue, complexity| {
-                        subvalues
-                            .entry(subvalue.type_id())
-                            .or_default()
-                            .push((subvalue as *const _, complexity));
-                    },
-                );
+
+                let mut act_on_subvalue = |subvalue: &dyn Any, complexity| {
+                    subvalues
+                        .entry(subvalue.type_id())
+                        .or_default()
+                        .push((subvalue as *const _, complexity));
+                };
+
+                mutator.visit_subvalues(&input.value, &input.cache, &mut act_on_subvalue);
                 let storage_idx_1 = pool_storage.next_slot();
                 let subvalues = CrossoverSubValueProvider::new(
                     SubValueProviderId {
@@ -739,17 +737,19 @@ where
                 );
 
                 let mut subvalues: HashMap<TypeId, Vec<(*const dyn Any, f64)>> = HashMap::default();
-                fuzzer.state.mutator.visit_subvalues(
-                    &value,
-                    &cache,
-                    #[no_coverage]
-                    &mut |subvalue, complexity| {
-                        subvalues
-                            .entry(subvalue.type_id())
-                            .or_default()
-                            .push((subvalue as *const _, complexity));
-                    },
-                );
+
+                let mut act_on_subvalue = #[no_coverage]
+                |subvalue: &dyn Any, complexity| {
+                    subvalues
+                        .entry(subvalue.type_id())
+                        .or_default()
+                        .push((subvalue as *const _, complexity));
+                };
+
+                fuzzer
+                    .state
+                    .mutator
+                    .visit_subvalues(&value, &cache, &mut act_on_subvalue);
                 let storage_idx_1 = fuzzer.state.pool_storage.next_slot();
                 let generation = Generation(0);
                 let subvalues = CrossoverSubValueProvider::new(

@@ -95,17 +95,16 @@ where
         let boxed_data = Box::new((value.clone(), cache.clone()));
 
         let mut subvalues: HashMap<TypeId, Vec<(*const dyn Any, f64)>> = HashMap::new();
-        mutator.visit_subvalues(
-            &boxed_data.0,
-            &boxed_data.1,
-            #[no_coverage]
-            &mut |subvalue, complexity| {
-                subvalues
-                    .entry(subvalue.type_id())
-                    .or_default()
-                    .push((subvalue as *const _, complexity));
-            },
-        );
+
+        let mut act_on_subvalue = #[no_coverage]
+        |subvalue: &dyn Any, complexity| {
+            subvalues
+                .entry(subvalue.type_id())
+                .or_default()
+                .push((subvalue as *const _, complexity));
+        };
+
+        mutator.visit_subvalues(&boxed_data.0, &boxed_data.1, &mut act_on_subvalue);
         for (_typeid, subvalues) in subvalues.iter_mut() {
             subvalues.sort_by(
                 #[no_coverage]

@@ -53,7 +53,7 @@ use std::rc::{Rc, Weak};
 use crate::Mutator;
 
 /// The ArbitraryStep that is used for recursive mutators
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum RecursingArbitraryStep<AS> {
     Default,
     Initialized(AS),
@@ -266,7 +266,7 @@ pub struct RecursiveMutatorCache<T, C> {
     sub_self_values: Vec<(*const T, f64)>,
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct RecursiveMutatorMutationStep<MS> {
     mutation_step: MS,
     idx_sub_self_values: usize,
@@ -308,20 +308,20 @@ where
         if let Some(cache) = self.mutator.validate_value(value) {
             let cloned_self = Box::new((value.clone(), cache.clone()));
             let mut sub_self_values = vec![];
-            self.mutator.visit_subvalues(
-                &cloned_self.0,
-                &cloned_self.1,
-                #[no_coverage]
-                &mut |subvalue, cplx| {
-                    if let Some(sub_self_value) = subvalue.downcast_ref::<T>() {
-                        if let Some(subcache) = self.mutator.validate_value(sub_self_value) {
-                            let subcplx = self.mutator.complexity(sub_self_value, &subcache);
-                            assert_eq!(cplx, subcplx);
-                            sub_self_values.push((sub_self_value as *const _, subcplx));
-                        }
+
+            let mut visit_subvalues = #[no_coverage]
+            |subvalue: &dyn Any, cplx: f64| {
+                if let Some(sub_self_value) = subvalue.downcast_ref::<T>() {
+                    if let Some(subcache) = self.mutator.validate_value(sub_self_value) {
+                        let subcplx = self.mutator.complexity(sub_self_value, &subcache);
+                        assert_eq!(cplx, subcplx);
+                        sub_self_values.push((sub_self_value as *const _, subcplx));
                     }
-                },
-            );
+                }
+            };
+
+            self.mutator
+                .visit_subvalues(&cloned_self.0, &cloned_self.1, &mut visit_subvalues);
             Some(RecursiveMutatorCache {
                 inner: cache,
                 _cloned_self: cloned_self,

@@ -330,14 +330,14 @@ impl<'a> BitAnd for &'a FixedBitSet {
     }
 }
 
-impl<'a> BitAndAssign for FixedBitSet {
+impl BitAndAssign for FixedBitSet {
     #[no_coverage]
     fn bitand_assign(&mut self, other: Self) {
         self.intersect_with(&other);
     }
 }
 
-impl<'a> BitAndAssign<&Self> for FixedBitSet {
+impl BitAndAssign<&Self> for FixedBitSet {
     #[no_coverage]
     fn bitand_assign(&mut self, other: &Self) {
         self.intersect_with(other);
@@ -364,14 +364,14 @@ impl<'a> BitOr for &'a FixedBitSet {
     }
 }
 
-impl<'a> BitOrAssign for FixedBitSet {
+impl BitOrAssign for FixedBitSet {
     #[no_coverage]
     fn bitor_assign(&mut self, other: Self) {
         self.union_with(&other);
     }
 }
 
-impl<'a> BitOrAssign<&Self> for FixedBitSet {
+impl BitOrAssign<&Self> for FixedBitSet {
     #[no_coverage]
     fn bitor_assign(&mut self, other: &Self) {
         self.union_with(other);
@@ -398,14 +398,14 @@ impl<'a> BitXor for &'a FixedBitSet {
     }
 }
 
-impl<'a> BitXorAssign for FixedBitSet {
+impl BitXorAssign for FixedBitSet {
     #[no_coverage]
     fn bitxor_assign(&mut self, other: Self) {
         self.symmetric_difference_with(&other);
     }
 }
 
-impl<'a> BitXorAssign<&Self> for FixedBitSet {
+impl BitXorAssign<&Self> for FixedBitSet {
     #[no_coverage]
     fn bitxor_assign(&mut self, other: &Self) {
         self.symmetric_difference_with(other);
