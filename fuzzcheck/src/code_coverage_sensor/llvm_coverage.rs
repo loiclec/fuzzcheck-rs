@@ -10,17 +10,11 @@ use super::leb128;
 type CovMap = HashMap<[u8; 8], Vec<String>>;
 
 extern "C" {
-    #[no_coverage]
     pub(crate) fn get_start_instrumentation_counters() -> *mut u64;
-    #[no_coverage]
     pub(crate) fn get_end_instrumentation_counters() -> *mut u64;
-    #[no_coverage]
     pub(crate) fn get_start_prf_data() -> *const u8;
-    #[no_coverage]
     pub(crate) fn get_end_prf_data() -> *const u8;
-    #[no_coverage]
     pub(crate) fn get_start_prf_names() -> *const u8;
-    #[no_coverage]
     pub(crate) fn get_end_prf_names() -> *const u8;
 }
 
@@ -288,11 +282,12 @@ fn read_mapping_regions(
 }
 
 #[no_coverage]
-pub fn read_covfun(covfun: &[u8], idx: &mut usize) -> Result<Vec<RawFunctionCounters>, ReadCovMapError> {
+pub fn read_covfun(covfun: &[u8]) -> Result<Vec<RawFunctionCounters>, ReadCovMapError> {
     let mut results = Vec::new();
-    while *idx < covfun.len() {
-        let function_record_header = read_first_function_record_fields(covfun, idx);
-        let idx_before_encoding_data = *idx;
+    let mut idx = 0;
+    while idx < covfun.len() {
+        let function_record_header = read_first_function_record_fields(covfun, &mut idx);
+        let idx_before_encoding_data = idx;
 
         // somehow, length_encoded_data == 0 is possible!
         let (file_id_mapping, expressions, counters) = if function_record_header.length_encoded_data == 0 {
@@ -304,24 +299,24 @@ pub fn read_covfun(covfun: &[u8], idx: &mut usize) -> Result<Vec<RawFunctionCoun
                 vec![],
             )
         } else {
-            let file_id_mapping = read_file_id_mapping(covfun, idx);
-            let expressions = read_coverage_expressions(covfun, idx);
-            let counters = read_mapping_regions(covfun, idx, &file_id_mapping.filename_indices)?;
+            let file_id_mapping = read_file_id_mapping(covfun, &mut idx);
+            let expressions = read_coverage_expressions(covfun, &mut idx);
+            let counters = read_mapping_regions(covfun, &mut idx, &file_id_mapping.filename_indices)?;
             (file_id_mapping, expressions, counters)
         };
 
-        if idx_before_encoding_data + function_record_header.length_encoded_data != *idx {
+        if idx_before_encoding_data + function_record_header.length_encoded_data != idx {
             return Err(ReadCovMapError::InconsistentLengthOfEncodedData {
                 section: CovMapSection::CovFun,
             });
         }
 
-        let padding = if *idx < covfun.len() && *idx % 8 != 0 {
-            8 - *idx % 8
+        let padding = if idx < covfun.len() && idx % 8 != 0 {
+            8 - idx % 8
         } else {
             0
         };
-        *idx += padding;
+        idx += padding;
 
         if function_record_header.length_encoded_data == 0 {
             assert_eq!(function_record_header.id.structural_hash, 0);
@@ -347,7 +342,7 @@ pub struct PrfData {
 }
 
 #[no_coverage]
-pub fn read_prf_data(prf_data: &[u8], idx: &mut usize) -> Result<Vec<PrfData>, ReadCovMapError> {
+pub fn read_prf_data(prf_data: &[u8]) -> Result<Vec<PrfData>, ReadCovMapError> {
     // Read the prf_data section.
     //
     // The problem is that there is no clear reference for it, and its format can be updated by newer LLVM versions
@@ -359,20 +354,21 @@ pub fn read_prf_data(prf_data: &[u8], idx: &mut usize) -> Result<Vec<PrfData>, R
     // In particular, look at InstrProfData.inc
 
     let mut counts = Vec::new();
+    let mut idx = 0;
 
-    while *idx < prf_data.len() {
-        let name_md5 = read_i64(prf_data, idx);
-        let structural_hash = read_u64(prf_data, idx);
+    while idx < prf_data.len() {
+        let name_md5 = read_i64(prf_data, &mut idx);
+        let structural_hash = read_u64(prf_data, &mut idx);
         let function_id = FunctionIdentifier {
             name_md5,
             structural_hash,
         };
-        let _relative_counter_ptr = read_u64(prf_data, idx);
-        let _function_ptr = read_u64(prf_data, idx);
-        let _values = read_u64(prf_data, idx); // values are only used for PGO, not coverage instrumentation
+        let _relative_counter_ptr = read_u64(prf_data, &mut idx);
+        let _function_ptr = read_u64(prf_data, &mut idx);
+        let _values = read_u64(prf_data, &mut idx); // values are only used for PGO, not coverage instrumentation
 
         // u32 counters
-        let nbr_counters = read_u32(prf_data, idx);
+        let nbr_counters = read_u32(prf_data, &mut idx);
 
         if structural_hash == 0 {
             // it is a dummy function, so it doesn't have counters
@@ -380,8 +376,8 @@ pub fn read_prf_data(prf_data: &[u8], idx: &mut usize) -> Result<Vec<PrfData>, R
             assert!(nbr_counters <= 1);
         }
         // u16 but aligned
-        let _num_value_site = read_i16(prf_data, idx); // this is used for PGO only, I think
-        *idx += 2; // alignment
+        let _num_value_site = read_i16(prf_data, &mut idx); // this is used for PGO only, I think
+        idx += 2; // alignment
 
         // This is no longer a valid check with LLVM 14.0, I think?
         // Maybe due to:
@@ -457,6 +453,12 @@ pub fn read_prf_names(slice: &[u8], idx: &mut usize) -> Result<Vec<String>, Read
     }
     Ok(names)
 }
+#[derive(Debug)]
+pub struct PartialFunctionRecord {
+    pub name_function: String,
+    pub filenames: Vec<PathBuf>,
+    pub counters: RawFunctionCounters,
+}
 
 #[derive(Clone, Debug)]
 pub struct FunctionRecord {
@@ -469,22 +471,54 @@ pub struct FunctionRecord {
 }
 
 #[no_coverage]
-pub fn process_function_records(
+pub fn filter_covfun(
     records: Vec<RawFunctionCounters>,
     prf_names: HashMap<i64, String>,
     covmap: &CovMap,
-) -> Vec<FunctionRecord> {
+    keep: impl Fn(&Path) -> bool,
+) -> Vec<PartialFunctionRecord> {
+    records
+        .into_iter()
+        .filter_map(|function_counters| {
+            let filenames = &covmap[&function_counters.header.hash_translation_unit];
+            let mut filepaths = Vec::new();
+            for idx in function_counters.file_id_mapping.filename_indices.iter() {
+                let filename = &filenames[*idx];
+                let filepath = Path::new(filename).to_path_buf();
+                if !keep(&filepath) {
+                    return None;
+                }
+                filepaths.push(filepath);
+            }
+            let name_function = prf_names[&function_counters.header.id.name_md5].clone();
+
+            Some(PartialFunctionRecord {
+                name_function,
+                filenames: filepaths,
+                counters: function_counters,
+            })
+        })
+        .collect()
+}
+
+#[no_coverage]
+pub fn process_function_records(records: Vec<PartialFunctionRecord>) -> Vec<FunctionRecord> {
     let mut all_expressions = Vec::new();
-    for function_counters in records {
+    for function_record in records {
         let mut expressions: Vec<(ExpandedExpression, Vec<MappingRegion>)> = vec![];
         // map from expanded expression to an index in `expressions`
         let mut expressions_map: HashMap<ExpandedExpression, usize> = HashMap::new();
         let mut all_subexpressions = HashSet::new();
 
         // NOTE: the order with which the `expressions` variable is built matters
-        for (raw_counter, mapping_region) in function_counters.counters_list.iter() {
+        for (raw_counter, mapping_region) in function_record.counters.counters_list.iter() {
             let mut expanded = ExpandedExpression::default();
-            expanded.push_counter(raw_counter, Sign::Positive, &function_counters, &mut all_subexpressions);
+            expanded.push_counter(
+                raw_counter,
+                Sign::Positive,
+                &function_record.counters,
+                &mut all_subexpressions,
+            );
             expanded.sort(); // sort them to canonicalise their representation
             all_subexpressions.insert(expanded.clone());
             if let Some(idx) = expressions_map.get(&expanded) {
@@ -494,7 +528,6 @@ pub fn process_function_records(
                 expressions.push((expanded.clone(), vec![mapping_region.clone()]));
             }
         }
-        let name_function = prf_names[&function_counters.header.id.name_md5].clone();
 
         let mut to_delete: HashMap<usize, HashSet<ExpandedExpression>> = HashMap::new();
 
@@ -611,20 +644,13 @@ pub fn process_function_records(
             )
             .collect::<Vec<_>>();
 
-        let filenames = &covmap[&function_counters.header.hash_translation_unit];
-        let mut filepaths = Vec::new();
-        for idx in function_counters.file_id_mapping.filename_indices.iter() {
-            let filename = &filenames[*idx];
-            let filepath = Path::new(filename).to_path_buf();
-            filepaths.push(filepath);
-        }
         all_expressions.push(FunctionRecord {
-            header: function_counters.header,
-            file_id_mapping: function_counters.file_id_mapping,
+            header: function_record.counters.header,
+            file_id_mapping: function_record.counters.file_id_mapping,
             expressions,
             inferred_expressions,
-            name_function,
-            filenames: filepaths,
+            name_function: function_record.name_function,
+            filenames: function_record.filenames,
         });
     }
     all_expressions
@@ -640,12 +666,6 @@ pub enum CovMapSection {
 
 #[derive(Debug)]
 pub enum ReadCovMapError {
-    // InconsistentCounterPointersAndLengths {
-    //     prev_pointer: usize,
-    //     length: usize,
-    //     cur_pointer: usize,
-    // },
-    // FoundProfileDataForDummyFunction,
     InconsistentLengthOfEncodedData {
         section: CovMapSection,
     },
@@ -667,7 +687,6 @@ pub enum ReadCovMapError {
         expected: usize,
     },
     InvalidVersion(i32),
-    CannotFindFunctionRecordAssociatedWithPrfData(String),
     CannotParseUTF8 {
         section: CovMapSection,
     },
@@ -915,18 +934,19 @@ impl Coverage {
         let mut start_idx = 0;
         prf_datas
             .iter()
-            .map(
+            .filter_map(
                 #[no_coverage]
                 |prf_data| {
+                    let prf_data: &PrfData = prf_data;
+                    if prf_data.function_id.structural_hash == 0 {
+                        return None;
+                    }
                     let range = start_idx..start_idx + prf_data.number_of_counters;
                     start_idx = range.end;
-                    let f_r = function_records
-                        .iter()
-                        .find(
-                            #[no_coverage]
-                            |fr| fr.header.id == prf_data.function_id,
-                        )
-                        .ok_or_else(|| ReadCovMapError::CannotFindFunctionRecordAssociatedWithPrfData("This can sometimes happen when the crate is incrementally compiled with more than one codegen-unit. Try adding codegen-units = 1 or incremental = false to the appropriate profile (release or fuzzing) in Cargo.toml".to_string()))?;
+                    let f_r = function_records.iter().find(
+                        #[no_coverage]
+                        |fr| fr.header.id == prf_data.function_id,
+                    )?;
 
                     let slice = &mut all_counters[range];
                     let mut single_counters = Vec::new();
@@ -946,31 +966,15 @@ impl Coverage {
                             );
                         }
                     }
-                    Ok(Coverage {
+                    Some(Ok(Coverage {
                         function_record: f_r.clone(),
                         start_counters: slice.as_mut_ptr(),
                         counters_len: slice.len(),
                         single_counters,
                         expression_counters,
-                    })
+                    }))
                 },
             )
             .collect()
-    }
-    #[no_coverage]
-    pub(crate) fn filter_function_by_files<F>(all_self: &mut Vec<Self>, keep_f: F)
-    where
-        F: Fn(&Path) -> bool,
-    {
-        all_self.retain(
-            #[no_coverage]
-            |coverage| {
-                if let Some(filepath) = coverage.function_record.filenames.first() {
-                    keep_f(filepath)
-                } else {
-                    true
-                }
-            },
-        );
     }
 }
