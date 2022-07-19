@@ -144,7 +144,9 @@ impl SaveToStatsFolder for TestFailurePool {
             if #[cfg(feature = "serde_json_serializer")]
             {
                 let path = PathBuf::new().join("test_failures.json");
-                let content = serde_json::to_string(&self.inputs.iter().map(|tf| (tf.error.id, tf.error.display.clone()) ).collect::<Vec<_>>()).unwrap();
+                let content = serde_json::to_string(&self.inputs.iter().map(
+                    #[no_coverage]
+                    |tf| (tf.error.id, tf.error.display.clone()) ).collect::<Vec<_>>()).unwrap();
                 vec![(path, content.into_bytes())]
             } else {
                 vec![]

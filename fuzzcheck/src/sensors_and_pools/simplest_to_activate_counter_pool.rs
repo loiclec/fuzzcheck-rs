@@ -634,6 +634,7 @@ impl<O> CompatibleWithObservations<O> for SimplestToActivateCounterPool
 where
     for<'a> &'a O: IntoIterator<Item = &'a (usize, u64)>,
 {
+    #[no_coverage]
     fn process(&mut self, input_id: PoolStorageIndex, observations: &O, complexity: f64) -> Vec<CorpusDelta> {
         let mut state = UniqueCoveragePoolObservationState::default();
 

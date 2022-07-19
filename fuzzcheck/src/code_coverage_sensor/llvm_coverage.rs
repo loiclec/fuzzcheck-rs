@@ -475,29 +475,34 @@ pub fn filter_covfun(
     records: Vec<RawFunctionCounters>,
     prf_names: HashMap<i64, String>,
     covmap: &CovMap,
-    keep: impl Fn(&Path) -> bool,
+    keep: impl Fn(&Path, &str) -> bool,
 ) -> Vec<PartialFunctionRecord> {
     records
         .into_iter()
-        .filter_map(|function_counters| {
-            let filenames = &covmap[&function_counters.header.hash_translation_unit];
-            let mut filepaths = Vec::new();
-            for idx in function_counters.file_id_mapping.filename_indices.iter() {
-                let filename = &filenames[*idx];
-                let filepath = Path::new(filename).to_path_buf();
-                if !keep(&filepath) {
-                    return None;
-                }
-                filepaths.push(filepath);
-            }
-            let name_function = prf_names[&function_counters.header.id.name_md5].clone();
+        .filter_map(
+            #[no_coverage]
+            |function_counters| {
+                let name_function = prf_names[&function_counters.header.id.name_md5].clone();
+                let name_function = rustc_demangle::demangle(&name_function).to_string();
 
-            Some(PartialFunctionRecord {
-                name_function,
-                filenames: filepaths,
-                counters: function_counters,
-            })
-        })
+                let filenames = &covmap[&function_counters.header.hash_translation_unit];
+                let mut filepaths = Vec::new();
+                for idx in function_counters.file_id_mapping.filename_indices.iter() {
+                    let filename = &filenames[*idx];
+                    let filepath = Path::new(filename).to_path_buf();
+                    if !keep(&filepath, name_function.as_str()) {
+                        return None;
+                    }
+                    filepaths.push(filepath);
+                }
+
+                Some(PartialFunctionRecord {
+                    name_function,
+                    filenames: filepaths,
+                    counters: function_counters,
+                })
+            },
+        )
         .collect()
 }
 

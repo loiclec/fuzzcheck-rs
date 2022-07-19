@@ -103,6 +103,7 @@ impl<T> CrossoverStep<T>
 where
     T: 'static,
 {
+    #[no_coverage]
     pub fn get_next_subvalue<'a>(
         &mut self,
         subvalue_provider: &'a dyn SubValueProvider,

@@ -58,6 +58,7 @@ where
     Value: Clone + 'static,
     M: Mutator<Value>,
 {
+    #[no_coverage]
     fn revert(self, _mutator: &M, _value: &mut Value, _cache: &mut M::Cache) {}
 }
 impl<Value, M> Mutation<Value, M> for NoMutation
