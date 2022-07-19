@@ -167,12 +167,10 @@ where
             let pool_counter = self.highest_counts[index];
             if pool_counter < counter {
                 state.push((index, counter));
-            } else if pool_counter == counter {
-                if let Some(candidate_key) = self.best_input_for_counter[index] {
-                    if self.inputs[candidate_key].cplx > complexity {
-                        state.push((index, counter));
-                    }
-                }
+            } else if pool_counter == counter
+                && let Some(candidate_key) = self.best_input_for_counter[index]
+                && self.inputs[candidate_key].cplx > complexity {
+                state.push((index, counter));
             }
         }
         if state.is_empty() {

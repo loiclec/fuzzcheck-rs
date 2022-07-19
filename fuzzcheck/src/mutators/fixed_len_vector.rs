@@ -331,14 +331,12 @@ impl<T: Clone + 'static, M: Mutator<T>> Mutator<Vec<T>> for FixedLenVecMutator<T
             let old_el_cplx = self.mutators[choice].complexity(&value[choice], &cache.inner[choice]);
             let current_cplx = self.complexity(value, cache);
             let max_el_cplx = current_cplx - old_el_cplx - self.inherent_complexity;
-            if let Some((el, new_el_cplx)) = step.get_next_subvalue(subvalue_provider, max_el_cplx) {
-                if self.mutators[choice].is_valid(el) {
-                    let mut el = el.clone();
-                    std::mem::swap(&mut value[choice], &mut el);
-                    let cplx = cache.sum_cplx - old_el_cplx + new_el_cplx + self.inherent_complexity;
-                    let token = UnmutateVecToken::ReplaceElement(choice, el);
-                    return Some((token, cplx));
-                }
+            if let Some((el, new_el_cplx)) = step.get_next_subvalue(subvalue_provider, max_el_cplx) && self.mutators[choice].is_valid(el) {
+                let mut el = el.clone();
+                std::mem::swap(&mut value[choice], &mut el);
+                let cplx = cache.sum_cplx - old_el_cplx + new_el_cplx + self.inherent_complexity;
+                let token = UnmutateVecToken::ReplaceElement(choice, el);
+                return Some((token, cplx));
             }
         }
         let current_cplx = self.complexity(value, cache);

@@ -95,12 +95,9 @@ impl MostNDiversePool {
         if let Some(worst_input) = self.worst_input_idx.map(
             #[no_coverage]
             |idx| &self.inputs[idx],
-        ) {
-            if (*nbr_new_counters > worst_input.nbr_unique_counters)
-                || (*nbr_new_counters == worst_input.nbr_unique_counters && worst_input.cplx > input_complexity)
-            {
-                return true;
-            }
+        ) && ((*nbr_new_counters > worst_input.nbr_unique_counters) || (*nbr_new_counters == worst_input.nbr_unique_counters && worst_input.cplx > input_complexity))
+        {
+            return true;
         }
 
         let mut common_unique_counters = FixedBitSet::with_capacity(counters.len());
@@ -180,19 +177,16 @@ where
         if let Some(worst_input) = self.worst_input_idx.map(
             #[no_coverage]
             |idx| &mut self.inputs[idx],
-        ) {
-            if (nbr_new_counters > worst_input.nbr_unique_counters)
-                || (nbr_new_counters == worst_input.nbr_unique_counters && worst_input.cplx > complexity)
-            {
-                let worst_input_data = worst_input.pool_idx;
-                *worst_input = new_input;
-                self.recompute_state_from_inputs_vec();
-                return vec![CorpusDelta {
-                    path: PathBuf::new().join(&self.name),
-                    add: true,
-                    remove: vec![worst_input_data],
-                }];
-            }
+        ) && ((nbr_new_counters > worst_input.nbr_unique_counters)
+                || (nbr_new_counters == worst_input.nbr_unique_counters && worst_input.cplx > complexity)) {
+            let worst_input_data = worst_input.pool_idx;
+            *worst_input = new_input;
+            self.recompute_state_from_inputs_vec();
+            return vec![CorpusDelta {
+                path: PathBuf::new().join(&self.name),
+                add: true,
+                remove: vec![worst_input_data],
+            }];
         }
 
         let mut common_unique_counters = FixedBitSet::with_capacity(counters.len());

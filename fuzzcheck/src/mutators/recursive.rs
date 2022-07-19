@@ -311,12 +311,12 @@ where
 
             let mut visit_subvalues = #[no_coverage]
             |subvalue: &dyn Any, cplx: f64| {
-                if let Some(sub_self_value) = subvalue.downcast_ref::<T>() {
-                    if let Some(subcache) = self.mutator.validate_value(sub_self_value) {
-                        let subcplx = self.mutator.complexity(sub_self_value, &subcache);
-                        assert_eq!(cplx, subcplx);
-                        sub_self_values.push((sub_self_value as *const _, subcplx));
-                    }
+                if let Some(sub_self_value) = subvalue.downcast_ref::<T>()
+                && let Some(subcache) = self.mutator.validate_value(sub_self_value)
+                {
+                    let subcplx = self.mutator.complexity(sub_self_value, &subcache);
+                    assert_eq!(cplx, subcplx);
+                    sub_self_values.push((sub_self_value as *const _, subcplx));
                 }
             };
 
