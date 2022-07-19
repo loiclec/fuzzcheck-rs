@@ -434,6 +434,22 @@ where
     M: Mutator<V>,
 {
     #[no_coverage]
+    pub fn default_sensor_and_pool_with_custom_filter(
+        self,
+        keep: impl Fn(&Path, &str) -> bool,
+    ) -> FuzzerBuilder4<F, M, V, DiverseAndMaxHitsSensor, BasicAndDiverseAndMaxHitsPool> {
+        let (sensor, pool) = default_sensor_and_pool_with_custom_filter(keep).finish();
+        FuzzerBuilder4 {
+            test_function: self.test_function,
+            mutator: self.mutator,
+            serializer: self.serializer,
+            sensor,
+            pool,
+            _phantom: PhantomData,
+        }
+    }
+
+    #[no_coverage]
     pub fn default_sensor_and_pool(
         self,
     ) -> FuzzerBuilder4<F, M, V, DiverseAndMaxHitsSensor, BasicAndDiverseAndMaxHitsPool> {
@@ -715,6 +731,20 @@ pub fn basic_sensor_and_pool() -> SensorAndPoolBuilder<BasicSensor, BasicPool> {
     }
 }
 
+/// Like [`basic_sensor_and_pool`], but uses a closure to determine which function should
+/// be observed by the code coverage sensor.
+#[no_coverage]
+pub fn basic_sensor_and_pool_with_custom_filter(
+    keep: impl Fn(&Path, &str) -> bool,
+) -> SensorAndPoolBuilder<BasicSensor, BasicPool> {
+    let sensor = CodeCoverageSensor::new(keep);
+    let nbr_counters = sensor.count_instrumented;
+    SensorAndPoolBuilder {
+        sensor,
+        pool: SimplestToActivateCounterPool::new("simplest_cov", nbr_counters),
+    }
+}
+
 /// Create the [sensor and pool builder](SensorAndPoolBuilder) that is used by default by fuzzcheck
 ///
 /// Currently, the result cannot be augmented any further. Thus, the only action you can take on the result is to
@@ -725,6 +755,18 @@ pub fn default_sensor_and_pool() -> SensorAndPoolBuilder<DiverseAndMaxHitsSensor
         .find_most_diverse_set_of_test_cases(20)
         .find_test_cases_repeatedly_hitting_coverage_counters()
 }
+
+/// Like [`default_sensor_and_pool`], but uses a closure to determine which function should
+/// be observed by the code coverage sensor.
+#[no_coverage]
+pub fn default_sensor_and_pool_with_custom_filter(
+    keep: impl Fn(&Path, &str) -> bool,
+) -> SensorAndPoolBuilder<DiverseAndMaxHitsSensor, BasicAndDiverseAndMaxHitsPool> {
+    basic_sensor_and_pool_with_custom_filter(keep)
+        .find_most_diverse_set_of_test_cases(20)
+        .find_test_cases_repeatedly_hitting_coverage_counters()
+}
+
 /// A builder to create a [sensor](Sensor) and [pool](crate::Pool) that can be given as argument to
 /// [`FuzzerBuilder3::sensor_and_pool`].
 ///

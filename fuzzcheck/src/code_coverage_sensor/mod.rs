@@ -5,7 +5,7 @@ mod llvm_coverage;
 #[cfg(feature = "serde_json_serializer")]
 mod serialized;
 
-use std::collections::HashMap;
+use std::collections::{BTreeSet, HashMap};
 use std::convert::TryFrom;
 use std::path::{Path, PathBuf};
 
@@ -38,13 +38,13 @@ impl CodeCoverageSensor {
     pub fn observing_only_files_from_current_dir() -> Self {
         Self::new(
             #[no_coverage]
-            |f| f.is_relative(),
+            |file, _function| file.is_relative(),
         )
     }
     #[no_coverage]
     pub fn new<K>(keep: K) -> Self
     where
-        K: Fn(&Path) -> bool,
+        K: Fn(&Path, &str) -> bool,
     {
         let exec = std::env::current_exe().expect("could not read current executable");
         let LLVMCovSections {
@@ -157,6 +157,33 @@ impl SaveToStatsFolder for CodeCoverageSensor {
             } else {
                 vec![]
             }
+        }
+    }
+}
+
+impl CodeCoverageSensor {
+    #[no_coverage]
+    pub fn print_observed_functions(&self) {
+        let mut all = BTreeSet::new();
+        for c in self.coverage.iter() {
+            let name = &c.function_record.name_function;
+            let name = rustc_demangle::demangle(name).to_string();
+            all.insert(name.clone());
+        }
+        for name in all {
+            println!("{name}");
+        }
+    }
+    #[no_coverage]
+    pub fn print_observed_files(&self) {
+        let mut all = BTreeSet::new();
+        for c in self.coverage.iter() {
+            for name in c.function_record.filenames.iter() {
+                all.insert(name.display().to_string());
+            }
+        }
+        for name in all {
+            println!("{name}");
         }
     }
 }

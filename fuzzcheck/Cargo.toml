@@ -44,6 +44,7 @@ regex-syntax = { version = "0.6.27", optional = true }
 nu-ansi-term = "0.46.0"
 
 bit-vec = "0.6.3"
+rustc-demangle = "0.1.21"
 
 [lib]
 name = "fuzzcheck"
