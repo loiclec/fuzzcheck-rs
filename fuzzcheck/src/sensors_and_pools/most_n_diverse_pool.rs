@@ -7,8 +7,6 @@ use crate::fenwick_tree::FenwickTree;
 use crate::traits::{CorpusDelta, Pool, SaveToStatsFolder, Stats};
 use crate::{CSVField, CompatibleWithObservations, PoolStorageIndex, ToCSV};
 
-// use super::compatible_with_iterator_sensor::CompatibleWithIteratorSensor;
-
 #[derive(Clone)]
 struct Input {
     nbr_unique_counters: usize,
