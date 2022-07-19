@@ -1,7 +1,6 @@
 #![allow(non_snake_case)]
 #![allow(clippy::type_complexity)]
 #![allow(clippy::large_enum_variant)]
-#![feature(let_chains)]
 #![feature(stmt_expr_attributes)]
 
 use proc_macro2::{Ident, Literal, TokenStream, TokenTree};
