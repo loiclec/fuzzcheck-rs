@@ -163,12 +163,19 @@ struct FuzzerState<T: Clone + 'static, M: Mutator<T>> {
     /// The world handles effects
     world: World,
     rng: fastrand::Rng,
+
+    signal_handler_alt_stack: Option<(*mut u8, std::alloc::Layout)>,
 }
 
 impl<T: Clone + 'static, M: Mutator<T>> Drop for FuzzerState<T, M> {
     #[no_coverage]
     fn drop(&mut self) {
-        unsafe { crate::signals_handler::reset_signal_handlers() };
+        unsafe {
+            crate::signals_handler::reset_signal_handlers();
+            if let Some((stack_ptr, stack_layout)) = self.signal_handler_alt_stack {
+                std::alloc::dealloc(stack_ptr, stack_layout);
+            }
+        }
     }
 }
 
@@ -268,10 +275,11 @@ where
     #[no_coverage]
     unsafe fn set_up_signal_handler(&mut self) {
         let ptr = self as *mut Self;
-        set_signal_handlers(
+        let (stack_ptr, stack_size) = set_signal_handlers(
             #[no_coverage]
             move |sig| (*ptr).receive_signal(sig),
         );
+        self.signal_handler_alt_stack = Some((stack_ptr, stack_size));
     }
 }
 
@@ -313,6 +321,7 @@ where
                 serializer,
                 world,
                 rng: fastrand::Rng::new(),
+                signal_handler_alt_stack: None,
             },
             test,
         }

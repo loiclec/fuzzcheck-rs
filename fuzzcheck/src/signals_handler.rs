@@ -11,7 +11,7 @@ use libc::{
 static mut SIGNAL_HANDLER: Option<Box<dyn Fn(libc::c_int) -> !>> = None;
 
 #[no_coverage]
-extern "C" fn os_handler(signal: libc::c_int, _: libc::siginfo_t, _: *mut libc::c_void) {
+extern "C" fn os_handler(signal: libc::c_int, _: *mut libc::siginfo_t, _: *mut libc::c_void) {
     // Assuming this always succeeds. Can't really handle errors in any meaningful way.
     unsafe {
         reset_signal_handlers();
@@ -23,26 +23,28 @@ extern "C" fn os_handler(signal: libc::c_int, _: libc::siginfo_t, _: *mut libc::
     }
 }
 
+/// Set signal handlers to the given function and return the pointer and layout
+/// of the alternative stack used by the signal handlers.
 #[no_coverage]
-pub unsafe fn set_signal_handlers<F: 'static>(f: F)
+pub unsafe fn set_signal_handlers<F: 'static>(f: F) -> (*mut u8, std::alloc::Layout)
 where
     F: Fn(libc::c_int) -> !,
 {
     SIGNAL_HANDLER = Some(Box::new(f));
 
-    let stack_size = libc::SIGSTKSZ;
-
-    let stack_pointer = std::alloc::alloc_zeroed(std::alloc::Layout::array::<std::ffi::c_void>(stack_size).unwrap())
-        as *mut std::ffi::c_void;
+    // Make sure the alternative stack is big enough. ~65_000 bytes should be okay.
+    let stack_size = std::cmp::max(libc::SIGSTKSZ, 0b1 << 16);
+    let stack_layout = std::alloc::Layout::array::<u8>(stack_size).unwrap();
+    let stack_pointer = std::alloc::alloc_zeroed(stack_layout);
 
     let signal_stack = libc::stack_t {
-        ss_sp: stack_pointer,
+        ss_sp: stack_pointer as *mut std::ffi::c_void,
         ss_size: stack_size,
         ss_flags: 0,
     };
 
     let stack = libc::sigaltstack(&signal_stack, std::ptr::null_mut());
-    if stack == -1 {
+    if stack < 0 {
         panic!("could not set alternate stack for handling signals");
     }
 
@@ -60,6 +62,8 @@ where
             panic!("Could not set up signal handler");
         }
     }
+
+    (stack_pointer, stack_layout)
 }
 
 #[no_coverage]
