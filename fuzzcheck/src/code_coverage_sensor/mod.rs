@@ -24,7 +24,7 @@ use crate::traits::{SaveToStatsFolder, Sensor};
 ///
 /// ```no_run
 /// use fuzzcheck::sensors_and_pools::CodeCoverageSensor;
-/// let sensor = CodeCoverageSensor::new(|path| path.is_relative() == true);
+/// let sensor = CodeCoverageSensor::new(|file, _function| file.is_relative());
 /// ```
 pub struct CodeCoverageSensor {
     pub(crate) coverage: Vec<Coverage>,
