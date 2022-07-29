@@ -12,7 +12,7 @@ enum SampleEnum {
 }
 
 #[test]
-fn test_derived_struct() {
+fn test_derived_enum() {
     let mutator = SampleEnum::default_mutator();
     test_mutator(mutator, 1000., 1000., false, true, 100, 100);
     let mutator = <Vec<SampleEnum>>::default_mutator();

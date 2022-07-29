@@ -64,6 +64,10 @@ macro_rules! impl_int_mutator_constrained {
 
             #[doc(hidden)]
             #[no_coverage]
+            fn initialize(&self) {}
+
+            #[doc(hidden)]
+            #[no_coverage]
             fn default_arbitrary_step(&self) -> Self::ArbitraryStep {
                 0
             }

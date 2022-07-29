@@ -110,6 +110,12 @@ impl Mutator<AST> for ASTMutator {
 
     #[doc(hidden)]
     #[no_coverage]
+    fn initialize(&self) {
+        self.inner.initialize();
+    }
+
+    #[doc(hidden)]
+    #[no_coverage]
     fn default_arbitrary_step(&self) -> Self::ArbitraryStep {
         Self::ArbitraryStep {
             inner: Box::new(self.inner.default_arbitrary_step()),

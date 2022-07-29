@@ -85,6 +85,10 @@ impl Mutator<char> for CharWithinRangeMutator {
 
     #[doc(hidden)]
     #[no_coverage]
+    fn initialize(&self) {}
+
+    #[doc(hidden)]
+    #[no_coverage]
     fn default_arbitrary_step(&self) -> Self::ArbitraryStep {
         0
     }

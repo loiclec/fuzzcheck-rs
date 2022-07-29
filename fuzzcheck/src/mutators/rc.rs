@@ -43,6 +43,12 @@ impl<T: Clone + 'static, M: Mutator<T>> Mutator<Rc<T>> for RcMutator<M> {
 
     #[doc(hidden)]
     #[no_coverage]
+    fn initialize(&self) {
+        self.mutator.initialize();
+    }
+
+    #[doc(hidden)]
+    #[no_coverage]
     fn default_arbitrary_step(&self) -> Self::ArbitraryStep {
         self.mutator.default_arbitrary_step()
     }

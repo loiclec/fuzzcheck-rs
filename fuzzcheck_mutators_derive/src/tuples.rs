@@ -410,6 +410,14 @@ fn impl_mutator_trait(tb: &mut TokenBuilder, nbr_elements: usize) {
                 "<" Mi(i) "as" cm.fuzzcheck_traits_Mutator "<" Ti(i) "> >::UnmutateToken "
             , separator: ",")
         ">;
+        
+        #[no_coverage]
+        fn initialize(&self) {"
+            join_ts!(0..nbr_elements, i,
+                "self." mutator_i(i) ".initialize();"
+            )
+        "}
+
         #[doc(hidden)]
         #[no_coverage]
         fn default_arbitrary_step(&self) -> Self::ArbitraryStep {

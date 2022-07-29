@@ -1,4 +1,5 @@
 use std::any::Any;
+use std::cell::Cell;
 use std::marker::PhantomData;
 
 use fastrand::Rng;
@@ -16,9 +17,11 @@ where
 {
     pub rng: Rng,
     mutators: Vec<M>,
-    min_complexity: f64,
-    max_complexity: f64,
-    search_space_complexity: f64,
+    initialized: Cell<bool>,
+    min_complexity: Cell<f64>,
+    max_complexity: Cell<f64>,
+    search_space_complexity: Cell<f64>,
+    has_inherent_complexity: bool,
     inherent_complexity: f64,
     _phantom: PhantomData<T>,
 }
@@ -42,39 +45,15 @@ where
     pub fn new(mutators: Vec<M>, inherent_complexity: bool) -> Self {
         assert!(!mutators.is_empty());
 
-        // NOTE: this agrees with the vector mutator
-        let inherent_complexity = if inherent_complexity {
-            1.0 + if mutators[0].min_complexity() == 0.0 {
-                mutators.len() as f64
-            } else {
-                0.0
-            }
-        } else {
-            0.0
-        };
-
-        let max_complexity = mutators.iter().fold(
-            0.0,
-            #[no_coverage]
-            |cplx, m| cplx + m.max_complexity(),
-        ) + inherent_complexity;
-        let min_complexity = mutators.iter().fold(
-            0.0,
-            #[no_coverage]
-            |cplx, m| cplx + m.min_complexity(),
-        ) + inherent_complexity;
-        let search_space_complexity = mutators.iter().fold(
-            0.0,
-            #[no_coverage]
-            |cplx, m| cplx + m.global_search_space_complexity(),
-        );
         Self {
             rng: Rng::default(),
             mutators,
-            min_complexity,
-            max_complexity,
-            search_space_complexity,
-            inherent_complexity,
+            initialized: Cell::new(false),
+            min_complexity: Cell::new(std::f64::INFINITY),
+            max_complexity: Cell::default(),
+            search_space_complexity: Cell::default(),
+            has_inherent_complexity: inherent_complexity,
+            inherent_complexity: 0.,
             _phantom: PhantomData,
         }
     }
@@ -203,6 +182,44 @@ impl<T: Clone + 'static, M: Mutator<T>> Mutator<Vec<T>> for FixedLenVecMutator<T
 
     #[doc(hidden)]
     #[no_coverage]
+    fn initialize(&self) {
+        for mutator in self.mutators.iter() {
+            mutator.initialize();
+        }
+        // NOTE: this agrees with the vector mutator
+        let inherent_complexity = if self.has_inherent_complexity {
+            1.0 + if self.mutators[0].min_complexity() == 0.0 {
+                self.mutators.len() as f64
+            } else {
+                0.0
+            }
+        } else {
+            0.0
+        };
+
+        let max_complexity = self.mutators.iter().fold(
+            0.0,
+            #[no_coverage]
+            |cplx, m| cplx + m.max_complexity(),
+        ) + inherent_complexity;
+        let min_complexity = self.mutators.iter().fold(
+            0.0,
+            #[no_coverage]
+            |cplx, m| cplx + m.min_complexity(),
+        ) + inherent_complexity;
+        let search_space_complexity = self.mutators.iter().fold(
+            0.0,
+            #[no_coverage]
+            |cplx, m| cplx + m.global_search_space_complexity(),
+        );
+        self.initialized.set(true);
+        self.min_complexity.set(min_complexity);
+        self.max_complexity.set(max_complexity);
+        self.search_space_complexity.set(search_space_complexity);
+    }
+
+    #[doc(hidden)]
+    #[no_coverage]
     fn default_arbitrary_step(&self) -> Self::ArbitraryStep {}
 
     #[doc(hidden)]
@@ -269,19 +286,19 @@ impl<T: Clone + 'static, M: Mutator<T>> Mutator<Vec<T>> for FixedLenVecMutator<T
     #[doc(hidden)]
     #[no_coverage]
     fn global_search_space_complexity(&self) -> f64 {
-        self.search_space_complexity
+        self.search_space_complexity.get()
     }
 
     #[doc(hidden)]
     #[no_coverage]
     fn max_complexity(&self) -> f64 {
-        self.max_complexity
+        self.max_complexity.get()
     }
 
     #[doc(hidden)]
     #[no_coverage]
     fn min_complexity(&self) -> f64 {
-        self.min_complexity
+        self.min_complexity.get()
     }
 
     #[doc(hidden)]
@@ -435,6 +452,7 @@ mod tests {
     #[no_coverage]
     fn test_constrained_length_mutator() {
         let m = FixedLenVecMutator::<u8, U8Mutator>::new_with_repeated_mutator(U8Mutator::default(), 3);
+        m.initialize();
         for _ in 0..100 {
             let (x, _) = m.ordered_arbitrary(&mut (), 800.0).unwrap();
             eprintln!("{:?}", x);

@@ -82,6 +82,12 @@ where
 
     #[doc(hidden)]
     #[no_coverage]
+    fn initialize(&self) {
+        self.mutator.initialize();
+    }
+
+    #[doc(hidden)]
+    #[no_coverage]
     fn default_arbitrary_step(&self) -> Self::ArbitraryStep {
         self.mutator.default_arbitrary_step()
     }
@@ -245,6 +251,12 @@ where
     type ArbitraryStep = M::ArbitraryStep;
     #[doc(hidden)]
     type UnmutateToken = M::UnmutateToken;
+
+    #[doc(hidden)]
+    #[no_coverage]
+    fn initialize(&self) {
+        self.mutator.initialize();
+    }
 
     #[doc(hidden)]
     #[no_coverage]

@@ -640,6 +640,8 @@ where
             _phantom,
         } = self;
 
+        mutator.initialize();
+
         crate::fuzzer::launch(
             Box::new(test_function),
             mutator,

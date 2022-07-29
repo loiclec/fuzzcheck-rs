@@ -802,6 +802,9 @@ mod tests {
         type UnmutateToken = ();
 
         #[no_coverage]
+        fn initialize(&self) {}
+
+        #[no_coverage]
         fn default_arbitrary_step(&self) -> Self::ArbitraryStep {}
 
         #[no_coverage]

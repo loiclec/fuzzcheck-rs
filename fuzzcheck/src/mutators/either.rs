@@ -25,6 +25,16 @@ where
     #[doc(hidden)]
     #[inline]
     #[no_coverage]
+    fn initialize(&self) {
+        match self {
+            Either::Left(m) => m.initialize(),
+            Either::Right(m) => m.initialize(),
+        }
+    }
+
+    #[doc(hidden)]
+    #[inline]
+    #[no_coverage]
     fn default_arbitrary_step(&self) -> Self::ArbitraryStep {
         match self {
             Either::Left(m) => Either::Left(m.default_arbitrary_step()),

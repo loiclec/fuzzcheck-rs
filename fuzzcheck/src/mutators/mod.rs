@@ -192,6 +192,12 @@ where
 
     #[doc(hidden)]
     #[no_coverage]
+    fn initialize(&self) {
+        self.wrapped_mutator().initialize()
+    }
+
+    #[doc(hidden)]
+    #[no_coverage]
     fn default_arbitrary_step(&self) -> Self::ArbitraryStep {
         self.wrapped_mutator().default_arbitrary_step()
     }
@@ -357,6 +363,7 @@ pub mod testing_utilities {
         T: Clone + Debug + PartialEq + Eq + Hash + 'static,
         M::Cache: Clone,
     {
+        m.initialize();
         let mut arbitrary_step = m.default_arbitrary_step();
 
         let mut arbitraries = HashSet::new();

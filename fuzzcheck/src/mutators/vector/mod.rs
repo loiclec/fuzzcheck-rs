@@ -121,6 +121,12 @@ where
 
     #[doc(hidden)]
     #[no_coverage]
+    fn initialize(&self) {
+        self.m.initialize();
+    }
+
+    #[doc(hidden)]
+    #[no_coverage]
     fn default_arbitrary_step(&self) -> Self::ArbitraryStep {
         if self.m.max_complexity() == 0.0 {
             Self::ArbitraryStep::InnerMutatorIsUnit {
@@ -232,7 +238,7 @@ where
                     let mut result = Vec::with_capacity(*length_step);
                     for _ in 0..*length_step {
                         let (e, c) = self.m.random_arbitrary(1.0);
-                        assert!(c == 0.0);
+                        assert_eq!(c, 0.0);
                         result.push(e);
                     }
                     let cplx = self.complexity_from_inner(0.0, *length_step);

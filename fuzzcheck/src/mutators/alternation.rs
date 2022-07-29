@@ -1,4 +1,5 @@
 use std::any::Any;
+use std::cell::Cell;
 use std::cmp::Ordering;
 use std::marker::PhantomData;
 
@@ -26,10 +27,11 @@ where
 {
     mutators: Vec<M>,
     rng: fastrand::Rng,
-    search_space_complexity: f64,
     added_complexity: f64,
-    min_complexity: f64,
-    max_complexity: f64,
+    initialized: Cell<bool>,
+    min_complexity: Cell<f64>,
+    max_complexity: Cell<f64>,
+    search_space_complexity: Cell<f64>,
     _phantom: PhantomData<T>,
 }
 
@@ -41,57 +43,15 @@ where
     #[no_coverage]
     pub fn new(mutators: Vec<M>, added_complexity: f64) -> Self {
         assert!(!mutators.is_empty());
-        let complexity_from_choice = crate::mutators::size_to_cplxity(mutators.len());
-
-        let search_space_complexity = mutators
-            .iter()
-            .map(
-                #[no_coverage]
-                |m| {
-                    let cplx = m.global_search_space_complexity();
-                    if cplx == 0. {
-                        complexity_from_choice
-                    } else {
-                        cplx
-                    }
-                },
-            )
-            .max_by(
-                #[no_coverage]
-                |x, y| x.partial_cmp(y).unwrap_or(Ordering::Equal),
-            )
-            .unwrap();
-
-        let max_complexity = mutators
-            .iter()
-            .map(
-                #[no_coverage]
-                |m| m.max_complexity() + added_complexity,
-            )
-            .max_by(
-                #[no_coverage]
-                |x1, x2| x1.partial_cmp(x2).unwrap_or(Ordering::Equal),
-            )
-            .unwrap();
-        let min_complexity = mutators
-            .iter()
-            .map(
-                #[no_coverage]
-                |m| m.min_complexity() + added_complexity,
-            )
-            .min_by(
-                #[no_coverage]
-                |x1, x2| x1.partial_cmp(x2).unwrap_or(Ordering::Equal),
-            )
-            .unwrap();
 
         Self {
             mutators,
-            search_space_complexity,
             rng: fastrand::Rng::default(),
             added_complexity,
-            min_complexity,
-            max_complexity,
+            initialized: Cell::new(false),
+            min_complexity: Cell::new(std::f64::INFINITY),
+            max_complexity: Cell::default(),
+            search_space_complexity: Cell::default(),
             _phantom: PhantomData,
         }
     }
@@ -151,6 +111,65 @@ where
     type ArbitraryStep = ArbitraryStep<M::ArbitraryStep>;
     #[doc(hidden)]
     type UnmutateToken = UnmutateToken<T, M::UnmutateToken>;
+
+    #[doc(hidden)]
+    #[no_coverage]
+    fn initialize(&self) {
+        for mutator in self.mutators.iter() {
+            mutator.initialize();
+        }
+
+        let complexity_from_choice = crate::mutators::size_to_cplxity(self.mutators.len());
+
+        let search_space_complexity = self
+            .mutators
+            .iter()
+            .map(
+                #[no_coverage]
+                |m| {
+                    let cplx = m.global_search_space_complexity();
+                    if cplx == 0. {
+                        complexity_from_choice
+                    } else {
+                        cplx
+                    }
+                },
+            )
+            .max_by(
+                #[no_coverage]
+                |x, y| x.partial_cmp(y).unwrap_or(Ordering::Equal),
+            )
+            .unwrap();
+
+        let max_complexity = self
+            .mutators
+            .iter()
+            .map(
+                #[no_coverage]
+                |m| m.max_complexity() + self.added_complexity,
+            )
+            .max_by(
+                #[no_coverage]
+                |x1, x2| x1.partial_cmp(x2).unwrap_or(Ordering::Equal),
+            )
+            .unwrap();
+        let min_complexity = self
+            .mutators
+            .iter()
+            .map(
+                #[no_coverage]
+                |m| m.min_complexity() + self.added_complexity,
+            )
+            .min_by(
+                #[no_coverage]
+                |x1, x2| x1.partial_cmp(x2).unwrap_or(Ordering::Equal),
+            )
+            .unwrap();
+        self.min_complexity.set(min_complexity);
+        self.max_complexity.set(max_complexity);
+        self.search_space_complexity.set(search_space_complexity);
+        self.initialized.set(true);
+    }
 
     #[doc(hidden)]
     #[no_coverage]
@@ -226,19 +245,19 @@ where
     #[doc(hidden)]
     #[no_coverage]
     fn global_search_space_complexity(&self) -> f64 {
-        self.search_space_complexity
+        self.search_space_complexity.get()
     }
 
     #[doc(hidden)]
     #[no_coverage]
     fn max_complexity(&self) -> f64 {
-        self.max_complexity
+        self.max_complexity.get()
     }
 
     #[doc(hidden)]
     #[no_coverage]
     fn min_complexity(&self) -> f64 {
-        self.min_complexity
+        self.min_complexity.get()
     }
 
     #[doc(hidden)]

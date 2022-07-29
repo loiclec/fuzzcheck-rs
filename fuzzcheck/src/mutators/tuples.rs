@@ -132,6 +132,8 @@ where
     type ArbitraryStep: Clone;
     type UnmutateToken;
 
+    fn initialize(&self);
+
     fn default_arbitrary_step(&self) -> Self::ArbitraryStep;
 
     fn complexity<'a>(&self, value: TupleKind::Ref<'a>, cache: &'a Self::Cache) -> f64;
@@ -227,6 +229,12 @@ where
     type ArbitraryStep = M::ArbitraryStep;
     #[doc(hidden)]
     type UnmutateToken = M::UnmutateToken;
+
+    #[doc(hidden)]
+    #[no_coverage]
+    fn initialize(&self) {
+        self.mutator.initialize();
+    }
 
     #[doc(hidden)]
     #[no_coverage]
@@ -356,6 +364,10 @@ mod tuple0 {
         type ArbitraryStep = bool;
         #[doc(hidden)]
         type UnmutateToken = ();
+
+        #[doc(hidden)]
+        #[no_coverage]
+        fn initialize(&self) {}
 
         #[doc(hidden)]
         #[no_coverage]
@@ -532,6 +544,12 @@ mod tuple1 {
         type ArbitraryStep = <M0 as crate::Mutator<T0>>::ArbitraryStep;
         #[doc(hidden)]
         type UnmutateToken = UnmutateTuple1Token<T0, <M0 as crate::Mutator<T0>>::UnmutateToken>;
+
+        #[doc(hidden)]
+        #[no_coverage]
+        fn initialize(&self) {
+            self.mutator_0.initialize();
+        }
 
         #[doc(hidden)]
         #[no_coverage]

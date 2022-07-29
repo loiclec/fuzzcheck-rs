@@ -154,6 +154,10 @@ where
 
     #[doc(hidden)]
     #[no_coverage]
+    fn initialize(&self) {}
+
+    #[doc(hidden)]
+    #[no_coverage]
     fn default_arbitrary_step(&self) -> Self::ArbitraryStep {
         RecursingArbitraryStep::Default
     }
@@ -185,13 +189,16 @@ where
     #[doc(hidden)]
     #[no_coverage]
     fn max_complexity(&self) -> f64 {
+        // can potentially recur infinitely
         std::f64::INFINITY
     }
 
     #[doc(hidden)]
     #[no_coverage]
     fn min_complexity(&self) -> f64 {
-        0.0
+        // this will crash if called before the RecurToMutator is connected
+        // to the RecursiveMutator
+        self.reference.upgrade().unwrap().min_complexity()
     }
 
     #[doc(hidden)]
@@ -205,8 +212,7 @@ where
     fn ordered_arbitrary(&self, step: &mut Self::ArbitraryStep, max_cplx: f64) -> Option<(T, f64)> {
         match step {
             RecursingArbitraryStep::Default => {
-                let mutator = self.reference.upgrade().unwrap();
-                let inner_step = mutator.default_arbitrary_step();
+                let inner_step = self.reference.upgrade().unwrap().default_arbitrary_step();
                 *step = RecursingArbitraryStep::Initialized(inner_step);
                 self.ordered_arbitrary(step, max_cplx)
             }
@@ -289,6 +295,12 @@ where
     type ArbitraryStep = M::ArbitraryStep;
     #[doc(hidden)]
     type UnmutateToken = RecursiveMutatorUnmutateToken<T, M::UnmutateToken>;
+
+    #[doc(hidden)]
+    #[no_coverage]
+    fn initialize(&self) {
+        self.mutator.initialize();
+    }
 
     #[doc(hidden)]
     #[no_coverage]

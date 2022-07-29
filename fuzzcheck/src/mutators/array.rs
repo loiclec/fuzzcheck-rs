@@ -1,4 +1,5 @@
 use std::any::Any;
+use std::cell::Cell;
 use std::marker::PhantomData;
 
 use fastrand::Rng;
@@ -6,16 +7,15 @@ use fastrand::Rng;
 use crate::{DefaultMutator, Mutator};
 
 /// A mutator for fixed-size arrays `[T; N]`.
-///
-/// A different mutator can be used for each element of the array.
 pub struct ArrayMutator<M, T, const N: usize>
 where
     T: Clone + 'static,
     M: Mutator<T>,
 {
     mutator: M,
-    min_complexity: f64,
-    max_complexity: f64,
+    initialized: Cell<bool>,
+    min_complexity: Cell<f64>,
+    max_complexity: Cell<f64>,
     pub rng: Rng,
     _phantom: PhantomData<T>,
 }
@@ -27,12 +27,11 @@ where
 {
     #[no_coverage]
     pub fn new(mutator: M) -> Self {
-        let max_complexity = mutator.max_complexity() * N as f64;
-        let min_complexity = mutator.min_complexity() * N as f64;
         Self {
             mutator,
-            min_complexity,
-            max_complexity,
+            initialized: Cell::new(false),
+            min_complexity: Cell::new(std::f64::INFINITY),
+            max_complexity: Cell::default(),
             rng: Rng::default(),
             _phantom: PhantomData,
         }
@@ -173,6 +172,18 @@ impl<M: Mutator<T>, T: Clone + 'static, const N: usize> Mutator<[T; N]> for Arra
 
     #[doc(hidden)]
     #[no_coverage]
+    fn initialize(&self) {
+        self.mutator.initialize();
+
+        let max_complexity = self.mutator.max_complexity() * N as f64;
+        let min_complexity = self.mutator.min_complexity() * N as f64;
+        self.min_complexity.set(min_complexity);
+        self.max_complexity.set(max_complexity);
+        self.initialized.set(true);
+    }
+
+    #[doc(hidden)]
+    #[no_coverage]
     fn default_arbitrary_step(&self) -> Self::ArbitraryStep {}
 
     #[doc(hidden)]
@@ -234,13 +245,13 @@ impl<M: Mutator<T>, T: Clone + 'static, const N: usize> Mutator<[T; N]> for Arra
     #[doc(hidden)]
     #[no_coverage]
     fn max_complexity(&self) -> f64 {
-        self.max_complexity
+        self.max_complexity.get()
     }
 
     #[doc(hidden)]
     #[no_coverage]
     fn min_complexity(&self) -> f64 {
-        self.min_complexity
+        self.min_complexity.get()
     }
 
     #[doc(hidden)]
@@ -377,6 +388,7 @@ mod tests {
     #[no_coverage]
     fn test_array_mutator() {
         let m = ArrayMutator::<U8Mutator, u8, 32>::new(U8Mutator::default());
+        m.initialize();
         for _ in 0..100 {
             let (x, _) = m.ordered_arbitrary(&mut (), 800.0).unwrap();
             eprintln!("{:?}", x);

@@ -9,6 +9,7 @@ use fuzzcheck::{DefaultMutator, Mutator, SubValueProvider};
 fn test_crossover_option() {
     let crossover_value = vec![None, Some(83638), Some(1), Some(2), Some(3), Some(19373246372)];
     let crossover_mutator = <Vec<Option<usize>>>::default_mutator();
+    crossover_mutator.initialize();
     let crossover_cache = crossover_mutator.validate_value(&crossover_value).unwrap();
 
     let subvalue_provider = CrossoverSubValueProvider::new(
@@ -33,6 +34,8 @@ fn test_crossover_option() {
         }
     }
     let mutator = <Option<usize>>::default_mutator();
+    mutator.initialize();
+
     let mut value = Option::Some(0);
     let mut cache = mutator.validate_value(&value).unwrap();
     let mut step = mutator.default_mutation_step(&value, &cache);

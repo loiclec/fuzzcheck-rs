@@ -17,6 +17,10 @@ impl<T: Clone + 'static> Mutator<T> for NeverMutator {
 
     #[doc(hidden)]
     #[no_coverage]
+    fn initialize(&self) {}
+
+    #[doc(hidden)]
+    #[no_coverage]
     fn default_arbitrary_step(&self) -> Self::ArbitraryStep {
         unreachable!()
     }
@@ -119,6 +123,10 @@ where
     type ArbitraryStep = ();
     #[doc(hidden)]
     type UnmutateToken = ();
+
+    #[doc(hidden)]
+    #[no_coverage]
+    fn initialize(&self) {}
 
     #[doc(hidden)]
     #[no_coverage]

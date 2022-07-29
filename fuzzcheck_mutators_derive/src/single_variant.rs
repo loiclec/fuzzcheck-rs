@@ -183,6 +183,16 @@ pub fn make_single_variant_mutator(
 
         #[doc(hidden)]
         #[no_coverage]
+        fn initialize(&self) {
+            match self {"
+                join_ts!(&enu.variants, variant,
+                    EnumSingleVariant "::" variant.ident "(m) => { m.initialize() }"
+                )
+            "}
+        }
+
+        #[doc(hidden)]
+        #[no_coverage]
         fn default_arbitrary_step(&self) -> Self::ArbitraryStep {
             match self {"
                 join_ts!(&enu.variants, variant,

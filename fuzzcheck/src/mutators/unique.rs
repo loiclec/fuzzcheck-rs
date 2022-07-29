@@ -83,6 +83,11 @@ where
     type UnmutateToken = M::UnmutateToken;
 
     #[no_coverage]
+    fn initialize(&self) {
+        self.mutator.initialize();
+    }
+
+    #[no_coverage]
     fn default_arbitrary_step(&self) -> Self::ArbitraryStep {
         self.mutator.default_arbitrary_step()
     }

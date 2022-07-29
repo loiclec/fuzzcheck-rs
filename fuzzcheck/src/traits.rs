@@ -221,6 +221,9 @@ pub trait Mutator<Value: Clone + 'static>: 'static {
     /// Describes how to reverse a mutation
     type UnmutateToken;
 
+    /// Must be called after creating a mutator, to initialise its internal state.
+    fn initialize(&self);
+
     /// The first [`ArbitraryStep`](Mutator::ArbitraryStep) value to be passed to [`ordered_arbitrary`](crate::Mutator::ordered_arbitrary)
     fn default_arbitrary_step(&self) -> Self::ArbitraryStep;
 
