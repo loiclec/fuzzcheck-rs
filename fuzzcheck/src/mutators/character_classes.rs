@@ -44,7 +44,7 @@ impl CharacterMutator {
             let c = *ranges[0].start();
             Self::complexity_of_value(c)
         } else {
-            7.0
+            8.0
         };
         let max_cplx = if total_length == 1 {
             let c = *ranges[0].start();
@@ -76,12 +76,7 @@ impl CharacterMutator {
 }
 impl CharacterMutator {
     fn complexity_of_value(c: char) -> f64 {
-        let cplx = (c.len_utf8() * 8) as f64;
-        if c.is_ascii_alphabetic() {
-            cplx - 1.0
-        } else {
-            cplx
-        }
+        (c.len_utf8() * 8) as f64
     }
 }
 impl Mutator<char> for CharacterMutator {
