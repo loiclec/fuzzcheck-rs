@@ -28,7 +28,7 @@ where
     type Mutator = VecMutator<T, T::Mutator>;
     #[no_coverage]
     fn default_mutator() -> Self::Mutator {
-        VecMutator::new(T::default_mutator(), 0..=usize::MAX, true)
+        VecMutator::new(T::default_mutator(), 0..=usize::MAX)
     }
 }
 
@@ -81,13 +81,25 @@ where
     M: Mutator<T>,
 {
     #[no_coverage]
-    pub fn new(m: M, len_range: RangeInclusive<usize>, inherent_complexity: bool) -> Self {
+    pub fn new_without_inherent_complexity(m: M, len_range: RangeInclusive<usize>) -> Self {
         Self {
             m,
             len_range,
             rng: fastrand::Rng::new(),
             mutations: VectorMutation::default(),
-            inherent_complexity,
+            inherent_complexity: false,
+            _phantom: PhantomData,
+        }
+    }
+
+    #[no_coverage]
+    pub fn new(m: M, len_range: RangeInclusive<usize>) -> Self {
+        Self {
+            m,
+            len_range,
+            rng: fastrand::Rng::new(),
+            mutations: VectorMutation::default(),
+            inherent_complexity: true,
             _phantom: PhantomData,
         }
     }

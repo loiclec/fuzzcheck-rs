@@ -2,19 +2,7 @@ use fuzzcheck::mutators::integer::U8Mutator;
 use fuzzcheck::mutators::vector::VecMutator;
 #[test]
 fn test_vector_mutator() {
-    // let m = VecMutator::new(U8Mutator::default(), 0..=10);
-    // fuzzcheck_mutators::testing_utilities::test_mutator(m, 100.0, 100.0, false, 500, 500);
-    // let m = VecMutator::new(U8Mutator::default(), 0..=10);
-    // fuzzcheck_mutators::testing_utilities::test_mutator(m, 20000.0, 20000.0, false, 500, 500);
-    // let m = VecMutator::new(U8Mutator::default(), 10..=20);
-    // fuzzcheck_mutators::testing_utilities::test_mutator(m, 10000.0, 10000.0, false, 500, 500);
-    // // todo: test with an unlimited range
-
-    let m = VecMutator::new(
-        VecMutator::new(U8Mutator::default(), 0..=usize::MAX, false),
-        0..=usize::MAX,
-        false,
-    );
+    let m = VecMutator::new(VecMutator::new(U8Mutator::default(), 0..=usize::MAX), 0..=usize::MAX);
     fuzzcheck::mutators::testing_utilities::test_mutator(m, 500.0, 500.0, false, true, 100, 150);
 }
 

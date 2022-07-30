@@ -18,6 +18,27 @@ use crate::mutators::tuples::Tuple1Mutator;
 use crate::mutators::vector::VecMutator;
 use crate::Mutator;
 
+// NOTE: the complexity of the vectors in the AST is the complexity of their
+// elements and nothing else. That is, we don't take their inherent complexity
+// into account. This is because we only really care about the complexity of the
+// string representation of the AST. Adding complexity for each sequence would
+// only add noise. It would not translate to actual added complexity from the
+// user's perspective.
+// For example:
+//
+// The grammar:
+//      [a-z]?[a-z]?[a-z]?
+// producing the value:
+//      ae
+// vs.
+// The grammar:
+//      [a-z]{,3}
+// producing the same value:
+//      ae
+//
+// The AST of the first value contains four vectors wherease the AST of the
+// second value contains only 1. But the two values are equally complex from
+// the user's point of view.
 make_single_variant_mutator! {
     pub enum AST {
         Token(char),
@@ -244,7 +265,9 @@ impl ASTMutator {
     fn recur(m: RecurToMutator<ASTMutator>) -> Self {
         Self {
             inner: Box::new(Either::Right(Either::Left(ASTSingleVariant::Sequence(
-                Tuple1Mutator::new(Either::Left(FixedLenVecMutator::new(vec![m], false))),
+                Tuple1Mutator::new(Either::Left(FixedLenVecMutator::new_without_inherent_complexity(vec![
+                    m,
+                ]))),
             )))),
         }
     }
@@ -283,13 +306,14 @@ impl ASTMutator {
                     let m = Self::from_grammar_rec(g.clone(), others);
                     ms.push(m);
                 }
-                Self::sequence(Either::Left(FixedLenVecMutator::new(ms, false)))
+                Self::sequence(Either::Left(FixedLenVecMutator::new_without_inherent_complexity(ms)))
             }
-            Grammar::Repetition(g, range) => Self::sequence(Either::Right(VecMutator::new(
-                Self::from_grammar_rec(g.clone(), others),
-                range.start..=range.end - 1,
-                false,
-            ))),
+            Grammar::Repetition(g, range) => {
+                Self::sequence(Either::Right(VecMutator::new_without_inherent_complexity(
+                    Self::from_grammar_rec(g.clone(), others),
+                    range.start..=range.end - 1,
+                )))
+            }
             Grammar::Recurse(g) => {
                 if let Some(m) = others.get(&g.as_ptr()) {
                     Self::recur(RecurToMutator::from(m))

@@ -56,8 +56,7 @@ make_mutator! {
                             self_.into()
                         )
                     ),
-                    0..=usize::MAX,
-                    true
+                    0..=usize::MAX
                 )
             }
         )]
@@ -79,7 +78,7 @@ make_mutator! {
     struct SampleStruct2 {
         #[field_mutator(
             VecMutator<Box<SampleStruct2>, BoxMutator<RecurToMutator<SampleStruct2Mutator>>> = {
-                VecMutator::new(BoxMutator::new(self_.into()), 0..=10, true)
+                VecMutator::new(BoxMutator::new(self_.into()), 0..=10)
             }
         )]
         w: Vec<Box<SampleStruct2>>,

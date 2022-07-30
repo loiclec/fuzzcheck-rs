@@ -45,7 +45,7 @@ make_mutator! {
                 OptionMutator<MutuallyRecursiveA, AMutator<VecMutator<MutuallyRecursiveB, RecurToMutator<BMutator>>>>
              = {
                 OptionMutator::new(AMutator::new(
-                    VecMutator::new(self_.into(), 0..=usize::MAX, true),
+                    VecMutator::new(self_.into(), 0..=usize::MAX),
                     <Vec<u64>>::default_mutator(),
                 ))
             })]

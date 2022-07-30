@@ -318,7 +318,7 @@ pub(crate) fn gen_f64(rng: &fastrand::Rng, range: Range<f64>) -> f64 {
 #[must_use]
 #[no_coverage]
 fn size_to_cplxity(size: usize) -> f64 {
-    (usize::BITS - (size.saturating_sub(1)).leading_zeros()) as f64
+    (usize::BITS - size.leading_zeros()) as f64
 }
 
 #[cfg(test)]
@@ -330,12 +330,12 @@ mod test {
     #[no_coverage]
     fn test_size_to_cplxity() {
         assert_eq!(0.0, size_to_cplxity(0));
-        assert_eq!(0.0, size_to_cplxity(1));
-        assert_eq!(1.0, size_to_cplxity(2));
+        assert_eq!(1.0, size_to_cplxity(1));
+        assert_eq!(2.0, size_to_cplxity(2));
         assert_eq!(2.0, size_to_cplxity(3));
-        assert_eq!(2.0, size_to_cplxity(4));
+        assert_eq!(3.0, size_to_cplxity(4));
         assert_eq!(3.0, size_to_cplxity(5));
-        assert_eq!(3.0, size_to_cplxity(8));
+        assert_eq!(4.0, size_to_cplxity(8));
         assert_eq!(5.0, size_to_cplxity(31));
     }
 }

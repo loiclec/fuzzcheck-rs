@@ -22,7 +22,7 @@ where
     max_complexity: Cell<f64>,
     search_space_complexity: Cell<f64>,
     has_inherent_complexity: bool,
-    inherent_complexity: f64,
+    inherent_complexity: Cell<f64>,
     _phantom: PhantomData<T>,
 }
 impl<T, M> FixedLenVecMutator<T, M>
@@ -32,7 +32,7 @@ where
 {
     #[no_coverage]
     pub fn new_with_repeated_mutator(mutator: M, len: usize) -> Self {
-        Self::new(vec![mutator; len], true)
+        Self::new(vec![mutator; len])
     }
 }
 
@@ -41,8 +41,34 @@ where
     T: Clone + 'static,
     M: Mutator<T>,
 {
+    /// Note: only use this function if you really know what you are doing!
+    ///
+    /// Create a `FixedLenVecMutator` using the given submutators.
+    /// The complexity of the generated vectors will be only the sum of the
+    /// complexities of their elements.
+    ///
+    /// This is not the default behaviour.
+    /// Normally, a vector such as `[1u8, 2u8]` would have a complexity of `17`:
+    /// `2 * 8` for the first two integers, and `+ 1` for the inherent
+    /// complexity of the vector itself. If the vector contains elements with a
+    /// minimum complexity of 0.0, then its length would also influence its
+    /// complexity. For example, `[(), ()]` would have a complexity of `3.0`:
+    /// `1` for the vector and  `+ 2` for the length.
+    ///
+    /// By using this function to create the `FixedLenVecMutator`, we get rid
+    /// of the "inherent" part of the vector complexity. For example, the vector
+    /// `[1u8, 2u8]` will have a complexity of 16.0 and the vector `[[], []]`
+    /// will have a complexity of 0.0.
+    ///
+    /// Note that *all mutators in a fuzz test must agree on the complexity of
+    /// a value*. For example, if you are mutating a 2-tuple of vectors:
+    /// `(Vec<u8>, Vec<u8>)` using two `FixedLenVecMutator`, then both must
+    /// agree on whether to include the inherent complexity of the vectors or
+    /// not. That is, given the value `([1, 2], [1, 2])`, it is an error to
+    /// evaluate the complexity of the first vector as `16.0` and the complexity
+    /// of the second vector as `17.0`.
     #[no_coverage]
-    pub fn new(mutators: Vec<M>, inherent_complexity: bool) -> Self {
+    pub fn new_without_inherent_complexity(mutators: Vec<M>) -> Self {
         assert!(!mutators.is_empty());
 
         Self {
@@ -52,8 +78,25 @@ where
             min_complexity: Cell::new(std::f64::INFINITY),
             max_complexity: Cell::default(),
             search_space_complexity: Cell::default(),
-            has_inherent_complexity: inherent_complexity,
-            inherent_complexity: 0.,
+            has_inherent_complexity: false,
+            inherent_complexity: Cell::default(),
+            _phantom: PhantomData,
+        }
+    }
+
+    #[no_coverage]
+    pub fn new(mutators: Vec<M>) -> Self {
+        assert!(!mutators.is_empty());
+
+        Self {
+            rng: Rng::default(),
+            mutators,
+            initialized: Cell::new(false),
+            min_complexity: Cell::new(std::f64::INFINITY),
+            max_complexity: Cell::default(),
+            search_space_complexity: Cell::default(),
+            has_inherent_complexity: true,
+            inherent_complexity: Cell::default(),
             _phantom: PhantomData,
         }
     }
@@ -213,6 +256,7 @@ impl<T: Clone + 'static, M: Mutator<T>> Mutator<Vec<T>> for FixedLenVecMutator<T
             |cplx, m| cplx + m.global_search_space_complexity(),
         );
         self.initialized.set(true);
+        self.inherent_complexity.set(inherent_complexity);
         self.min_complexity.set(min_complexity);
         self.max_complexity.set(max_complexity);
         self.search_space_complexity.set(search_space_complexity);
@@ -304,7 +348,7 @@ impl<T: Clone + 'static, M: Mutator<T>> Mutator<Vec<T>> for FixedLenVecMutator<T
     #[doc(hidden)]
     #[no_coverage]
     fn complexity(&self, _value: &Vec<T>, cache: &Self::Cache) -> f64 {
-        cache.sum_cplx + self.inherent_complexity
+        cache.sum_cplx + self.inherent_complexity.get()
     }
 
     #[doc(hidden)]
@@ -321,7 +365,7 @@ impl<T: Clone + 'static, M: Mutator<T>> Mutator<Vec<T>> for FixedLenVecMutator<T
     fn random_arbitrary(&self, max_cplx: f64) -> (Vec<T>, f64) {
         let target_cplx = crate::mutators::gen_f64(&self.rng, 1.0..max_cplx);
         let (v, sum_cplx) = self.new_input_with_complexity(target_cplx);
-        (v, sum_cplx + self.inherent_complexity)
+        (v, sum_cplx + self.inherent_complexity.get())
     }
 
     #[doc(hidden)]
@@ -347,11 +391,11 @@ impl<T: Clone + 'static, M: Mutator<T>> Mutator<Vec<T>> for FixedLenVecMutator<T
             let step = &mut step.crossover_steps[choice];
             let old_el_cplx = self.mutators[choice].complexity(&value[choice], &cache.inner[choice]);
             let current_cplx = self.complexity(value, cache);
-            let max_el_cplx = current_cplx - old_el_cplx - self.inherent_complexity;
+            let max_el_cplx = current_cplx - old_el_cplx - self.inherent_complexity.get();
             if let Some((el, new_el_cplx)) = step.get_next_subvalue(subvalue_provider, max_el_cplx) && self.mutators[choice].is_valid(el) {
                 let mut el = el.clone();
                 std::mem::swap(&mut value[choice], &mut el);
-                let cplx = cache.sum_cplx - old_el_cplx + new_el_cplx + self.inherent_complexity;
+                let cplx = cache.sum_cplx - old_el_cplx + new_el_cplx + self.inherent_complexity.get();
                 let token = UnmutateVecToken::ReplaceElement(choice, el);
                 return Some((token, cplx));
             }
@@ -364,7 +408,7 @@ impl<T: Clone + 'static, M: Mutator<T>> Mutator<Vec<T>> for FixedLenVecMutator<T
             let idcs = &idcs[..count];
             Some(self.mutate_elements(value, cache, idcs, current_cplx, max_cplx))
         } else {
-            let spare_cplx = max_cplx - current_cplx - self.inherent_complexity;
+            let spare_cplx = max_cplx - current_cplx - self.inherent_complexity.get();
             let idx = step.element_step % value.len();
             step.element_step += 1;
             self.mutate_element(value, cache, step, subvalue_provider, idx, current_cplx, spare_cplx)
