@@ -50,8 +50,8 @@ where
             added_complexity,
             initialized: Cell::new(false),
             min_complexity: Cell::new(std::f64::INFINITY),
-            max_complexity: Cell::default(),
-            search_space_complexity: Cell::default(),
+            max_complexity: Cell::new(std::f64::INFINITY),
+            search_space_complexity: Cell::new(std::f64::INFINITY),
             _phantom: PhantomData,
         }
     }
@@ -165,9 +165,14 @@ where
                 |x1, x2| x1.partial_cmp(x2).unwrap_or(Ordering::Equal),
             )
             .unwrap();
+
         self.min_complexity.set(min_complexity);
         self.max_complexity.set(max_complexity);
         self.search_space_complexity.set(search_space_complexity);
+
+        for mutator in self.mutators.iter() {
+            mutator.initialize();
+        }
         self.initialized.set(true);
     }
 
