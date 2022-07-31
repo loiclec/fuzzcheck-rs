@@ -93,8 +93,8 @@ where
             mutators,
             initialized: Cell::new(false),
             min_complexity: Cell::new(std::f64::INFINITY),
-            max_complexity: Cell::default(),
-            search_space_complexity: Cell::default(),
+            max_complexity: Cell::new(std::f64::INFINITY),
+            search_space_complexity: Cell::new(std::f64::INFINITY),
             has_inherent_complexity: true,
             inherent_complexity: Cell::default(),
             _phantom: PhantomData,
@@ -255,11 +255,12 @@ impl<T: Clone + 'static, M: Mutator<T>> Mutator<Vec<T>> for FixedLenVecMutator<T
             #[no_coverage]
             |cplx, m| cplx + m.global_search_space_complexity(),
         );
-        self.initialized.set(true);
         self.inherent_complexity.set(inherent_complexity);
         self.min_complexity.set(min_complexity);
         self.max_complexity.set(max_complexity);
         self.search_space_complexity.set(search_space_complexity);
+
+        self.initialized.set(true);
     }
 
     #[doc(hidden)]
@@ -363,6 +364,7 @@ impl<T: Clone + 'static, M: Mutator<T>> Mutator<Vec<T>> for FixedLenVecMutator<T
     #[doc(hidden)]
     #[no_coverage]
     fn random_arbitrary(&self, max_cplx: f64) -> (Vec<T>, f64) {
+        assert!(self.initialized.get());
         let target_cplx = crate::mutators::gen_f64(&self.rng, 1.0..max_cplx);
         let (v, sum_cplx) = self.new_input_with_complexity(target_cplx);
         (v, sum_cplx + self.inherent_complexity.get())
