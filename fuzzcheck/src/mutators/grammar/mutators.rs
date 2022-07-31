@@ -9,7 +9,7 @@ use fuzzcheck_mutators_derive::make_single_variant_mutator;
 use super::grammar::Grammar;
 use crate::mutators::alternation::AlternationMutator;
 use crate::mutators::character_classes::CharacterMutator;
-use crate::mutators::either::Either;
+use crate::mutators::either::Either3;
 use crate::mutators::fixed_len_vector::FixedLenVecMutator;
 use crate::mutators::grammar::ast::AST;
 use crate::mutators::map::AndMapMutator;
@@ -46,20 +46,19 @@ make_single_variant_mutator! {
     }
 }
 
-type InnerASTMutator = Either<
+type InnerASTMutator = Either3<
     AlternationMutator<AST, ASTMutator>,
-    Either<
-        ASTSingleVariant<
-            Tuple1Mutator<CharacterMutator>,
-            Tuple1Mutator<
-                Either<
-                    FixedLenVecMutator<AST, RecurToMutator<ASTMutator>>,
-                    Either<FixedLenVecMutator<AST, ASTMutator>, VecMutator<AST, ASTMutator>>,
-                >,
+    ASTSingleVariant<
+        Tuple1Mutator<CharacterMutator>,
+        Tuple1Mutator<
+            Either3<
+                FixedLenVecMutator<AST, RecurToMutator<ASTMutator>>,
+                FixedLenVecMutator<AST, ASTMutator>,
+                VecMutator<AST, ASTMutator>,
             >,
         >,
-        RecursiveMutator<ASTMutator>,
     >,
+    RecursiveMutator<ASTMutator>,
 >;
 
 /// A mutator created by [`grammar_based_ast_mutator`](crate::mutators::grammar::grammar_based_ast_mutator)
@@ -242,39 +241,43 @@ impl ASTMutator {
     #[no_coverage]
     fn token(m: CharacterMutator) -> Self {
         Self {
-            inner: Box::new(Either::Right(Either::Left(ASTSingleVariant::Token(
-                Tuple1Mutator::new(m),
-            )))),
+            inner: Box::new(Either3::B(ASTSingleVariant::Token(Tuple1Mutator::new(m)))),
         }
     }
     #[no_coverage]
-    fn sequence(m: Either<FixedLenVecMutator<AST, ASTMutator>, VecMutator<AST, ASTMutator>>) -> Self {
+    fn concatenation(m: FixedLenVecMutator<AST, ASTMutator>) -> Self {
         Self {
-            inner: Box::new(Either::Right(Either::Left(ASTSingleVariant::Sequence(
-                Tuple1Mutator::new(Either::Right(m)),
-            )))),
+            inner: Box::new(Either3::B(ASTSingleVariant::Sequence(Tuple1Mutator::new(Either3::B(
+                m,
+            ))))),
+        }
+    }
+    #[no_coverage]
+    fn repetition(m: VecMutator<AST, ASTMutator>) -> Self {
+        Self {
+            inner: Box::new(Either3::B(ASTSingleVariant::Sequence(Tuple1Mutator::new(Either3::C(
+                m,
+            ))))),
         }
     }
     #[no_coverage]
     fn alternation(m: AlternationMutator<AST, ASTMutator>) -> Self {
         Self {
-            inner: Box::new(Either::Left(m)),
+            inner: Box::new(Either3::A(m)),
         }
     }
     #[no_coverage]
     fn recur(m: RecurToMutator<ASTMutator>) -> Self {
         Self {
-            inner: Box::new(Either::Right(Either::Left(ASTSingleVariant::Sequence(
-                Tuple1Mutator::new(Either::Left(FixedLenVecMutator::new_without_inherent_complexity(vec![
-                    m,
-                ]))),
-            )))),
+            inner: Box::new(Either3::B(ASTSingleVariant::Sequence(Tuple1Mutator::new(Either3::A(
+                FixedLenVecMutator::new_without_inherent_complexity(vec![m]),
+            ))))),
         }
     }
     #[no_coverage]
     fn recursive(m: impl FnMut(&Weak<Self>) -> Self) -> Self {
         Self {
-            inner: Box::new(Either::Right(Either::Right(RecursiveMutator::new(m)))),
+            inner: Box::new(Either3::C(RecursiveMutator::new(m))),
         }
     }
 
@@ -306,14 +309,12 @@ impl ASTMutator {
                     let m = Self::from_grammar_rec(g.clone(), others);
                     ms.push(m);
                 }
-                Self::sequence(Either::Left(FixedLenVecMutator::new_without_inherent_complexity(ms)))
+                Self::concatenation(FixedLenVecMutator::new_without_inherent_complexity(ms))
             }
-            Grammar::Repetition(g, range) => {
-                Self::sequence(Either::Right(VecMutator::new_without_inherent_complexity(
-                    Self::from_grammar_rec(g.clone(), others),
-                    range.start..=range.end - 1,
-                )))
-            }
+            Grammar::Repetition(g, range) => Self::repetition(VecMutator::new_without_inherent_complexity(
+                Self::from_grammar_rec(g.clone(), others),
+                range.start..=range.end - 1,
+            )),
             Grammar::Recurse(g) => {
                 if let Some(m) = others.get(&g.as_ptr()) {
                     Self::recur(RecurToMutator::from(m))
