@@ -450,6 +450,11 @@ where
     }
 
     #[no_coverage]
+    /// Uses the default sensor and pool. For most cases this is desirable, but
+    /// sometimes you might want to instead use
+    /// [`FuzzerBuilder3::sensor_and_pool`]. This is especially true because the
+    /// default sensor and pool tries to find test cases which take a long time
+    /// to execute - this slows down the fuzzer.
     pub fn default_sensor_and_pool(
         self,
     ) -> FuzzerBuilder4<F, M, V, DiverseAndMaxHitsSensor, BasicAndDiverseAndMaxHitsPool> {

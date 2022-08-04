@@ -10,7 +10,8 @@ use crate::Mutator;
 const SIZE_BLOOM: usize = 10_000_000;
 const FALSE_POSITIVE_RATE: f64 = 0.000_001;
 
-/// Experimental mutator which tries to prevent duplicate values to be tested, using a bloom filter
+/// Experimental mutator which tries to prevent a value from being tested more
+/// than once (using a bloom filter).
 ///
 /// **Important:** this mutator cannot be used as a submutator.
 pub struct UniqueMutator<T, TH, Focus, M>

@@ -3,6 +3,14 @@ use std::marker::PhantomData;
 
 use crate::Mutator;
 
+/// [`MapMutator`] provides a way to transform a mutator outputting values of
+/// type `From` into a mutator outputting values of type `To`, provided that a
+/// mutator for values of type `To` exists, and it is possible to convert from
+/// `From` to `To`.
+///
+/// If you are trying to _add_ additional information to a type (for example, if
+/// you were transforming a type `T` to `(T, CtxDerivedFromT)`) then you should
+/// use [`AndMapMutator`], which is more efficient for this usecase.
 pub struct MapMutator<From, To, M, Parse, Map, Cplx>
 where
     From: Clone + 'static,
