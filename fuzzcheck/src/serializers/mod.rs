@@ -11,11 +11,16 @@
 //! * [StringSerializer] encodes and decodes values of any type implementing
 //! `FromStr` and `ToString` into utf-8 encoded text files.
 
+#[cfg(feature = "serde_ron_serializer")]
+mod serde_ron_serializer;
 #[cfg(feature = "serde_json_serializer")]
 mod serde_serializer;
+
 use std::marker::PhantomData;
 use std::str::FromStr;
 
+#[cfg(feature = "serde_ron_serializer")]
+pub use serde_ron_serializer::SerdeRonSerializer;
 #[cfg(feature = "serde_json_serializer")]
 pub use serde_serializer::SerdeSerializer;
 
