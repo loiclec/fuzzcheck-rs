@@ -18,6 +18,7 @@ cc = "1.0.73"
 grammar_mutator = []
 regex_grammar = ["grammar_mutator", "regex-syntax"]
 serde_json_serializer = ["serde", "serde_json"]
+serde_ron_serializer = ["serde", "ron"]
 
 default = ["grammar_mutator", "regex_grammar", "serde_json_serializer"]
 
@@ -35,6 +36,7 @@ fuzzcheck_common = { path = "../fuzzcheck_common", version = "0.12.0" }
 
 serde = { version = "1.0.139", features = ["derive"], optional = true }
 serde_json = { version = "1.0.82", optional = true }
+ron = { version = "0.7.1", optional = true }
 
 fuzzcheck_mutators_derive = { path = "../fuzzcheck_mutators_derive", version = "0.12.0" }
 
@@ -49,4 +51,3 @@ rustc-demangle = "0.1.21"
 [lib]
 name = "fuzzcheck"
 bench = false
-

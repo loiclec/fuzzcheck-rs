@@ -74,6 +74,8 @@ use crate::sensors_and_pools::{
     AndPool, DifferentObservations, MaximiseEachCounterPool, MaximiseObservationPool, MostNDiversePool,
     SameObservations, SimplestToActivateCounterPool, WrapperSensor,
 };
+#[cfg(feature = "serde_ron_serializer")]
+use crate::SerdeRonSerializer;
 #[cfg(feature = "serde_json_serializer")]
 use crate::SerdeSerializer;
 use crate::{
@@ -427,6 +429,27 @@ where
         }
     }
 }
+
+#[cfg(feature = "serde_ron_serializer")]
+impl<F, M, V> FuzzerBuilder2<F, M, V>
+where
+    F: Fn(&V) -> bool,
+    V: Clone + serde::Serialize + for<'e> serde::Deserialize<'e> + 'static,
+    M: Mutator<V>,
+{
+    /// Specify [`SerdeRonSerializer`] as the serializer to use when saving the
+    /// interesting test cases to the file system.
+    #[no_coverage]
+    pub fn serde_ron_serializer(self) -> FuzzerBuilder3<F, M, V> {
+        FuzzerBuilder3 {
+            test_function: self.test_function,
+            mutator: self.mutator,
+            serializer: Box::new(SerdeRonSerializer::<V>::default()),
+            _phantom: PhantomData,
+        }
+    }
+}
+
 impl<F, M, V> FuzzerBuilder3<F, M, V>
 where
     F: Fn(&V) -> bool,

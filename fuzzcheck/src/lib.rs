@@ -232,6 +232,9 @@ pub use sensors_and_pools::PoolExt;
 pub use sensors_and_pools::SensorExt;
 #[doc(inline)]
 pub use serializers::ByteSerializer;
+#[cfg(feature = "serde_ron_serializer")]
+#[doc(inline)]
+pub use serializers::SerdeRonSerializer;
 #[cfg(feature = "serde_json_serializer")]
 #[doc(inline)]
 pub use serializers::SerdeSerializer;
