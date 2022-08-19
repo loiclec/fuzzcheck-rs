@@ -2,10 +2,31 @@ use std::any::Any;
 
 use crate::Mutator;
 
+/// A [`FilterMutator`] provides a way to filter values outputted by a mutator.
+/// Given any [`Mutator<Value=T>`] and a function [`Fn(&T) -> bool`] it creates
+/// a new mutator which can generate all the values of `T` the underlying
+/// mutator can, except those for which the filtering function returns false.
 pub struct FilterMutator<M, F> {
-    pub mutator: M,
-    pub filter: F,
+    mutator: M,
+    filter: F,
 }
+
+impl<M, F> FilterMutator<M, F> {
+    /// Creates a new [`FilterMutator`].
+    ///
+    /// Note that the mutator will filter all values for which the filtering
+    /// function returns _false_.
+    pub fn new<T>(mutator: M, filter: F) -> FilterMutator<M, F>
+    where
+        M: Mutator<T>,
+        T: Clone + 'static,
+        F: Fn(&T) -> bool,
+        Self: 'static,
+    {
+        FilterMutator { mutator, filter }
+    }
+}
+
 impl<T, M, F> Mutator<T> for FilterMutator<M, F>
 where
     M: Mutator<T>,
