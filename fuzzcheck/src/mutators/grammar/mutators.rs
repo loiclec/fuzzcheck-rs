@@ -6,7 +6,7 @@ use std::rc::{Rc, Weak};
 
 use fuzzcheck_mutators_derive::make_single_variant_mutator;
 
-use super::grammar::Grammar;
+use super::grammar::{Grammar, GrammarInner};
 use crate::mutators::alternation::AlternationMutator;
 use crate::mutators::character_classes::CharacterMutator;
 use crate::mutators::either::Either3;
@@ -233,7 +233,7 @@ impl Mutator<AST> for ASTMutator {
 }
 
 #[no_coverage]
-pub fn grammar_based_ast_mutator(grammar: Rc<Grammar>) -> ASTMutator {
+pub fn grammar_based_ast_mutator(grammar: Grammar) -> ASTMutator {
     ASTMutator::from_grammar(grammar)
 }
 
@@ -282,19 +282,19 @@ impl ASTMutator {
     }
 
     #[no_coverage]
-    pub(crate) fn from_grammar(grammar: Rc<Grammar>) -> Self {
+    pub(crate) fn from_grammar(grammar: Grammar) -> Self {
         let mut others = HashMap::new();
         Self::from_grammar_rec(grammar, &mut others)
     }
 
     #[no_coverage]
     pub(crate) fn from_grammar_rec(
-        grammar: Rc<Grammar>,
-        others: &mut HashMap<*const Grammar, Weak<ASTMutator>>,
+        grammar: Grammar,
+        others: &mut HashMap<*const GrammarInner, Weak<ASTMutator>>,
     ) -> Self {
         match grammar.as_ref() {
-            Grammar::Literal(l) => Self::token(CharacterMutator::new(l.clone())),
-            Grammar::Alternation(gs) => Self::alternation(AlternationMutator::new(
+            GrammarInner::Literal(l) => Self::token(CharacterMutator::new(l.clone())),
+            GrammarInner::Alternation(gs) => Self::alternation(AlternationMutator::new(
                 gs.iter()
                     .map(
                         #[no_coverage]
@@ -303,7 +303,7 @@ impl ASTMutator {
                     .collect(),
                 0.0,
             )),
-            Grammar::Concatenation(gs) => {
+            GrammarInner::Concatenation(gs) => {
                 let mut ms = Vec::<ASTMutator>::new();
                 for g in gs {
                     let m = Self::from_grammar_rec(g.clone(), others);
@@ -311,21 +311,21 @@ impl ASTMutator {
                 }
                 Self::concatenation(FixedLenVecMutator::new_without_inherent_complexity(ms))
             }
-            Grammar::Repetition(g, range) => Self::repetition(VecMutator::new_without_inherent_complexity(
+            GrammarInner::Repetition(g, range) => Self::repetition(VecMutator::new_without_inherent_complexity(
                 Self::from_grammar_rec(g.clone(), others),
                 range.start..=range.end - 1,
             )),
-            Grammar::Recurse(g) => {
+            GrammarInner::Recurse(g) => {
                 if let Some(m) = others.get(&g.as_ptr()) {
                     Self::recur(RecurToMutator::from(m))
                 } else {
                     panic!()
                 }
             }
-            Grammar::Recursive(g) => Self::recursive(
+            GrammarInner::Recursive(g) => Self::recursive(
                 #[no_coverage]
                 |m| {
-                    let weak_g = Rc::downgrade(g);
+                    let weak_g = Rc::downgrade(&g.0);
                     others.insert(weak_g.as_ptr(), m.clone());
                     Self::from_grammar_rec(g.clone(), others)
                 },

@@ -1,17 +1,16 @@
-use std::rc::Rc;
-
 use regex_syntax::hir::{Class, HirKind, Literal, RepetitionKind, RepetitionRange};
 
-use crate::mutators::grammar::{alternation, concatenation, literal, literal_ranges, repetition, Grammar};
+use super::grammar::Grammar;
+use crate::mutators::grammar::{alternation, concatenation, literal, literal_ranges, repetition};
 
 #[no_coverage]
-pub(crate) fn grammar_from_regex(regex: &str) -> Rc<Grammar> {
+pub(crate) fn grammar_from_regex(regex: &str) -> Grammar {
     let mut parser = regex_syntax::Parser::new();
     let hir = parser.parse(regex).unwrap();
     grammar_from_regex_hir_kind(hir.kind())
 }
 #[no_coverage]
-pub fn grammar_from_regex_hir_kind(hir: &HirKind) -> Rc<Grammar> {
+pub fn grammar_from_regex_hir_kind(hir: &HirKind) -> Grammar {
     match hir {
         HirKind::Empty => panic!("empty regexes are not supported"),
         HirKind::Literal(l) => match l {
