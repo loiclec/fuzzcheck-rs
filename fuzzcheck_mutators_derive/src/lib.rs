@@ -2,6 +2,7 @@
 #![allow(clippy::type_complexity)]
 #![allow(clippy::large_enum_variant)]
 #![feature(stmt_expr_attributes)]
+#![feature(let_chains)]
 
 use proc_macro2::{Ident, Literal, TokenStream, TokenTree};
 use syn::ext::IdentExt;
