@@ -1,4 +1,4 @@
-use std::ops::{Range, RangeBounds, RangeInclusive};
+use std::ops::{Add, BitOr, Range, RangeBounds, RangeInclusive};
 use std::rc::{Rc, Weak};
 
 #[cfg(feature = "regex_grammar")]
@@ -8,46 +8,90 @@ use crate::mutators::grammar::regex::grammar_from_regex;
 /// A grammar which can be used for fuzzing.
 ///
 /// See [the module documentation](crate::mutators::grammar) for advice on how to create a grammar.
-pub enum Grammar {
+pub enum GrammarInner {
     Literal(Vec<RangeInclusive<char>>),
-    Alternation(Vec<Rc<Grammar>>),
-    Concatenation(Vec<Rc<Grammar>>),
-    Repetition(Rc<Grammar>, Range<usize>),
-    Recurse(Weak<Grammar>),
-    Recursive(Rc<Grammar>),
+    Alternation(Vec<Grammar>),
+    Concatenation(Vec<Grammar>),
+    Repetition(Grammar, Range<usize>),
+    Recurse(Weak<GrammarInner>),
+    Recursive(Grammar),
+}
+
+#[derive(Debug, Clone)]
+/// A [`Grammar`] can be transformed into an [`ASTMutator`] (which generates
+/// [`String`]s corresponding to the grammar in question) or combined with other
+/// grammars to produce a more complicated grammar.
+///
+/// For examples on how to use this struct, see the crate documentation
+/// ([`super`]).
+///
+/// [`ASTMutator`]: crate::mutators::grammar::ASTMutator
+pub struct Grammar(pub(crate) Rc<GrammarInner>);
+
+impl From<Rc<GrammarInner>> for Grammar {
+    fn from(inner: Rc<GrammarInner>) -> Self {
+        Grammar(inner)
+    }
+}
+
+impl AsRef<GrammarInner> for Grammar {
+    fn as_ref(&self) -> &GrammarInner {
+        &self.0
+    }
+}
+
+impl Add for Grammar {
+    type Output = Grammar;
+
+    /// Calls [`concatenation`] on the two provided grammars.
+    fn add(self, rhs: Self) -> Self::Output {
+        concatenation([self, rhs])
+    }
+}
+
+impl BitOr for Grammar {
+    type Output = Grammar;
+
+    /// Calls [`alternation`] on the two provided grammars.
+    fn bitor(self, rhs: Self) -> Self::Output {
+        alternation([self, rhs])
+    }
 }
 
 #[cfg(feature = "regex_grammar")]
 #[doc(cfg(feature = "regex_grammar"))]
 #[no_coverage]
-pub fn regex(s: &str) -> Rc<Grammar> {
+pub fn regex(s: &str) -> Grammar {
     grammar_from_regex(s)
 }
 
 #[no_coverage]
-/// Creates an [`Rc<Grammar>`] which outputs characters in the given range.
+/// Creates a [`Grammar`] which outputs characters in the given range.
 ///
 /// For example, to generate characters in the range 'a' to 'z' (inclusive), one
 /// could use this code
 ///
 /// ```
-/// let a_to_z = literal_ranges('a'..='z');
+/// # use fuzzcheck::mutators::grammar::literal_ranges;
+/// let a_to_z = literal_ranges(vec!['a'..='b', 'q'..='s', 't'..='w']);
 /// ```
-pub fn literal_ranges(ranges: Vec<RangeInclusive<char>>) -> Rc<Grammar> {
-    Rc::new(Grammar::Literal(ranges))
+pub fn literal_ranges(ranges: Vec<RangeInclusive<char>>) -> Grammar {
+    Rc::new(GrammarInner::Literal(ranges)).into()
 }
 
 #[no_coverage]
-/// Creates an [`Rc<Grammar>`] which matches a single character literal.
+/// Creates a [`Grammar`] which matches a single character literal.
 ///
 /// ```
+/// # use fuzzcheck::mutators::grammar::literal;
 /// let l = literal('l');
 /// ```
-pub fn literal(l: char) -> Rc<Grammar> {
-    Rc::new(Grammar::Literal(vec![l..=l]))
+pub fn literal(l: char) -> Grammar {
+    Rc::new(GrammarInner::Literal(vec![l..=l])).into()
 }
+
 #[no_coverage]
-pub fn literal_range<R>(range: R) -> Rc<Grammar>
+pub fn literal_range<R>(range: R) -> Grammar
 where
     R: RangeBounds<char>,
 {
@@ -61,13 +105,31 @@ where
         std::ops::Bound::Excluded(x) => unsafe { char::from_u32_unchecked(*x as u32 - 1) },
         std::ops::Bound::Unbounded => panic!("The range must have an upper bound"),
     };
-    Rc::new(Grammar::Literal(vec![start..=end]))
+    Rc::new(GrammarInner::Literal(vec![start..=end])).into()
 }
 
 /// Produces a grammar which will choose between the provided grammars.
+///
+/// For example, this grammar
+/// ```
+/// # use fuzzcheck::mutators::grammar::{Grammar, alternation, regex};
+/// let fuzz_or_check: Grammar = alternation([
+///     regex("fuzz"),
+///     regex("check")
+/// ]);
+/// ```
+/// would output either "fuzz" or "check".
+///
+/// It is also possible to use the `|` operator to write alternation grammars.
+/// For example, the [`Grammar`] above could be equivalently written as
+///
+/// ```
+/// # use fuzzcheck::mutators::grammar::{Grammar, regex};
+/// let fuzz_or_check: Grammar = regex("fuzz") | regex("check");
+/// ```
 #[no_coverage]
-pub fn alternation(gs: impl IntoIterator<Item = Rc<Grammar>>) -> Rc<Grammar> {
-    Rc::new(Grammar::Alternation(gs.into_iter().collect()))
+pub fn alternation(gs: impl IntoIterator<Item = Grammar>) -> Grammar {
+    Rc::new(GrammarInner::Alternation(gs.into_iter().collect())).into()
 }
 
 /// Produces a grammar which will concatenate the output of all the provided
@@ -75,20 +137,29 @@ pub fn alternation(gs: impl IntoIterator<Item = Rc<Grammar>>) -> Rc<Grammar> {
 ///
 /// For example, the grammar
 /// ```
-/// concatenation([
+/// # use fuzzcheck::mutators::grammar::{concatenation, Grammar, regex};
+/// let fuzzcheck: Grammar = concatenation([
 ///     regex("fuzz"),
 ///     regex("check")
-/// ])
+/// ]);
 /// ```
 /// would output "fuzzcheck".
+///
+/// It is also possible to use the `+` operator to concatenate separate grammars
+/// together. For example, the grammar above could be equivalently written as
+///
+/// ```
+/// # use fuzzcheck::mutators::grammar::{Grammar, regex};
+/// let fuzzcheck: Grammar = regex("fuzz") + regex("check");
+/// ```
 #[no_coverage]
-pub fn concatenation(gs: impl IntoIterator<Item = Rc<Grammar>>) -> Rc<Grammar> {
-    Rc::new(Grammar::Concatenation(gs.into_iter().collect()))
+pub fn concatenation(gs: impl IntoIterator<Item = Grammar>) -> Grammar {
+    Rc::new(GrammarInner::Concatenation(gs.into_iter().collect())).into()
 }
 
 #[no_coverage]
-/// Repeats the provided grammar some number of times in the given range.
-pub fn repetition<R>(gs: Rc<Grammar>, range: R) -> Rc<Grammar>
+/// Repeats the provided [`Grammar`] some number of times in the given range.
+pub fn repetition<R>(gs: Grammar, range: R) -> Grammar
 where
     R: RangeBounds<usize>,
 {
@@ -102,7 +173,7 @@ where
         std::ops::Bound::Excluded(x) => *x,
         std::ops::Bound::Unbounded => usize::MAX,
     };
-    Rc::new(Grammar::Repetition(gs, start..end))
+    Rc::new(GrammarInner::Repetition(gs, start..end)).into()
 }
 
 #[no_coverage]
@@ -110,17 +181,18 @@ where
 /// [`recursive`].
 ///
 /// See the module documentation ([`super`]) for an example on how to use it.
-pub fn recurse(g: &Weak<Grammar>) -> Rc<Grammar> {
-    Rc::new(Grammar::Recurse(g.clone()))
+pub fn recurse(g: &Weak<GrammarInner>) -> Grammar {
+    Rc::new(GrammarInner::Recurse(g.clone())).into()
 }
 
 #[no_coverage]
-/// Creates a recursive grammar. This function should be combined with
+/// Creates a recursive [`Grammar`]. This function should be combined with
 /// [`recurse`] to make recursive calls.
 ///
 /// See the module documentation ([`super`]) for an example on how to use it.
-pub fn recursive(data_fn: impl Fn(&Weak<Grammar>) -> Rc<Grammar>) -> Rc<Grammar> {
-    Rc::new(Grammar::Recursive(Rc::new_cyclic(|g| {
-        Rc::try_unwrap(data_fn(g)).unwrap()
-    })))
+pub fn recursive(data_fn: impl Fn(&Weak<GrammarInner>) -> Grammar) -> Grammar {
+    Rc::new(GrammarInner::Recursive(
+        Rc::new_cyclic(|g| Rc::try_unwrap(data_fn(g).0).unwrap()).into(),
+    ))
+    .into()
 }
