@@ -7,7 +7,7 @@ pub enum X<T> {
 }
 
 #[test]
-#[no_coverage]
+#[coverage(off)]
 fn test_compile() {
     let m = X::<Vec<u8>>::default_mutator();
     let (value, _cache): (X<Vec<u8>>, _) = m.random_arbitrary(100.0);

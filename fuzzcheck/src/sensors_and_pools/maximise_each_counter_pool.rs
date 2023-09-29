@@ -18,7 +18,7 @@ pub struct MaximiseEachCounterPoolStats {
 }
 
 impl Display for MaximiseEachCounterPoolStats {
-    #[no_coverage]
+    #[coverage(off)]
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
@@ -29,14 +29,14 @@ impl Display for MaximiseEachCounterPoolStats {
 }
 
 impl ToCSV for MaximiseEachCounterPoolStats {
-    #[no_coverage]
+    #[coverage(off)]
     fn csv_headers(&self) -> Vec<CSVField> {
         vec![
             CSVField::String(format!("{}-count", self.name)),
             CSVField::String(format!("{}-sum", self.name)),
         ]
     }
-    #[no_coverage]
+    #[coverage(off)]
     fn to_csv_record(&self) -> Vec<CSVField> {
         vec![
             CSVField::Integer(self.size as isize),
@@ -71,7 +71,7 @@ pub struct MaximiseEachCounterPool {
     rng: fastrand::Rng,
 }
 impl Debug for MaximiseEachCounterPool {
-    #[no_coverage]
+    #[coverage(off)]
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("CounterMaximizingPool")
             .field("complexities", &self.complexities)
@@ -84,7 +84,7 @@ impl Debug for MaximiseEachCounterPool {
 }
 
 impl MaximiseEachCounterPool {
-    #[no_coverage]
+    #[coverage(off)]
     pub fn new(name: &str, size: usize) -> Self {
         Self {
             name: name.to_string(),
@@ -106,12 +106,12 @@ impl MaximiseEachCounterPool {
 impl Pool for MaximiseEachCounterPool {
     type Stats = MaximiseEachCounterPoolStats;
 
-    #[no_coverage]
+    #[coverage(off)]
     fn stats(&self) -> Self::Stats {
         self.stats.clone()
     }
 
-    #[no_coverage]
+    #[coverage(off)]
     fn get_random_index(&mut self) -> Option<PoolStorageIndex> {
         let choice = self.ranked_inputs.sample(&self.rng)?;
 
@@ -129,21 +129,21 @@ impl Pool for MaximiseEachCounterPool {
 }
 
 impl SaveToStatsFolder for MaximiseEachCounterPool {
-    #[no_coverage]
+    #[coverage(off)]
     fn save_to_stats_folder(&self) -> Vec<(std::path::PathBuf, Vec<u8>)> {
         vec![]
     }
 }
 
 impl MaximiseEachCounterPool {
-    #[no_coverage]
+    #[coverage(off)]
     fn update_stats(&mut self) {
         let inputs = &self.inputs;
         let ranked_inputs = self
             .inputs
             .keys()
             .map(
-                #[no_coverage]
+                #[coverage(off)]
                 |key| {
                     let input = &inputs[key];
                     input.score / (input.number_times_chosen as f64)
@@ -182,7 +182,7 @@ where
             best_for_counters: highest_for_counters
                 .iter()
                 .map(
-                    #[no_coverage]
+                    #[coverage(off)]
                     |x| x.0,
                 )
                 .collect(),

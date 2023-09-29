@@ -40,7 +40,7 @@ where
     T: Clone + 'static,
     M: Mutator<T>,
 {
-    #[no_coverage]
+    #[coverage(off)]
     pub fn new(mutators: Vec<M>, added_complexity: f64) -> Self {
         assert!(!mutators.is_empty());
 
@@ -92,7 +92,7 @@ where
     T: Clone + 'static,
     M: Mutator<T>,
 {
-    #[no_coverage]
+    #[coverage(off)]
     fn complexity_from_inner(&self, cplx: f64) -> f64 {
         cplx + self.added_complexity
     }
@@ -113,7 +113,7 @@ where
     type UnmutateToken = UnmutateToken<T, M::UnmutateToken>;
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn initialize(&self) {
         for mutator in self.mutators.iter() {
             mutator.initialize();
@@ -125,7 +125,7 @@ where
             .mutators
             .iter()
             .map(
-                #[no_coverage]
+                #[coverage(off)]
                 |m| {
                     let cplx = m.global_search_space_complexity();
                     if cplx == 0. {
@@ -136,7 +136,7 @@ where
                 },
             )
             .max_by(
-                #[no_coverage]
+                #[coverage(off)]
                 |x, y| x.partial_cmp(y).unwrap_or(Ordering::Equal),
             )
             .unwrap();
@@ -145,11 +145,11 @@ where
             .mutators
             .iter()
             .map(
-                #[no_coverage]
+                #[coverage(off)]
                 |m| m.max_complexity() + self.added_complexity,
             )
             .max_by(
-                #[no_coverage]
+                #[coverage(off)]
                 |x1, x2| x1.partial_cmp(x2).unwrap_or(Ordering::Equal),
             )
             .unwrap();
@@ -157,11 +157,11 @@ where
             .mutators
             .iter()
             .map(
-                #[no_coverage]
+                #[coverage(off)]
                 |m| m.min_complexity() + self.added_complexity,
             )
             .min_by(
-                #[no_coverage]
+                #[coverage(off)]
                 |x1, x2| x1.partial_cmp(x2).unwrap_or(Ordering::Equal),
             )
             .unwrap();
@@ -177,14 +177,14 @@ where
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn default_arbitrary_step(&self) -> Self::ArbitraryStep {
         Self::ArbitraryStep {
             inner: self
                 .mutators
                 .iter()
                 .map(
-                    #[no_coverage]
+                    #[coverage(off)]
                     |m| m.default_arbitrary_step(),
                 )
                 .collect(),
@@ -194,7 +194,7 @@ where
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn is_valid(&self, value: &T) -> bool {
         for m in self.mutators.iter() {
             if m.is_valid(value) {
@@ -205,7 +205,7 @@ where
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn validate_value(&self, value: &T) -> Option<Self::Cache> {
         let mut caches = vec![];
         for (idx, mutator) in self.mutators.iter().enumerate() {
@@ -224,12 +224,12 @@ where
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn default_mutation_step(&self, value: &T, cache: &Self::Cache) -> Self::MutationStep {
         cache
             .iter()
             .map(
-                #[no_coverage]
+                #[coverage(off)]
                 |c| {
                     let m = &self.mutators[c.mutator_idx];
                     MutationStep {
@@ -248,32 +248,32 @@ where
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn global_search_space_complexity(&self) -> f64 {
         self.search_space_complexity.get()
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn max_complexity(&self) -> f64 {
         self.max_complexity.get()
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn min_complexity(&self) -> f64 {
         self.min_complexity.get()
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn complexity(&self, value: &T, cache: &Self::Cache) -> f64 {
         let cache = &cache[0];
         self.complexity_from_inner(self.mutators[cache.mutator_idx].complexity(value, &cache.inner))
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn ordered_arbitrary(&self, step: &mut Self::ArbitraryStep, max_cplx: f64) -> Option<(T, f64)> {
         if step.indices.is_empty() {
             return None;
@@ -295,7 +295,7 @@ where
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn random_arbitrary(&self, max_cplx: f64) -> (T, f64) {
         let idx = self.rng.usize(..self.mutators.len());
         let mutator = &self.mutators[idx];
@@ -305,7 +305,7 @@ where
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn ordered_mutate(
         &self,
         value: &mut T,
@@ -344,7 +344,7 @@ where
         let chosen_cache = cache
             .iter_mut()
             .find(
-                #[no_coverage]
+                #[coverage(off)]
                 |c| c.mutator_idx == mutator_idx,
             )
             .unwrap();
@@ -377,7 +377,7 @@ where
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn random_mutate(&self, value: &mut T, cache: &mut Self::Cache, max_cplx: f64) -> (Self::UnmutateToken, f64) {
         let cache_idx = self.rng.usize(..cache.len());
         let cache = &mut cache[cache_idx];
@@ -400,7 +400,7 @@ where
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn unmutate(&self, value: &mut T, cache: &mut Self::Cache, t: Self::UnmutateToken) {
         match t {
             UnmutateToken::Replace(v) => {
@@ -411,7 +411,7 @@ where
                 let cache = cache
                     .iter_mut()
                     .find(
-                        #[no_coverage]
+                        #[coverage(off)]
                         |c| c.mutator_idx == idx,
                     )
                     .unwrap();
@@ -421,7 +421,7 @@ where
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn visit_subvalues<'a>(&self, value: &'a T, cache: &'a Self::Cache, visit: &mut dyn FnMut(&'a dyn Any, f64)) {
         for cache in cache.iter() {
             let mutator_idx = cache.mutator_idx;

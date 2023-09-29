@@ -37,14 +37,14 @@ pub struct Counter {
 }
 
 impl CodeCoverageSensor {
-    #[no_coverage]
+    #[coverage(off)]
     pub(crate) fn coverage_map(&self) -> CoverageMap {
         let mut idx = 0;
         let functions = self
             .coverage
             .iter()
             .map(
-                #[no_coverage]
+                #[coverage(off)]
                 |coverage| {
                     let f_record = &coverage.function_record;
                     assert!(f_record.filenames.len() == 1);
@@ -76,7 +76,7 @@ impl CodeCoverageSensor {
                             .filename_indices
                             .iter()
                             .position(
-                                #[no_coverage]
+                                #[coverage(off)]
                                 |idx| *idx == regions[0].filename_index,
                             )
                             .unwrap();
@@ -86,7 +86,7 @@ impl CodeCoverageSensor {
                             regions: regions
                                 .iter()
                                 .map(
-                                    #[no_coverage]
+                                    #[coverage(off)]
                                     |region| Region {
                                         lines: (region.line_start, region.line_end),
                                         cols: (region.col_start, region.col_end),
@@ -102,12 +102,12 @@ impl CodeCoverageSensor {
                         .inferred_expressions
                         .iter()
                         .map(
-                            #[no_coverage]
+                            #[coverage(off)]
                             |(regions, from_expr_idxs)| InferredCounter {
                                 regions: regions
                                     .iter()
                                     .map(
-                                        #[no_coverage]
+                                        #[coverage(off)]
                                         |region| Region {
                                             lines: (region.line_start, region.line_end),
                                             cols: (region.col_start, region.col_end),
@@ -117,7 +117,7 @@ impl CodeCoverageSensor {
                                 from_counter_ids: from_expr_idxs
                                     .iter()
                                     .map(
-                                        #[no_coverage]
+                                        #[coverage(off)]
                                         |idx| expression_idx_to_counter_idx[idx],
                                     )
                                     .collect(),

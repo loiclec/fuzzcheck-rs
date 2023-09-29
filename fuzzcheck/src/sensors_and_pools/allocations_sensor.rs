@@ -82,7 +82,7 @@ pub struct AllocationSensor {
 }
 
 impl SaveToStatsFolder for AllocationSensor {
-    #[no_coverage]
+    #[coverage(off)]
     fn save_to_stats_folder(&self) -> Vec<(std::path::PathBuf, Vec<u8>)> {
         vec![]
     }
@@ -90,17 +90,17 @@ impl SaveToStatsFolder for AllocationSensor {
 impl Sensor for AllocationSensor {
     type Observations = (u64, u64);
 
-    #[no_coverage]
+    #[coverage(off)]
     fn start_recording(&mut self) {
         self.start_allocs = get_allocation_stats();
     }
 
-    #[no_coverage]
+    #[coverage(off)]
     fn stop_recording(&mut self) {
         self.end_allocs = get_allocation_stats();
     }
 
-    #[no_coverage]
+    #[coverage(off)]
     fn get_observations(&mut self) -> Self::Observations {
         let blocks = self.end_allocs.total_blocks - self.start_allocs.total_blocks;
         let bytes = self.end_allocs.total_bytes - self.start_allocs.total_bytes;
@@ -126,7 +126,7 @@ struct InternalAllocationStats {
     curr_bytes: AtomicUsize,
 }
 impl InternalAllocationStats {
-    #[no_coverage]
+    #[coverage(off)]
     const fn new() -> Self {
         Self {
             total_blocks: AtomicU64::new(0),
@@ -138,7 +138,7 @@ impl InternalAllocationStats {
 }
 
 impl InternalAllocationStats {
-    #[no_coverage]
+    #[coverage(off)]
     fn realloc(&mut self, size: usize, shrink: bool, delta: usize) {
         self.total_blocks.fetch_add(1, Ordering::Relaxed);
         self.total_bytes.fetch_add(size as u64, Ordering::Relaxed);
@@ -148,7 +148,7 @@ impl InternalAllocationStats {
             self.curr_bytes.fetch_add(delta, Ordering::Relaxed);
         }
     }
-    #[no_coverage]
+    #[coverage(off)]
     fn alloc(&mut self, size: usize) {
         self.total_blocks.fetch_add(1, Ordering::Relaxed);
         self.total_bytes.fetch_add(size as u64, Ordering::Relaxed);
@@ -157,7 +157,7 @@ impl InternalAllocationStats {
         self.curr_bytes.fetch_add(size, Ordering::Relaxed);
     }
 
-    #[no_coverage]
+    #[coverage(off)]
     fn dealloc(&mut self, size: usize) {
         self.curr_blocks.fetch_sub(1, Ordering::Relaxed);
         self.curr_bytes.fetch_sub(size, Ordering::Relaxed);
@@ -187,7 +187,7 @@ unsafe impl<A> GlobalAlloc for CountingAllocator<A>
 where
     A: GlobalAlloc,
 {
-    #[no_coverage]
+    #[coverage(off)]
     unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
         let ptr = self.0.alloc(layout);
         if ptr.is_null() {
@@ -198,7 +198,7 @@ where
         ptr
     }
 
-    #[no_coverage]
+    #[coverage(off)]
     unsafe fn realloc(&self, old_ptr: *mut u8, layout: Layout, new_size: usize) -> *mut u8 {
         let new_ptr = self.0.realloc(old_ptr, layout, new_size);
         if new_ptr.is_null() {
@@ -213,7 +213,7 @@ where
         ALLOC_STATS.realloc(new_size, shrink, delta);
         new_ptr
     }
-    #[no_coverage]
+    #[coverage(off)]
     unsafe fn dealloc(&self, ptr: *mut u8, layout: Layout) {
         self.0.dealloc(ptr, layout);
 
@@ -234,7 +234,7 @@ struct AllocationsStats {
     // curr_bytes: usize,
 }
 
-#[no_coverage]
+#[coverage(off)]
 fn get_allocation_stats() -> AllocationsStats {
     unsafe {
         AllocationsStats {

@@ -1,4 +1,4 @@
-#![feature(no_coverage)]
+#![feature(coverage_attribute)]
 
 pub mod arg;
 

@@ -3,7 +3,7 @@ use fuzzcheck::mutators::recursive::RecurToMutator;
 use fuzzcheck::{make_mutator, DefaultMutator, Mutator};
 
 #[test]
-#[no_coverage]
+#[coverage(off)]
 fn test_compile() {
     let m = S::default_mutator();
     let (x, _) = m.random_arbitrary(10.0);

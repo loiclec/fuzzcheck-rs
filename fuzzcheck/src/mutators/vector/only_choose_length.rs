@@ -47,7 +47,7 @@ where
     T: Clone + 'static,
     M: Mutator<T>,
 {
-    #[no_coverage]
+    #[coverage(off)]
     fn revert(
         mut self,
         _mutator: &VecMutator<T, M>,
@@ -67,7 +67,7 @@ where
     type Step = OnlyChooseLengthStep;
     type Concrete<'a> = ConcreteOnlyChooseLength;
     type Revert = RevertOnlyChooseLength<T>;
-    #[no_coverage]
+    #[coverage(off)]
     fn default_random_step(&self, mutator: &VecMutator<T, M>, _value: &Vec<T>) -> Option<Self::RandomStep> {
         if mutator.m.global_search_space_complexity() <= 0.0 {
             Some(OnlyChooseLengthRandomStep)
@@ -75,7 +75,7 @@ where
             None
         }
     }
-    #[no_coverage]
+    #[coverage(off)]
     fn random<'a>(
         mutator: &VecMutator<T, M>,
         _value: &Vec<T>,
@@ -101,7 +101,7 @@ where
             length: mutator.rng.usize(*mutator.len_range.start()..=upperbound),
         }
     }
-    #[no_coverage]
+    #[coverage(off)]
     fn default_step(
         &self,
         mutator: &VecMutator<T, M>,
@@ -116,7 +116,7 @@ where
             None
         }
     }
-    #[no_coverage]
+    #[coverage(off)]
     fn from_step<'a>(
         mutator: &VecMutator<T, M>,
         _value: &Vec<T>,
@@ -136,7 +136,7 @@ where
             None
         }
     }
-    #[no_coverage]
+    #[coverage(off)]
     fn apply<'a>(
         mutation: Self::Concrete<'a>,
         mutator: &VecMutator<T, M>,

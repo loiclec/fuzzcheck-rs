@@ -26,7 +26,7 @@ impl<T> Display for MaximiseObservationPoolStats<T>
 where
     T: Debug,
 {
-    #[no_coverage]
+    #[coverage(off)]
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}({:?})", self.name, self.best)
     }
@@ -35,11 +35,11 @@ impl<T> ToCSV for MaximiseObservationPoolStats<T>
 where
     T: Debug,
 {
-    #[no_coverage]
+    #[coverage(off)]
     fn csv_headers(&self) -> Vec<CSVField> {
         vec![CSVField::String(self.name.clone())]
     }
-    #[no_coverage]
+    #[coverage(off)]
     fn to_csv_record(&self) -> Vec<CSVField> {
         vec![CSVField::String(format!("{:?}", self.best))]
     }
@@ -47,7 +47,7 @@ where
 impl<T> Stats for MaximiseObservationPoolStats<T> where T: Debug + Default + 'static {}
 
 impl<T> MaximiseObservationPool<T> {
-    #[no_coverage]
+    #[coverage(off)]
     pub fn new(name: &str) -> Self {
         Self {
             name: name.to_string(),
@@ -61,7 +61,7 @@ where
 {
     type Stats = MaximiseObservationPoolStats<T>;
 
-    #[no_coverage]
+    #[coverage(off)]
     fn stats(&self) -> Self::Stats {
         MaximiseObservationPoolStats {
             name: self.name.clone(),
@@ -69,13 +69,13 @@ where
                 .current_best
                 .as_ref()
                 .map(
-                    #[no_coverage]
+                    #[coverage(off)]
                     |z| z.0.clone(),
                 )
                 .unwrap_or_default(),
         }
     }
-    #[no_coverage]
+    #[coverage(off)]
     fn get_random_index(&mut self) -> Option<PoolStorageIndex> {
         if let Some(best) = &self.current_best {
             Some(best.1.input_id)
@@ -85,7 +85,7 @@ where
     }
 }
 impl<T> SaveToStatsFolder for MaximiseObservationPool<T> {
-    #[no_coverage]
+    #[coverage(off)]
     fn save_to_stats_folder(&self) -> Vec<(PathBuf, Vec<u8>)> {
         vec![]
     }
@@ -95,7 +95,7 @@ impl<T> CompatibleWithObservations<T> for MaximiseObservationPool<T>
 where
     T: Clone + Debug + Default + PartialOrd + 'static,
 {
-    #[no_coverage]
+    #[coverage(off)]
     fn process(&mut self, input_id: PoolStorageIndex, observations: &T, complexity: f64) -> Vec<CorpusDelta> {
         let observations = observations.clone();
         let is_interesting = if let Some((counter, cur_input)) = &self.current_best {

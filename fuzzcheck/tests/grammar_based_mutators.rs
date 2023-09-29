@@ -1,6 +1,6 @@
 #![cfg(feature = "serde_json_serializer")]
 #![allow(unused_attributes)]
-#![feature(no_coverage)]
+#![feature(coverage_attribute)]
 
 use std::rc::{Rc, Weak};
 
@@ -8,35 +8,35 @@ use fuzzcheck::mutators::grammar::*;
 use fuzzcheck::mutators::testing_utilities::test_mutator;
 // use fuzzcheck::{DefaultMutator, Mutator};
 
-#[no_coverage]
+#[coverage(off)]
 fn text() -> Rc<Grammar> {
     regex("([\u{0}-\u{7f}]|.)+|CDATA")
 }
-#[no_coverage]
+#[coverage(off)]
 fn whitespace() -> Rc<Grammar> {
     regex("[ \t\n\r]+")
 }
-#[no_coverage]
+#[coverage(off)]
 fn header(md: &Weak<Grammar>) -> Rc<Grammar> {
     concatenation([regex("#+"), recurse(md), regex("#*")])
 }
-#[no_coverage]
+#[coverage(off)]
 pub fn quote() -> Rc<Grammar> {
     regex(">+")
 }
-#[no_coverage]
+#[coverage(off)]
 pub fn list() -> Rc<Grammar> {
     regex("[-*+]|[0-9]*[.)]")
 }
-#[no_coverage]
+#[coverage(off)]
 pub fn emphasis(md: &Weak<Grammar>) -> Rc<Grammar> {
     concatenation([regex("[*_~`]+"), recurse(md), regex("[*_~`]+")])
 }
-#[no_coverage]
+#[coverage(off)]
 pub fn autolink(md: &Weak<Grammar>) -> Rc<Grammar> {
     concatenation([literal('<'), alternation([recurse(md), text(), web()]), literal('>')])
 }
-#[no_coverage]
+#[coverage(off)]
 pub fn reference(md: &Weak<Grammar>) -> Rc<Grammar> {
     concatenation([
         regex("!?\\["),
@@ -45,7 +45,7 @@ pub fn reference(md: &Weak<Grammar>) -> Rc<Grammar> {
         repetition(concatenation([literal('('), recurse(md), literal(')')]), 0..=1),
     ])
 }
-#[no_coverage]
+#[coverage(off)]
 pub fn reference_definition(md: &Weak<Grammar>) -> Rc<Grammar> {
     concatenation([
         literal('['),
@@ -55,7 +55,7 @@ pub fn reference_definition(md: &Weak<Grammar>) -> Rc<Grammar> {
         literal(':'),
     ])
 }
-#[no_coverage]
+#[coverage(off)]
 pub fn thematic_break_or_setext_or_fence() -> Rc<Grammar> {
     alternation([
         regex("[* \t]{3,}"),
@@ -65,11 +65,11 @@ pub fn thematic_break_or_setext_or_fence() -> Rc<Grammar> {
         regex("[` \t]{3,}"),
     ])
 }
-#[no_coverage]
+#[coverage(off)]
 pub fn backslash() -> Rc<Grammar> {
     literal('\\')
 }
-#[no_coverage]
+#[coverage(off)]
 pub fn entity() -> Rc<Grammar> {
     concatenation([
         literal('&'),
@@ -78,7 +78,7 @@ pub fn entity() -> Rc<Grammar> {
         repetition(literal(';'), 0..=1),
     ])
 }
-#[no_coverage]
+#[coverage(off)]
 pub fn task(whole: &Weak<Grammar>) -> Rc<Grammar> {
     concatenation([
         regex("-|\\+"),
@@ -88,11 +88,11 @@ pub fn task(whole: &Weak<Grammar>) -> Rc<Grammar> {
         literal(']'),
     ])
 }
-#[no_coverage]
+#[coverage(off)]
 pub fn indented_block(whole: &Weak<Grammar>) -> Rc<Grammar> {
     concatenation([regex("[ \t]+"), recurse(whole)])
 }
-#[no_coverage]
+#[coverage(off)]
 pub fn html() -> Rc<Grammar> {
     concatenation([
         regex("</?"),
@@ -111,19 +111,19 @@ pub fn html() -> Rc<Grammar> {
         literal('>'),
     ])
 }
-#[no_coverage]
+#[coverage(off)]
 pub fn html_comment(whole: &Weak<Grammar>) -> Rc<Grammar> {
     concatenation([regex("<-+"), recurse(whole), regex("-+>")])
 }
-#[no_coverage]
+#[coverage(off)]
 fn quoted(whole: &Weak<Grammar>) -> Rc<Grammar> {
     concatenation([regex("[\"']"), alternation([text(), recurse(whole)]), regex("[\"']")])
 }
-#[no_coverage]
+#[coverage(off)]
 fn fenced_block(whole: &Weak<Grammar>) -> Rc<Grammar> {
     concatenation([regex("~{3,}|`{3,}"), recurse(whole), regex("~{3,}|`{3,}")])
 }
-#[no_coverage]
+#[coverage(off)]
 fn table(whole: &Weak<Grammar>) -> Rc<Grammar> {
     repetition(
         // row
@@ -142,11 +142,11 @@ fn table(whole: &Weak<Grammar>) -> Rc<Grammar> {
         1..10,
     )
 }
-#[no_coverage]
+#[coverage(off)]
 fn web() -> Rc<Grammar> {
     concatenation([regex("(https?://)?(www.)?"), text(), literal('.'), text()])
 }
-#[no_coverage]
+#[coverage(off)]
 fn markdown() -> Rc<Grammar> {
     recursive(|md| {
         repetition(

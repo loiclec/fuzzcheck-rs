@@ -35,7 +35,7 @@ where
     Map: Fn(&From) -> To,
     Cplx: Fn(&To, f64) -> f64,
 {
-    #[no_coverage]
+    #[coverage(off)]
     pub fn new(mutator: M, parse: Parse, map: Map, cplx: Cplx) -> Self {
         Self {
             mutator,
@@ -60,7 +60,7 @@ where
     From: Clone + 'static,
     M: Mutator<From>,
 {
-    #[no_coverage]
+    #[coverage(off)]
     fn clone(&self) -> Self {
         Self {
             from_value: self.from_value.clone(),
@@ -89,19 +89,19 @@ where
     type UnmutateToken = M::UnmutateToken;
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn initialize(&self) {
         self.mutator.initialize();
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn default_arbitrary_step(&self) -> Self::ArbitraryStep {
         self.mutator.default_arbitrary_step()
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn is_valid(&self, value: &To) -> bool {
         if let Some(from_value) = (self.parse)(value) {
             self.mutator.is_valid(&from_value)
@@ -111,7 +111,7 @@ where
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn validate_value(&self, to_value: &To) -> Option<Self::Cache> {
         let from_value = (self.parse)(to_value)?;
         let from_cache = self.mutator.validate_value(&from_value)?;
@@ -119,38 +119,38 @@ where
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn default_mutation_step(&self, _value: &To, cache: &Self::Cache) -> Self::MutationStep {
         self.mutator.default_mutation_step(&cache.from_value, &cache.from_cache)
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn global_search_space_complexity(&self) -> f64 {
         self.mutator.global_search_space_complexity()
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn max_complexity(&self) -> f64 {
         self.mutator.max_complexity()
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn min_complexity(&self) -> f64 {
         self.mutator.min_complexity()
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn complexity(&self, value: &To, cache: &Self::Cache) -> f64 {
         let orig_cplx = self.mutator.complexity(&cache.from_value, &cache.from_cache);
         (self.cplx)(value, orig_cplx)
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn ordered_arbitrary(&self, step: &mut Self::ArbitraryStep, max_cplx: f64) -> Option<(To, f64)> {
         let (from_value, orig_cplx) = self.mutator.ordered_arbitrary(step, max_cplx)?;
         let to_value = (self.map)(&from_value);
@@ -159,7 +159,7 @@ where
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn random_arbitrary(&self, max_cplx: f64) -> (To, f64) {
         let (from_value, orig_cplx) = self.mutator.random_arbitrary(max_cplx);
         let to_value = (self.map)(&from_value);
@@ -168,7 +168,7 @@ where
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn ordered_mutate(
         &self,
         value: &mut To,
@@ -189,7 +189,7 @@ where
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn random_mutate(&self, value: &mut To, cache: &mut Self::Cache, max_cplx: f64) -> (Self::UnmutateToken, f64) {
         let (token, orig_cplx) = self
             .mutator
@@ -199,14 +199,14 @@ where
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn unmutate(&self, value: &mut To, cache: &mut Self::Cache, t: Self::UnmutateToken) {
         self.mutator.unmutate(&mut cache.from_value, &mut cache.from_cache, t);
         *value = (self.map)(&cache.from_value);
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn visit_subvalues<'a>(&self, _value: &'a To, cache: &'a Self::Cache, visit: &mut dyn FnMut(&'a dyn Any, f64)) {
         self.mutator
             .visit_subvalues(&cache.from_value, &cache.from_cache, visit)
@@ -232,7 +232,7 @@ where
     M: Mutator<From>,
     Map: Fn(&From, &mut To),
 {
-    #[no_coverage]
+    #[coverage(off)]
     pub fn new(mutator: M, map: Map, storage: To) -> Self {
         Self {
             mutator,
@@ -261,25 +261,25 @@ where
     type UnmutateToken = M::UnmutateToken;
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn initialize(&self) {
         self.mutator.initialize();
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn default_arbitrary_step(&self) -> Self::ArbitraryStep {
         self.mutator.default_arbitrary_step()
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn is_valid(&self, value: &(To, From)) -> bool {
         self.mutator.is_valid(&value.1)
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn validate_value(&self, value: &(To, From)) -> Option<Self::Cache> {
         let (_, from_value) = value;
         let from_cache = self.mutator.validate_value(from_value)?;
@@ -287,39 +287,39 @@ where
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn default_mutation_step(&self, value: &(To, From), cache: &Self::Cache) -> Self::MutationStep {
         let (_, from_value) = value;
         self.mutator.default_mutation_step(from_value, cache)
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn global_search_space_complexity(&self) -> f64 {
         self.mutator.global_search_space_complexity()
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn max_complexity(&self) -> f64 {
         self.mutator.max_complexity()
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn min_complexity(&self) -> f64 {
         self.mutator.min_complexity()
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn complexity(&self, value: &(To, From), cache: &Self::Cache) -> f64 {
         let (_, from_value) = value;
         self.mutator.complexity(from_value, cache)
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn ordered_arbitrary(&self, step: &mut Self::ArbitraryStep, max_cplx: f64) -> Option<((To, From), f64)> {
         let (from_value, cplx) = self.mutator.ordered_arbitrary(step, max_cplx)?;
         let mut to_value = self.storage_to.clone();
@@ -328,7 +328,7 @@ where
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn random_arbitrary(&self, max_cplx: f64) -> ((To, From), f64) {
         let (from_value, cplx) = self.mutator.random_arbitrary(max_cplx);
         let mut to_value = self.storage_to.clone();
@@ -337,7 +337,7 @@ where
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn ordered_mutate(
         &self,
         value: &mut (To, From),
@@ -355,7 +355,7 @@ where
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn random_mutate(
         &self,
         value: &mut (To, From),
@@ -369,7 +369,7 @@ where
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn unmutate(&self, value: &mut (To, From), cache: &mut Self::Cache, t: Self::UnmutateToken) {
         let (to_value, from_value) = value;
         self.mutator.unmutate(from_value, cache, t);
@@ -377,7 +377,7 @@ where
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn visit_subvalues<'a>(
         &self,
         value: &'a (To, From),

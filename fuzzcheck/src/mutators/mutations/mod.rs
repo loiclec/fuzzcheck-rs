@@ -58,7 +58,7 @@ where
     Value: Clone + 'static,
     M: Mutator<Value>,
 {
-    #[no_coverage]
+    #[coverage(off)]
     fn revert(self, _mutator: &M, _value: &mut Value, _cache: &mut M::Cache) {}
 }
 impl<Value, M> Mutation<Value, M> for NoMutation
@@ -72,12 +72,12 @@ where
 
     type Revert = NoMutation;
 
-    #[no_coverage]
+    #[coverage(off)]
     fn default_random_step(&self, _mutator: &M, _value: &Value) -> Option<Self::RandomStep> {
         None
     }
 
-    #[no_coverage]
+    #[coverage(off)]
     fn random<'a>(
         _mutator: &M,
         _value: &Value,
@@ -87,12 +87,12 @@ where
     ) -> Self::Concrete<'a> {
     }
 
-    #[no_coverage]
+    #[coverage(off)]
     fn default_step(&self, _mutator: &M, _value: &Value, _cache: &M::Cache) -> Option<Self::Step> {
         None
     }
 
-    #[no_coverage]
+    #[coverage(off)]
     fn from_step<'a>(
         _mutator: &M,
         _value: &Value,
@@ -104,7 +104,7 @@ where
         None
     }
 
-    #[no_coverage]
+    #[coverage(off)]
     fn apply<'a>(
         _mutation: Self::Concrete<'a>,
         mutator: &M,

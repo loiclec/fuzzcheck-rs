@@ -26,7 +26,7 @@ where
     T: DefaultMutator + 'static,
 {
     type Mutator = VecMutator<T, T::Mutator>;
-    #[no_coverage]
+    #[coverage(off)]
     fn default_mutator() -> Self::Mutator {
         VecMutator::new(T::default_mutator(), 0..=usize::MAX)
     }
@@ -52,7 +52,7 @@ where
     T: 'static + Clone,
     M: Mutator<T>,
 {
-    #[no_coverage]
+    #[coverage(off)]
     fn clone(&self) -> Self {
         Self {
             inner: self.inner.clone(),
@@ -80,7 +80,7 @@ where
     T: Clone + 'static,
     M: Mutator<T>,
 {
-    #[no_coverage]
+    #[coverage(off)]
     pub fn new_without_inherent_complexity(m: M, len_range: RangeInclusive<usize>) -> Self {
         Self {
             m,
@@ -92,7 +92,7 @@ where
         }
     }
 
-    #[no_coverage]
+    #[coverage(off)]
     pub fn new(m: M, len_range: RangeInclusive<usize>) -> Self {
         Self {
             m,
@@ -104,7 +104,7 @@ where
         }
     }
 
-    #[no_coverage]
+    #[coverage(off)]
     fn complexity_from_inner(&self, cplx: f64, len: usize) -> f64 {
         if self.inherent_complexity {
             1.0 + if len == 0 || self.m.min_complexity() > 0.0 {
@@ -132,13 +132,13 @@ where
     type UnmutateToken = RevertVectorMutation<T, M>;
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn initialize(&self) {
         self.m.initialize();
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn default_arbitrary_step(&self) -> Self::ArbitraryStep {
         if self.m.max_complexity() == 0.0 {
             Self::ArbitraryStep::InnerMutatorIsUnit {
@@ -150,7 +150,7 @@ where
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn is_valid(&self, value: &Vec<T>) -> bool {
         if !self.len_range.contains(&value.len()) {
             return false;
@@ -164,7 +164,7 @@ where
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn validate_value(&self, value: &Vec<T>) -> Option<Self::Cache> {
         if !self.len_range.contains(&value.len()) {
             return None;
@@ -172,7 +172,7 @@ where
         let inner_caches: Vec<_> = value
             .iter()
             .map(
-                #[no_coverage]
+                #[coverage(off)]
                 |x| self.m.validate_value(x),
             )
             .collect::<Option<_>>()?;
@@ -181,14 +181,14 @@ where
             .iter()
             .zip(inner_caches.iter())
             .map(
-                #[no_coverage]
+                #[coverage(off)]
                 |(v, c)| self.m.complexity(v, c),
             )
             .collect::<Vec<_>>();
 
         let sum_cplx = cplxs.iter().fold(
             0.0,
-            #[no_coverage]
+            #[coverage(off)]
             |sum_cplx, c| sum_cplx + c,
         );
 
@@ -203,12 +203,12 @@ where
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn default_mutation_step(&self, value: &Vec<T>, cache: &Self::Cache) -> Self::MutationStep {
         self.mutations.default_step(self, value, cache).unwrap()
     }
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn global_search_space_complexity(&self) -> f64 {
         if self.m.global_search_space_complexity() == 0.0 {
             super::size_to_cplxity(self.len_range.end() - self.len_range.start() + 1)
@@ -217,13 +217,13 @@ where
         }
     }
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn max_complexity(&self) -> f64 {
         let max_len = *self.len_range.end();
         self.complexity_from_inner((max_len as f64) * self.m.max_complexity(), max_len)
     }
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn min_complexity(&self) -> f64 {
         let min_len = *self.len_range.start();
         let min_sum_cplx = if min_len == 0 {
@@ -234,12 +234,12 @@ where
         self.complexity_from_inner(min_sum_cplx, min_len)
     }
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn complexity(&self, value: &Vec<T>, cache: &Self::Cache) -> f64 {
         self.complexity_from_inner(cache.sum_cplx, value.len())
     }
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn ordered_arbitrary(&self, step: &mut Self::ArbitraryStep, max_cplx: f64) -> Option<(Vec<T>, f64)> {
         if max_cplx < self.min_complexity() {
             return None;
@@ -275,7 +275,7 @@ where
         }
     }
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn random_arbitrary(&self, max_cplx: f64) -> (Vec<T>, f64) {
         let min_cplx = self.min_complexity();
         if max_cplx <= min_cplx || self.rng.u8(..) == 0 {
@@ -302,7 +302,7 @@ where
         (v, cplx)
     }
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn ordered_mutate(
         &self,
         value: &mut Vec<T>,
@@ -326,20 +326,20 @@ where
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn random_mutate(&self, value: &mut Vec<T>, cache: &mut Self::Cache, max_cplx: f64) -> (Self::UnmutateToken, f64) {
         let mutation = VectorMutation::random(self, value, cache, &cache.random_mutation_step, max_cplx);
         VectorMutation::apply(mutation, self, value, cache, &EmptySubValueProvider, max_cplx)
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn unmutate(&self, value: &mut Vec<T>, cache: &mut Self::Cache, t: Self::UnmutateToken) {
         RevertVectorMutation::revert(t, self, value, cache)
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn visit_subvalues<'a>(&self, value: &'a Vec<T>, cache: &'a Self::Cache, visit: &mut dyn FnMut(&'a dyn Any, f64)) {
         if !value.is_empty() {
             for idx in 0..value.len() {
@@ -361,12 +361,12 @@ where
     /**
     Give an approximation for the range of lengths within which the target complexity can be reached.
     */
-    #[no_coverage]
+    #[coverage(off)]
     fn choose_slice_length(&self, target_cplx: f64) -> RangeInclusive<usize> {
         // The maximum length is the target complexity divided by the minimum complexity of each element
         // But that does not take into account the part of the complexity of the vector that comes from its length.
         // That complexity is given by 1.0 + crate::size_to_compelxity(len)
-        #[no_coverage]
+        #[coverage(off)]
         fn length_for_elements_of_cplx(target_cplx: f64, cplx: f64) -> usize {
             if cplx == 0.0 {
                 assert!(target_cplx.is_finite());
@@ -387,7 +387,7 @@ where
         min_len..=max_len
     }
 
-    #[no_coverage]
+    #[coverage(off)]
     fn new_input_with_length_and_complexity(
         &self,
         min_len: usize,
@@ -424,7 +424,7 @@ where
         (v, sum_cplx)
     }
 }
-#[no_coverage]
+#[coverage(off)]
 fn clamp(range: &RangeInclusive<usize>, x: usize) -> usize {
     cmp::min(cmp::max(*range.start(), x), *range.end())
 }

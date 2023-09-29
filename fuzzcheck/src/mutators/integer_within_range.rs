@@ -16,7 +16,7 @@ macro_rules! impl_int_mutator_constrained {
             rng: fastrand::Rng,
         }
         impl $name_mutator {
-            #[no_coverage]
+            #[coverage(off)]
             pub fn new<RB: RangeBounds<$name>>(range: RB) -> Self {
                 let start = match range.start_bound() {
                     Bound::Included(b) => *b,
@@ -63,21 +63,21 @@ macro_rules! impl_int_mutator_constrained {
             type UnmutateToken = $name; // old value
 
             #[doc(hidden)]
-            #[no_coverage]
+            #[coverage(off)]
             fn initialize(&self) {}
 
             #[doc(hidden)]
-            #[no_coverage]
+            #[coverage(off)]
             fn default_arbitrary_step(&self) -> Self::ArbitraryStep {
                 0
             }
             #[doc(hidden)]
-            #[no_coverage]
+            #[coverage(off)]
             fn is_valid(&self, value: &$name) -> bool {
                 (self.start_range..=self.start_range.wrapping_add(self.len_range as _)).contains(value)
             }
             #[doc(hidden)]
-            #[no_coverage]
+            #[coverage(off)]
             fn validate_value(&self, value: &$name) -> Option<Self::Cache> {
                 if (self.start_range..=self.start_range.wrapping_add(self.len_range as _)).contains(value) {
                     Some(())
@@ -87,37 +87,37 @@ macro_rules! impl_int_mutator_constrained {
             }
 
             #[doc(hidden)]
-            #[no_coverage]
+            #[coverage(off)]
             fn default_mutation_step(&self, _value: &$name, _cache: &Self::Cache) -> Self::MutationStep {
                 INITIAL_MUTATION_STEP
             }
 
             #[doc(hidden)]
-            #[no_coverage]
+            #[coverage(off)]
             fn global_search_space_complexity(&self) -> f64 {
                 self.search_space_complexity
             }
 
             #[doc(hidden)]
-            #[no_coverage]
+            #[coverage(off)]
             fn max_complexity(&self) -> f64 {
                 <$name>::BITS as f64
             }
 
             #[doc(hidden)]
-            #[no_coverage]
+            #[coverage(off)]
             fn min_complexity(&self) -> f64 {
                 <$name>::BITS as f64
             }
 
             #[doc(hidden)]
-            #[no_coverage]
+            #[coverage(off)]
             fn complexity(&self, _value: &$name, _cache: &Self::Cache) -> f64 {
                 <$name>::BITS as f64
             }
 
             #[doc(hidden)]
-            #[no_coverage]
+            #[coverage(off)]
             fn ordered_arbitrary(&self, step: &mut Self::ArbitraryStep, max_cplx: f64) -> Option<($name, f64)> {
                 if max_cplx < self.min_complexity() {
                     return None;
@@ -135,7 +135,7 @@ macro_rules! impl_int_mutator_constrained {
             }
 
             #[doc(hidden)]
-            #[no_coverage]
+            #[coverage(off)]
             fn random_arbitrary(&self, _max_cplx: f64) -> ($name, f64) {
                 let value = self
                     .rng
@@ -144,7 +144,7 @@ macro_rules! impl_int_mutator_constrained {
             }
 
             #[doc(hidden)]
-            #[no_coverage]
+            #[coverage(off)]
             fn ordered_mutate(
                 &self,
                 value: &mut $name,
@@ -169,7 +169,7 @@ macro_rules! impl_int_mutator_constrained {
             }
 
             #[doc(hidden)]
-            #[no_coverage]
+            #[coverage(off)]
             fn random_mutate(
                 &self,
                 value: &mut $name,
@@ -187,13 +187,13 @@ macro_rules! impl_int_mutator_constrained {
             }
 
             #[doc(hidden)]
-            #[no_coverage]
+            #[coverage(off)]
             fn unmutate(&self, value: &mut $name, _cache: &mut Self::Cache, t: Self::UnmutateToken) {
                 *value = t;
             }
 
             #[doc(hidden)]
-            #[no_coverage]
+            #[coverage(off)]
             fn visit_subvalues<'a>(
                 &self,
                 _value: &'a $name,

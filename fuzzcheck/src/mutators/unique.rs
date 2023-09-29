@@ -42,7 +42,7 @@ where
     /// of the generated value. For example, a grammar-based mutator implements `Mutator<(AST, String)>`,
     /// but it is very likely that the test function will only operate on the String and not the AST.
     /// In that case, the `Focus` closure is `|x| &x.1`.
-    #[no_coverage]
+    #[coverage(off)]
     pub fn new(mutator: M, focus: Focus) -> Self {
         Self {
             mutator,
@@ -61,7 +61,7 @@ where
     Focus: Fn(&T) -> &TH,
     Self: 'static,
 {
-    #[no_coverage]
+    #[coverage(off)]
     fn clear_if_needed(&self) {
         if self.nbr_inserted.get() >= SIZE_BLOOM {
             let bitmap = &mut self.uniques.borrow_mut().bitmap;
@@ -83,52 +83,52 @@ where
     type ArbitraryStep = M::ArbitraryStep;
     type UnmutateToken = M::UnmutateToken;
 
-    #[no_coverage]
+    #[coverage(off)]
     fn initialize(&self) {
         self.mutator.initialize();
     }
 
-    #[no_coverage]
+    #[coverage(off)]
     fn default_arbitrary_step(&self) -> Self::ArbitraryStep {
         self.mutator.default_arbitrary_step()
     }
 
-    #[no_coverage]
+    #[coverage(off)]
     fn is_valid(&self, value: &T) -> bool {
         self.mutator.is_valid(value)
     }
 
-    #[no_coverage]
+    #[coverage(off)]
     fn validate_value(&self, value: &T) -> Option<Self::Cache> {
         self.mutator.validate_value(value)
     }
-    #[no_coverage]
+    #[coverage(off)]
     fn default_mutation_step(&self, value: &T, cache: &Self::Cache) -> Self::MutationStep {
         self.mutator.default_mutation_step(value, cache)
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn global_search_space_complexity(&self) -> f64 {
         self.mutator.global_search_space_complexity()
     }
 
-    #[no_coverage]
+    #[coverage(off)]
     fn max_complexity(&self) -> f64 {
         self.mutator.max_complexity()
     }
 
-    #[no_coverage]
+    #[coverage(off)]
     fn min_complexity(&self) -> f64 {
         self.mutator.min_complexity()
     }
 
-    #[no_coverage]
+    #[coverage(off)]
     fn complexity(&self, value: &T, cache: &Self::Cache) -> f64 {
         self.mutator.complexity(value, cache)
     }
 
-    #[no_coverage]
+    #[coverage(off)]
     fn ordered_arbitrary(&self, step: &mut Self::ArbitraryStep, max_cplx: f64) -> Option<(T, f64)> {
         self.clear_if_needed();
         loop {
@@ -149,12 +149,12 @@ where
         }
     }
 
-    #[no_coverage]
+    #[coverage(off)]
     fn random_arbitrary(&self, _max_cplx: f64) -> (T, f64) {
         panic!()
     }
 
-    #[no_coverage]
+    #[coverage(off)]
     fn ordered_mutate(
         &self,
         value: &mut T,
@@ -186,7 +186,7 @@ where
         }
     }
 
-    #[no_coverage]
+    #[coverage(off)]
     fn random_mutate(&self, value: &mut T, cache: &mut Self::Cache, max_cplx: f64) -> (Self::UnmutateToken, f64) {
         self.clear_if_needed();
         for _ in 0..20 {
@@ -206,12 +206,12 @@ where
         self.mutator.random_mutate(value, cache, max_cplx)
     }
 
-    #[no_coverage]
+    #[coverage(off)]
     fn unmutate(&self, value: &mut T, cache: &mut Self::Cache, t: Self::UnmutateToken) {
         self.mutator.unmutate(value, cache, t)
     }
 
-    #[no_coverage]
+    #[coverage(off)]
     fn visit_subvalues<'a>(&self, value: &'a T, cache: &'a Self::Cache, visit: &mut dyn FnMut(&'a dyn Any, f64)) {
         self.mutator.visit_subvalues(value, cache, visit)
     }

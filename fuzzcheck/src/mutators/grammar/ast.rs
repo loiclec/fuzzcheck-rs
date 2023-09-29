@@ -23,7 +23,7 @@ pub enum AST {
 }
 
 impl AST {
-    #[no_coverage]
+    #[coverage(off)]
     pub fn generate_string_in(&self, string: &mut String) {
         match self {
             AST::Token(c) => {
@@ -39,7 +39,7 @@ impl AST {
 
     /// Converts the AST to its `String` representation
     #[allow(clippy::inherent_to_string)]
-    #[no_coverage]
+    #[coverage(off)]
     pub fn to_string(&self) -> String {
         let mut s = String::with_capacity(64);
         self.generate_string_in(&mut s);

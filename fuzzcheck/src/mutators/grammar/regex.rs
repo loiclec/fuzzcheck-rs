@@ -4,13 +4,13 @@ use regex_syntax::hir::{Class, HirKind, Literal, RepetitionKind, RepetitionRange
 
 use crate::mutators::grammar::{alternation, concatenation, literal, literal_ranges, repetition, Grammar};
 
-#[no_coverage]
+#[coverage(off)]
 pub(crate) fn grammar_from_regex(regex: &str) -> Rc<Grammar> {
     let mut parser = regex_syntax::Parser::new();
     let hir = parser.parse(regex).unwrap();
     grammar_from_regex_hir_kind(hir.kind())
 }
-#[no_coverage]
+#[coverage(off)]
 pub fn grammar_from_regex_hir_kind(hir: &HirKind) -> Rc<Grammar> {
     match hir {
         HirKind::Empty => panic!("empty regexes are not supported"),
@@ -24,7 +24,7 @@ pub fn grammar_from_regex_hir_kind(hir: &HirKind) -> Rc<Grammar> {
                     .ranges()
                     .iter()
                     .map(
-                        #[no_coverage]
+                        #[coverage(off)]
                         |r| r.start()..=r.end(),
                     )
                     .collect::<Vec<_>>();
@@ -51,11 +51,11 @@ pub fn grammar_from_regex_hir_kind(hir: &HirKind) -> Rc<Grammar> {
         }
         HirKind::Group(group) => grammar_from_regex_hir_kind(group.hir.kind()),
         HirKind::Concat(concat) => concatenation(concat.iter().map(
-            #[no_coverage]
+            #[coverage(off)]
             |hir| grammar_from_regex_hir_kind(hir.kind()),
         )),
         HirKind::Alternation(alt) => alternation(alt.iter().map(
-            #[no_coverage]
+            #[coverage(off)]
             |hir| grammar_from_regex_hir_kind(hir.kind()),
         )),
     }

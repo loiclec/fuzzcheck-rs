@@ -192,7 +192,7 @@ impl<M, TupleKind> TupleMutatorWrapper<M, TupleKind>
 where
     TupleKind: RefTypes,
 {
-    #[no_coverage]
+    #[coverage(off)]
     pub fn new(mutator: M) -> Self {
         Self {
             mutator,
@@ -205,7 +205,7 @@ where
     TupleKind: RefTypes,
     M: Default,
 {
-    #[no_coverage]
+    #[coverage(off)]
     fn default() -> Self {
         Self {
             mutator: <_>::default(),
@@ -231,72 +231,72 @@ where
     type UnmutateToken = M::UnmutateToken;
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn initialize(&self) {
         self.mutator.initialize();
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn default_arbitrary_step(&self) -> Self::ArbitraryStep {
         self.mutator.default_arbitrary_step()
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn is_valid(&self, value: &T) -> bool {
         self.mutator.is_valid(value.get_ref())
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn validate_value(&self, value: &T) -> Option<Self::Cache> {
         self.mutator.validate_value(value.get_ref())
     }
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn default_mutation_step(&self, value: &T, cache: &Self::Cache) -> Self::MutationStep {
         self.mutator.default_mutation_step(value.get_ref(), cache)
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn global_search_space_complexity(&self) -> f64 {
         self.mutator.global_search_space_complexity()
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn max_complexity(&self) -> f64 {
         self.mutator.max_complexity()
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn min_complexity(&self) -> f64 {
         self.mutator.min_complexity()
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn complexity(&self, value: &T, cache: &Self::Cache) -> f64 {
         self.mutator.complexity(value.get_ref(), cache)
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn ordered_arbitrary(&self, step: &mut Self::ArbitraryStep, max_cplx: f64) -> Option<(T, f64)> {
         self.mutator.ordered_arbitrary(step, max_cplx)
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn random_arbitrary(&self, max_cplx: f64) -> (T, f64) {
         self.mutator.random_arbitrary(max_cplx)
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn ordered_mutate(
         &self,
         value: &mut T,
@@ -310,19 +310,19 @@ where
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn random_mutate(&self, value: &mut T, cache: &mut Self::Cache, max_cplx: f64) -> (Self::UnmutateToken, f64) {
         self.mutator.random_mutate(value.get_mut(), cache, max_cplx)
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn unmutate(&self, value: &mut T, cache: &mut Self::Cache, t: Self::UnmutateToken) {
         self.mutator.unmutate(value.get_mut(), cache, t)
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn visit_subvalues<'a>(&self, value: &'a T, cache: &'a Self::Cache, visit: &mut dyn FnMut(&'a dyn Any, f64)) {
         self.mutator.visit_subvalues(value.get_ref(), cache, visit)
     }
@@ -342,15 +342,15 @@ mod tuple0 {
         type Owned = ();
         type Ref<'a> = ();
         type Mut<'a> = ();
-        #[no_coverage]
+        #[coverage(off)]
         fn get_ref_from_mut<'a>(_v: &'a Self::Mut<'a>) -> Self::Ref<'a> {}
     }
     impl TupleStructure<Tuple0> for () {
-        #[no_coverage]
+        #[coverage(off)]
         fn get_ref(&self) -> <Tuple0 as RefTypes>::Ref<'_> {}
-        #[no_coverage]
+        #[coverage(off)]
         fn get_mut(&mut self) -> <Tuple0 as RefTypes>::Mut<'_> {}
-        #[no_coverage]
+        #[coverage(off)]
         fn new(_t: <Tuple0 as RefTypes>::Owned) -> Self {}
     }
     /// A `TupleMutator` for types equivalent to the unit type `()`
@@ -366,59 +366,59 @@ mod tuple0 {
         type UnmutateToken = ();
 
         #[doc(hidden)]
-        #[no_coverage]
+        #[coverage(off)]
         fn initialize(&self) {}
 
         #[doc(hidden)]
-        #[no_coverage]
+        #[coverage(off)]
         fn default_arbitrary_step(&self) -> Self::ArbitraryStep {
             false
         }
 
         #[doc(hidden)]
-        #[no_coverage]
+        #[coverage(off)]
         fn complexity(&self, _value: (), _cache: &Self::Cache) -> f64 {
             0.0
         }
 
         #[doc(hidden)]
-        #[no_coverage]
+        #[coverage(off)]
         fn is_valid<'a>(&self, _value: <Tuple0 as RefTypes>::Ref<'a>) -> bool {
             true
         }
 
         #[doc(hidden)]
-        #[no_coverage]
+        #[coverage(off)]
         fn validate_value(&self, _value: ()) -> Option<Self::Cache> {
             Some(())
         }
 
         #[doc(hidden)]
-        #[no_coverage]
+        #[coverage(off)]
         fn default_mutation_step<'a>(&self, _value: (), _cache: &'a Self::Cache) -> Self::MutationStep {
             false
         }
 
         #[doc(hidden)]
-        #[no_coverage]
+        #[coverage(off)]
         fn global_search_space_complexity(&self) -> f64 {
             0.0
         }
 
         #[doc(hidden)]
-        #[no_coverage]
+        #[coverage(off)]
         fn max_complexity(&self) -> f64 {
             0.0
         }
 
         #[doc(hidden)]
-        #[no_coverage]
+        #[coverage(off)]
         fn min_complexity(&self) -> f64 {
             0.0
         }
 
         #[doc(hidden)]
-        #[no_coverage]
+        #[coverage(off)]
         fn ordered_arbitrary(&self, step: &mut Self::ArbitraryStep, _max_cplx: f64) -> Option<((), f64)> {
             if !*step {
                 *step = true;
@@ -429,13 +429,13 @@ mod tuple0 {
         }
 
         #[doc(hidden)]
-        #[no_coverage]
+        #[coverage(off)]
         fn random_arbitrary(&self, _max_cplx: f64) -> ((), f64) {
             ((), 0.0)
         }
 
         #[doc(hidden)]
-        #[no_coverage]
+        #[coverage(off)]
         fn ordered_mutate(
             &self,
             _value: (),
@@ -453,17 +453,17 @@ mod tuple0 {
         }
 
         #[doc(hidden)]
-        #[no_coverage]
+        #[coverage(off)]
         fn random_mutate(&self, _value: (), _cache: &mut Self::Cache, _max_cplx: f64) -> (Self::UnmutateToken, f64) {
             ((), 0.0)
         }
 
         #[doc(hidden)]
-        #[no_coverage]
+        #[coverage(off)]
         fn unmutate(&self, _value: (), _cache: &mut Self::Cache, _t: Self::UnmutateToken) {}
 
         #[doc(hidden)]
-        #[no_coverage]
+        #[coverage(off)]
         fn visit_subvalues<'a>(&self, _value: (), _cache: &'a Self::Cache, _visit: &mut dyn FnMut(&'a dyn Any, f64)) {}
     }
 }
@@ -484,21 +484,21 @@ mod tuple1 {
         type Owned = (T0,);
         type Ref<'a> = (&'a T0,);
         type Mut<'a> = (&'a mut T0,);
-        #[no_coverage]
+        #[coverage(off)]
         fn get_ref_from_mut<'a>(v: &'a Self::Mut<'a>) -> Self::Ref<'a> {
             (v.0,)
         }
     }
     impl<T0: 'static> crate::mutators::tuples::TupleStructure<Tuple1<T0>> for (T0,) {
-        #[no_coverage]
+        #[coverage(off)]
         fn get_ref<'a>(&'a self) -> (&'a T0,) {
             (&self.0,)
         }
-        #[no_coverage]
+        #[coverage(off)]
         fn get_mut<'a>(&'a mut self) -> (&'a mut T0,) {
             (&mut self.0,)
         }
-        #[no_coverage]
+        #[coverage(off)]
         fn new(t: (T0,)) -> Self {
             t
         }
@@ -520,7 +520,7 @@ mod tuple1 {
         rng: fastrand::Rng,
     }
     impl<M0> Tuple1Mutator<M0> {
-        #[no_coverage]
+        #[coverage(off)]
         pub fn new(mutator_0: M0) -> Self {
             Self {
                 mutator_0,
@@ -546,37 +546,37 @@ mod tuple1 {
         type UnmutateToken = UnmutateTuple1Token<T0, <M0 as crate::Mutator<T0>>::UnmutateToken>;
 
         #[doc(hidden)]
-        #[no_coverage]
+        #[coverage(off)]
         fn initialize(&self) {
             self.mutator_0.initialize();
         }
 
         #[doc(hidden)]
-        #[no_coverage]
+        #[coverage(off)]
         fn default_arbitrary_step(&self) -> Self::ArbitraryStep {
             self.mutator_0.default_arbitrary_step()
         }
 
         #[doc(hidden)]
-        #[no_coverage]
+        #[coverage(off)]
         fn complexity<'a>(&self, value: <Tuple1<T0> as RefTypes>::Ref<'a>, cache: &'a Self::Cache) -> f64 {
             self.mutator_0.complexity(value.0, cache)
         }
 
         #[doc(hidden)]
-        #[no_coverage]
+        #[coverage(off)]
         fn is_valid<'a>(&self, value: <Tuple1<T0> as RefTypes>::Ref<'a>) -> bool {
             self.mutator_0.is_valid(value.0)
         }
 
         #[doc(hidden)]
-        #[no_coverage]
+        #[coverage(off)]
         fn validate_value<'a>(&self, value: <Tuple1<T0> as RefTypes>::Ref<'a>) -> Option<Self::Cache> {
             self.mutator_0.validate_value(value.0)
         }
 
         #[doc(hidden)]
-        #[no_coverage]
+        #[coverage(off)]
         fn default_mutation_step<'a>(
             &self,
             value: <Tuple1<T0> as RefTypes>::Ref<'a>,
@@ -589,36 +589,36 @@ mod tuple1 {
         }
 
         #[doc(hidden)]
-        #[no_coverage]
+        #[coverage(off)]
         fn global_search_space_complexity(&self) -> f64 {
             self.mutator_0.global_search_space_complexity()
         }
         #[doc(hidden)]
-        #[no_coverage]
+        #[coverage(off)]
         fn max_complexity(&self) -> f64 {
             self.mutator_0.max_complexity()
         }
         #[doc(hidden)]
-        #[no_coverage]
+        #[coverage(off)]
         fn min_complexity(&self) -> f64 {
             self.mutator_0.min_complexity()
         }
         #[doc(hidden)]
-        #[no_coverage]
+        #[coverage(off)]
         fn ordered_arbitrary(&self, step: &mut Self::ArbitraryStep, max_cplx: f64) -> Option<(T, f64)> {
             self.mutator_0.ordered_arbitrary(step, max_cplx).map(
-                #[no_coverage]
+                #[coverage(off)]
                 |(value, cplx)| (T::new((value,)), cplx),
             )
         }
         #[doc(hidden)]
-        #[no_coverage]
+        #[coverage(off)]
         fn random_arbitrary(&self, max_cplx: f64) -> (T, f64) {
             let (value, cplx) = self.mutator_0.random_arbitrary(max_cplx);
             (T::new((value,)), cplx)
         }
         #[doc(hidden)]
-        #[no_coverage]
+        #[coverage(off)]
         fn ordered_mutate<'a>(
             &self,
             value: <Tuple1<T0> as RefTypes>::Mut<'a>,
@@ -642,7 +642,7 @@ mod tuple1 {
             }
         }
         #[doc(hidden)]
-        #[no_coverage]
+        #[coverage(off)]
         fn random_mutate<'a>(
             &self,
             value: <Tuple1<T0> as RefTypes>::Mut<'a>,
@@ -654,7 +654,7 @@ mod tuple1 {
         }
 
         #[doc(hidden)]
-        #[no_coverage]
+        #[coverage(off)]
         fn unmutate<'a>(
             &'a self,
             value: <Tuple1<T0> as RefTypes>::Mut<'a>,
@@ -670,7 +670,7 @@ mod tuple1 {
         }
 
         #[doc(hidden)]
-        #[no_coverage]
+        #[coverage(off)]
         fn visit_subvalues<'a>(
             &self,
             value: <Tuple1<T0> as RefTypes>::Ref<'a>,
@@ -687,7 +687,7 @@ mod tuple1 {
         T0: crate::mutators::DefaultMutator + 'static,
     {
         type Mutator = TupleMutatorWrapper<Tuple1Mutator<<T0 as crate::mutators::DefaultMutator>::Mutator>, Tuple1<T0>>;
-        #[no_coverage]
+        #[coverage(off)]
         fn default_mutator() -> Self::Mutator {
             Self::Mutator::new(Tuple1Mutator::new(
                 <T0 as crate::mutators::DefaultMutator>::default_mutator(),

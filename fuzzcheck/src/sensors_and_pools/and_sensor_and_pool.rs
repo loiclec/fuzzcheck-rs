@@ -90,7 +90,7 @@ where
     P1: Pool,
     P2: Pool,
 {
-    #[no_coverage]
+    #[coverage(off)]
     pub fn new(p1: P1, p2: P2, p1_weight: f64, p2_weight: f64) -> Self {
         Self {
             p1,
@@ -123,11 +123,11 @@ where
 {
     type Stats = AndPoolStats<P1::Stats, P2::Stats>;
 
-    #[no_coverage]
+    #[coverage(off)]
     fn stats(&self) -> Self::Stats {
         AndPoolStats(self.p1.stats(), self.p2.stats())
     }
-    #[no_coverage]
+    #[coverage(off)]
     fn get_random_index(&mut self) -> Option<PoolStorageIndex> {
         let choice = self.rng.f64() * self.weight();
         if choice <= self.p1_weight() {
@@ -157,7 +157,7 @@ where
     P1: Pool,
     P2: Pool,
 {
-    #[no_coverage]
+    #[coverage(off)]
     fn save_to_stats_folder(&self) -> Vec<(PathBuf, Vec<u8>)> {
         let mut x = self.p1.save_to_stats_folder();
         x.extend(self.p2.save_to_stats_folder());
@@ -185,17 +185,17 @@ where
 {
     type Observations = (S1::Observations, S2::Observations);
 
-    #[no_coverage]
+    #[coverage(off)]
     fn start_recording(&mut self) {
         self.0.start_recording();
         self.1.start_recording();
     }
-    #[no_coverage]
+    #[coverage(off)]
     fn stop_recording(&mut self) {
         self.0.stop_recording();
         self.1.stop_recording();
     }
-    #[no_coverage]
+    #[coverage(off)]
     fn get_observations(&mut self) -> Self::Observations {
         (self.0.get_observations(), self.1.get_observations())
     }
@@ -206,7 +206,7 @@ where
     S1: Sensor,
     S2: Sensor,
 {
-    #[no_coverage]
+    #[coverage(off)]
     fn save_to_stats_folder(&self) -> Vec<(PathBuf, Vec<u8>)> {
         let mut x = self.0.save_to_stats_folder();
         x.extend(self.1.save_to_stats_folder());
@@ -218,7 +218,7 @@ where
 #[derive(Clone)]
 pub struct AndPoolStats<S1: Display, S2: Display>(pub S1, pub S2);
 impl<S1: Display, S2: Display> Display for AndPoolStats<S1, S2> {
-    #[no_coverage]
+    #[coverage(off)]
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{} {}", self.0, self.1)
     }
@@ -237,7 +237,7 @@ where
     P1: CompatibleWithObservations<O1>,
     P2: CompatibleWithObservations<O2>,
 {
-    #[no_coverage]
+    #[coverage(off)]
     fn process(&mut self, input_id: PoolStorageIndex, observations: &(O1, O2), complexity: f64) -> Vec<CorpusDelta> {
         let AndPool {
             p1,
@@ -265,7 +265,7 @@ where
     P1: CompatibleWithObservations<O>,
     P2: CompatibleWithObservations<O>,
 {
-    #[no_coverage]
+    #[coverage(off)]
     fn process(&mut self, input_id: PoolStorageIndex, observations: &O, complexity: f64) -> Vec<CorpusDelta> {
         let AndPool {
             p1,
@@ -295,14 +295,14 @@ where
     S1: ToCSV,
     S2: ToCSV,
 {
-    #[no_coverage]
+    #[coverage(off)]
     fn csv_headers(&self) -> Vec<CSVField> {
         let mut h = self.0.csv_headers();
         h.extend(self.1.csv_headers());
         h
     }
 
-    #[no_coverage]
+    #[coverage(off)]
     fn to_csv_record(&self) -> Vec<CSVField> {
         let mut h = self.0.to_csv_record();
         h.extend(self.1.to_csv_record());
@@ -328,7 +328,7 @@ pub struct AndSensorAndPool {
     rng: fastrand::Rng,
 }
 impl AndSensorAndPool {
-    #[no_coverage]
+    #[coverage(off)]
     pub fn new(sap1: Box<dyn SensorAndPool>, sap2: Box<dyn SensorAndPool>, sap1_weight: f64, sap2_weight: f64) -> Self {
         Self {
             sap1,
@@ -342,7 +342,7 @@ impl AndSensorAndPool {
     }
 }
 impl SaveToStatsFolder for AndSensorAndPool {
-    #[no_coverage]
+    #[coverage(off)]
     fn save_to_stats_folder(&self) -> Vec<(PathBuf, Vec<u8>)> {
         let mut x = self.sap1.save_to_stats_folder();
         x.extend(self.sap2.save_to_stats_folder());
@@ -350,24 +350,24 @@ impl SaveToStatsFolder for AndSensorAndPool {
     }
 }
 impl SensorAndPool for AndSensorAndPool {
-    #[no_coverage]
+    #[coverage(off)]
     fn stats(&self) -> Box<dyn crate::traits::Stats> {
         Box::new(AndPoolStats(self.sap1.stats(), self.sap2.stats()))
     }
 
-    #[no_coverage]
+    #[coverage(off)]
     fn start_recording(&mut self) {
         self.sap1.start_recording();
         self.sap2.start_recording();
     }
 
-    #[no_coverage]
+    #[coverage(off)]
     fn stop_recording(&mut self) {
         self.sap1.stop_recording();
         self.sap2.stop_recording();
     }
 
-    #[no_coverage]
+    #[coverage(off)]
     fn process(&mut self, input_id: PoolStorageIndex, cplx: f64) -> Vec<CorpusDelta> {
         let AndSensorAndPool {
             sap1,
@@ -389,7 +389,7 @@ impl SensorAndPool for AndSensorAndPool {
         deltas
     }
 
-    #[no_coverage]
+    #[coverage(off)]
     fn get_random_index(&mut self) -> Option<PoolStorageIndex> {
         let sum_weight = self.sap1_weight + self.sap2_weight;
         if self.rng.f64() <= sum_weight {

@@ -34,14 +34,14 @@ pub struct CodeCoverageSensor {
 }
 
 impl CodeCoverageSensor {
-    #[no_coverage]
+    #[coverage(off)]
     pub fn observing_only_files_from_current_dir() -> Self {
         Self::new(
-            #[no_coverage]
+            #[coverage(off)]
             |file, _function| file.is_relative(),
         )
     }
-    #[no_coverage]
+    #[coverage(off)]
     pub fn new<K>(keep: K) -> Self
     where
         K: Fn(&Path, &str) -> bool,
@@ -70,7 +70,7 @@ impl CodeCoverageSensor {
         let mut coverage = Coverage::new(covfun, prf_data, unsafe { get_counters() })
             .expect("failed to properly link the different LLVM coverage sections");
         coverage.retain(
-            #[no_coverage]
+            #[coverage(off)]
             |coverage| {
                 !(coverage.single_counters.is_empty()
                     || (coverage.single_counters.len() + coverage.expression_counters.len() < 1))
@@ -90,7 +90,7 @@ impl CodeCoverageSensor {
         }
     }
 
-    #[no_coverage]
+    #[coverage(off)]
     unsafe fn clear(&mut self) {
         for &coverage_idx in &self.needs_clearing {
             let coverage = &self.coverage[coverage_idx];
@@ -106,16 +106,16 @@ impl CodeCoverageSensor {
 impl Sensor for CodeCoverageSensor {
     type Observations = Vec<(usize, u64)>;
 
-    #[no_coverage]
+    #[coverage(off)]
     fn start_recording(&mut self) {
         unsafe {
             self.clear();
         }
     }
-    #[no_coverage]
+    #[coverage(off)]
     fn stop_recording(&mut self) {}
 
-    #[no_coverage]
+    #[coverage(off)]
     fn get_observations(&mut self) -> Self::Observations {
         self.needs_clearing.clear();
         let mut observations = Vec::with_capacity(self.count_instrumented);
@@ -147,7 +147,7 @@ impl Sensor for CodeCoverageSensor {
     }
 }
 impl SaveToStatsFolder for CodeCoverageSensor {
-    #[no_coverage]
+    #[coverage(off)]
     fn save_to_stats_folder(&self) -> Vec<(PathBuf, Vec<u8>)> {
         cfg_if::cfg_if! {
             if #[cfg(feature = "serde_json_serializer")] {
@@ -162,7 +162,7 @@ impl SaveToStatsFolder for CodeCoverageSensor {
 }
 
 impl CodeCoverageSensor {
-    #[no_coverage]
+    #[coverage(off)]
     pub fn print_observed_functions(&self) {
         let mut all = BTreeSet::new();
         for c in self.coverage.iter() {
@@ -174,7 +174,7 @@ impl CodeCoverageSensor {
             println!("{name}");
         }
     }
-    #[no_coverage]
+    #[coverage(off)]
     pub fn print_observed_files(&self) {
         let mut all = BTreeSet::new();
         for c in self.coverage.iter() {

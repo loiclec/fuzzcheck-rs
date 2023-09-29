@@ -9,7 +9,7 @@ pub struct SerdeRonSerializer<S> {
 }
 
 impl<S> Default for SerdeRonSerializer<S> {
-    #[no_coverage]
+    #[coverage(off)]
     fn default() -> Self {
         Self { phantom: PhantomData }
     }
@@ -21,16 +21,16 @@ where
 {
     type Value = S;
 
-    #[no_coverage]
+    #[coverage(off)]
     fn extension(&self) -> &str {
         "ron"
     }
-    #[no_coverage]
+    #[coverage(off)]
     fn from_data(&self, data: &[u8]) -> Option<S> {
         let utf8_encoded = std::str::from_utf8(data).ok()?;
         ron::from_str(utf8_encoded).ok()
     }
-    #[no_coverage]
+    #[coverage(off)]
     fn to_data(&self, value: &Self::Value) -> Vec<u8> {
         ron::to_string(value).unwrap().into_bytes()
     }

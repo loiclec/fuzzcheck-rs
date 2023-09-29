@@ -92,7 +92,7 @@ pub trait SensorExt: Sensor {
     ///    (observations, sum)
     /// });
     /// ```
-    #[no_coverage]
+    #[coverage(off)]
     fn map<ToObservations, F>(self, map_f: F) -> MapSensor<Self, ToObservations, F>
     where
         Self: Sized,
@@ -127,17 +127,17 @@ pub mod stats {
     pub struct EmptyStats;
 
     impl Display for EmptyStats {
-        #[no_coverage]
+        #[coverage(off)]
         fn fmt(&self, _f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
             Ok(())
         }
     }
     impl ToCSV for EmptyStats {
-        #[no_coverage]
+        #[coverage(off)]
         fn csv_headers(&self) -> Vec<CSVField> {
             vec![]
         }
-        #[no_coverage]
+        #[coverage(off)]
         fn to_csv_record(&self) -> Vec<CSVField> {
             vec![]
         }

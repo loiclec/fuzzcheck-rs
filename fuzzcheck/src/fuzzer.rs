@@ -60,7 +60,7 @@ pub struct PoolStorageIndex(usize);
 
 // #[cfg(test)]
 impl PoolStorageIndex {
-    #[no_coverage]
+    #[coverage(off)]
     pub fn mock(idx: usize) -> Self {
         Self(idx)
     }
@@ -103,7 +103,7 @@ impl<T: Clone + 'static, Mut: Mutator<T>> Clone for FuzzedInput<T, Mut> {
 }
 
 impl<T: Clone + 'static, Mut: Mutator<T>> FuzzedInput<T, Mut> {
-    #[no_coverage]
+    #[coverage(off)]
     fn new(value: T, cache: Mut::Cache, mutation_step: Mut::MutationStep, generation: Generation) -> Self {
         Self {
             value,
@@ -113,19 +113,19 @@ impl<T: Clone + 'static, Mut: Mutator<T>> FuzzedInput<T, Mut> {
         }
     }
 
-    #[no_coverage]
+    #[coverage(off)]
     fn new_source(&self, m: &Mut, generation: Generation) -> Self {
         let cache = m.validate_value(&self.value).unwrap();
         let mutation_step = m.default_mutation_step(&self.value, &cache);
         Self::new(self.value.clone(), cache, mutation_step, generation)
     }
 
-    #[no_coverage]
+    #[coverage(off)]
     fn complexity(&self, m: &Mut) -> f64 {
         m.complexity(&self.value, &self.cache)
     }
 
-    #[no_coverage]
+    #[coverage(off)]
     fn mutate(
         &mut self,
         m: &Mut,
@@ -141,7 +141,7 @@ impl<T: Clone + 'static, Mut: Mutator<T>> FuzzedInput<T, Mut> {
         )
     }
 
-    #[no_coverage]
+    #[coverage(off)]
     fn unmutate(&mut self, m: &Mut, t: Mut::UnmutateToken) {
         m.unmutate(&mut self.value, &mut self.cache, t);
     }
@@ -168,7 +168,7 @@ struct FuzzerState<T: Clone + 'static, M: Mutator<T>> {
 }
 
 impl<T: Clone + 'static, M: Mutator<T>> Drop for FuzzerState<T, M> {
-    #[no_coverage]
+    #[coverage(off)]
     fn drop(&mut self) {
         unsafe {
             crate::signals_handler::reset_signal_handlers();
@@ -180,7 +180,7 @@ impl<T: Clone + 'static, M: Mutator<T>> Drop for FuzzerState<T, M> {
 }
 
 impl<T: Clone + 'static, M: Mutator<T>> FuzzerState<T, M> {
-    #[no_coverage]
+    #[coverage(off)]
     fn get_input<'a>(
         fuzzer_input_idx: &'a FuzzerInputIndex<FuzzedInput<T, M>>,
         pool_storage: &'a RcSlab<FuzzedInputAndSubValueProvider<T, M>>,
@@ -193,7 +193,7 @@ impl<T: Clone + 'static, M: Mutator<T>> FuzzerState<T, M> {
     }
 }
 
-#[no_coverage]
+#[coverage(off)]
 fn update_fuzzer_stats(stats: &mut FuzzerStats, world: &mut World) {
     let microseconds = world.elapsed_time_since_last_checkpoint();
     let nbr_runs = stats.total_number_of_runs - stats.number_of_runs_since_last_reset_time;
@@ -211,7 +211,7 @@ impl<T: Clone + 'static, M: Mutator<T>> SaveToStatsFolder for FuzzerState<T, M>
 where
     Self: 'static,
 {
-    #[no_coverage]
+    #[coverage(off)]
     fn save_to_stats_folder(&self) -> Vec<(std::path::PathBuf, Vec<u8>)> {
         let mut contents = self.sensor_and_pool.save_to_stats_folder();
         contents.extend(self.world.save_to_stats_folder());
@@ -223,12 +223,12 @@ impl<T: Clone + 'static, M: Mutator<T>> FuzzerState<T, M>
 where
     Self: 'static,
 {
-    #[no_coverage]
+    #[coverage(off)]
     fn write_stats(&mut self) -> Result<(), std::io::Error> {
         self.world.write_stats_content(self.save_to_stats_folder())
     }
 
-    #[no_coverage]
+    #[coverage(off)]
     fn receive_signal(&mut self, signal: i32) -> ! {
         self.world.report_event(
             FuzzerEvent::CaughtSignal(signal as i32),
@@ -259,7 +259,7 @@ where
             _ => exit(TerminationStatus::Unknown as i32),
         }
     }
-    #[no_coverage]
+    #[coverage(off)]
     fn arbitrary_input(&mut self) -> Option<(FuzzedInput<T, M>, f64)> {
         if let Some((v, cplx)) = self
             .mutator
@@ -272,11 +272,11 @@ where
             None
         }
     }
-    #[no_coverage]
+    #[coverage(off)]
     unsafe fn set_up_signal_handler(&mut self) {
         let ptr = self as *mut Self;
         let (stack_ptr, stack_size) = set_signal_handlers(
-            #[no_coverage]
+            #[coverage(off)]
             move |sig| (*ptr).receive_signal(sig),
         );
         self.signal_handler_alt_stack = Some((stack_ptr, stack_size));
@@ -299,7 +299,7 @@ where
     M: Mutator<T>,
     Self: 'static,
 {
-    #[no_coverage]
+    #[coverage(off)]
     fn new(
         test: Box<dyn Fn(&T) -> bool>,
         mutator: M,
@@ -327,7 +327,7 @@ where
         }
     }
 
-    #[no_coverage]
+    #[coverage(off)]
     fn test_and_process_input(&mut self, cplx: f64) -> Result<(), ReasonForStopping<T>> {
         let Fuzzer {
             state:
@@ -350,7 +350,7 @@ where
         let input = FuzzerState::<T, M>::get_input(input_idx, pool_storage).unwrap();
 
         std::panic::set_hook(Box::new(
-            #[no_coverage]
+            #[coverage(off)]
             move |panic_info| {
                 let mut hasher = DefaultHasher::new();
                 panic_info.location().hash(&mut hasher);
@@ -379,7 +379,7 @@ where
         }
         sensor_and_pool.start_recording();
         let result = catch_unwind(AssertUnwindSafe(
-            #[no_coverage]
+            #[coverage(off)]
             || (test)(input.value.borrow()),
         ));
 
@@ -423,7 +423,7 @@ where
         if !deltas.is_empty() {
             let add_ref_count = deltas.iter().fold(
                 0,
-                #[no_coverage]
+                #[coverage(off)]
                 |acc, delta| if delta.add { acc + 1 } else { acc },
             );
             update_fuzzer_stats(fuzzer_stats, world);
@@ -457,7 +457,7 @@ where
 
                 let mut subvalues: HashMap<TypeId, Vec<(*const dyn Any, f64)>> = HashMap::default();
 
-                let mut act_on_subvalue = #[no_coverage]
+                let mut act_on_subvalue = #[coverage(off)]
                 |subvalue: &dyn Any, complexity| {
                     subvalues
                         .entry(subvalue.type_id())
@@ -490,7 +490,7 @@ where
         Ok(())
     }
 
-    #[no_coverage]
+    #[coverage(off)]
     fn get_input_and_subvalue_provider<'a>(
         pool_storage: &'a mut RcSlab<FuzzedInputAndSubValueProvider<T, M>>,
         sensor_and_pool: &mut dyn SensorAndPool,
@@ -510,7 +510,7 @@ where
         }
     }
 
-    #[no_coverage]
+    #[coverage(off)]
     fn process_next_input(&mut self) -> Result<(), ReasonForStopping<T>> {
         let FuzzerState {
             pool_storage,
@@ -539,7 +539,7 @@ where
 
                 // Retrieving the input may fail because the input may have been deleted
                 if let Some(input) = self.state.pool_storage.get_mut(idx.0).map(
-                    #[no_coverage]
+                    #[coverage(off)]
                     |x| &mut x.input,
                 ) && input.generation == generation {
                     input.unmutate(&self.state.mutator, unmutate_token);
@@ -567,7 +567,7 @@ where
         }
     }
 
-    #[no_coverage]
+    #[coverage(off)]
     fn process_initial_inputs(&mut self) -> Result<(), ReasonForStopping<T>> {
         let mut inputs: Vec<FuzzedInput<T, M>> = self
             .state
@@ -576,7 +576,7 @@ where
             .expect(READ_INPUT_FILE_ERROR)
             .into_iter()
             .filter_map(
-                #[no_coverage]
+                #[coverage(off)]
                 |value| {
                     let value = self.state.serializer.from_data(&value)?;
                     let cache = self.state.mutator.validate_value(&value)?;
@@ -594,7 +594,7 @@ where
             }
         }
         inputs.retain(
-            #[no_coverage]
+            #[coverage(off)]
             |i| i.complexity(&self.state.mutator) <= self.state.settings.max_input_cplx,
         );
         // assert!(!inputs.is_empty());
@@ -609,7 +609,7 @@ where
         Ok(())
     }
 
-    #[no_coverage]
+    #[coverage(off)]
     fn main_loop(&mut self, minify: bool) -> Result<!, ReasonForStopping<T>> {
         self.state.world.report_event(
             FuzzerEvent::Start,
@@ -653,7 +653,7 @@ pub enum TerminationStatus {
     Unknown = 3,
 }
 
-#[no_coverage]
+#[coverage(off)]
 pub fn launch<T, M>(
     test: Box<dyn Fn(&T) -> bool>,
     mutator: M,
@@ -753,7 +753,7 @@ where
 
                 let mut subvalues: HashMap<TypeId, Vec<(*const dyn Any, f64)>> = HashMap::default();
 
-                let mut act_on_subvalue = #[no_coverage]
+                let mut act_on_subvalue = #[coverage(off)]
                 |subvalue: &dyn Any, complexity| {
                     subvalues
                         .entry(subvalue.type_id())
@@ -820,7 +820,7 @@ where
                 }
 
                 let result = catch_unwind(AssertUnwindSafe(
-                    #[no_coverage]
+                    #[coverage(off)]
                     || (test)(input.value.borrow()),
                 ));
 

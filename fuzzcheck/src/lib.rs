@@ -12,7 +12,7 @@
 
 // Note: ideally fuzzcheck would work on stable Rust
 // Recently, -C instrument-coverage was stabilised. The next truly essential
-// feature that needs to be stabilised is #[no_coverage]. After that is done,
+// feature that needs to be stabilised is #[coverage(off)]. After that is done,
 // I would like to release fuzzcheck on stable.
 //
 // I have annotated the nightly features below to keep track of what their
@@ -23,11 +23,11 @@
 // can be replaced by an empty enum
 #![feature(never_type)]
 // essential
-#![feature(no_coverage)]
-// used to add #[no_coverage] on closures
+#![feature(coverage_attribute)]
+// used to add #[coverage(off)] on closures
 #![feature(stmt_expr_attributes)]
 // very very nice to use, but I guess not essential?
-#![feature(type_alias_impl_trait)]
+#![feature(type_alias_impl_trait, impl_trait_in_assoc_type)]
 // essential for tuple mutators, but there may be a (more complicated) way
 // to do without them
 #![feature(generic_associated_types)]
@@ -77,7 +77,7 @@ pub use fuzzcheck_common::arg::Arguments;
 
     The syntax is as follows:
     ```
-    # #![feature(no_coverage)]
+    # #![feature(coverage_attribute)]
     # #![feature(trivial_bounds)]
     use fuzzcheck_mutators_derive::make_mutator;
 
@@ -106,7 +106,7 @@ pub use fuzzcheck_common::arg::Arguments;
     ```
     For enums:
     ```
-    # #![feature(no_coverage)]
+    # #![feature(coverage_attribute)]
     use fuzzcheck::make_mutator;
 
     use fuzzcheck::mutators::integer::U8Mutator;
@@ -133,7 +133,7 @@ pub use fuzzcheck_common::arg::Arguments;
     ```
     Create a recursive mutator:
     ```
-    # #![feature(no_coverage)]
+    # #![feature(coverage_attribute)]
     use fuzzcheck::make_mutator;
     use fuzzcheck::mutators::{option::OptionMutator, boxed::BoxMutator};
     use fuzzcheck::mutators::recursive::RecurToMutator;
@@ -163,7 +163,7 @@ pub use fuzzcheck_common::arg::Arguments;
     ```
     Ignore certain variants of an enum:
     ```
-    # #![feature(no_coverage)]
+    # #![feature(coverage_attribute)]
     use fuzzcheck::make_mutator;
     #[derive(Clone)]
     pub enum F<T> {
@@ -190,7 +190,7 @@ pub use fuzzcheck_mutators_derive::make_mutator;
 /// The mutator will be called `<Name>Mutator`. It can be constructed in two ways:
 /// 1. Through the `DefaultMutator` trait, for example:
 /// ```
-/// # #![feature(no_coverage)]
+/// # #![feature(coverage_attribute)]
 /// use fuzzcheck::DefaultMutator;
 ///
 /// #[derive(Clone, DefaultMutator)]
@@ -203,7 +203,7 @@ pub use fuzzcheck_mutators_derive::make_mutator;
 /// ```
 /// 2. By using `<Name>Mutator::new(..)` with the submutators for every field given as argument, for example:
 /// ```
-/// # #![feature(no_coverage)]
+/// # #![feature(coverage_attribute)]
 /// use fuzzcheck::DefaultMutator;
 ///
 /// #[derive(Clone, DefaultMutator)]

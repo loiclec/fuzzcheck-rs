@@ -92,22 +92,22 @@ type UnmutateToken = AUnmutateToken<
             <xType as fuzzcheck_mutators::fuzzcheck_traits::Mutator>::UnmutateToken,
             <yType as fuzzcheck_mutators::fuzzcheck_traits::Mutator>::UnmutateToken,
         >;
-        #[no_coverage] fn max_complexity(&self) -> f64 {
+        #[coverage(off)] fn max_complexity(&self) -> f64 {
             self.x.max_complexity() + self.y.max_complexity()
         }
-        #[no_coverage] fn min_complexity(&self) -> f64 {
+        #[coverage(off)] fn min_complexity(&self) -> f64 {
             self.x.min_complexity() + self.y.min_complexity()
         }
-        #[no_coverage] fn complexity(&self, value: &Self::Value, cache: &Self::Cache) -> f64 {
+        #[coverage(off)] fn complexity(&self, value: &Self::Value, cache: &Self::Cache) -> f64 {
             cache.cplx
         }
-        #[no_coverage] fn cache_from_value(&self, value: &Self::Value) -> Self::Cache {
+        #[coverage(off)] fn cache_from_value(&self, value: &Self::Value) -> Self::Cache {
             let x = self.x.cache_from_value(&value.x);
             let y = self.y.cache_from_value(&value.y);
             let cplx = self.x.complexity(&value.x, &x) + self.y.complexity(&value.y, &y);
             Self::Cache { x, y, cplx }
         }
-        #[no_coverage] fn initial_step_from_value(&self, value: &Self::Value) -> Self::MutationStep {
+        #[coverage(off)] fn initial_step_from_value(&self, value: &Self::Value) -> Self::MutationStep {
             let x = self.x.initial_step_from_value(&value.x);
             let y = self.y.initial_step_from_value(&value.y);
             let step = 0;
@@ -118,14 +118,14 @@ type UnmutateToken = AUnmutateToken<
                 step,
             }
         }
-        #[no_coverage] fn ordered_arbitrary(
+        #[coverage(off)] fn ordered_arbitrary(
             &mut self,
             step: &mut Self::ArbitraryStep,
             max_cplx: f64,
         ) -> ::std::option::Option<(Self::Value, Self::Cache)> {
             ::std::option::Option::Some(self.random_arbitrary(max_cplx))
         }
-        #[no_coverage] fn random_arbitrary(&mut self, max_cplx: f64) -> (Self::Value, Self::Cache) {
+        #[coverage(off)] fn random_arbitrary(&mut self, max_cplx: f64) -> (Self::Value, Self::Cache) {
             let mut x_value: ::std::option::Option<_> = ::std::option::Option::None;
             let mut x_cache: ::std::option::Option<_> = ::std::option::Option::None;
             let mut y_value: ::std::option::Option<_> = ::std::option::Option::None;
@@ -163,7 +163,7 @@ type UnmutateToken = AUnmutateToken<
                 },
             )
         }
-        #[no_coverage] fn ordered_mutate(
+        #[coverage(off)] fn ordered_mutate(
             &mut self,
             value: &mut Self::Value,
             cache: &mut Self::Cache,
@@ -229,7 +229,7 @@ type UnmutateToken = AUnmutateToken<
                 }
             }
         }
-        #[no_coverage] fn random_mutate(
+        #[coverage(off)] fn random_mutate(
             &mut self,
             value: &mut Self::Value,
             cache: &mut Self::Cache,
@@ -264,7 +264,7 @@ type UnmutateToken = AUnmutateToken<
                 _ => ::core::panicking::panic("internal error: entered unreachable code"),
             }
         }
-        #[no_coverage] fn unmutate(&self, value: &mut Self::Value, cache: &mut Self::Cache, t: Self::UnmutateToken) {
+        #[coverage(off)] fn unmutate(&self, value: &mut Self::Value, cache: &mut Self::Cache, t: Self::UnmutateToken) {
             cache.cplx = t.cplx;
             if let ::std::option::Option::Some(subtoken) = t.x {
                 self.x.unmutate(&mut value.x, &mut cache.x, subtoken);

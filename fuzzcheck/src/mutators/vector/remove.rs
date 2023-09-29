@@ -22,7 +22,7 @@ where
     T: Clone + 'static,
     M: Mutator<T>,
 {
-    #[no_coverage]
+    #[coverage(off)]
     fn revert(
         self,
         _mutator: &VecMutator<T, M>,
@@ -43,7 +43,7 @@ where
     type Concrete<'a> = ConcreteRemove;
     type Revert = RevertRemove<T>;
 
-    #[no_coverage]
+    #[coverage(off)]
     fn default_random_step(&self, mutator: &VecMutator<T, M>, value: &Vec<T>) -> Option<Self::RandomStep> {
         if mutator.m.max_complexity() == 0. {
             return None;
@@ -56,7 +56,7 @@ where
             })
         }
     }
-    #[no_coverage]
+    #[coverage(off)]
     fn random<'a>(
         _mutator: &VecMutator<T, M>,
         _value: &Vec<T>,
@@ -66,7 +66,7 @@ where
     ) -> Self::Concrete<'a> {
         ConcreteRemove { idx: random_step.idx }
     }
-    #[no_coverage]
+    #[coverage(off)]
     fn default_step(
         &self,
         mutator: &VecMutator<T, M>,
@@ -82,7 +82,7 @@ where
             Some(RemoveStep { idx: 0 })
         }
     }
-    #[no_coverage]
+    #[coverage(off)]
     fn from_step<'a>(
         _mutator: &VecMutator<T, M>,
         value: &Vec<T>,
@@ -99,7 +99,7 @@ where
             None
         }
     }
-    #[no_coverage]
+    #[coverage(off)]
     fn apply<'a>(
         mutation: Self::Concrete<'a>,
         mutator: &VecMutator<T, M>,

@@ -37,7 +37,7 @@ pub struct MostNDiversePoolStats {
     pub counters: usize,
 }
 impl MostNDiversePool {
-    #[no_coverage]
+    #[coverage(off)]
     pub fn new(name: &str, max_len: usize, nbr_counters: usize) -> Self {
         Self {
             name: name.to_owned(),
@@ -56,14 +56,14 @@ impl MostNDiversePool {
 impl Pool for MostNDiversePool {
     type Stats = MostNDiversePoolStats;
 
-    #[no_coverage]
+    #[coverage(off)]
     fn stats(&self) -> Self::Stats {
         MostNDiversePoolStats {
             name: self.name.clone(),
             counters: self.all_counters.count_ones(),
         }
     }
-    #[no_coverage]
+    #[coverage(off)]
     fn get_random_index(&mut self) -> Option<PoolStorageIndex> {
         let choice = self.fenwick_tree.sample(&self.rng)?;
         let input = &self.inputs[choice];
@@ -71,7 +71,7 @@ impl Pool for MostNDiversePool {
     }
 }
 impl SaveToStatsFolder for MostNDiversePool {
-    #[no_coverage]
+    #[coverage(off)]
     fn save_to_stats_folder(&self) -> Vec<(PathBuf, Vec<u8>)> {
         vec![]
     }
@@ -83,7 +83,7 @@ pub struct ObservationState {
 }
 
 impl MostNDiversePool {
-    #[no_coverage]
+    #[coverage(off)]
     fn is_interesting(&self, state: &ObservationState, input_complexity: f64) -> bool {
         let ObservationState {
             counters,
@@ -93,7 +93,7 @@ impl MostNDiversePool {
             return true;
         }
         if let Some(worst_input) = self.worst_input_idx.map(
-            #[no_coverage]
+            #[coverage(off)]
             |idx| &self.inputs[idx],
         ) && ((*nbr_new_counters > worst_input.nbr_unique_counters) || (*nbr_new_counters == worst_input.nbr_unique_counters && worst_input.cplx > input_complexity))
         {
@@ -124,7 +124,7 @@ impl<O> CompatibleWithObservations<O> for MostNDiversePool
 where
     for<'a> &'a O: IntoIterator<Item = &'a (usize, u64)>,
 {
-    #[no_coverage]
+    #[coverage(off)]
     fn process(&mut self, input_id: PoolStorageIndex, observations: &O, complexity: f64) -> Vec<CorpusDelta> {
         let mut state = ObservationState {
             counters: FixedBitSet::with_capacity(self.nbr_counters + 1),
@@ -175,7 +175,7 @@ where
         }
 
         if let Some(worst_input) = self.worst_input_idx.map(
-            #[no_coverage]
+            #[coverage(off)]
             |idx| &mut self.inputs[idx],
         ) && ((nbr_new_counters > worst_input.nbr_unique_counters)
                 || (nbr_new_counters == worst_input.nbr_unique_counters && worst_input.cplx > complexity)) {
@@ -217,7 +217,7 @@ where
 }
 
 impl MostNDiversePool {
-    #[no_coverage]
+    #[coverage(off)]
     fn recompute_state_from_inputs_vec(&mut self) {
         let mut all_counters = FixedBitSet::new();
         let mut unique_counters = FixedBitSet::new();
@@ -244,7 +244,7 @@ impl MostNDiversePool {
             .iter()
             .enumerate()
             .min_by(
-                #[no_coverage]
+                #[coverage(off)]
                 |x, y| {
                     (x.1.nbr_unique_counters, -x.1.cplx)
                         .partial_cmp(&(y.1.nbr_unique_counters, -y.1.cplx))
@@ -252,14 +252,14 @@ impl MostNDiversePool {
                 },
             )
             .map(
-                #[no_coverage]
+                #[coverage(off)]
                 |x| x.0,
             );
         self.fenwick_tree = FenwickTree::new(
             self.inputs
                 .iter()
                 .map(
-                    #[no_coverage]
+                    #[coverage(off)]
                     |x| x.nbr_unique_counters as f64,
                 )
                 .collect(),
@@ -268,17 +268,17 @@ impl MostNDiversePool {
 }
 
 impl ToCSV for MostNDiversePoolStats {
-    #[no_coverage]
+    #[coverage(off)]
     fn csv_headers(&self) -> Vec<CSVField> {
         vec![]
     }
-    #[no_coverage]
+    #[coverage(off)]
     fn to_csv_record(&self) -> Vec<CSVField> {
         vec![]
     }
 }
 impl Display for MostNDiversePoolStats {
-    #[no_coverage]
+    #[coverage(off)]
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(f, "{}({})", self.name, self.counters)
     }
@@ -290,7 +290,7 @@ mod tests {
     use super::*;
 
     #[test]
-    #[no_coverage]
+    #[coverage(off)]
     fn test_most_n_diverse_pool() {
         let mut pool = MostNDiversePool::new("diverse5", 5, 10);
 
@@ -307,12 +307,12 @@ mod tests {
         run(&mut pool, vec![1, 2, 3], 10.0);
     }
 
-    #[no_coverage]
+    #[coverage(off)]
     fn run(pool: &mut MostNDiversePool, observations: Vec<usize>, cplx: f64) {
         let observations = observations
             .iter()
             .map(
-                #[no_coverage]
+                #[coverage(off)]
                 |x| (*x, 1u64),
             )
             .collect::<Vec<_>>();

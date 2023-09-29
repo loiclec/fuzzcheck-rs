@@ -45,7 +45,7 @@ use crate::{DefaultMutator, Mutator};
 
 macro_rules! binary_search_arbitrary {
     ($name_function: ident, $uxx:ty) => {
-        #[no_coverage]
+        #[coverage(off)]
         pub(crate) fn $name_function(low: $uxx, high: $uxx, step: u64) -> $uxx {
             let next = low.wrapping_add(high.wrapping_sub(low) / 2);
             if low.wrapping_add(1) >= high {
@@ -80,7 +80,7 @@ macro_rules! impl_int_mutator {
             rng: fastrand::Rng,
         }
         impl Default for $name_mutator {
-            #[no_coverage]
+            #[coverage(off)]
             fn default() -> Self {
                 let mut shuffled_integers = [0; 256];
                 for i in 0..=255_u8 {
@@ -96,7 +96,7 @@ macro_rules! impl_int_mutator {
         }
 
         impl $name_mutator {
-            #[no_coverage]
+            #[coverage(off)]
             fn uniform_permutation(&self, step: u64) -> $name_unsigned {
                 let size = <$name>::BITS as u64;
 
@@ -160,55 +160,55 @@ macro_rules! impl_int_mutator {
             type UnmutateToken = $name; // old value
 
             #[doc(hidden)]
-            #[no_coverage]
+            #[coverage(off)]
             fn initialize(&self) {}
 
             #[doc(hidden)]
-            #[no_coverage]
+            #[coverage(off)]
             fn default_arbitrary_step(&self) -> Self::ArbitraryStep {
                 <_>::default()
             }
             #[doc(hidden)]
-            #[no_coverage]
+            #[coverage(off)]
             fn is_valid(&self, _value: &$name) -> bool {
                 true
             }
             #[doc(hidden)]
-            #[no_coverage]
+            #[coverage(off)]
             fn validate_value(&self, _value: &$name) -> Option<Self::Cache> {
                 Some(())
             }
             #[doc(hidden)]
-            #[no_coverage]
+            #[coverage(off)]
             fn default_mutation_step(&self, _value: &$name, _cache: &Self::Cache) -> Self::MutationStep {
                 INITIAL_MUTATION_STEP
             }
 
             #[doc(hidden)]
-            #[no_coverage]
+            #[coverage(off)]
             fn global_search_space_complexity(&self) -> f64 {
                 <$name>::BITS as f64
             }
 
             /// The maximum complexity of an input of this type
             #[doc(hidden)]
-            #[no_coverage]
+            #[coverage(off)]
             fn max_complexity(&self) -> f64 {
                 <$name>::BITS as f64
             }
             /// The minimum complexity of an input of this type
             #[doc(hidden)]
-            #[no_coverage]
+            #[coverage(off)]
             fn min_complexity(&self) -> f64 {
                 <$name>::BITS as f64
             }
             #[doc(hidden)]
-            #[no_coverage]
+            #[coverage(off)]
             fn complexity(&self, _value: &$name, _cache: &Self::Cache) -> f64 {
                 <$name>::BITS as f64
             }
             #[doc(hidden)]
-            #[no_coverage]
+            #[coverage(off)]
             fn ordered_arbitrary(&self, step: &mut Self::ArbitraryStep, max_cplx: f64) -> Option<($name, f64)> {
                 if max_cplx < self.min_complexity() {
                     return None;
@@ -222,13 +222,13 @@ macro_rules! impl_int_mutator {
                 }
             }
             #[doc(hidden)]
-            #[no_coverage]
+            #[coverage(off)]
             fn random_arbitrary(&self, _max_cplx: f64) -> ($name, f64) {
                 let value = self.rng.$name(..);
                 (value, <$name>::BITS as f64)
             }
             #[doc(hidden)]
-            #[no_coverage]
+            #[coverage(off)]
             fn ordered_mutate(
                 &self,
                 value: &mut $name,
@@ -263,7 +263,7 @@ macro_rules! impl_int_mutator {
                 Some((token, <$name>::BITS as f64))
             }
             #[doc(hidden)]
-            #[no_coverage]
+            #[coverage(off)]
             fn random_mutate(
                 &self,
                 value: &mut $name,
@@ -273,13 +273,13 @@ macro_rules! impl_int_mutator {
                 (std::mem::replace(value, self.rng.$name(..)), <$name>::BITS as f64)
             }
             #[doc(hidden)]
-            #[no_coverage]
+            #[coverage(off)]
             fn unmutate(&self, value: &mut $name, _cache: &mut Self::Cache, t: Self::UnmutateToken) {
                 *value = t;
             }
 
             #[doc(hidden)]
-            #[no_coverage]
+            #[coverage(off)]
             fn visit_subvalues<'a>(
                 &self,
                 _value: &'a $name,
@@ -291,7 +291,7 @@ macro_rules! impl_int_mutator {
 
         impl DefaultMutator for $name {
             type Mutator = $name_mutator;
-            #[no_coverage]
+            #[coverage(off)]
             fn default_mutator() -> Self::Mutator {
                 <$name_mutator>::default()
             }

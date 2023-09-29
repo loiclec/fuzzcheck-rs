@@ -11,7 +11,7 @@ pub struct ArcMutator<M> {
     rng: fastrand::Rng,
 }
 impl<M> ArcMutator<M> {
-    #[no_coverage]
+    #[coverage(off)]
     pub fn new(mutator: M) -> Self {
         Self {
             mutator,
@@ -42,31 +42,31 @@ impl<T: Clone + 'static, M: Mutator<T>> Mutator<Arc<T>> for ArcMutator<M> {
     type UnmutateToken = UnmutateToken<T, M::UnmutateToken>;
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn initialize(&self) {
         self.mutator.initialize();
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn default_arbitrary_step(&self) -> Self::ArbitraryStep {
         self.mutator.default_arbitrary_step()
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn is_valid(&self, value: &Arc<T>) -> bool {
         self.mutator.is_valid(value)
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn validate_value(&self, value: &Arc<T>) -> Option<Self::Cache> {
         self.mutator.validate_value(value)
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn default_mutation_step(&self, value: &Arc<T>, cache: &Self::Cache) -> Self::MutationStep {
         MutationStep {
             crossover_step: CrossoverStep::default(),
@@ -75,31 +75,31 @@ impl<T: Clone + 'static, M: Mutator<T>> Mutator<Arc<T>> for ArcMutator<M> {
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn global_search_space_complexity(&self) -> f64 {
         self.mutator.global_search_space_complexity()
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn max_complexity(&self) -> f64 {
         self.mutator.max_complexity()
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn min_complexity(&self) -> f64 {
         self.mutator.min_complexity()
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn complexity(&self, value: &Arc<T>, cache: &Self::Cache) -> f64 {
         self.mutator.complexity(value, cache)
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn ordered_arbitrary(&self, step: &mut Self::ArbitraryStep, max_cplx: f64) -> Option<(Arc<T>, f64)> {
         if let Some((value, cache)) = self.mutator.ordered_arbitrary(step, max_cplx) {
             Some((Arc::new(value), cache))
@@ -109,14 +109,14 @@ impl<T: Clone + 'static, M: Mutator<T>> Mutator<Arc<T>> for ArcMutator<M> {
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn random_arbitrary(&self, max_cplx: f64) -> (Arc<T>, f64) {
         let (value, cache) = self.mutator.random_arbitrary(max_cplx);
         (Arc::new(value), cache)
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn ordered_mutate(
         &self,
         value: &mut Arc<T>,
@@ -148,7 +148,7 @@ impl<T: Clone + 'static, M: Mutator<T>> Mutator<Arc<T>> for ArcMutator<M> {
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn random_mutate(&self, value: &mut Arc<T>, cache: &mut Self::Cache, max_cplx: f64) -> (Self::UnmutateToken, f64) {
         let mut v = value.as_ref().clone();
         let (t, cplx) = self.mutator.random_mutate(&mut v, cache, max_cplx);
@@ -157,7 +157,7 @@ impl<T: Clone + 'static, M: Mutator<T>> Mutator<Arc<T>> for ArcMutator<M> {
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn unmutate(&self, value: &mut Arc<T>, cache: &mut Self::Cache, t: Self::UnmutateToken) {
         match t {
             UnmutateToken::Replace(x) => *value = Arc::new(x),
@@ -170,7 +170,7 @@ impl<T: Clone + 'static, M: Mutator<T>> Mutator<Arc<T>> for ArcMutator<M> {
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn visit_subvalues<'a>(&self, value: &'a Arc<T>, cache: &'a Self::Cache, visit: &mut dyn FnMut(&'a dyn Any, f64)) {
         self.mutator.visit_subvalues(value, cache, visit)
     }
@@ -183,7 +183,7 @@ where
     #[doc(hidden)]
     type Mutator = ArcMutator<<T as DefaultMutator>::Mutator>;
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn default_mutator() -> Self::Mutator {
         Self::Mutator::new(T::default_mutator())
     }

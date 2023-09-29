@@ -1,5 +1,5 @@
 #![allow(unused_attributes)]
-#![feature(no_coverage)]
+#![feature(coverage_attribute)]
 // #![feature(trivial_bounds)]
 
 use std::fmt::Debug;

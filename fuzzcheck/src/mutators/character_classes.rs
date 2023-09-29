@@ -18,20 +18,20 @@ pub struct CharacterMutator {
     rng: Rng,
 }
 impl CharacterMutator {
-    #[no_coverage]
+    #[coverage(off)]
     pub fn new(ranges: Vec<RangeInclusive<char>>) -> Self {
         let ranges = ranges.into_iter().filter(|r| !r.is_empty()).collect::<Vec<_>>();
         assert!(!ranges.is_empty());
         let total_length = ranges.iter().fold(
             0,
-            #[no_coverage]
+            #[coverage(off)]
             |x, y| x + y.clone().count(),
         ) as u32;
         let lengths = ranges
             .iter()
             .scan(
                 0u32,
-                #[no_coverage]
+                #[coverage(off)]
                 |x, y| {
                     let start = *x;
                     let end = *x + y.clone().count() as u32;
@@ -64,7 +64,7 @@ impl CharacterMutator {
         }
     }
 
-    #[no_coverage]
+    #[coverage(off)]
     pub fn get_char(&self, idx: u32) -> Option<char> {
         for (len_range, range) in self.lengths.iter().zip(&self.ranges) {
             if len_range.contains(&idx) {
@@ -90,29 +90,29 @@ impl Mutator<char> for CharacterMutator {
     type UnmutateToken = char;
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn initialize(&self) {}
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn default_arbitrary_step(&self) -> Self::ArbitraryStep {
         0
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn is_valid(&self, value: &char) -> bool {
         self.ranges.iter().any(
-            #[no_coverage]
+            #[coverage(off)]
             |range| range.contains(value),
         )
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn validate_value(&self, value: &char) -> Option<Self::Cache> {
         if self.ranges.iter().any(
-            #[no_coverage]
+            #[coverage(off)]
             |range| range.contains(value),
         ) {
             Some(())
@@ -121,34 +121,34 @@ impl Mutator<char> for CharacterMutator {
         }
     }
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn default_mutation_step(&self, _value: &char, _cache: &Self::Cache) -> Self::MutationStep {
         0
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn global_search_space_complexity(&self) -> f64 {
         self.search_space_complexity
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn max_complexity(&self) -> f64 {
         self.max_cplx
     }
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn min_complexity(&self) -> f64 {
         self.min_cplx
     }
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn complexity(&self, value: &char, _cache: &Self::Cache) -> f64 {
         Self::complexity_of_value(*value)
     }
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn ordered_arbitrary(&self, step: &mut Self::ArbitraryStep, max_cplx: f64) -> Option<(char, f64)> {
         if *step == self.total_length as u64 {
             return None;
@@ -163,7 +163,7 @@ impl Mutator<char> for CharacterMutator {
         }
     }
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn random_arbitrary(&self, max_cplx: f64) -> (char, f64) {
         let idx = self.rng.u32(..self.total_length);
         if let Some(c) = self.get_char(idx) {
@@ -173,7 +173,7 @@ impl Mutator<char> for CharacterMutator {
         }
     }
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn ordered_mutate(
         &self,
         value: &mut char,
@@ -196,7 +196,7 @@ impl Mutator<char> for CharacterMutator {
         }
     }
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn random_mutate(&self, value: &mut char, cache: &mut Self::Cache, max_cplx: f64) -> (Self::UnmutateToken, f64) {
         let idx = self.rng.u32(..self.total_length);
         if let Some(mut c) = self.get_char(idx) {
@@ -207,13 +207,13 @@ impl Mutator<char> for CharacterMutator {
         }
     }
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn unmutate(&self, value: &mut char, _cache: &mut Self::Cache, t: Self::UnmutateToken) {
         *value = t;
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn visit_subvalues<'a>(&self, _value: &'a char, _cache: &'a Self::Cache, _visit: &mut dyn FnMut(&'a dyn Any, f64)) {
     }
 }
@@ -224,7 +224,7 @@ mod tests {
     use crate::Mutator;
 
     #[test]
-    #[no_coverage]
+    #[coverage(off)]
     fn char_classes_test() {
         let chars = vec!['a'..='c', 'f'..='t', '0'..='9'];
         let mutator = CharacterMutator::new(chars);

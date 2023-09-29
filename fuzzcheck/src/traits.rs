@@ -353,7 +353,7 @@ pub struct CorpusDelta {
 }
 
 impl CorpusDelta {
-    #[no_coverage]
+    #[coverage(off)]
     pub fn fuzzer_event(deltas: &[CorpusDelta]) -> FuzzerEvent {
         let mut add = 0;
         let mut remove = 0;
@@ -430,7 +430,7 @@ where
     A: SaveToStatsFolder,
     B: SaveToStatsFolder,
 {
-    #[no_coverage]
+    #[coverage(off)]
     fn save_to_stats_folder(&self) -> Vec<(PathBuf, Vec<u8>)> {
         let mut x = self.0.save_to_stats_folder();
         x.extend(self.1.save_to_stats_folder());
@@ -444,23 +444,23 @@ where
     S: SaveToStatsFolder,
     P: SaveToStatsFolder,
 {
-    #[no_coverage]
+    #[coverage(off)]
     fn stats(&self) -> Box<dyn Stats> {
         Box::new(self.1.stats())
     }
-    #[no_coverage]
+    #[coverage(off)]
     fn start_recording(&mut self) {
         self.0.start_recording();
     }
-    #[no_coverage]
+    #[coverage(off)]
     fn stop_recording(&mut self) {
         self.0.stop_recording();
     }
-    #[no_coverage]
+    #[coverage(off)]
     fn process(&mut self, input_id: PoolStorageIndex, complexity: f64) -> Vec<CorpusDelta> {
         self.1.process(input_id, &self.0.get_observations(), complexity)
     }
-    #[no_coverage]
+    #[coverage(off)]
     fn get_random_index(&mut self) -> Option<PoolStorageIndex> {
         self.1.get_random_index()
     }
@@ -472,7 +472,7 @@ pub enum CSVField {
     String(String),
 }
 impl CSVField {
-    #[no_coverage]
+    #[coverage(off)]
     pub fn to_bytes(fields: &[CSVField]) -> Vec<u8> {
         let mut bytes = vec![];
         for field in fields {
@@ -515,12 +515,12 @@ pub trait ToCSV {
     fn to_csv_record(&self) -> Vec<CSVField>;
 }
 impl ToCSV for Box<dyn Stats> {
-    #[no_coverage]
+    #[coverage(off)]
     fn csv_headers(&self) -> Vec<CSVField> {
         self.as_ref().csv_headers()
     }
 
-    #[no_coverage]
+    #[coverage(off)]
     fn to_csv_record(&self) -> Vec<CSVField> {
         self.as_ref().to_csv_record()
     }

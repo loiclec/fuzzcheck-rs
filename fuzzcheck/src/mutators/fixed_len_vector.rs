@@ -30,7 +30,7 @@ where
     T: Clone + 'static,
     M: Mutator<T> + Clone,
 {
-    #[no_coverage]
+    #[coverage(off)]
     pub fn new_with_repeated_mutator(mutator: M, len: usize) -> Self {
         Self::new(vec![mutator; len])
     }
@@ -67,7 +67,7 @@ where
     /// not. That is, given the value `([1, 2], [1, 2])`, it is an error to
     /// evaluate the complexity of the first vector as `16.0` and the complexity
     /// of the second vector as `17.0`.
-    #[no_coverage]
+    #[coverage(off)]
     pub fn new_without_inherent_complexity(mutators: Vec<M>) -> Self {
         assert!(!mutators.is_empty());
 
@@ -84,7 +84,7 @@ where
         }
     }
 
-    #[no_coverage]
+    #[coverage(off)]
     pub fn new(mutators: Vec<M>) -> Self {
         assert!(!mutators.is_empty());
 
@@ -115,7 +115,7 @@ pub struct VecMutatorCache<C> {
     sum_cplx: f64,
 }
 impl<C> Default for VecMutatorCache<C> {
-    #[no_coverage]
+    #[coverage(off)]
     fn default() -> Self {
         Self {
             inner: Vec::new(),
@@ -132,11 +132,11 @@ pub enum UnmutateVecToken<T: Clone + 'static, M: Mutator<T>> {
 }
 
 impl<T: Clone + 'static, M: Mutator<T>> FixedLenVecMutator<T, M> {
-    #[no_coverage]
+    #[coverage(off)]
     fn len(&self) -> usize {
         self.mutators.len()
     }
-    #[no_coverage]
+    #[coverage(off)]
     fn mutate_elements(
         &self,
         value: &mut [T],
@@ -161,7 +161,7 @@ impl<T: Clone + 'static, M: Mutator<T>> FixedLenVecMutator<T, M> {
         }
         (UnmutateVecToken::Elements(tokens), cplx)
     }
-    #[no_coverage]
+    #[coverage(off)]
     fn mutate_element(
         &self,
         value: &mut [T],
@@ -191,7 +191,7 @@ impl<T: Clone + 'static, M: Mutator<T>> FixedLenVecMutator<T, M> {
         }
     }
 
-    #[no_coverage]
+    #[coverage(off)]
     fn new_input_with_complexity(&self, target_cplx: f64) -> (Vec<T>, f64) {
         let mut v = Vec::with_capacity(self.len());
         let mut sum_cplx = 0.0;
@@ -224,7 +224,7 @@ impl<T: Clone + 'static, M: Mutator<T>> Mutator<Vec<T>> for FixedLenVecMutator<T
     type UnmutateToken = UnmutateVecToken<T, M>;
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn initialize(&self) {
         for mutator in self.mutators.iter() {
             mutator.initialize();
@@ -242,17 +242,17 @@ impl<T: Clone + 'static, M: Mutator<T>> Mutator<Vec<T>> for FixedLenVecMutator<T
 
         let max_complexity = self.mutators.iter().fold(
             0.0,
-            #[no_coverage]
+            #[coverage(off)]
             |cplx, m| cplx + m.max_complexity(),
         ) + inherent_complexity;
         let min_complexity = self.mutators.iter().fold(
             0.0,
-            #[no_coverage]
+            #[coverage(off)]
             |cplx, m| cplx + m.min_complexity(),
         ) + inherent_complexity;
         let search_space_complexity = self.mutators.iter().fold(
             0.0,
-            #[no_coverage]
+            #[coverage(off)]
             |cplx, m| cplx + m.global_search_space_complexity(),
         );
         self.inherent_complexity.set(inherent_complexity);
@@ -264,11 +264,11 @@ impl<T: Clone + 'static, M: Mutator<T>> Mutator<Vec<T>> for FixedLenVecMutator<T
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn default_arbitrary_step(&self) -> Self::ArbitraryStep {}
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn is_valid(&self, value: &Vec<T>) -> bool {
         if value.len() != self.mutators.len() {
             return false;
@@ -282,7 +282,7 @@ impl<T: Clone + 'static, M: Mutator<T>> Mutator<Vec<T>> for FixedLenVecMutator<T
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn validate_value(&self, value: &Vec<T>) -> Option<Self::Cache> {
         if value.len() != self.mutators.len() {
             return None;
@@ -291,14 +291,14 @@ impl<T: Clone + 'static, M: Mutator<T>> Mutator<Vec<T>> for FixedLenVecMutator<T
             .iter()
             .zip(self.mutators.iter())
             .map(
-                #[no_coverage]
+                #[coverage(off)]
                 |(x, mutator)| mutator.validate_value(x),
             )
             .collect::<Option<_>>()?;
 
         let sum_cplx = value.iter().zip(self.mutators.iter()).zip(inner_caches.iter()).fold(
             0.0,
-            #[no_coverage]
+            #[coverage(off)]
             |cplx, ((v, mutator), cache)| cplx + mutator.complexity(v, cache),
         );
 
@@ -310,14 +310,14 @@ impl<T: Clone + 'static, M: Mutator<T>> Mutator<Vec<T>> for FixedLenVecMutator<T
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn default_mutation_step(&self, value: &Vec<T>, cache: &Self::Cache) -> Self::MutationStep {
         let inner = value
             .iter()
             .zip(cache.inner.iter())
             .zip(self.mutators.iter())
             .map(
-                #[no_coverage]
+                #[coverage(off)]
                 |((v, c), m)| m.default_mutation_step(v, c),
             )
             .collect::<Vec<_>>();
@@ -329,31 +329,31 @@ impl<T: Clone + 'static, M: Mutator<T>> Mutator<Vec<T>> for FixedLenVecMutator<T
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn global_search_space_complexity(&self) -> f64 {
         self.search_space_complexity.get()
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn max_complexity(&self) -> f64 {
         self.max_complexity.get()
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn min_complexity(&self) -> f64 {
         self.min_complexity.get()
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn complexity(&self, _value: &Vec<T>, cache: &Self::Cache) -> f64 {
         cache.sum_cplx + self.inherent_complexity.get()
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn ordered_arbitrary(&self, _step: &mut Self::ArbitraryStep, max_cplx: f64) -> Option<(Vec<T>, f64)> {
         if max_cplx < self.min_complexity() {
             return None;
@@ -362,7 +362,7 @@ impl<T: Clone + 'static, M: Mutator<T>> Mutator<Vec<T>> for FixedLenVecMutator<T
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn random_arbitrary(&self, max_cplx: f64) -> (Vec<T>, f64) {
         assert!(self.initialized.get());
         let target_cplx = crate::mutators::gen_f64(&self.rng, 1.0..max_cplx);
@@ -371,7 +371,7 @@ impl<T: Clone + 'static, M: Mutator<T>> Mutator<Vec<T>> for FixedLenVecMutator<T
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn ordered_mutate(
         &self,
         value: &mut Vec<T>,
@@ -415,14 +415,14 @@ impl<T: Clone + 'static, M: Mutator<T>> Mutator<Vec<T>> for FixedLenVecMutator<T
             step.element_step += 1;
             self.mutate_element(value, cache, step, subvalue_provider, idx, current_cplx, spare_cplx)
                 .or_else(
-                    #[no_coverage]
+                    #[coverage(off)]
                     || Some(self.random_mutate(value, cache, max_cplx)),
                 )
         }
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn random_mutate(&self, value: &mut Vec<T>, cache: &mut Self::Cache, max_cplx: f64) -> (Self::UnmutateToken, f64) {
         if value.is_empty() || self.rng.usize(0..100) == 0 {
             let (mut v, cplx) = self.random_arbitrary(max_cplx);
@@ -453,7 +453,7 @@ impl<T: Clone + 'static, M: Mutator<T>> Mutator<Vec<T>> for FixedLenVecMutator<T
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn unmutate(&self, value: &mut Vec<T>, cache: &mut Self::Cache, t: Self::UnmutateToken) {
         match t {
             UnmutateVecToken::Element(idx, inner_t) => {
@@ -476,7 +476,7 @@ impl<T: Clone + 'static, M: Mutator<T>> Mutator<Vec<T>> for FixedLenVecMutator<T
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn visit_subvalues<'a>(&self, value: &'a Vec<T>, cache: &'a Self::Cache, visit: &mut dyn FnMut(&'a dyn Any, f64)) {
         if !value.is_empty() {
             for idx in 0..value.len() {
@@ -495,7 +495,7 @@ mod tests {
     use crate::mutators::integer::U8Mutator;
     use crate::Mutator;
     #[test]
-    #[no_coverage]
+    #[coverage(off)]
     fn test_constrained_length_mutator() {
         let m = FixedLenVecMutator::<u8, U8Mutator>::new_with_repeated_mutator(U8Mutator::default(), 3);
         m.initialize();

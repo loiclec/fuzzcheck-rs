@@ -11,7 +11,7 @@ mod test {
 
     use super::*;
     #[test]
-    #[no_coverage]
+    #[coverage(off)]
     fn test_compile() {
         let m = X::default_mutator();
         let (_value, _): (X, _) = m.random_arbitrary(10.0);

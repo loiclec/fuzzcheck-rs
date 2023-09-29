@@ -31,7 +31,7 @@ where
     T: Clone + 'static,
     M: Mutator<T>,
 {
-    #[no_coverage]
+    #[coverage(off)]
     fn revert(
         self,
         _mutator: &VecMutator<T, M>,
@@ -52,7 +52,7 @@ where
     type Concrete<'a> = ConcreteInsertManyElements<T>;
     type Revert = RevertInsertManyElements;
 
-    #[no_coverage]
+    #[coverage(off)]
     fn default_random_step(&self, mutator: &VecMutator<T, M>, value: &Vec<T>) -> Option<Self::RandomStep> {
         if mutator.m.max_complexity() == 0. {
             return None;
@@ -71,7 +71,7 @@ where
         }
     }
 
-    #[no_coverage]
+    #[coverage(off)]
     fn random<'a>(
         mutator: &VecMutator<T, M>,
         value: &Vec<T>,
@@ -141,7 +141,7 @@ where
         }
     }
 
-    #[no_coverage]
+    #[coverage(off)]
     fn default_step(
         &self,
         mutator: &VecMutator<T, M>,
@@ -154,7 +154,7 @@ where
         self.default_random_step(mutator, value)
     }
 
-    #[no_coverage]
+    #[coverage(off)]
     fn from_step<'a>(
         mutator: &VecMutator<T, M>,
         value: &Vec<T>,
@@ -171,7 +171,7 @@ where
         }
     }
 
-    #[no_coverage]
+    #[coverage(off)]
     fn apply<'a>(
         mutation: Self::Concrete<'a>,
         mutator: &VecMutator<T, M>,
@@ -187,7 +187,7 @@ where
         (revert, cplx)
     }
 }
-#[no_coverage]
+#[coverage(off)]
 pub fn insert_many<T>(v: &mut Vec<T>, idx: usize, iter: impl Iterator<Item = T>) {
     let moved_slice = v.drain(idx..).collect::<Vec<T>>().into_iter();
     v.extend(iter);

@@ -7,7 +7,7 @@
 //! In practice, you will want to use the [`make_mutator!`](crate::make_mutator) procedural macro to create recursive mutators.
 //! For example:
 //! ```
-//! # #![feature(no_coverage)]
+//! # #![feature(coverage_attribute)]
 //! use fuzzcheck::mutators::{option::OptionMutator, boxed::BoxMutator};
 //! use fuzzcheck::mutators::recursive::{RecursiveMutator, RecurToMutator};
 //! use fuzzcheck::DefaultMutator;
@@ -59,7 +59,7 @@ pub enum RecursingArbitraryStep<AS> {
     Initialized(AS),
 }
 impl<AS> Default for RecursingArbitraryStep<AS> {
-    #[no_coverage]
+    #[coverage(off)]
     fn default() -> Self {
         Self::Default
     }
@@ -80,7 +80,7 @@ struct S {
 with [`RecurToMutator`](crate::mutators::recursive::RecurToMutator) at points of recursion.
 For example:
 ```
-# #![feature(no_coverage)]
+# #![feature(coverage_attribute)]
 use fuzzcheck::DefaultMutator;
 use fuzzcheck::mutators::{option::OptionMutator, boxed::BoxMutator};
 use fuzzcheck::mutators::recursive::{RecursiveMutator, RecurToMutator};
@@ -115,7 +115,7 @@ pub struct RecursiveMutator<M> {
 }
 impl<M> RecursiveMutator<M> {
     /// Create a new `RecursiveMutator` using a weak reference to itself.
-    #[no_coverage]
+    #[coverage(off)]
     pub fn new(data_fn: impl FnOnce(&Weak<M>) -> M) -> Self {
         Self {
             mutator: Rc::new_cyclic(data_fn),
@@ -130,7 +130,7 @@ pub struct RecurToMutator<M> {
     reference: Weak<M>,
 }
 impl<M> From<&Weak<M>> for RecurToMutator<M> {
-    #[no_coverage]
+    #[coverage(off)]
     fn from(reference: &Weak<M>) -> Self {
         Self {
             reference: reference.clone(),
@@ -153,48 +153,48 @@ where
     type UnmutateToken = <M as Mutator<T>>::UnmutateToken;
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn initialize(&self) {}
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn default_arbitrary_step(&self) -> Self::ArbitraryStep {
         RecursingArbitraryStep::Default
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn is_valid(&self, value: &T) -> bool {
         self.reference.upgrade().unwrap().is_valid(value)
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn validate_value(&self, value: &T) -> Option<Self::Cache> {
         self.reference.upgrade().unwrap().validate_value(value)
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn default_mutation_step(&self, value: &T, cache: &Self::Cache) -> Self::MutationStep {
         self.reference.upgrade().unwrap().default_mutation_step(value, cache)
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn global_search_space_complexity(&self) -> f64 {
         std::f64::INFINITY
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn max_complexity(&self) -> f64 {
         // can potentially recur infinitely
         std::f64::INFINITY
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn min_complexity(&self) -> f64 {
         // this will crash if called before the RecurToMutator is connected
         // to the RecursiveMutator
@@ -202,13 +202,13 @@ where
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn complexity(&self, value: &T, cache: &Self::Cache) -> f64 {
         self.reference.upgrade().unwrap().complexity(value, cache)
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn ordered_arbitrary(&self, step: &mut Self::ArbitraryStep, max_cplx: f64) -> Option<(T, f64)> {
         match step {
             RecursingArbitraryStep::Default => {
@@ -225,13 +225,13 @@ where
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn random_arbitrary(&self, max_cplx: f64) -> (T, f64) {
         self.reference.upgrade().unwrap().random_arbitrary(max_cplx)
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn ordered_mutate(
         &self,
         value: &mut T,
@@ -247,19 +247,19 @@ where
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn random_mutate(&self, value: &mut T, cache: &mut Self::Cache, max_cplx: f64) -> (Self::UnmutateToken, f64) {
         self.reference.upgrade().unwrap().random_mutate(value, cache, max_cplx)
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn unmutate(&self, value: &mut T, cache: &mut Self::Cache, t: Self::UnmutateToken) {
         self.reference.upgrade().unwrap().unmutate(value, cache, t)
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn visit_subvalues<'a>(&self, value: &'a T, cache: &'a Self::Cache, visit: &mut dyn FnMut(&'a dyn Any, f64)) {
         self.reference.upgrade().unwrap().visit_subvalues(value, cache, visit)
     }
@@ -297,31 +297,31 @@ where
     type UnmutateToken = RecursiveMutatorUnmutateToken<T, M::UnmutateToken>;
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn initialize(&self) {
         self.mutator.initialize();
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn default_arbitrary_step(&self) -> Self::ArbitraryStep {
         self.mutator.default_arbitrary_step()
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn is_valid(&self, value: &T) -> bool {
         self.mutator.is_valid(value)
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn validate_value(&self, value: &T) -> Option<Self::Cache> {
         if let Some(cache) = self.mutator.validate_value(value) {
             let cloned_self = Box::new((value.clone(), cache.clone()));
             let mut sub_self_values = vec![];
 
-            let mut visit_subvalues = #[no_coverage]
+            let mut visit_subvalues = #[coverage(off)]
             |subvalue: &dyn Any, cplx: f64| {
                 if let Some(sub_self_value) = subvalue.downcast_ref::<T>()
                 && let Some(subcache) = self.mutator.validate_value(sub_self_value)
@@ -344,7 +344,7 @@ where
         }
     }
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn default_mutation_step(&self, value: &T, cache: &Self::Cache) -> Self::MutationStep {
         let mutation_step = self.mutator.default_mutation_step(value, &cache.inner);
 
@@ -355,43 +355,43 @@ where
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn global_search_space_complexity(&self) -> f64 {
         self.mutator.global_search_space_complexity()
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn max_complexity(&self) -> f64 {
         self.mutator.max_complexity()
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn min_complexity(&self) -> f64 {
         self.mutator.min_complexity()
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn complexity(&self, value: &T, cache: &Self::Cache) -> f64 {
         self.mutator.complexity(value, &cache.inner)
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn ordered_arbitrary(&self, step: &mut Self::ArbitraryStep, max_cplx: f64) -> Option<(T, f64)> {
         self.mutator.ordered_arbitrary(step, max_cplx)
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn random_arbitrary(&self, max_cplx: f64) -> (T, f64) {
         self.mutator.random_arbitrary(max_cplx)
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn ordered_mutate(
         &self,
         value: &mut T,
@@ -423,7 +423,7 @@ where
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn random_mutate(&self, value: &mut T, cache: &mut Self::Cache, max_cplx: f64) -> (Self::UnmutateToken, f64) {
         if !cache.sub_self_values.is_empty() && self.rng.usize(..100) == 0 {
             let idx = self.rng.usize(..cache.sub_self_values.len());
@@ -440,7 +440,7 @@ where
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn unmutate(&self, value: &mut T, cache: &mut Self::Cache, t: Self::UnmutateToken) {
         match t {
             RecursiveMutatorUnmutateToken::Replace(x) => {
@@ -451,7 +451,7 @@ where
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn visit_subvalues<'a>(&self, value: &'a T, cache: &'a Self::Cache, visit: &mut dyn FnMut(&'a dyn Any, f64)) {
         self.mutator.visit_subvalues(value, &cache.inner, visit)
     }

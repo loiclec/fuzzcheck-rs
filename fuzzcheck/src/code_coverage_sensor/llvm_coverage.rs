@@ -18,21 +18,21 @@ extern "C" {
     pub(crate) fn get_end_prf_names() -> *const u8;
 }
 
-#[no_coverage]
+#[coverage(off)]
 pub unsafe fn get_counters() -> &'static mut [u64] {
     let start = get_start_instrumentation_counters();
     let end = get_end_instrumentation_counters();
     let len = end.offset_from(start) as usize;
     std::slice::from_raw_parts_mut(start, len)
 }
-#[no_coverage]
+#[coverage(off)]
 pub unsafe fn get_prf_data() -> &'static [u8] {
     let start = get_start_prf_data();
     let end = get_end_prf_data();
     let len = end.offset_from(start) as usize;
     std::slice::from_raw_parts(start, len)
 }
-#[no_coverage]
+#[coverage(off)]
 pub unsafe fn get_prf_names() -> &'static [u8] {
     let start = get_start_prf_names();
     let end = get_end_prf_names();
@@ -46,16 +46,16 @@ pub struct LLVMCovSections {
     pub prf_names: Vec<u8>,
 }
 
-#[no_coverage]
+#[coverage(off)]
 pub fn get_llvm_cov_sections(path: &Path) -> Result<LLVMCovSections, ReadCovMapError> {
     let bin_data = std::fs::read(path).map_err(
-        #[no_coverage]
+        #[coverage(off)]
         |_| ReadCovMapError::CannotReadObjectFile {
             path: path.to_path_buf(),
         },
     )?;
     let obj_file = object::File::parse(&*bin_data).map_err(
-        #[no_coverage]
+        #[coverage(off)]
         |_| ReadCovMapError::CannotReadObjectFile {
             path: path.to_path_buf(),
         },
@@ -83,7 +83,7 @@ pub fn get_llvm_cov_sections(path: &Path) -> Result<LLVMCovSections, ReadCovMapE
     })
 }
 
-#[no_coverage]
+#[coverage(off)]
 fn read_counter(counter: usize) -> RawCounter {
     let mask_tag = 0b11;
     let zero_kind = 0b0;
@@ -114,7 +114,7 @@ fn read_counter(counter: usize) -> RawCounter {
     }
 }
 
-#[no_coverage]
+#[coverage(off)]
 fn read_leb_usize(slice: &[u8], idx: &mut usize) -> usize {
     assert!(!slice.is_empty());
     let (result, pos) = leb128::read_u64_leb128(&slice[*idx..]);
@@ -122,7 +122,7 @@ fn read_leb_usize(slice: &[u8], idx: &mut usize) -> usize {
     result as usize
 }
 
-#[no_coverage]
+#[coverage(off)]
 fn read_i64(slice: &[u8], idx: &mut usize) -> i64 {
     assert!(slice.len() >= 8);
     let subslice = <[u8; 8]>::try_from(&slice[*idx..*idx + 8]).unwrap();
@@ -130,7 +130,7 @@ fn read_i64(slice: &[u8], idx: &mut usize) -> i64 {
     *idx += 8;
     x
 }
-#[no_coverage]
+#[coverage(off)]
 fn read_u64(slice: &[u8], idx: &mut usize) -> u64 {
     assert!(slice.len() >= 8);
     let subslice = <[u8; 8]>::try_from(&slice[*idx..*idx + 8]).unwrap();
@@ -138,7 +138,7 @@ fn read_u64(slice: &[u8], idx: &mut usize) -> u64 {
     *idx += 8;
     x
 }
-#[no_coverage]
+#[coverage(off)]
 fn read_i32(slice: &[u8], idx: &mut usize) -> i32 {
     assert!(slice.len() >= 4);
     let subslice = <[u8; 4]>::try_from(&slice[*idx..*idx + 4]).unwrap();
@@ -146,7 +146,7 @@ fn read_i32(slice: &[u8], idx: &mut usize) -> i32 {
     *idx += 4;
     x
 }
-#[no_coverage]
+#[coverage(off)]
 fn read_i16(slice: &[u8], idx: &mut usize) -> i16 {
     assert!(slice.len() >= 2);
     let subslice = <[u8; 2]>::try_from(&slice[*idx..*idx + 2]).unwrap();
@@ -154,7 +154,7 @@ fn read_i16(slice: &[u8], idx: &mut usize) -> i16 {
     *idx += 2;
     x
 }
-#[no_coverage]
+#[coverage(off)]
 fn read_u32(slice: &[u8], idx: &mut usize) -> u32 {
     assert!(slice.len() >= 4);
     let subslice = <[u8; 4]>::try_from(&slice[*idx..*idx + 4]).unwrap();
@@ -176,7 +176,7 @@ pub struct FunctionRecordHeader {
     length_encoded_data: usize,
 }
 
-#[no_coverage]
+#[coverage(off)]
 fn read_first_function_record_fields(covfun: &[u8], idx: &mut usize) -> FunctionRecordHeader {
     let name_md5 = read_i64(covfun, idx);
     let length_encoded_data = read_i32(covfun, idx) as usize;
@@ -198,7 +198,7 @@ pub struct FileIDMapping {
     pub filename_indices: Vec<usize>,
 }
 
-#[no_coverage]
+#[coverage(off)]
 fn read_file_id_mapping(covfun: &[u8], idx: &mut usize) -> FileIDMapping {
     assert!(!covfun.is_empty());
     let num_indices = read_leb_usize(covfun, idx);
@@ -209,7 +209,7 @@ fn read_file_id_mapping(covfun: &[u8], idx: &mut usize) -> FileIDMapping {
     FileIDMapping { filename_indices }
 }
 
-#[no_coverage]
+#[coverage(off)]
 fn read_coverage_expressions(covfun: &[u8], idx: &mut usize) -> Vec<RawExpression> {
     assert!(!covfun.is_empty());
 
@@ -233,7 +233,7 @@ pub struct MappingRegion {
     pub col_end: usize,
 }
 
-#[no_coverage]
+#[coverage(off)]
 fn read_mapping_regions(
     covfun: &[u8],
     idx: &mut usize,
@@ -281,7 +281,7 @@ fn read_mapping_regions(
     Ok(result)
 }
 
-#[no_coverage]
+#[coverage(off)]
 pub fn read_covfun(covfun: &[u8]) -> Result<Vec<RawFunctionCounters>, ReadCovMapError> {
     let mut results = Vec::new();
     let mut idx = 0;
@@ -341,7 +341,7 @@ pub struct PrfData {
     number_of_counters: usize,
 }
 
-#[no_coverage]
+#[coverage(off)]
 pub fn read_prf_data(prf_data: &[u8]) -> Result<Vec<PrfData>, ReadCovMapError> {
     // Read the prf_data section.
     //
@@ -405,15 +405,15 @@ pub fn read_prf_data(prf_data: &[u8]) -> Result<Vec<PrfData>, ReadCovMapError> {
     Ok(counts)
 }
 
-#[no_coverage]
+#[coverage(off)]
 fn read_func_names(slice: &[u8], names: &mut Vec<String>) -> Result<(), ReadCovMapError> {
     let slices = slice.split(
-        #[no_coverage]
+        #[coverage(off)]
         |&x| x == 0x01,
     );
     for slice in slices {
         let string = String::from_utf8(slice.to_vec()).map_err(
-            #[no_coverage]
+            #[coverage(off)]
             |_| ReadCovMapError::CannotParseUTF8 {
                 section: CovMapSection::PrfNames,
             },
@@ -423,7 +423,7 @@ fn read_func_names(slice: &[u8], names: &mut Vec<String>) -> Result<(), ReadCovM
     Ok(())
 }
 
-#[no_coverage]
+#[coverage(off)]
 pub fn read_prf_names(slice: &[u8], idx: &mut usize) -> Result<Vec<String>, ReadCovMapError> {
     let mut names = Vec::new();
     while *idx < slice.len() {
@@ -470,7 +470,7 @@ pub struct FunctionRecord {
     pub filenames: Vec<PathBuf>,
 }
 
-#[no_coverage]
+#[coverage(off)]
 pub fn filter_covfun(
     records: Vec<RawFunctionCounters>,
     prf_names: HashMap<i64, String>,
@@ -480,7 +480,7 @@ pub fn filter_covfun(
     records
         .into_iter()
         .filter_map(
-            #[no_coverage]
+            #[coverage(off)]
             |function_counters| {
                 let name_function = prf_names[&function_counters.header.id.name_md5].clone();
                 let name_function = rustc_demangle::demangle(&name_function).to_string();
@@ -506,7 +506,7 @@ pub fn filter_covfun(
         .collect()
 }
 
-#[no_coverage]
+#[coverage(off)]
 pub fn process_function_records(records: Vec<PartialFunctionRecord>) -> Vec<FunctionRecord> {
     let mut all_expressions = Vec::new();
     for function_record in records {
@@ -616,7 +616,7 @@ pub fn process_function_records(records: Vec<PartialFunctionRecord>) -> Vec<Func
 
         let mut to_delete = to_delete.into_iter().collect::<Vec<_>>();
         to_delete.sort_by(
-            #[no_coverage]
+            #[coverage(off)]
             |a, b| b.0.cmp(&a.0),
         );
         let mut deleted = vec![];
@@ -631,16 +631,16 @@ pub fn process_function_records(records: Vec<PartialFunctionRecord>) -> Vec<Func
         let inferred_expressions = deleted
             .into_iter()
             .filter(
-                #[no_coverage]
+                #[coverage(off)]
                 |(regions, _)| !regions.is_empty(),
             )
             .map(
-                #[no_coverage]
+                #[coverage(off)]
                 |(regions, suff_expressions)| {
                     let suff_expressions = suff_expressions
                         .into_iter()
                         .filter_map(
-                            #[no_coverage]
+                            #[coverage(off)]
                             |e| expression_to_index.get(&e).copied(),
                         )
                         .collect::<Vec<_>>();
@@ -697,7 +697,7 @@ pub enum ReadCovMapError {
     },
 }
 
-#[no_coverage]
+#[coverage(off)]
 /// Reads the contents of the LLVM coverage map, returning an error if this is
 /// not possible.
 pub fn read_covmap(covmap: &[u8], idx: &mut usize) -> Result<CovMap, ReadCovMapError> {
@@ -729,19 +729,19 @@ pub fn read_covmap(covmap: &[u8], idx: &mut usize) -> Result<CovMap, ReadCovMapE
     Ok(translation_unit_map)
 }
 
-#[no_coverage]
+#[coverage(off)]
 pub fn read_list_filenames(slice: &[u8], idx: &mut usize) -> Result<Vec<String>, ReadCovMapError> {
     let nbr_filenames = read_leb_usize(slice, idx);
     let length_uncompressed = read_leb_usize(slice, idx);
     let length_compressed = read_leb_usize(slice, idx);
 
-    #[no_coverage]
+    #[coverage(off)]
     fn read_filenames(slice: &[u8], idx: &mut usize) -> Result<Vec<String>, ReadCovMapError> {
         let mut filenames = Vec::new();
         while *idx < slice.len() {
             let len = read_leb_usize(slice, idx);
             let filename = String::from_utf8(slice[*idx..*idx + len].to_vec()).map_err(
-                #[no_coverage]
+                #[coverage(off)]
                 |_| ReadCovMapError::CannotParseUTF8 {
                     section: CovMapSection::CovMap,
                 },
@@ -820,14 +820,14 @@ pub struct ExpandedExpression {
 }
 
 impl Sign {
-    #[no_coverage]
+    #[coverage(off)]
     fn negated(self) -> Self {
         match self {
             Sign::Negative => Sign::Positive,
             Sign::Positive => Sign::Negative,
         }
     }
-    #[no_coverage]
+    #[coverage(off)]
     fn and(self, other: Self) -> Self {
         match other {
             Sign::Negative => self.negated(),
@@ -837,14 +837,14 @@ impl Sign {
 }
 
 impl ExpandedExpression {
-    #[no_coverage]
+    #[coverage(off)]
     fn push_leaf_counter(&mut self, term: usize, expr_operation_sign: Sign) {
         let (recipient, counterpart) = match expr_operation_sign {
             Sign::Negative => (&mut self.sub_terms, &mut self.add_terms),
             Sign::Positive => (&mut self.add_terms, &mut self.sub_terms),
         };
         if let Some(index_in_counterpart) = counterpart.iter().position(
-            #[no_coverage]
+            #[coverage(off)]
             |&x| x == term,
         ) {
             counterpart.remove(index_in_counterpart);
@@ -852,7 +852,7 @@ impl ExpandedExpression {
             recipient.push(term);
         }
     }
-    #[no_coverage]
+    #[coverage(off)]
     pub fn push_counter(
         &mut self,
         c: &RawCounter,
@@ -877,7 +877,7 @@ impl ExpandedExpression {
             }
         }
     }
-    #[no_coverage]
+    #[coverage(off)]
     pub fn sort(&mut self) {
         self.add_terms.sort_unstable();
         self.sub_terms.sort_unstable();
@@ -889,7 +889,7 @@ pub struct OptimisedExpandedExpression {
     sub_terms: Vec<*const u64>,
 }
 impl OptimisedExpandedExpression {
-    #[no_coverage]
+    #[coverage(off)]
     pub fn compute(&self) -> u64 {
         unsafe {
             let mut result = 0;
@@ -905,7 +905,7 @@ impl OptimisedExpandedExpression {
 }
 
 impl ExpandedExpression {
-    #[no_coverage]
+    #[coverage(off)]
     fn optimised(&self, counters: &[u64]) -> OptimisedExpandedExpression {
         let mut add_terms = Vec::new();
         let mut sub_terms = Vec::new();
@@ -930,7 +930,7 @@ pub struct Coverage {
 }
 
 impl Coverage {
-    #[no_coverage]
+    #[coverage(off)]
     pub fn new(
         function_records: Vec<FunctionRecord>,
         prf_datas: Vec<PrfData>,
@@ -940,7 +940,7 @@ impl Coverage {
         prf_datas
             .iter()
             .filter_map(
-                #[no_coverage]
+                #[coverage(off)]
                 |prf_data| {
                     let prf_data: &PrfData = prf_data;
                     if prf_data.function_id.structural_hash == 0 {
@@ -949,7 +949,7 @@ impl Coverage {
                     let range = start_idx..start_idx + prf_data.number_of_counters;
                     start_idx = range.end;
                     let f_r = function_records.iter().find(
-                        #[no_coverage]
+                        #[coverage(off)]
                         |fr| fr.header.id == prf_data.function_id,
                     )?;
 
