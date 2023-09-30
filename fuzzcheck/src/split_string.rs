@@ -49,7 +49,7 @@ impl<'a> Iterator for Lexer<'a> {
                 '\'' => Some((idx, Token::SingleQuote)),
                 '"' => Some((idx, Token::DoubleQuote)),
                 '\\' => match self.chars.next() {
-                    Some((cont, _)) => Some((idx, Token::Escape(&self.input[(idx..cont + 1)]))),
+                    Some((cont, _)) => Some((idx, Token::Escape(&self.input[idx..cont + 1]))),
                     None => panic!(),
                 },
                 c if c.is_whitespace() => {
@@ -61,7 +61,7 @@ impl<'a> Iterator for Lexer<'a> {
                         }
                         self.chars.next();
                     }
-                    Some((idx, Token::Whitespace(&self.input[(idx..end + 1)])))
+                    Some((idx, Token::Whitespace(&self.input[idx..end + 1])))
                 }
                 _ => {
                     let mut end = idx;
@@ -72,7 +72,7 @@ impl<'a> Iterator for Lexer<'a> {
                         }
                         self.chars.next();
                     }
-                    Some((idx, Token::Word(&self.input[(idx..end + 1)])))
+                    Some((idx, Token::Word(&self.input[idx..end + 1])))
                 }
             },
             None => None,
@@ -99,7 +99,7 @@ pub fn split_string_by_whitespace(input: &str) -> Vec<&str> {
             Token::Word(_) | Token::Escape(_) => loop {
                 match lexer.next() {
                     Some((cont, Token::Whitespace(_))) => {
-                        result.push(&input[(idx..cont)]);
+                        result.push(&input[idx..cont]);
                         break;
                     }
                     Some((_, Token::Word(_) | Token::Escape(_))) => continue,
@@ -107,7 +107,7 @@ pub fn split_string_by_whitespace(input: &str) -> Vec<&str> {
                         panic!()
                     }
                     None => {
-                        result.push(&input[(idx..)]);
+                        result.push(&input[idx..]);
                         break;
                     }
                 }

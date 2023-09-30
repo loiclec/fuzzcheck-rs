@@ -1,4 +1,4 @@
-#![cfg_attr(fuzzing, feature(no_coverage))]
+#![cfg_attr(fuzzing, feature(coverage_attribute))]
 use serde::{Deserialize, Serialize};
 
 #[cfg_attr(fuzzing, derive(fuzzcheck::DefaultMutator))]
