@@ -334,7 +334,9 @@ impl Common {
 }
 
 fn has_ignore_variant_attribute(attribute: &Attribute) -> bool {
-    if let Some(ident) = attribute.path.get_ident() && ident == "ignore_variant" {
+    if let Some(ident) = attribute.path.get_ident()
+        && ident == "ignore_variant"
+    {
         true
     } else {
         false

@@ -169,7 +169,8 @@ where
                 state.push((index, counter));
             } else if pool_counter == counter
                 && let Some(candidate_key) = self.best_input_for_counter[index]
-                && self.inputs[candidate_key].cplx > complexity {
+                && self.inputs[candidate_key].cplx > complexity
+            {
                 state.push((index, counter));
             }
         }

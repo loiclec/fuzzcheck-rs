@@ -95,7 +95,8 @@ impl MostNDiversePool {
         if let Some(worst_input) = self.worst_input_idx.map(
             #[coverage(off)]
             |idx| &self.inputs[idx],
-        ) && ((*nbr_new_counters > worst_input.nbr_unique_counters) || (*nbr_new_counters == worst_input.nbr_unique_counters && worst_input.cplx > input_complexity))
+        ) && ((*nbr_new_counters > worst_input.nbr_unique_counters)
+            || (*nbr_new_counters == worst_input.nbr_unique_counters && worst_input.cplx > input_complexity))
         {
             return true;
         }
@@ -178,7 +179,8 @@ where
             #[coverage(off)]
             |idx| &mut self.inputs[idx],
         ) && ((nbr_new_counters > worst_input.nbr_unique_counters)
-                || (nbr_new_counters == worst_input.nbr_unique_counters && worst_input.cplx > complexity)) {
+            || (nbr_new_counters == worst_input.nbr_unique_counters && worst_input.cplx > complexity))
+        {
             let worst_input_data = worst_input.pool_idx;
             *worst_input = new_input;
             self.recompute_state_from_inputs_vec();

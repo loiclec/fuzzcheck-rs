@@ -122,7 +122,8 @@ impl<T: Clone + 'static, M: Mutator<T>> Mutator<Box<T>> for BoxMutator<M> {
     ) -> Option<(Self::UnmutateToken, f64)> {
         if self.rng.u8(..CROSSOVER_RATE) == 0
             && let Some((subvalue, subcplx)) = step.crossover_step.get_next_subvalue(subvalue_provider, max_cplx)
-            && self.mutator.is_valid(subvalue) {
+            && self.mutator.is_valid(subvalue)
+        {
             let mut replacer = subvalue.clone();
             std::mem::swap(value.as_mut(), &mut replacer);
             return Some((UnmutateToken::Replace(replacer), subcplx));

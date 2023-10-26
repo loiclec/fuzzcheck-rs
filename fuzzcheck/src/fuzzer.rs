@@ -541,7 +541,8 @@ where
                 if let Some(input) = self.state.pool_storage.get_mut(idx.0).map(
                     #[coverage(off)]
                     |x| &mut x.input,
-                ) && input.generation == generation {
+                ) && input.generation == generation
+                {
                     input.unmutate(&self.state.mutator, unmutate_token);
                 }
 

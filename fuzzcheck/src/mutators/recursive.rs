@@ -324,7 +324,7 @@ where
             let mut visit_subvalues = #[coverage(off)]
             |subvalue: &dyn Any, cplx: f64| {
                 if let Some(sub_self_value) = subvalue.downcast_ref::<T>()
-                && let Some(subcache) = self.mutator.validate_value(sub_self_value)
+                    && let Some(subcache) = self.mutator.validate_value(sub_self_value)
                 {
                     let subcplx = self.mutator.complexity(sub_self_value, &subcache);
                     assert_eq!(cplx, subcplx);
