@@ -1,5 +1,5 @@
 #![allow(unused_attributes)]
-#![feature(no_coverage)]
+#![feature(coverage_attribute)]
 
 use fuzzcheck::mutators::testing_utilities::test_mutator;
 use fuzzcheck::DefaultMutator;

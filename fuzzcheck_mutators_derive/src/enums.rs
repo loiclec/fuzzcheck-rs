@@ -121,7 +121,7 @@ pub(crate) fn impl_default_mutator_for_enum(
         field_mutators: &field_mutators,
         InnerMutator: &InnerMutator,
         new_impl: &ts!("
-            #[no_coverage]
+            #[coverage(off)]
             pub fn new("
             join_ts!(field_mutators.iter().filter(|fields|
                 !fields.is_empty() && fields.iter().all(|field| !field.kind.is_ignore())
@@ -184,7 +184,7 @@ pub(crate) fn impl_basic_enum_structure(tb: &mut TokenBuilder, enum_ident: &Iden
 
     extend_ts!(tb,
         "impl" BasicEnumStructure "for" enum_ident "{
-            #[no_coverage]
+            #[coverage(off)]
             fn from_variant_index(variant_index: usize) -> Self {
                 match variant_index {"
                 join_ts!(not_ignored.iter().enumerate(), (i, variant),
@@ -197,7 +197,7 @@ pub(crate) fn impl_basic_enum_structure(tb: &mut TokenBuilder, enum_ident: &Iden
                     _ => unreachable!()
                 }
             }
-            #[no_coverage]
+            #[coverage(off)]
             fn get_variant_index(&self) -> usize {
                 match self {"
                 join_ts!(not_ignored.iter().enumerate(), (i, variant),
@@ -234,7 +234,7 @@ pub(crate) fn impl_default_mutator_for_basic_enum(tb: &mut TokenBuilder, enum_id
     extend_ts!(tb,
         "impl" cm.DefaultMutator "for " enum_ident " {
             type Mutator = " BasicEnumMutator ";
-            #[no_coverage]
+            #[coverage(off)]
             fn default_mutator() -> Self::Mutator {
                 Self::Mutator::new::<" enum_ident ">(" q!(count_non_ignored) ")
             }

@@ -8,23 +8,23 @@ pub struct FenwickTree {
 }
 
 #[inline(always)]
-#[no_coverage]
+#[coverage(off)]
 fn least_significant_bit(i: usize) -> usize {
     i & (1_usize.wrapping_add(!i))
 }
 #[inline(always)]
-#[no_coverage]
+#[coverage(off)]
 fn get_parent(i: usize) -> usize {
     i - least_significant_bit(i)
 }
 #[inline(always)]
-#[no_coverage]
+#[coverage(off)]
 fn get_next(i: usize) -> usize {
     i + least_significant_bit(i)
 }
 
 impl FenwickTree {
-    #[no_coverage]
+    #[coverage(off)]
     pub fn new(mut xs: Vec<f64>) -> Self {
         let mut i = 1;
         while i < xs.len() {
@@ -36,11 +36,11 @@ impl FenwickTree {
         }
         Self { storage: xs }
     }
-    #[no_coverage]
+    #[coverage(off)]
     pub fn len(&self) -> usize {
         self.storage.len()
     }
-    #[no_coverage]
+    #[coverage(off)]
     pub fn prefix_sum(&self, mut idx: usize) -> f64 {
         assert!(!self.storage.is_empty());
         let mut sum = self.storage[0];
@@ -50,7 +50,7 @@ impl FenwickTree {
         }
         sum
     }
-    #[no_coverage]
+    #[coverage(off)]
     pub fn update(&mut self, mut idx: usize, delta: f64) {
         if idx == 0 {
             self.storage[idx] += delta;
@@ -62,11 +62,11 @@ impl FenwickTree {
         }
     }
     // Find the first item which has a prefix sum *higher* than the chosen weight.
-    #[no_coverage]
+    #[coverage(off)]
     pub fn first_index_past_prefix_sum(&self, chosen_weight: f64) -> usize {
         binary_search(
             self.len(),
-            #[no_coverage]
+            #[coverage(off)]
             |idx| {
                 if self.prefix_sum(idx) <= chosen_weight {
                     Ordering::Less
@@ -79,7 +79,7 @@ impl FenwickTree {
     }
 }
 
-#[no_coverage]
+#[coverage(off)]
 pub fn binary_search<F>(mut size: usize, mut f: F) -> Result<usize, usize>
 where
     F: FnMut(usize) -> Ordering,
@@ -123,7 +123,7 @@ unsigned int rank_query(int value) {
 */
 
 impl FenwickTree {
-    #[no_coverage]
+    #[coverage(off)]
     pub fn sample(&self, rng: &fastrand::Rng) -> Option<usize> {
         if self.len() == 0 {
             return None;
@@ -144,7 +144,7 @@ impl FenwickTree {
 mod tests {
     use super::FenwickTree;
 
-    #[no_coverage]
+    #[coverage(off)]
     #[test]
     fn test_basic_1() {
         let cumulative_probabilities = vec![2.0, 4.0, 1.0, 0.0, 1.2];

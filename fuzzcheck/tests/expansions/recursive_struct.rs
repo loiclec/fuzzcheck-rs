@@ -49,7 +49,7 @@ make_mutator! {
 mod mutator {}
 
 #[test]
-#[no_coverage]
+#[coverage(off)]
 fn test_compile() {
     let _m = RecursiveMutator::new(|self_| {
         SMutator::new(<bool as DefaultMutator>::default_mutator(), {

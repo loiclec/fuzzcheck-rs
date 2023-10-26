@@ -1,7 +1,6 @@
 #![allow(unused_attributes)]
 #![allow(clippy::type_complexity)]
-#![feature(no_coverage)]
-#![feature(bench_black_box)]
+#![feature(coverage_attribute)]
 
 use std::fmt::Debug;
 

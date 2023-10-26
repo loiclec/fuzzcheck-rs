@@ -25,7 +25,7 @@ where
     T: Clone + 'static,
     M: Mutator<T>,
 {
-    #[no_coverage]
+    #[coverage(off)]
     fn revert(
         self,
         mutator: &VecMutator<T, M>,
@@ -53,12 +53,12 @@ where
     type Concrete<'a> = ConcreteCrossoverInsertSlice<T>;
     type Revert = RevertCrossoverInsertSlice<M::UnmutateToken>;
 
-    #[no_coverage]
+    #[coverage(off)]
     fn default_random_step(&self, _mutator: &VecMutator<T, M>, _value: &Vec<T>) -> Option<Self::RandomStep> {
         None
     }
 
-    #[no_coverage]
+    #[coverage(off)]
     fn random<'a>(
         _mutator: &VecMutator<T, M>,
         _value: &Vec<T>,
@@ -69,7 +69,7 @@ where
         unreachable!()
     }
 
-    #[no_coverage]
+    #[coverage(off)]
     fn default_step(
         &self,
         mutator: &VecMutator<T, M>,
@@ -86,7 +86,7 @@ where
         }
     }
 
-    #[no_coverage]
+    #[coverage(off)]
     fn from_step<'a>(
         mutator: &VecMutator<T, M>,
         value: &Vec<T>,
@@ -140,7 +140,7 @@ where
         }
     }
 
-    #[no_coverage]
+    #[coverage(off)]
     fn apply<'a>(
         mutation: Self::Concrete<'a>,
         mutator: &VecMutator<T, M>,

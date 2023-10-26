@@ -9,7 +9,7 @@ pub struct SerdeSerializer<S> {
 }
 
 impl<S> Default for SerdeSerializer<S> {
-    #[no_coverage]
+    #[coverage(off)]
     fn default() -> Self {
         Self { phantom: PhantomData }
     }
@@ -21,15 +21,15 @@ where
 {
     type Value = S;
 
-    #[no_coverage]
+    #[coverage(off)]
     fn extension(&self) -> &str {
         "json"
     }
-    #[no_coverage]
+    #[coverage(off)]
     fn from_data(&self, data: &[u8]) -> Option<S> {
         serde_json::from_slice(data).ok()
     }
-    #[no_coverage]
+    #[coverage(off)]
     fn to_data(&self, value: &Self::Value) -> Vec<u8> {
         serde_json::to_vec(value).unwrap()
     }

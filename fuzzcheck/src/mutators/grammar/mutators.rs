@@ -70,7 +70,7 @@ pub struct ASTMutator {
 }
 
 impl ASTMutator {
-    #[no_coverage]
+    #[coverage(off)]
     pub fn with_string(self) -> impl Mutator<(String, AST)> {
         AndMapMutator::new(
             self,
@@ -88,7 +88,7 @@ pub struct ASTMutatorCache {
     inner: Box<<InnerASTMutator as Mutator<AST>>::Cache>,
 }
 impl ASTMutatorCache {
-    #[no_coverage]
+    #[coverage(off)]
     fn new(inner: <InnerASTMutator as Mutator<AST>>::Cache) -> Self {
         Self { inner: Box::new(inner) }
     }
@@ -98,7 +98,7 @@ pub struct ASTMutatorMutationStep {
     inner: Box<<InnerASTMutator as Mutator<AST>>::MutationStep>,
 }
 impl ASTMutatorMutationStep {
-    #[no_coverage]
+    #[coverage(off)]
     fn new(inner: <InnerASTMutator as Mutator<AST>>::MutationStep) -> Self {
         Self { inner: Box::new(inner) }
     }
@@ -112,7 +112,7 @@ pub struct ASTMutatorUnmutateToken {
     pub(crate) inner: Box<<InnerASTMutator as Mutator<AST>>::UnmutateToken>,
 }
 impl ASTMutatorUnmutateToken {
-    #[no_coverage]
+    #[coverage(off)]
     fn new(inner: <InnerASTMutator as Mutator<AST>>::UnmutateToken) -> Self {
         Self { inner: Box::new(inner) }
     }
@@ -129,75 +129,75 @@ impl Mutator<AST> for ASTMutator {
     type UnmutateToken = ASTMutatorUnmutateToken;
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn initialize(&self) {
         self.inner.initialize();
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn default_arbitrary_step(&self) -> Self::ArbitraryStep {
         Self::ArbitraryStep {
             inner: Box::new(self.inner.default_arbitrary_step()),
         }
     }
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn is_valid(&self, value: &AST) -> bool {
         self.inner.is_valid(value)
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn validate_value(&self, value: &AST) -> Option<Self::Cache> {
         let cache = self.inner.validate_value(value)?;
         Some(Self::Cache::new(cache))
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn default_mutation_step(&self, value: &AST, cache: &Self::Cache) -> Self::MutationStep {
         Self::MutationStep::new(self.inner.default_mutation_step(value, &cache.inner))
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn global_search_space_complexity(&self) -> f64 {
         self.inner.global_search_space_complexity()
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn max_complexity(&self) -> f64 {
         self.inner.max_complexity()
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn min_complexity(&self) -> f64 {
         self.inner.min_complexity()
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn complexity(&self, value: &AST, cache: &Self::Cache) -> f64 {
         self.inner.complexity(value, &cache.inner)
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn ordered_arbitrary(&self, step: &mut Self::ArbitraryStep, max_cplx: f64) -> Option<(AST, f64)> {
         self.inner.ordered_arbitrary(&mut step.inner, max_cplx)
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn random_arbitrary(&self, max_cplx: f64) -> (AST, f64) {
         self.inner.random_arbitrary(max_cplx)
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn ordered_mutate(
         &self,
         value: &mut AST,
@@ -213,38 +213,38 @@ impl Mutator<AST> for ASTMutator {
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn random_mutate(&self, value: &mut AST, cache: &mut Self::Cache, max_cplx: f64) -> (Self::UnmutateToken, f64) {
         let (token, cplx) = self.inner.random_mutate(value, &mut cache.inner, max_cplx);
         (Self::UnmutateToken::new(token), cplx)
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn unmutate(&self, value: &mut AST, cache: &mut Self::Cache, t: Self::UnmutateToken) {
         self.inner.unmutate(value, &mut cache.inner, *t.inner)
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn visit_subvalues<'a>(&self, value: &'a AST, cache: &'a Self::Cache, visit: &mut dyn FnMut(&'a dyn Any, f64)) {
         self.inner.visit_subvalues(value, &cache.inner, visit);
     }
 }
 
-#[no_coverage]
+#[coverage(off)]
 pub fn grammar_based_ast_mutator(grammar: Rc<Grammar>) -> ASTMutator {
     ASTMutator::from_grammar(grammar)
 }
 
 impl ASTMutator {
-    #[no_coverage]
+    #[coverage(off)]
     fn token(m: CharacterMutator) -> Self {
         Self {
             inner: Box::new(Either3::B(ASTSingleVariant::Token(Tuple1Mutator::new(m)))),
         }
     }
-    #[no_coverage]
+    #[coverage(off)]
     fn concatenation(m: FixedLenVecMutator<AST, ASTMutator>) -> Self {
         Self {
             inner: Box::new(Either3::B(ASTSingleVariant::Sequence(Tuple1Mutator::new(Either3::B(
@@ -252,7 +252,7 @@ impl ASTMutator {
             ))))),
         }
     }
-    #[no_coverage]
+    #[coverage(off)]
     fn repetition(m: VecMutator<AST, ASTMutator>) -> Self {
         Self {
             inner: Box::new(Either3::B(ASTSingleVariant::Sequence(Tuple1Mutator::new(Either3::C(
@@ -260,13 +260,13 @@ impl ASTMutator {
             ))))),
         }
     }
-    #[no_coverage]
+    #[coverage(off)]
     fn alternation(m: AlternationMutator<AST, ASTMutator>) -> Self {
         Self {
             inner: Box::new(Either3::A(m)),
         }
     }
-    #[no_coverage]
+    #[coverage(off)]
     fn recur(m: RecurToMutator<ASTMutator>) -> Self {
         Self {
             inner: Box::new(Either3::B(ASTSingleVariant::Sequence(Tuple1Mutator::new(Either3::A(
@@ -274,20 +274,20 @@ impl ASTMutator {
             ))))),
         }
     }
-    #[no_coverage]
+    #[coverage(off)]
     fn recursive(m: impl FnMut(&Weak<Self>) -> Self) -> Self {
         Self {
             inner: Box::new(Either3::C(RecursiveMutator::new(m))),
         }
     }
 
-    #[no_coverage]
+    #[coverage(off)]
     pub(crate) fn from_grammar(grammar: Rc<Grammar>) -> Self {
         let mut others = HashMap::new();
         Self::from_grammar_rec(grammar, &mut others)
     }
 
-    #[no_coverage]
+    #[coverage(off)]
     pub(crate) fn from_grammar_rec(
         grammar: Rc<Grammar>,
         others: &mut HashMap<*const Grammar, Weak<ASTMutator>>,
@@ -297,7 +297,7 @@ impl ASTMutator {
             Grammar::Alternation(gs) => Self::alternation(AlternationMutator::new(
                 gs.iter()
                     .map(
-                        #[no_coverage]
+                        #[coverage(off)]
                         |g| Self::from_grammar_rec(g.clone(), others),
                     )
                     .collect(),
@@ -323,7 +323,7 @@ impl ASTMutator {
                 }
             }
             Grammar::Recursive(g) => Self::recursive(
-                #[no_coverage]
+                #[coverage(off)]
                 |m| {
                     let weak_g = Rc::downgrade(g);
                     others.insert(weak_g.as_ptr(), m.clone());

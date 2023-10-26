@@ -32,7 +32,7 @@ pub struct DefaultArguments {
     pub max_input_cplx: f64,
 }
 impl Default for DefaultArguments {
-    #[no_coverage]
+    #[coverage(off)]
     fn default() -> Self {
         Self { max_input_cplx: 4096.0 }
     }
@@ -84,7 +84,7 @@ impl Arguments {
 
 /// The command line argument parser used by the fuzz target and `cargo fuzzcheck`
 #[must_use]
-#[no_coverage]
+#[coverage(off)]
 pub fn options_parser() -> Options {
     let mut options = Options::new();
 
@@ -177,7 +177,7 @@ impl Arguments {
     /// * `for_cargo_fuzzcheck` : true if this method is called within `cargo fuzzcheck`, false otherwise.
     ///   This is because `cargo fuzzcheck` also needs a fuzz target as argument, while the fuzzed binary
     ///   does not.
-    #[no_coverage]
+    #[coverage(off)]
     pub fn from_matches(matches: &Matches, for_cargo_fuzzcheck: bool) -> Result<Self, ArgumentsError> {
         if matches.opt_present("help") || matches.free.contains(&"help".to_owned()) {
             return Err(ArgumentsError::WantsHelp);
@@ -190,7 +190,7 @@ impl Arguments {
         }
 
         let command = matches.opt_str(COMMAND_FLAG).unwrap_or_else(
-            #[no_coverage]
+            #[coverage(off)]
             || COMMAND_FUZZ.to_owned(),
         );
 
@@ -208,18 +208,18 @@ impl Arguments {
         let max_input_cplx: Option<f64> = matches
             .opt_str(MAX_INPUT_CPLX_FLAG)
             .and_then(
-                #[no_coverage]
+                #[coverage(off)]
                 |x| x.parse::<usize>().ok(),
             )
             .map(
-                #[no_coverage]
+                #[coverage(off)]
                 |x| x as f64,
             );
 
         let detect_infinite_loop = matches.opt_present(DETECT_INFINITE_LOOP_FLAG);
 
         let corpus_in: Option<PathBuf> = matches.opt_str(IN_CORPUS_FLAG).and_then(
-            #[no_coverage]
+            #[coverage(off)]
             |x| x.parse::<PathBuf>().ok(),
         );
 
@@ -230,7 +230,7 @@ impl Arguments {
         };
 
         let corpus_out: Option<PathBuf> = matches.opt_str(OUT_CORPUS_FLAG).and_then(
-            #[no_coverage]
+            #[coverage(off)]
             |x| x.parse::<PathBuf>().ok(),
         );
 
@@ -241,7 +241,7 @@ impl Arguments {
         };
 
         let artifacts_folder: Option<PathBuf> = matches.opt_str(ARTIFACTS_FLAG).and_then(
-            #[no_coverage]
+            #[coverage(off)]
             |x| x.parse::<PathBuf>().ok(),
         );
 
@@ -252,7 +252,7 @@ impl Arguments {
         };
 
         let stats_folder: Option<PathBuf> = matches.opt_str(STATS_FLAG).and_then(
-            #[no_coverage]
+            #[coverage(off)]
             |x| x.parse::<PathBuf>().ok(),
         );
 
@@ -263,7 +263,7 @@ impl Arguments {
         };
 
         let input_file: Option<PathBuf> = matches.opt_str(INPUT_FILE_FLAG).and_then(
-            #[no_coverage]
+            #[coverage(off)]
             |x| x.parse::<PathBuf>().ok(),
         );
 
@@ -273,7 +273,7 @@ impl Arguments {
             COMMAND_FUZZ => FuzzerCommand::Fuzz,
             COMMAND_READ => {
                 let input_file = input_file.unwrap_or_else(
-                    #[no_coverage]
+                    #[coverage(off)]
                     || {
                         panic!(
                             "An input file must be provided when reading a test case. Use --{}",
@@ -285,7 +285,7 @@ impl Arguments {
             }
             COMMAND_MINIFY_INPUT => {
                 let input_file = input_file.unwrap_or_else(
-                    #[no_coverage]
+                    #[coverage(off)]
                     || {
                         panic!(
                             "An input file must be provided when minifying a test case. Use --{}",
@@ -302,7 +302,7 @@ impl Arguments {
             let seconds = matches
                 .opt_str(MAX_DURATION_FLAG)
                 .and_then(
-                    #[no_coverage]
+                    #[coverage(off)]
                     |x| x.parse::<u64>().ok(),
                 )
                 .unwrap_or(u64::MAX);
@@ -311,7 +311,7 @@ impl Arguments {
         let maximum_iterations = matches
             .opt_str(MAX_ITERATIONS_FLAG)
             .and_then(
-                #[no_coverage]
+                #[coverage(off)]
                 |x| x.parse::<usize>().ok(),
             )
             .unwrap_or(usize::MAX);
@@ -341,7 +341,7 @@ impl Arguments {
 }
 
 /// The “help” output of cargo-fuzzcheck
-#[no_coverage]
+#[coverage(off)]
 pub fn help(parser: &Options) -> String {
     let mut help = r##"
 USAGE:
@@ -408,13 +408,13 @@ pub enum ArgumentsError {
 }
 
 impl Debug for ArgumentsError {
-    #[no_coverage]
+    #[coverage(off)]
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         <Self as Display>::fmt(self, f)
     }
 }
 impl Display for ArgumentsError {
-    #[no_coverage]
+    #[coverage(off)]
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             ArgumentsError::NoArgumentsGiven(help) => {
@@ -447,7 +447,7 @@ To display the help, run:
 impl Error for ArgumentsError {}
 
 impl From<Fail> for ArgumentsError {
-    #[no_coverage]
+    #[coverage(off)]
     fn from(e: Fail) -> Self {
         Self::Parsing(e)
     }

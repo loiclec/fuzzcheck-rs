@@ -11,16 +11,16 @@ pub struct NoopSensor;
 
 impl Sensor for NoopSensor {
     type Observations = ();
-    #[no_coverage]
+    #[coverage(off)]
     fn start_recording(&mut self) {}
-    #[no_coverage]
+    #[coverage(off)]
     fn stop_recording(&mut self) {}
 
-    #[no_coverage]
+    #[coverage(off)]
     fn get_observations(&mut self) {}
 }
 impl SaveToStatsFolder for NoopSensor {
-    #[no_coverage]
+    #[coverage(off)]
     fn save_to_stats_folder(&self) -> Vec<(PathBuf, Vec<u8>)> {
         vec![]
     }

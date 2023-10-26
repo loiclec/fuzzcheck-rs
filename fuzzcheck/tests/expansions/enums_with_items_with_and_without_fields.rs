@@ -20,7 +20,7 @@ pub enum Z {
 }
 
 #[test]
-#[no_coverage]
+#[coverage(off)]
 fn test_compile() {
     let m = A::default_mutator();
     let (_alue, _cache): (A, _) = m.random_arbitrary(10.0);

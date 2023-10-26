@@ -16,7 +16,7 @@ pub struct SlabKey<T> {
 }
 
 impl<T> SlabKey<T> {
-    #[no_coverage]
+    #[coverage(off)]
     pub fn new(key: usize) -> Self {
         Self {
             key,
@@ -28,14 +28,14 @@ impl<T> SlabKey<T> {
 impl<T> Copy for SlabKey<T> {}
 
 impl<T> Clone for SlabKey<T> {
-    #[no_coverage]
+    #[coverage(off)]
     fn clone(&self) -> Self {
         Self::new(self.key)
     }
 }
 
 impl<T> PartialEq for SlabKey<T> {
-    #[no_coverage]
+    #[coverage(off)]
     fn eq(&self, other: &Self) -> bool {
         self.key == other.key
     }
@@ -44,27 +44,27 @@ impl<T> PartialEq for SlabKey<T> {
 impl<T> Eq for SlabKey<T> {}
 
 impl<T> fmt::Debug for SlabKey<T> {
-    #[no_coverage]
+    #[coverage(off)]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "k{}", self.key)
     }
 }
 
 impl<T> PartialOrd for SlabKey<T> {
-    #[no_coverage]
+    #[coverage(off)]
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.key.cmp(&other.key))
     }
 }
 impl<T> Ord for SlabKey<T> {
-    #[no_coverage]
+    #[coverage(off)]
     fn cmp(&self, other: &Self) -> Ordering {
         self.key.cmp(&other.key)
     }
 }
 
 impl<T> Hash for SlabKey<T> {
-    #[no_coverage]
+    #[coverage(off)]
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.key.hash(state);
     }
@@ -81,12 +81,12 @@ pub struct Slab<T> {
 }
 
 impl<T: Debug> Debug for Slab<T> {
-    #[no_coverage]
+    #[coverage(off)]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let storage = self
             .keys()
             .map(
-                #[no_coverage]
+                #[coverage(off)]
                 |k| &self[k],
             )
             .collect::<Vec<_>>();
@@ -98,22 +98,22 @@ impl<T: Debug> Debug for Slab<T> {
 }
 
 impl<T> Slab<T> {
-    #[no_coverage]
+    #[coverage(off)]
     pub fn new() -> Self {
         Self {
             storage: Vec::with_capacity(1000),
             available_slots: Vec::with_capacity(32),
         }
     }
-    #[no_coverage]
+    #[coverage(off)]
     pub fn len(&self) -> usize {
         self.storage.len() - self.available_slots.len()
     }
-    // #[no_coverage]
+    // #[coverage(off)]
     // pub fn is_empty(&self) -> bool {
     //     self.len() == 0
     // }
-    #[no_coverage]
+    #[coverage(off)]
     pub fn get_nth_key(&self, n: usize) -> SlabKey<T> {
         let mut idx = n;
         for &i in &self.available_slots {
@@ -124,7 +124,7 @@ impl<T> Slab<T> {
         SlabKey::new(idx)
     }
 
-    #[no_coverage]
+    #[coverage(off)]
     pub fn insert(&mut self, x: T) -> SlabKey<T> {
         if let Some(&slot) = self.available_slots.last() {
             self.available_slots.pop();
@@ -135,12 +135,12 @@ impl<T> Slab<T> {
             SlabKey::new(self.storage.len() - 1)
         }
     }
-    #[no_coverage]
+    #[coverage(off)]
     pub fn remove(&mut self, key: SlabKey<T>) {
         self.available_slots.push(key.key);
         self.available_slots.sort_unstable();
     }
-    // #[no_coverage]
+    // #[coverage(off)]
     // pub fn next_key(&self) -> SlabKey<T> {
     //     if let Some(&slot) = self.available_slots.last() {
     //         SlabKey::new(slot)
@@ -148,7 +148,7 @@ impl<T> Slab<T> {
     //         SlabKey::new(self.storage.len())
     //     }
     // }
-    // #[no_coverage]
+    // #[coverage(off)]
     // pub fn get_mut(&mut self, key: SlabKey<T>) -> Option<&mut T> {
     //     // O(n) but in practice very fast because there will be almost no available slots
     //     if self.available_slots.contains(&key.key) {
@@ -162,31 +162,31 @@ impl<T> Slab<T> {
 impl<T> Index<SlabKey<T>> for Slab<T> {
     type Output = T;
     #[inline(always)]
-    #[no_coverage]
+    #[coverage(off)]
     fn index(&self, key: SlabKey<T>) -> &Self::Output {
         &self.storage[key.key]
     }
 }
 impl<T> IndexMut<SlabKey<T>> for Slab<T> {
     #[inline(always)]
-    #[no_coverage]
+    #[coverage(off)]
     fn index_mut(&mut self, key: SlabKey<T>) -> &mut Self::Output {
         &mut self.storage[key.key]
     }
 }
 
 impl<T> Slab<T> {
-    #[no_coverage]
+    #[coverage(off)]
     pub fn keys(&self) -> impl Iterator<Item = SlabKey<T>> {
         let available_slots = self.available_slots.clone();
         (0..self.storage.len())
             .into_iter()
             .filter(
-                #[no_coverage]
+                #[coverage(off)]
                 move |i| !available_slots.contains(i),
             )
             .map(
-                #[no_coverage]
+                #[coverage(off)]
                 |raw_key| SlabKey::new(raw_key),
             )
     }
@@ -210,12 +210,12 @@ pub struct RcSlab<T> {
 }
 
 impl<T: Debug> Debug for RcSlab<T> {
-    #[no_coverage]
+    #[coverage(off)]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let storage = self
             .keys()
             .map(
-                #[no_coverage]
+                #[coverage(off)]
                 |k| &self[k],
             )
             .collect::<Vec<_>>();
@@ -227,22 +227,22 @@ impl<T: Debug> Debug for RcSlab<T> {
 }
 
 impl<T> RcSlab<T> {
-    #[no_coverage]
+    #[coverage(off)]
     pub fn new() -> Self {
         Self {
             storage: Vec::with_capacity(1000),
             available_slots: Vec::with_capacity(32),
         }
     }
-    // #[no_coverage]
+    // #[coverage(off)]
     // pub fn len(&self) -> usize {
     //     self.storage.len() - self.available_slots.len()
     // }
-    // #[no_coverage]
+    // #[coverage(off)]
     // pub fn is_empty(&self) -> bool {
     //     self.len() == 0
     // }
-    // #[no_coverage]
+    // #[coverage(off)]
     // pub fn get_nth_key(&self, n: usize) -> SlabKey<T> {
     //     let mut idx = n;
     //     for &i in &self.available_slots {
@@ -253,7 +253,7 @@ impl<T> RcSlab<T> {
     //     SlabKey::new(idx)
     // }
 
-    #[no_coverage]
+    #[coverage(off)]
     pub fn insert(&mut self, x: T, ref_count: usize) -> usize {
         if let Some(&slot) = self.available_slots.last() {
             self.available_slots.pop();
@@ -264,7 +264,7 @@ impl<T> RcSlab<T> {
             self.storage.len() - 1
         }
     }
-    #[no_coverage]
+    #[coverage(off)]
     pub fn remove(&mut self, key: usize) {
         let slot = &mut self.storage[key];
         assert!(slot.ref_count > 0);
@@ -274,7 +274,7 @@ impl<T> RcSlab<T> {
             self.available_slots.sort_unstable();
         }
     }
-    #[no_coverage]
+    #[coverage(off)]
     pub fn next_slot(&self) -> usize {
         if let Some(&slot) = self.available_slots.last() {
             slot
@@ -282,7 +282,7 @@ impl<T> RcSlab<T> {
             self.storage.len()
         }
     }
-    #[no_coverage]
+    #[coverage(off)]
     pub fn get_mut(&mut self, key: usize) -> Option<&mut T> {
         // O(n) but in practice very fast because there will be almost no available slots
         if self.available_slots.contains(&key) {
@@ -292,7 +292,7 @@ impl<T> RcSlab<T> {
         }
     }
 
-    #[no_coverage]
+    #[coverage(off)]
     pub fn get_mut_and_ref(&mut self, key1: usize, key2: usize) -> Option<(&mut T, &T)> {
         if key1 == key2 {
             panic!("key1 must be different than key2");
@@ -319,21 +319,21 @@ impl<T> RcSlab<T> {
 impl<T> Index<usize> for RcSlab<T> {
     type Output = T;
     #[inline(always)]
-    #[no_coverage]
+    #[coverage(off)]
     fn index(&self, key: usize) -> &Self::Output {
         &self.storage[key].data
     }
 }
 impl<T> IndexMut<usize> for RcSlab<T> {
     #[inline(always)]
-    #[no_coverage]
+    #[coverage(off)]
     fn index_mut(&mut self, key: usize) -> &mut Self::Output {
         &mut self.storage[key].data
     }
 }
 
 impl<T> RcSlab<T> {
-    #[no_coverage]
+    #[coverage(off)]
     pub fn keys(&self) -> impl Iterator<Item = usize> + '_ {
         (0..self.storage.len())
             .into_iter()

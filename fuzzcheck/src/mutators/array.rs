@@ -25,7 +25,7 @@ where
     T: Clone + 'static,
     M: Mutator<T>,
 {
-    #[no_coverage]
+    #[coverage(off)]
     pub fn new(mutator: M) -> Self {
         Self {
             mutator,
@@ -45,7 +45,7 @@ where
 {
     type Mutator = ArrayMutator<M, T, N>;
 
-    #[no_coverage]
+    #[coverage(off)]
     fn default_mutator() -> Self::Mutator {
         Self::Mutator::new(T::default_mutator())
     }
@@ -63,7 +63,7 @@ pub struct ArrayMutatorCache<C> {
     sum_cplx: f64,
 }
 impl<C> Default for ArrayMutatorCache<C> {
-    #[no_coverage]
+    #[coverage(off)]
     fn default() -> Self {
         Self {
             inner: Vec::new(),
@@ -79,11 +79,11 @@ pub enum UnmutateArrayToken<M: Mutator<T>, T: Clone + 'static, const N: usize> {
 }
 
 impl<M: Mutator<T>, T: Clone + 'static, const N: usize> ArrayMutator<M, T, N> {
-    #[no_coverage]
+    #[coverage(off)]
     fn len(&self) -> usize {
         N
     }
-    #[no_coverage]
+    #[coverage(off)]
     fn mutate_elements(
         &self,
         value: &mut [T; N],
@@ -108,7 +108,7 @@ impl<M: Mutator<T>, T: Clone + 'static, const N: usize> ArrayMutator<M, T, N> {
         }
         (UnmutateArrayToken::Elements(tokens), cplx)
     }
-    #[no_coverage]
+    #[coverage(off)]
     fn mutate_element(
         &self,
         value: &mut [T; N],
@@ -138,7 +138,7 @@ impl<M: Mutator<T>, T: Clone + 'static, const N: usize> ArrayMutator<M, T, N> {
         }
     }
 
-    #[no_coverage]
+    #[coverage(off)]
     fn new_input_with_complexity(&self, target_cplx: f64) -> ([T; N], f64) {
         let mut v = Vec::with_capacity(self.len());
         let mut sum_cplx = 0.0;
@@ -171,7 +171,7 @@ impl<M: Mutator<T>, T: Clone + 'static, const N: usize> Mutator<[T; N]> for Arra
     type UnmutateToken = UnmutateArrayToken<M, T, N>;
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn initialize(&self) {
         self.mutator.initialize();
 
@@ -183,11 +183,11 @@ impl<M: Mutator<T>, T: Clone + 'static, const N: usize> Mutator<[T; N]> for Arra
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn default_arbitrary_step(&self) -> Self::ArbitraryStep {}
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn is_valid(&self, value: &[T; N]) -> bool {
         for v in value.iter() {
             if !self.mutator.is_valid(v) {
@@ -198,19 +198,19 @@ impl<M: Mutator<T>, T: Clone + 'static, const N: usize> Mutator<[T; N]> for Arra
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn validate_value(&self, value: &[T; N]) -> Option<Self::Cache> {
         let inner_caches: Vec<_> = value
             .iter()
             .map(
-                #[no_coverage]
+                #[coverage(off)]
                 |x| self.mutator.validate_value(x),
             )
             .collect::<Option<_>>()?;
 
         let sum_cplx = value.iter().zip(inner_caches.iter()).fold(
             0.0,
-            #[no_coverage]
+            #[coverage(off)]
             |cplx, (v, cache)| cplx + self.mutator.complexity(v, cache),
         );
 
@@ -223,13 +223,13 @@ impl<M: Mutator<T>, T: Clone + 'static, const N: usize> Mutator<[T; N]> for Arra
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn default_mutation_step(&self, value: &[T; N], cache: &Self::Cache) -> Self::MutationStep {
         let inner = value
             .iter()
             .zip(cache.inner.iter())
             .map(
-                #[no_coverage]
+                #[coverage(off)]
                 |(v, c)| self.mutator.default_mutation_step(v, c),
             )
             .collect::<Vec<_>>();
@@ -237,31 +237,31 @@ impl<M: Mutator<T>, T: Clone + 'static, const N: usize> Mutator<[T; N]> for Arra
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn global_search_space_complexity(&self) -> f64 {
         self.mutator.global_search_space_complexity() * (N as f64)
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn max_complexity(&self) -> f64 {
         self.max_complexity.get()
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn min_complexity(&self) -> f64 {
         self.min_complexity.get()
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn complexity(&self, _value: &[T; N], cache: &Self::Cache) -> f64 {
         cache.sum_cplx
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn ordered_arbitrary(&self, _step: &mut Self::ArbitraryStep, max_cplx: f64) -> Option<([T; N], f64)> {
         if max_cplx < self.min_complexity() {
             return None;
@@ -270,14 +270,14 @@ impl<M: Mutator<T>, T: Clone + 'static, const N: usize> Mutator<[T; N]> for Arra
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn random_arbitrary(&self, max_cplx: f64) -> ([T; N], f64) {
         let target_cplx = crate::mutators::gen_f64(&self.rng, 1.0..max_cplx);
         self.new_input_with_complexity(target_cplx)
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn ordered_mutate(
         &self,
         value: &mut [T; N],
@@ -307,14 +307,14 @@ impl<M: Mutator<T>, T: Clone + 'static, const N: usize> Mutator<[T; N]> for Arra
             step.element_step += 1;
             self.mutate_element(value, cache, step, subvalue_provider, idx, current_cplx, spare_cplx)
                 .or_else(
-                    #[no_coverage]
+                    #[coverage(off)]
                     || Some(self.random_mutate(value, cache, max_cplx)),
                 )
         }
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn random_mutate(&self, value: &mut [T; N], cache: &mut Self::Cache, max_cplx: f64) -> (Self::UnmutateToken, f64) {
         if value.is_empty() || self.rng.usize(0..100) == 0 {
             let (mut v, cplx) = self.random_arbitrary(max_cplx);
@@ -345,7 +345,7 @@ impl<M: Mutator<T>, T: Clone + 'static, const N: usize> Mutator<[T; N]> for Arra
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn unmutate(&self, value: &mut [T; N], cache: &mut Self::Cache, t: Self::UnmutateToken) {
         match t {
             UnmutateArrayToken::Element(idx, inner_t) => {
@@ -365,7 +365,7 @@ impl<M: Mutator<T>, T: Clone + 'static, const N: usize> Mutator<[T; N]> for Arra
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn visit_subvalues<'a>(&self, value: &'a [T; N], cache: &'a Self::Cache, visit: &mut dyn FnMut(&'a dyn Any, f64)) {
         if !value.is_empty() {
             for idx in 0..value.len() {
@@ -385,7 +385,7 @@ mod tests {
     use crate::mutators::integer::U8Mutator;
     use crate::Mutator;
     #[test]
-    #[no_coverage]
+    #[coverage(off)]
     fn test_array_mutator() {
         let m = ArrayMutator::<U8Mutator, u8, 32>::new(U8Mutator::default());
         m.initialize();

@@ -31,7 +31,7 @@ DEALINGS IN THE SOFTWARE.
 macro_rules! impl_read_unsigned_leb128 {
     ($fn_name:ident, $int_ty:ty) => {
         #[inline]
-        #[no_coverage]
+        #[coverage(off)]
         pub fn $fn_name(slice: &[u8]) -> ($int_ty, usize) {
             let mut result = 0;
             let mut shift = 0;

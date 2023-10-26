@@ -51,7 +51,7 @@ impl<T: ?Sized> BloomFilter<T> {
     ///
     /// * 'size' - A usize that sets the size of the filter
     /// * 'false_pos_rate' - The acceptable false positive rate
-    #[no_coverage]
+    #[coverage(off)]
     pub fn new(size: usize, false_pos_rate: f64) -> Self {
         let k = Self::optimal_k(false_pos_rate);
         let m = Self::optimal_m(false_pos_rate, size);
@@ -76,7 +76,7 @@ impl<T: ?Sized> BloomFilter<T> {
     /// where P is the probability of false positives
     /// and n is the acceptable false postive rate
     /// k = ( -( n * lnP ) / (ln2)^2 )
-    #[no_coverage]
+    #[coverage(off)]
     fn optimal_m(false_pos_rate: f64, size: usize) -> usize {
         ((size as f64 * FALSE_POS_PROB * false_pos_rate.ln()) / LN_2_SQR).ceil() as usize
     }
@@ -87,13 +87,13 @@ impl<T: ?Sized> BloomFilter<T> {
     ///
     /// where P is the probability of false positives
     /// k = ( - lnP / ln2 )
-    #[no_coverage]
+    #[coverage(off)]
     fn optimal_k(false_pos_rate: f64) -> u64 {
         (false_pos_rate.ln() * FALSE_POS_PROB / LN_2).ceil() as u64
     }
 
     /// Hash values T for Bloomfilter
-    #[no_coverage]
+    #[coverage(off)]
     fn hash(&self, t: &T) -> (u64, u64)
     where
         T: Hash,
@@ -113,13 +113,13 @@ impl<T: ?Sized> BloomFilter<T> {
     /// Prevent Overflow:
     /// wrapping_add: wrapping add around at the boundary type
     /// wrapping_mul: wrapping mult around at the boundary type
-    #[no_coverage]
+    #[coverage(off)]
     fn find_index(&self, i: u64, hash1: u64, hash2: u64) -> usize {
         hash1.wrapping_add((i).wrapping_mul(hash2)) as usize % self.m
     }
 
     /// Insert T into the BloomFilter index
-    #[no_coverage]
+    #[coverage(off)]
     pub fn insert(&mut self, t: &T)
     where
         T: Hash,
@@ -133,7 +133,7 @@ impl<T: ?Sized> BloomFilter<T> {
     }
 
     /// Check if t of type T is in the BloomFilter index
-    #[no_coverage]
+    #[coverage(off)]
     pub fn contains(&mut self, t: &T) -> bool
     where
         T: Hash,

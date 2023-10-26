@@ -15,19 +15,19 @@ pub struct UniqueValuesPoolStats {
     pub size: usize,
 }
 impl ToCSV for UniqueValuesPoolStats {
-    #[no_coverage]
+    #[coverage(off)]
     fn csv_headers(&self) -> Vec<crate::CSVField> {
         vec![]
     }
 
-    #[no_coverage]
+    #[coverage(off)]
     fn to_csv_record(&self) -> Vec<crate::CSVField> {
         vec![]
     }
 }
 
 impl Display for UniqueValuesPoolStats {
-    #[no_coverage]
+    #[coverage(off)]
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
@@ -66,7 +66,7 @@ impl<T> Debug for UniqueValuesPool<T>
 where
     T: Hash + Eq + Clone + Debug,
 {
-    #[no_coverage]
+    #[coverage(off)]
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("UniqueValuesPool")
             .field("complexities", &self.complexities)
@@ -82,7 +82,7 @@ impl<T> UniqueValuesPool<T>
 where
     T: Hash + Eq + Clone,
 {
-    #[no_coverage]
+    #[coverage(off)]
     pub fn new(name: &str, size: usize) -> Self {
         Self {
             name: name.to_string(),
@@ -105,12 +105,12 @@ where
 {
     type Stats = UniqueValuesPoolStats;
 
-    #[no_coverage]
+    #[coverage(off)]
     fn stats(&self) -> Self::Stats {
         self.stats.clone()
     }
 
-    #[no_coverage]
+    #[coverage(off)]
     fn get_random_index(&mut self) -> Option<PoolStorageIndex> {
         let choice = self.ranked_inputs.sample(&self.rng)?;
         let key = self.inputs.get_nth_key(choice);
@@ -130,7 +130,7 @@ impl<T> SaveToStatsFolder for UniqueValuesPool<T>
 where
     T: Hash + Eq + Clone,
 {
-    #[no_coverage]
+    #[coverage(off)]
     fn save_to_stats_folder(&self) -> Vec<(std::path::PathBuf, Vec<u8>)> {
         vec![]
     }
@@ -140,7 +140,7 @@ impl<T> UniqueValuesPool<T>
 where
     T: Hash + Eq + Clone,
 {
-    #[no_coverage]
+    #[coverage(off)]
     fn update_stats(&mut self) {
         let inputs = &self.inputs;
 
@@ -148,7 +148,7 @@ where
             .inputs
             .keys()
             .map(
-                #[no_coverage]
+                #[coverage(off)]
                 |key| {
                     let input = &inputs[key];
                     input.score / (input.number_times_chosen as f64)
@@ -166,7 +166,7 @@ where
     for<'a> &'a O: IntoIterator<Item = &'a (usize, T)>,
     T: Hash + Eq + Clone + Copy + 'static,
 {
-    #[no_coverage]
+    #[coverage(off)]
     fn process(&mut self, input_id: PoolStorageIndex, observations: &O, complexity: f64) -> Vec<CorpusDelta> {
         let mut state = vec![];
         for &(index, v) in observations.into_iter() {
@@ -221,7 +221,7 @@ where
         let removed_keys = removed_keys
             .into_iter()
             .map(
-                #[no_coverage]
+                #[coverage(off)]
                 |k| self.inputs[k].data,
             )
             .collect();

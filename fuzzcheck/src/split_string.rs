@@ -42,14 +42,14 @@ pub(crate) enum Token<'a> {
 
 impl<'a> Iterator for Lexer<'a> {
     type Item = (usize, Token<'a>);
-    #[no_coverage]
+    #[coverage(off)]
     fn next(&mut self) -> Option<Self::Item> {
         match self.chars.next() {
             Some((idx, chr)) => match chr {
                 '\'' => Some((idx, Token::SingleQuote)),
                 '"' => Some((idx, Token::DoubleQuote)),
                 '\\' => match self.chars.next() {
-                    Some((cont, _)) => Some((idx, Token::Escape(&self.input[(idx..cont + 1)]))),
+                    Some((cont, _)) => Some((idx, Token::Escape(&self.input[idx..cont + 1]))),
                     None => panic!(),
                 },
                 c if c.is_whitespace() => {
@@ -61,7 +61,7 @@ impl<'a> Iterator for Lexer<'a> {
                         }
                         self.chars.next();
                     }
-                    Some((idx, Token::Whitespace(&self.input[(idx..end + 1)])))
+                    Some((idx, Token::Whitespace(&self.input[idx..end + 1])))
                 }
                 _ => {
                     let mut end = idx;
@@ -72,21 +72,21 @@ impl<'a> Iterator for Lexer<'a> {
                         }
                         self.chars.next();
                     }
-                    Some((idx, Token::Word(&self.input[(idx..end + 1)])))
+                    Some((idx, Token::Word(&self.input[idx..end + 1])))
                 }
             },
             None => None,
         }
     }
 }
-#[no_coverage]
+#[coverage(off)]
 fn is_word_character(c: char) -> bool {
     c != '\'' && c != '"' && c != '\\' && !c.is_whitespace()
 }
 /**
 Split an input string into arguments by whitespace such that text between matching quotes is combined into a single argument. Additionally, single character escapes are supported and ignored where applicable. Will panic on invalid inputs.
 */
-#[no_coverage]
+#[coverage(off)]
 pub fn split_string_by_whitespace(input: &str) -> Vec<&str> {
     let mut lexer = Lexer {
         input,
@@ -99,7 +99,7 @@ pub fn split_string_by_whitespace(input: &str) -> Vec<&str> {
             Token::Word(_) | Token::Escape(_) => loop {
                 match lexer.next() {
                     Some((cont, Token::Whitespace(_))) => {
-                        result.push(&input[(idx..cont)]);
+                        result.push(&input[idx..cont]);
                         break;
                     }
                     Some((_, Token::Word(_) | Token::Escape(_))) => continue,
@@ -107,7 +107,7 @@ pub fn split_string_by_whitespace(input: &str) -> Vec<&str> {
                         panic!()
                     }
                     None => {
-                        result.push(&input[(idx..)]);
+                        result.push(&input[idx..]);
                         break;
                     }
                 }
@@ -136,7 +136,7 @@ pub fn split_string_by_whitespace(input: &str) -> Vec<&str> {
 mod tests {
     use super::split_string_by_whitespace;
     #[test]
-    #[no_coverage]
+    #[coverage(off)]
     fn test1() {
         let s = "hello world";
         println!("{:?}", split_string_by_whitespace(s));

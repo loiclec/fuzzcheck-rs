@@ -13,7 +13,7 @@ pub struct UnitPool {
     input_index: PoolStorageIndex,
 }
 impl UnitPool {
-    #[no_coverage]
+    #[coverage(off)]
     pub(crate) fn new(input_index: PoolStorageIndex) -> Self {
         Self { input_index }
     }
@@ -21,25 +21,25 @@ impl UnitPool {
 
 impl Pool for UnitPool {
     type Stats = EmptyStats;
-    #[no_coverage]
+    #[coverage(off)]
     fn stats(&self) -> Self::Stats {
         EmptyStats
     }
 
-    #[no_coverage]
+    #[coverage(off)]
     fn get_random_index(&mut self) -> Option<PoolStorageIndex> {
         Some(self.input_index)
     }
 }
 impl SaveToStatsFolder for UnitPool {
-    #[no_coverage]
+    #[coverage(off)]
     fn save_to_stats_folder(&self) -> Vec<(PathBuf, Vec<u8>)> {
         vec![]
     }
 }
 
 impl<O> CompatibleWithObservations<O> for UnitPool {
-    #[no_coverage]
+    #[coverage(off)]
     fn process<'a>(&'a mut self, _input_id: PoolStorageIndex, _observations: &O, _complexity: f64) -> Vec<CorpusDelta> {
         vec![]
     }

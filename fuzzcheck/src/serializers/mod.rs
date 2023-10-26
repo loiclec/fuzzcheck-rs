@@ -41,7 +41,7 @@ impl ByteSerializer {
     ///
     /// let ser = ByteSerializer::new("png");
     /// ````
-    #[no_coverage]
+    #[coverage(off)]
     pub fn new(ext: &'static str) -> Self {
         Self { ext }
     }
@@ -50,15 +50,15 @@ impl ByteSerializer {
 impl crate::traits::Serializer for ByteSerializer {
     type Value = Vec<u8>;
 
-    #[no_coverage]
+    #[coverage(off)]
     fn extension(&self) -> &str {
         self.ext
     }
-    #[no_coverage]
+    #[coverage(off)]
     fn from_data(&self, data: &[u8]) -> Option<Self::Value> {
         Some(data.into())
     }
-    #[no_coverage]
+    #[coverage(off)]
     fn to_data(&self, value: &Self::Value) -> Vec<u8> {
         value.clone()
     }
@@ -86,7 +86,7 @@ where
     ///
     /// let ser = StringSerializer::<String>::new("txt");
     /// ````
-    #[no_coverage]
+    #[coverage(off)]
     pub fn new(extension: &'static str) -> Self {
         Self {
             extension,
@@ -100,17 +100,17 @@ where
 {
     type Value = StringType;
 
-    #[no_coverage]
+    #[coverage(off)]
     fn extension(&self) -> &str {
         self.extension
     }
-    #[no_coverage]
+    #[coverage(off)]
     fn from_data(&self, data: &[u8]) -> Option<Self::Value> {
         let string = String::from_utf8(data.to_vec()).ok()?;
         let value = Self::Value::from_str(&string).ok()?;
         Some(value)
     }
-    #[no_coverage]
+    #[coverage(off)]
     fn to_data(&self, value: &Self::Value) -> Vec<u8> {
         value.to_string().into_bytes()
     }

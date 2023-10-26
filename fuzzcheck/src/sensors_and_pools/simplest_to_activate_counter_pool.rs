@@ -45,7 +45,7 @@ struct CounterIdx(pub usize);
 
 impl Clone for CounterIdx {
     #[inline(always)]
-    #[no_coverage]
+    #[coverage(off)]
     fn clone(&self) -> Self {
         Self(self.0)
     }
@@ -53,19 +53,19 @@ impl Clone for CounterIdx {
 impl Copy for CounterIdx {}
 impl Hash for CounterIdx {
     #[inline(always)]
-    #[no_coverage]
+    #[coverage(off)]
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.0.hash(state);
     }
 }
 impl PartialEq for CounterIdx {
     #[inline(always)]
-    #[no_coverage]
+    #[coverage(off)]
     fn eq(&self, other: &Self) -> bool {
         self.0 == other.0
     }
     #[inline(always)]
-    #[no_coverage]
+    #[coverage(off)]
     fn ne(&self, other: &Self) -> bool {
         self.0 != other.0
     }
@@ -74,7 +74,7 @@ impl Eq for CounterIdx {}
 
 impl CounterIdx {
     #[inline(always)]
-    #[no_coverage]
+    #[coverage(off)]
     pub(crate) fn new(index: usize) -> Self {
         Self(index)
     }
@@ -117,7 +117,7 @@ struct AnalysedCounter {
 }
 
 impl AnalysedCounter {
-    #[no_coverage]
+    #[coverage(off)]
     fn new(
         key: CounterIdx,
         inputs: Vec<SlabKey<Input>>,
@@ -155,7 +155,7 @@ pub struct SimplestToActivateCounterPool {
 }
 
 impl SimplestToActivateCounterPool {
-    #[no_coverage]
+    #[coverage(off)]
     pub fn new(name: &str, nbr_counters: usize) -> Self {
         SimplestToActivateCounterPool {
             name: name.to_string(),
@@ -172,13 +172,13 @@ impl SimplestToActivateCounterPool {
         }
     }
 
-    #[no_coverage]
+    #[coverage(off)]
     pub fn score(&self) -> f64 {
         self.total_score
     }
 
     #[allow(clippy::too_many_lines)]
-    #[no_coverage]
+    #[coverage(off)]
     fn add(
         &mut self,
         data: PoolStorageIndex,
@@ -259,7 +259,7 @@ impl SimplestToActivateCounterPool {
         let deleted_pool_storage_indices = deleted_values
             .iter()
             .map(
-                #[no_coverage]
+                #[coverage(off)]
                 |key| self.slab_inputs[*key].data,
             )
             .collect::<Vec<_>>();
@@ -306,7 +306,7 @@ impl SimplestToActivateCounterPool {
         ))
     }
 
-    #[no_coverage]
+    #[coverage(off)]
     fn delete_elements(&mut self, to_delete: AHashSet<SlabKey<Input>>, affected_counters: &mut AHashSet<CounterIdx>) {
         for &to_delete_key in &to_delete {
             let to_delete_el = &self.slab_inputs[to_delete_key];
@@ -322,7 +322,7 @@ impl SimplestToActivateCounterPool {
                     .inputs
                     .iter()
                     .position(
-                        #[no_coverage]
+                        #[coverage(off)]
                         |&x| x == to_delete_key,
                     )
                     .unwrap();
@@ -333,13 +333,13 @@ impl SimplestToActivateCounterPool {
         }
     }
 
-    #[no_coverage]
+    #[coverage(off)]
     pub fn score_of_counter(exact_counter_multiplicity: usize) -> f64 {
         1.0 / (exact_counter_multiplicity as f64)
     }
 
     /// Update global statistics of the pool following a change in its content
-    #[no_coverage]
+    #[coverage(off)]
     fn update_self_stats(&mut self) {
         let slab = &self.slab_inputs;
 
@@ -347,7 +347,7 @@ impl SimplestToActivateCounterPool {
             .slab_inputs
             .keys()
             .map(
-                #[no_coverage]
+                #[coverage(off)]
                 |key| {
                     let input = &slab[key];
                     input.score / (input.number_times_chosen as f64)
@@ -360,7 +360,7 @@ impl SimplestToActivateCounterPool {
             .slab_inputs
             .keys()
             .map(
-                #[no_coverage]
+                #[coverage(off)]
                 |key| slab[key].score,
             )
             .sum();
@@ -369,19 +369,19 @@ impl SimplestToActivateCounterPool {
             .slab_inputs
             .keys()
             .map(
-                #[no_coverage]
+                #[coverage(off)]
                 |key| &slab[key],
             )
             .fold(
                 0.0,
-                #[no_coverage]
+                #[coverage(off)]
                 |c, x| c + x.complexity,
             )
             / self.slab_inputs.len() as f64;
     }
 
     #[cfg(test)]
-    #[no_coverage]
+    #[coverage(off)]
     fn print_recap(&self) {
         println!("recap inputs:");
         for input_key in self.slab_inputs.keys() {
@@ -400,7 +400,7 @@ impl SimplestToActivateCounterPool {
     }
 
     #[cfg(test)]
-    #[no_coverage]
+    #[coverage(off)]
     fn sanity_check(&self) {
         let slab = &self.analysed_counters;
 
@@ -460,7 +460,7 @@ impl SimplestToActivateCounterPool {
 impl Pool for SimplestToActivateCounterPool {
     type Stats = UniqueCoveragePoolStats;
 
-    #[no_coverage]
+    #[coverage(off)]
     fn stats(&self) -> Self::Stats {
         UniqueCoveragePoolStats {
             name: self.name.clone(),
@@ -471,7 +471,7 @@ impl Pool for SimplestToActivateCounterPool {
         }
     }
 
-    #[no_coverage]
+    #[coverage(off)]
     fn get_random_index(&mut self) -> Option<PoolStorageIndex> {
         let choice = self.ranked_inputs.sample(&self.rng)?;
         let key = self.slab_inputs.get_nth_key(choice);
@@ -488,7 +488,7 @@ impl Pool for SimplestToActivateCounterPool {
 }
 
 impl SaveToStatsFolder for SimplestToActivateCounterPool {
-    #[no_coverage]
+    #[coverage(off)]
     fn save_to_stats_folder(&self) -> Vec<(PathBuf, Vec<u8>)> {
         cfg_if::cfg_if! {
             if #[cfg(feature = "serde_json_serializer")]
@@ -499,16 +499,16 @@ impl SaveToStatsFolder for SimplestToActivateCounterPool {
                     .least_complexity_for_counter
                     .iter()
                     .enumerate()
-                    .filter(#[no_coverage] |(_, x)| **x != f64::INFINITY)
-                    .map(#[no_coverage] |(idx, _)| idx)
+                    .filter(#[coverage(off)] |(_, x)| **x != f64::INFINITY)
+                    .map(#[coverage(off)] |(idx, _)| idx)
                     .collect::<Vec<_>>();
 
                 let best_for_counter = self
                     .least_complexity_for_counter
                     .iter()
                     .enumerate()
-                    .filter(#[no_coverage] |(_, x)| **x != f64::INFINITY)
-                    .map(#[no_coverage] |(idx, _)| {
+                    .filter(#[coverage(off)] |(_, x)| **x != f64::INFINITY)
+                    .map(#[coverage(off)] |(idx, _)| {
                         let f = &self.analysed_counters[&CounterIdx::new(idx)];
                         let key = f.least_complex_input;
                         let input = &self.slab_inputs[key].data;
@@ -519,20 +519,20 @@ impl SaveToStatsFolder for SimplestToActivateCounterPool {
                 let mut ranked_inputs = self
                     .slab_inputs
                     .keys()
-                    .map(#[no_coverage] |key| {
+                    .map(#[coverage(off)] |key| {
                         let input = &self.slab_inputs[key];
                         (input.data, input.score)
                     })
                     .collect::<Vec<_>>();
-                ranked_inputs.sort_by(#[no_coverage] |&x, y| x.1.partial_cmp(&y.1).unwrap_or(std::cmp::Ordering::Equal).reverse());
-                let ranked_inputs = ranked_inputs.into_iter().map(#[no_coverage] |x| x.0).collect();
+                ranked_inputs.sort_by(#[coverage(off)] |&x, y| x.1.partial_cmp(&y.1).unwrap_or(std::cmp::Ordering::Equal).reverse());
+                let ranked_inputs = ranked_inputs.into_iter().map(#[coverage(off)] |x| x.0).collect();
 
                 let counters_for_input = self
                     .slab_inputs
                     .keys()
-                    .map(#[no_coverage] |key| {
+                    .map(#[coverage(off)] |key| {
                         let input = &self.slab_inputs[key];
-                        (input.data, input.all_counters.iter().map(#[no_coverage] |x| x.0).collect())
+                        (input.data, input.all_counters.iter().map(#[coverage(off)] |x| x.0).collect())
                     })
                     .collect::<Vec<_>>();
 
@@ -567,7 +567,7 @@ struct SerializedUniqCov {
 // ===============================================================
 
 impl Clone for AnalysedCounter {
-    #[no_coverage]
+    #[coverage(off)]
     fn clone(&self) -> Self {
         Self {
             key: self.key,
@@ -588,7 +588,7 @@ pub struct UniqueCoveragePoolStats {
     pub coverage: (usize, usize),
 }
 impl Display for UniqueCoveragePoolStats {
-    #[no_coverage]
+    #[coverage(off)]
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
@@ -601,7 +601,7 @@ impl Display for UniqueCoveragePoolStats {
     }
 }
 impl ToCSV for UniqueCoveragePoolStats {
-    #[no_coverage]
+    #[coverage(off)]
     fn csv_headers(&self) -> Vec<CSVField> {
         vec![
             CSVField::String(format!("{}-size", self.name)),
@@ -609,7 +609,7 @@ impl ToCSV for UniqueCoveragePoolStats {
             CSVField::String(format!("{}-avg-cplx", self.name)),
         ]
     }
-    #[no_coverage]
+    #[coverage(off)]
     fn to_csv_record(&self) -> Vec<CSVField> {
         vec![
             CSVField::Integer(self.pool_size as isize),
@@ -634,7 +634,7 @@ impl<O> CompatibleWithObservations<O> for SimplestToActivateCounterPool
 where
     for<'a> &'a O: IntoIterator<Item = &'a (usize, u64)>,
 {
-    #[no_coverage]
+    #[coverage(off)]
     fn process(&mut self, input_id: PoolStorageIndex, observations: &O, complexity: f64) -> Vec<CorpusDelta> {
         let mut state = UniqueCoveragePoolObservationState::default();
 
@@ -659,7 +659,7 @@ where
         let result = result;
         self.add(input_id, complexity, result)
             .map(
-                #[no_coverage]
+                #[coverage(off)]
                 |x| x.0,
             )
             .into_iter()
@@ -672,13 +672,13 @@ mod tests {
     use super::*;
     use crate::Mutator;
 
-    #[no_coverage]
+    #[coverage(off)]
     fn edge_f(index: usize, intensity: u16) -> CounterIdx {
         CounterIdx(index * 64 + intensity as usize)
     }
 
     #[test]
-    #[no_coverage]
+    #[coverage(off)]
     fn property_test() {
         use std::iter::FromIterator;
 
@@ -707,7 +707,7 @@ mod tests {
                     let mut fs = new_counters
                         .iter()
                         .map(
-                            #[no_coverage]
+                            #[coverage(off)]
                             |&&f| f,
                         )
                         .collect::<Vec<_>>();
@@ -742,7 +742,7 @@ mod tests {
                     let fs = existing_counters_1
                         .iter()
                         .map(
-                            #[no_coverage]
+                            #[coverage(off)]
                             |&f_key| pool.analysed_counters[&f_key].least_complexity,
                         )
                         .collect::<Vec<_>>();
@@ -801,55 +801,55 @@ mod tests {
         type ArbitraryStep = ();
         type UnmutateToken = ();
 
-        #[no_coverage]
+        #[coverage(off)]
         fn initialize(&self) {}
 
-        #[no_coverage]
+        #[coverage(off)]
         fn default_arbitrary_step(&self) -> Self::ArbitraryStep {}
 
-        #[no_coverage]
+        #[coverage(off)]
         fn is_valid(&self, _value: &f64) -> bool {
             true
         }
 
-        #[no_coverage]
+        #[coverage(off)]
         fn validate_value(&self, _value: &f64) -> Option<Self::Cache> {
             Some(())
         }
 
-        #[no_coverage]
+        #[coverage(off)]
         fn default_mutation_step(&self, _value: &f64, _cache: &Self::Cache) -> Self::MutationStep {}
-        #[no_coverage]
+        #[coverage(off)]
         fn global_search_space_complexity(&self) -> f64 {
             0.0
         }
 
-        #[no_coverage]
+        #[coverage(off)]
         fn max_complexity(&self) -> f64 {
             0.0
         }
 
-        #[no_coverage]
+        #[coverage(off)]
         fn min_complexity(&self) -> f64 {
             0.0
         }
 
-        #[no_coverage]
+        #[coverage(off)]
         fn complexity(&self, _value: &f64, _cache: &Self::Cache) -> f64 {
             0.0
         }
 
-        #[no_coverage]
+        #[coverage(off)]
         fn ordered_arbitrary(&self, _step: &mut Self::ArbitraryStep, _max_cplx: f64) -> Option<(f64, f64)> {
             todo!()
         }
 
-        #[no_coverage]
+        #[coverage(off)]
         fn random_arbitrary(&self, _max_cplx: f64) -> (f64, f64) {
             (0.0, 0.0)
         }
 
-        #[no_coverage]
+        #[coverage(off)]
         fn ordered_mutate(
             &self,
             _value: &mut f64,
@@ -861,7 +861,7 @@ mod tests {
             Some(((), 0.0))
         }
 
-        #[no_coverage]
+        #[coverage(off)]
         fn random_mutate(
             &self,
             _value: &mut f64,
@@ -871,10 +871,10 @@ mod tests {
             ((), 0.0)
         }
 
-        #[no_coverage]
+        #[coverage(off)]
         fn unmutate(&self, _value: &mut f64, _cache: &mut Self::Cache, _t: Self::UnmutateToken) {}
 
-        #[no_coverage]
+        #[coverage(off)]
         fn visit_subvalues<'a>(
             &self,
             _value: &'a f64,

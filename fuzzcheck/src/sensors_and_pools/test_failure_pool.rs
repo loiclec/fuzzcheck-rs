@@ -28,7 +28,7 @@ pub struct TestFailureSensor {
 impl Sensor for TestFailureSensor {
     type Observations = Option<TestFailure>;
 
-    #[no_coverage]
+    #[coverage(off)]
     fn start_recording(&mut self) {
         self.error = None;
         unsafe {
@@ -36,20 +36,20 @@ impl Sensor for TestFailureSensor {
         }
     }
 
-    #[no_coverage]
+    #[coverage(off)]
     fn stop_recording(&mut self) {
         unsafe {
             self.error = TEST_FAILURE.clone();
         }
     }
 
-    #[no_coverage]
+    #[coverage(off)]
     fn get_observations(&mut self) -> Option<TestFailure> {
         std::mem::take(&mut self.error)
     }
 }
 impl SaveToStatsFolder for TestFailureSensor {
-    #[no_coverage]
+    #[coverage(off)]
     fn save_to_stats_folder(&self) -> Vec<(PathBuf, Vec<u8>)> {
         vec![]
     }
@@ -60,7 +60,7 @@ pub struct TestFailurePoolStats {
     pub count: usize,
 }
 impl Display for TestFailurePoolStats {
-    #[no_coverage]
+    #[coverage(off)]
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         if self.count == 0 {
             write!(f, "failures({})", self.count)
@@ -70,11 +70,11 @@ impl Display for TestFailurePoolStats {
     }
 }
 impl ToCSV for TestFailurePoolStats {
-    #[no_coverage]
+    #[coverage(off)]
     fn csv_headers(&self) -> Vec<CSVField> {
         vec![CSVField::String("test_failures_count".to_string())]
     }
-    #[no_coverage]
+    #[coverage(off)]
     fn to_csv_record(&self) -> Vec<CSVField> {
         vec![CSVField::Integer(self.count as isize)]
     }
@@ -101,7 +101,7 @@ pub struct TestFailurePool {
 }
 
 impl TestFailurePool {
-    #[no_coverage]
+    #[coverage(off)]
     pub(crate) fn new(name: &str) -> Self {
         Self {
             name: name.to_string(),
@@ -114,14 +114,14 @@ impl TestFailurePool {
 impl Pool for TestFailurePool {
     type Stats = TestFailurePoolStats;
 
-    #[no_coverage]
+    #[coverage(off)]
     fn stats(&self) -> Self::Stats {
         TestFailurePoolStats {
             count: self.inputs.len(),
         }
     }
 
-    #[no_coverage]
+    #[coverage(off)]
     fn get_random_index(&mut self) -> Option<PoolStorageIndex> {
         if self.inputs.is_empty() {
             return None;
@@ -138,14 +138,14 @@ impl Pool for TestFailurePool {
     }
 }
 impl SaveToStatsFolder for TestFailurePool {
-    #[no_coverage]
+    #[coverage(off)]
     fn save_to_stats_folder(&self) -> Vec<(PathBuf, Vec<u8>)> {
         cfg_if::cfg_if! {
             if #[cfg(feature = "serde_json_serializer")]
             {
                 let path = PathBuf::new().join("test_failures.json");
                 let content = serde_json::to_string(&self.inputs.iter().map(
-                    #[no_coverage]
+                    #[coverage(off)]
                     |tf| (tf.error.id, tf.error.display.clone()) ).collect::<Vec<_>>()).unwrap();
                 vec![(path, content.into_bytes())]
             } else {
@@ -156,7 +156,7 @@ impl SaveToStatsFolder for TestFailurePool {
 }
 
 impl CompatibleWithObservations<Option<TestFailure>> for TestFailurePool {
-    #[no_coverage]
+    #[coverage(off)]
     fn process(
         &mut self,
         input_idx: PoolStorageIndex,
@@ -174,7 +174,7 @@ impl CompatibleWithObservations<Option<TestFailure>> for TestFailurePool {
         let mut is_interesting = None;
         if let Some(error) = error {
             if let Some(list_index) = self.inputs.iter().position(
-                #[no_coverage]
+                #[coverage(off)]
                 |xs| xs.error.id == error.id,
             ) {
                 let list = &self.inputs[list_index];
@@ -184,7 +184,7 @@ impl CompatibleWithObservations<Option<TestFailure>> for TestFailurePool {
                     } else if least_complex.cplx == complexity {
                         if least_complex.inputs.len() < NBR_ARTIFACTS_PER_ERROR_AND_CPLX
                             && !self.inputs.iter().any(
-                                #[no_coverage]
+                                #[coverage(off)]
                                 |xs| xs.error.display == error.display,
                             )
                         {

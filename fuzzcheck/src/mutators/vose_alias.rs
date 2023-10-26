@@ -29,7 +29,7 @@ pub struct VoseAlias {
     rng: Rng,
 }
 impl PartialEq for VoseAlias {
-    #[no_coverage]
+    #[coverage(off)]
     fn eq(&self, other: &Self) -> bool {
         self.alias.eq(&other.alias) && self.prob.eq(&other.prob)
     }
@@ -40,14 +40,14 @@ impl VoseAlias {
     /// Create a new Vose alias with the given discrete probability distribution.
     ///
     /// Important: the probabilities must sum up to ~ 1.0
-    #[no_coverage]
+    #[coverage(off)]
     pub fn new(mut probabilities: Vec<f64>) -> VoseAlias {
         let original_probabilities = probabilities.clone();
         // Step 0: ensure sum of probabilities is equal to 1
         assert!(!probabilities.is_empty());
         let sum = probabilities.iter().fold(
             0.0,
-            #[no_coverage]
+            #[coverage(off)]
             |sum, p| sum + p,
         );
         #[allow(clippy::float_cmp)]
@@ -58,7 +58,7 @@ impl VoseAlias {
         }
         let sum = probabilities.iter().fold(
             0.0,
-            #[no_coverage]
+            #[coverage(off)]
             |sum, p| sum + p,
         );
         assert!((sum - 1.0).abs() < 0.1);
@@ -120,7 +120,7 @@ impl VoseAlias {
     /// Sample the Vose alias.
     ///
     /// It returns an index within `0` .. `original_probabilities.len()`.
-    #[no_coverage]
+    #[coverage(off)]
     pub fn sample(&self) -> usize {
         // Step 1
         let i = self.rng.usize(..self.prob.len());
@@ -139,7 +139,7 @@ impl VoseAlias {
 mod tests {
     use super::VoseAlias;
     #[test]
-    #[no_coverage]
+    #[coverage(off)]
     fn test_probabilities_1() {
         let alias = VoseAlias::new(vec![0.1, 0.4, 0.2, 0.3]);
         let mut choices = vec![0, 0, 0, 0];
@@ -150,7 +150,7 @@ mod tests {
         println!("{:?}", choices);
     }
     #[test]
-    #[no_coverage]
+    #[coverage(off)]
     fn test_probabilities_2() {
         let alias = VoseAlias::new(vec![0.1, 0.4, 0.2, 0.3]);
         let mut choices = vec![0, 0, 0, 0];

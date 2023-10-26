@@ -17,14 +17,14 @@ use crate::traits::{CorpusDelta, SaveToStatsFolder, Stats};
 use crate::{CSVField, ToCSV};
 
 impl ToCSV for FuzzerStats {
-    #[no_coverage]
+    #[coverage(off)]
     fn csv_headers(&self) -> Vec<CSVField> {
         vec![
             CSVField::String("nbr_iter".to_string()),
             CSVField::String("iter/s".to_string()),
         ]
     }
-    #[no_coverage]
+    #[coverage(off)]
     fn to_csv_record(&self) -> Vec<CSVField> {
         vec![
             CSVField::Integer(self.total_number_of_runs as isize),
@@ -44,7 +44,7 @@ pub struct World {
 }
 
 impl World {
-    #[no_coverage]
+    #[coverage(off)]
     pub fn new(settings: Arguments) -> Result<Self> {
         let (stats, stats_folder) = if let Some(stats_folder) = &settings.stats_folder {
             let now = SystemTime::now();
@@ -68,7 +68,7 @@ impl World {
         })
     }
 
-    #[no_coverage]
+    #[coverage(off)]
     fn hash(&self, input: &[u8]) -> String {
         let mut hasher = DefaultHasher::new();
         input.hash(&mut hasher);
@@ -77,7 +77,7 @@ impl World {
         hash
     }
 
-    #[no_coverage]
+    #[coverage(off)]
     pub fn append_stats_file(&self, fields: &[CSVField]) -> Result<()> {
         if let Some(stats) = &self.stats {
             let mut stats = stats.try_borrow_mut().unwrap();
@@ -86,7 +86,7 @@ impl World {
         Ok(())
     }
 
-    #[no_coverage]
+    #[coverage(off)]
     pub(crate) fn update_corpus(
         &mut self,
         idx: PoolStorageIndex,
@@ -111,7 +111,7 @@ impl World {
         Ok(())
     }
 
-    #[no_coverage]
+    #[coverage(off)]
     pub fn add_to_output_corpus(&self, path: &Path, name: String, content: Vec<u8>, extension: &str) -> Result<()> {
         if self.settings.corpus_out.is_none() {
             return Ok(());
@@ -128,7 +128,7 @@ impl World {
         Ok(())
     }
 
-    #[no_coverage]
+    #[coverage(off)]
     pub fn remove_from_output_corpus(&self, path: &Path, name: String, extension: &str) -> Result<()> {
         if self.settings.corpus_out.is_none() {
             return Ok(());
@@ -141,7 +141,7 @@ impl World {
         Ok(())
     }
 
-    #[no_coverage]
+    #[coverage(off)]
     pub(crate) fn report_event(&self, event: FuzzerEvent, stats: Option<(&FuzzerStats, &dyn Stats)>) {
         // println uses a lock, which may mess up the signal handling
         let time_since_start = self.initial_instant.elapsed();
@@ -221,24 +221,24 @@ This should never happen, and is probably a bug in fuzzcheck. Sorry :("#
         }
     }
 
-    // #[no_coverage]
+    // #[coverage(off)]
     // pub fn set_start_instant(&mut self) {
     //     self.initial_instant = Instant::now();
     // }
-    #[no_coverage]
+    #[coverage(off)]
     pub fn set_checkpoint_instant(&mut self) {
         self.checkpoint_instant = Instant::now();
     }
-    #[no_coverage]
+    #[coverage(off)]
     pub fn elapsed_time_since_start(&self) -> Duration {
         self.initial_instant.elapsed()
     }
-    #[no_coverage]
+    #[coverage(off)]
     pub fn elapsed_time_since_last_checkpoint(&self) -> usize {
         self.checkpoint_instant.elapsed().as_micros() as usize
     }
 
-    #[no_coverage]
+    #[coverage(off)]
     pub fn read_input_corpus(&self) -> Result<Vec<Vec<u8>>> {
         if self.settings.corpus_in.is_none() {
             return Result::Ok(vec![]);
@@ -248,7 +248,7 @@ This should never happen, and is probably a bug in fuzzcheck. Sorry :("#
         self.read_input_corpus_rec(corpus, &mut values)?;
         Ok(values)
     }
-    #[no_coverage]
+    #[coverage(off)]
     fn read_input_corpus_rec(&self, corpus: &Path, values: &mut Vec<Vec<u8>>) -> Result<()> {
         if !corpus.exists() {
             return Ok(());
@@ -272,13 +272,13 @@ This should never happen, and is probably a bug in fuzzcheck. Sorry :("#
         Ok(())
     }
 
-    #[no_coverage]
+    #[coverage(off)]
     pub fn read_input_file(&self, file: &Path) -> Result<Vec<u8>> {
         let data = fs::read(file)?;
         Ok(data)
     }
 
-    #[no_coverage]
+    #[coverage(off)]
     pub fn save_artifact(&mut self, content: Vec<u8>, cplx: f64, extension: &str) -> Result<()> {
         let artifacts_folder = self.settings.artifacts_folder.as_ref();
         if artifacts_folder.is_none() {
@@ -307,13 +307,13 @@ This should never happen, and is probably a bug in fuzzcheck. Sorry :("#
         Result::Ok(())
     }
 
-    #[no_coverage]
+    #[coverage(off)]
     pub fn stop(&mut self) -> ! {
         self.report_event(FuzzerEvent::Stop, None);
         std::process::exit(TerminationStatus::Success as i32);
     }
 
-    #[no_coverage]
+    #[coverage(off)]
     pub fn write_stats_content(&self, contents: Vec<(PathBuf, Vec<u8>)>) -> Result<()> {
         if let Some(stats_folder) = &self.stats_folder {
             for (path, content) in contents {
@@ -325,7 +325,7 @@ This should never happen, and is probably a bug in fuzzcheck. Sorry :("#
     }
 }
 impl SaveToStatsFolder for World {
-    #[no_coverage]
+    #[coverage(off)]
     fn save_to_stats_folder(&self) -> Vec<(PathBuf, Vec<u8>)> {
         cfg_if::cfg_if! {
             if #[cfg(feature = "serde_json_serializer")] {

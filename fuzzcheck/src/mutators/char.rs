@@ -13,15 +13,15 @@ const INITIAL_MUTATION_STEP: u64 = 0;
 impl DefaultMutator for char {
     type Mutator = impl Mutator<char>;
 
-    #[no_coverage]
+    #[coverage(off)]
     fn default_mutator() -> Self::Mutator {
         u32::default_mutator()
             .filter(
-                #[no_coverage]
+                #[coverage(off)]
                 |x| char::from_u32(*x).is_some(),
             )
             .map(
-                #[no_coverage]
+                #[coverage(off)]
                 |x| char::from_u32(*x).unwrap(),
                 |c| Some(*c as u32),
             )
@@ -36,7 +36,7 @@ pub struct CharWithinRangeMutator {
     search_space_complexity: f64,
 }
 impl CharWithinRangeMutator {
-    #[no_coverage]
+    #[coverage(off)]
     pub fn new<RB: RangeBounds<char>>(range: RB) -> Self {
         let start = match range.start_bound() {
             Bound::Included(b) => *b as u32,
@@ -84,23 +84,23 @@ impl Mutator<char> for CharWithinRangeMutator {
     type UnmutateToken = char; // old value
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn initialize(&self) {}
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn default_arbitrary_step(&self) -> Self::ArbitraryStep {
         0
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn is_valid(&self, value: &char) -> bool {
         (self.start_range..=self.start_range + self.len_range).contains(&(*value as u32))
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn validate_value(&self, value: &char) -> Option<Self::Cache> {
         if (self.start_range..=self.start_range + self.len_range).contains(&(*value as u32)) {
             Some((value.len_utf8() * 8) as f64)
@@ -109,34 +109,34 @@ impl Mutator<char> for CharWithinRangeMutator {
         }
     }
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn default_mutation_step(&self, _value: &char, _cache: &Self::Cache) -> Self::MutationStep {
         INITIAL_MUTATION_STEP
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn global_search_space_complexity(&self) -> f64 {
         self.search_space_complexity
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn max_complexity(&self) -> f64 {
         32.0
     }
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn min_complexity(&self) -> f64 {
         8.0
     }
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn complexity(&self, _value: &char, cache: &Self::Cache) -> f64 {
         *cache
     }
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn ordered_arbitrary(&self, step: &mut Self::ArbitraryStep, max_cplx: f64) -> Option<(char, f64)> {
         if max_cplx < self.min_complexity() {
             return None;
@@ -156,7 +156,7 @@ impl Mutator<char> for CharWithinRangeMutator {
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn random_arbitrary(&self, max_cplx: f64) -> (char, f64) {
         let value = self
             .rng
@@ -169,7 +169,7 @@ impl Mutator<char> for CharWithinRangeMutator {
         }
     }
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn ordered_mutate(
         &self,
         value: &mut char,
@@ -203,7 +203,7 @@ impl Mutator<char> for CharWithinRangeMutator {
         }
     }
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn random_mutate(&self, value: &mut char, _cache: &mut Self::Cache, _max_cplx: f64) -> (Self::UnmutateToken, f64) {
         let old_value = std::mem::replace(
             value,
@@ -216,13 +216,13 @@ impl Mutator<char> for CharWithinRangeMutator {
         (old_value, (value.len_utf8() * 8) as f64)
     }
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn unmutate(&self, value: &mut char, _cache: &mut Self::Cache, t: Self::UnmutateToken) {
         *value = t;
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn visit_subvalues<'a>(&self, _value: &'a char, _cache: &'a Self::Cache, _visit: &mut dyn FnMut(&'a dyn Any, f64)) {
     }
 }

@@ -9,15 +9,15 @@ where
 {
     type Mutator = impl Mutator<Cow<'static, T>>;
 
-    #[no_coverage]
+    #[coverage(off)]
     fn default_mutator() -> Self::Mutator {
         MapMutator::new(
             T::default_mutator(),
-            #[no_coverage]
+            #[coverage(off)]
             |t: &Cow<T>| Some(t.clone().into_owned()),
-            #[no_coverage]
+            #[coverage(off)]
             |t: &T| Cow::Owned(t.clone()),
-            #[no_coverage]
+            #[coverage(off)]
             |_, cplx| cplx,
         )
     }

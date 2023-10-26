@@ -53,7 +53,7 @@ pub trait SubValueProvider {
 /// A [`SubValueProvider`](crate::SubValueProvider) that always return `None`
 pub struct EmptySubValueProvider;
 impl SubValueProvider for EmptySubValueProvider {
-    #[no_coverage]
+    #[coverage(off)]
     fn identifier(&self) -> SubValueProviderId {
         SubValueProviderId {
             idx: 0,
@@ -61,12 +61,12 @@ impl SubValueProvider for EmptySubValueProvider {
         }
     }
 
-    #[no_coverage]
+    #[coverage(off)]
     fn get_random_subvalue(&self, _typeid: TypeId, _max_cplx: f64) -> Option<(&dyn Any, f64)> {
         None
     }
 
-    #[no_coverage]
+    #[coverage(off)]
     fn get_subvalue(&self, _typeid: TypeId, _max_cplx: f64, _index: &mut usize) -> Option<(&dyn Any, f64)> {
         None
     }
@@ -90,13 +90,13 @@ where
     T: Clone + 'static,
     M: Mutator<T>,
 {
-    #[no_coverage]
+    #[coverage(off)]
     pub fn new(identifier: SubValueProviderId, value: &T, cache: &M::Cache, mutator: &M) -> Self {
         let boxed_data = Box::new((value.clone(), cache.clone()));
 
         let mut subvalues: HashMap<TypeId, Vec<(*const dyn Any, f64)>> = HashMap::new();
 
-        let mut act_on_subvalue = #[no_coverage]
+        let mut act_on_subvalue = #[coverage(off)]
         |subvalue: &dyn Any, complexity| {
             subvalues
                 .entry(subvalue.type_id())
@@ -107,7 +107,7 @@ where
         mutator.visit_subvalues(&boxed_data.0, &boxed_data.1, &mut act_on_subvalue);
         for (_typeid, subvalues) in subvalues.iter_mut() {
             subvalues.sort_by(
-                #[no_coverage]
+                #[coverage(off)]
                 |x, y| (x.1, x.0).partial_cmp(&(y.1, y.0)).unwrap_or(std::cmp::Ordering::Equal),
             );
             // Why do we dedup the subvalues? Because an `AlternationMutator` may visit the same subvalue multiple times.
@@ -138,19 +138,19 @@ where
     T: Clone + 'static,
     M: Mutator<T>,
 {
-    #[no_coverage]
+    #[coverage(off)]
     fn identifier(&self) -> SubValueProviderId {
         self.identifier
     }
 
-    #[no_coverage]
+    #[coverage(off)]
     fn get_random_subvalue(&self, typeid: TypeId, max_cplx: f64) -> Option<(&dyn Any, f64)> {
         let subvalues = self.subvalues.get(&typeid)?;
         assert!(!subvalues.is_empty());
         let end_index_for_complexity = subvalues
             .iter()
             .position(
-                #[no_coverage]
+                #[coverage(off)]
                 |x| x.1 >= max_cplx,
             )
             .unwrap_or(subvalues.len());
@@ -167,7 +167,7 @@ where
         Some((subvalue, *complexity))
     }
 
-    #[no_coverage]
+    #[coverage(off)]
     fn get_subvalue(&self, typeid: TypeId, max_cplx: f64, index: &mut usize) -> Option<(&dyn Any, f64)> {
         let subvalues = self.subvalues.get(&typeid)?;
         assert!(!subvalues.is_empty());

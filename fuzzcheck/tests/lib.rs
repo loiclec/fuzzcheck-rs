@@ -1,6 +1,5 @@
-#![feature(no_coverage)]
+#![feature(coverage_attribute)]
 // #![feature(trivial_bounds)]
-#![feature(bench_black_box)]
 mod alternation_char_mutators;
 mod char_mutators;
 mod const_generics;

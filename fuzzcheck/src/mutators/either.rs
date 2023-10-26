@@ -24,7 +24,7 @@ where
 
     #[doc(hidden)]
     #[inline]
-    #[no_coverage]
+    #[coverage(off)]
     fn initialize(&self) {
         match self {
             Either::Left(m) => m.initialize(),
@@ -34,7 +34,7 @@ where
 
     #[doc(hidden)]
     #[inline]
-    #[no_coverage]
+    #[coverage(off)]
     fn default_arbitrary_step(&self) -> Self::ArbitraryStep {
         match self {
             Either::Left(m) => Either::Left(m.default_arbitrary_step()),
@@ -44,7 +44,7 @@ where
 
     #[doc(hidden)]
     #[inline]
-    #[no_coverage]
+    #[coverage(off)]
     fn is_valid(&self, value: &T) -> bool {
         match self {
             Either::Left(m) => m.is_valid(value),
@@ -54,7 +54,7 @@ where
 
     #[doc(hidden)]
     #[inline]
-    #[no_coverage]
+    #[coverage(off)]
     fn validate_value(&self, value: &T) -> Option<Self::Cache> {
         match self {
             Either::Left(m) => {
@@ -70,7 +70,7 @@ where
 
     #[doc(hidden)]
     #[inline]
-    #[no_coverage]
+    #[coverage(off)]
     fn default_mutation_step(&self, value: &T, cache: &Self::Cache) -> Self::MutationStep {
         match (self, cache) {
             (Either::Left(m), Either::Left(c)) => Either::Left(m.default_mutation_step(value, c)),
@@ -80,7 +80,7 @@ where
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn global_search_space_complexity(&self) -> f64 {
         match self {
             Either::Left(m) => m.global_search_space_complexity(),
@@ -90,7 +90,7 @@ where
 
     #[doc(hidden)]
     #[inline]
-    #[no_coverage]
+    #[coverage(off)]
     fn max_complexity(&self) -> f64 {
         match self {
             Either::Left(m) => m.max_complexity(),
@@ -100,7 +100,7 @@ where
 
     #[doc(hidden)]
     #[inline]
-    #[no_coverage]
+    #[coverage(off)]
     fn min_complexity(&self) -> f64 {
         match self {
             Either::Left(m) => m.min_complexity(),
@@ -110,7 +110,7 @@ where
 
     #[doc(hidden)]
     #[inline]
-    #[no_coverage]
+    #[coverage(off)]
     fn complexity(&self, value: &T, cache: &Self::Cache) -> f64 {
         match (self, cache) {
             (Either::Left(m), Either::Left(c)) => m.complexity(value, c),
@@ -121,7 +121,7 @@ where
 
     #[doc(hidden)]
     #[inline]
-    #[no_coverage]
+    #[coverage(off)]
     fn ordered_arbitrary(&self, step: &mut Self::ArbitraryStep, max_cplx: f64) -> Option<(T, f64)> {
         match (self, step) {
             (Either::Left(m), Either::Left(s)) => m.ordered_arbitrary(s, max_cplx),
@@ -132,7 +132,7 @@ where
 
     #[doc(hidden)]
     #[inline]
-    #[no_coverage]
+    #[coverage(off)]
     fn random_arbitrary(&self, max_cplx: f64) -> (T, f64) {
         match self {
             Either::Left(m) => m.random_arbitrary(max_cplx),
@@ -142,7 +142,7 @@ where
 
     #[doc(hidden)]
     #[inline]
-    #[no_coverage]
+    #[coverage(off)]
     fn ordered_mutate(
         &self,
         value: &mut T,
@@ -166,7 +166,7 @@ where
 
     #[doc(hidden)]
     #[inline]
-    #[no_coverage]
+    #[coverage(off)]
     fn random_mutate(&self, value: &mut T, cache: &mut Self::Cache, max_cplx: f64) -> (Self::UnmutateToken, f64) {
         match (self, cache) {
             (Either::Left(m), Either::Left(c)) => {
@@ -183,7 +183,7 @@ where
 
     #[doc(hidden)]
     #[inline]
-    #[no_coverage]
+    #[coverage(off)]
     fn unmutate(&self, value: &mut T, cache: &mut Self::Cache, t: Self::UnmutateToken) {
         match (self, cache, t) {
             (Either::Left(m), Either::Left(c), Either::Left(t)) => {
@@ -198,7 +198,7 @@ where
 
     #[doc(hidden)]
     #[inline]
-    #[no_coverage]
+    #[coverage(off)]
     fn visit_subvalues<'a>(&self, value: &'a T, cache: &'a Self::Cache, visit: &mut dyn FnMut(&'a dyn Any, f64)) {
         match (self, cache) {
             (Either::Left(m), Either::Left(cache)) => {
@@ -236,7 +236,7 @@ where
 
     #[doc(hidden)]
     #[inline]
-    #[no_coverage]
+    #[coverage(off)]
     fn initialize(&self) {
         match self {
             Either3::A(m) => m.initialize(),
@@ -247,7 +247,7 @@ where
 
     #[doc(hidden)]
     #[inline]
-    #[no_coverage]
+    #[coverage(off)]
     fn default_arbitrary_step(&self) -> Self::ArbitraryStep {
         match self {
             Either3::A(m) => Either3::A(m.default_arbitrary_step()),
@@ -258,7 +258,7 @@ where
 
     #[doc(hidden)]
     #[inline]
-    #[no_coverage]
+    #[coverage(off)]
     fn is_valid(&self, value: &T) -> bool {
         match self {
             Either3::A(m) => m.is_valid(value),
@@ -269,7 +269,7 @@ where
 
     #[doc(hidden)]
     #[inline]
-    #[no_coverage]
+    #[coverage(off)]
     fn validate_value(&self, value: &T) -> Option<Self::Cache> {
         match self {
             Either3::A(m) => {
@@ -289,7 +289,7 @@ where
 
     #[doc(hidden)]
     #[inline]
-    #[no_coverage]
+    #[coverage(off)]
     fn default_mutation_step(&self, value: &T, cache: &Self::Cache) -> Self::MutationStep {
         match (self, cache) {
             (Either3::A(m), Either3::A(c)) => Either3::A(m.default_mutation_step(value, c)),
@@ -300,7 +300,7 @@ where
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn global_search_space_complexity(&self) -> f64 {
         match self {
             Either3::A(m) => m.global_search_space_complexity(),
@@ -311,7 +311,7 @@ where
 
     #[doc(hidden)]
     #[inline]
-    #[no_coverage]
+    #[coverage(off)]
     fn max_complexity(&self) -> f64 {
         match self {
             Either3::A(m) => m.max_complexity(),
@@ -322,7 +322,7 @@ where
 
     #[doc(hidden)]
     #[inline]
-    #[no_coverage]
+    #[coverage(off)]
     fn min_complexity(&self) -> f64 {
         match self {
             Either3::A(m) => m.min_complexity(),
@@ -333,7 +333,7 @@ where
 
     #[doc(hidden)]
     #[inline]
-    #[no_coverage]
+    #[coverage(off)]
     fn complexity(&self, value: &T, cache: &Self::Cache) -> f64 {
         match (self, cache) {
             (Either3::A(m), Either3::A(c)) => m.complexity(value, c),
@@ -345,7 +345,7 @@ where
 
     #[doc(hidden)]
     #[inline]
-    #[no_coverage]
+    #[coverage(off)]
     fn ordered_arbitrary(&self, step: &mut Self::ArbitraryStep, max_cplx: f64) -> Option<(T, f64)> {
         match (self, step) {
             (Either3::A(m), Either3::A(s)) => m.ordered_arbitrary(s, max_cplx),
@@ -357,7 +357,7 @@ where
 
     #[doc(hidden)]
     #[inline]
-    #[no_coverage]
+    #[coverage(off)]
     fn random_arbitrary(&self, max_cplx: f64) -> (T, f64) {
         match self {
             Either3::A(m) => m.random_arbitrary(max_cplx),
@@ -368,7 +368,7 @@ where
 
     #[doc(hidden)]
     #[inline]
-    #[no_coverage]
+    #[coverage(off)]
     fn ordered_mutate(
         &self,
         value: &mut T,
@@ -396,7 +396,7 @@ where
 
     #[doc(hidden)]
     #[inline]
-    #[no_coverage]
+    #[coverage(off)]
     fn random_mutate(&self, value: &mut T, cache: &mut Self::Cache, max_cplx: f64) -> (Self::UnmutateToken, f64) {
         match (self, cache) {
             (Either3::A(m), Either3::A(c)) => {
@@ -417,7 +417,7 @@ where
 
     #[doc(hidden)]
     #[inline]
-    #[no_coverage]
+    #[coverage(off)]
     fn unmutate(&self, value: &mut T, cache: &mut Self::Cache, t: Self::UnmutateToken) {
         match (self, cache, t) {
             (Either3::A(m), Either3::A(c), Either3::A(t)) => {
@@ -435,7 +435,7 @@ where
 
     #[doc(hidden)]
     #[inline]
-    #[no_coverage]
+    #[coverage(off)]
     fn visit_subvalues<'a>(&self, value: &'a T, cache: &'a Self::Cache, visit: &mut dyn FnMut(&'a dyn Any, f64)) {
         match (self, cache) {
             (Either3::A(m), Either3::A(cache)) => {

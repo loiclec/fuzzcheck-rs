@@ -10,7 +10,7 @@ use libc::{
 
 static mut SIGNAL_HANDLER: Option<Box<dyn Fn(libc::c_int) -> !>> = None;
 
-#[no_coverage]
+#[coverage(off)]
 extern "C" fn os_handler(signal: libc::c_int, _: *mut libc::siginfo_t, _: *mut libc::c_void) {
     // Assuming this always succeeds. Can't really handle errors in any meaningful way.
     unsafe {
@@ -25,7 +25,7 @@ extern "C" fn os_handler(signal: libc::c_int, _: *mut libc::siginfo_t, _: *mut l
 
 /// Set signal handlers to the given function and return the pointer and layout
 /// of the alternative stack used by the signal handlers.
-#[no_coverage]
+#[coverage(off)]
 pub unsafe fn set_signal_handlers<F: 'static>(f: F) -> (*mut u8, std::alloc::Layout)
 where
     F: Fn(libc::c_int) -> !,
@@ -66,7 +66,7 @@ where
     (stack_pointer, stack_layout)
 }
 
-#[no_coverage]
+#[coverage(off)]
 pub(crate) unsafe fn reset_signal_handlers() {
     let mut sa: sigaction = std::mem::zeroed();
     sigemptyset(&mut sa.sa_mask as *mut libc::sigset_t);

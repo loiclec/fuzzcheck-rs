@@ -108,9 +108,9 @@ where
     F: Fn(&FT) -> bool,
 {
     type NormalizedFunction = impl Fn(&T) -> bool;
-    #[no_coverage]
+    #[coverage(off)]
     fn test_function(self) -> Self::NormalizedFunction {
-        #[no_coverage]
+        #[coverage(off)]
         move |x| (self)(x.borrow())
     }
 }
@@ -120,9 +120,9 @@ where
     F: Fn(&FT),
 {
     type NormalizedFunction = impl Fn(&T) -> bool;
-    #[no_coverage]
+    #[coverage(off)]
     fn test_function(self) -> Self::NormalizedFunction {
-        #[no_coverage]
+        #[coverage(off)]
         move |x| {
             self(x.borrow());
             true
@@ -136,7 +136,7 @@ where
     F: Fn(&FT) -> Result<E, S>,
 {
     type NormalizedFunction = impl Fn(&T) -> bool;
-    #[no_coverage]
+    #[coverage(off)]
     fn test_function(self) -> Self::NormalizedFunction {
         move |x| self(x.borrow()).is_ok()
     }
@@ -258,7 +258,7 @@ where
     2. `Fn(&T) -> Bool` : the fuzzer will report a failure when the output is `false`
     3. `Fn(&T) -> Result<_,_>` : the fuzzer will report a failure when the output is `Err(..)`
 */
-#[no_coverage]
+#[coverage(off)]
 pub fn fuzz_test<T, F, TestFunctionKind>(test_function: F) -> FuzzerBuilder1<T::Owned, F::NormalizedFunction>
 where
     T: ?Sized + ToOwned + 'static,
@@ -282,7 +282,7 @@ where
 {
     /// Use the default mutator, serializer, sensor, pool, and arguments.
     #[doc(cfg(feature = "serde_json_serializer"))]
-    #[no_coverage]
+    #[coverage(off)]
     pub fn default_options(
         self,
     ) -> FuzzerBuilder5<
@@ -308,7 +308,7 @@ where
     F: FuzzTestFunction<T::Owned, T, ReturnBool>,
 {
     /// Use the [`DefaultMutator`] trait to specify the mutator that produces input values for the tested function.
-    #[no_coverage]
+    #[coverage(off)]
     pub fn default_mutator(
         self,
     ) -> FuzzerBuilder2<F::NormalizedFunction, <T::Owned as DefaultMutator>::Mutator, T::Owned> {
@@ -359,7 +359,7 @@ where
         }
         ```
     */
-    #[no_coverage]
+    #[coverage(off)]
     pub fn mutator<M, V>(self, mutator: M) -> FuzzerBuilder2<F::NormalizedFunction, M, V>
     where
         V: Clone + Borrow<T>,
@@ -397,7 +397,7 @@ where
             # ;
         ```
     */
-    #[no_coverage]
+    #[coverage(off)]
     pub fn serializer<S>(self, serializer: S) -> FuzzerBuilder3<F, M, V>
     where
         S: Serializer<Value = V> + 'static,
@@ -419,7 +419,7 @@ where
     M: Mutator<V>,
 {
     /// Specify [`SerdeSerializer`] as the serializer to use when saving the interesting test cases to the file system.
-    #[no_coverage]
+    #[coverage(off)]
     pub fn serde_serializer(self) -> FuzzerBuilder3<F, M, V> {
         FuzzerBuilder3 {
             test_function: self.test_function,
@@ -439,7 +439,7 @@ where
 {
     /// Specify [`SerdeRonSerializer`] as the serializer to use when saving the
     /// interesting test cases to the file system.
-    #[no_coverage]
+    #[coverage(off)]
     pub fn serde_ron_serializer(self) -> FuzzerBuilder3<F, M, V> {
         FuzzerBuilder3 {
             test_function: self.test_function,
@@ -456,7 +456,7 @@ where
     V: Clone + 'static,
     M: Mutator<V>,
 {
-    #[no_coverage]
+    #[coverage(off)]
     pub fn default_sensor_and_pool_with_custom_filter(
         self,
         keep: impl Fn(&Path, &str) -> bool,
@@ -472,7 +472,7 @@ where
         }
     }
 
-    #[no_coverage]
+    #[coverage(off)]
     /// Uses the default sensor and pool. For most cases this is desirable, but
     /// sometimes you might want to instead use
     /// [`FuzzerBuilder3::sensor_and_pool`]. This is especially true because the
@@ -491,7 +491,7 @@ where
             _phantom: PhantomData,
         }
     }
-    #[no_coverage]
+    #[coverage(off)]
     pub fn sensor_and_pool<Sens: Sensor, P: CompatibleWithObservations<Sens::Observations>>(
         self,
         sensor: Sens,
@@ -516,7 +516,7 @@ where
     Sens: Sensor,
     P: CompatibleWithObservations<Sens::Observations>,
 {
-    #[no_coverage]
+    #[coverage(off)]
     pub fn arguments(self, arguments: Arguments) -> FuzzerBuilder5<F, M, V, Sens, P> {
         FuzzerBuilder5 {
             test_function: self.test_function,
@@ -528,7 +528,7 @@ where
             _phantom: self._phantom,
         }
     }
-    #[no_coverage]
+    #[coverage(off)]
     pub fn arguments_from_cargo_fuzzcheck(self) -> FuzzerBuilder5<F, M, V, Sens, P> {
         let parser = options_parser();
         let mut help = format!(
@@ -569,7 +569,7 @@ fuzzcheck {minify} --{input_file} "artifacts/crash.json"
         let arguments = split_string_by_whitespace(&arguments);
         let matches = parser.parse(arguments).map_err(ArgumentsError::from);
         let arguments = match matches.and_then(
-            #[no_coverage]
+            #[coverage(off)]
             |matches| Arguments::from_matches(&matches, false),
         ) {
             Ok(r) => r,
@@ -600,63 +600,63 @@ where
     Fuzzer<V, M>: 'static,
 {
     #[must_use]
-    #[no_coverage]
+    #[coverage(off)]
     pub fn command(self, command: FuzzerCommand) -> Self {
         let mut x = self;
         x.arguments.command = command;
         x
     }
     #[must_use]
-    #[no_coverage]
+    #[coverage(off)]
     pub fn in_corpus(self, path: Option<&Path>) -> Self {
         let mut x = self;
         x.arguments.corpus_in = path.map(Path::to_path_buf);
         x
     }
     #[must_use]
-    #[no_coverage]
+    #[coverage(off)]
     pub fn out_corpus(self, path: Option<&Path>) -> Self {
         let mut x = self;
         x.arguments.corpus_out = path.map(Path::to_path_buf);
         x
     }
     #[must_use]
-    #[no_coverage]
+    #[coverage(off)]
     pub fn artifacts_folder(self, path: Option<&Path>) -> Self {
         let mut x = self;
         x.arguments.artifacts_folder = path.map(Path::to_path_buf);
         x
     }
     #[must_use]
-    #[no_coverage]
+    #[coverage(off)]
     pub fn maximum_complexity(self, max_input_cplx: f64) -> Self {
         let mut x = self;
         x.arguments.max_input_cplx = max_input_cplx;
         x
     }
     #[must_use]
-    #[no_coverage]
+    #[coverage(off)]
     pub fn stop_after_iterations(self, number_of_iterations: usize) -> Self {
         let mut x = self;
         x.arguments.maximum_iterations = number_of_iterations;
         x
     }
     #[must_use]
-    #[no_coverage]
+    #[coverage(off)]
     pub fn stop_after_duration(self, duration: Duration) -> Self {
         let mut x = self;
         x.arguments.maximum_duration = duration;
         x
     }
     #[must_use]
-    #[no_coverage]
+    #[coverage(off)]
     pub fn stop_after_first_test_failure(self, stop_after_first_test_failure: bool) -> Self {
         let mut x = self;
         x.arguments.stop_after_first_failure = stop_after_first_test_failure;
         x
     }
     /// Launch the fuzz test!
-    #[no_coverage]
+    #[coverage(off)]
     pub fn launch(self) -> FuzzingResult<V> {
         let FuzzerBuilder5 {
             test_function,
@@ -721,17 +721,17 @@ pub type BasicAndDiverseAndMaxHitsPool = AndPool<
     DifferentObservations,
 >;
 
-#[no_coverage]
+#[coverage(off)]
 pub fn max_cov_hits_sensor_and_pool() -> SensorAndPoolBuilder<MaxHitsSensor, MaxHitsPool> {
     let sensor = CodeCoverageSensor::observing_only_files_from_current_dir();
     let nbr_counters = sensor.count_instrumented;
     let sensor = sensor.map(
-        #[no_coverage]
+        #[coverage(off)]
         |o| {
             let sum = o
                 .iter()
                 .map(
-                    #[no_coverage]
+                    #[coverage(off)]
                     |(_, count)| count,
                 )
                 .sum::<u64>();
@@ -751,7 +751,7 @@ pub fn max_cov_hits_sensor_and_pool() -> SensorAndPoolBuilder<MaxHitsSensor, Max
 /// Use [`.find_most_diverse_set_of_test_cases()`](SensorAndPoolBuilder::<BasicPool>::find_most_diverse_set_of_test_cases)
 /// or [`.find_test_cases_repeatedly_hitting_coverage_counters()`](SensorAndPoolBuilder::<BasicPool>::find_test_cases_repeatedly_hitting_coverage_counters)
 /// on the result to augment the pool. Or use [`.finish()`](SensorAndPoolBuilder::finish) to obtain the concrete sensor and pool.
-#[no_coverage]
+#[coverage(off)]
 pub fn basic_sensor_and_pool() -> SensorAndPoolBuilder<BasicSensor, BasicPool> {
     let sensor = CodeCoverageSensor::observing_only_files_from_current_dir();
     let nbr_counters = sensor.count_instrumented;
@@ -763,7 +763,7 @@ pub fn basic_sensor_and_pool() -> SensorAndPoolBuilder<BasicSensor, BasicPool> {
 
 /// Like [`basic_sensor_and_pool`], but uses a closure to determine which function should
 /// be observed by the code coverage sensor.
-#[no_coverage]
+#[coverage(off)]
 pub fn basic_sensor_and_pool_with_custom_filter(
     keep: impl Fn(&Path, &str) -> bool,
 ) -> SensorAndPoolBuilder<BasicSensor, BasicPool> {
@@ -779,7 +779,7 @@ pub fn basic_sensor_and_pool_with_custom_filter(
 ///
 /// Currently, the result cannot be augmented any further. Thus, the only action you can take on the result is to
 /// use [`.finish()`](SensorAndPoolBuilder::finish) to obtain the concrete sensor and pool.
-#[no_coverage]
+#[coverage(off)]
 pub fn default_sensor_and_pool() -> SensorAndPoolBuilder<DiverseAndMaxHitsSensor, BasicAndDiverseAndMaxHitsPool> {
     basic_sensor_and_pool()
         .find_most_diverse_set_of_test_cases(20)
@@ -788,7 +788,7 @@ pub fn default_sensor_and_pool() -> SensorAndPoolBuilder<DiverseAndMaxHitsSensor
 
 /// Like [`default_sensor_and_pool`], but uses a closure to determine which function should
 /// be observed by the code coverage sensor.
-#[no_coverage]
+#[coverage(off)]
 pub fn default_sensor_and_pool_with_custom_filter(
     keep: impl Fn(&Path, &str) -> bool,
 ) -> SensorAndPoolBuilder<DiverseAndMaxHitsSensor, BasicAndDiverseAndMaxHitsPool> {
@@ -824,7 +824,7 @@ where
     P: CompatibleWithObservations<S::Observations>,
 {
     /// Obtain the sensor and pool from the builder
-    #[no_coverage]
+    #[coverage(off)]
     pub fn finish(self) -> (S, P) {
         (self.sensor, self.pool)
     }
@@ -836,14 +836,14 @@ impl SensorAndPoolBuilder<BasicSensor, BasicPool> {
     ///
     /// ### Argument
     /// `size` : the size of the set of test cases to find
-    #[no_coverage]
+    #[coverage(off)]
     pub fn find_most_diverse_set_of_test_cases(
         self,
         size: usize,
     ) -> SensorAndPoolBuilder<DiverseSensor, BasicAndDiversePool> {
         let nbr_counters = self.sensor.count_instrumented;
         let sensor = self.sensor.map(
-            #[no_coverage]
+            #[coverage(off)]
             |o| {
                 let len = o.len();
                 (o, len)
@@ -864,18 +864,18 @@ impl SensorAndPoolBuilder<BasicSensor, BasicPool> {
         SensorAndPoolBuilder { sensor, pool }
     }
     /// Augment the current pool such that it also tries to find test cases repeatedly hitting the same regions of code.
-    #[no_coverage]
+    #[coverage(off)]
     pub fn find_test_cases_repeatedly_hitting_coverage_counters(
         self,
     ) -> SensorAndPoolBuilder<BasicAndMaxHitsSensor, BasicAndMaxHitsPool> {
         let nbr_counters = self.sensor.count_instrumented;
         let sensor = self.sensor.map(
-            #[no_coverage]
+            #[coverage(off)]
             |o| {
                 let sum = o
                     .iter()
                     .map(
-                        #[no_coverage]
+                        #[coverage(off)]
                         |(_, count)| count,
                     )
                     .sum::<u64>();
@@ -899,19 +899,19 @@ impl SensorAndPoolBuilder<BasicSensor, BasicPool> {
 }
 impl SensorAndPoolBuilder<DiverseSensor, BasicAndDiversePool> {
     /// Augment the current pool such that it also tries to find test cases repeatedly hitting the same regions of code.
-    #[no_coverage]
+    #[coverage(off)]
     pub fn find_test_cases_repeatedly_hitting_coverage_counters(
         self,
     ) -> SensorAndPoolBuilder<DiverseAndMaxHitsSensor, BasicAndDiverseAndMaxHitsPool> {
         let nbr_counters = self.sensor.wrapped().count_instrumented;
 
         let sensor = self.sensor.map(
-            #[no_coverage]
+            #[coverage(off)]
             |o| {
                 let sum =
                     o.0.iter()
                         .map(
-                            #[no_coverage]
+                            #[coverage(off)]
                             |(_, count)| count,
                         )
                         .sum::<u64>();

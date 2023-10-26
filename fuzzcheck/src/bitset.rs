@@ -34,7 +34,7 @@ const BITS: usize = 64;
 type Block = u64;
 
 #[inline(always)]
-#[no_coverage]
+#[coverage(off)]
 fn div_rem(x: usize, d: usize) -> (usize, usize) {
     (x / d, x % d)
 }
@@ -53,7 +53,7 @@ pub struct FixedBitSet {
 
 impl FixedBitSet {
     /// Create a new empty **FixedBitSet**.
-    #[no_coverage]
+    #[coverage(off)]
     pub const fn new() -> Self {
         FixedBitSet {
             data: Vec::new(),
@@ -63,7 +63,7 @@ impl FixedBitSet {
 
     /// Create a new **FixedBitSet** with a specific number of bits,
     /// all initially clear.
-    #[no_coverage]
+    #[coverage(off)]
     pub fn with_capacity(bits: usize) -> Self {
         let (mut blocks, rem) = div_rem(bits, BITS);
         blocks += (rem > 0) as usize;
@@ -74,7 +74,7 @@ impl FixedBitSet {
     }
 
     /// Grow capacity to **bits**, all new bits initialized to zero
-    #[no_coverage]
+    #[coverage(off)]
     pub fn grow(&mut self, bits: usize) {
         if bits > self.length {
             let (mut blocks, rem) = div_rem(bits, BITS);
@@ -86,14 +86,14 @@ impl FixedBitSet {
 
     /// Return the length of the [`FixedBitSet`] in bits.
     #[inline]
-    #[no_coverage]
+    #[coverage(off)]
     pub fn len(&self) -> usize {
         self.length
     }
 
     /// Return if the [`FixedBitSet`] is empty.
     #[inline]
-    #[no_coverage]
+    #[coverage(off)]
     pub fn is_empty(&self) -> bool {
         self.len() == 0
     }
@@ -105,7 +105,7 @@ impl FixedBitSet {
     ///
     /// Note: Also available with index syntax: `bitset[bit]`.
     #[inline]
-    #[no_coverage]
+    #[coverage(off)]
     pub fn contains(&self, bit: usize) -> bool {
         let (block, i) = div_rem(bit, BITS);
         match self.data.get(block) {
@@ -116,7 +116,7 @@ impl FixedBitSet {
 
     /// Clear all bits.
     #[inline]
-    #[no_coverage]
+    #[coverage(off)]
     pub fn clear(&mut self) {
         for elt in &mut self.data {
             *elt = 0
@@ -127,7 +127,7 @@ impl FixedBitSet {
     ///
     /// **Panics** if **bit** is out of bounds.
     #[inline(always)]
-    #[no_coverage]
+    #[coverage(off)]
     pub fn insert(&mut self, bit: usize) {
         assert!(
             bit < self.length,
@@ -145,7 +145,7 @@ impl FixedBitSet {
     ///
     /// **Panics** if **bit** is out of bounds.
     #[inline]
-    #[no_coverage]
+    #[coverage(off)]
     pub fn put(&mut self, bit: usize) -> bool {
         assert!(
             bit < self.length,
@@ -165,7 +165,7 @@ impl FixedBitSet {
     ///
     /// ***Panics*** if **bit** is out of bounds
     #[inline]
-    #[no_coverage]
+    #[coverage(off)]
     pub fn toggle(&mut self, bit: usize) {
         assert!(
             bit < self.length,
@@ -185,7 +185,7 @@ impl FixedBitSet {
     ///
     /// **Panics** if the range extends past the end of the bitset.
     #[inline]
-    #[no_coverage]
+    #[coverage(off)]
     pub fn count_ones(&self) -> usize {
         let mut sum = 0;
         for block in &self.data {
@@ -198,7 +198,7 @@ impl FixedBitSet {
     ///
     /// Iterator element is the index of the `1` bit, type `usize`.
     #[inline]
-    #[no_coverage]
+    #[coverage(off)]
     pub fn ones(&self) -> Ones {
         match self.as_slice().split_first() {
             Some((&block, rem)) => Ones {
@@ -216,7 +216,7 @@ impl FixedBitSet {
 
     /// View the bitset as a slice of `u64` blocks
     #[inline]
-    #[no_coverage]
+    #[coverage(off)]
     pub fn as_slice(&self) -> &[u64] {
         &self.data
     }
@@ -224,7 +224,7 @@ impl FixedBitSet {
     /// In-place union of two `FixedBitSet`s.
     ///
     /// On calling this method, `self`'s capacity may be increased to match `other`'s.
-    #[no_coverage]
+    #[coverage(off)]
     pub fn union_with(&mut self, other: &FixedBitSet) {
         if other.len() >= self.len() {
             self.grow(other.len());
@@ -237,7 +237,7 @@ impl FixedBitSet {
     /// In-place intersection of two `FixedBitSet`s.
     ///
     /// On calling this method, `self`'s capacity will remain the same as before.
-    #[no_coverage]
+    #[coverage(off)]
     pub fn intersect_with(&mut self, other: &FixedBitSet) {
         for (x, y) in self.data.iter_mut().zip(other.data.iter()) {
             *x &= *y;
@@ -251,7 +251,7 @@ impl FixedBitSet {
     /// In-place difference of two `FixedBitSet`s.
     ///
     /// On calling this method, `self`'s capacity will remain the same as before.
-    #[no_coverage]
+    #[coverage(off)]
     pub fn difference_with(&mut self, other: &FixedBitSet) {
         for (x, y) in self.data.iter_mut().zip(other.data.iter()) {
             *x &= !*y;
@@ -268,7 +268,7 @@ impl FixedBitSet {
     /// In-place symmetric difference of two `FixedBitSet`s.
     ///
     /// On calling this method, `self`'s capacity may be increased to match `other`'s.
-    #[no_coverage]
+    #[coverage(off)]
     pub fn symmetric_difference_with(&mut self, other: &FixedBitSet) {
         if other.len() >= self.len() {
             self.grow(other.len());
@@ -292,7 +292,7 @@ impl<'a> Iterator for Ones<'a> {
     type Item = usize; // the bit position of the '1'
 
     #[inline]
-    #[no_coverage]
+    #[coverage(off)]
     fn next(&mut self) -> Option<Self::Item> {
         while self.bitset == 0 {
             if self.remaining_blocks.is_empty() {
@@ -312,7 +312,7 @@ impl<'a> Iterator for Ones<'a> {
 
 impl<'a> BitAnd for &'a FixedBitSet {
     type Output = FixedBitSet;
-    #[no_coverage]
+    #[coverage(off)]
     fn bitand(self, other: &FixedBitSet) -> FixedBitSet {
         let (short, long) = {
             if self.len() <= other.len() {
@@ -331,14 +331,14 @@ impl<'a> BitAnd for &'a FixedBitSet {
 }
 
 impl BitAndAssign for FixedBitSet {
-    #[no_coverage]
+    #[coverage(off)]
     fn bitand_assign(&mut self, other: Self) {
         self.intersect_with(&other);
     }
 }
 
 impl BitAndAssign<&Self> for FixedBitSet {
-    #[no_coverage]
+    #[coverage(off)]
     fn bitand_assign(&mut self, other: &Self) {
         self.intersect_with(other);
     }
@@ -346,7 +346,7 @@ impl BitAndAssign<&Self> for FixedBitSet {
 
 impl<'a> BitOr for &'a FixedBitSet {
     type Output = FixedBitSet;
-    #[no_coverage]
+    #[coverage(off)]
     fn bitor(self, other: &FixedBitSet) -> FixedBitSet {
         let (short, long) = {
             if self.len() <= other.len() {
@@ -365,14 +365,14 @@ impl<'a> BitOr for &'a FixedBitSet {
 }
 
 impl BitOrAssign for FixedBitSet {
-    #[no_coverage]
+    #[coverage(off)]
     fn bitor_assign(&mut self, other: Self) {
         self.union_with(&other);
     }
 }
 
 impl BitOrAssign<&Self> for FixedBitSet {
-    #[no_coverage]
+    #[coverage(off)]
     fn bitor_assign(&mut self, other: &Self) {
         self.union_with(other);
     }
@@ -380,7 +380,7 @@ impl BitOrAssign<&Self> for FixedBitSet {
 
 impl<'a> BitXor for &'a FixedBitSet {
     type Output = FixedBitSet;
-    #[no_coverage]
+    #[coverage(off)]
     fn bitxor(self, other: &FixedBitSet) -> FixedBitSet {
         let (short, long) = {
             if self.len() <= other.len() {
@@ -399,14 +399,14 @@ impl<'a> BitXor for &'a FixedBitSet {
 }
 
 impl BitXorAssign for FixedBitSet {
-    #[no_coverage]
+    #[coverage(off)]
     fn bitxor_assign(&mut self, other: Self) {
         self.symmetric_difference_with(&other);
     }
 }
 
 impl BitXorAssign<&Self> for FixedBitSet {
-    #[no_coverage]
+    #[coverage(off)]
     fn bitxor_assign(&mut self, other: &Self) {
         self.symmetric_difference_with(other);
     }

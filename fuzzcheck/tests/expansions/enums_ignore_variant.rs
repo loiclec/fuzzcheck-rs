@@ -49,7 +49,7 @@ make_mutator! {
 }
 
 #[test]
-#[no_coverage]
+#[coverage(off)]
 fn test_compile() {
     let m = WithIgnore::<bool>::default_mutator();
     let _ = m.random_arbitrary(10.0);

@@ -10,7 +10,7 @@ pub struct BoolMutator {
 
 impl DefaultMutator for bool {
     type Mutator = BoolMutator;
-    #[no_coverage]
+    #[coverage(off)]
     fn default_mutator() -> Self::Mutator {
         <_>::default()
     }
@@ -24,7 +24,7 @@ pub enum ArbitraryStep {
     Twice = 2,
 }
 impl Default for ArbitraryStep {
-    #[no_coverage]
+    #[coverage(off)]
     fn default() -> Self {
         Self::Never
     }
@@ -44,55 +44,55 @@ impl Mutator<bool> for BoolMutator {
     type UnmutateToken = bool;
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn initialize(&self) {}
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn default_arbitrary_step(&self) -> Self::ArbitraryStep {
         <_>::default()
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn is_valid(&self, _value: &bool) -> bool {
         true
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn validate_value(&self, _value: &bool) -> Option<Self::Cache> {
         Some(())
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn default_mutation_step(&self, _value: &bool, _cache: &Self::Cache) -> Self::MutationStep {
         INITIAL_MUTATION_STEP
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn global_search_space_complexity(&self) -> f64 {
         1.0
     }
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn max_complexity(&self) -> f64 {
         BOOL_COMPLEXITY
     }
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn min_complexity(&self) -> f64 {
         BOOL_COMPLEXITY
     }
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn complexity(&self, _value: &bool, _cache: &Self::Cache) -> f64 {
         BOOL_COMPLEXITY
     }
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn ordered_arbitrary(&self, step: &mut Self::ArbitraryStep, max_cplx: f64) -> Option<(bool, f64)> {
         if max_cplx < self.min_complexity() {
             return None;
@@ -110,12 +110,12 @@ impl Mutator<bool> for BoolMutator {
         }
     }
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn random_arbitrary(&self, _max_cplx: f64) -> (bool, f64) {
         (self.rng.bool(), BOOL_COMPLEXITY)
     }
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn ordered_mutate(
         &self,
         value: &mut bool,
@@ -136,19 +136,19 @@ impl Mutator<bool> for BoolMutator {
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn random_mutate(&self, value: &mut bool, _cache: &mut Self::Cache, _max_cplx: f64) -> (Self::UnmutateToken, f64) {
         (std::mem::replace(value, !*value), BOOL_COMPLEXITY)
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn unmutate(&self, value: &mut bool, _cache: &mut Self::Cache, t: Self::UnmutateToken) {
         *value = t;
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn visit_subvalues<'a>(&self, _value: &'a bool, _cache: &'a Self::Cache, _visit: &mut dyn FnMut(&'a dyn Any, f64)) {
     }
 }

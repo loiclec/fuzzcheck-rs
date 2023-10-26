@@ -14,7 +14,7 @@ mod test {
 
     use super::*;
     #[test]
-    #[no_coverage]
+    #[coverage(off)]
     fn test_compile() {
         let _m = X::default_mutator();
         let m = Y::default_mutator();

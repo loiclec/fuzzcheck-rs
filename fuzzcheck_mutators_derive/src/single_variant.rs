@@ -182,7 +182,7 @@ pub fn make_single_variant_mutator(
             })) ";
 
         #[doc(hidden)]
-        #[no_coverage]
+        #[coverage(off)]
         fn initialize(&self) {
             match self {"
                 join_ts!(&enu.variants, variant,
@@ -192,7 +192,7 @@ pub fn make_single_variant_mutator(
         }
 
         #[doc(hidden)]
-        #[no_coverage]
+        #[coverage(off)]
         fn default_arbitrary_step(&self) -> Self::ArbitraryStep {
             match self {"
                 join_ts!(&enu.variants, variant,
@@ -202,7 +202,7 @@ pub fn make_single_variant_mutator(
         }
 
         #[doc(hidden)]
-        #[no_coverage]
+        #[coverage(off)]
         fn is_valid(&self, value: &" selfty ") -> bool {"
             "match (self, value) {"
             join_ts!(&enu.variants, variant,
@@ -215,7 +215,7 @@ pub fn make_single_variant_mutator(
 
 
         #[doc(hidden)]
-        #[no_coverage]
+        #[coverage(off)]
         fn validate_value(&self, value: &" selfty ") -> " cm.Option "<Self::Cache> {
             match (self, value) {"
             join_ts!(&enu.variants, variant,
@@ -227,7 +227,7 @@ pub fn make_single_variant_mutator(
         }
 
         #[doc(hidden)]
-        #[no_coverage]
+        #[coverage(off)]
         fn default_mutation_step(&self, value: &" selfty ", cache: &Self::Cache) -> Self::MutationStep {
             match (self, value, cache) {"
             join_ts!(&enu.variants, variant,
@@ -243,7 +243,7 @@ pub fn make_single_variant_mutator(
         }
 
         #[doc(hidden)]
-        #[no_coverage]
+        #[coverage(off)]
         fn global_search_space_complexity(&self) -> f64 {
             match self {"
             join_ts!(&enu.variants, variant,
@@ -253,7 +253,7 @@ pub fn make_single_variant_mutator(
         }
 
         #[doc(hidden)]
-        #[no_coverage]
+        #[coverage(off)]
         fn max_complexity(&self) -> f64 {
             match self {"
             join_ts!(&enu.variants, variant,
@@ -263,7 +263,7 @@ pub fn make_single_variant_mutator(
         }
 
         #[doc(hidden)]
-        #[no_coverage]
+        #[coverage(off)]
         fn min_complexity(&self) -> f64 {
             match self {"
             join_ts!(&enu.variants, variant,
@@ -273,7 +273,7 @@ pub fn make_single_variant_mutator(
         }
 
         #[doc(hidden)]
-        #[no_coverage]
+        #[coverage(off)]
         fn complexity(&self, value: &" selfty ", cache: &Self::Cache) -> f64 {
             match (self, value, cache) {"
             join_ts!(&enu.variants, variant,
@@ -289,7 +289,7 @@ pub fn make_single_variant_mutator(
         }
 
         #[doc(hidden)]
-        #[no_coverage]
+        #[coverage(off)]
         fn ordered_arbitrary(&self, step: &mut Self::ArbitraryStep, max_cplx: f64) -> Option<(" selfty ", f64)> {
             match (self, step) {"
             join_ts!(&enu.variants, variant,
@@ -308,7 +308,7 @@ pub fn make_single_variant_mutator(
         }
 
         #[doc(hidden)]
-        #[no_coverage]
+        #[coverage(off)]
         fn random_arbitrary(&self, max_cplx: f64) -> (" selfty ", f64) {
             match self {"
             join_ts!(&enu.variants, variant,
@@ -323,7 +323,7 @@ pub fn make_single_variant_mutator(
         }
 
         #[doc(hidden)]
-        #[no_coverage]
+        #[coverage(off)]
         fn ordered_mutate(
             &self,
             value: &mut " selfty ",
@@ -341,14 +341,14 @@ pub fn make_single_variant_mutator(
                     " EnumSingleVariant "::" variant.ident "(s)
                 ) => {
                     m.ordered_mutate(" variant_pattern_match_bindings_to_tuple(&variant.ident) ", c, s, subvalue_provider, max_cplx)
-                        .map(#[no_coverage] |(t, c)| (" EnumSingleVariant "::" variant.ident "(t), c))
+                        .map(#[coverage(off)] |(t, c)| (" EnumSingleVariant "::" variant.ident "(t), c))
                 }"
             )" _ => unreachable!(),
             }
         }
 
         #[doc(hidden)]
-        #[no_coverage]
+        #[coverage(off)]
         fn random_mutate(&self, value: &mut " selfty ", cache: &mut Self::Cache, max_cplx: f64) -> (Self::UnmutateToken, f64) {
             match (self, value, cache) {"
             join_ts!(&enu.variants, variant,
@@ -367,7 +367,7 @@ pub fn make_single_variant_mutator(
         }
 
         #[doc(hidden)]
-        #[no_coverage]
+        #[coverage(off)]
         fn unmutate(&self, value: &mut " selfty ", cache: &mut Self::Cache, t: Self::UnmutateToken) {
             match (self, value, cache, t) {"
             join_ts!(&enu.variants, variant,
@@ -384,7 +384,7 @@ pub fn make_single_variant_mutator(
         }
 
         #[doc(hidden)]
-        #[no_coverage]
+        #[coverage(off)]
         fn visit_subvalues<'__fuzzcheck_derive_lt>(&self, value: &'__fuzzcheck_derive_lt " selfty ", cache: &'__fuzzcheck_derive_lt Self::Cache, visit: &mut dyn FnMut(&'__fuzzcheck_derive_lt dyn " cm.Any ", f64)) {
             match (self, value, cache) {"
             join_ts!(&enu.variants, variant,

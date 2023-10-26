@@ -16,7 +16,7 @@ pub struct BasicEnumMutator {
     cplx: f64,
 }
 impl BasicEnumMutator {
-    #[no_coverage]
+    #[coverage(off)]
     pub fn new<T>(non_ignored_variant_count: usize) -> Self
     where
         T: BasicEnumStructure,
@@ -45,59 +45,59 @@ where
     type UnmutateToken = usize;
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn initialize(&self) {}
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn default_arbitrary_step(&self) -> Self::ArbitraryStep {
         0
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn is_valid(&self, _value: &T) -> bool {
         true
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn validate_value(&self, _value: &T) -> Option<Self::Cache> {
         Some(())
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn default_mutation_step(&self, _value: &T, _cache: &Self::Cache) -> Self::MutationStep {
         INITIAL_MUTATION_STEP
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn global_search_space_complexity(&self) -> f64 {
         self.cplx
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn max_complexity(&self) -> f64 {
         self.cplx
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn min_complexity(&self) -> f64 {
         self.cplx
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn complexity(&self, _value: &T, _cache: &Self::Cache) -> f64 {
         self.cplx
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn ordered_arbitrary(&self, step: &mut Self::ArbitraryStep, max_cplx: f64) -> Option<(T, f64)> {
         if max_cplx < <Self as Mutator<T>>::min_complexity(self) {
             return None;
@@ -112,14 +112,14 @@ where
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn random_arbitrary(&self, _max_cplx: f64) -> (T, f64) {
         let item_idx = self.rng.usize(..self.non_ignored_variant_count);
         (T::from_variant_index(item_idx), self.cplx)
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn ordered_mutate(
         &self,
         value: &mut T,
@@ -145,7 +145,7 @@ where
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn random_mutate(&self, value: &mut T, _cache: &mut Self::Cache, _max_cplx: f64) -> (Self::UnmutateToken, f64) {
         let old_index = value.get_variant_index();
         let item_idx = self.rng.usize(..self.non_ignored_variant_count);
@@ -154,12 +154,12 @@ where
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn unmutate(&self, value: &mut T, _cache: &mut Self::Cache, t: Self::UnmutateToken) {
         *value = T::from_variant_index(t);
     }
 
     #[doc(hidden)]
-    #[no_coverage]
+    #[coverage(off)]
     fn visit_subvalues<'a>(&self, _value: &'a T, _cache: &'a Self::Cache, _visit: &mut dyn FnMut(&'a dyn Any, f64)) {}
 }
