@@ -31,7 +31,8 @@ pub fn regex(s: &str) -> Rc<Grammar> {
 /// could use this code
 ///
 /// ```
-/// let a_to_z = literal_ranges('a'..='z');
+/// # use fuzzcheck::mutators::grammar::literal_ranges;
+/// let a_to_z = literal_ranges(vec!['a'..='z']);
 /// ```
 pub fn literal_ranges(ranges: Vec<RangeInclusive<char>>) -> Rc<Grammar> {
     Rc::new(Grammar::Literal(ranges))
@@ -41,6 +42,7 @@ pub fn literal_ranges(ranges: Vec<RangeInclusive<char>>) -> Rc<Grammar> {
 /// Creates an [`Rc<Grammar>`] which matches a single character literal.
 ///
 /// ```
+/// # use fuzzcheck::mutators::grammar::literal;
 /// let l = literal('l');
 /// ```
 pub fn literal(l: char) -> Rc<Grammar> {
@@ -75,10 +77,12 @@ pub fn alternation(gs: impl IntoIterator<Item = Rc<Grammar>>) -> Rc<Grammar> {
 ///
 /// For example, the grammar
 /// ```
+/// # use fuzzcheck::mutators::grammar::regex;
+/// # use fuzzcheck::mutators::grammar::concatenation;
 /// concatenation([
 ///     regex("fuzz"),
 ///     regex("check")
-/// ])
+/// ]);
 /// ```
 /// would output "fuzzcheck".
 #[coverage(off)]
