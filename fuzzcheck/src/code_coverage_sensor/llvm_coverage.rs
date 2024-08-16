@@ -342,17 +342,16 @@ pub struct PrfData {
 }
 
 #[coverage(off)]
+/// This function reads the __llvm_prf_data section.
+///
+/// ### Implementation notes
+/// The `__llvm_prf_data`/profile data section is a list of structs which
+/// contain data about the functions which are being instrumented.
+///
+/// The struct definition can be found here (this is fixed to a given commit, so
+/// you may need to look at more recent ones):
+/// https://github.com/llvm/llvm-project/blob/7c3b67d2038cfb48a80299089f6a1308eee1df7f/compiler-rt/include/profile/InstrProfData.inc#L65-L95
 pub fn read_prf_data(prf_data: &[u8]) -> Result<Vec<PrfData>, ReadCovMapError> {
-    // Read the prf_data section.
-    //
-    // The problem is that there is no clear reference for it, and its format can be updated by newer LLVM versions
-    //
-    // Look at this commit: https://github.com/llvm/llvm-project/commit/24c615fa6b6b7910c8743f9044226499adfac4e6
-    // (as well as the commit it references) for a few of the files involved in generating the prf_data section, which
-    // can then be used to implement this function
-    //
-    // In particular, look at InstrProfData.inc
-
     let mut counts = Vec::new();
     let mut idx = 0;
 
@@ -364,20 +363,28 @@ pub fn read_prf_data(prf_data: &[u8]) -> Result<Vec<PrfData>, ReadCovMapError> {
             structural_hash,
         };
         let _relative_counter_ptr = read_u64(prf_data, &mut idx);
+        let _relative_bitmap_ptr = read_u64(prf_data, &mut idx);
         let _function_ptr = read_u64(prf_data, &mut idx);
         let _values = read_u64(prf_data, &mut idx); // values are only used for PGO, not coverage instrumentation
 
         // u32 counters
         let nbr_counters = read_u32(prf_data, &mut idx);
 
+        assert!(nbr_counters >= 1);
+
         if structural_hash == 0 {
             // it is a dummy function, so it doesn't have counters
             // 1 counter seems to be the minimum for some reason
-            assert!(nbr_counters <= 1);
+            assert!(nbr_counters <= 1, "actual number = {nbr_counters}");
         }
+
         // u16 but aligned
-        let _num_value_site = read_i16(prf_data, &mut idx); // this is used for PGO only, I think
-        idx += 2; // alignment
+        let _num_value_site_1 = read_i16(prf_data, &mut idx); // this is used for PGO only, I think
+        let _num_value_site_2 = read_i16(prf_data, &mut idx);
+
+        let _num_bitmap_bytes = read_u32(prf_data, &mut idx);
+
+        idx += 4;
 
         // This is no longer a valid check with LLVM 14.0, I think?
         // Maybe due to:
@@ -707,7 +714,7 @@ pub fn read_covmap(covmap: &[u8], idx: &mut usize) -> Result<CovMap, ReadCovMapE
         let length_encoded_data = read_i32(covmap, idx) as usize;
         let _always_0 = read_i32(covmap, idx);
         let version = read_i32(covmap, idx);
-        if (3..=5).contains(&version) == false {
+        if (3..=6).contains(&version) == false {
             return Err(ReadCovMapError::InvalidVersion(version));
         }
 
