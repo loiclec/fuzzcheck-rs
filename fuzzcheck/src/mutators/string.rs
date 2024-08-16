@@ -32,8 +32,9 @@ pub fn string_mutator() -> StringMutator {
         |value, _cplx| (value.as_bytes().len() * 8) as f64,
     )
 }
+
 impl DefaultMutator for String {
-    type Mutator = StringMutator;
+    type Mutator = impl Mutator<String>;
 
     #[coverage(off)]
     fn default_mutator() -> Self::Mutator {

@@ -289,7 +289,7 @@ where
         F::NormalizedFunction,
         <T::Owned as DefaultMutator>::Mutator,
         T::Owned,
-        DiverseAndMaxHitsSensor,
+        impl Sensor<Observations = (<CodeCoverageSensor as Sensor>::Observations, (usize, u64))>,
         BasicAndDiverseAndMaxHitsPool,
     > {
         self.mutator(<T::Owned as DefaultMutator>::default_mutator())
@@ -460,7 +460,13 @@ where
     pub fn default_sensor_and_pool_with_custom_filter(
         self,
         keep: impl Fn(&Path, &str) -> bool,
-    ) -> FuzzerBuilder4<F, M, V, DiverseAndMaxHitsSensor, BasicAndDiverseAndMaxHitsPool> {
+    ) -> FuzzerBuilder4<
+        F,
+        M,
+        V,
+        impl Sensor<Observations = (<CodeCoverageSensor as Sensor>::Observations, (usize, u64))>,
+        BasicAndDiverseAndMaxHitsPool,
+    > {
         let (sensor, pool) = default_sensor_and_pool_with_custom_filter(keep).finish();
         FuzzerBuilder4 {
             test_function: self.test_function,
@@ -480,7 +486,13 @@ where
     /// to execute - this slows down the fuzzer.
     pub fn default_sensor_and_pool(
         self,
-    ) -> FuzzerBuilder4<F, M, V, DiverseAndMaxHitsSensor, BasicAndDiverseAndMaxHitsPool> {
+    ) -> FuzzerBuilder4<
+        F,
+        M,
+        V,
+        impl Sensor<Observations = (<CodeCoverageSensor as Sensor>::Observations, (usize, u64))>,
+        BasicAndDiverseAndMaxHitsPool,
+    > {
         let (sensor, pool) = default_sensor_and_pool().finish();
         FuzzerBuilder4 {
             test_function: self.test_function,
@@ -694,9 +706,6 @@ pub type BasicAndMaxHitsSensor = impl WrapperSensor<
     Observations = (<CodeCoverageSensor as Sensor>::Observations, u64),
 >;
 
-pub type DiverseAndMaxHitsSensor =
-    impl Sensor<Observations = (<CodeCoverageSensor as Sensor>::Observations, (usize, u64))>;
-
 pub type BasicPool = SimplestToActivateCounterPool;
 pub type DiversePool = AndPool<MostNDiversePool, MaximiseObservationPool<u64>, DifferentObservations>;
 pub type MaxHitsPool = AndPool<MaximiseEachCounterPool, MaximiseObservationPool<u64>, DifferentObservations>;
@@ -780,7 +789,10 @@ pub fn basic_sensor_and_pool_with_custom_filter(
 /// Currently, the result cannot be augmented any further. Thus, the only action you can take on the result is to
 /// use [`.finish()`](SensorAndPoolBuilder::finish) to obtain the concrete sensor and pool.
 #[coverage(off)]
-pub fn default_sensor_and_pool() -> SensorAndPoolBuilder<DiverseAndMaxHitsSensor, BasicAndDiverseAndMaxHitsPool> {
+pub fn default_sensor_and_pool() -> SensorAndPoolBuilder<
+    impl Sensor<Observations = (<CodeCoverageSensor as Sensor>::Observations, (usize, u64))>,
+    BasicAndDiverseAndMaxHitsPool,
+> {
     basic_sensor_and_pool()
         .find_most_diverse_set_of_test_cases(20)
         .find_test_cases_repeatedly_hitting_coverage_counters()
@@ -791,7 +803,10 @@ pub fn default_sensor_and_pool() -> SensorAndPoolBuilder<DiverseAndMaxHitsSensor
 #[coverage(off)]
 pub fn default_sensor_and_pool_with_custom_filter(
     keep: impl Fn(&Path, &str) -> bool,
-) -> SensorAndPoolBuilder<DiverseAndMaxHitsSensor, BasicAndDiverseAndMaxHitsPool> {
+) -> SensorAndPoolBuilder<
+    impl Sensor<Observations = (<CodeCoverageSensor as Sensor>::Observations, (usize, u64))>,
+    BasicAndDiverseAndMaxHitsPool,
+> {
     basic_sensor_and_pool_with_custom_filter(keep)
         .find_most_diverse_set_of_test_cases(20)
         .find_test_cases_repeatedly_hitting_coverage_counters()
@@ -897,12 +912,22 @@ impl SensorAndPoolBuilder<BasicSensor, BasicPool> {
         SensorAndPoolBuilder { sensor, pool }
     }
 }
-impl SensorAndPoolBuilder<DiverseSensor, BasicAndDiversePool> {
+
+impl<T> SensorAndPoolBuilder<T, BasicAndDiversePool>
+where
+    T: WrapperSensor<
+        Wrapped = CodeCoverageSensor,
+        Observations = (<CodeCoverageSensor as Sensor>::Observations, usize),
+    >,
+{
     /// Augment the current pool such that it also tries to find test cases repeatedly hitting the same regions of code.
     #[coverage(off)]
     pub fn find_test_cases_repeatedly_hitting_coverage_counters(
         self,
-    ) -> SensorAndPoolBuilder<DiverseAndMaxHitsSensor, BasicAndDiverseAndMaxHitsPool> {
+    ) -> SensorAndPoolBuilder<
+        impl Sensor<Observations = (<CodeCoverageSensor as Sensor>::Observations, (usize, u64))>,
+        BasicAndDiverseAndMaxHitsPool,
+    > {
         let nbr_counters = self.sensor.wrapped().count_instrumented;
 
         let sensor = self.sensor.map(
