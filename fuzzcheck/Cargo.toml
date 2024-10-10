@@ -1,6 +1,6 @@
 [package]
 name = "fuzzcheck"
-version = "0.12.1"
+version = "0.13.0"
 authors = ["Loïc Lecrenier <loic.lecrenier@me.com>"]
 edition = "2021"
 description = "A modular, structure-aware, and feedback-driven fuzzing engine for Rust functions"
@@ -12,7 +12,7 @@ keywords = ["property", "fuzzer", "fuzzing", "test", "testing"]
 categories = ["development-tools::testing"]
 
 [build-dependencies]
-cc = "1.0.73"
+cc = "1.1.28"
 
 [features]
 grammar_mutator = []
@@ -24,29 +24,29 @@ default = ["grammar_mutator", "regex_grammar", "serde_json_serializer"]
 
 [dependencies]
 getopts = "0.2.21"
-fastrand = "1.7.0"
+fastrand = "1.9.0"
 cfg-if = "1.0.0"
-libc = { version = "0.2.126", default_features = false }
+libc = { version = "0.2.126", default-features = false }
 
 md5 = "0.7.0"
-object = { version = "0.29.0", default_features = false, features = ["read"] }
-flate2 = { version = "1.0.24", default_features = false, features = ["zlib"] }
+object = { version = "0.29.0", default-features = false, features = ["read"] }
+flate2 = { version = "1.0.24", default-features = false, features = ["zlib"] }
 
-fuzzcheck_common = { path = "../fuzzcheck_common", version = "0.12.0" }
+fuzzcheck_common = { path = "../fuzzcheck_common", version = "0.13.0" }
 
-serde = { version = "1.0.139", features = ["derive"], optional = true }
-serde_json = { version = "1.0.82", optional = true }
+serde = { version = "1.0.210", features = ["derive"], optional = true }
+serde_json = { version = "1.0.128", optional = true }
 ron = { version = "0.7.1", optional = true }
 
-fuzzcheck_mutators_derive = { path = "../fuzzcheck_mutators_derive", version = "0.12.0" }
+fuzzcheck_mutators_derive = { path = "../fuzzcheck_mutators_derive", version = "0.13.0" }
 
-ahash = "0.7.6"
+ahash = "0.7.8"
 
-regex-syntax = { version = "0.6.27", optional = true }
+regex-syntax = { version = "0.6.29", optional = true }
 nu-ansi-term = "0.46.0"
 
 bit-vec = "0.6.3"
-rustc-demangle = "0.1.21"
+rustc-demangle = "0.1.24"
 
 [lib]
 name = "fuzzcheck"
