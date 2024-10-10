@@ -1,6 +1,6 @@
 [package]
 name = "cargo-fuzzcheck"
-version = "0.12.0"
+version = "0.13.0"
 authors = ["Loïc Lecrenier <loic.lecrenier@me.com>"]
 edition = "2021"
 description = "Command line tool to use fuzzcheck-rs"
@@ -16,7 +16,7 @@ version = "0.2"
 
 [dependencies.fuzzcheck_common]
 path = "../fuzzcheck_common"
-version = "0.12"
+version = "0.13"
 
 [[bin]]
 name = "cargo-fuzzcheck"
