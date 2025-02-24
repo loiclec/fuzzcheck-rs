@@ -69,7 +69,11 @@ where
 /// Produces a grammar which will choose between the provided grammars.
 #[coverage(off)]
 pub fn alternation(gs: impl IntoIterator<Item = Rc<Grammar>>) -> Rc<Grammar> {
-    Rc::new(Grammar::Alternation(gs.into_iter().collect()))
+    let t: Vec<Rc<Grammar>> = gs.into_iter().collect();
+    if t.is_empty() {
+        panic!("Error: alternation grammars must not be empty!")
+    }
+    Rc::new(Grammar::Alternation(t))
 }
 
 /// Produces a grammar which will concatenate the output of all the provided
