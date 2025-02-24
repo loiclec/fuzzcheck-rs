@@ -773,3 +773,8 @@ mod tuple16 {
     extern crate self as fuzzcheck;
     fuzzcheck_mutators_derive::make_basic_tuple_mutator!(16);
 }
+pub use tuple17::{Tuple17, Tuple17Mutator};
+mod tuple17 {
+    extern crate self as fuzzcheck;
+    fuzzcheck_mutators_derive::make_basic_tuple_mutator!(17);
+}
