@@ -17,6 +17,7 @@ use crate::{DefaultMutator, Mutator};
 pub type StringMutator = impl Mutator<String>;
 
 #[coverage(off)]
+#[define_opaque(StringMutator)]
 pub fn string_mutator() -> StringMutator {
     MapMutator::new(
         // the base mutator produces values of type Vector<u8>
