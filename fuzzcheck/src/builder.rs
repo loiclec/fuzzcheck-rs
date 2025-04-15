@@ -567,7 +567,7 @@ fuzzcheck {minify} --{input_file} "artifacts/crash.json"
 
     Minify the test input defined in the file "artifacts/crash.json".
     It will put minified inputs in the folder artifacts/crash.minified/
-    and name them {{complexity}}-{{hash}}.json. 
+    and name them {{complexity}}-{{hash}}.json.
     For example, artifacts/crash.minified/4213--8cd7777109b57b8c.json
     is a minified input of complexity 42.13.
 "#,
@@ -731,6 +731,7 @@ pub type BasicAndDiverseAndMaxHitsPool = AndPool<
 >;
 
 #[coverage(off)]
+#[define_opaque(MaxHitsSensor)]
 pub fn max_cov_hits_sensor_and_pool() -> SensorAndPoolBuilder<MaxHitsSensor, MaxHitsPool> {
     let sensor = CodeCoverageSensor::observing_only_files_from_current_dir();
     let nbr_counters = sensor.count_instrumented;
@@ -852,6 +853,7 @@ impl SensorAndPoolBuilder<BasicSensor, BasicPool> {
     /// ### Argument
     /// `size` : the size of the set of test cases to find
     #[coverage(off)]
+    #[define_opaque(DiverseSensor)]
     pub fn find_most_diverse_set_of_test_cases(
         self,
         size: usize,
@@ -880,6 +882,7 @@ impl SensorAndPoolBuilder<BasicSensor, BasicPool> {
     }
     /// Augment the current pool such that it also tries to find test cases repeatedly hitting the same regions of code.
     #[coverage(off)]
+    #[define_opaque(BasicAndMaxHitsSensor)]
     pub fn find_test_cases_repeatedly_hitting_coverage_counters(
         self,
     ) -> SensorAndPoolBuilder<BasicAndMaxHitsSensor, BasicAndMaxHitsPool> {
