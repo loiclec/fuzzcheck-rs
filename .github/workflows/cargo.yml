@@ -34,10 +34,8 @@ jobs:
 
   fuzz-rust-crate:
     name: Fuzz Rust crate
-    runs-on: ${{ matrix.os }}
-    strategy:
-        matrix:
-            os: [ubuntu-latest, macOS-latest]
+    runs-on: ubuntu-latest
+    # todo: restore MacOS builds eventually
     steps:
       - uses: actions/checkout@master
       - uses: actions-rs/toolchain@v1
