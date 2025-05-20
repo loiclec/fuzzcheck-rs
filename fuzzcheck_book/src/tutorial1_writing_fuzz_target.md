@@ -65,7 +65,7 @@ fn fuzz_test_tree() {
 <summary> Click here to reveal a recap of the code we have written so far. </summary>
 
 ```rust ignore
-#![cfg_attr(fuzzing, feature(no_coverage))]
+#![cfg_attr(fuzzing, feature(coverage_attribute))]
 use std::cmp::{self, Ordering};
 pub struct Node<T: Ord> {
     key: T,

@@ -23,8 +23,8 @@
     ```
 
 
-* Add `#![cfg_attr(fuzzing, feature(no_coverage))]` at the top of the root module (e.g. `src/lib.rs` for a library target)
-    * fuzzcheck’s procedural macros use the `no_coverage` attribute
+* Add `#![cfg_attr(fuzzing, feature(coverage_attribute))]` at the top of the root module (e.g. `src/lib.rs` for a library target)
+    * fuzzcheck’s procedural macros use the `coverage_attribute` attribute
 
 * In your library, integration test, or executable, create a test module, gated by `#[cfg(all(fuzzing, test))]` and add a `#[test]` function inside it
     ```rust ignore

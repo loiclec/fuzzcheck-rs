@@ -22,7 +22,7 @@ fuzzcheck = "0.12"
 
 At the top of `src/lib.rs` add the following line:
 ```rust ignore
-#![cfg_attr(fuzzing, feature(no_coverage))]
+#![cfg_attr(fuzzing, feature(coverage_attribute))]
 ```
 This is a rust-nightly feature that fuzzcheck’s procedural macros use.
 

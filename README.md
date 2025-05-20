@@ -52,11 +52,11 @@ serde = { version = "1.0", features = ["derive"] }
 Below is an example of how to use fuzz test. Note:
 1. every code related to fuzzcheck is conditional on `#[cfg(test)]` because we 
 don't want to carry the fuzzcheck dependency in normal builds
-2. the `#![cfg_attr(test, feature(no_coverage))]` is required by fuzzcheck’s procedural macros
+2. the `#![cfg_attr(test, feature(coverage_attribute))]` is required by fuzzcheck’s procedural macros
 3. the use of `derive(fuzzcheck::DefaultMutator)` makes a custom type fuzzable
 
 ```rust
-#![cfg_attr(fuzzing, feature(no_coverage))]
+#![cfg_attr(fuzzing, feature(coverage_attribute))]
 use serde::{Deserialize, Serialize};
 
 #[cfg_attr(fuzzing, derive(fuzzcheck::DefaultMutator))]
