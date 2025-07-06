@@ -273,14 +273,14 @@ where
         }
     }
     #[coverage(off)]
-    unsafe fn set_up_signal_handler(&mut self) {
+    unsafe fn set_up_signal_handler(&mut self) { unsafe {
         let ptr = self as *mut Self;
         let (stack_ptr, stack_size) = set_signal_handlers(
             #[coverage(off)]
             move |sig| (*ptr).receive_signal(sig),
         );
         self.signal_handler_alt_stack = Some((stack_ptr, stack_size));
-    }
+    }}
 }
 
 pub struct Fuzzer<T, M>

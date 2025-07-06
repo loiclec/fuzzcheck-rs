@@ -9,7 +9,7 @@ use std::collections::{BTreeSet, HashMap};
 use std::convert::TryFrom;
 use std::path::{Path, PathBuf};
 
-use self::llvm_coverage::{get_counters, get_prf_data, read_covmap, Coverage, LLVMCovSections};
+use self::llvm_coverage::{Coverage, LLVMCovSections, get_counters, get_prf_data, read_covmap};
 use crate::traits::{SaveToStatsFolder, Sensor};
 
 /// A sensor that automatically records the code coverage of the program through an array of counters.
@@ -92,14 +92,16 @@ impl CodeCoverageSensor {
 
     #[coverage(off)]
     unsafe fn clear(&mut self) {
-        for &coverage_idx in &self.needs_clearing {
-            let coverage = &self.coverage[coverage_idx];
-            let slice = std::slice::from_raw_parts_mut(coverage.start_counters, coverage.counters_len);
-            for c in slice.iter_mut() {
-                *c = 0;
+        unsafe {
+            for &coverage_idx in &self.needs_clearing {
+                let coverage = &self.coverage[coverage_idx];
+                let slice = std::slice::from_raw_parts_mut(coverage.start_counters, coverage.counters_len);
+                for c in slice.iter_mut() {
+                    *c = 0;
+                }
             }
+            self.needs_clearing.clear();
         }
-        self.needs_clearing.clear();
     }
 }
 

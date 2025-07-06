@@ -1,10 +1,10 @@
 [package]
 name = "basic_crate"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [target.'cfg(fuzzing)'.dev-dependencies]
-fuzzcheck = { path =  "../../fuzzcheck" }
+fuzzcheck = { path = "../../fuzzcheck" }
 serde = { version = "1.0", features = ["derive"] }

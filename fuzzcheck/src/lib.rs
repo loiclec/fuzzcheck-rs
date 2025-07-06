@@ -28,9 +28,6 @@
 #![feature(stmt_expr_attributes)]
 // very very nice to use, but I guess not essential?
 #![feature(type_alias_impl_trait, impl_trait_in_assoc_type)]
-// should be stabilised very soon
-#![feature(let_chains)]
-//
 // end nightly features
 //
 #![allow(clippy::nonstandard_macro_braces)]
@@ -220,11 +217,11 @@ pub use fuzzer::FuzzingResult;
 pub use fuzzer::PoolStorageIndex;
 #[doc(inline)]
 pub use fuzzer::ReasonForStopping;
+pub(crate) use mutators::CROSSOVER_RATE;
 #[doc(inline)]
 pub use mutators::DefaultMutator;
 #[doc(inline)]
 pub use mutators::MutatorExt;
-pub(crate) use mutators::CROSSOVER_RATE;
 #[doc(inline)]
 pub use sensors_and_pools::PoolExt;
 #[doc(inline)]

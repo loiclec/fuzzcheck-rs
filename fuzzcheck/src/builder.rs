@@ -65,22 +65,22 @@ use std::result::Result;
 use std::time::Duration;
 
 use fuzzcheck_common::arg::{
-    options_parser, Arguments, ArgumentsError, FuzzerCommand, COMMAND_FUZZ, COMMAND_MINIFY_INPUT, INPUT_FILE_FLAG,
+    Arguments, ArgumentsError, COMMAND_FUZZ, COMMAND_MINIFY_INPUT, FuzzerCommand, INPUT_FILE_FLAG, options_parser,
 };
 
+#[cfg(feature = "serde_ron_serializer")]
+use crate::SerdeRonSerializer;
+#[cfg(feature = "serde_json_serializer")]
+use crate::SerdeSerializer;
 use crate::code_coverage_sensor::CodeCoverageSensor;
 use crate::fuzzer::{Fuzzer, FuzzingResult};
 use crate::sensors_and_pools::{
     AndPool, DifferentObservations, MaximiseEachCounterPool, MaximiseObservationPool, MostNDiversePool,
     SameObservations, SimplestToActivateCounterPool, WrapperSensor,
 };
-#[cfg(feature = "serde_ron_serializer")]
-use crate::SerdeRonSerializer;
-#[cfg(feature = "serde_json_serializer")]
-use crate::SerdeSerializer;
 use crate::{
-    split_string_by_whitespace, CompatibleWithObservations, DefaultMutator, Mutator, PoolExt, Sensor, SensorExt,
-    Serializer,
+    CompatibleWithObservations, DefaultMutator, Mutator, PoolExt, Sensor, SensorExt, Serializer,
+    split_string_by_whitespace,
 };
 
 /** A function that can be fuzz-tested.
@@ -567,7 +567,7 @@ fuzzcheck {minify} --{input_file} "artifacts/crash.json"
 
     Minify the test input defined in the file "artifacts/crash.json".
     It will put minified inputs in the folder artifacts/crash.minified/
-    and name them {{complexity}}-{{hash}}.json. 
+    and name them {{complexity}}-{{hash}}.json.
     For example, artifacts/crash.minified/4213--8cd7777109b57b8c.json
     is a minified input of complexity 42.13.
 "#,
@@ -693,18 +693,9 @@ where
 }
 
 pub type BasicSensor = CodeCoverageSensor;
-pub type DiverseSensor = impl WrapperSensor<
-    Wrapped = CodeCoverageSensor,
-    Observations = (<CodeCoverageSensor as Sensor>::Observations, usize),
->;
-pub type MaxHitsSensor = impl WrapperSensor<
-    Wrapped = CodeCoverageSensor,
-    Observations = (<CodeCoverageSensor as Sensor>::Observations, u64),
->;
-pub type BasicAndMaxHitsSensor = impl WrapperSensor<
-    Wrapped = CodeCoverageSensor,
-    Observations = (<CodeCoverageSensor as Sensor>::Observations, u64),
->;
+pub type DiverseSensor = impl WrapperSensor<Wrapped = CodeCoverageSensor, Observations = (<CodeCoverageSensor as Sensor>::Observations, usize)>;
+pub type MaxHitsSensor = impl WrapperSensor<Wrapped = CodeCoverageSensor, Observations = (<CodeCoverageSensor as Sensor>::Observations, u64)>;
+pub type BasicAndMaxHitsSensor = impl WrapperSensor<Wrapped = CodeCoverageSensor, Observations = (<CodeCoverageSensor as Sensor>::Observations, u64)>;
 
 pub type BasicPool = SimplestToActivateCounterPool;
 pub type DiversePool = AndPool<MostNDiversePool, MaximiseObservationPool<u64>, DifferentObservations>;
@@ -731,6 +722,7 @@ pub type BasicAndDiverseAndMaxHitsPool = AndPool<
 >;
 
 #[coverage(off)]
+#[define_opaque(MaxHitsSensor)]
 pub fn max_cov_hits_sensor_and_pool() -> SensorAndPoolBuilder<MaxHitsSensor, MaxHitsPool> {
     let sensor = CodeCoverageSensor::observing_only_files_from_current_dir();
     let nbr_counters = sensor.count_instrumented;
@@ -852,6 +844,7 @@ impl SensorAndPoolBuilder<BasicSensor, BasicPool> {
     /// ### Argument
     /// `size` : the size of the set of test cases to find
     #[coverage(off)]
+    #[define_opaque(DiverseSensor)]
     pub fn find_most_diverse_set_of_test_cases(
         self,
         size: usize,
@@ -880,6 +873,7 @@ impl SensorAndPoolBuilder<BasicSensor, BasicPool> {
     }
     /// Augment the current pool such that it also tries to find test cases repeatedly hitting the same regions of code.
     #[coverage(off)]
+    #[define_opaque(BasicAndMaxHitsSensor)]
     pub fn find_test_cases_repeatedly_hitting_coverage_counters(
         self,
     ) -> SensorAndPoolBuilder<BasicAndMaxHitsSensor, BasicAndMaxHitsPool> {
@@ -916,9 +910,9 @@ impl SensorAndPoolBuilder<BasicSensor, BasicPool> {
 impl<T> SensorAndPoolBuilder<T, BasicAndDiversePool>
 where
     T: WrapperSensor<
-        Wrapped = CodeCoverageSensor,
-        Observations = (<CodeCoverageSensor as Sensor>::Observations, usize),
-    >,
+            Wrapped = CodeCoverageSensor,
+            Observations = (<CodeCoverageSensor as Sensor>::Observations, usize),
+        >,
 {
     /// Augment the current pool such that it also tries to find test cases repeatedly hitting the same regions of code.
     #[coverage(off)]

@@ -2,7 +2,7 @@
 name = "fuzzcheck_common"
 version = "0.13.0"
 authors = ["Loïc Lecrenier <loic.lecrenier@me.com>"]
-edition = "2021"
+edition = "2024"
 description = "Common components for both cargo-fuzzcheck and fuzzcheck"
 homepage = "https://fuzzcheck.neocities.org"
 license = "MIT"
