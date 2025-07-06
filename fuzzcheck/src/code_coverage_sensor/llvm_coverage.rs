@@ -9,7 +9,7 @@ use super::leb128;
 
 type CovMap = HashMap<[u8; 8], Vec<String>>;
 
-extern "C" {
+unsafe extern "C" {
     pub(crate) fn get_start_instrumentation_counters() -> *mut u64;
     pub(crate) fn get_end_instrumentation_counters() -> *mut u64;
     pub(crate) fn get_start_prf_data() -> *const u8;
@@ -20,24 +20,30 @@ extern "C" {
 
 #[coverage(off)]
 pub unsafe fn get_counters() -> &'static mut [u64] {
-    let start = get_start_instrumentation_counters();
-    let end = get_end_instrumentation_counters();
-    let len = end.offset_from(start) as usize;
-    std::slice::from_raw_parts_mut(start, len)
+    unsafe {
+        let start = get_start_instrumentation_counters();
+        let end = get_end_instrumentation_counters();
+        let len = end.offset_from(start) as usize;
+        std::slice::from_raw_parts_mut(start, len)
+    }
 }
 #[coverage(off)]
 pub unsafe fn get_prf_data() -> &'static [u8] {
-    let start = get_start_prf_data();
-    let end = get_end_prf_data();
-    let len = end.offset_from(start) as usize;
-    std::slice::from_raw_parts(start, len)
+    unsafe {
+        let start = get_start_prf_data();
+        let end = get_end_prf_data();
+        let len = end.offset_from(start) as usize;
+        std::slice::from_raw_parts(start, len)
+    }
 }
 #[coverage(off)]
 pub unsafe fn get_prf_names() -> &'static [u8] {
-    let start = get_start_prf_names();
-    let end = get_end_prf_names();
-    let len = end.offset_from(start) as usize;
-    std::slice::from_raw_parts(start, len)
+    unsafe {
+        let start = get_start_prf_names();
+        let end = get_end_prf_names();
+        let len = end.offset_from(start) as usize;
+        std::slice::from_raw_parts(start, len)
+    }
 }
 
 pub struct LLVMCovSections {

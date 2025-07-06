@@ -4,8 +4,8 @@
 use std::ptr;
 
 use libc::{
-    sigaction, sigemptyset, SA_NODEFER, SA_ONSTACK, SA_SIGINFO, SIGABRT, SIGALRM, SIGBUS, SIGFPE, SIGINT, SIGSEGV,
-    SIGTERM, SIGTRAP, SIG_DFL,
+    SA_NODEFER, SA_ONSTACK, SA_SIGINFO, SIG_DFL, SIGABRT, SIGALRM, SIGBUS, SIGFPE, SIGINT, SIGSEGV, SIGTERM, SIGTRAP,
+    sigaction, sigemptyset,
 };
 
 static mut SIGNAL_HANDLER: Option<Box<dyn Fn(libc::c_int) -> !>> = None;
@@ -15,7 +15,8 @@ extern "C" fn os_handler(signal: libc::c_int, _: *mut libc::siginfo_t, _: *mut l
     // Assuming this always succeeds. Can't really handle errors in any meaningful way.
     unsafe {
         reset_signal_handlers();
-        if let Some(h) = SIGNAL_HANDLER.as_mut() {
+        let ptr = (&raw mut SIGNAL_HANDLER);
+        if let Some(h) = &*ptr {
             (*h)(signal);
         } else {
             std::process::exit(1);
@@ -29,7 +30,7 @@ extern "C" fn os_handler(signal: libc::c_int, _: *mut libc::siginfo_t, _: *mut l
 pub unsafe fn set_signal_handlers<F: 'static>(f: F) -> (*mut u8, std::alloc::Layout)
 where
     F: Fn(libc::c_int) -> !,
-{
+{ unsafe {
     SIGNAL_HANDLER = Some(Box::new(f));
 
     // Make sure the alternative stack is big enough. ~65_000 bytes should be okay.
@@ -64,18 +65,20 @@ where
     }
 
     (stack_pointer, stack_layout)
-}
+}}
 
 #[coverage(off)]
 pub(crate) unsafe fn reset_signal_handlers() {
-    let mut sa: sigaction = std::mem::zeroed();
-    sigemptyset(&mut sa.sa_mask as *mut libc::sigset_t);
+    let mut sa: sigaction = unsafe { std::mem::zeroed() };
+    unsafe {
+        sigemptyset(&mut sa.sa_mask as *mut libc::sigset_t);
+    }
     sa.sa_sigaction = SIG_DFL;
 
     for &signal in &[
         SIGALRM, SIGINT, SIGTERM, SIGSEGV, SIGBUS, SIGABRT, SIGFPE, SIGABRT, SIGTRAP,
     ] {
-        if sigaction(signal, &mut sa as *mut sigaction, ptr::null_mut()) < 0 {
+        if unsafe { sigaction(signal, &mut sa as *mut sigaction, ptr::null_mut()) < 0 } {
             panic!("Could not set up signal handler");
         }
     }

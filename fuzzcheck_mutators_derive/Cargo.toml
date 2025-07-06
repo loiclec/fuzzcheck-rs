@@ -2,7 +2,7 @@
 name = "fuzzcheck_mutators_derive"
 version = "0.13.0"
 authors = ["Loïc Lecrenier <loic.lecrenier@me.com>"]
-edition = "2021"
+edition = "2024"
 description = "Procedural macros to generate fuzzcheck mutators"
 homepage = "https://fuzzcheck.neocities.org"
 repository = "https://github.com/loiclec/fuzzcheck-rs"

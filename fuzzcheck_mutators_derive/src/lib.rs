@@ -2,13 +2,12 @@
 #![allow(clippy::type_complexity)]
 #![allow(clippy::large_enum_variant)]
 #![feature(stmt_expr_attributes)]
-#![feature(let_chains)]
 
 use proc_macro2::{Ident, Literal, TokenStream, TokenTree};
 use syn::ext::IdentExt;
 use syn::parse::{Parse, ParseStream};
-use syn::{parenthesized, parse2, parse_macro_input, token, Attribute, DeriveInput, Error, LitBool, Token};
-use token_builder::{extend_ts, ident, ts, TokenBuilder};
+use syn::{Attribute, DeriveInput, Error, LitBool, Token, parenthesized, parse_macro_input, parse2, token};
+use token_builder::{TokenBuilder, extend_ts, ident, ts};
 
 mod enums;
 mod single_variant;
@@ -237,18 +236,18 @@ pub(crate) struct Common {
     mutators: TokenStream,
     // fuzzcheck_mutator_traits_Mutator: TokenStream,
     fuzzcheck_traits_Mutator: TokenStream,
-    Mi_j: Box<dyn (Fn(usize, usize) -> Ident)>,
-    Mi: Box<dyn (Fn(usize) -> Ident)>,
-    mutator_i: Box<dyn (Fn(usize) -> Ident)>,
+    Mi_j: Box<dyn Fn(usize, usize) -> Ident>,
+    Mi: Box<dyn Fn(usize) -> Ident>,
+    mutator_i: Box<dyn Fn(usize) -> Ident>,
     None: TokenStream,
     Option: TokenStream,
     PhantomData: TokenStream,
     RefTypes: TokenStream,
     Some: TokenStream,
-    ti: Box<dyn (Fn(usize) -> Ident)>,
-    ti_value: Box<dyn (Fn(usize) -> Ident)>,
-    Ti: Box<dyn (Fn(usize) -> Ident)>,
-    Tuplei: Box<dyn (Fn(usize) -> TokenStream)>,
+    ti: Box<dyn Fn(usize) -> Ident>,
+    ti_value: Box<dyn Fn(usize) -> Ident>,
+    Ti: Box<dyn Fn(usize) -> Ident>,
+    Tuplei: Box<dyn Fn(usize) -> TokenStream>,
     TupleMutator: TokenStream,
     TupleMutatorWrapper: TokenStream,
     TupleN_ident: Ident,

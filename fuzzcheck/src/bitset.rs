@@ -199,7 +199,7 @@ impl FixedBitSet {
     /// Iterator element is the index of the `1` bit, type `usize`.
     #[inline]
     #[coverage(off)]
-    pub fn ones(&self) -> Ones {
+    pub fn ones(&self) -> Ones<'_> {
         match self.as_slice().split_first() {
             Some((&block, rem)) => Ones {
                 bitset: block,

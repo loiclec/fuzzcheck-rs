@@ -65,22 +65,22 @@ use std::result::Result;
 use std::time::Duration;
 
 use fuzzcheck_common::arg::{
-    options_parser, Arguments, ArgumentsError, FuzzerCommand, COMMAND_FUZZ, COMMAND_MINIFY_INPUT, INPUT_FILE_FLAG,
+    Arguments, ArgumentsError, COMMAND_FUZZ, COMMAND_MINIFY_INPUT, FuzzerCommand, INPUT_FILE_FLAG, options_parser,
 };
 
+#[cfg(feature = "serde_ron_serializer")]
+use crate::SerdeRonSerializer;
+#[cfg(feature = "serde_json_serializer")]
+use crate::SerdeSerializer;
 use crate::code_coverage_sensor::CodeCoverageSensor;
 use crate::fuzzer::{Fuzzer, FuzzingResult};
 use crate::sensors_and_pools::{
     AndPool, DifferentObservations, MaximiseEachCounterPool, MaximiseObservationPool, MostNDiversePool,
     SameObservations, SimplestToActivateCounterPool, WrapperSensor,
 };
-#[cfg(feature = "serde_ron_serializer")]
-use crate::SerdeRonSerializer;
-#[cfg(feature = "serde_json_serializer")]
-use crate::SerdeSerializer;
 use crate::{
-    split_string_by_whitespace, CompatibleWithObservations, DefaultMutator, Mutator, PoolExt, Sensor, SensorExt,
-    Serializer,
+    CompatibleWithObservations, DefaultMutator, Mutator, PoolExt, Sensor, SensorExt, Serializer,
+    split_string_by_whitespace,
 };
 
 /** A function that can be fuzz-tested.
@@ -693,18 +693,9 @@ where
 }
 
 pub type BasicSensor = CodeCoverageSensor;
-pub type DiverseSensor = impl WrapperSensor<
-    Wrapped = CodeCoverageSensor,
-    Observations = (<CodeCoverageSensor as Sensor>::Observations, usize),
->;
-pub type MaxHitsSensor = impl WrapperSensor<
-    Wrapped = CodeCoverageSensor,
-    Observations = (<CodeCoverageSensor as Sensor>::Observations, u64),
->;
-pub type BasicAndMaxHitsSensor = impl WrapperSensor<
-    Wrapped = CodeCoverageSensor,
-    Observations = (<CodeCoverageSensor as Sensor>::Observations, u64),
->;
+pub type DiverseSensor = impl WrapperSensor<Wrapped = CodeCoverageSensor, Observations = (<CodeCoverageSensor as Sensor>::Observations, usize)>;
+pub type MaxHitsSensor = impl WrapperSensor<Wrapped = CodeCoverageSensor, Observations = (<CodeCoverageSensor as Sensor>::Observations, u64)>;
+pub type BasicAndMaxHitsSensor = impl WrapperSensor<Wrapped = CodeCoverageSensor, Observations = (<CodeCoverageSensor as Sensor>::Observations, u64)>;
 
 pub type BasicPool = SimplestToActivateCounterPool;
 pub type DiversePool = AndPool<MostNDiversePool, MaximiseObservationPool<u64>, DifferentObservations>;
@@ -919,9 +910,9 @@ impl SensorAndPoolBuilder<BasicSensor, BasicPool> {
 impl<T> SensorAndPoolBuilder<T, BasicAndDiversePool>
 where
     T: WrapperSensor<
-        Wrapped = CodeCoverageSensor,
-        Observations = (<CodeCoverageSensor as Sensor>::Observations, usize),
-    >,
+            Wrapped = CodeCoverageSensor,
+            Observations = (<CodeCoverageSensor as Sensor>::Observations, usize),
+        >,
 {
     /// Augment the current pool such that it also tries to find test cases repeatedly hitting the same regions of code.
     #[coverage(off)]

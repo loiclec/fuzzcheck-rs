@@ -39,7 +39,7 @@ impl Sensor for TestFailureSensor {
     #[coverage(off)]
     fn stop_recording(&mut self) {
         unsafe {
-            self.error = TEST_FAILURE.clone();
+            self.error = (*(&raw mut TEST_FAILURE)).clone();
         }
     }
 

@@ -188,18 +188,18 @@ where
     A: GlobalAlloc,
 {
     #[coverage(off)]
-    unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
+    unsafe fn alloc(&self, layout: Layout) -> *mut u8 { unsafe {
         let ptr = self.0.alloc(layout);
         if ptr.is_null() {
             return ptr;
         }
         let size = layout.size();
-        ALLOC_STATS.alloc(size);
+        (*&raw mut ALLOC_STATS).alloc(size);
         ptr
-    }
+    }}
 
     #[coverage(off)]
-    unsafe fn realloc(&self, old_ptr: *mut u8, layout: Layout, new_size: usize) -> *mut u8 {
+    unsafe fn realloc(&self, old_ptr: *mut u8, layout: Layout, new_size: usize) -> *mut u8 { unsafe {
         let new_ptr = self.0.realloc(old_ptr, layout, new_size);
         if new_ptr.is_null() {
             return new_ptr;
@@ -210,15 +210,15 @@ where
         } else {
             (false, new_size - old_size)
         };
-        ALLOC_STATS.realloc(new_size, shrink, delta);
+        (*&raw mut ALLOC_STATS).realloc(new_size, shrink, delta);
         new_ptr
-    }
+    }}
     #[coverage(off)]
     unsafe fn dealloc(&self, ptr: *mut u8, layout: Layout) {
-        self.0.dealloc(ptr, layout);
+        unsafe { self.0.dealloc(ptr, layout) };
 
         let size = layout.size();
-        ALLOC_STATS.dealloc(size);
+        unsafe { (&raw mut ALLOC_STATS).as_mut() }.unwrap().dealloc(size);
     }
 }
 
@@ -238,8 +238,8 @@ struct AllocationsStats {
 fn get_allocation_stats() -> AllocationsStats {
     unsafe {
         AllocationsStats {
-            total_blocks: ALLOC_STATS.total_blocks.load(Ordering::SeqCst),
-            total_bytes: ALLOC_STATS.total_bytes.load(Ordering::SeqCst),
+            total_blocks: (*&raw mut ALLOC_STATS).total_blocks.load(Ordering::SeqCst),
+            total_bytes: (*&raw mut ALLOC_STATS).total_bytes.load(Ordering::SeqCst),
             // curr_blocks: ALLOC_STATS.curr_blocks.load(Ordering::SeqCst),
             // curr_bytes: ALLOC_STATS.curr_bytes.load(Ordering::SeqCst),
         }
