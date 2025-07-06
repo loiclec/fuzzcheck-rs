@@ -131,7 +131,7 @@ impl FixedBitSet {
     pub fn insert(&mut self, bit: usize) {
         assert!(
             bit < self.length,
-            "insert at index {} exceeds fixbitset size {}",
+            "insert at index {} >= fixbitset size {}",
             bit,
             self.length
         );
@@ -149,7 +149,7 @@ impl FixedBitSet {
     pub fn put(&mut self, bit: usize) -> bool {
         assert!(
             bit < self.length,
-            "put at index {} exceeds fixbitset size {}",
+            "put at index {} >= fixbitset size {}",
             bit,
             self.length
         );
@@ -169,7 +169,7 @@ impl FixedBitSet {
     pub fn toggle(&mut self, bit: usize) {
         assert!(
             bit < self.length,
-            "toggle at index {} exceeds fixbitset size {}",
+            "toggle at index {} >= fixbitset size {}",
             bit,
             self.length
         );
