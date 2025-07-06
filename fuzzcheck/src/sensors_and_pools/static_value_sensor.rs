@@ -34,7 +34,7 @@ use crate::{SaveToStatsFolder, Sensor};
 /// // After each run of the test function, the sensor resets `COUNT`
 /// // to the second argument (here: 0). It is best if you don't access
 /// // `COUNT` outside of the test function.
-/// let sensor = unsafe { StaticValueSensor::new(&mut COUNT, 0) };
+/// let sensor = unsafe { StaticValueSensor::new(&mut *&raw mut COUNT, 0) };
 ///
 /// // The sensor can be paired with any pool which is compatible with
 /// // observations of type `usize`. For example, we can use:

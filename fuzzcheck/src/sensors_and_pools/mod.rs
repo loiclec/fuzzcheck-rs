@@ -35,13 +35,13 @@ pub use noop_sensor::NoopSensor;
 pub use simplest_to_activate_counter_pool::SimplestToActivateCounterPool;
 #[doc(inline)]
 pub use static_value_sensor::StaticValueSensor;
+pub(crate) use test_failure_pool::TEST_FAILURE;
 #[doc(inline)]
 pub use test_failure_pool::TestFailure;
 #[doc(inline)]
 pub use test_failure_pool::TestFailurePool;
 #[doc(inline)]
 pub use test_failure_pool::TestFailureSensor;
-pub(crate) use test_failure_pool::TEST_FAILURE;
 #[doc(inline)]
 pub use unique_values_pool::UniqueValuesPool;
 #[doc(inline)]
@@ -86,7 +86,7 @@ pub trait SensorExt: Sensor {
     /// # use fuzzcheck::sensors_and_pools::StaticValueSensor;
     /// # static mut COUNTERS: [u64; 2] = [0; 2];
     /// # // inside the fuzz test, you can create the sensor as follows
-    /// # let sensor = unsafe { StaticValueSensor::new(&mut COUNTERS, [0, 0]) };
+    /// # let sensor = unsafe { StaticValueSensor::new(&mut *&raw mut COUNTERS, [0, 0]) };
     /// let sensor = sensor.map(|observations| {
     ///    let sum = observations.iter().sum::<u64>();
     ///    (observations, sum)
