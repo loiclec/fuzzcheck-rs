@@ -36,9 +36,12 @@ pub struct CodeCoverageSensor {
 impl CodeCoverageSensor {
     #[coverage(off)]
     pub fn observing_only_files_from_current_dir() -> Self {
+        let current_dir = std::env::current_dir().expect("could not get current directory");
         Self::new(
+            // todo: how to handle non-standard target dirs (and check how
+            // dependencies are structured)?
             #[coverage(off)]
-            |file, _function| file.is_relative(),
+            move |file, _function| file.is_relative() || file.starts_with(&current_dir),
         )
     }
     #[coverage(off)]
@@ -52,7 +55,8 @@ impl CodeCoverageSensor {
             covmap,
             prf_names,
         } = llvm_coverage::get_llvm_cov_sections(&exec).expect("could not find all relevant LLVM coverage sections");
-        let prf_data = unsafe { get_prf_data() };
+        let prf_data_raw = unsafe { get_prf_data() };
+        let prf_data_start = prf_data_raw.as_ptr();
         let covmap = read_covmap(&covmap, &mut 0).expect("failed to parse LLVM covmap");
         let prf_names = llvm_coverage::read_prf_names(&prf_names, &mut 0).expect("failed to parse LLVM prf_names");
         let mut map = HashMap::new();
@@ -65,9 +69,11 @@ impl CodeCoverageSensor {
         let covfun = llvm_coverage::read_covfun(&covfun).expect("failed to parse LLVM covfun");
         let covfun = llvm_coverage::filter_covfun(covfun, map, &covmap, keep);
         let covfun = llvm_coverage::process_function_records(covfun);
-        let prf_data = llvm_coverage::read_prf_data(prf_data).expect("failed to parse LLVM prf_data");
+        let prf_data = llvm_coverage::read_prf_data(prf_data_raw).expect("failed to parse LLVM prf_data");
 
-        let mut coverage = Coverage::new(covfun, prf_data, unsafe { get_counters() })
+        let all_counters = unsafe { get_counters() };
+        let counters_start = all_counters.as_mut_ptr();
+        let mut coverage = Coverage::new(covfun, prf_data, all_counters, prf_data_start, counters_start)
             .expect("failed to properly link the different LLVM coverage sections");
         coverage.retain(
             #[coverage(off)]
