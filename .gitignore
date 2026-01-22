@@ -1,4 +1,4 @@
-/target
+target/
 **/*.rs.bk
 /fuzz-corpus
 /artifacts
@@ -10,3 +10,5 @@ Cargo.lock
 
 .vscode
 .idea
+
+*.profraw

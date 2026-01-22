@@ -344,7 +344,8 @@ pub fn read_covfun(covfun: &[u8]) -> Result<Vec<RawFunctionCounters>, ReadCovMap
 
 pub struct PrfData {
     pub function_id: FunctionIdentifier,
-    number_of_counters: usize,
+    pub number_of_counters: usize,
+    pub counter_offset: isize,
 }
 
 #[coverage(off)]
@@ -362,13 +363,15 @@ pub fn read_prf_data(prf_data: &[u8]) -> Result<Vec<PrfData>, ReadCovMapError> {
     let mut idx = 0;
 
     while idx < prf_data.len() {
+        let entry_start = idx;
         let name_md5 = read_i64(prf_data, &mut idx);
         let structural_hash = read_u64(prf_data, &mut idx);
         let function_id = FunctionIdentifier {
             name_md5,
             structural_hash,
         };
-        let _relative_counter_ptr = read_u64(prf_data, &mut idx);
+        // The relative offset from this prf_data entry to the counter array
+        let relative_counter_ptr = read_i64(prf_data, &mut idx);
         let _relative_bitmap_ptr = read_u64(prf_data, &mut idx);
         let _function_ptr = read_u64(prf_data, &mut idx);
         let _values = read_u64(prf_data, &mut idx); // values are only used for PGO, not coverage instrumentation
@@ -392,26 +395,14 @@ pub fn read_prf_data(prf_data: &[u8]) -> Result<Vec<PrfData>, ReadCovMapError> {
 
         idx += 4;
 
-        // This is no longer a valid check with LLVM 14.0, I think?
-        // Maybe due to:
-        //     https://github.com/llvm/llvm-project/commit/a1532ed27582038e2d9588108ba0fe8237f01844
-        //     https://github.com/llvm/llvm-project/commit/24c615fa6b6b7910c8743f9044226499adfac4e6
-        // if let Some((prv_counter_pointer, prv_nbr_counters)) = prv_counter_pointer_and_nbr_counters {
-        //     if prv_counter_pointer + 8 * prv_nbr_counters != counter_ptr {
-        //         return Err(
-        //             ReadCovMapError::InconsistentCounterPointersAndLengths {
-        //                 prev_pointer: prv_counter_pointer as usize,
-        //                 length: prv_nbr_counters as usize,
-        //                 cur_pointer: counter_ptr as usize,
-        //             }
-        //         );
-        //     }
-        // }
-        // prv_counter_pointer_and_nbr_counters = Some((counter_ptr, nbr_counters as u64));
+        // The counter_offset is the offset from the start of this prf_data entry
+        // to where the counter is.
+        let counter_offset = relative_counter_ptr as isize + entry_start as isize;
 
         counts.push(PrfData {
             function_id,
             number_of_counters: nbr_counters as usize,
+            counter_offset,
         });
     }
 
@@ -948,24 +939,34 @@ impl Coverage {
         function_records: Vec<FunctionRecord>,
         prf_datas: Vec<PrfData>,
         all_counters: &'static mut [u64],
+        prf_data_start: *const u8,
+        counters_start: *mut u64,
     ) -> Result<Vec<Coverage>, ReadCovMapError> {
-        let mut start_idx = 0;
         prf_datas
             .iter()
+            .enumerate()
             .filter_map(
                 #[coverage(off)]
-                |prf_data| {
+                |(_entry_idx, prf_data)| {
                     let prf_data: &PrfData = prf_data;
                     if prf_data.function_id.structural_hash == 0 {
                         return None;
                     }
-                    let range = start_idx..start_idx + prf_data.number_of_counters;
-                    start_idx = range.end;
+
                     let f_r = function_records.iter().find(
                         #[coverage(off)]
                         |fr| fr.header.id == prf_data.function_id,
                     )?;
 
+                    let counter_address = unsafe { prf_data_start.offset(prf_data.counter_offset) as *mut u64 };
+                    let counter_idx = unsafe { counter_address.offset_from(counters_start) as usize };
+
+                    if counter_idx + prf_data.number_of_counters > all_counters.len() {
+                        // todo: investigate when this occurs and why
+                        return None;
+                    }
+
+                    let range = counter_idx..counter_idx + prf_data.number_of_counters;
                     let slice = &mut all_counters[range];
                     let mut single_counters = Vec::new();
                     let mut expression_counters = Vec::new();
